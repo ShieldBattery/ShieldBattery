@@ -19,7 +19,11 @@ import {
   GameDurationFilter,
   GameSortOption,
 } from '../../../common/games/game-filters'
-import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
+import {
+  MAX_GAMES_OFFSET,
+  toGameRecordJson,
+  UserGamesRefundSummary,
+} from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
 import { LadderPlayer } from '../../../common/ladder/ladder'
@@ -1346,15 +1350,11 @@ export class AdminUserApi {
       body: Joi.object<AdminBanUserRequest>({
         endTime: Joi.date().timestamp().min(Date.now()).required(),
         reason: Joi.string(),
-        refundGames: Joi.boolean(),
       }).required(),
     })
 
     if (params.id === ctx.session!.user.id) {
       throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't ban yourself")
-    }
-    if (body.refundGames && !ctx.session!.permissions?.manageGameReports) {
-      throw new httpErrors.Forbidden('Not enough permissions to refund game points')
     }
 
     const user = await findUserById(params.id)
@@ -1373,13 +1373,6 @@ export class AdminUserApi {
       findUserById(ctx.session!.user.id),
     ])
 
-    const gamesRefund = body.refundGames
-      ? await this.gamePointsRefundService.refundUserGames({
-          userId: user.id,
-          refundedBy: ctx.session!.user.id,
-        })
-      : undefined
-
     // This would be a really weird occurrence! So we just make sure we do the actual banning before
     // this, and let the 500 pass through after
     if (!bannedBy) {
@@ -1389,8 +1382,31 @@ export class AdminUserApi {
     return {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
-      gamesRefund,
     }
+  }
+
+  /**
+   * Refunds the points other players lost in every current-season ranked game the user played (e.g.
+   * after banning them for cheating). Games already refunded are skipped, so this can be retried.
+   */
+  @httpPost('/:id/refund-games')
+  @httpBefore(checkAllPermissions('manageGameReports'))
+  async refundUserGames(ctx: RouterContext): Promise<UserGamesRefundSummary> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return await this.gamePointsRefundService.refundUserGames({
+      userId: user.id,
+      refundedBy: ctx.session!.user.id,
+    })
   }
 
   @httpPost('/:id/unban')
