@@ -544,11 +544,14 @@ pub enum SelectedUnitClick {
 
 /// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
 /// once it is gone, and nothing while nothing is selected or the slot has no room for it.
+/// `dock_beside` is whether the observer dock stands against the panel's right edge, the two drawn
+/// as one panel with the selection's edge dividing them.
 pub fn render_selection_view(
     view: &SelectionView,
     ctx: &Context,
     shown: bool,
     slot: StackSlot,
+    dock_beside: bool,
 ) -> Option<SelectionOutcome> {
     let id = Id::new("sb_selection_panel");
     let placed = slot.place(PANEL_WIDTH);
@@ -560,8 +563,12 @@ pub fn render_selection_view(
         .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
     let shown = shown && view.case() != SelectionCase::Empty && fits(slot);
+    let joined = dock_beside.then_some(tiers::Joined {
+        edge: tiers::Edge::Right,
+        divides: true,
+    });
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
+        tiers::tier0_panel_joined(ui, joined, |ui| {
             // The body is placed by the sizes written here and by nothing else: this is a fixed
             // layout, and egui's own item spacing would add to every gap in it.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
@@ -1802,8 +1809,7 @@ mod tests {
                 left: 0.0,
                 right: 1280.0,
             },
-            anchor: crate::observer::StackAnchor::Middle,
-            middle: 640.0,
+            anchor: crate::observer::StackAnchor::Right,
             ceiling,
             screen_bottom: 960.0,
         };

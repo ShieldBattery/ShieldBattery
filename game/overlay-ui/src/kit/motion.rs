@@ -163,7 +163,9 @@ pub fn pulse_phase(ctx: &Context) -> f32 {
 /// Where a surface is placed this frame, from the numbers it is placed by: a top edge, an inset, the
 /// ends of a run. A surface arriving takes its place at once and makes its own entrance there; one
 /// already on screen eases to a new place; one on its way out keeps the place it had when it was
-/// last wanted, so it leaves from where it stood rather than from wherever its neighbors moved to.
+/// last wanted, so it leaves from where it stood rather than from wherever its neighbors moved to;
+/// and one off screen is placed wherever its place now is, which is what a surface placed against
+/// it is measured from.
 ///
 /// Every number eases on its own, on the same curve and from the same frame, so numbers that change
 /// together move together, and so do surfaces whose places change on the same frame.
@@ -190,7 +192,7 @@ impl<'a, const N: usize> Spot<'a, N> {
     pub fn new(ctx: &'a Context, id: Id, wanted: bool, target: [f32; N]) -> Spot<'a, N> {
         let state = ctx.data(|data| data.get_temp::<SpotState<N>>(id));
         let held = match state {
-            Some(state) if !wanted => state.held,
+            Some(state) if !wanted && state.drawn => state.held,
             _ => target,
         };
         let secs = if state.is_some_and(|state| state.drawn) {
@@ -261,6 +263,18 @@ mod tests {
         );
         assert!(midway > 100.0 && midway < 300.0, "{midway}");
         assert_eq!(frame(&ctx, 3.0, true, 300.0, true), 300.0);
+    }
+
+    #[test]
+    fn a_surface_off_screen_follows_its_place() {
+        let ctx = Context::default();
+        // Never wanted, and the screen around it changes: it stands where it now belongs.
+        frame(&ctx, 0.0, false, 100.0, false);
+        assert_eq!(frame(&ctx, 1.0, false, 300.0, false), 300.0);
+        // Gone, the same.
+        frame(&ctx, 2.0, true, 300.0, true);
+        frame(&ctx, 3.0, false, 300.0, false);
+        assert_eq!(frame(&ctx, 4.0, false, 500.0, false), 500.0);
     }
 
     #[test]

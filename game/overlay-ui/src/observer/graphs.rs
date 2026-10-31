@@ -8,7 +8,7 @@
 //! The plot itself is the kit's, so the axes, the legend and the fill under each line look the same
 //! here as anywhere else the overlay draws a series.
 
-use egui::{Align, Color32, Context, Id, Layout, Rect, Ui, vec2};
+use egui::{Align, Color32, Context, Layout, Rect, Ui, vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::kit::widgets::{self, Series};
@@ -36,9 +36,6 @@ const TAB_ROW: f32 = 24.0;
 /// What the panel takes from top to bottom besides its plot.
 const CHROME_HEIGHT: f32 =
     tiers::PANEL_MARGIN_HEIGHT + widgets::PANEL_HEADER_HEIGHT + TAB_ROW + theme::SPACE_SM;
-
-/// The tallest the panel is drawn, which is what it covers of the right edge with room to spare.
-pub(crate) const MAX_PANEL_HEIGHT: f32 = CHROME_HEIGHT + PLOT_HEIGHT;
 
 /// How tall the plot is drawn in a panel whose top is at `top` and which must end above `floor`, or
 /// `None` where not even the shortest plot fits.
@@ -168,6 +165,8 @@ impl GraphsView {
 pub struct GraphsOutcome {
     /// Where the panel is on screen, for the host's hit testing.
     pub rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub closed: bool,
     /// A measurement to plot instead.
     pub series: Option<GraphSeries>,
     /// Whether the lines should be the players rather than the sides they are on.
@@ -192,23 +191,22 @@ pub fn render_graphs_view(
     shown: bool,
     top: f32,
     floor: f32,
-    right_inset: f32,
     seekable: bool,
 ) -> Option<GraphsOutcome> {
-    let id = Id::new("sb_graphs_panel");
     let plot = plot_height(top, floor);
-    let inner = wing_panel(
+    let wing = wing_panel(
         ctx,
-        id,
-        Wing::Right { inset: right_inset },
+        Panel::Graphs,
+        Wing::Right,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty() && plot.is_some(),
-        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
+        |ui, _| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
     )?;
-    let ((series, per_player), seek_secs) = inner.inner;
+    let ((series, per_player), seek_secs) = wing.inner;
     Some(GraphsOutcome {
-        rect: inner.response.rect,
+        rect: wing.rect,
+        closed: wing.closed,
         series,
         per_player,
         seek_secs,
@@ -222,11 +220,6 @@ fn draw_panel(
     plot: f32,
     seekable: bool,
 ) -> ((Option<GraphSeries>, Option<bool>), Option<u32>) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelGraphs", "Graphs"),
-        Panel::Graphs.key_label().as_deref(),
-    );
     let picked = ui
         .allocate_ui_with_layout(
             vec2(CONTENT_WIDTH, TAB_ROW),
@@ -343,7 +336,7 @@ mod tests {
         };
         for floor in [1000.0, 100.0 + CHROME_HEIGHT + MIN_PLOT_HEIGHT + 20.0] {
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_graphs_view(&view, ctx, true, 100.0, floor, 0.0, false)
+                render_graphs_view(&view, ctx, true, 100.0, floor, false)
                     .map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");

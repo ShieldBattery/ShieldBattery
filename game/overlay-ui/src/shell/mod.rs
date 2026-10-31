@@ -22,7 +22,6 @@
 //! This module routes keys between them and runs the frame across them.
 
 mod capture;
-mod dock_stand;
 pub mod hotkeys;
 mod modals;
 pub mod native_dialogs;
@@ -41,7 +40,6 @@ use crate::disconnect::{DisconnectView, SelfState};
 use crate::end_card::{self, EndCardChoice, EndCardView};
 pub use crate::game_menu::PauseControl;
 use crate::game_menu::leave_asks_first;
-use crate::kit::motion::Spot;
 use crate::kit::widgets;
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
@@ -54,7 +52,7 @@ pub use capture::{InputCapture, KeyboardCapture, PointerCapture};
 pub use hotkeys::{Action, Chord, Hotkeys};
 pub use modals::{ModalId, ModalPolicy};
 pub use native_dialogs::{NativeDialog, replacement_for};
-pub use prefs::{Panel, PanelPrefs, PanelSet};
+pub use prefs::{MatchupStyle, Panel, PanelPrefs, PanelSet};
 
 use modals::{ModalContext, ModalOutcome, ModalStack, draw_modal};
 use observer_panels::{ObserverFrame, ObserverPanels, number_key_digit};
@@ -618,10 +616,12 @@ impl Shell {
         }
         // The observer panels belong to the modes they report on: a host that kept feeding them
         // after the client stopped watching must not be able to put them over someone's own game.
-        // They share the bottom of the screen with the replay plate, so they decide where it
-        // stands; without them it keeps its corner.
+        // They share the bottom of the screen with the replay plate, which keeps its corner either
+        // way: they decide only whether the dock stands on its top edge, which without them it
+        // never does.
+        let observing = views.observer.is_some() && self.host.mode.is_spectating();
         let placement = match views.observer {
-            Some(view) if self.host.mode.is_spectating() => self.observer.frame(
+            Some(view) if observing => self.observer.frame(
                 ctx,
                 view,
                 views.playback.is_some(),
@@ -636,7 +636,7 @@ impl Shell {
             ),
             _ => PlaybackControlsPlacement::default(),
         };
-        let playback_controls_shown = match views.playback {
+        let plate = match views.playback {
             Some(view) => {
                 // The plate's track is ticked with the timeline's events, which only the observer
                 // view carries: a replay without one has a plate and no ticks.
@@ -646,8 +646,20 @@ impl Shell {
                     .map_or(&[][..], |observer| &observer.timeline.events[..]);
                 self.frame_playback_controls(ctx, view, events, placement, &mut hit_rects)
             }
-            None => false,
+            None => None,
         };
+        let playback_controls_shown = plate.is_some();
+        // The dock may stand on the plate, so it is drawn once the plate is.
+        if observing {
+            self.observer.frame_dock(
+                ctx,
+                self.host.mode,
+                &self.hotkeys,
+                &mut self.prefs,
+                plate,
+                &mut hit_rects,
+            );
+        }
 
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since
         // gone is not one to carry over to the next.
@@ -756,8 +768,8 @@ impl Shell {
     }
 
     /// Draws the playback controls where `placement` stands them and turns what the player did with
-    /// them into intents, returning whether the plate is on screen. `events` are the timeline's,
-    /// which its track is ticked with.
+    /// them into intents, returning where the plate is on screen, if it is. `events` are the
+    /// timeline's, which its track is ticked with.
     fn frame_playback_controls(
         &mut self,
         ctx: &Context,
@@ -765,25 +777,9 @@ impl Shell {
         events: &[observer::TimelineEventView],
         placement: PlaybackControlsPlacement,
         hit_rects: &mut Vec<HitRect>,
-    ) -> bool {
+    ) -> Option<egui::Rect> {
         let shown = self.prefs.shown(Panel::PlaybackControls);
-        // Eased like any panel's place, as the dock's column and the stack under it come and go.
-        let spot = Spot::new(
-            ctx,
-            egui::Id::new("sb_playback_controls_spot"),
-            shown,
-            [placement.right_inset, placement.lift],
-        );
-        let [right_inset, lift] = spot.at();
-        let outcome = render_playback_controls(
-            view,
-            ctx,
-            shown,
-            PlaybackControlsPlacement { right_inset, lift },
-            events,
-            &self.hotkeys,
-        );
-        spot.drawn(outcome.is_some());
+        let outcome = render_playback_controls(view, ctx, shown, placement, events, &self.hotkeys);
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {
@@ -798,7 +794,7 @@ impl Shell {
             }
         }
         self.replay.send_queued_seek(ctx, view, &mut self.intents);
-        outcome.is_some()
+        outcome.map(|outcome| outcome.rect)
     }
 
     /// Lets go of a held button's key once `is_down` says it is no longer down, or once the modal
@@ -957,6 +953,10 @@ impl Shell {
             }
             Action::ToggleDock => {
                 self.prefs.dock_key(modifiers);
+                true
+            }
+            Action::ToggleMatchup => {
+                self.prefs.matchup_key(modifiers);
                 true
             }
             // The bar reports a measurement the game does not keep, so a game whose host has none
@@ -1187,8 +1187,8 @@ mod tests {
         ] {
             let mut shell = Shell::new();
             shell.set_host(&host);
-            assert!(!shell.key_pressed(Key::W, Modifiers::NONE), "{host:?}");
-            assert!(shell.panel_prefs().selection);
+            assert!(!shell.key_pressed(Key::H, Modifiers::NONE), "{host:?}");
+            assert!(shell.panel_prefs().control_groups);
         }
     }
 
@@ -1200,8 +1200,8 @@ mod tests {
             view: &disconnect,
             blocks_input: false,
         }));
-        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(!shell.panel_prefs().selection);
+        assert!(shell.key_pressed(Key::H, Modifiers::NONE));
+        assert!(!shell.panel_prefs().control_groups);
     }
 
     #[test]
@@ -1612,7 +1612,7 @@ mod tests {
     fn a_modal_owns_the_keyboard_ahead_of_the_hotkeys() {
         let mut shell = spectating_shell();
         shell.native_dialog_spawned(NativeDialog::ChatHistory);
-        assert!(!shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(shell.panel_prefs().selection);
+        assert!(!shell.key_pressed(Key::H, Modifiers::NONE));
+        assert!(shell.panel_prefs().control_groups);
     }
 }

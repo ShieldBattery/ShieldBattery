@@ -14,8 +14,8 @@ mod tooltip;
 
 pub use buttons::{
     ButtonPlate, ButtonVariant, HoldState, button, button_sized, button_with_kbd, chip_button,
-    hold_to_confirm, hold_to_confirm_by_key, kbd, kbd_size, paint_button_kbd, paint_kbd,
-    plate_button, plate_button_aligned,
+    hold_to_confirm, hold_to_confirm_by_key, kbd, kbd_button, kbd_size, paint_button_kbd,
+    paint_kbd, plate_button, plate_button_aligned,
 };
 pub use charts::{
     PlotResponse, Series, line_plot, line_plot_clickable, progress_bar, share_bar, sparkline,
@@ -27,17 +27,17 @@ pub use controls::{
     tab_strip_width,
 };
 pub use icons::{
-    IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
-    paint_resource_icon, set_resource_icons,
+    ColumnGlyph, IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_column_glyph,
+    paint_resource_glyph, paint_resource_icon, set_resource_icons,
 };
 pub use menus::{
     Glyph, ICON_BUTTON_SIZE, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone,
     dropdown_button, icon_button, menu_separator, paint_glyph, popup_menu,
 };
 pub use panels::{
-    PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
-    panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
-    tag_sized, text_cell,
+    PANEL_HEADER_HEIGHT, PanelHeader, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider,
+    panel_header, panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact,
+    tag_height, tag_sized, text_cell,
 };
 pub use tooltip::{hint_card, tooltip, tooltip_above};
 

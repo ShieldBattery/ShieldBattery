@@ -353,6 +353,8 @@ pub struct MatchupPlayerView {
     /// Supply in the units the game shows, not the halved ones it counts in.
     pub supply_used: u32,
     pub supply_max: u32,
+    /// Finished workers of every race the player owns.
+    pub workers: u32,
     pub apm: u32,
 }
 
@@ -882,6 +884,7 @@ mod tests {
             gas: 0,
             supply_used: 0,
             supply_max: 0,
+            workers: 0,
             apm: 0,
         }
     }

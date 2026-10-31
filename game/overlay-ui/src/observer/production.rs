@@ -351,6 +351,17 @@ impl ProductionFit {
         })
     }
 
+    /// The size the panel settles at in this fit, chrome included: as wide as its columns and as
+    /// tall as the taller of them.
+    pub(crate) fn size(self, view: &ProductionView) -> Vec2 {
+        let [left, right] = view.columns(self.split);
+        vec2(
+            tiers::PANEL_MARGIN_WIDTH + self.column_widths(view).total(),
+            tiers::PANEL_MARGIN_HEIGHT
+                + column_height(rows_drawn(left, self.rows).max(rows_drawn(right, self.rows))),
+        )
+    }
+
     /// How wide each column's rows and the gap between the columns settle at: each column as wide
     /// as the longest of its rows that are drawn, and no gap beside a column with no rows in it.
     fn column_widths(self, view: &ProductionView) -> ColumnWidths {
@@ -373,6 +384,16 @@ impl ProductionFit {
             right,
         }
     }
+}
+
+/// How many of `players` have a row drawn in a column that holds at most `rows`: those making
+/// something, from the first.
+fn rows_drawn(players: &[ProductionPlayerView], rows: usize) -> usize {
+    players
+        .iter()
+        .filter(|player| player.has_row())
+        .take(rows)
+        .count()
 }
 
 /// Where the second of two columns starts among players on `teams`, listed side by side, with
@@ -488,20 +509,13 @@ fn draw_columns(
     fit: ProductionFit,
     columns: ColumnWidths,
 ) -> Option<(u8, usize)> {
-    let drawn = |players: &[ProductionPlayerView]| {
-        players
-            .iter()
-            .filter(|player| player.has_row())
-            .take(fit.rows)
-            .count()
-    };
     let [left, right] = view.columns(fit.split);
     // As tall as the taller column and no taller, so the panel is exactly as tall as the players
     // producing anything.
     let (rect, _) = ui.allocate_exact_size(
         vec2(
             columns.total(),
-            column_height(drawn(left).max(drawn(right))),
+            column_height(rows_drawn(left, fit.rows).max(rows_drawn(right, fit.rows))),
         ),
         Sense::hover(),
     );
@@ -663,7 +677,6 @@ mod tests {
                 right: 365.0 + width,
             },
             anchor: crate::observer::StackAnchor::Left,
-            middle: 960.0,
             ceiling: 1080.0 - 16.0 - crate::observer::WING_GAP - room,
             screen_bottom: 1080.0,
         }

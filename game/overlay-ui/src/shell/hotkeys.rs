@@ -32,7 +32,8 @@ pub enum Action {
     ToggleEconomy,
     /// The production panel.
     ToggleProduction,
-    /// The matchup bar, or the team cards in a larger game: what SC:R calls its statistics panel.
+    /// The matchup, as the bar (or the team cards in a larger game) or as the compact scoreboard:
+    /// what SC:R calls its statistics panel. `Shift` switches between those two forms.
     ToggleMatchup,
     /// BW's own minimap, which is independent of the rest of the console.
     ToggleMinimap,
@@ -57,8 +58,8 @@ pub enum Action {
     ToggleVisionPicker,
     /// Spoiler-free mode, which hides everything that gives the outcome away.
     ToggleSpoilerFree,
-    /// The edge dock holding the panel rail, which SC:R calls its side panel; `Shift` changes
-    /// which of its two forms it is in.
+    /// The dock holding the panel table, which SC:R calls its side panel; `Shift` changes which of
+    /// its two forms it is in.
     ToggleDock,
 }
 

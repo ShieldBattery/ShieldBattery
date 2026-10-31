@@ -16,7 +16,7 @@
 //! matchup bar, up to two a half from its stacked form, and anything wider from the corner team
 //! cards.
 
-use egui::{Color32, Rect, pos2, vec2};
+use egui::{Color32, Rect, vec2};
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
@@ -30,6 +30,7 @@ use overlay_ui::observer::{
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
 
+use crate::host_knobs::PointerTarget;
 use crate::knobs::Knobs as AllKnobs;
 
 /// The most players a game of Brood War has, which is as many as anything here reports on.
@@ -758,6 +759,7 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
         gas: wave(index as f64 * 1.3 + 2.0, t, 0.023, 780.0),
         supply_used,
         supply_max,
+        workers: workers(index, t).0,
         apm: apm(index, t),
     }
 }
@@ -1385,16 +1387,8 @@ fn has_shields(race: RaceView) -> bool {
 /// Where SC:R puts the minimap for a watcher: the square of the console's own minimap, in the
 /// screen's bottom-left corner, which the console scales with the screen's height.
 pub fn minimap_square(screen: Rect) -> Rect {
-    let side = MINIMAP_UNITS * screen.height() / DESIGN_HEIGHT;
-    Rect::from_min_size(
-        pos2(screen.left(), screen.bottom() - side),
-        vec2(side, side),
-    )
+    overlay_ui::observer::minimap_reserve(screen)
 }
-
-/// The side of the minimap's square at the design's 1080 points of height.
-const MINIMAP_UNITS: f32 = 348.0;
-const DESIGN_HEIGHT: f32 = 1080.0;
 
 /// Paints something where the game's minimap would be, under the overlay, so the frame the overlay
 /// draws around it is judged against a square that is there: dark ground with a few patches of
@@ -1461,10 +1455,11 @@ fn fraction(value: f64) -> f32 {
 /// How much of the overlay a preset puts on screen at once.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
-    /// The game and as little else as possible: the matchup bar, the minimap and the plate.
+    /// The game and as little else as possible: the matchup bar, the minimap and the plate, with
+    /// nothing selected for the selection panel to read out.
     Minimal,
-    /// A caster's working set: the minimal screen with the economy, production, control groups and
-    /// selection panels added.
+    /// A caster's working set: the minimal screen with the economy, production and control groups
+    /// panels added, and a unit selected.
     Standard,
     /// Every panel the overlay has.
     Analyst,
@@ -1472,9 +1467,18 @@ pub enum Screen {
     /// the wings are drawn where the wings would have been, and the right-hand ones against the
     /// edge the dock has left.
     ReflowWings,
-    /// The analyst's screen with the lower half of the centered stack hidden, so the panels over it
-    /// are drawn against the screen's own bottom edge.
+    /// The analyst's screen with the production panel hidden and nothing selected, so control groups
+    /// stand alone in the column and the selection panel's end of the bottom edge is empty.
     ReflowStack,
+    /// The analyst's screen watched from an observer slot in a live game, which has no playback
+    /// controls, so the dock stands against the selection panel.
+    Live,
+    /// The analyst's screen in a replay with the playback controls put away, which leaves the dock
+    /// the selection panel to stand against as a live game does.
+    NoPlate,
+    /// The no-plate screen with nothing selected either, which leaves the dock nothing to stand on,
+    /// so it floats on its own.
+    Floating,
 }
 
 impl Screen {
@@ -1494,7 +1498,6 @@ impl Screen {
         prefs.timeline = deep;
         prefs.production = analysis;
         prefs.control_groups = analysis;
-        prefs.selection = analysis;
         // Each reflow screen is the analyst's with a hole in it, which is what the panels around
         // the hole are meant to close up into.
         match self {
@@ -1503,10 +1506,8 @@ impl Screen {
                 prefs.military = false;
                 prefs.dock = false;
             }
-            Screen::ReflowStack => {
-                prefs.production = false;
-                prefs.selection = false;
-            }
+            Screen::ReflowStack => prefs.production = false,
+            Screen::NoPlate | Screen::Floating => prefs.playback_controls = false,
             _ => {}
         }
     }
@@ -1521,6 +1522,9 @@ impl Screen {
             // than each named after the panels it happens to hide.
             Screen::ReflowWings => "reflow-a",
             Screen::ReflowStack => "reflow-b",
+            Screen::Live => "live",
+            Screen::NoPlate => "no-plate",
+            Screen::Floating => "floating",
         }
     }
 }
@@ -1555,15 +1559,6 @@ pub enum Showcase {
     VisionPicker,
 }
 
-/// Where along the replay plate's track the marker hover rests, as the plate stands on the duel's
-/// analyst screen: on a tick well clear of the playhead, so the card is not read against its glow.
-const TRACK_MARKER_X: f32 = 1640.0;
-
-/// Where the weapon upgrade of the lone unit the selection panel reads out sits on the duel's
-/// analyst screen: the third chip, after its armor and its shields.
-const UPGRADE_CHIP_X: f32 = 1358.0;
-const UPGRADE_CHIP_Y: f32 = 1032.0;
-
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
 ///
 /// An offline render has no pointer of its own, so a screen whose whole point is what the pointer
@@ -1591,17 +1586,57 @@ pub enum Hover {
 }
 
 impl Hover {
-    /// Where the pointer rests, in the emulated screen's points.
-    fn point(self) -> Option<(f32, f32)> {
+    /// Where the pointer rests: on the control the preset is about, wherever this screen put the
+    /// surface it is on.
+    fn target(self) -> Option<PointerTarget> {
+        use overlay_ui::shell::Panel;
+
+        let on = |area: egui::Id, corner: egui::Align2, x: f32, y: f32| PointerTarget {
+            area,
+            corner,
+            offset: vec2(x, y),
+        };
+        let plate = egui::Id::new("sb_playback_controls");
         match self {
             Hover::None => None,
-            Hover::Graphs => Some((1550.0, 380.0)),
-            Hover::DockMatchup => Some((1878.0, 346.0)),
-            Hover::TimelineRow => Some((250.0, 336.0)),
-            Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
-            Hover::JumpChip => Some((1830.0, 1040.0)),
-            Hover::MinimapVision => Some((34.0, 714.0)),
-            Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
+            // Over the plot, low enough to be on it however short this screen draws it.
+            Hover::Graphs => Some(on(
+                overlay_ui::observer::wing_id(Panel::Graphs),
+                egui::Align2::LEFT_BOTTOM,
+                130.0,
+                -50.0,
+            )),
+            // The matchup's keycap, the strip's second.
+            Hover::DockMatchup => Some(on(
+                egui::Id::new("sb_obs_dock"),
+                egui::Align2::LEFT_CENTER,
+                63.0,
+                0.0,
+            )),
+            // The feed's second row, which the fewest rows it is drawn with include.
+            Hover::TimelineRow => Some(on(
+                overlay_ui::observer::wing_id(Panel::Timeline),
+                egui::Align2::LEFT_TOP,
+                234.0,
+                80.0,
+            )),
+            // A tick on the plate's track well clear of the playhead, so the card is not read
+            // against its glow.
+            Hover::TrackMarker => Some(on(plate, egui::Align2::LEFT_BOTTOM, 60.0, -68.0)),
+            Hover::JumpChip => Some(on(plate, egui::Align2::LEFT_BOTTOM, 250.0, -24.0)),
+            Hover::MinimapVision => Some(on(
+                egui::Id::new("sb_minimap_frame"),
+                egui::Align2::LEFT_TOP,
+                24.0,
+                14.0,
+            )),
+            // The lone unit's weapon upgrade: the third chip, after its armor and its shields.
+            Hover::UpgradeChip => Some(on(
+                egui::Id::new("sb_selection_panel"),
+                egui::Align2::LEFT_BOTTOM,
+                250.0,
+                -32.0,
+            )),
         }
     }
 
@@ -1668,7 +1703,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 35] = [
+    pub const ALL: [Preset; 38] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1676,6 +1711,11 @@ impl Preset {
         // the move each of them is about off.
         Preset::game(2, 1, Screen::ReflowWings),
         Preset::game(2, 1, Screen::ReflowStack),
+        // The dock without the playback controls under it: in the two games that leave it the
+        // selection panel to stand against, and with nothing selected for it to stand against.
+        Preset::game(2, 1, Screen::Live),
+        Preset::game(2, 1, Screen::NoPlate),
+        Preset::game(2, 1, Screen::Floating),
         // An odd number of players, which is what leaves the stacked bar a slot short, and the
         // same three with nobody allied, which is what leaves its halves standing for no side.
         Preset::game(3, 2, Screen::Standard),
@@ -1763,14 +1803,20 @@ impl Preset {
 
     /// Presets the fake game, the panel set, and the vantage point the panels are watched from.
     pub fn apply(self, knobs: &mut AllKnobs) {
-        knobs.host.mode = overlay_ui::shell::Mode::Replay;
+        knobs.host.mode = match self.panels {
+            Screen::Live => overlay_ui::shell::Mode::Observing,
+            _ => overlay_ui::shell::Mode::Replay,
+        };
         self.panels.apply(&mut knobs.host.panels);
         // The dock's two forms are both worth looking at, and the screen that asks for everything
-        // is the one whose watcher wants the rail spelled out. A screen about what the pointer is
-        // over takes the strip of keycaps instead, since that is the form with anything left to say.
-        knobs.host.panels.dock_expanded =
-            self.panels == Screen::Analyst && self.hover == Hover::None;
-        knobs.host.pointer = self.hover.point();
+        // is the one whose watcher wants the table spelled out, on the plate, beside the selection
+        // panel and floating alike. A screen about what the pointer is over takes the keycaps instead,
+        // since that is the form with anything left to say.
+        knobs.host.panels.dock_expanded = matches!(
+            self.panels,
+            Screen::Analyst | Screen::NoPlate | Screen::Floating
+        ) && self.hover == Hover::None;
+        knobs.host.pointer_on = self.hover.target();
         knobs.observer = Knobs {
             players: self.players,
             team_size: self.team_size,
@@ -1785,6 +1831,11 @@ impl Preset {
             selection_spells: self.showcase == Showcase::Spells,
             selection: if self.showcase == Showcase::Spells {
                 SelectionView::MAX_UNITS
+            } else if matches!(
+                self.panels,
+                Screen::Minimal | Screen::ReflowStack | Screen::Floating
+            ) {
+                0
             } else {
                 1
             },
