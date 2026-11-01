@@ -43,6 +43,8 @@ mod scr_hooks {
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
         !0 => ShowWindow(HWND, i32) -> u32;
+        !0 => SystemParametersInfoA(u32, u32, *mut c_void, u32) -> i32;
+        !0 => SystemParametersInfoW(u32, u32, *mut c_void, u32) -> i32;
         !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
@@ -919,6 +921,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
         use self::raw_mouse::track_mouse_event;
         use self::scr_hooks::*;
+        use crate::mouse_speed::system_parameters_info;
         // 1161 init could hook just starcraft/storm import table, unfortunately
         // that method doesn't work with SCR, we'll just GetProcAddress the
         // required functions and hook them instead.
@@ -941,6 +944,8 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
             "ShowWindow", ShowWindow, show_window;
+            "SystemParametersInfoA", SystemParametersInfoA, system_parameters_info;
+            "SystemParametersInfoW", SystemParametersInfoW, system_parameters_info;
             "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
         );
 
