@@ -5,7 +5,8 @@ use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, UnitUpgradeView, UpgradeEffect, WIREFRAME_LAYERS, WeaponDamageView, Wireframe,
+    ProductionView, SubjectProgress, UnitUpgradeView, UpgradeEffect, WIREFRAME_LAYERS,
+    WeaponDamageView, Wireframe,
 };
 
 use crate::bw;
@@ -290,6 +291,7 @@ impl OverlayState {
 /// - Building upgrading/teching, returns upgrade/tech
 /// - Building training unit, returns unit id
 /// - Egg / cocoon, returns target id
+/// - Archon / dark archon still merging, returns self id
 fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
     let id = unit.id();
     if unit.id().is_building() {
@@ -328,6 +330,11 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
         let child_id = unit.first_queued_unit().unwrap_or(id);
         return Some((Production::Unit(child_id), unit_completion(unit)));
     }
+    // Merging templars are morphed into the (dark) archon right away, which stays completed and
+    // counts down `remaining_build_time` from the archon's build time while the merge plays.
+    if unit.order() == bw_dat::order::ARCHON_SUMMON {
+        return Some((Production::Unit(id), unit_completion(unit)));
+    }
     None
 }
 
@@ -345,8 +352,15 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
         queue: queued_units(unit, production)
             .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
         // A building under construction is made as itself, and so is a drone turning into one: by
-        // then the unit already is the building it is becoming.
-        is_subject: production == Production::Unit(unit.id()),
+        // then the unit already is the building it is becoming. A merging archon is likewise
+        // already the archon it is becoming.
+        subject: (production == Production::Unit(unit.id())).then(|| {
+            if unit.order() == bw_dat::order::ARCHON_SUMMON {
+                SubjectProgress::Summoning
+            } else {
+                SubjectProgress::Construction
+            }
+        }),
     })
 }
 
