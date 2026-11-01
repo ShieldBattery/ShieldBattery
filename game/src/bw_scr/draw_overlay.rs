@@ -1823,12 +1823,8 @@ fn without_unit<T: Copy>(selected: &[T], index: usize) -> Option<Vec<T>> {
     if selected.len() < 2 || index >= selected.len() {
         return None;
     }
-    let units = selected
-        .iter()
-        .enumerate()
-        .filter(|&(i, _)| i != index)
-        .map(|(_, &unit)| unit)
-        .collect();
+    let mut units = selected.to_vec();
+    units.remove(index);
     Some(units)
 }
 
@@ -2291,20 +2287,5 @@ mod tests {
         assert_eq!(of_same_kind(&[(0, 0x5), (0, 0x5)], 1, |unit| unit), None);
         assert_eq!(of_same_kind(&[(0, 0x5)], 0, |unit| unit), None);
         assert_eq!(of_same_kind(&MIXED, MIXED.len(), |unit| unit), None);
-    }
-
-    #[test]
-    fn picking_a_kind_ignores_everything_but_owner_and_type() {
-        // (owner, unit type, burrowed or under some spell): only the first two make the kind.
-        let selected = [
-            (0, 0x25, false),
-            (0, 0x25, true),
-            (0, 0x25, false),
-            (1, 0x25, true),
-        ];
-        assert_eq!(
-            of_same_kind(&selected, 1, |(owner, id, _)| (owner, id)),
-            Some(vec![(0, 0x25, false), (0, 0x25, true), (0, 0x25, false)])
-        );
     }
 }

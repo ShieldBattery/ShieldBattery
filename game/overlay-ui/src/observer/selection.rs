@@ -1840,34 +1840,31 @@ mod tests {
     fn click_tile(button: PointerButton, modifiers: Modifiers) -> Option<SelectedUnitClick> {
         let ctx = Context::default();
         let pos = TILE.center();
+        let press = |pressed| Event::PointerButton {
+            pos,
+            button,
+            pressed,
+            modifiers,
+        };
         let events = [
             vec![Event::PointerMoved(pos)],
-            vec![Event::PointerButton {
-                pos,
-                button,
-                pressed: true,
-                modifiers,
-            }],
-            vec![Event::PointerButton {
-                pos,
-                button,
-                pressed: false,
-                modifiers,
-            }],
+            vec![press(true)],
+            vec![press(false)],
         ];
         let mut clicked = None;
-        for (frame, events) in events.into_iter().enumerate() {
+        for (frame, mut events) in events.into_iter().enumerate() {
+            events.insert(0, Event::ModifiersChanged(modifiers));
             let raw = RawInput {
                 screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 720.0))),
                 time: Some(frame as f64 * 0.1),
-                modifiers,
                 events,
                 ..Default::default()
             };
-            let mut output = ctx.run_ui(raw, |ui| {
+            ctx.run_ui(raw, |ui| {
                 clicked = unit_target(ui, TILE, 3);
-            });
-            output.textures_delta.clear();
+            })
+            .textures_delta
+            .clear();
         }
         clicked
     }
