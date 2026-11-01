@@ -16,7 +16,9 @@
 
 use egui::{Rect, pos2, vec2};
 
-use crate::observer::{BOTTOM_COLUMN_WIDTH, ROW_WIDTH, WING_GAP, WING_MARGIN, selection};
+use crate::observer::{
+    BOTTOM_COLUMN_WIDTH, ControlGroupsForm, ROW_WIDTH, WING_GAP, WING_MARGIN, selection,
+};
 
 /// How tall the grid the game lays its console out on is, whatever the screen's shape: its dialogs'
 /// coordinates run 480 down the screen, and as far across it as the screen's shape makes that.
@@ -232,6 +234,20 @@ pub(crate) fn column_over_minimap(screen: Rect, band: Span) -> Span {
     }
 }
 
+/// The run control groups take on the bottom edge where the bottom `band` has no room for the row:
+/// folded into their grid, between the minimap's frame and the selection panel's run, or `None`
+/// where even the grid has no room there and it stands on the minimap's frame under production.
+///
+/// Measured against the selection panel's run whether or not anything is selected, so selecting
+/// and clearing never moves the grid.
+pub(crate) fn groups_beside_minimap(band: Span) -> Option<Span> {
+    let run = Span {
+        left: band.left,
+        right: selection_run(band).left - WING_GAP,
+    };
+    (run.width() >= ControlGroupsForm::Grid.min_width()).then_some(run)
+}
+
 /// The run of the screen's width a wing hung off the left edge takes.
 pub(crate) fn left_wing_span(screen: Rect, width: f32) -> Span {
     let left = screen.left() + WING_MARGIN;
@@ -333,7 +349,7 @@ mod tests {
             screen_bottom: 1080.0,
         };
         assert_eq!(
-            control_groups::fitted_width(slot),
+            control_groups::fitted_width(slot, ControlGroupsForm::Row),
             Some(control_groups::PANEL_WIDTH)
         );
         // Control groups fill the column, short of the selection panel, and production lines up
@@ -427,6 +443,38 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A screen without room for the row folds control groups into their grid between the minimap's
+    /// frame and the selection panel, at its full width, standing no taller than the selection panel.
+    #[test]
+    fn a_narrow_screen_stands_the_groups_grid_between_the_minimap_and_the_selection_panel() {
+        use crate::observer::minimap;
+        for (pixel_width, pixel_height) in NARROW_TARGETS.into_iter().chain([(1600.0, 900.0)]) {
+            let (width, height) = points(pixel_width, pixel_height);
+            let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
+            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            for plate in [true, false] {
+                let band = bottom_run(width, height, plate);
+                let run = groups_beside_minimap(band).unwrap_or_else(|| {
+                    panic!("{pixel_width}x{pixel_height} has room for the grid")
+                });
+                assert!(run.left >= frame.right() + WING_GAP);
+                assert!(run.right + WING_GAP <= selection_run(band).left);
+                assert!(
+                    run.width() >= ControlGroupsForm::Grid.width(),
+                    "{pixel_width}x{pixel_height} squeezes the grid into {}",
+                    run.width()
+                );
+            }
+        }
+        assert!(ControlGroupsForm::Grid.height() <= selection::PANEL_HEIGHT);
+    }
+
+    #[test]
+    fn a_720p_replay_stands_the_groups_grid_on_the_minimaps_frame() {
+        assert_eq!(groups_beside_minimap(bottom_run(1280.0, 720.0, true)), None);
+        assert!(groups_beside_minimap(bottom_run(1280.0, 720.0, false)).is_some());
     }
 
     /// A screen narrower than 16:10 is scaled down until the selection panel fits between the

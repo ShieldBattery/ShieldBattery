@@ -27,7 +27,8 @@ pub(crate) mod timeline;
 mod unit_codes;
 
 pub use control_groups::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
+    ControlGroupView, ControlGroupsForm, ControlGroupsPlayerView, ControlGroupsView,
+    render_control_groups_view,
 };
 pub use dock::{DockContext, DockOutcome, DockPlacement, DockStand, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};

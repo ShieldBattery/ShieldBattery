@@ -88,12 +88,38 @@ impl Claims {
     }
 }
 
+/// Where control groups and production stand this frame.
+#[derive(Copy, Clone)]
+struct ColumnSlots {
+    /// Where control groups stand, and the form they are laid out in there.
+    groups: observer::StackSlot,
+    groups_form: observer::ControlGroupsForm,
+    /// Where production stands with nothing under it.
+    production: observer::StackSlot,
+    /// Whether production stands on control groups, rather than in a run of its own.
+    production_on_groups: bool,
+}
+
+impl ColumnSlots {
+    /// Where production stands with control groups drawn at `groups`, if they are drawn.
+    fn production(self, groups: Option<Rect>) -> observer::StackSlot {
+        if self.production_on_groups {
+            observer::StackSlot {
+                bottom: self.production.bottom + observer::stack_share(groups),
+                ..self.production
+            }
+        } else {
+            self.production
+        }
+    }
+}
+
 /// Where the yielding panels would stand this frame, worked out from the view's own measures before
 /// any of them is drawn, so that which of them the screen has room for can be tried a set at a time.
 struct YieldingRoom<'a> {
     view: &'a ObserverView,
-    /// Where the column's lowest panel stands, which production stands on in turn.
-    column: observer::StackSlot,
+    /// Where control groups and production stand.
+    column: ColumnSlots,
     tops: observer::WingTops,
     /// What stands under the wings besides the column: the selection panel, the minimap's frame,
     /// the plate and the dock.
@@ -123,21 +149,23 @@ impl YieldingRoom<'_> {
             )
         };
         let mut under = self.under_wings.to_vec();
-        let mut column = self.column;
+        let mut groups = None;
         if panels.contains(Panel::ControlGroups) {
-            let Some(width) = control_groups::fitted_width(column) else {
+            let (slot, form) = (self.column.groups, self.column.groups_form);
+            let Some(width) = control_groups::fitted_width(slot, form) else {
                 return false;
             };
-            let rect = standing(column, egui::vec2(width, control_groups::PANEL_HEIGHT));
-            column.bottom += observer::stack_share(Some(rect));
+            let rect = standing(slot, egui::vec2(width, form.height()));
+            groups = Some(rect);
             under.push(rect);
         }
         if panels.contains(Panel::Production) {
-            let Some(fit) = observer::production::ProductionFit::of(&self.view.production, column)
+            let slot = self.column.production(groups);
+            let Some(fit) = observer::production::ProductionFit::of(&self.view.production, slot)
             else {
                 return false;
             };
-            under.push(standing(column, fit.size(&self.view.production)));
+            under.push(standing(slot, fit.size(&self.view.production)));
         }
         let floor = |span: Span| layout::highest_top_under(span, &under, self.screen_bottom) - gap;
         let (left_floor, right_floor) = (floor(self.left_span), floor(self.right_span));
@@ -379,7 +407,9 @@ impl ObserverPanels {
         // panel keeps the band's far end on every screen. The column of production stood on
         // control groups stands beside it at the band's other end where the band has room for the
         // two side by side, and on the minimap's frame at the left edge where it does not, so
-        // nothing is ever stacked on the selection panel.
+        // nothing is ever stacked on the selection panel. Without that room control groups fold
+        // into their grid, which stands on the bottom edge between the minimap and the selection
+        // panel where it has room there, and under production on the minimap's frame where not.
         let slot = |run: Span, anchor: observer::StackAnchor, bottom: f32| observer::StackSlot {
             bottom,
             span: run,
@@ -388,19 +418,37 @@ impl ObserverPanels {
             screen_bottom: screen.bottom(),
         };
         let base = observer::WING_MARGIN;
-        let (column_run, under_groups) = match layout::BottomRow::along(band) {
-            Some(row) => (row.column, base),
-            None => (
-                layout::column_over_minimap(screen, band),
-                screen.bottom() - minimap_top + gap,
-            ),
+        let column = match layout::BottomRow::along(band) {
+            Some(row) => {
+                let stand = slot(row.column, observer::StackAnchor::Left, base);
+                ColumnSlots {
+                    groups: stand,
+                    groups_form: observer::ControlGroupsForm::Row,
+                    production: stand,
+                    production_on_groups: true,
+                }
+            }
+            None => {
+                let over_minimap = slot(
+                    layout::column_over_minimap(screen, band),
+                    observer::StackAnchor::Left,
+                    screen.bottom() - minimap_top + gap,
+                );
+                let beside = layout::groups_beside_minimap(band)
+                    .map(|run| slot(run, observer::StackAnchor::Left, base));
+                ColumnSlots {
+                    groups: beside.unwrap_or(over_minimap),
+                    groups_form: observer::ControlGroupsForm::Grid,
+                    production: over_minimap,
+                    production_on_groups: beside.is_none(),
+                }
+            }
         };
         let selection_slot = slot(
             layout::selection_run(band),
             observer::StackAnchor::Right,
             base,
         );
-        let column_slot = |bottom: f32| slot(column_run, observer::StackAnchor::Left, bottom);
         let mut bottom_surfaces = Vec::new();
         // The dock is part of the plate's panel where the plate is up, of the selection panel's
         // where that is, and floats on its own with neither.
@@ -503,7 +551,7 @@ impl ObserverPanels {
         let kept = {
             let room = YieldingRoom {
                 view,
-                column: column_slot(under_groups),
+                column,
                 tops,
                 under_wings: &bottom_surfaces,
                 left_span,
@@ -543,18 +591,18 @@ impl ObserverPanels {
         let (economy_shown, military_shown) = (shown(Panel::Economy), shown(Panel::Military));
         let (timeline_shown, graphs_shown) = (shown(Panel::Timeline), shown(Panel::Graphs));
 
-        let control_groups_slot = column_slot(under_groups);
         let spot = Spot::new(
             ctx,
             spot_id("control_groups"),
             control_groups_shown,
-            slot_place(control_groups_slot),
+            slot_place(column.groups),
         );
         let control_groups = observer::render_control_groups_view(
             &view.control_groups,
             ctx,
             control_groups_shown,
-            slot_at(control_groups_slot, spot.at()),
+            slot_at(column.groups, spot.at()),
+            column.groups_form,
             self.focused_player,
         );
         spot.drawn(control_groups.is_some());
@@ -566,7 +614,7 @@ impl ObserverPanels {
             }
         }
         let control_groups = control_groups.map(|outcome| outcome.rect);
-        let production_slot = column_slot(under_groups + observer::stack_share(control_groups));
+        let production_slot = column.production(control_groups);
         let spot = Spot::new(
             ctx,
             spot_id("production"),
@@ -1328,7 +1376,7 @@ mod tests {
 
     #[test]
     fn the_column_keeps_its_place_whatever_the_minimap_is_drawn_at() {
-        use crate::observer::{ControlGroupsPlayerView, control_groups};
+        use crate::observer::{ControlGroupsForm, ControlGroupsPlayerView, WING_MARGIN, minimap};
 
         let mut game = empty_game();
         game.control_groups.players.push(ControlGroupsPlayerView {
@@ -1338,8 +1386,12 @@ mod tests {
             groups: Vec::new(),
         });
         let playback = replay();
-        // Wide enough for the row beside the selection panel, and too narrow for it.
-        for screen in [egui::vec2(1920.0, 1080.0), egui::vec2(1600.0, 900.0)] {
+        // Wide enough for the row beside the selection panel, too narrow for it, and a 4:3 screen.
+        for (screen, form) in [
+            (egui::vec2(1920.0, 1080.0), ControlGroupsForm::Row),
+            (egui::vec2(1600.0, 900.0), ControlGroupsForm::Grid),
+            (egui::vec2(1600.0, 1200.0), ControlGroupsForm::Grid),
+        ] {
             let ctx = fresh_ctx();
             let mut shell = spectating_shell();
             shell.set_panel_prefs(PanelPrefs {
@@ -1370,7 +1422,7 @@ mod tests {
                     .hit_rects
                     .iter()
                     .map(|hit| hit.rect)
-                    .find(|rect| rect.width() == control_groups::PANEL_WIDTH)
+                    .find(|rect| rect.size() == egui::vec2(form.width(), form.height()))
                     .expect("control groups are drawn");
                 placed.push(groups);
             }
@@ -1378,6 +1430,10 @@ mod tests {
                 placed.iter().all(|groups| *groups == placed[0]),
                 "{screen:?}: {placed:?}"
             );
+            // Either form stands on the bottom edge, the grid beside the minimap's frame.
+            assert_eq!(placed[0].bottom(), screen.y - WING_MARGIN, "{screen:?}");
+            let frame = minimap::footprint(Rect::from_min_size(egui::Pos2::ZERO, screen), full);
+            assert!(placed[0].left() > frame.right(), "{screen:?}");
         }
     }
 

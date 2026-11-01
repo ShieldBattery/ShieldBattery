@@ -171,7 +171,9 @@ plate or a streamer's camera, and the selection panel never moves as the plate c
 selection panel keeps the band's far end, and the column of production stood on control groups
 keeps to the minimap: next to it on the bottom edge where the band has room for the two side by
 side, and on the minimap's frame, lined up with the economy wing over it, where it does not.
-Nothing stands on the selection panel, and the plate keeps its corner on every screen. Every one of those offsets is animated rather than assigned, so
+Without that room control groups fold into two rows of five, which stand on the bottom edge between
+the minimap and the selection panel where they fit there (every 4:3 screen), and under production
+on the minimap's frame where they do not (a 720p replay). Nothing stands on the selection panel, and the plate keeps its corner on every screen. Every one of those offsets is animated rather than assigned, so
 a panel crosses its neighbour's height instead of being redrawn somewhere else, and one that is
 still fading out still holds its place while it does.
 
@@ -204,7 +206,8 @@ so the view carries both the texture id the host mapped and the atlas frame it i
 a host with no atlas draws the number instead — the timeline's and the control groups' icons follow
 the same rule. The **control groups panel** is the strip under production: a row per player of the
 ten number keys, in the order a keyboard reads them, each slot carrying its digit, the icon of
-whatever the group is mostly made of and how many units are in it. All ten are drawn whether or not
+whatever the group is mostly made of and how many units are in it, folded into two rows of five
+on a screen without room for the row. All ten are drawn whether or not
 there is anything on them, because a row that only showed the groups a player happens to have would
 move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
 minute are both drawn dim, which is what the panel is read for. The **selection panel** stands at the
