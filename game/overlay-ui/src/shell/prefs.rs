@@ -115,6 +115,10 @@ impl Panel {
 #[serde(default)]
 pub struct PanelPrefs {
     pub matchup: bool,
+    /// Whether the matchup is read from the compact scoreboard in the top-right corner rather than
+    /// from the bar across the top edge, with the corner cards a game too big for the bar gets. Not
+    /// a panel: it is which form the one matchup surface takes.
+    pub compact_scoreboard: bool,
     pub map_control: bool,
     pub economy: bool,
     pub military: bool,
@@ -129,7 +133,7 @@ pub struct PanelPrefs {
     pub playback_controls: bool,
     /// Whether the observer dock is on screen.
     pub dock: bool,
-    /// Whether the dock spells its rows out as the control rail. Not a panel of its own: it is one
+    /// Whether the dock spells its rows out as the table. Not a panel of its own: it is one
     /// surface in two forms, and which of them a watcher left it in is worth remembering.
     pub dock_expanded: bool,
     /// Whether every surface withholds what gives a replay's outcome away — its length, and how far
@@ -143,11 +147,28 @@ pub struct PanelPrefs {
     /// Sides by default: in a team game the question is which side is ahead, and four lines answer
     /// that only once the watcher has added them up themselves.
     pub graph_per_player: bool,
-    /// The panels the all-panels key last hid, which it brings back next. Kept for the game rather
-    /// than saved: a watcher who leaves with everything hidden comes back to a clear screen, and
-    /// the key then brings back the panels everyone starts with.
+    /// The panels other than the dock that the all-panels control last hid and brings back next.
+    /// Kept for the game rather than saved: a watcher who leaves with panels hidden keeps them
+    /// hidden on return, and the key then brings back the default panels without changing the dock.
     #[serde(skip)]
     pub hidden_by_all: Option<PanelSet>,
+}
+
+/// How the matchup is on screen: as one of its two forms, or not at all. One choice of three
+/// rather than a switch and a form, since the form of a matchup nobody can see is not a thing a
+/// watcher picks.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum MatchupStyle {
+    /// The bar across the top edge, with the corner cards a game too big for it gets.
+    Bar,
+    /// The compact scoreboard in the top-right corner.
+    Compact,
+    Off,
+}
+
+impl MatchupStyle {
+    pub const ALL: [MatchupStyle; 3] =
+        [MatchupStyle::Bar, MatchupStyle::Compact, MatchupStyle::Off];
 }
 
 /// Some of the panels, as one bit per entry of [`Panel::ALL`].
@@ -167,7 +188,7 @@ impl PanelSet {
         self.0 & PanelSet::bit(panel) != 0
     }
 
-    fn insert(&mut self, panel: Panel) {
+    pub(crate) fn insert(&mut self, panel: Panel) {
         self.0 |= PanelSet::bit(panel);
     }
 
@@ -185,6 +206,7 @@ impl Default for PanelPrefs {
         // next game.
         PanelPrefs {
             matchup: true,
+            compact_scoreboard: true,
             map_control: false,
             economy: false,
             military: false,
@@ -255,26 +277,79 @@ impl PanelPrefs {
         set
     }
 
-    /// Carries out the all-panels key: a quick way to a clear screen and back.
+    /// Carries out the all-panels button or key, hiding and restoring every panel except the dock.
     ///
-    /// With anything on screen, it hides all of it and remembers what that was, whatever was turned
-    /// on since the last time. With nothing on screen, it brings back what it last hid, or the
-    /// panels everyone starts with if it hid nothing.
+    /// The dock's visibility stays unchanged so a visible dock remains available to restore the
+    /// panels. With any other panel on screen, it hides and remembers that set. Otherwise it brings
+    /// back what it last hid, or the default panels if it hid nothing.
     pub fn toggle_all(&mut self) {
-        let shown = self.shown_set();
+        let shown = self.toggleable_set();
         if shown.is_empty() {
             let restore = self
                 .hidden_by_all
                 .take()
-                .unwrap_or_else(|| PanelPrefs::default().shown_set());
-            for panel in Panel::ALL {
+                .unwrap_or_else(|| PanelPrefs::default().toggleable_set());
+            for panel in Panel::ALL.into_iter().filter(|&panel| panel != Panel::Dock) {
                 self.set(panel, restore.contains(panel));
             }
         } else {
-            for panel in Panel::ALL {
+            for panel in Panel::ALL.into_iter().filter(|&panel| panel != Panel::Dock) {
                 self.set(panel, false);
             }
             self.hidden_by_all = Some(shown);
+        }
+    }
+
+    /// The visible panels affected by the all-panels button and key.
+    fn toggleable_set(&self) -> PanelSet {
+        let mut set = PanelSet::default();
+        for panel in Panel::ALL {
+            if panel != Panel::Dock && self.shown(panel) {
+                set.insert(panel);
+            }
+        }
+        set
+    }
+
+    /// Whether the all-panels button and key have any visible panels to hide.
+    pub fn any_toggleable_shown(&self) -> bool {
+        Panel::ALL
+            .into_iter()
+            .any(|panel| panel != Panel::Dock && self.shown(panel))
+    }
+
+    /// How the matchup is on screen.
+    pub fn matchup_style(&self) -> MatchupStyle {
+        match (self.matchup, self.compact_scoreboard) {
+            (false, _) => MatchupStyle::Off,
+            (true, false) => MatchupStyle::Bar,
+            (true, true) => MatchupStyle::Compact,
+        }
+    }
+
+    /// Puts the matchup on screen as `style`. Turning it off keeps the form it was in, which is
+    /// the one the matchup key brings back.
+    pub fn set_matchup_style(&mut self, style: MatchupStyle) {
+        match style {
+            MatchupStyle::Off => self.matchup = false,
+            MatchupStyle::Bar | MatchupStyle::Compact => {
+                self.matchup = true;
+                self.compact_scoreboard = style == MatchupStyle::Compact;
+            }
+        }
+    }
+
+    /// Carries out the matchup key: on its own it takes the matchup off screen and back, and with
+    /// `Shift` it switches between the bar and the compact scoreboard.
+    ///
+    /// A form the watcher cannot see has not changed as far as they are concerned, so the chord
+    /// shows a hidden matchup rather than answering with nothing.
+    pub(super) fn matchup_key(&mut self, modifiers: Modifiers) {
+        if modifiers.shift {
+            self.compact_scoreboard = !self.compact_scoreboard;
+            self.matchup = true;
+        } else {
+            self.toggle(Panel::Matchup);
         }
     }
 
@@ -296,14 +371,14 @@ impl PanelPrefs {
     }
 
     /// Carries out the dock key: on its own it takes the dock off screen and back, and with `Shift`
-    /// it changes which of the dock's two forms it comes back in.
+    /// it switches the dock on screen between its two forms.
     ///
-    /// A form the watcher cannot see has not changed as far as they are concerned, so the chord
-    /// shows a hidden dock rather than answering with nothing.
+    /// A hidden dock comes back in the form it went away in, with or without `Shift`: that is the
+    /// form the watcher last saw, and one changed while they could not see it would come back as
+    /// something they had not asked for.
     pub(super) fn dock_key(&mut self, modifiers: Modifiers) {
-        if modifiers.shift {
+        if modifiers.shift && self.dock {
             self.dock_expanded = !self.dock_expanded;
-            self.dock = true;
         } else {
             self.toggle(Panel::Dock);
         }
@@ -350,7 +425,9 @@ mod tests {
         });
         let before = shell.panel_prefs().shown_set();
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert_eq!(shell.panel_prefs().shown_set(), PanelSet::default());
+        let mut dock_only = PanelSet::default();
+        dock_only.insert(Panel::Dock);
+        assert_eq!(shell.panel_prefs().shown_set(), dock_only);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert_eq!(shell.panel_prefs().shown_set(), before);
 
@@ -375,8 +452,54 @@ mod tests {
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert_eq!(
             shell.panel_prefs().shown_set(),
-            PanelPrefs::default().shown_set()
+            PanelPrefs {
+                dock: false,
+                ..PanelPrefs::default()
+            }
+            .shown_set()
         );
+    }
+
+    #[test]
+    fn all_panels_keeps_dock_changes_independent_of_the_saved_layout() {
+        for dock in [false, true] {
+            let mut prefs = PanelPrefs {
+                dock,
+                economy: true,
+                graphs: true,
+                ..PanelPrefs::default()
+            };
+            let before = prefs.toggleable_set();
+            prefs.toggle_all();
+            assert_eq!(prefs.dock, dock);
+            assert!(!prefs.playback_controls);
+            assert!(!prefs.any_toggleable_shown());
+            assert!(!prefs.hidden_by_all.unwrap().contains(Panel::Dock));
+
+            prefs.toggle(Panel::Dock);
+            prefs.toggle_all();
+            assert_eq!(prefs.dock, !dock);
+            assert_eq!(prefs.toggleable_set(), before);
+        }
+    }
+
+    #[test]
+    fn playback_controls_alone_are_hidden_and_restored_by_all_panels() {
+        let mut prefs = PanelPrefs::default();
+        for panel in Panel::ALL {
+            prefs.set(
+                panel,
+                matches!(panel, Panel::Dock | Panel::PlaybackControls),
+            );
+        }
+        assert!(prefs.any_toggleable_shown());
+        prefs.toggle_all();
+        assert!(!prefs.any_toggleable_shown());
+        assert!(prefs.dock);
+        prefs.toggle_all();
+        assert!(prefs.playback_controls);
+        assert!(!prefs.matchup);
+        assert!(prefs.dock);
     }
 
     #[test]
@@ -489,7 +612,7 @@ mod tests {
     }
 
     #[test]
-    fn the_dock_chord_changes_its_form_and_brings_it_back_to_be_seen() {
+    fn the_dock_chord_changes_its_form_and_brings_a_hidden_dock_back_as_it_was() {
         let mut shell = spectating_shell();
         let shift = Modifiers {
             shift: true,
@@ -500,16 +623,58 @@ mod tests {
         assert!(shell.panel_prefs().dock_expanded);
         assert!(shell.panel_prefs().dock);
 
-        // Changing the form of a dock nobody can see would read as a key that did nothing, so it
-        // comes back on screen with the change.
         shell.set_panel_prefs(PanelPrefs {
             dock: false,
             dock_expanded: true,
             ..PanelPrefs::default()
         });
         assert!(shell.key_pressed(Key::Backtick, shift));
+        assert!(shell.panel_prefs().dock_expanded);
+        assert!(shell.panel_prefs().dock);
+        assert!(shell.key_pressed(Key::Backtick, shift));
         assert!(!shell.panel_prefs().dock_expanded);
         assert!(shell.panel_prefs().dock);
+    }
+
+    #[test]
+    fn the_matchup_chord_switches_its_form_and_brings_it_back_to_be_seen() {
+        let mut shell = spectating_shell();
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::NONE
+        };
+        assert!(shell.panel_prefs().compact_scoreboard);
+        assert!(shell.key_pressed(Key::E, shift));
+        assert!(!shell.panel_prefs().compact_scoreboard);
+        assert!(shell.panel_prefs().matchup);
+
+        shell.set_panel_prefs(PanelPrefs {
+            matchup: false,
+            ..PanelPrefs::default()
+        });
+        assert!(shell.key_pressed(Key::E, shift));
+        assert!(!shell.panel_prefs().compact_scoreboard);
+        assert!(shell.panel_prefs().matchup);
+
+        // The key on its own still only takes the matchup off screen, whichever form it is in.
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert!(!shell.panel_prefs().matchup);
+        assert!(!shell.panel_prefs().compact_scoreboard);
+    }
+
+    #[test]
+    fn turning_the_matchup_off_keeps_the_style_its_key_brings_back() {
+        let mut shell = spectating_shell();
+        let mut prefs = *shell.panel_prefs();
+        for style in MatchupStyle::ALL {
+            prefs.set_matchup_style(style);
+            assert_eq!(prefs.matchup_style(), style);
+        }
+        prefs.set_matchup_style(MatchupStyle::Bar);
+        prefs.set_matchup_style(MatchupStyle::Off);
+        shell.set_panel_prefs(prefs);
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert_eq!(shell.panel_prefs().matchup_style(), MatchupStyle::Bar);
     }
 
     #[test]

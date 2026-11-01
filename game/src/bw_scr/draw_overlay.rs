@@ -1962,6 +1962,11 @@ unsafe fn matchup_player_view(
             gas: game.gas(player_id),
             supply_used,
             supply_max,
+            // Every race's worker is counted, since a dark archon can take another race's.
+            workers: [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
+                .into_iter()
+                .map(|worker| game.completed_count(player_id, worker))
+                .sum(),
             apm: apm
                 .map(|stats| stats.player_recent_apm(player_id))
                 .unwrap_or(0),

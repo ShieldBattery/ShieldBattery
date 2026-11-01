@@ -282,17 +282,17 @@ fn apply_language(knobs: &Knobs) {
     i18n::set_pseudolocale(knobs.pseudolocale);
 }
 
-/// The move that puts the pinned pointer where the knob asks for it, or nothing while none is
-/// pinned.
+/// The move that puts the pinned pointer where the knob asks for it, or on the control it names as
+/// `ctx` last drew it, or nothing while neither is set.
 ///
 /// egui learns where the pointer is from events alone, so this is fed to every pass rather than to
 /// the first: a context told once and then left alone still knows, but one pass is all an offline
 /// render would have to lose to a settle that starts from scratch.
-fn pinned_pointer_event(knobs: &Knobs) -> Option<Event> {
-    knobs
-        .host
-        .pointer
-        .map(|(x, y)| Event::PointerMoved(pos2(x, y)))
+fn pinned_pointer_event(knobs: &Knobs, ctx: &egui::Context) -> Option<Event> {
+    let pinned = knobs.host.pointer.map(|(x, y)| pos2(x, y));
+    pinned
+        .or_else(|| knobs.host.pointer_on.and_then(|target| target.resolve(ctx)))
+        .map(Event::PointerMoved)
 }
 
 /// Renders every scenario preset at every offline resolution into `dir`, returning what it wrote.
@@ -364,7 +364,9 @@ fn render_all(
                         points: screen.points,
                         pixels_per_point: screen.pixels_per_point,
                         time,
-                        events: pinned_pointer_event(&knobs).into_iter().collect(),
+                        events: pinned_pointer_event(&knobs, host.ctx())
+                            .into_iter()
+                            .collect(),
                         // The game's window has focus while the overlay is drawn over it, and a
                         // dialog's lit control only shows in a window that has.
                         focused: true,
@@ -514,7 +516,7 @@ impl PreviewApp {
         // Last move of the pass wins, so a pinned pointer appended here overrides the window's own
         // wherever it happens to be, including the `PointerGone` it sends on its way off the
         // emulated screen.
-        events.extend(pinned_pointer_event(&self.knobs));
+        events.extend(pinned_pointer_event(&self.knobs, self.host.ctx()));
         apply_language(&self.knobs);
         // Holding the end-of-game screen's entrance holds the overlay's whole clock at that moment
         // after the screen came up: its stages are all read off that clock, and nothing else on the

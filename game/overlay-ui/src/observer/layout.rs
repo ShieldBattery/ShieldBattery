@@ -6,33 +6,52 @@
 //! coordinates: each surface is placed against the screen's edges and against the surfaces already
 //! placed, and a surface with no room left gives way rather than overlapping one that has it.
 //!
-//! What gives way to what is one order, from the surface a watcher can least do without: the
-//! matchup bar, the minimap, the selection, control groups, production, economy, military, the
-//! playback controls, the timeline and the graphs. Giving way means dropping rows where a panel has
-//! rows to drop, and not being drawn at all where it has not. It never moves a preference: a panel
-//! hidden for lack of room comes back as soon as there is room for it again.
+//! The surfaces a watcher can least do without never give way: the matchup, the minimap, the
+//! selection panel and the playback controls are placed first. The rest, the bottom panels' column
+//! and the stats wings, give way to one another in the order they were turned on, the last turned
+//! on keeping its room, and the map-control bar has room or not by the screen's width alone. Giving
+//! way means dropping rows where a panel has rows to drop, and not being drawn at all where it has
+//! not. It never moves a preference: a panel hidden for lack of room comes back as soon as there is
+//! room for it again, which turning off the panel in its way gives it.
 
 use egui::{Rect, pos2, vec2};
 
-use crate::observer::{MINIMAP_RESERVE_UNITS, ROW_WIDTH, WING_GAP, WING_MARGIN, selection};
+use crate::observer::{BOTTOM_COLUMN_WIDTH, ROW_WIDTH, WING_GAP, WING_MARGIN, selection};
 
-/// The height the design's units are drawn at one to one.
-const DESIGN_HEIGHT: f32 = 1080.0;
+/// How tall the grid the game lays its console out on is, whatever the screen's shape: its dialogs'
+/// coordinates run 480 down the screen, and as far across it as the screen's shape makes that.
+const CONSOLE_GRID_HEIGHT: f32 = 480.0;
+
+/// Where the console's minimap control is at its largest, on that grid: 128 square, 6 in from the
+/// screen's left edge and 4 up from its bottom one. The game sizes the control to the map's shape,
+/// so a map smaller than 128 a side, or one that is not square, is drawn in a control inside this
+/// square.
+const MINIMAP_LEFT: f32 = 6.0;
+const MINIMAP_BOTTOM: f32 = 476.0;
+const MINIMAP_SIDE: f32 = 128.0;
+
+/// The square the game's console keeps for its minimap in the screen's bottom-left corner: the
+/// control the map is drawn in at its largest. The console is scaled with the screen's height, so
+/// the square is the same share of the height on every screen.
+pub fn minimap_reserve(screen: Rect) -> Rect {
+    let unit = screen.height() / CONSOLE_GRID_HEIGHT;
+    let side = MINIMAP_SIDE * unit;
+    Rect::from_min_size(
+        pos2(
+            screen.left() + MINIMAP_LEFT * unit,
+            screen.top() + MINIMAP_BOTTOM * unit - side,
+        ),
+        vec2(side, side),
+    )
+}
 
 /// The square BW's minimap takes on this screen.
 ///
 /// Where the host has told the overlay where the minimap is, that is where it is. Where it has not,
-/// the square the design reserves for it in the bottom-left corner stands in, so that the surfaces
-/// placed around it leave the same room whether or not the host can say: the reserve is the
-/// minimap's whether or not the minimap is on screen.
+/// the console's square for it stands in (see [`minimap_reserve`]), so that the surfaces placed
+/// around it leave the same room whether or not the host can say.
 pub(crate) fn minimap_square(screen: Rect, host: Option<Rect>) -> Rect {
-    host.unwrap_or_else(|| {
-        let side = MINIMAP_RESERVE_UNITS * screen.height() / DESIGN_HEIGHT;
-        Rect::from_min_size(
-            pos2(screen.left(), screen.bottom() - side),
-            vec2(side, side),
-        )
-    })
+    host.unwrap_or_else(|| minimap_reserve(screen))
 }
 
 /// A run of the screen's width, from one x to another.
@@ -59,12 +78,9 @@ impl Span {
         self.left < other.right && other.left < self.right
     }
 
-    /// Where a surface of `width` goes in this run: on the screen's own middle line where it fits
-    /// there, pulled in from whichever end it would run past where it does not, and cut down to the
-    /// run's own width where even that is not enough. Returned as the run the surface covers.
-    ///
-    /// The middle line is the one the design centers its bottom stack on, so a screen with room to
-    /// spare draws the stack exactly where the design does.
+    /// Where a surface of `width` goes in this run: centered on `middle` where it fits there,
+    /// pulled in from whichever end it would run past where it does not, and cut down to the run's
+    /// own width where even that is not enough. Returned as the run the surface covers.
     pub(crate) fn place(self, middle: f32, width: f32) -> Span {
         let width = width.min(self.width());
         let left = crate::kit::clamp_layout(middle - width * 0.5, self.left, self.right - width);
@@ -97,34 +113,29 @@ pub(crate) fn highest_top_under(span: Span, rects: &[Rect], ceiling: f32) -> f32
 }
 
 /// Where one of the bottom panels is drawn: how far above the screen's bottom edge it stands, the
-/// run of the screen it may take and which part of that run it keeps to, and the line it must not
+/// run of the screen it may take and which end of that run it keeps to, and the line it must not
 /// rise past.
 #[derive(Copy, Clone, Debug)]
 pub struct StackSlot {
     /// How far the panel's bottom edge is above the screen's.
     pub bottom: f32,
-    /// The run of the screen the panel may take, between the minimap and whatever holds the right
-    /// edge, or the part of that run the panel's column of the bottom row has.
+    /// The run of the screen the panel may take: the selection panel's end of the bottom band, or
+    /// the column's run beside it or over the minimap.
     pub span: Span,
-    /// Which part of the run the panel keeps to.
+    /// Which end of the run the panel keeps to.
     pub anchor: StackAnchor,
-    /// The screen's own middle line, which a panel is offset from wherever it is placed, and which
-    /// a centered panel with room to spare stands on.
-    pub middle: f32,
     /// How far down the screen the surfaces above the panel reach, which it must stay under.
     pub ceiling: f32,
     /// How far down the screen its bottom edge reaches.
     pub screen_bottom: f32,
 }
 
-/// Which part of its run a bottom panel keeps to.
+/// Which end of its run a bottom panel keeps to.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum StackAnchor {
-    /// The screen's own middle line, as far as the run allows: the centered stack.
-    Middle,
-    /// The run's left end, which for the bottom row's column lines its panels up with each other.
+    /// The run's left end, which for the column lines its panels up with each other.
     Left,
-    /// The run's right end, which for the bottom row's selection is the band's far end.
+    /// The run's right end, which for the selection panel is the band's far end.
     Right,
 }
 
@@ -138,7 +149,6 @@ impl StackSlot {
     pub(crate) fn place(&self, width: f32) -> Span {
         // A line past either end of the run pulls the panel in against that end.
         let line = match self.anchor {
-            StackAnchor::Middle => self.middle,
             StackAnchor::Left => self.span.left,
             StackAnchor::Right => self.span.right,
         };
@@ -151,9 +161,10 @@ impl StackSlot {
 /// of the plate's `plate_corner` too, whether or not the plate is up. The bottom-right corner is then
 /// the plate's or nobody's, which is where a streamer's camera tends to go.
 ///
-/// The far end is the reserve's mirror rather than the minimap's own: it is the end the bottom row
-/// stands against, and a minimap the host reports only while it is up, smaller than its reserve,
-/// would move it every time the minimap came or went. Only the plate and the screen decide it.
+/// The far end is the reserve's mirror rather than the minimap's own: it is the end the selection
+/// panel stands against, and a minimap the host reports only while it is up, smaller than its
+/// reserve, would move it every time the minimap came or went. Only the plate and the screen decide
+/// it.
 pub(crate) fn bottom_band(screen: Rect, run: Span, plate_corner: Option<Rect>) -> Span {
     let reserve = super::minimap::footprint(screen, minimap_square(screen, None));
     let mirror = screen.right() - (reserve.right() - screen.left()) - WING_GAP;
@@ -165,16 +176,15 @@ pub(crate) fn bottom_band(screen: Rect, run: Span, plate_corner: Option<Rect>) -
 }
 
 /// The bottom edge laid out as one row, which a band of it at least [`ROW_WIDTH`] wide gets (see
-/// [`bottom_band`]): a column with production stood on control groups, and the selection panel
-/// beside it, standing together as one against the band's far end. Whatever room the band has past
-/// them is left between the column and the minimap, so the minimap coming and going, or being
-/// smaller than its reserve, never pulls the two apart.
+/// [`bottom_band`]): a column with production stood on control groups next to the minimap, and the
+/// selection panel at the band's far end, where it stands on every screen. Whatever room the band
+/// has past them is left between the two.
 ///
-/// The column is exactly as wide as control groups are drawn at their design's width, so they meet
-/// the selection panel, and production stands lined up with their left edge however narrow it is
-/// drawn. The column is as wide whether or not anything is selected, so the selection panel
-/// appearing and going never moves it. The widest panels stand lowest, so the row's
-/// outline narrows towards the game rather than overhanging it.
+/// The column is exactly as wide as control groups are drawn at their design's width, and
+/// production stands lined up with their left edge however narrow it is drawn. Neither run depends
+/// on what is on screen, so the selection panel appearing and going never moves the column. The
+/// widest panels stand lowest, so the column's outline narrows towards the game rather than
+/// overhanging it.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) struct BottomRow {
     /// The run the production and control-group column stands in.
@@ -185,24 +195,40 @@ pub(crate) struct BottomRow {
 
 impl BottomRow {
     /// The row along `run`, a run of the bottom edge starting from the minimap's frame, or `None`
-    /// where the run is too narrow for one and the panels stand in the centered stack instead.
+    /// where the run is too narrow for one and the column stands on the minimap's frame instead
+    /// (see [`column_over_minimap`]).
     ///
     /// Decided from the run's width and the panels' design widths alone, never from which panels
     /// are on screen, so the panels coming and going cannot switch the layout back and forth.
     pub(crate) fn along(run: Span) -> Option<BottomRow> {
-        (run.width() >= ROW_WIDTH).then(|| {
-            let selection_left = run.right - selection::PANEL_WIDTH;
-            BottomRow {
-                column: Span {
-                    left: run.right - ROW_WIDTH,
-                    right: selection_left - WING_GAP,
-                },
-                selection: Span {
-                    left: selection_left,
-                    right: run.right,
-                },
-            }
+        (run.width() >= ROW_WIDTH).then(|| BottomRow {
+            column: Span {
+                left: run.left,
+                right: run.left + BOTTOM_COLUMN_WIDTH,
+            },
+            selection: selection_run(run),
         })
+    }
+}
+
+/// The run the selection panel stands in at the far end of the bottom `band`, as wide as the panel
+/// or as the band where that is narrower.
+pub(crate) fn selection_run(band: Span) -> Span {
+    Span {
+        left: (band.right - selection::PANEL_WIDTH).max(band.left),
+        right: band.right,
+    }
+}
+
+/// The run the production and control-group column takes standing on the minimap's frame, where
+/// the bottom `band` has no room for it beside the selection panel: from the screen's left margin,
+/// lined up with the wing hung over it, as wide as the column is laid out in the row and short of
+/// the band's far end, so it never reaches over the plate's corner.
+pub(crate) fn column_over_minimap(screen: Rect, band: Span) -> Span {
+    let left = screen.left() + WING_MARGIN;
+    Span {
+        left,
+        right: (left + BOTTOM_COLUMN_WIDTH).min(band.right),
     }
 }
 
@@ -215,9 +241,9 @@ pub(crate) fn left_wing_span(screen: Rect, width: f32) -> Span {
     }
 }
 
-/// The run of the screen's width a wing hung off the right edge takes, standing `inset` in from it.
-pub(crate) fn right_wing_span(screen: Rect, width: f32, inset: f32) -> Span {
-    let right = screen.right() - WING_MARGIN - inset;
+/// The run of the screen's width a wing hung off the right edge takes.
+pub(crate) fn right_wing_span(screen: Rect, width: f32) -> Span {
+    let right = screen.right() - WING_MARGIN;
     Span {
         left: right - width,
         right,
@@ -287,10 +313,11 @@ mod tests {
         for plate in [true, false] {
             let run = bottom_run(1920.0, 1080.0, plate);
             let row = BottomRow::along(run).expect("a 1080p screen has room for the row");
-            assert_eq!(row.column.left, run.right - ROW_WIDTH);
+            assert_eq!(row.column.left, run.left);
+            assert_eq!(row.column.width(), BOTTOM_COLUMN_WIDTH);
             assert_eq!(row.selection.right, run.right);
             assert_eq!(row.selection.width(), selection::PANEL_WIDTH);
-            assert_eq!(row.selection.left - row.column.right, WING_GAP);
+            assert!(row.selection.left - row.column.right >= WING_GAP);
         }
     }
 
@@ -302,7 +329,6 @@ mod tests {
             bottom: WING_MARGIN,
             span: row.column,
             anchor: StackAnchor::Left,
-            middle: 960.0,
             ceiling: 0.0,
             screen_bottom: 1080.0,
         };
@@ -310,32 +336,49 @@ mod tests {
             control_groups::fitted_width(slot),
             Some(control_groups::PANEL_WIDTH)
         );
-        // Control groups fill the column, meeting the selection panel, and production lines up with
-        // their left edge.
+        // Control groups fill the column, short of the selection panel, and production lines up
+        // with their left edge.
         let groups = slot.place(control_groups::PANEL_WIDTH);
         assert_eq!(groups, row.column);
-        assert_eq!(groups.right + WING_GAP, row.selection.left);
+        assert!(groups.right + WING_GAP <= row.selection.left);
         let placed = slot.place(production::PANEL_WIDTH);
         assert_eq!(placed.width(), production::PANEL_WIDTH);
         assert_eq!(placed.left, groups.left);
     }
 
     #[test]
-    fn the_row_stands_where_it_does_however_much_room_the_minimap_leaves() {
+    fn the_rows_column_keeps_to_the_minimap_and_its_selection_to_the_far_end() {
         let wide = bottom_run(1920.0, 1080.0, true);
-        // A minimap smaller than its reserve leaves the band more room at the minimap's end.
+        // A minimap smaller than its reserve leaves the band more room at the minimap's end, which
+        // the column moves into and the selection panel does not.
         let roomier = span(wide.left - 40.0, wide.right);
         let row = BottomRow::along(wide).unwrap();
-        assert_eq!(BottomRow::along(roomier), Some(row));
-        assert_eq!(row.column.right + WING_GAP, row.selection.left);
+        let closer = BottomRow::along(roomier).unwrap();
+        assert_eq!(closer.selection, row.selection);
+        assert_eq!(closer.column.left, roomier.left);
     }
 
     #[test]
-    fn a_1600_screen_keeps_the_centered_stack() {
+    fn a_1600_screen_has_no_room_for_the_row() {
         // The band short of the plate's corner, or of the minimap's mirror image in a live game, is
         // too narrow for the row at the design's widths.
         assert_eq!(BottomRow::along(bottom_run(1600.0, 900.0, true)), None);
         assert_eq!(BottomRow::along(bottom_run(1600.0, 900.0, false)), None);
+    }
+
+    #[test]
+    fn a_column_over_the_minimap_lines_up_with_the_wing_over_it() {
+        for (width, height) in [(1600.0, 900.0), (1280.0, 720.0)] {
+            let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
+            let band = bottom_run(width, height, true);
+            let column = column_over_minimap(screen, band);
+            assert_eq!(column, left_wing_span(screen, BOTTOM_COLUMN_WIDTH));
+            assert!(column.right <= band.right, "{width}x{height}");
+        }
+        // Where the band ends sooner than the column would, the column ends with it.
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1024.0, 768.0));
+        let band = span(300.0, 600.0);
+        assert_eq!(column_over_minimap(screen, band).right, 600.0);
     }
 
     #[test]
@@ -373,7 +416,7 @@ mod tests {
     ];
 
     #[test]
-    fn a_narrow_screen_keeps_the_centered_stack() {
+    fn a_narrow_screen_has_no_room_for_the_row() {
         for (width, height) in NARROW_TARGETS.into_iter().chain([(1280.0, 720.0)]) {
             let (width, height) = points(width, height);
             for plate in [true, false] {
@@ -386,30 +429,27 @@ mod tests {
         }
     }
 
-    /// A screen narrower than 16:10 is scaled down until the plate keeps the bottom-right corner
-    /// with the whole centered stack beside it, so the minimap, the selection panel and the plate
-    /// share the bottom edge and nothing is lifted over the game. That holds even with the dock's
-    /// rail open beside the plate, which stands it in by the rail's whole column.
+    /// A screen narrower than 16:10 is scaled down until the selection panel fits between the
+    /// minimap and the plate in the bottom-right corner, so the three share the bottom edge.
     #[test]
-    fn a_narrow_screen_keeps_the_plate_in_the_corner_beside_the_stack() {
-        use crate::observer::{MIN_STACK_WIDTH, dock, minimap};
+    fn a_narrow_screen_keeps_the_selection_panel_between_the_minimap_and_the_plate() {
+        use crate::observer::minimap;
         use crate::playback_controls::PlaybackControlsPlacement;
-        for (pixel_width, pixel_height) in NARROW_TARGETS {
+        for (pixel_width, pixel_height) in NARROW_TARGETS.into_iter().chain([(1280.0, 720.0)]) {
             let (width, height) = points(pixel_width, pixel_height);
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
             let frame = minimap::footprint(screen, minimap_square(screen, None));
-            let plate = PlaybackControlsPlacement {
-                right_inset: dock::column_width(true),
-                lift: 0.0,
-            }
-            .rect(screen);
+            let plate = PlaybackControlsPlacement::default().rect(screen);
             let beside = span(frame.right() + WING_GAP, plate.left() - WING_GAP);
             assert!(
-                beside.width() >= MIN_STACK_WIDTH,
+                beside.width() >= selection::PANEL_WIDTH,
                 "{pixel_width}x{pixel_height} leaves {} beside the plate",
                 beside.width()
             );
-            assert!(plate.bottom() <= height - WING_MARGIN);
+            assert_eq!(
+                selection_run(bottom_run(width, height, true)).width(),
+                selection::PANEL_WIDTH
+            );
         }
     }
 
@@ -419,11 +459,9 @@ mod tests {
             bottom: WING_MARGIN,
             span: span(364.0, 1568.0),
             anchor,
-            middle: 960.0,
             ceiling: 0.0,
             screen_bottom: 1080.0,
         };
-        assert_eq!(slot(StackAnchor::Middle).place(460.0), span(730.0, 1190.0));
         assert_eq!(slot(StackAnchor::Left).place(460.0), span(364.0, 824.0));
         assert_eq!(slot(StackAnchor::Right).place(460.0), span(1108.0, 1568.0));
     }
@@ -432,9 +470,12 @@ mod tests {
     fn the_reserve_stands_in_for_a_minimap_the_host_cannot_place() {
         let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 960.0));
         let square = minimap_square(screen, None);
-        assert_eq!(square.bottom(), 960.0);
-        assert_eq!(square.left(), 0.0);
-        assert!((square.width() - 348.0 * 960.0 / 1080.0).abs() < 0.01);
+        assert_eq!(square, minimap_reserve(screen));
+        // The console's grid is 480 tall, so on a 960-point screen a unit of it is two points.
+        assert_eq!(
+            square,
+            Rect::from_min_size(pos2(12.0, 696.0), vec2(256.0, 256.0))
+        );
         let placed = Rect::from_min_size(pos2(8.0, 700.0), vec2(250.0, 250.0));
         assert_eq!(minimap_square(screen, Some(placed)), placed);
     }

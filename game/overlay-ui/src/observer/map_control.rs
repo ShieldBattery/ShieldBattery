@@ -16,7 +16,7 @@ use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, Ui
 use crate::kit::text;
 use crate::kit::widgets;
 use crate::kit::{motion, theme};
-use crate::observer::{DOCK_RESERVE, EdgeCursor, WING_MARGIN, centred, paint_text};
+use crate::observer::{EdgeCursor, WING_GAP, WING_MARGIN, centred, paint_text};
 use crate::tr;
 
 /// How wide the bar is where there is room for all of it, in overlay points.
@@ -25,9 +25,6 @@ pub const BAR_WIDTH: f32 = 640.0;
 /// The narrowest the bar is worth drawing. Below this the share itself is a sliver, and a sliver
 /// that has to be measured against two percentages beside it is not a bar anyone reads.
 const MIN_WIDTH: f32 = 320.0;
-
-/// Gap kept between the bar and the stats wings on either side of it.
-const WING_GAP: f32 = 8.0;
 
 /// Padding between the bar's chrome and its contents, across and down.
 const PADDING: f32 = 14.0;
@@ -92,11 +89,11 @@ pub struct MapControlView {
 ///
 /// Measured against the wings whether or not they are on screen: a bar that grew every time a
 /// watcher hid a wing would move while it is being read, which is worse than being one size all
-/// game.
+/// game. It stays on the screen's middle line, so it keeps the panels' own gap to the wider of the
+/// two wings and more to the other.
 fn width_for(screen_width: f32) -> Option<f32> {
-    let side = WING_MARGIN
-        + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)
-        + WING_GAP;
+    let side =
+        WING_MARGIN + super::economy::PANEL_WIDTH.max(super::military::PANEL_WIDTH) + WING_GAP;
     let available = screen_width - side * 2.0;
     let width = available.min(BAR_WIDTH);
     (width >= MIN_WIDTH).then_some(width)

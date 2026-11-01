@@ -20,10 +20,10 @@ use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
-    EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
-    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
-    wing_panel,
+    EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, WingOutcome, paint_column_heading,
+    paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
+    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -33,9 +33,6 @@ pub const PANEL_WIDTH: f32 = 474.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 450.0;
-
-/// Gap between the bar of the player's color and their name.
-const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
 /// its column would otherwise push every number beside it out of the design's grid.
@@ -65,7 +62,7 @@ const TREND_WIDTH: f32 = 58.0;
 /// a column more than fits would be drawn outside the panel's chrome.
 const _: () = assert!(
     STAT_COLOR_BAR
-        + BAR_GAP
+        + STAT_BAR_GAP
         + NAME_WIDTH
         + COLUMN_GAP
         + WORKERS_WIDTH
@@ -166,28 +163,31 @@ pub fn render_economy_view(
     ctx: &Context,
     shown: bool,
     top: f32,
-) -> Option<Rect> {
-    let id = Id::new("sb_economy_panel");
-    let inner = wing_panel(
+) -> Option<WingOutcome> {
+    let wing = wing_panel(
         ctx,
-        id,
+        Panel::Economy,
         Wing::Left,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        |ui, _| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    Some(WingOutcome {
+        rect: wing.rect,
+        closed: wing.closed,
+    })
 }
 
 fn draw_panel(ui: &mut Ui, view: &EconomyView) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelEconomy", "Economy"),
-        Panel::Economy.key_label().as_deref(),
-    );
-    draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    draw_headings(
+        ui,
+        view.players
+            .first()
+            .map(|player| player.team)
+            .filter(|_| divided),
+    );
     let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
         if divided && side != Some(player.team) {
@@ -204,10 +204,15 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
 
 /// Draws the row of column headings, each aligned the way its column's values are, and saying on
 /// hover what its column counts: the headings are a word each, and two of the columns are rates.
-fn draw_headings(ui: &mut Ui) {
+/// `first_team` is the team a divided table opens with, named over the names.
+fn draw_headings(ui: &mut Ui, first_team: Option<u8>) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(STAT_COLOR_BAR + BAR_GAP + NAME_WIDTH + COLUMN_GAP);
+    let names = cursor.take(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH);
+    if let Some(team) = first_team {
+        paint_first_team_name(ui, names, team);
+    }
+    cursor.skip(COLUMN_GAP);
     draw_heading(
         ui,
         cursor.take(WORKERS_WIDTH),
@@ -273,7 +278,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     paint_stat_identity(
         ui,
         &mut cursor,
-        BAR_GAP,
+        None,
         NAME_WIDTH,
         &player.name,
         player.color,
@@ -378,7 +383,7 @@ mod tests {
                 players: teams.iter().map(|team| player(*team)).collect(),
             };
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_economy_view(&view, ctx, true, 100.0)
+                render_economy_view(&view, ctx, true, 100.0).map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");
             assert_eq!(rect.height(), panel_height(&view), "{teams:?}");

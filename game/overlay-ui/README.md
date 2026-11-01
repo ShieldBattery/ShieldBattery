@@ -133,21 +133,45 @@ values answer only after the watcher has added them up themselves. Two cards at 
 design gives them the screen's two top corners and nothing else, so a free-for-all of three or more
 sides keeps the clock alone.
 
+The matchup can instead take the form of the **compact scoreboard** (`observer::scoreboard`), which
+is the one a first-time watcher gets: a stats wing at the top of the right edge, as wide as the wings
+stacked under it, with a row per player (color square, race icon, name, then supply, workers,
+minerals, gas and APM) under a single row of headings drawn as glyphs, so each player is named once
+and each column is labeled once for the whole game. It takes every shape of game, ruling its sides
+apart the way the wings do, so it has no team cards, and keeps the clock in the middle of its title
+row. `PanelPrefs::compact_scoreboard` says which form the matchup takes, and
+`PanelPrefs::matchup_style()` reads it together with `matchup` as a `MatchupStyle` of `Bar`,
+`Compact` or `Off`. The dock's matchup row offers all three as chips, `E` shows and hides the matchup
+in whichever form it is in, and `Shift+E` switches forms. Both forms are drawn every frame with only
+the chosen one shown, so a switch fades one out as the other comes in, and the wings under it ease to
+their new place.
+
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell
 stacks them: each surface is placed under the bottom edge the one above it actually came out at.
 That is what keeps a 4v4's economy table from being drawn through its timeline, and the same rule
-puts the control groups above whatever height the production panel reached.
+puts production above whatever height the control groups reached.
+
+Where the screen has no room for every panel the watcher wants, the ones that would stand in each
+other's way take the room in the order they were turned on, the last first: turn production on in a
+4v4 on a 1600-wide screen and it is drawn while the economy table it leaves no room for stays on,
+its row in the dock saying so, until production goes again. The matchup, the minimap, the selection
+panel and the playback controls are placed before any of them and never give way. Which panels are
+in each other's way is worked out from where they would stand on this screen, the bottom panels'
+column included wherever this screen puts it, before any of them is drawn.
 
 A panel the watcher hides leaves its place to its neighbours rather than holding it empty, since the
 screen it was taking is what hiding it asked for: close military and the graphs are drawn where
-military was, close economy and the timeline moves up to the bar, and the centred bottom stack —
-selection, then production, then control groups — sits on whatever is below it and slides down when
-a panel under it goes. That stack stands on the screen's bottom edge, since an observer's screen keeps
-the minimap and nothing else of BW's console band, and keeps to a band of it running from the
-minimap's frame to the minimap's mirror image, short of the replay plate's corner whether or not the
-plate is up: the bottom-right corner stays free for the plate or a streamer's camera, and the
-selection panel never moves as the plate comes and goes. Every one of those offsets is animated rather than assigned, so
+military was, close economy and the timeline moves up to the bar, and of the bottom panels each sits
+on whatever is below it and slides down when a panel under it goes. They stand on the screen's
+bottom edge, since an observer's screen keeps the minimap and nothing else of BW's console band, and
+keep to a band of it running from the minimap's frame to the minimap's mirror image, short of the
+replay plate's corner whether or not the plate is up: the bottom-right corner stays free for the
+plate or a streamer's camera, and the selection panel never moves as the plate comes and goes. The
+selection panel keeps the band's far end, and the column of production stood on control groups
+keeps to the minimap: next to it on the bottom edge where the band has room for the two side by
+side, and on the minimap's frame, lined up with the economy wing over it, where it does not.
+Nothing stands on the selection panel, and the plate keeps its corner on every screen. Every one of those offsets is animated rather than assigned, so
 a panel crosses its neighbour's height instead of being redrawn somewhere else, and one that is
 still fading out still holds its place while it does.
 
@@ -165,26 +189,26 @@ way, with a rule naming each side under the first, and a game with one player a 
 at all — a divider between every pair of rows would be a divider for nothing. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
 what happened, newest at the top, naming the thing it is about with the game's own icon rather than
 with a word — the game hands out no readable names for two hundred units, upgrades and technologies.
-The wings on the right stop short of the dock's collapsed column, so a control never covers a number;
-the rail the dock expands into is allowed to sit over them, because that is a surface the watcher has
-just opened. The **map-control bar** is the strip under the matchup bar, and is the one surface drawn
+The wings on the right keep the screen's edge and stop short of the dock under them, so a
+control never covers a number; the table the dock expands into is allowed to sit over them, because
+that is a surface the watcher has just opened. The **map-control bar** is the strip under the matchup bar, and is the one surface drawn
 from a measurement the game does not keep: a host with none reports `None`, and then the bar is not
 drawn, its dock row is not offered and its key is not consumed. It is also not drawn where the wings
 leave no room for it, which is every screen narrower than the design's.
 
-The **production panel** is the tier-0 strip in the middle of the screen's bottom edge: a row per
+The **production panel** is the tier-0 strip of the bottom panels' column: a row per
 player of the things they are making, with a count and a progress bar per tile, and a click on a tile is
 `Intent::SelectProduction`, which the host turns into a selection of whatever is making it (asking
 again walks to the next one). A tile is the one place these panels draw one of the game's own icons,
 so the view carries both the texture id the host mapped and the atlas frame it is;
 a host with no atlas draws the number instead — the timeline's and the control groups' icons follow
-the same rule. The **control groups panel** is the strip above production: a row per player of the
+the same rule. The **control groups panel** is the strip under production: a row per player of the
 ten number keys, in the order a keyboard reads them, each slot carrying its digit, the icon of
 whatever the group is mostly made of and how many units are in it. All ten are drawn whether or not
 there is anything on them, because a row that only showed the groups a player happens to have would
 move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
-minute are both drawn dim, which is what the panel is read for. The **selection panel** is the
-bottom of that stack, and is the game console's own selection with nothing else of the console
+minute are both drawn dim, which is what the panel is read for. The **selection panel** stands at the
+far end of the bottom edge, and is the game console's own selection with nothing else of the console
 around it. It draws whichever reading the selection is: several units are the console's own twelve
 slots in two rows of six and nothing besides, since twelve sets of numbers at once are numbers
 nobody reads; one unit is drawn large with whose it is and the numbers the console only ever shows
@@ -202,10 +226,23 @@ the tint the game puts on a wireframe goes on the tile's outline instead: green,
 the unit's health and shields together fall through two thirds and a third. The body is the same
 height in every one of those readings, since a watcher clicking around a map would otherwise move
 every panel above it with every click. The
-**obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
-keycaps lit for the surfaces that are on;
-expanded, the control rail, with the names spelled out. Its list is `Panel::ALL` rather than a list
-of its own, so a panel built later appears there the day its toggle does.
+**obs dock** is part of whichever bottom panel holds the bottom-right corner. In a replay with the
+playback controls up it is the top of their panel: a strip of keycaps over the plate, divided from it
+by the plate's own edge, carrying the all-panels key and the panels a watcher turns on and off as
+the game goes. Otherwise, while anything is selected, it is a column of keycaps two wide against
+the selection panel's right edge and as tall as it, carrying every key but the selection panel's own,
+the two drawn as one panel.
+With neither the plate nor the selection panel on screen it is the strip again as a panel of its
+own, standing on the bottom edge with its right edge where the column's would be. The keycaps are lit
+for the surfaces that are on, and the plate's panel with the strip on it is as tall as the selection
+panel beside it. Expanded, the dock is a table with a row for each panel, its name and its key, and
+the matchup's style chips in the matchup's row, listed in the order the keycaps come in: on the
+strip opens upward into it, and beside the selection panel it opens over the pair of them. The
+dock's all-panels button and the `A` key both hide and restore every panel except the dock, including
+the playback controls. They share the same remembered panel set and leave the dock's visibility
+unchanged. The dock becomes a floating strip when the playback controls and selection panel are
+hidden, regardless of the pointer's position. A test holds the dock's rows to `Panel::ALL`, so a
+panel built later cannot be left without a key on it.
 
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
 once per second of game time and keeps two hours of per-player history, a timeline of what changed
@@ -275,25 +312,30 @@ built leaves the game's own behavior alone.
 | Speed up / down                      | `U` / `D` | Military                  | `M`     |
 | Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift/Ctrl: step) | `G`     |
 | All panels                           | `A`       | Timeline                  | `T`     |
-| Economy                              | `E`       | Control groups            | `H`     |
+| Economy                              | `I`       | Control groups            | `H`     |
 | Production                           | `F`       | Map control               | `N`     |
-| Console                              | `W`       | Cycle vision              | `V`     |
-| Side panel (matchup bar)             | `R`       | Spoiler-free              | `L`     |
-| Minimap                              | `Q`       | Edge dock (Shift: form)   | `` ` `` |
+| Matchup (Shift: form)                | `E`       | Cycle vision              | `V`     |
+| Minimap                              | `Q`       | Spoiler-free              | `L`     |
+| Dock (Shift: form)                   | `R`       | Selection                 | `W`     |
 
-Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `` ` `` takes the dock on
-and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` toggles the
+Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `Shift+E` switches the
+matchup between the bar and the compact scoreboard, `R` (or `` ` ``) takes the dock on
+and off screen while `Shift+R` switches it between its two forms, bringing a hidden dock back in
+the form it went away in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
 measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The playback keys are consumed only while a replay's view-model is being
-fed, and `L` only in a replay, so anywhere else they stay the game's.
+fed, and `L` only in a replay, so anywhere else they stay the game's. The keycap a panel's title row
+names its key with is a control as well: clicking it puts the panel away as the key does, and the
+dock's table puts the dock away from the keycap on its own title row.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
-per profile. The console and the minimap are independent booleans there, because they are separate
-surfaces in the game and observers routinely keep the minimap while hiding the console — which is
-why the DLL's `console.rs` moves them with separate calls, `set_console_visible`,
-`set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
-`spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
+per profile. The minimap is a boolean there of its own, because observers routinely keep the
+minimap while hiding the rest of the console — which is why the DLL's `console.rs` moves them with
+separate calls, `set_console_visible`, `set_minimap_visible` and `set_command_panel_visible`, rather
+than one. The selection panel that stands in for the rest of the console is a boolean of its own as
+well. `PanelPrefs` also carries
+`spoiler_free`, which is a viewing preference rather than a panel: hiding panels with `A` asks
 for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
 as the control rail, which is one surface in two forms rather than two panels; and `graph_series`
 and `graph_per_player`, which are what the one graphs panel is currently about rather than panels of

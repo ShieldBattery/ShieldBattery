@@ -20,6 +20,7 @@ pub(crate) mod military;
 pub(crate) mod minimap;
 pub(crate) mod production;
 pub(crate) mod race_icon;
+pub(crate) mod scoreboard;
 pub(crate) mod selection;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
@@ -28,12 +29,12 @@ mod unit_codes;
 pub use control_groups::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
 };
-pub use dock::{DockContext, DockOutcome, DockPlacement, render_obs_dock};
+pub use dock::{DockContext, DockOutcome, DockPlacement, DockStand, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
 pub use graphs::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
 };
-pub use layout::{Span, StackAnchor, StackSlot};
+pub use layout::{Span, StackAnchor, StackSlot, minimap_reserve};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
@@ -44,6 +45,7 @@ pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,
 };
+pub use scoreboard::{ScoreboardOutcome, render_scoreboard_view};
 pub use selection::{
     ProductionProgressView, ResourcesLeftView, SelectedUnitClick, SelectedUnitView, SelectionCase,
     SelectionOutcome, SelectionView, StatusColor, UnitStatusView, UnitUpgradeView, UpgradeEffect,
@@ -58,9 +60,10 @@ pub use timeline::{
 };
 pub use unit_codes::unit_code;
 
+use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
-    Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Stroke, StrokeKind, Ui, Vec2, pos2,
+    vec2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +71,7 @@ use crate::colors::{PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, text, theme, tiers};
+use crate::shell::Panel;
 use crate::tr;
 
 /// Everything the observer panels draw from this frame.
@@ -188,11 +192,14 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
         Align::Center => rect.center().x - galley.size().x * 0.5,
         Align::LEFT => rect.left(),
     };
-    ui.painter().galley(
-        pos2(x, rect.center().y - galley.size().y * 0.5),
-        galley,
-        spec.color,
-    );
+    // Centered on the rect's middle as it falls on the pixel grid. A line an odd number of pixels
+    // tall puts its top on a half pixel, and which way that rounds would otherwise turn on the float
+    // noise in where the panel came to rest, setting the same cell's text a pixel higher in one panel
+    // than in the next. From a middle on the grid the half pixel is exact, and egui rounds an exact
+    // half the same way every time.
+    let middle = rect.center().y.round_to_pixels(ui.ctx().pixels_per_point());
+    ui.painter()
+        .galley(pos2(x, middle - galley.size().y * 0.5), galley, spec.color);
 }
 
 /// The ways a count can be written, longest first: the whole number, then thousands (or millions)
@@ -267,9 +274,31 @@ pub(crate) fn paint_picked_race_chip(
     alpha: f32,
 ) {
     paint_race_chip(ui, rect, race, alpha);
-    if !random {
-        return;
+    if random {
+        paint_random_die(ui, rect, alpha);
     }
+}
+
+/// Paints a player's race as its icon alone, in the race's color and as large as `rect` holds, with
+/// no disc behind it: for a row whose color square and name already frame it, where a disc would
+/// only soften the icon's edge. A race left to chance gets the die the chip gets.
+pub(crate) fn paint_picked_race_icon(
+    ui: &Ui,
+    rect: Rect,
+    race: RaceView,
+    random: bool,
+    alpha: f32,
+) {
+    let diameter = rect.width().min(rect.height());
+    let icon = race_icon::icon_rect(rect.center(), diameter, ui.ctx().pixels_per_point());
+    race_icon::paint_race_icon(ui.painter(), icon, race, race.color().gamma_multiply(alpha));
+    if random {
+        paint_random_die(ui, rect, alpha);
+    }
+}
+
+/// Paints the die that badges a race picked at random, hung over the lower right of `rect`.
+fn paint_random_die(ui: &Ui, rect: Rect, alpha: f32) {
     let diameter = rect.width().min(rect.height());
     let center = rect.center() + Vec2::splat(diameter * RANDOM_DIE_OFFSET);
     race_icon::paint_die(
@@ -528,10 +557,7 @@ pub(crate) fn centred(rect: Rect, height: f32) -> Rect {
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Wing {
     Left,
-    /// The right edge, stood in from by `inset`: the dock's column while the dock is there.
-    Right {
-        inset: f32,
-    },
+    Right,
 }
 
 /// How far a wing sits from the edge it hangs off.
@@ -544,53 +570,22 @@ pub(crate) const WING_TOP_GAP: f32 = 14.0;
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
 
-/// The narrowest run of the bottom edge the centered stack is given beside the replay plate. Any
-/// narrower and the plate is lifted out of the stack's way instead: the narrowest any of the stack's
-/// panels is drawn at.
-pub(crate) const MIN_STACK_WIDTH: f32 = {
-    let widest = if control_groups::MIN_WIDTH > production::MIN_WIDTH {
-        control_groups::MIN_WIDTH
-    } else {
-        production::MIN_WIDTH
-    };
-    if widest > selection::PANEL_WIDTH {
-        widest
-    } else {
-        selection::PANEL_WIDTH
-    }
+/// How wide the bottom panels' column of production stood on control groups is laid out: the
+/// design's width of the wider of the two.
+pub(crate) const BOTTOM_COLUMN_WIDTH: f32 = if control_groups::PANEL_WIDTH > production::PANEL_WIDTH
+{
+    control_groups::PANEL_WIDTH
+} else {
+    production::PANEL_WIDTH
 };
 
-/// The narrowest run of the bottom edge the bottom panels are laid along as one row rather than
-/// stacked in the middle of it: the production and control-group column at the design's width of
-/// the wider of the two, and the selection panel beside it. Any narrower and the row would have to
-/// squeeze the column that a stack has the room to draw whole.
-pub(crate) const ROW_WIDTH: f32 = {
-    let column = if control_groups::PANEL_WIDTH > production::PANEL_WIDTH {
-        control_groups::PANEL_WIDTH
-    } else {
-        production::PANEL_WIDTH
-    };
-    column + WING_GAP + selection::PANEL_WIDTH
-};
+/// The narrowest run of the bottom edge the bottom panels are laid along as one row: the production
+/// and control-group column, and the selection panel beside it. Any narrower and the row would have
+/// to squeeze the column, which stands on the minimap's frame instead and is drawn whole there.
+pub(crate) const ROW_WIDTH: f32 = BOTTOM_COLUMN_WIDTH + WING_GAP + selection::PANEL_WIDTH;
 
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
-
-/// How much of the right edge the obs dock owns, which the wings on that side stop short of.
-///
-/// Reserved at the dock's collapsed width, which is the form a watcher leaves it in all game: a
-/// panel running under that column would have its last values covered by a control rather than by
-/// a surface. The rail the dock expands into is allowed to sit over the panels, because it is
-/// something the watcher has just opened and is reading rather than something in their way.
-pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
-
-/// How far the surfaces on the right edge stand in from it: the dock's column while they have to
-/// keep `clear` of it, and nothing once they do not. Each surface eases to its own place from this
-/// (see [`crate::kit::motion::Spot`]), so they follow the dock off the edge and make way for it
-/// coming back rather than jumping either way.
-pub(crate) fn dock_inset(clear: bool) -> f32 {
-    if clear { DOCK_RESERVE } else { 0.0 }
-}
 
 /// Height of one player's row in a stats wing.
 pub(crate) const STAT_ROW_HEIGHT: f32 = 30.0;
@@ -670,6 +665,15 @@ impl WingTops {
             right: top,
         }
     }
+
+    /// The left wing against the screen's top edge, which nothing hangs over, and the right one
+    /// under the scoreboard in that corner while it is drawn, and in its place once it is gone.
+    pub(crate) fn beside_scoreboard(scoreboard: Option<Rect>) -> WingTops {
+        WingTops {
+            left: WING_MARGIN,
+            right: WING_MARGIN + stack_share(scoreboard),
+        }
+    }
 }
 
 /// What one surface of a stack adds under the surfaces above it: its own height and the gap over it
@@ -677,13 +681,6 @@ impl WingTops {
 pub(crate) fn stack_share(rect: Option<Rect>) -> f32 {
     rect.map_or(0.0, |rect| rect.height() + WING_GAP)
 }
-
-/// The side of the square BW's minimap owns in the screen's bottom-left corner, in design units.
-///
-/// The game scales its console with the screen's height, so in points the square is that many
-/// 1080ths of the screen's own height: the full 348 on any screen at least 1080 tall, and less on a
-/// shorter one, where a point is a pixel and the console shrinks with the screen.
-pub(crate) const MINIMAP_RESERVE_UNITS: f32 = 348.0;
 
 /// Whether a table of rows in team order is worth splitting into the sides they belong to.
 ///
@@ -726,14 +723,66 @@ pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, team: u8) {
     }
 }
 
+/// Paints the name of the team a divided table opens with in `rect`, the part of the headings row
+/// over the names that the headings leave empty. The first team's rows start straight under the
+/// headings rather than under a divider of their own, so without it that team would be the one side
+/// the table never names.
+pub(crate) fn paint_first_team_name(ui: &Ui, rect: Rect, team: u8) {
+    paint_column_heading(ui, rect, &team_name(team), Align::LEFT);
+}
+
 /// What a team is called wherever one is named: on a divider, on a corner card, in a legend.
 pub fn team_name(team: u8) -> String {
     tr!("observer.teamName", "Team {{number}}", number = team)
 }
 
-/// Draws one of the stats wings: an ambient panel of a fixed width, hung off one edge of the screen
-/// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
-/// gone.
+/// What `panel` is called, spelled out: the title on its own header, and its row in the dock's
+/// table.
+pub(crate) fn panel_name(panel: Panel) -> String {
+    match panel {
+        Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
+        Panel::MapControl => tr!("observer.mapControl", "Map control"),
+        Panel::Economy => tr!("observer.panelEconomy", "Economy"),
+        Panel::Military => tr!("observer.panelMilitary", "Military"),
+        Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
+        Panel::Timeline => tr!("observer.panelTimeline", "Timeline"),
+        Panel::Production => tr!("observer.panelProduction", "Production"),
+        Panel::ControlGroups => tr!("observer.panelControlGroups", "Control groups"),
+        Panel::Selection => tr!("observer.panelSelection", "Selection"),
+        Panel::Minimap => tr!("observer.panelMinimap", "Minimap"),
+        Panel::PlaybackControls => tr!("observer.panelPlayback", "Playback"),
+        Panel::Dock => tr!("observer.panelDock", "Dock"),
+    }
+}
+
+/// What a stats wing that reports nothing of its own did this frame.
+pub struct WingOutcome {
+    /// Where the panel is on screen, for the host's hit testing and for the wing stacked under it.
+    pub rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub closed: bool,
+}
+
+/// One of the stats wings as it was drawn this frame.
+pub(crate) struct WingFrame<R> {
+    /// Where the panel is on screen.
+    pub(crate) rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub(crate) closed: bool,
+    /// What its rows reported.
+    pub(crate) inner: R,
+}
+
+/// The area the stats wing that is `panel` is drawn in.
+pub fn wing_id(panel: Panel) -> Id {
+    Id::new(("sb_wing", panel.label()))
+}
+
+/// Draws the stats wing that is `panel`: an ambient panel of a fixed width, hung off one edge of
+/// the screen with its top edge at `top`, fading and sliding in and out, under a title row naming
+/// it with the keycap of its key. Returns nothing at all once it is gone.
+///
+/// `add` draws the rows under the title row, which it is handed the place of.
 ///
 /// `top` is where the panels around this one leave it, which the caller eases (see
 /// [`crate::kit::motion::Spot`]): a wing whose neighbor was just hidden moves up the neighbor's whole
@@ -744,29 +793,38 @@ pub fn team_name(team: u8) -> String {
 /// its contents get is what is left of it inside the chrome.
 pub(crate) fn wing_panel<R>(
     ctx: &Context,
-    id: Id,
+    panel: Panel,
     wing: Wing,
     top: f32,
     width: f32,
     shown: bool,
-    add: impl FnOnce(&mut Ui) -> R,
-) -> Option<InnerResponse<R>> {
+    add: impl FnOnce(&mut Ui, Rect) -> R,
+) -> Option<WingFrame<R>> {
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-        Wing::Right { inset } => (Align2::RIGHT_TOP, -(WING_MARGIN + inset)),
+        Wing::Right => (Align2::RIGHT_TOP, -WING_MARGIN),
     };
+    let id = wing_id(panel);
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))
         .order(Order::Foreground);
-    motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
+    let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         tiers::tier0_panel(ui, |ui| {
             // The rows are stacked by the gaps each panel writes and by nothing else: these are
             // fixed layouts, and egui's own item spacing would add to every one of them.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(tiers::panel_content_width(width));
-            add(ui)
+            let header =
+                widgets::panel_header(ui, &panel_name(panel), panel.key_label().as_deref());
+            (header.key_clicked, add(ui, header.rect))
         })
         .inner
+    })?;
+    let (closed, rows) = inner.inner;
+    Some(WingFrame {
+        rect: inner.response.rect,
+        closed,
+        inner: rows,
     })
 }
 
@@ -808,14 +866,30 @@ pub(crate) fn paint_resource_value(
     );
 }
 
-/// Paints what leads a player's row in a stats wing: the bar of their own color, then their name.
+/// Gap between the square of the player's color that leads a stats wing's row and what follows it.
+pub(crate) const STAT_BAR_GAP: f32 = 8.0;
+
+/// Size of the race icon a stats wing's row carries between its color square and its name, where it
+/// carries one, and the gap after it.
+pub(crate) const STAT_RACE_ICON: f32 = 18.0;
+pub(crate) const STAT_RACE_ICON_GAP: f32 = 6.0;
+
+/// A player's race as a stats wing's row shows it: the race, and whether the lobby left it to chance.
+#[derive(Copy, Clone)]
+pub(crate) struct StatRace {
+    pub(crate) race: RaceView,
+    pub(crate) random: bool,
+}
+
+/// Paints what leads a player's row in a stats wing: the bar of their own color, then their race
+/// icon where `race` gives one, then their name.
 ///
-/// Both cells are taken from `cursor`, so a wing's columns are placed by one walk across the row and
+/// Every cell is taken from `cursor`, so a wing's columns are placed by one walk across the row and
 /// the identity block cannot drift from the values beside it.
 pub(crate) fn paint_stat_identity(
     ui: &Ui,
     cursor: &mut EdgeCursor,
-    gap: f32,
+    race: Option<StatRace>,
     name_width: f32,
     name: &str,
     color: Color32,
@@ -829,7 +903,12 @@ pub(crate) fn paint_stat_identity(
         // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
         if alpha < 1.0 { 0.5 } else { 1.0 },
     );
-    cursor.skip(gap);
+    cursor.skip(STAT_BAR_GAP);
+    if let Some(StatRace { race, random }) = race {
+        let icon = centred(cursor.take(STAT_RACE_ICON), STAT_RACE_ICON);
+        paint_picked_race_icon(ui, icon, race, random, alpha);
+        cursor.skip(STAT_RACE_ICON_GAP);
+    }
     let name_rect = cursor.take(name_width);
     paint_text(
         ui,
@@ -872,6 +951,40 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cells_text_lands_on_the_same_pixels_however_close_to_whole_its_row_comes_to_rest() {
+        // The top of the text drawn in a row placed at `row_top`, once it is on the pixel grid.
+        let text_top = |row_top: f32| {
+            let ctx = Context::default();
+            crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+            ctx.begin_pass(egui::RawInput::default());
+            let ui = Ui::new(ctx.clone(), Id::new("cell"), egui::UiBuilder::new());
+            let row = Rect::from_min_size(pos2(0.0, row_top), vec2(100.0, STAT_ROW_HEIGHT));
+            paint_text(
+                &ui,
+                row,
+                &text::numeral(STAT_VALUE_SIZE),
+                "200",
+                Align::LEFT,
+            );
+            let mut out = ctx.end_pass();
+            out.textures_delta.clear();
+            ctx.tessellate(out.shapes, ctx.pixels_per_point())
+                .into_iter()
+                .filter_map(|clipped| match clipped.primitive {
+                    egui::epaint::Primitive::Mesh(mesh) => Some(mesh),
+                    egui::epaint::Primitive::Callback(_) => None,
+                })
+                .flat_map(|mesh| mesh.vertices)
+                .map(|vertex| vertex.pos.y)
+                .fold(f32::INFINITY, f32::min)
+        };
+        let whole = text_top(82.0);
+        assert!(whole.is_finite(), "the text is drawn");
+        assert_eq!(text_top(82.0 - 1e-4), whole);
+        assert_eq!(text_top(82.0 + 1e-4), whole);
+    }
 
     #[test]
     fn an_icon_keeps_its_frames_proportions_inside_its_tile() {
