@@ -27,7 +27,8 @@ import { useAppSelector } from '../redux-hooks'
 /**
  * A lobby the user is in, as far as others joining it goes. A lobby takes joins at any time, its
  * games included: while it gathers, a joiner gets an open player slot, or else an open observer
- * slot, and otherwise waits on its bench.
+ * slot, and otherwise waits on its bench. While it counts down to a game, loads one or plays one,
+ * every joiner waits on its bench.
  */
 export interface JoinableLobby {
   id: SbLobbyId
@@ -35,8 +36,8 @@ export interface JoinableLobby {
   /** The people in the lobby: players and observers in its slots, and those on its bench. */
   memberCount: number
   /**
-   * The most people the lobby can hold: its slots a person can be in (closed slots and computers
-   * left out) and its bench.
+   * The most people the lobby can hold right now: those in it, the slots open to joiners while it
+   * gathers, and the places left on its bench.
    */
   capacity: number
 }
@@ -82,6 +83,11 @@ export interface CurrentActivityState {
   userId: SbUserId | undefined
   /** The lobby the user is in, if any. */
   lobby: Lobby | undefined
+  /**
+   * Whether the lobby is gathering for its next game, rather than counting down to it, loading it
+   * or playing it.
+   */
+  lobbyGathering: boolean
   gameClient: ReadonlyDeep<GameClientState>
   participatingGame: ParticipatingGameInfo | undefined
   watchedReplay: WatchedReplayInfo | undefined
@@ -94,21 +100,21 @@ const PLAYED_GAME_STATES: ReadonlySet<GameStatusString> = new Set([
   'resultSent',
 ])
 
-/** The kinds of slot a person can be in. */
-const PERSON_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
-  SlotType.Human,
-  SlotType.Observer,
-  SlotType.Open,
-  SlotType.ControlledOpen,
-])
+/** The kinds of slot a joiner can be seated in. */
+const OPEN_SLOT_TYPES: ReadonlySet<SlotType> = new Set([SlotType.Open, SlotType.ControlledOpen])
 
-function getJoinableLobby(lobby: Lobby): JoinableLobby {
+function getJoinableLobby(lobby: Lobby, gathering: boolean): JoinableLobby {
+  const memberCount = getHumanSlots(lobby).length + lobby.bench.length
+  const openSlots = gathering
+    ? getLobbySlots(lobby).filter(slot => OPEN_SLOT_TYPES.has(slot.type)).length
+    : 0
+  // Joins stop at a full bench, but a change of layout can put more people on it than that.
+  const benchPlaces = Math.max(0, MAX_BENCH - lobby.bench.length)
   return {
     id: lobby.id,
     visibility: lobby.visibility,
-    memberCount: getHumanSlots(lobby).length + lobby.bench.length,
-    capacity:
-      getLobbySlots(lobby).filter(slot => PERSON_SLOT_TYPES.has(slot.type)).length + MAX_BENCH,
+    memberCount,
+    capacity: memberCount + openSlots + benchPlaces,
   }
 }
 
@@ -137,7 +143,7 @@ export function getCurrentActivity(state: CurrentActivityState): CurrentActivity
       // the lobby's own.
       lobby:
         lobby && participatingGame.matchmakingType === undefined
-          ? getJoinableLobby(lobby)
+          ? getJoinableLobby(lobby, state.lobbyGathering)
           : undefined,
     }
   }
@@ -147,7 +153,7 @@ export function getCurrentActivity(state: CurrentActivityState): CurrentActivity
     const observing = ownSlot?.type === SlotType.Observer
     return {
       kind: 'lobby',
-      ...getJoinableLobby(lobby),
+      ...getJoinableLobby(lobby, state.lobbyGathering),
       name: lobby.name,
       mapName: lobby.map?.name,
       mapImageUrl: lobby.map?.image1024Url ?? lobby.map?.image512Url,
@@ -171,6 +177,10 @@ export function useCurrentActivity(): CurrentActivity | undefined {
   const selfUser = useSelfUser()
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyInfo = useAppSelector(s => s.lobby.info)
+  const lobbyGathering = useAppSelector(
+    s =>
+      !s.lobby.runState && !s.lobby.loadingState.isCountingDown && !s.lobby.loadingState.isLoading,
+  )
   const gameClient = useAppSelector(s => s.gameClient)
   const participatingGame = useAtomValue(participatingGameAtom)
   const watchedReplay = useAtomValue(watchedReplayAtom)
@@ -178,6 +188,7 @@ export function useCurrentActivity(): CurrentActivity | undefined {
   return getCurrentActivity({
     userId: selfUser?.id,
     lobby: inLobby ? lobbyInfo : undefined,
+    lobbyGathering,
     gameClient,
     participatingGame,
     watchedReplay,

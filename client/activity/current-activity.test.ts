@@ -41,13 +41,25 @@ const LOBBY = {
   bench: [],
 } as Partial<Lobby> as Lobby
 
-/** What `LOBBY` tells others about joining it: 2 people, 4 slots a person can be in and the bench. */
+/** What `LOBBY` tells others about joining it while it gathers: 2 people and 2 open slots. */
 const JOINABLE_LOBBY = {
   id: LOBBY_ID,
   visibility: 'listed',
   memberCount: 2,
   capacity: 12,
 } as const
+
+/** Returns `LOBBY` with `count` people on its bench. */
+function withBench(count: number): Lobby {
+  return {
+    ...LOBBY,
+    bench: Array.from({ length: count }, (_, i) => ({
+      userId: makeSbUserId(100 + i),
+      race: 'r' as const,
+      joinedAt: 0,
+    })),
+  }
+}
 
 const GAME: ParticipatingGameInfo = {
   gameId: 'game-1',
@@ -64,6 +76,7 @@ function stateWith(overrides: Partial<CurrentActivityState>): CurrentActivitySta
   return {
     userId: SELF,
     lobby: undefined,
+    lobbyGathering: true,
     gameClient: { watchOnly: {} },
     participatingGame: undefined,
     watchedReplay: undefined,
@@ -84,7 +97,7 @@ function watching(gameIds: string[], state: GameStatusString): CurrentActivitySt
 }
 
 describe('client/activity/current-activity', () => {
-  test('a lobby counts its people and the slots and bench places they could be in', () => {
+  test('a gathering lobby counts its people, its open slots and its bench places', () => {
     expect(getCurrentActivity(stateWith({ lobby: LOBBY }))).toEqual({
       kind: 'lobby',
       ...JOINABLE_LOBBY,
@@ -102,11 +115,9 @@ describe('client/activity/current-activity', () => {
   })
 
   test('a lobby counts those on its bench as people in it', () => {
-    const lobby: Lobby = {
-      ...LOBBY,
-      bench: [{ userId: makeSbUserId(3), race: 'r', joinedAt: 0 }],
-    }
-    expect(getCurrentActivity(stateWith({ userId: makeSbUserId(3), lobby }))).toMatchObject({
+    expect(
+      getCurrentActivity(stateWith({ userId: makeSbUserId(100), lobby: withBench(1) })),
+    ).toMatchObject({
       kind: 'lobby',
       memberCount: 3,
       capacity: 12,
@@ -115,22 +126,41 @@ describe('client/activity/current-activity', () => {
     })
   })
 
-  test('a lobby stays while its game is loading', () => {
+  test("a lobby that isn't gathering has room only on its bench, so it stays while loading", () => {
     expect(
       getCurrentActivity(
         stateWith({
           lobby: LOBBY,
+          lobbyGathering: false,
           gameClient: gameClientIn('game-1', 'launching'),
           participatingGame: GAME,
         }),
       ),
-    ).toMatchObject({ kind: 'lobby', ...JOINABLE_LOBBY })
+    ).toMatchObject({ kind: 'lobby', ...JOINABLE_LOBBY, capacity: 10 })
+  })
+
+  test("a lobby that isn't gathering is full once its bench is, even with open slots", () => {
+    expect(
+      getCurrentActivity(stateWith({ lobby: withBench(8), lobbyGathering: false })),
+    ).toMatchObject({ kind: 'lobby', memberCount: 10, capacity: 10 })
+  })
+
+  test('a bench pushed past its size by a change of layout leaves no bench places', () => {
+    expect(
+      getCurrentActivity(stateWith({ lobby: withBench(10), lobbyGathering: false })),
+    ).toMatchObject({ kind: 'lobby', memberCount: 12, capacity: 12 })
+    expect(getCurrentActivity(stateWith({ lobby: withBench(10) }))).toMatchObject({
+      kind: 'lobby',
+      memberCount: 12,
+      capacity: 14,
+    })
   })
 
   test('a game being played takes the place of the lobby it started from, and keeps it', () => {
     const activity = getCurrentActivity(
       stateWith({
         lobby: LOBBY,
+        lobbyGathering: false,
         gameClient: gameClientIn('game-1', 'playing'),
         participatingGame: GAME,
       }),
@@ -139,7 +169,7 @@ describe('client/activity/current-activity', () => {
       kind: 'game',
       game: GAME,
       ownSlot: GAME.slots[1],
-      lobby: JOINABLE_LOBBY,
+      lobby: { ...JOINABLE_LOBBY, capacity: 10 },
     })
   })
 
@@ -147,6 +177,7 @@ describe('client/activity/current-activity', () => {
     const activity = getCurrentActivity(
       stateWith({
         lobby: LOBBY,
+        lobbyGathering: false,
         gameClient: gameClientIn('game-1', 'playing'),
         participatingGame: { ...GAME, matchmakingType: MatchmakingType.Match1v1 },
       }),
