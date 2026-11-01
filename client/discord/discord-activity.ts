@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import {
   DiscordActivity,
   DiscordActivityImage,
+  DiscordActivityParty,
   makeLobbyJoinSecret,
 } from '../../common/discord-presence'
 import { gameTypeToLabel } from '../../common/games/game-type'
@@ -13,6 +14,7 @@ import { DiscordActivitySharing } from '../../common/settings/account-settings'
 import {
   CurrentActivity,
   GameActivity,
+  JoinableLobby,
   LobbyActivity,
   ReplayActivity,
 } from '../activity/current-activity'
@@ -86,7 +88,23 @@ function getMatchup(
   return players.map(slot => (slot.race ?? 'r').toUpperCase()).join('v')
 }
 
-function getGameActivity({ game, ownSlot }: GameActivity, t: TFunction): DiscordActivity {
+/**
+ * Returns the party that makes the activity joinable from Discord. Discord shows its size after the
+ * state, e.g. "Fighting Spirit (3 of 14)", and offers to join while there's room. An unlisted
+ * lobby's party is private, so people ask to join it and only those the user accepts (or invites
+ * from Discord) get its join secret.
+ */
+function getLobbyParty(lobby: JoinableLobby): DiscordActivityParty {
+  return {
+    id: lobby.id,
+    currentSize: lobby.memberCount,
+    maxSize: lobby.capacity,
+    privacy: lobby.visibility === 'listed' ? 'public' : 'private',
+    joinSecret: makeLobbyJoinSecret(lobby.id),
+  }
+}
+
+function getGameActivity({ game, ownSlot, lobby }: GameActivity, t: TFunction): DiscordActivity {
   const gameMode =
     game.matchmakingType !== undefined
       ? t('discord.activity.rankedMode', 'Ranked {{mode}}', {
@@ -118,6 +136,8 @@ function getGameActivity({ game, ownSlot }: GameActivity, t: TFunction): Discord
     startTimestamp: game.playingSince,
     largeImage: getMapImage(game.mapImageUrl, game.mapName),
     smallImage: observing ? getObserverIcon(t) : getRaceIcon(ownRace, t),
+    // The lobby's own party, so invites sent from the lobby stay good while its game runs.
+    party: lobby ? getLobbyParty(lobby) : undefined,
   }
 }
 
@@ -134,18 +154,7 @@ function getLobbyActivity(lobby: LobbyActivity, t: TFunction): DiscordActivity {
     state: lobby.mapName !== undefined ? fitDiscordText(lobby.mapName) : undefined,
     largeImage: getMapImage(lobby.mapImageUrl, lobby.mapName),
     smallImage: lobby.observing ? getObserverIcon(t) : getRaceIcon(lobby.ownRace, t),
-    // Discord shows the size after the state, e.g. "Fighting Spirit (2 of 4)", and offers to join
-    // while there's room. An unlisted lobby's party is private, so people ask to join it and only
-    // those the user accepts (or invites from Discord) get its join secret.
-    party: !lobby.inGame
-      ? {
-          id: lobby.id,
-          currentSize: lobby.playerCount,
-          maxSize: lobby.playerCount + lobby.openSlots,
-          privacy: listed ? 'public' : 'private',
-          joinSecret: makeLobbyJoinSecret(lobby.id),
-        }
-      : undefined,
+    party: getLobbyParty(lobby),
   }
 }
 

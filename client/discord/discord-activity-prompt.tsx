@@ -152,7 +152,7 @@ export function DiscordActivityPromptDialog({ close }: CommonDialogProps) {
           {t(
             'discord.activityPrompt.sharedLobby',
             'The map of the lobby you’re in, its name if it’s listed, and a Join button, or Ask ' +
-              'to Join if it’s unlisted',
+              'to Join if it’s unlisted, which stays up during the lobby’s games',
           )}
         </li>
         <li>
