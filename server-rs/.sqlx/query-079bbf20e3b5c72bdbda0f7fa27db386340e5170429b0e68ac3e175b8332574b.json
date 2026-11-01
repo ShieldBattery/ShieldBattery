@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                WITH buckets AS (\n                    SELECT\n                        season_id,\n                        map_id,\n                        races,\n                        opponent_races,\n                        GREATEST($2, LEAST($3, floor(mean_rating / $4) * $4))::int AS rating_band,\n                        count(*) AS games,\n                        count(*) FILTER (WHERE won) AS wins\n                    FROM matchup_sides\n                    WHERE matchmaking_type = $1\n                    GROUP BY 1, 2, 3, 4, 5\n                )\n                SELECT\n                    b.season_id AS \"season_id!\",\n                    b.map_id AS \"map_id!: SbMapId\",\n                    m.name AS \"map_name!\",\n                    b.races AS \"races!\",\n                    b.opponent_races AS \"opponent_races!\",\n                    b.rating_band AS \"rating_band!\",\n                    b.games AS \"games!\",\n                    b.wins AS \"wins!\"\n                FROM buckets b\n                JOIN uploaded_maps m ON m.id = b.map_id\n                ORDER BY 1, 2, 4, 5, 6\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "season_id!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchup_sides",
+            "name": "season_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "matchup_sides",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "map_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "uploaded_maps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "races!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "matchup_sides",
+            "name": "races"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "opponent_races!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "matchup_sides",
+            "name": "opponent_races"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "rating_band!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "wins!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "Float8",
+        "Float8",
+        "Float4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "079bbf20e3b5c72bdbda0f7fa27db386340e5170429b0e68ac3e175b8332574b"
+}

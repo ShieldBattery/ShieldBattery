@@ -75,6 +75,7 @@ import {
 } from '../leagues/league-models'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
+import { refreshMatchupSides } from '../matchmaking/matchup-sides-models'
 import {
   getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
@@ -1232,8 +1233,8 @@ export default class GameResultService {
 
   /**
    * Applies every side effect a set of reconciled results implies, within the caller's transaction:
-   * the matchmaking rating and league point changes, each player's `games_users` result row, and
-   * the lifetime win/loss stat counters. Disputed results get only the `games_users` rows — the
+   * the matchmaking rating and league point changes, each player's `games_users` result row, a
+   * matchmaking game's `matchup_sides` rows, and the lifetime win/loss stat counters. Disputed results get only the `games_users` rows — the
    * rating changes and stat counters wait until an outcome is actually known.
    *
    * Locking the games row and writing the games row itself are the caller's responsibility, and
@@ -1518,6 +1519,10 @@ export default class GameResultService {
       } else {
         await setUserReconciledResult(client, userId, gameId, result)
       }
+    }
+
+    if (gameRecord.config.gameSource === GameSource.Matchmaking) {
+      await refreshMatchupSides(client, gameId)
     }
 
     // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
