@@ -752,11 +752,13 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
                 whole_points(unit_id.shields()),
             )
         }),
-        energy: is_spellcaster(unit_id).then(|| {
-            (
-                whole_points(unit.energy() as i32),
-                whole_points(max_energy(bw, unit) as i32),
-            )
+        energy: lifetime_energy(unit).or_else(|| {
+            is_spellcaster(unit_id).then(|| {
+                (
+                    whole_points(unit.energy() as i32),
+                    whole_points(max_energy(bw, unit) as i32),
+                )
+            })
         }),
         kills: unit.kills(),
         status: None,
@@ -797,8 +799,21 @@ fn resources_left(unit: Unit) -> Option<ResourcesLeftView> {
     })
 }
 
-/// Whether units.dat marks this kind of unit a spellcaster, which is what the game draws energy
-/// for. `bw_dat` names the flags either side of this one in the same word, but not this one.
+/// Remaining lifetime as the console's energy readout: ten frames per point, rounded down.
+/// Hallucinations use their lifetime even when the copied unit is a spellcaster or a broodling.
+fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
+    let max = if unit.is_hallucination() {
+        135
+    } else if unit.id() == bw_dat::unit::BROODLING {
+        180
+    } else {
+        return None;
+    };
+    Some((u32::from(unit.death_timer()) / 10, max))
+}
+
+/// Whether units.dat marks this kind of unit a spellcaster, with an energy pool of its own.
+/// `bw_dat` names the flags either side of this one in the same word, but not this one.
 fn is_spellcaster(unit_id: UnitId) -> bool {
     const SPELLCASTER: u32 = 0x0020_0000;
     unit_id.flags() & SPELLCASTER != 0
@@ -1101,6 +1116,52 @@ mod tests {
     fn a_dying_units_negative_health_reads_as_none() {
         assert_eq!(whole_points(-1), 0);
         assert_eq!(whole_points(i32::MIN), 0);
+    }
+
+    #[test]
+    fn broodling_lifetime_counts_down_in_ten_frame_points() {
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.unit_id = bw_dat::unit::BROODLING.0;
+        let unit = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for (timer, current) in [(1800, 180), (1799, 179), (900, 90), (10, 1), (9, 0), (0, 0)] {
+            unsafe { (**unit).death_timer = timer };
+            assert_eq!(lifetime_energy(unit), Some((current, 180)));
+        }
+    }
+
+    #[test]
+    fn hallucinations_use_their_own_lifetime_regardless_of_copied_unit() {
+        use bw_dat::unit;
+
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.flags = 0x4000_0000;
+        raw.energy = 200 * 256;
+        let hallucination = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [unit::ZEALOT, unit::HIGH_TEMPLAR, unit::BROODLING] {
+            unsafe { (**hallucination).unit_id = id.0 };
+            for (timer, current) in [(1350, 135), (1349, 134), (670, 67), (9, 0), (0, 0)] {
+                unsafe { (**hallucination).death_timer = timer };
+                assert_eq!(lifetime_energy(hallucination), Some((current, 135)));
+            }
+        }
+    }
+
+    #[test]
+    fn other_removal_timers_do_not_supply_lifetime_energy() {
+        use bw_dat::unit;
+
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.death_timer = 100;
+        let timed = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [
+            unit::ZEALOT,
+            unit::HIGH_TEMPLAR,
+            unit::SCARAB,
+            unit::INTERCEPTOR,
+        ] {
+            unsafe { (**timed).unit_id = id.0 };
+            assert_eq!(lifetime_energy(timed), None);
+        }
     }
 
     #[test]
