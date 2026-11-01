@@ -295,8 +295,8 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^5.4.0
-        version: 5.4.0(supports-color@7.2.0)
+        specifier: ^5.4.1
+        version: 5.4.1(supports-color@7.2.0)
       nydus-client:
         specifier: ^5.4.0
         version: 5.4.0(supports-color@7.2.0)
@@ -6446,8 +6446,8 @@ packages:
     resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
     engines: {node: '>=22.0.0'}
 
-  nydus@5.4.0:
-    resolution: {integrity: sha512-J9qkWnUghRz97//0mS638Zt4fv8tposbTWhMyX8ydNU+BiJqRz3wf5tRTAb6TsQnAtpftKv8F/TvIIVyVWkuqw==}
+  nydus@5.4.1:
+    resolution: {integrity: sha512-Z6JfXzTrIdu5o1zkchLGO0iA5nAczD5aD1ReDgR/OjbzsFdwpd+7dFHmfsaMhZgwH3MqpGta2bFk8QveDT8tSQ==}
     engines: {node: '>=22.12'}
 
   nypm@0.6.6:
@@ -14236,7 +14236,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  nydus@5.4.0(supports-color@7.2.0):
+  nydus@5.4.1(supports-color@7.2.0):
     dependencies:
       backo2: 1.0.2
       engine.io: 6.6.11(supports-color@7.2.0)

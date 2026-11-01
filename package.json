@@ -126,7 +126,7 @@
     "mime": "^4.1.1",
     "nanoid": "^6.0.2",
     "node-interval-tree": "^2.1.2",
-    "nydus": "^5.4.0",
+    "nydus": "^5.4.1",
     "nydus-client": "^5.4.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
