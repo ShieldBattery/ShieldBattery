@@ -1277,22 +1277,10 @@ impl OverlayState {
                 }
             }
             Intent::DeselectSelectedUnit(index) => {
-                let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
-                if let Some(units) = without_unit(&selected, index) {
-                    self.out_state.select_group = Some(GroupSelection {
-                        units,
-                        center: false,
-                    });
-                }
+                self.narrow_selection(bw, |selected| without_unit(selected, index))
             }
             Intent::PickSelectedKind(index) => {
-                let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
-                if let Some(units) = of_same_kind(&selected, index, unit_kind) {
-                    self.out_state.select_group = Some(GroupSelection {
-                        units,
-                        center: false,
-                    });
-                }
+                self.narrow_selection(bw, |selected| of_same_kind(selected, index, unit_kind))
             }
             Intent::ClearSelection => self.out_state.clear_selection = true,
             Intent::FollowSelectedUnit(index) => {
@@ -1352,6 +1340,18 @@ impl OverlayState {
                 is_local: player_id == local,
             })
             .collect()
+    }
+
+    /// Selects the part of the selection that `narrow` keeps, or leaves the selection as it is where
+    /// `narrow` has nothing to change.
+    fn narrow_selection(&mut self, bw: &BwVars, narrow: impl FnOnce(&[Unit]) -> Option<Vec<Unit>>) {
+        let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
+        if let Some(units) = narrow(&selected) {
+            self.out_state.select_group = Some(GroupSelection {
+                units,
+                center: false,
+            });
+        }
     }
 
     /// Shows or stops showing the game through a player's eyes.
@@ -2249,25 +2249,30 @@ mod tests {
         );
     }
 
-    /// A selection read as (owner, unit type) pairs, which is all a Ctrl-click compares.
-    const MIXED: [(u8, u16); 5] = [(0, 0x5), (0, 0x1e), (1, 0x5), (0, 0x5), (0, 0x0)];
+    /// A selection read as (unit type, owner) pairs, the two things `unit_kind` reads.
+    const MIXED: [(u16, u8); 5] = [(0x5, 0), (0x1e, 0), (0x5, 1), (0x5, 0), (0x0, 0)];
 
     #[test]
     fn deselecting_takes_out_only_that_unit_and_keeps_the_order() {
         assert_eq!(
             without_unit(&MIXED, 1),
-            Some(vec![(0, 0x5), (1, 0x5), (0, 0x5), (0, 0x0)])
+            Some(vec![(0x5, 0), (0x5, 1), (0x5, 0), (0x0, 0)])
         );
         assert_eq!(
             without_unit(&MIXED, 4),
-            Some(vec![(0, 0x5), (0, 0x1e), (1, 0x5), (0, 0x5)])
+            Some(vec![(0x5, 0), (0x1e, 0), (0x5, 1), (0x5, 0)])
         );
     }
 
     #[test]
     fn deselecting_leaves_a_unit_selected_alone_as_it_is() {
-        assert_eq!(without_unit(&[(0, 0x5)], 0), None);
+        assert_eq!(without_unit(&[(0x5, 0)], 0), None);
+    }
+
+    #[test]
+    fn a_click_past_the_end_of_the_selection_changes_nothing() {
         assert_eq!(without_unit(&MIXED, MIXED.len()), None);
+        assert_eq!(of_same_kind(&MIXED, MIXED.len(), |unit| unit), None);
     }
 
     #[test]
@@ -2276,16 +2281,15 @@ mod tests {
         // other player's.
         assert_eq!(
             of_same_kind(&MIXED, 0, |unit| unit),
-            Some(vec![(0, 0x5), (0, 0x5)])
+            Some(vec![(0x5, 0), (0x5, 0)])
         );
-        assert_eq!(of_same_kind(&MIXED, 1, |unit| unit), Some(vec![(0, 0x1e)]));
-        assert_eq!(of_same_kind(&MIXED, 2, |unit| unit), Some(vec![(1, 0x5)]));
+        assert_eq!(of_same_kind(&MIXED, 1, |unit| unit), Some(vec![(0x1e, 0)]));
+        assert_eq!(of_same_kind(&MIXED, 2, |unit| unit), Some(vec![(0x5, 1)]));
     }
 
     #[test]
     fn picking_a_kind_changes_nothing_where_the_selection_is_all_that_kind() {
-        assert_eq!(of_same_kind(&[(0, 0x5), (0, 0x5)], 1, |unit| unit), None);
-        assert_eq!(of_same_kind(&[(0, 0x5)], 0, |unit| unit), None);
-        assert_eq!(of_same_kind(&MIXED, MIXED.len(), |unit| unit), None);
+        assert_eq!(of_same_kind(&[(0x5, 0), (0x5, 0)], 1, |unit| unit), None);
+        assert_eq!(of_same_kind(&[(0x5, 0)], 0, |unit| unit), None);
     }
 }
