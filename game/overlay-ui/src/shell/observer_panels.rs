@@ -477,6 +477,7 @@ impl ObserverPanels {
             stand: dock_stand,
             selection: selection_place,
             selection_drawn,
+            has_plate: has_playback_controls,
         };
 
         // The wings hang from under the top surfaces and end above whatever stands under them in
@@ -972,7 +973,13 @@ mod tests {
             .hit_rects
             .iter()
             .map(|hit| hit.rect)
-            .find(|rect| rect.size() == egui::vec2(dock::TABLE_WIDTH, dock::FLOATING_STRIP_HEIGHT))
+            .find(|rect| {
+                rect.size()
+                    == egui::vec2(
+                        dock::floating_strip_width(true),
+                        dock::FLOATING_STRIP_HEIGHT,
+                    )
+            })
             .expect("the dock floats as a strip");
         assert!(
             (strip.bottom() - (screen.y - WING_MARGIN)).abs() < 0.5,
@@ -1012,7 +1019,13 @@ mod tests {
         assert!(rects().all(|rect| rect.width() != selection::PANEL_WIDTH));
         assert!(dock_column(&output).is_none());
         let strip = rects()
-            .find(|rect| rect.size() == egui::vec2(dock::TABLE_WIDTH, dock::FLOATING_STRIP_HEIGHT))
+            .find(|rect| {
+                rect.size()
+                    == egui::vec2(
+                        dock::floating_strip_width(true),
+                        dock::FLOATING_STRIP_HEIGHT,
+                    )
+            })
             .expect("the dock floats as a strip");
         assert!(
             (strip.right_bottom() - column.right_bottom()).length() < 0.5,
@@ -1091,7 +1104,11 @@ mod tests {
                 .iter()
                 .map(|hit| hit.rect)
                 .find(|rect| {
-                    rect.size() == egui::vec2(dock::TABLE_WIDTH, dock::FLOATING_STRIP_HEIGHT)
+                    rect.size()
+                        == egui::vec2(
+                            dock::floating_strip_width(true),
+                            dock::FLOATING_STRIP_HEIGHT,
+                        )
                 })
                 .expect("the dock floats with the pointer still at its old button");
 

@@ -6,8 +6,9 @@
 //! plate, divided from it by the plate's own edge. Otherwise, while anything is selected, it is a
 //! column of keycaps two wide against the selection panel's right edge and as tall as it, the two
 //! drawn as one panel. With neither on screen it is a strip of its own, floating where the column
-//! would end. Either way the keycaps are lit for the panels on screen: a reminder for someone who
-//! already knows the keys.
+//! would end, carrying in a replay a key for the playback controls it would otherwise stand on.
+//! Either way the keycaps are lit for the panels on screen: a reminder for someone who already
+//! knows the keys.
 //!
 //! The all-panels button and its keyboard shortcut hide and restore every panel except the dock.
 //! The dock moves to its floating strip whenever neither playback nor selection is shown.
@@ -124,7 +125,8 @@ const PAIRS: [[Panel; 2]; 5] = [
 /// The keys the strip carries after the all-panels key, grouped as the table pairs them: the panels
 /// a watcher turns on and off as the game goes. The rest are the table's alone, for want of room on
 /// the strip: map control is a sliver of a bar, the minimap is all but never put away, and the
-/// playback controls are the panel the strip is the top of.
+/// playback controls are the panel the strip is the top of. Floating in a replay, with the playback
+/// controls put away, the strip carries [`PLATE_GROUP`] after these as the way to bring them back.
 const STRIP_GROUPS: [&[Panel]; 4] = [
     &[Panel::Matchup],
     &[Panel::Economy, Panel::Timeline],
@@ -149,6 +151,23 @@ const STRIP_CONTENT_WIDTH: f32 = {
 // The strip is laid out to fit the plate it stands on: a key past the room would be drawn outside
 // the dock's chrome.
 const _: () = assert!(STRIP_CONTENT_WIDTH <= TABLE_WIDTH - tiers::PANEL_MARGIN_WIDTH);
+
+/// The playback controls' key, a group of its own at the end of the floating strip in a replay.
+const PLATE_GROUP: &[Panel] = &[Panel::PlaybackControls];
+
+/// How much wider the floating strip is for [`PLATE_GROUP`]: the plate's width has no room for it.
+const PLATE_GROUP_WIDTH: f32 = GROUP_GAP * 2.0 + theme::HAIRLINE + STRIP_KEY_WIDTH;
+
+/// How wide the floating strip is, chrome included: the table's width, and wider by the playback
+/// controls' key in a game with a plate. Nothing beside it decides its width, so it takes what its
+/// keys need.
+pub(crate) const fn floating_strip_width(has_plate: bool) -> f32 {
+    if has_plate {
+        TABLE_WIDTH + PLATE_GROUP_WIDTH
+    } else {
+        TABLE_WIDTH
+    }
+}
 
 /// What a style of the matchup is called, on the card naming the chip that picks it.
 fn matchup_style_label(style: MatchupStyle) -> String {
@@ -208,11 +227,11 @@ fn column_beside(selection: Rect) -> Rect {
 
 /// The floating strip's place: on the bottom edge of the selection panel's place at `selection`,
 /// with its right edge where the column's would be, so the dock keeps its corner as it changes form.
-fn floating_strip(selection: Rect) -> Rect {
+fn floating_strip(selection: Rect, has_plate: bool) -> Rect {
     let column = column_beside(selection);
     Rect::from_min_max(
         pos2(
-            column.right() - TABLE_WIDTH,
+            column.right() - floating_strip_width(has_plate),
             column.bottom() - FLOATING_STRIP_HEIGHT,
         ),
         column.right_bottom(),
@@ -241,6 +260,9 @@ pub struct DockPlacement {
     pub selection: Rect,
     /// Whether the selection panel is on screen, which the column is drawn as one panel with.
     pub selection_drawn: bool,
+    /// Whether this game has playback controls to put on screen, which the floating strip carries
+    /// a key for.
+    pub has_plate: bool,
 }
 
 impl DockPlacement {
@@ -251,7 +273,7 @@ impl DockPlacement {
         match self.stand {
             DockStand::Plate => strip_over(self.plate),
             DockStand::Selection => column_beside(self.selection),
-            DockStand::Nothing => floating_strip(self.selection),
+            DockStand::Nothing => floating_strip(self.selection, self.has_plate),
         }
     }
 }
@@ -318,11 +340,13 @@ pub fn render_obs_dock(
             edge: tiers::Edge::Bottom,
             divides: false,
         }),
+        plate_key: false,
     };
     let floating = StripStand {
         id: Id::new("sb_obs_dock_floating"),
-        rect: floating_strip(placement.selection),
+        rect: floating_strip(placement.selection, placement.has_plate),
         joined: None,
+        plate_key: placement.has_plate,
     };
     let beside = standing(DockStand::Selection);
     [
@@ -346,6 +370,8 @@ struct StripStand {
     rect: Rect,
     /// How the strip is joined to the panel under it, if it stands on one.
     joined: Option<tiers::Joined>,
+    /// Whether the strip carries [`PLATE_GROUP`] after its other keys.
+    plate_key: bool,
 }
 
 /// A strip, or the table it opens upward into: the top of the plate's panel, or a panel of its own.
@@ -356,7 +382,12 @@ fn render_strip(
     stand: StripStand,
     shown: bool,
 ) -> Option<DockOutcome> {
-    let StripStand { id, rect, joined } = stand;
+    let StripStand {
+        id,
+        rect,
+        joined,
+        plate_key,
+    } = stand;
     let body = rect.height() - tiers::PANEL_MARGIN_HEIGHT;
     // The table opens like a drawer pulled up out of the strip: the strip's bottom edge stays where
     // it stands while its height eases between the two forms.
@@ -384,7 +415,7 @@ fn render_strip(
             if height > body + 0.5 {
                 draw_table(ui, rect, prefs, dock)
             } else {
-                draw_strip(ui, rect, prefs, dock)
+                draw_strip(ui, rect, prefs, dock, plate_key)
             }
         })
         .inner
@@ -547,8 +578,15 @@ fn draw_expander(ui: &mut Ui, rect: Rect, expanded: bool) -> (bool, Option<Hint>
 }
 
 /// Draws the strip in `rect`: the all-panels key, a keycap for each panel the strip carries with a
-/// rule between their groups, and the chevron that opens the table at the far end.
-fn draw_strip(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_>) -> DockOutcome {
+/// rule between their groups, the playback controls' key last with `plate_key`, and the chevron
+/// that opens the table at the far end.
+fn draw_strip(
+    ui: &mut Ui,
+    rect: Rect,
+    prefs: &PanelPrefs,
+    dock: &DockContext<'_>,
+    plate_key: bool,
+) -> DockOutcome {
     let mut outcome = DockOutcome::none();
     let keycap_at = |left: f32| {
         Rect::from_min_size(
@@ -561,7 +599,10 @@ fn draw_strip(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     outcome.all_toggled = all_toggled;
 
     let mut left = all.right();
-    for group in STRIP_GROUPS {
+    let groups = STRIP_GROUPS
+        .into_iter()
+        .chain(plate_key.then_some(PLATE_GROUP));
+    for group in groups {
         let rule = left + GROUP_GAP;
         ui.painter().vline(
             rule + theme::HAIRLINE * 0.5,
@@ -1159,6 +1200,7 @@ mod tests {
             stand: DockStand::Plate,
             selection: SELECTION,
             selection_drawn: true,
+            has_plate: true,
         }
     }
 
@@ -1229,7 +1271,10 @@ mod tests {
         assert_eq!(strip, placement.footprint());
         assert_eq!(strip.right(), SELECTION.right() + COLUMN_WIDTH);
         assert_eq!(strip.bottom(), SELECTION.bottom());
-        assert_eq!(strip.size(), vec2(TABLE_WIDTH, FLOATING_STRIP_HEIGHT));
+        assert_eq!(
+            strip.size(),
+            vec2(floating_strip_width(true), FLOATING_STRIP_HEIGHT)
+        );
 
         let [table] = placed(true, placement, 1)[..] else {
             panic!("the table alone is drawn");
@@ -1239,5 +1284,84 @@ mod tests {
             table.height(),
             table_height(Mode::Replay, true) + tiers::PANEL_MARGIN_HEIGHT
         );
+    }
+
+    /// The panel the dock toggles once the pointer clicks at `pos`, with the dock where `placement`
+    /// puts it on a settled 1080p screen.
+    fn toggled_by_click(placement: DockPlacement, pos: Pos2) -> Option<Panel> {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let hotkeys = Hotkeys::defaults();
+        let prefs = PanelPrefs::default();
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let mut toggled = None;
+        for pass in 0..8 {
+            let mut events = vec![egui::Event::PointerMoved(pos)];
+            match pass {
+                6 => events.push(button(true)),
+                7 => events.push(button(false)),
+                _ => {}
+            }
+            ctx.begin_pass(egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                time: Some(f64::from(pass) * 0.25),
+                events,
+                ..Default::default()
+            });
+            let outcome = render_obs_dock(
+                &prefs,
+                &DockContext {
+                    hotkeys: &hotkeys,
+                    mode: Mode::Replay,
+                    map_control_available: true,
+                    placement,
+                    displaced: &[],
+                },
+                &ctx,
+            );
+            toggled = toggled.or(outcome.and_then(|outcome| outcome.toggled));
+            let mut out = ctx.end_pass();
+            out.textures_delta.clear();
+        }
+        toggled
+    }
+
+    #[test]
+    fn floating_in_a_replay_the_strip_carries_the_playback_controls_key_before_its_chevron() {
+        let placement = DockPlacement {
+            stand: DockStand::Nothing,
+            selection_drawn: false,
+            ..on_plate(PLATE)
+        };
+        let [strip] = placed(false, placement, 1)[..] else {
+            panic!("the strip alone is drawn");
+        };
+        let content_left = strip.left() + tiers::PANEL_MARGIN_WIDTH * 0.5;
+        let key_right = content_left + STRIP_CONTENT_WIDTH - GROUP_GAP * 2.0 - CHEVRON_WIDTH
+            + PLATE_GROUP_WIDTH;
+        let key = pos2(key_right - STRIP_KEY_WIDTH * 0.5, strip.center().y);
+        assert_eq!(
+            toggled_by_click(placement, key),
+            Some(Panel::PlaybackControls)
+        );
+    }
+
+    #[test]
+    fn without_a_plate_the_floating_strip_keeps_the_tables_width() {
+        let placement = DockPlacement {
+            stand: DockStand::Nothing,
+            selection_drawn: false,
+            has_plate: false,
+            ..on_plate(PLATE)
+        };
+        let [strip] = placed(false, placement, 1)[..] else {
+            panic!("the strip alone is drawn");
+        };
+        assert_eq!(strip.size(), vec2(TABLE_WIDTH, FLOATING_STRIP_HEIGHT));
     }
 }

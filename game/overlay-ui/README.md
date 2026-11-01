@@ -233,7 +233,8 @@ the game goes. Otherwise, while anything is selected, it is a column of keycaps 
 the selection panel's right edge and as tall as it, carrying every key but the selection panel's own,
 the two drawn as one panel.
 With neither the plate nor the selection panel on screen it is the strip again as a panel of its
-own, standing on the bottom edge with its right edge where the column's would be. The keycaps are lit
+own, standing on the bottom edge with its right edge where the column's would be, and in a replay
+wider by a last key for the playback controls, the way back to the plate. The keycaps are lit
 for the surfaces that are on, and the plate's panel with the strip on it is as tall as the selection
 panel beside it. Expanded, the dock is a table with a row for each panel, its name and its key, and
 the matchup's style chips in the matchup's row, listed in the order the keycaps come in: on the
