@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
@@ -102,11 +103,13 @@ describe('ActiveGameManager packaged launch checks', () => {
     electronApp.isPackaged = true
     vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
     launch()
-    await vi.waitFor(() => expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
-      expect.stringMatching(/shieldbattery_64\.dll$/),
-      'C:\\StarCraft\\x86_64\\StarCraft.exe',
-      expect.any(Function),
-    ))
+    await vi.waitFor(() =>
+      expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
+        expect.stringMatching(/shieldbattery_64\.dll$/),
+        path.join('C:\\StarCraft', 'x86_64', 'StarCraft.exe'),
+        expect.any(Function),
+      ),
+    )
     expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft')
     expect(vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0]).toBeLessThan(
       verifyGame.mock.invocationCallOrder[0],
