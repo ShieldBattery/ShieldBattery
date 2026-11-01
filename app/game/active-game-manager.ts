@@ -1132,11 +1132,6 @@ async function doLaunch(
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`, { cause: err })
   }
-  if (app.isPackaged) {
-    const { verifyGame } = await import('virtual:sb-security-impl')
-    await verifyGame?.(injectPath)
-  }
-
   let { starcraftPath } = settings
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
@@ -1146,13 +1141,18 @@ async function doLaunch(
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
 
+  let appPath = settings.launch32Bit
+    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
+    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
+  if (app.isPackaged) {
+    const { verifyGame } = await import('virtual:sb-security-impl')
+    await verifyGame?.(injectPath, appPath, msg => log.error(msg))
+  }
+
   // Ensure that our local settings file is up-to-date with the current settings
   await scrSettings.writeGameSettingsFile(startsInSd(settings))
 
   const userDataPath = app.getPath('userData')
-  let appPath = settings.launch32Bit
-    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
-    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
   try {
     // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
     // compat settings registry key

@@ -98,20 +98,24 @@ describe('ActiveGameManager packaged launch checks', () => {
     return { manager, statuses }
   }
 
-  it('checks a packaged DLL before proceeding to StarCraft setup', async () => {
+  it('checks packaged game files after validating the StarCraft path', async () => {
     electronApp.isPackaged = true
+    vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
     launch()
-    await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
-    expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
+    await vi.waitFor(() => expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
       expect.stringMatching(/shieldbattery_64\.dll$/),
-    )
-    expect(verifyGame.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0],
+      'C:\\StarCraft\\x86_64\\StarCraft.exe',
+      expect.any(Function),
+    ))
+    expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft')
+    expect(vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0]).toBeLessThan(
+      verifyGame.mock.invocationCallOrder[0],
     )
   })
 
   it('fails a packaged launch when the DLL check rejects', async () => {
     electronApp.isPackaged = true
+    vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
     const failure = new Error('DLL check failed')
     verifyGame.mockRejectedValue(failure)
     const { manager, statuses } = launch()
@@ -124,7 +128,7 @@ describe('ActiveGameManager packaged launch checks', () => {
       ),
     )
     expect(manager.getStatus()).toBeNull()
-    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    expect(checkStarcraftPath).toHaveBeenCalledOnce()
   })
 
   it('allows unpackaged DLLs even when electron-is-dev is false', async () => {
