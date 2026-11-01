@@ -173,7 +173,9 @@ unsafe extern "system" fn wnd_proc_scr(
                     // Fake a minimize event to the SC:R wndproc to put it in a state where it will
                     // properly ClipCursor
                     if let Some(orig_wnd_proc) = with_forge(|f| f.orig_wnd_proc) {
-                        orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
+                        gamma::with_hooks_disabled(|| {
+                            orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
+                        });
                     }
                     return Some(0);
                 }
@@ -400,6 +402,8 @@ unsafe fn msg_game_started(window: HWND) {
         let menu = GetSystemMenu(window, FALSE);
         EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_ENABLED);
         DrawMenuBar(window);
+
+        gamma::game_started(window);
 
         // Ensure any leftover lobby init timer is cleaned up
         KillTimer(window, STEP_LOBBY_COMPLETION_ID);

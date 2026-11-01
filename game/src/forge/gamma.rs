@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::mem;
 use std::ptr::{self, null};
 use std::sync::Mutex;
@@ -5,7 +6,7 @@ use std::sync::Mutex;
 use lazy_static::lazy_static;
 use libc::c_void;
 use winapi::shared::windef::{HDC, HWND};
-use winapi::um::wingdi::{CreateDCW, DeleteDC, SetDeviceGammaRamp};
+use winapi::um::wingdi::{CreateDCW, DeleteDC, GetDeviceGammaRamp, SetDeviceGammaRamp};
 use winapi::um::winuser::{
     CCHDEVICENAME, GetForegroundWindow, GetMonitorInfoW, IsIconic, KillTimer,
     MONITOR_DEFAULTTONEAREST, MONITORINFO, MONITORINFOEXW, MonitorFromWindow, SIZE_MINIMIZED,
@@ -13,7 +14,7 @@ use winapi::um::winuser::{
     WindowFromDC,
 };
 
-use super::{game_window_handle, is_forge_window, scr_hooks_disabled, with_scr_hooks_disabled};
+use super::{game_window_handle, is_forge_window};
 
 const GAMMA_RAMP_WORDS: usize = 3 * 256;
 const GAMMA_MIN: f32 = 0.6;
@@ -83,12 +84,20 @@ struct GammaState {
 }
 
 impl GammaState {
-    fn record_desktop(&mut self, ramp: GammaRamp, device: Option<DisplayDevice>) {
+    fn record_desktop(&mut self, ramp: GammaRamp, device: Option<DisplayDevice>) -> GammaRamp {
+        // Keep one baseline per display for the window's lifetime. Reads can happen after game
+        // gamma has been installed, including while a different desired ramp is waiting for focus.
+        if let Some(desktop) = self.desktop
+            && self.device == device
+        {
+            return desktop;
+        }
         self.desktop = Some(ramp);
         self.desired = self.configured.filter(|&desired| desired != ramp);
         if device.is_some() {
             self.device = device;
         }
+        ramp
     }
 
     fn observe_set(&mut self, ramp: GammaRamp) -> RampObservation {
@@ -99,16 +108,12 @@ impl GammaState {
             } else {
                 RampObservation::Unchanged
             }
-        } else if self.desktop.is_some() || self.app_active {
-            if self.desired == Some(ramp) {
-                RampObservation::Unchanged
-            } else {
-                self.desired = Some(ramp);
-                self.configured = Some(ramp);
-                RampObservation::DesiredChanged
-            }
-        } else {
+        } else if self.desired == Some(ramp) {
             RampObservation::Unchanged
+        } else {
+            self.desired = Some(ramp);
+            self.configured = Some(ramp);
+            RampObservation::DesiredChanged
         }
     }
 
@@ -200,11 +205,21 @@ unsafe fn create_display_dc(window: HWND, cached: Option<DisplayDevice>) -> Opti
     }
 }
 
+thread_local! {
+    static HOOKS_DISABLED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Suppresses gamma side effects from synthetic window messages sent to SC:R.
+pub(super) fn with_hooks_disabled<R>(f: impl FnOnce() -> R) -> R {
+    let previous = HOOKS_DISABLED.replace(true);
+    let _restore = scopeguard::guard(previous, |previous| HOOKS_DISABLED.set(previous));
+    f()
+}
+
 unsafe fn game_window_for_dc(hdc: HDC) -> Option<HWND> {
     unsafe {
-        if scr_hooks_disabled() {
-            return None;
-        }
+        // SC:R can apply gamma inside Forge's message handlers, where the general window hooks
+        // are disabled. Our display DCs have no HWND, so they bypass gamma routing independently.
         let window = WindowFromDC(hdc);
         if window.is_null() || game_window_handle() != Some(window) {
             None
@@ -235,7 +250,8 @@ pub(super) fn get_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
         if result != 0 {
             let should_reapply = {
                 let mut state = GAMMA_STATE.lock().unwrap();
-                state.record_desktop(GammaRamp::read(ramp), device);
+                let desktop = state.record_desktop(GammaRamp::read(ramp), device);
+                ptr::write_unaligned(ramp.cast::<GammaRamp>(), desktop);
                 state.desired.is_some()
             };
             if should_reapply {
@@ -252,15 +268,40 @@ pub(super) fn set_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
         let Some(window) = game_window_for_dc(hdc) else {
             return orig(hdc, ramp);
         };
+        if HOOKS_DISABLED.get() {
+            return 1;
+        }
         if ramp.is_null() {
             return orig(hdc, ramp);
         }
 
+        let cached_device = GAMMA_STATE.lock().unwrap().device;
+        let display_dc = create_display_dc(window, cached_device);
+        if GAMMA_STATE.lock().unwrap().desktop.is_none() {
+            // A successful write must not precede the baseline read, or a later GetDeviceGammaRamp
+            // would save game gamma as the desktop curve. Display DC calls bypass our window hook.
+            let mut desktop = GammaRamp([0; GAMMA_RAMP_WORDS]);
+            let dc = display_dc.as_ref().map_or(hdc, |dc| dc.handle);
+            if GetDeviceGammaRamp(dc, ptr::from_mut(&mut desktop).cast()) == 0 {
+                warn!("Could not read desktop gamma before applying SC:R's gamma ramp");
+                return 0;
+            }
+            GAMMA_STATE
+                .lock()
+                .unwrap()
+                .record_desktop(desktop, display_dc.as_ref().map(|dc| dc.device));
+        }
+
         let ramp = GammaRamp::read(ramp);
-        let (cached_device, observation) = {
+        let foreground = IsIconic(window) == 0 && GetForegroundWindow() == window;
+        let (observation, should_apply) = {
             let mut state = GAMMA_STATE.lock().unwrap();
+            if !foreground {
+                state.set_app_active(false);
+            }
             let observation = state.observe_set(ramp);
-            (state.device, observation)
+            let should_apply = foreground || state.desktop == Some(ramp);
+            (observation, should_apply)
         };
         match observation {
             RampObservation::DesiredChanged => debug!("Captured SC:R's desired gamma ramp"),
@@ -270,7 +311,11 @@ pub(super) fn set_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
             RampObservation::Unchanged => (),
         }
 
-        let display_dc = create_display_dc(window, cached_device);
+        // SC:R also reapplies its game ramp while inactive. Retain the request for activation,
+        // but allow only desktop restoration to change the monitor while another app is in front.
+        if !should_apply {
+            return 1;
+        }
         if let Some(ref dc) = display_dc {
             GAMMA_STATE.lock().unwrap().device = Some(dc.device);
             orig(dc.handle, ramp.as_api_ptr())
@@ -314,6 +359,11 @@ unsafe fn reapply_desired_ramp(window: HWND) {
 
         let (desired, device) = {
             let mut state = GAMMA_STATE.lock().unwrap();
+            // The configured startup ramp must not be installed before the desktop baseline is
+            // known. A successful native read schedules another activation timer.
+            if state.desktop.is_none() {
+                return;
+            }
             if !state.app_active {
                 state.set_app_active(true);
             }
@@ -330,12 +380,10 @@ unsafe fn reapply_desired_ramp(window: HWND) {
 
         GAMMA_STATE.lock().unwrap().device = Some(dc.device);
         debug!("Reapplying SC:R's gamma ramp after display activation");
-        let result = with_scr_hooks_disabled(|| {
-            SetDeviceGammaRamp(
-                dc.handle,
-                desired.as_api_ptr().cast::<winapi::ctypes::c_void>(),
-            )
-        });
+        let result = SetDeviceGammaRamp(
+            dc.handle,
+            desired.as_api_ptr().cast::<winapi::ctypes::c_void>(),
+        );
         if result == 0 {
             warn!("Failed to reapply SC:R's gamma ramp after display activation");
         }
@@ -388,6 +436,12 @@ pub(super) unsafe fn handle_window_message(window: HWND, msg: u32, wparam: usize
             _ => (),
         }
     }
+}
+
+pub(super) unsafe fn game_started(window: HWND) {
+    // Startup display changes can finish before the window takes focus. Apply again once the game
+    // is ready, even if SC:R does not send another activation message.
+    unsafe { schedule_reapply(window) };
 }
 
 pub(super) fn window_created() {
@@ -465,10 +519,162 @@ mod tests {
     }
 
     #[test]
-    fn inactive_ramp_without_desktop_sample_is_ignored() {
+    fn inactive_ramp_before_desktop_capture_is_retained() {
+        let desired = ramp(2);
         let mut state = GammaState::default();
-        assert_eq!(state.observe_set(ramp(2)), RampObservation::Unchanged);
-        assert!(state.desired.is_none());
+        assert_eq!(state.observe_set(desired), RampObservation::DesiredChanged);
+        state.record_desktop(ramp(1), None);
+        state.set_app_active(true);
+        assert!(state.desired == Some(desired));
+    }
+
+    #[test]
+    fn reading_applied_game_gamma_keeps_desktop_baseline_and_desired() {
+        let desktop = ramp(1);
+        let desired = ramp(2);
+        let mut state = GammaState::default();
+        state.record_desktop(desktop, None);
+        state.set_app_active(true);
+        state.finish_restore();
+        state.observe_set(desired);
+
+        assert!(state.record_desktop(desired, None) == desktop);
+        assert!(state.desktop == Some(desktop));
+        assert!(state.desired == Some(desired));
+        state.set_app_active(false);
+        assert_eq!(state.observe_set(desktop), RampObservation::Unchanged);
+        assert!(state.desired == Some(desired));
+    }
+
+    #[test]
+    fn reading_an_older_game_ramp_keeps_the_baseline_and_pending_request() {
+        let mut state = GammaState::default();
+        state.record_desktop(ramp(1), None);
+        state.set_app_active(true);
+        state.observe_set(ramp(2));
+        state.set_app_active(false);
+        state.observe_set(ramp(3));
+        assert!(state.record_desktop(ramp(2), None) == ramp(1));
+        assert!(state.desktop == Some(ramp(1)));
+        assert!(state.desired == Some(ramp(3)));
+    }
+
+    #[test]
+    fn a_different_display_captures_its_own_baseline() {
+        let device = super::DisplayDevice([1; super::CCHDEVICENAME]);
+        let other_device = super::DisplayDevice([2; super::CCHDEVICENAME]);
+        let mut state = GammaState::default();
+        state.record_desktop(ramp(1), Some(device));
+        state.observe_set(ramp(2));
+        assert!(state.record_desktop(ramp(3), Some(other_device)) == ramp(3));
+        assert!(state.desktop == Some(ramp(3)));
+        assert!(state.desired == Some(ramp(2)));
+    }
+
+    #[test]
+    fn synthetic_message_bypass_is_nested_and_independent_of_window_hooks() {
+        assert!(!super::HOOKS_DISABLED.get());
+        super::super::with_scr_hooks_disabled(|| {
+            assert!(!super::HOOKS_DISABLED.get());
+            super::with_hooks_disabled(|| {
+                assert!(super::HOOKS_DISABLED.get());
+                super::with_hooks_disabled(|| assert!(super::HOOKS_DISABLED.get()));
+                assert!(super::HOOKS_DISABLED.get());
+            });
+            assert!(!super::HOOKS_DISABLED.get());
+        });
+        assert!(!super::HOOKS_DISABLED.get());
+    }
+
+    #[test]
+    fn window_gamma_hooks_work_inside_message_handlers_without_writing_inactive_game_gamma() {
+        use std::ptr::{null, null_mut};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use winapi::shared::windef::HDC;
+        use winapi::um::winuser::{
+            CreateWindowExW, DestroyWindow, GetDC, HWND_MESSAGE, ReleaseDC, WindowFromDC,
+        };
+
+        static CALLBACK_WINDOW: AtomicUsize = AtomicUsize::new(usize::MAX);
+        static SET_CALLS: AtomicUsize = AtomicUsize::new(0);
+        unsafe extern "C" fn read(dc: HDC, output: *mut libc::c_void) -> i32 {
+            unsafe {
+                CALLBACK_WINDOW.store(WindowFromDC(dc) as usize, Ordering::Relaxed);
+                std::ptr::write_unaligned(output.cast::<GammaRamp>(), ramp(1));
+            }
+            1
+        }
+        unsafe extern "C" fn write(dc: HDC, _: *mut libc::c_void) -> i32 {
+            CALLBACK_WINDOW.store(unsafe { WindowFromDC(dc) } as usize, Ordering::Relaxed);
+            SET_CALLS.fetch_add(1, Ordering::Relaxed);
+            1
+        }
+
+        unsafe {
+            // A message-only window cannot become foreground. The API callbacks are fakes, so this
+            // exercises device-context routing and focus policy without changing display gamma.
+            let class = crate::windows::winapi_str("STATIC");
+            let window = CreateWindowExW(
+                0,
+                class.as_ptr(),
+                null(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                HWND_MESSAGE,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            );
+            assert!(!window.is_null());
+            let _window = scopeguard::guard(window, |window| {
+                DestroyWindow(window);
+            });
+            let dc = GetDC(window);
+            assert!(!dc.is_null());
+            let _dc = scopeguard::guard(dc, |dc| {
+                ReleaseDC(window, dc);
+            });
+            let previous_window =
+                super::super::FORGE_WINDOW.swap(window as usize, Ordering::Release);
+            let _restore_window = scopeguard::guard(previous_window, |previous| {
+                super::super::FORGE_WINDOW.store(previous, Ordering::Release);
+            });
+            let previous_state = std::mem::take(&mut *super::GAMMA_STATE.lock().unwrap());
+            let _restore_state = scopeguard::guard(previous_state, |previous| {
+                *super::GAMMA_STATE.lock().unwrap() = previous;
+            });
+
+            let desktop = ramp(1);
+            let desired = ramp(2);
+            let mut output = ramp(0);
+            super::super::with_scr_hooks_disabled(|| {
+                assert_eq!(
+                    super::get_device_gamma_ramp(dc, std::ptr::from_mut(&mut output).cast(), read),
+                    1
+                );
+                assert!(output == desktop);
+                assert_eq!(CALLBACK_WINDOW.load(Ordering::Relaxed), 0);
+                assert_eq!(
+                    super::set_device_gamma_ramp(dc, desired.as_api_ptr(), write),
+                    1
+                );
+                assert_eq!(SET_CALLS.load(Ordering::Relaxed), 0);
+                assert!(super::GAMMA_STATE.lock().unwrap().desired == Some(desired));
+                assert_eq!(
+                    super::set_device_gamma_ramp(dc, desktop.as_api_ptr(), write),
+                    1
+                );
+                assert_eq!(SET_CALLS.load(Ordering::Relaxed), 1);
+                assert_eq!(CALLBACK_WINDOW.load(Ordering::Relaxed), 0);
+                super::with_hooks_disabled(|| {
+                    super::set_device_gamma_ramp(dc, desktop.as_api_ptr(), write);
+                });
+                assert_eq!(SET_CALLS.load(Ordering::Relaxed), 1);
+            });
+        }
     }
 
     #[test]
