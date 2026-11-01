@@ -141,6 +141,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   starcraftCompatibleReplays: Joi.boolean(),
   lockedAlliances: Joi.boolean(),
   mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
+  randomMap: Joi.boolean(),
 })
   .or(
     'name',
@@ -153,6 +154,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
     'starcraftCompatibleReplays',
     'lockedAlliances',
     'mapQueue',
+    'randomMap',
   )
   .required()
 
@@ -184,6 +186,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.InvalidGameSubType:
     case LobbyServiceErrorCode.InvalidGameType:
     case LobbyServiceErrorCode.InvalidMap:
+    case LobbyServiceErrorCode.RandomMapUnavailable:
     case LobbyServiceErrorCode.InvalidSlotId:
     case LobbyServiceErrorCode.InvalidSlotOperation:
     case LobbyServiceErrorCode.InvalidSlotType:
@@ -403,6 +406,7 @@ export class LobbyApi {
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
       mapQueue: body.mapQueue,
+      randomMap: body.randomMap,
     })
   }
 

@@ -69,6 +69,7 @@ export interface Team {
 export interface Lobby {
   readonly id: SbLobbyId
   readonly name: string
+  /** Current map, or the slot-layout reference while a random queued map has yet to be drawn. */
   readonly map?: MapInfo
   /**
    * Maps the host has lined up for the lobby's next games, in the order they'll be played. Each time
@@ -76,6 +77,8 @@ export interface Lobby {
    * its map.
    */
   readonly mapQueue: ReadonlyArray<MapInfo>
+  /** Draw a queued map on the server when the countdown ends, keeping its identity hidden until loading. */
+  readonly randomMap?: boolean
   readonly gameType: GameType
   readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */

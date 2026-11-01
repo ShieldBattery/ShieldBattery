@@ -26,6 +26,7 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.InvalidGameSubType]: { status: 400 },
   [LobbyServiceErrorCode.InvalidGameType]: { status: 400 },
   [LobbyServiceErrorCode.InvalidMap]: { status: 400 },
+  [LobbyServiceErrorCode.RandomMapUnavailable]: { status: 400 },
   [LobbyServiceErrorCode.InvalidSlotId]: { status: 400 },
   [LobbyServiceErrorCode.InvalidSlotOperation]: { status: 400 },
   [LobbyServiceErrorCode.InvalidSlotType]: { status: 400 },

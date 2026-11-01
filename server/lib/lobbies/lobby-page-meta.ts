@@ -64,14 +64,15 @@ export const lobbyPageMetadata: PageMetadataResolver = async (params, context) =
     url: context.canonicalHost + urlForLobby(summary.id, summary.name),
     type: 'website',
     title: summary.name,
-    description: `${gameTypeLabel} lobby on ${summary.map.name} — ${statusFor(summary)}. Hosted by ${host.name}.`,
+    description: `${gameTypeLabel} lobby on ${summary.randomMap ? 'Random Map' : summary.map.name} — ${statusFor(summary)}. Hosted by ${host.name}.`,
     // `summary.map` is the same `MapInfoJson` the game/league resolvers use, so the same fallback
     // chain applies directly — no separate server-side map lookup is needed here.
-    image:
-      summary.map.image1024Url ??
-      summary.map.image512Url ??
-      summary.map.image256Url ??
-      defaultPageImage(context),
+    image: summary.randomMap
+      ? defaultPageImage(context)
+      : (summary.map.image1024Url ??
+        summary.map.image512Url ??
+        summary.map.image256Url ??
+        defaultPageImage(context)),
     // The lobby's id is a capability token, not a stable public identifier: a link shared outside
     // the app is expected to go dead once the lobby closes, so it must never linger in a search
     // index (unlike the unfurl preview above, which crawlers request live).
