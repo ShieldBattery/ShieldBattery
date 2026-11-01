@@ -42,6 +42,7 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
   lockedAlliances: Joi.boolean(),
   visibility: Joi.valid(...ALL_LOBBY_VISIBILITIES),
   allowObservers: Joi.boolean(),
+  allowObserverChat: Joi.boolean(),
 }).required()
 
 @httpApi('/lobby-preferences')

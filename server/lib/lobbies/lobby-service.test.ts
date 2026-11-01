@@ -1762,6 +1762,29 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
+    test('turning observer chat on is announced and clears ready users', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        allowObserverChat: true,
+      })
+
+      expect(lobbyService.lobbies.get(id)!.allowObserverChat).toBe(true)
+      expect(lobbyService.readyUsers.get(id)?.size ?? 0).toBe(0)
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'settingsChange',
+          changedSettings: ['allowObserverChat'],
+          lobby: lobbyService.lobbies.get(id),
+        },
+      ])
+    })
+
     test('a change publishes the new lobby along with what the host changed', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -2889,6 +2912,53 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('game config', () => {
+    test('disables observer chat by default', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0]?.gameConfig).toMatchObject({
+        gameSourceExtra: { allowObserverChat: false },
+      })
+    })
+
+    test('forwards enabled observer chat only when observers are allowed', async () => {
+      const enabled = await lobbyService.createLobby({
+        name: 'Observer chat',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        allowObservers: true,
+        allowObserverChat: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, enabled.id)
+      await runCountdown(host)
+
+      expect(loadGameRequests[0]?.gameConfig).toMatchObject({
+        gameSourceExtra: { allowObserverChat: true },
+      })
+
+      const disabled = await lobbyService.createLobby({
+        name: 'No observers',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        allowObservers: false,
+        allowObserverChat: true,
+        leaveCurrentLobby: true,
+        user: otherHost.user,
+        client: otherHost.client,
+      })
+      await joinLobby(lister, disabled.id)
+      await runCountdown(otherHost)
+
+      expect(loadGameRequests[1]?.gameConfig).toMatchObject({
+        gameSourceExtra: { allowObserverChat: false },
+      })
+    })
+
     test('records visibility and an empty observers list for a listed lobby with no observers', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
@@ -3506,6 +3576,35 @@ describe('lobbies/lobby-service', () => {
       expect(loadGameRequests).toHaveLength(2)
       expect(lobbyService.runStates.get(id)!.gameId).toBe('test-game-id')
       expect(lobbyPublishes(id).filter(data => data?.type === 'gameStarted')).toHaveLength(2)
+    })
+
+    test('each game keeps the observer chat setting captured at launch', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Observer chat',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        allowObservers: true,
+        allowObserverChat: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      const firstConfig = loadGameRequests[0].gameConfig
+
+      endGameFor(host)
+      endGameFor(joiner)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        allowObserverChat: false,
+      })
+      await runCountdown(host)
+
+      expect(firstConfig).toMatchObject({ gameSourceExtra: { allowObserverChat: true } })
+      expect(loadGameRequests[1]?.gameConfig).toMatchObject({
+        gameSourceExtra: { allowObserverChat: false },
+      })
     })
   })
 

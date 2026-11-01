@@ -15,6 +15,7 @@ export interface LobbyPreferencesState {
   lockedAlliances: boolean | undefined
   visibility: LobbyVisibility | undefined
   allowObservers: boolean | undefined
+  allowObserverChat: boolean | undefined
 
   isRequesting: boolean
   hasLoaded: boolean
@@ -31,6 +32,7 @@ const DEFAULT_STATE: LobbyPreferencesState = {
   lockedAlliances: undefined,
   visibility: undefined,
   allowObservers: undefined,
+  allowObserverChat: undefined,
 
   isRequesting: false,
   hasLoaded: false,
@@ -48,6 +50,7 @@ function createPreferences(response: LobbyPreferencesResponse): LobbyPreferences
     lockedAlliances: response.lockedAlliances,
     visibility: response.visibility,
     allowObservers: response.allowObservers,
+    allowObserverChat: response.allowObserverChat,
 
     isRequesting: false,
     hasLoaded: true,

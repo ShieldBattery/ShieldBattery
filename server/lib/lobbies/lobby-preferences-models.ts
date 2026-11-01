@@ -19,6 +19,7 @@ export interface LobbyPreferences {
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
+  allowObserverChat?: boolean
 }
 
 type DbLobbyPreferences = Dbify<LobbyPreferences>
@@ -37,6 +38,7 @@ function fromDbLobbyPreferences(prefs: DbLobbyPreferences): LobbyPreferences {
     lockedAlliances: prefs.locked_alliances !== null ? prefs.locked_alliances : undefined,
     visibility: prefs.visibility !== null ? prefs.visibility : undefined,
     allowObservers: prefs.allow_observers !== null ? prefs.allow_observers : undefined,
+    allowObserverChat: prefs.allow_observer_chat !== null ? prefs.allow_observer_chat : undefined,
   }
 }
 
@@ -53,6 +55,7 @@ export async function upsertLobbyPreferences(
     lockedAlliances,
     visibility,
     allowObservers,
+    allowObserverChat,
   }: ReadonlyDeep<Omit<LobbyPreferences, 'userId'>>,
 ): Promise<LobbyPreferences> {
   const { client, done } = await db()
@@ -61,10 +64,11 @@ export async function upsertLobbyPreferences(
     const result = await client.query<DbLobbyPreferences>(sql`
       INSERT INTO lobby_preferences
         (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits,
-          starcraft_compatible_replays, locked_alliances, visibility, allow_observers)
+          starcraft_compatible_replays, locked_alliances, visibility, allow_observers,
+          allow_observer_chat)
       VALUES (${userId}, ${name}, ${gameType}, ${gameSubType}, ${recentMaps}, ${selectedMap},
         ${useLegacyLimits}, ${starcraftCompatibleReplays}, ${lockedAlliances}, ${visibility},
-        ${allowObservers})
+        ${allowObservers}, ${allowObserverChat})
       ON CONFLICT (user_id)
       DO UPDATE SET
         name = ${name},
@@ -76,7 +80,8 @@ export async function upsertLobbyPreferences(
         starcraft_compatible_replays = ${starcraftCompatibleReplays},
         locked_alliances = ${lockedAlliances},
         visibility = ${visibility},
-        allow_observers = ${allowObservers}
+        allow_observers = ${allowObservers},
+        allow_observer_chat = ${allowObserverChat}
       WHERE lobby_preferences.user_id = ${userId}
       RETURNING *;
     `)

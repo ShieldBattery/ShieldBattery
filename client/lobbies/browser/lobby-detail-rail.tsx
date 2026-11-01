@@ -563,6 +563,9 @@ export function LobbyDetailRail({
           {summary.hasObserverTeam ? (
             <RoomChip>{t('lobbies.browser.observers', 'Observers')}</RoomChip>
           ) : null}
+          {summary.hasObserverTeam && summary.allowObserverChat ? (
+            <RoomChip>{t('lobbies.browser.observerChat', 'Observer chat')}</RoomChip>
+          ) : null}
           {summary.useLegacyLimits ? (
             <RoomChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</RoomChip>
           ) : null}

@@ -95,6 +95,8 @@ export interface Lobby {
    * `gameTypeAllowsAllianceChanges`).
    */
   readonly lockedAlliances: boolean
+  /** Whether observers may send chat messages to players in-game. */
+  readonly allowObserverChat?: boolean
   readonly visibility: LobbyVisibility
   /** When the lobby was created (Unix millis). */
   readonly createdAt: number

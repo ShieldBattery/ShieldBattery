@@ -61,6 +61,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
     starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
     allowObservers: hasObservers(lobby),
+    allowObserverChat: !!lobby.allowObserverChat,
     mapId: lobby.map!.id,
   }))
   const [initialName] = useState(lobby.name)
@@ -182,6 +183,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           }
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
+          }
+          if (model.allowObserverChat !== initialModel.allowObserverChat) {
+            settings.allowObserverChat = model.allowObserverChat
           }
           const queueIds = queue.map(entry => entry.mapId)
           if (

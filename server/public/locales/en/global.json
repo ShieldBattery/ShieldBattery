@@ -1757,6 +1757,7 @@
       "joinLobby": "Join lobby",
       "legacyLimits": "Legacy limits",
       "lockedAlliances": "Locked alliances",
+      "observerChat": "Observer chat",
       "observers": "Observers",
       "observersCount": "Observers · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} open",
@@ -1781,6 +1782,7 @@
     },
     "createLobby": {
       "advancedHeader": "Advanced",
+      "allowObserverChat": "Allow observers to chat with players",
       "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
@@ -1832,6 +1834,7 @@
       "defaultLobbyName": "{{name}}'s lobby",
       "defaultLobbyNameFallback": "My lobby",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "summaryObserverChatOn": "Observer chat on",
       "summaryObserversOff": "No observers",
       "summaryObserversOn": "Observers on",
       "summarySlots_one": "{{count}} slots",
@@ -1935,6 +1938,7 @@
       "settingsChangeMap": "map",
       "settingsChangeMapQueue": "map queue",
       "settingsChangeName": "lobby name",
+      "settingsChangeObserverChat": "observer chat",
       "settingsChangeObservers": "observers",
       "settingsChangeUnitLimit": "unit limit",
       "settingsChangeVisibility": "visibility"
@@ -1942,10 +1946,12 @@
     "room": {
       "banner": {
         "alliancesLocked": "Locked",
+        "observerChatAllowed": "Allowed",
         "shuffle": "Shuffle",
         "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "statAlliances": "Alliances",
         "statMode": "Mode",
+        "statObserverChat": "Observer chat",
         "statSize": "Size",
         "statTileset": "Tileset",
         "statWarpField": "Warp Field",
