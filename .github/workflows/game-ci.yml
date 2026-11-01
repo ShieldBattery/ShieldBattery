@@ -44,6 +44,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./game
+          key: ${{ matrix.name }}
 
       - name: clippy ${{ matrix.display }}
         run: cargo clippy --all-targets --workspace ${{ matrix.target }} -- -D warnings
@@ -100,6 +101,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./game
+          key: ${{ matrix.name }}
 
       - name: cargo test ${{ matrix.display }}
         run: cargo test --all-targets --no-fail-fast ${{ matrix.target }}
