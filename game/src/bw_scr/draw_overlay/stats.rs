@@ -801,6 +801,12 @@ fn resources_left(unit: Unit) -> Option<ResourcesLeftView> {
 
 /// Remaining lifetime as the console's energy readout: ten frames per point, rounded down.
 /// Hallucinations use their lifetime even when the copied unit is a spellcaster or a broodling.
+///
+/// The maxima are the game's default lifetimes (1350 frames for a hallucination, 1800 for a
+/// broodling), which are constants in its code rather than anything units.dat or a map can change.
+/// The console divides by those same defaults, so a timer that was never set (a broodling made by
+/// a plain Create Unit trigger, which lives forever) or that an EUD map wrote past the default
+/// reads here just as it does there.
 fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
     let max = if unit.is_hallucination() {
         135
