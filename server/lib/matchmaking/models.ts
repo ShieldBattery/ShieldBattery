@@ -779,6 +779,8 @@ export type MatchmakingMatchFormation = {
   quality: number
   /** Variance of the matched players' effective ratings (raw skill-spread input to quality). */
   skillVariance: number
+  /** Multiplier applied to the configured rating-variance weight. */
+  ratingVarianceMultiplier: number
   /** Win probability of team A vs team B from the matchmaker's logistic (0.5 == balanced). */
   winProbability: number
   /** Effective team ratings used to compute `winProbability`. */
@@ -817,13 +819,14 @@ export async function insertMatchmakingMatchFormation(
   try {
     await client.query(sql`
       INSERT INTO matchmaking_match_formations
-        (game_id, fail_phase, matchmaking_type, quality, skill_variance, win_probability,
-          team_a_rating, team_b_rating, max_latency, team_a_user_ids, team_b_user_ids,
+        (game_id, fail_phase, matchmaking_type, quality, skill_variance, rating_variance_multiplier,
+          win_probability, team_a_rating, team_b_rating, max_latency, team_a_user_ids, team_b_user_ids,
           team_a_player_ratings, team_b_player_ratings)
       VALUES
         (${formation.gameId ?? null}, ${formation.failPhase ?? null}, ${formation.matchmakingType},
-          ${formation.quality}, ${formation.skillVariance}, ${formation.winProbability},
-          ${formation.teamARating}, ${formation.teamBRating}, ${formation.maxLatency},
+          ${formation.quality}, ${formation.skillVariance}, ${formation.ratingVarianceMultiplier},
+          ${formation.winProbability}, ${formation.teamARating}, ${formation.teamBRating},
+          ${formation.maxLatency},
           ${formation.teamAUserIds}, ${formation.teamBUserIds}, ${formation.teamAPlayerRatings},
           ${formation.teamBPlayerRatings})
     `)

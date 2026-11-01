@@ -468,6 +468,7 @@ pub async fn create_app(
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
     let matchmaker_router = create_matchmaking_api(
+        db_pool.clone(),
         redis_pool.clone(),
         matchmaker_config,
         settings.rp2_coordinator_url.clone(),
