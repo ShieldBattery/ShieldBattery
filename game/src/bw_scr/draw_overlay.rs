@@ -1816,11 +1816,6 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
     fog_style::set_fog_style(style);
 }
 
-/// Yields active players `(team, player_id)`, ordered by team and then by slot.
-///
-/// Every observer surface reads its players from here, which is what keeps a row in one panel
-/// lined up with the row for the same player in the next and lets the ones that group by side do
-/// it by walking a list rather than by grouping it again.
 /// The selection without the unit at `index`, in its order. Nothing, for the game to leave the
 /// selection as it is, where there is no unit there or it is the only one: taking the last unit out
 /// of a selection is what clearing it is for.
@@ -1862,6 +1857,11 @@ fn unit_kind(unit: Unit) -> (bw_dat::UnitId, u8) {
     (unit.id(), unit.player())
 }
 
+/// Yields active players `(team, player_id)`, ordered by team and then by slot.
+///
+/// Every observer surface reads its players from here, which is what keeps a row in one panel
+/// lined up with the row for the same player in the next and lets the ones that group by side do
+/// it by walking a list rather than by grouping it again.
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
     let teams = player_teams(bw);
     let mut ordered: Vec<(u8, u8)> = (0u8..8)
