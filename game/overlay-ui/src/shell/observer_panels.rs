@@ -1634,9 +1634,7 @@ mod tests {
         );
     }
 
-    /// Clicks `pos` with `modifiers` held on a 1920x1080 screen over three frames, the pointer
-    /// arriving, going down and coming back up, and returns what the frames asked for. Starts a
-    /// second after `time`, so no click is ever taken for the second half of a double click.
+    /// Starts a second after `time`, so no click is taken for the second half of a double click.
     fn click_watched(
         shell: &mut crate::shell::Shell,
         ctx: &egui::Context,
@@ -1685,7 +1683,6 @@ mod tests {
                 .find(|rect| rect.width() == crate::observer::selection::PANEL_WIDTH);
         }
         let panel = panel.expect("the selection panel is up");
-        // Out from the panel's middle in steps narrower than a tile and the gaps between tiles.
         let outward = |half: f32| {
             std::iter::once(0)
                 .chain((1..(half / 8.0) as i32).flat_map(|step| [step, -step]))

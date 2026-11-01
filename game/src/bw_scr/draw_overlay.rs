@@ -1342,8 +1342,6 @@ impl OverlayState {
             .collect()
     }
 
-    /// Selects the part of the selection that `narrow` keeps, or leaves the selection as it is where
-    /// `narrow` has nothing to change.
     fn narrow_selection(&mut self, bw: &BwVars, narrow: impl FnOnce(&[Unit]) -> Option<Vec<Unit>>) {
         let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
         if let Some(units) = narrow(&selected) {
@@ -1816,9 +1814,8 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
     fog_style::set_fog_style(style);
 }
 
-/// The selection without the unit at `index`, in its order. Nothing, for the game to leave the
-/// selection as it is, where there is no unit there or it is the only one: taking the last unit out
-/// of a selection is what clearing it is for.
+/// Nothing where there is no unit at `index` or it is the only one: taking the last unit out of a
+/// selection is what clearing it is for.
 fn without_unit<T: Copy>(selected: &[T], index: usize) -> Option<Vec<T>> {
     if selected.len() < 2 || index >= selected.len() {
         return None;
@@ -1828,9 +1825,7 @@ fn without_unit<T: Copy>(selected: &[T], index: usize) -> Option<Vec<T>> {
     Some(units)
 }
 
-/// The units of the selection of the same `kind` as the one at `index`, in their order. Nothing,
-/// for the game to leave the selection as it is, where there is no unit there or every unit is of
-/// that kind already.
+/// Nothing where there is no unit at `index` or every unit is of its kind already.
 fn of_same_kind<T: Copy, K: PartialEq>(
     selected: &[T],
     index: usize,

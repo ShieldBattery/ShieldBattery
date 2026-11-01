@@ -1917,7 +1917,6 @@ mod tests {
             click_tile(primary, Modifiers::CTRL),
             Some(SelectedUnitClick::PickKind(3))
         );
-        // Shift wins: Ctrl+Shift takes the unit out, as the game's console does.
         assert_eq!(
             click_tile(primary, ctrl_shift),
             Some(SelectedUnitClick::Deselect(3))
