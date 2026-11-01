@@ -1,3 +1,4 @@
+import { GameDraftMessage } from '../../../common/games/games'
 import {
   CURRENT_DIVISION_TABLE_VERSION,
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
@@ -11,7 +12,7 @@ import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface MatchmakingRating extends RaceStats {
@@ -827,6 +828,51 @@ export async function insertMatchmakingMatchFormation(
           ${formation.teamAUserIds}, ${formation.teamBUserIds}, ${formation.teamAPlayerRatings},
           ${formation.teamBPlayerRatings})
     `)
+  } finally {
+    done()
+  }
+}
+
+/** Records the chat sent during a game's race draft. Does nothing if no messages were sent. */
+export async function insertMatchmakingDraftMessages(
+  gameId: string,
+  messages: ReadonlyArray<Readonly<GameDraftMessage>>,
+  withClient?: DbClient,
+): Promise<void> {
+  if (!messages.length) {
+    return
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      INSERT INTO matchmaking_draft_messages (game_id, seq, user_id, sent_at, text)
+      VALUES ${sqlConcat(
+        ', ',
+        messages.map((m, i) => sql`(${gameId}, ${i}, ${m.userId}, ${m.sentAt}, ${m.text})`),
+      )}
+    `)
+  } finally {
+    done()
+  }
+}
+
+type DbGameDraftMessage = Dbify<GameDraftMessage>
+
+/** Returns the chat sent during a game's race draft, in the order it was sent. */
+export async function getMatchmakingDraftMessages(
+  gameId: string,
+  withClient?: DbClient,
+): Promise<GameDraftMessage[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbGameDraftMessage>(sql`
+      SELECT user_id, sent_at, text
+      FROM matchmaking_draft_messages
+      WHERE game_id = ${gameId}
+      ORDER BY seq
+    `)
+    return result.rows.map(row => ({ userId: row.user_id, sentAt: row.sent_at, text: row.text }))
   } finally {
     done()
   }

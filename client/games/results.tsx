@@ -1065,6 +1065,8 @@ function SummaryPage({
           key={gameId}
           config={game.config}
           replays={debugInfo.replays ?? []}
+          draftMessages={debugInfo.draftMessages ?? []}
+          gameStartTime={game.startTime}
         />
       ) : null}
       {hasDebugPermission && debugInfo ? (
