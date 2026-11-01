@@ -487,6 +487,12 @@ impl ObserverPanels {
                 Some(SelectedUnitClick::Pick(index)) => {
                     intents.push(Intent::PickSelectedUnit(index));
                 }
+                Some(SelectedUnitClick::Deselect(index)) => {
+                    intents.push(Intent::DeselectSelectedUnit(index));
+                }
+                Some(SelectedUnitClick::PickKind(index)) => {
+                    intents.push(Intent::PickSelectedKind(index));
+                }
                 Some(SelectedUnitClick::Follow(index)) => {
                     intents.push(Intent::FollowSelectedUnit(index));
                 }

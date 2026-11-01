@@ -1276,6 +1276,24 @@ impl OverlayState {
                     }
                 }
             }
+            Intent::DeselectSelectedUnit(index) => {
+                let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
+                if let Some(units) = without_unit(&selected, index) {
+                    self.out_state.select_group = Some(GroupSelection {
+                        units,
+                        center: false,
+                    });
+                }
+            }
+            Intent::PickSelectedKind(index) => {
+                let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
+                if let Some(units) = of_same_kind(&selected, index, unit_kind) {
+                    self.out_state.select_group = Some(GroupSelection {
+                        units,
+                        center: false,
+                    });
+                }
+            }
             Intent::ClearSelection => self.out_state.clear_selection = true,
             Intent::FollowSelectedUnit(index) => {
                 self.out_state.follow_unit =
@@ -1803,6 +1821,47 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
 /// Every observer surface reads its players from here, which is what keeps a row in one panel
 /// lined up with the row for the same player in the next and lets the ones that group by side do
 /// it by walking a list rather than by grouping it again.
+/// The selection without the unit at `index`, in its order. Nothing, for the game to leave the
+/// selection as it is, where there is no unit there or it is the only one: taking the last unit out
+/// of a selection is what clearing it is for.
+fn without_unit<T: Copy>(selected: &[T], index: usize) -> Option<Vec<T>> {
+    if selected.len() < 2 || index >= selected.len() {
+        return None;
+    }
+    let units = selected
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != index)
+        .map(|(_, &unit)| unit)
+        .collect();
+    Some(units)
+}
+
+/// The units of the selection of the same `kind` as the one at `index`, in their order. Nothing,
+/// for the game to leave the selection as it is, where there is no unit there or every unit is of
+/// that kind already.
+fn of_same_kind<T: Copy, K: PartialEq>(
+    selected: &[T],
+    index: usize,
+    kind: impl Fn(T) -> K,
+) -> Option<Vec<T>> {
+    let wanted = kind(*selected.get(index)?);
+    let units: Vec<T> = selected
+        .iter()
+        .copied()
+        .filter(|&unit| kind(unit) == wanted)
+        .collect();
+    (units.len() < selected.len()).then_some(units)
+}
+
+/// What the game's console tells units apart by when one is Ctrl-clicked: its unit type and its
+/// owner, and nothing else. A sieged tank is a unit type of its own, so it parts from the unsieged
+/// ones; a burrowed, cloaked or hallucinated unit, or one under any spell, keeps its unit type and
+/// so stays with the rest of its kind.
+fn unit_kind(unit: Unit) -> (bw_dat::UnitId, u8) {
+    (unit.id(), unit.player())
+}
+
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
     let teams = player_teams(bw);
     let mut ordered: Vec<(u8, u8)> = (0u8..8)
@@ -2154,7 +2213,7 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use super::{numbered_from_one, scaled_mouse_pos_to_egui};
+    use super::{numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit};
 
     use egui::pos2;
 
@@ -2191,6 +2250,61 @@ mod tests {
         assert_eq!(
             numbered_from_one([3, 1, 3, 1, 7, 7, 7, 7], active),
             [2, 1, 2, 1, 0, 0, 0, 0]
+        );
+    }
+
+    /// A selection read as (owner, unit type) pairs, which is all a Ctrl-click compares.
+    const MIXED: [(u8, u16); 5] = [(0, 0x5), (0, 0x1e), (1, 0x5), (0, 0x5), (0, 0x0)];
+
+    #[test]
+    fn deselecting_takes_out_only_that_unit_and_keeps_the_order() {
+        assert_eq!(
+            without_unit(&MIXED, 1),
+            Some(vec![(0, 0x5), (1, 0x5), (0, 0x5), (0, 0x0)])
+        );
+        assert_eq!(
+            without_unit(&MIXED, 4),
+            Some(vec![(0, 0x5), (0, 0x1e), (1, 0x5), (0, 0x5)])
+        );
+    }
+
+    #[test]
+    fn deselecting_leaves_a_unit_selected_alone_as_it_is() {
+        assert_eq!(without_unit(&[(0, 0x5)], 0), None);
+        assert_eq!(without_unit(&MIXED, MIXED.len()), None);
+    }
+
+    #[test]
+    fn picking_a_kind_keeps_that_owners_units_of_that_type() {
+        // An unsieged tank keeps the same player's unsieged tanks: not the sieged one, and not the
+        // other player's.
+        assert_eq!(
+            of_same_kind(&MIXED, 0, |unit| unit),
+            Some(vec![(0, 0x5), (0, 0x5)])
+        );
+        assert_eq!(of_same_kind(&MIXED, 1, |unit| unit), Some(vec![(0, 0x1e)]));
+        assert_eq!(of_same_kind(&MIXED, 2, |unit| unit), Some(vec![(1, 0x5)]));
+    }
+
+    #[test]
+    fn picking_a_kind_changes_nothing_where_the_selection_is_all_that_kind() {
+        assert_eq!(of_same_kind(&[(0, 0x5), (0, 0x5)], 1, |unit| unit), None);
+        assert_eq!(of_same_kind(&[(0, 0x5)], 0, |unit| unit), None);
+        assert_eq!(of_same_kind(&MIXED, MIXED.len(), |unit| unit), None);
+    }
+
+    #[test]
+    fn picking_a_kind_ignores_everything_but_owner_and_type() {
+        // (owner, unit type, burrowed or under some spell): only the first two make the kind.
+        let selected = [
+            (0, 0x25, false),
+            (0, 0x25, true),
+            (0, 0x25, false),
+            (1, 0x25, true),
+        ];
+        assert_eq!(
+            of_same_kind(&selected, 1, |(owner, id, _)| (owner, id)),
+            Some(vec![(0, 0x25, false), (0, 0x25, true), (0, 0x25, false)])
         );
     }
 }

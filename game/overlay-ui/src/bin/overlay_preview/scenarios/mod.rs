@@ -426,6 +426,8 @@ pub fn render(
             Intent::LookAt(_)
             | Intent::SelectControlGroup { .. }
             | Intent::PickSelectedUnit(_)
+            | Intent::DeselectSelectedUnit(_)
+            | Intent::PickSelectedKind(_)
             | Intent::FollowSelectedUnit(_)
             | Intent::ClearSelection => {}
             Intent::SetSpeed {
