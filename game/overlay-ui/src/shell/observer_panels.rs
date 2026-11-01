@@ -487,6 +487,12 @@ impl ObserverPanels {
                 Some(SelectedUnitClick::Pick(index)) => {
                     intents.push(Intent::PickSelectedUnit(index));
                 }
+                Some(SelectedUnitClick::Deselect(index)) => {
+                    intents.push(Intent::DeselectSelectedUnit(index));
+                }
+                Some(SelectedUnitClick::PickKind(index)) => {
+                    intents.push(Intent::PickSelectedKind(index));
+                }
                 Some(SelectedUnitClick::Follow(index)) => {
                     intents.push(Intent::FollowSelectedUnit(index));
                 }
@@ -1626,5 +1632,84 @@ mod tests {
                     key: 6,
                 })
         );
+    }
+
+    /// Starts a second after `time`, so no click is taken for the second half of a double click.
+    fn click_watched(
+        shell: &mut crate::shell::Shell,
+        ctx: &egui::Context,
+        game: &crate::observer::ObserverView,
+        pos: egui::Pos2,
+        modifiers: Modifiers,
+        time: &mut f64,
+    ) -> Vec<Intent> {
+        let playback = replay();
+        let press = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers,
+        };
+        *time += 1.0;
+        let mut intents = Vec::new();
+        for event in [egui::Event::PointerMoved(pos), press(true), press(false)] {
+            *time += 0.05;
+            let events = vec![egui::Event::ModifiersChanged(modifiers), event];
+            let screen = egui::vec2(1920.0, 1080.0);
+            let output =
+                run_watched_frame_with_events(shell, ctx, &playback, game, screen, events, *time);
+            intents.extend(output.intents);
+        }
+        intents
+    }
+
+    #[test]
+    fn a_click_on_a_selected_unit_asks_for_what_its_modifiers_say() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let playback = replay();
+        // Twelve units fill the grid, so most of the panel's middle is one unit's tile or another.
+        let game = (0..12).fold(empty_game(), |game, _| with_a_selection(game));
+        let mut time = 0.0;
+        let mut panel = None;
+        for _ in 0..6 {
+            time += 0.5;
+            let screen = egui::vec2(1920.0, 1080.0);
+            let output = run_watched_frame_at(&mut shell, &ctx, &playback, &game, screen, time);
+            panel = output
+                .hit_rects
+                .iter()
+                .map(|hit| hit.rect)
+                .find(|rect| rect.width() == crate::observer::selection::PANEL_WIDTH);
+        }
+        let panel = panel.expect("the selection panel is up");
+        let outward = |half: f32| {
+            std::iter::once(0)
+                .chain((1..(half / 8.0) as i32).flat_map(|step| [step, -step]))
+                .map(|step| step as f32 * 8.0)
+        };
+        let mut hit = None;
+        'search: for dy in outward(panel.height() / 2.0) {
+            for dx in outward(panel.width() / 2.0) {
+                let pos = panel.center() + egui::vec2(dx, dy);
+                let intents =
+                    click_watched(&mut shell, &ctx, &game, pos, Modifiers::NONE, &mut time);
+                if let Some(index) = intents.iter().find_map(|intent| match intent {
+                    Intent::PickSelectedUnit(index) => Some(*index),
+                    _ => None,
+                }) {
+                    hit = Some((pos, index));
+                    break 'search;
+                }
+            }
+        }
+        let (pos, index) = hit.expect("a click in the panel's middle lands on a unit");
+        let shift = click_watched(&mut shell, &ctx, &game, pos, Modifiers::SHIFT, &mut time);
+        assert!(
+            shift.contains(&Intent::DeselectSelectedUnit(index)),
+            "{shift:?}"
+        );
+        let ctrl = click_watched(&mut shell, &ctx, &game, pos, Modifiers::CTRL, &mut time);
+        assert!(ctrl.contains(&Intent::PickSelectedKind(index)), "{ctrl:?}");
     }
 }

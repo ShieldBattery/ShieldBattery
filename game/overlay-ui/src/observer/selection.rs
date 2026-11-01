@@ -535,8 +535,15 @@ pub struct SelectionOutcome {
 /// A click on one of the selected units, by its place in [`SelectionView::units`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SelectedUnitClick {
-    /// A click: select that unit alone, or for a unit already selected alone, look at it.
+    /// A click with neither Shift nor Ctrl held: select that unit alone, or for a unit already
+    /// selected alone, look at it.
     Pick(usize),
+    /// A click with Shift held, Ctrl or not: take that unit out of the selection, as the game's
+    /// console does.
+    Deselect(usize),
+    /// A click with Ctrl held: keep only the units of the selection of that unit's kind, as the
+    /// game's console does.
+    PickKind(usize),
     /// A right click: have the game's view follow that unit, as a right click on it in the game
     /// does in a replay.
     Follow(usize),
@@ -617,7 +624,32 @@ fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
     if response.secondary_clicked() {
         Some(SelectedUnitClick::Follow(index))
     } else if response.clicked() {
-        Some(SelectedUnitClick::Pick(index))
+        // The keys held as the button came up, which the host reads off the click itself; the
+        // frame's own modifiers are read later, after a quickly let go Shift is already up.
+        // Shift wins over Ctrl, as it does on the game's console.
+        let modifiers = ui.input(|input| {
+            input
+                .events
+                .iter()
+                .rev()
+                .find_map(|event| match event {
+                    egui::Event::PointerButton {
+                        button: egui::PointerButton::Primary,
+                        pressed: false,
+                        modifiers,
+                        ..
+                    } => Some(*modifiers),
+                    _ => None,
+                })
+                .unwrap_or(input.modifiers)
+        });
+        Some(if modifiers.shift {
+            SelectedUnitClick::Deselect(index)
+        } else if modifiers.ctrl {
+            SelectedUnitClick::PickKind(index)
+        } else {
+            SelectedUnitClick::Pick(index)
+        })
     } else {
         None
     }
@@ -1447,6 +1479,8 @@ fn paint_track(ui: &Ui, rect: Rect, fraction: f32, color: Color32) {
 
 #[cfg(test)]
 mod tests {
+    use egui::{Event, Modifiers, PointerButton, RawInput};
+
     use super::*;
 
     fn unit(hit_points: (u32, u32), shields: Option<(u32, u32)>, index: u16) -> SelectedUnitView {
@@ -1815,5 +1849,94 @@ mod tests {
         };
         assert!(fits(slot(100.0)));
         assert!(!fits(slot(960.0 - 16.0 - PANEL_HEIGHT)));
+    }
+
+    const TILE: Rect = Rect::from_min_max(pos2(40.0, 40.0), pos2(80.0, 80.0));
+
+    /// Clicks the middle of a unit's tile with `button` while `modifiers` are held, the way the
+    /// host reports them: on every pointer event and restated for the whole frame.
+    fn click_tile(button: PointerButton, modifiers: Modifiers) -> Option<SelectedUnitClick> {
+        click_tile_held(button, modifiers, modifiers)
+    }
+
+    /// [`click_tile`] with the pointer events carrying `on_click` and the frames restating
+    /// `for_frame`, as when a key comes up between the click and the frame that reads it.
+    fn click_tile_held(
+        button: PointerButton,
+        on_click: Modifiers,
+        for_frame: Modifiers,
+    ) -> Option<SelectedUnitClick> {
+        let ctx = Context::default();
+        let pos = TILE.center();
+        let press = |pressed| Event::PointerButton {
+            pos,
+            button,
+            pressed,
+            modifiers: on_click,
+        };
+        let events = [
+            vec![Event::PointerMoved(pos)],
+            vec![press(true)],
+            vec![press(false)],
+        ];
+        let mut clicked = None;
+        for (frame, mut events) in events.into_iter().enumerate() {
+            events.insert(0, Event::ModifiersChanged(for_frame));
+            let raw = RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 720.0))),
+                time: Some(frame as f64 * 0.1),
+                events,
+                ..Default::default()
+            };
+            ctx.run_ui(raw, |ui| {
+                clicked = unit_target(ui, TILE, 3);
+            })
+            .textures_delta
+            .clear();
+        }
+        clicked
+    }
+
+    #[test]
+    fn a_click_on_a_unit_reads_the_modifiers_held() {
+        let ctrl_shift = Modifiers {
+            shift: true,
+            ctrl: true,
+            ..Modifiers::NONE
+        };
+        let primary = PointerButton::Primary;
+        assert_eq!(
+            click_tile(primary, Modifiers::NONE),
+            Some(SelectedUnitClick::Pick(3))
+        );
+        assert_eq!(
+            click_tile(primary, Modifiers::SHIFT),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile(primary, Modifiers::CTRL),
+            Some(SelectedUnitClick::PickKind(3))
+        );
+        assert_eq!(
+            click_tile(primary, ctrl_shift),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile(PointerButton::Secondary, Modifiers::CTRL),
+            Some(SelectedUnitClick::Follow(3))
+        );
+    }
+
+    #[test]
+    fn a_click_reads_the_keys_held_on_the_click_rather_than_the_frames() {
+        let primary = PointerButton::Primary;
+        assert_eq!(
+            click_tile_held(primary, Modifiers::SHIFT, Modifiers::NONE),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile_held(primary, Modifiers::NONE, Modifiers::CTRL),
+            Some(SelectedUnitClick::Pick(3))
+        );
     }
 }
