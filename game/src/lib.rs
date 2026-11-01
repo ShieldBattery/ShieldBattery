@@ -66,7 +66,6 @@ mod http_proxy;
 #[cfg(debug_assertions)]
 mod input_latency_probe;
 mod machine_info;
-mod mouse_speed;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
@@ -217,7 +216,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
         "Shieldbattery crash :(",
         &format!("{location}\n{panic_msg}\nPlease submit a bug report in the launcher."),
     );
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
     }
@@ -275,7 +274,7 @@ pub extern "C" fn OnInject() {
     }
     // SC:R reports renderer failures only on stdout, so this has to happen before its CRT starts.
     scr_stdout::init();
-    mouse_speed::capture();
+    forge::mouse_speed::capture();
 
     let args = parse_args();
     let process_id = unsafe { GetCurrentProcessId() };
@@ -451,7 +450,7 @@ fn initialize() {
 fn wait_async_exit() -> ! {
     std::thread::sleep(Duration::from_millis(5000));
     warn!("Async thread exit timed out");
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     std::process::exit(0);
 }
 
@@ -631,7 +630,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     }));
     drop(runtime);
     info!("Async thread end");
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     std::process::exit(0);
 }
 

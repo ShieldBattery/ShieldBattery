@@ -17,6 +17,7 @@ use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
 mod gamma;
+pub mod mouse_speed;
 mod raw_mouse;
 mod window_placement;
 
@@ -46,6 +47,7 @@ mod scr_hooks {
         !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
+        !0 => SystemParametersInfoW(u32, u32, *mut c_void, u32) -> i32;
     );
 }
 
@@ -152,6 +154,9 @@ unsafe extern "system" fn wnd_proc_scr(
             gamma::handle_window_message(window, msg, wparam);
             if raw_mouse::drops_message(window, msg) {
                 return Some(0);
+            }
+            if is_forge_window(window) {
+                mouse_speed::window_message(msg);
             }
             match msg {
                 WM_END_WND_PROC_WORKER => {
@@ -628,6 +633,11 @@ fn peek_message_w(
         }),
         false => unsafe { orig(msg, window, filter_min, filter_max, remove) },
     };
+    if result == 0 {
+        // A pump ends on an empty queue, so this catches focus changes once per pump even when
+        // SC:R misreads the messages announcing them.
+        mouse_speed::check_window();
+    }
     if !removing {
         return result;
     }
@@ -917,6 +927,7 @@ fn monitor_from_point(
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
+        use self::mouse_speed::system_parameters_info_w;
         use self::raw_mouse::track_mouse_event;
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately
@@ -941,6 +952,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
             "ShowWindow", ShowWindow, show_window;
+            "SystemParametersInfoW", SystemParametersInfoW, system_parameters_info_w;
             "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
         );
 
@@ -980,6 +992,7 @@ pub fn init(
         None
     };
     gamma::configure(gamma_setting);
+    mouse_speed::init_settings(scr_settings);
     raw_mouse::init_from_env();
 
     let background = std::env::var(BACKGROUND_ENV_VAR).as_deref() == Ok("1");
@@ -1093,7 +1106,7 @@ pub unsafe fn run_wnd_proc() {
         }
         // Going to close everything since the window got closed / error happened.
         // TODO Ask async thread exit instead
-        crate::mouse_speed::restore();
+        mouse_speed::restore();
         std::process::exit(0);
     }
 }

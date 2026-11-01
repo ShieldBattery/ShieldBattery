@@ -3248,8 +3248,15 @@ impl BwScr {
             if let Some(write) = draw_overlay::options::registry_setting(change) {
                 self.pending_game_setting_writes.lock().push(write);
             }
-            if let SettingChange::HdGraphicsOn(on) = change {
-                self.switch_graphics(on);
+            match change {
+                SettingChange::HdGraphicsOn(on) => self.switch_graphics(on),
+                SettingChange::MouseSensitivityOn(on) => {
+                    crate::forge::mouse_speed::set_sensitivity_on(on)
+                }
+                SettingChange::MouseSensitivity(value) => {
+                    crate::forge::mouse_speed::set_sensitivity(value)
+                }
+                _ => (),
             }
             self.apply_local_setting_change(change);
         }
