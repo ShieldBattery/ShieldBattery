@@ -1050,6 +1050,101 @@ describe('games/raw-results/deriveResultSubmission — evidence-based veto/synth
   })
 })
 
+describe('games/raw-results — eliminated player still watching when the other team leaves', () => {
+  // A 3v3 where A1 is eliminated but stays connected, then team B leaves one at a time and A2/A3
+  // are awarded the victory. Every report before the victory sees A1 as a connected Defeat.
+  const A1 = makeSbUserId(1)
+  const A2 = makeSbUserId(2)
+  const A3 = makeSbUserId(3)
+  const B1 = makeSbUserId(4)
+  const B2 = makeSbUserId(5)
+  const B3 = makeSbUserId(6)
+  const teamA = alliances({ 0: AlliedVictory, 4: AlliedVictory, 5: AlliedVictory })
+  const teamB = alliances({ 2: AlliedVictory, 3: AlliedVictory, 7: AlliedVictory })
+
+  /** Builds one capture of the game from the given victory states and quit storm ids. */
+  function capture(
+    states: Partial<Record<SbUserId, GameClientResult>>,
+    quitStormIds: number[],
+  ): StoredRawGameResults {
+    const slot = (
+      userId: SbUserId,
+      bwPlayerId: number,
+      stormId: number,
+      race: AssignedRaceChar,
+      team: GameClientAllianceState[],
+    ) =>
+      player({
+        userId,
+        bwPlayerId,
+        stormId,
+        race,
+        victoryState: states[userId] ?? Playing,
+        alliances: team,
+      })
+
+    return report({
+      players: [
+        slot(A1, 0, 0, 'z', teamA),
+        slot(B1, 2, 5, 'z', teamB),
+        slot(B2, 3, 4, 'p', teamB),
+        slot(A2, 4, 1, 't', teamA),
+        slot(A3, 5, 2, 'p', teamA),
+        slot(B3, 7, 3, 'p', teamB),
+      ],
+      netPlayers: netPlayers(
+        6,
+        Object.fromEntries(quitStormIds.map(id => [id, { hasQuit: true }])),
+      ),
+    })
+  }
+
+  function allCaptures(): Array<[SbUserId, StoredRawGameResults]> {
+    const won = { [A1]: Defeat, [B1]: Defeat, [B2]: Defeat, [B3]: Defeat, [A2]: Victory }
+    return [
+      [B1, capture({ [A1]: Defeat }, [])],
+      [A1, capture({ [A1]: Defeat, [B1]: Defeat }, [5])],
+      [B3, capture({ [A1]: Defeat, [B1]: Defeat }, [5])],
+      [B2, capture({ [A1]: Defeat, [B1]: Defeat, [B3]: Defeat }, [3, 5])],
+      [A3, capture({ ...won, [A3]: Victory }, [0, 3, 4, 5])],
+      [A2, capture({ ...won, [A3]: Victory }, [0, 3, 4, 5])],
+    ]
+  }
+
+  test("an opponent's pre-victory report leaves the eliminated player undecided", () => {
+    const [reporter, raw] = allCaptures()[0]
+    expect(verdicts(raw, reporter)[A1]).toEqual(R(Disconnected, 'z'))
+  })
+
+  test('reconciles to a full team win, not disputed', () => {
+    const captures = allCaptures()
+    const corroboratedVictors = corroborated(captures)
+    const submissions = captures.map(([reporter, raw]) =>
+      deriveResultSubmission(raw, reporter, { isUms: false, corroboratedVictors }),
+    )
+    const reconciled = reconcileResults([A1, A2, A3, B1, B2, B3], submissions, [
+      [A1, A2, A3],
+      [B1, B2, B3],
+    ])
+
+    expect(reconciled.disputed).toBe(false)
+    expect(Object.fromEntries([...reconciled.results].map(([id, r]) => [id, r.result]))).toEqual({
+      [A1]: 'win',
+      [A2]: 'win',
+      [A3]: 'win',
+      [B1]: 'loss',
+      [B2]: 'loss',
+      [B3]: 'loss',
+    })
+  })
+
+  test('a still-connected eliminated player with no live ally stays defeated', () => {
+    // A2 and A3 have left, so nobody on team A can still win for A1.
+    const [reporter, raw] = [B1, capture({ [A1]: Defeat }, [1, 2])]
+    expect(verdicts(raw, reporter)[A1]).toEqual(R(Defeat, 'z'))
+  })
+})
+
 describe('games/raw-results/computeCorroboratedVictors', () => {
   function rawSelf(reporter: number, victoryState: GameClientResult): StoredResultReport {
     return {
