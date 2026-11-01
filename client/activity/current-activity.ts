@@ -1,13 +1,19 @@
 import { useAtomValue } from 'jotai'
 import { ReadonlyDeep } from 'type-fest'
 import { GameStatusString } from '../../common/games/game-status'
-import { findSlotByUserId, getPlayerSlots, Lobby, openSlotCount } from '../../common/lobbies'
+import {
+  findSlotByUserId,
+  getHumanSlots,
+  getLobbySlots,
+  Lobby,
+  MAX_BENCH,
+} from '../../common/lobbies'
 import { LobbyVisibility } from '../../common/lobbies/lobby-visibility'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SlotType } from '../../common/lobbies/slot'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { GameClientState, isInParticipatingGame } from '../active-game/game-client-reducer'
+import { GameClientState } from '../active-game/game-client-reducer'
 import { useSelfUser } from '../auth/auth-utils'
 import {
   participatingGameAtom,
@@ -18,26 +24,37 @@ import {
 import { isInLobby } from '../lobbies/lobby-reducer'
 import { useAppSelector } from '../redux-hooks'
 
+/**
+ * A lobby the user is in, as far as others joining it goes. A lobby takes joins at any time, its
+ * games included: while it gathers, a joiner gets an open player slot, or else an open observer
+ * slot, and otherwise waits on its bench.
+ */
+export interface JoinableLobby {
+  id: SbLobbyId
+  visibility: LobbyVisibility
+  /** The people in the lobby: players and observers in its slots, and those on its bench. */
+  memberCount: number
+  /**
+   * The most people the lobby can hold: its slots a person can be in (closed slots and computers
+   * left out) and its bench.
+   */
+  capacity: number
+}
+
 /** A game the user takes part in, while it's being played. */
 export interface GameActivity {
   kind: 'game'
   game: ParticipatingGameInfo
   /** The user's own slot in the game. */
   ownSlot: ParticipatingGameInfo['slots'][number] | undefined
+  /** The lobby the game was started from, which still takes joins while it runs. */
+  lobby?: JoinableLobby
 }
 
 /** The lobby the user is in. */
-export interface LobbyActivity {
+export interface LobbyActivity extends JoinableLobby {
   kind: 'lobby'
-  id: SbLobbyId
   name: string
-  visibility: LobbyVisibility
-  /** The players seated in the lobby, computers included. Observers don't count. */
-  playerCount: number
-  /** The slots someone could still join as a player. Closed slots don't count. */
-  openSlots: number
-  /** Whether the lobby's game is loading or running, which makes the lobby unjoinable. */
-  inGame: boolean
   mapName?: string
   mapImageUrl?: string
   /** The race picked in the user's slot, or `undefined` while they observe. */
@@ -65,8 +82,6 @@ export interface CurrentActivityState {
   userId: SbUserId | undefined
   /** The lobby the user is in, if any. */
   lobby: Lobby | undefined
-  /** Whether the lobby's game is running. */
-  lobbyRunning: boolean
   gameClient: ReadonlyDeep<GameClientState>
   participatingGame: ParticipatingGameInfo | undefined
   watchedReplay: WatchedReplayInfo | undefined
@@ -78,6 +93,24 @@ const PLAYED_GAME_STATES: ReadonlySet<GameStatusString> = new Set([
   'hasResult',
   'resultSent',
 ])
+
+/** The kinds of slot a person can be in. */
+const PERSON_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
+  SlotType.Human,
+  SlotType.Observer,
+  SlotType.Open,
+  SlotType.ControlledOpen,
+])
+
+function getJoinableLobby(lobby: Lobby): JoinableLobby {
+  return {
+    id: lobby.id,
+    visibility: lobby.visibility,
+    memberCount: getHumanSlots(lobby).length + lobby.bench.length,
+    capacity:
+      getLobbySlots(lobby).filter(slot => PERSON_SLOT_TYPES.has(slot.type)).length + MAX_BENCH,
+  }
+}
 
 /**
  * Returns what the user is doing, or `undefined` if they're logged out or doing none of these. A
@@ -100,6 +133,12 @@ export function getCurrentActivity(state: CurrentActivityState): CurrentActivity
       kind: 'game',
       game: participatingGame,
       ownSlot: participatingGame.slots.find(slot => slot.userId === userId),
+      // Lobby members can't be in any other game, so one played from a lobby that isn't a match is
+      // the lobby's own.
+      lobby:
+        lobby && participatingGame.matchmakingType === undefined
+          ? getJoinableLobby(lobby)
+          : undefined,
     }
   }
 
@@ -108,12 +147,8 @@ export function getCurrentActivity(state: CurrentActivityState): CurrentActivity
     const observing = ownSlot?.type === SlotType.Observer
     return {
       kind: 'lobby',
-      id: lobby.id,
+      ...getJoinableLobby(lobby),
       name: lobby.name,
-      visibility: lobby.visibility,
-      playerCount: getPlayerSlots(lobby).length,
-      openSlots: openSlotCount(lobby),
-      inGame: state.lobbyRunning || isInParticipatingGame(gameClient),
       mapName: lobby.map?.name,
       mapImageUrl: lobby.map?.image1024Url ?? lobby.map?.image512Url,
       ownRace: ownSlot && !observing ? ownSlot.race : undefined,
@@ -136,7 +171,6 @@ export function useCurrentActivity(): CurrentActivity | undefined {
   const selfUser = useSelfUser()
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyInfo = useAppSelector(s => s.lobby.info)
-  const lobbyRunning = useAppSelector(s => !!s.lobby.runState)
   const gameClient = useAppSelector(s => s.gameClient)
   const participatingGame = useAtomValue(participatingGameAtom)
   const watchedReplay = useAtomValue(watchedReplayAtom)
@@ -144,7 +178,6 @@ export function useCurrentActivity(): CurrentActivity | undefined {
   return getCurrentActivity({
     userId: selfUser?.id,
     lobby: inLobby ? lobbyInfo : undefined,
-    lobbyRunning,
     gameClient,
     participatingGame,
     watchedReplay,

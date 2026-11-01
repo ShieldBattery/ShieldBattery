@@ -26,9 +26,8 @@ const LISTED_LOBBY: LobbyActivity = {
   id: LOBBY_ID,
   name: 'Fastest 3v3',
   visibility: 'listed',
-  playerCount: 4,
-  openSlots: 2,
-  inGame: false,
+  memberCount: 5,
+  capacity: 16,
   mapName: 'Fastest',
   mapImageUrl: MAP_IMAGE_URL,
   ownRace: 'z',
@@ -67,8 +66,8 @@ describe('client/discord/discord-activity', () => {
         smallImage: { image: 'race_z', text: 'Zerg' },
         party: {
           id: LOBBY_ID,
-          currentSize: 4,
-          maxSize: 6,
+          currentSize: 5,
+          maxSize: 16,
           privacy: 'public',
           joinSecret: `lobby:${LOBBY_ID}`,
         },
@@ -82,18 +81,11 @@ describe('client/discord/discord-activity', () => {
       expect(activity?.smallImage?.image).toBe('race_z')
       expect(activity?.party).toEqual({
         id: LOBBY_ID,
-        currentSize: 4,
-        maxSize: 6,
+        currentSize: 5,
+        maxSize: 16,
         privacy: 'private',
         joinSecret: `lobby:${LOBBY_ID}`,
       })
-    })
-
-    test("a lobby whose game is loading or running can't be joined", () => {
-      expect(shared({ ...LISTED_LOBBY, inGame: true })?.party).toBeUndefined()
-      expect(
-        shared({ ...LISTED_LOBBY, visibility: 'unlisted', inGame: true })?.party,
-      ).toBeUndefined()
     })
 
     test("a one-character lobby name is quoted, since Discord won't show it alone", () => {
@@ -190,6 +182,22 @@ describe('client/discord/discord-activity', () => {
       expect(activity?.details).toBe('Use map settings · Protoss')
       expect(activity?.state).toBe('Big Game Hunters')
       expect(activity?.largeImage).toEqual({ image: MAP_IMAGE_URL, text: 'Big Game Hunters' })
+    })
+
+    test("a lobby's game has the lobby's party, so it can still be joined", () => {
+      const lobby = { id: LOBBY_ID, memberCount: 5, capacity: 16 }
+      expect(
+        shared({ ...inGame(ONE_VS_ONE), lobby: { ...lobby, visibility: 'listed' } })?.party,
+      ).toEqual({
+        id: LOBBY_ID,
+        currentSize: 5,
+        maxSize: 16,
+        privacy: 'public',
+        joinSecret: `lobby:${LOBBY_ID}`,
+      })
+      expect(
+        shared({ ...inGame(ONE_VS_ONE), lobby: { ...lobby, visibility: 'unlisted' } })?.party,
+      ).toMatchObject({ id: LOBBY_ID, privacy: 'private' })
     })
 
     test('a map name too long for Discord is shortened', () => {

@@ -12,6 +12,7 @@ import {
   SlotType,
 } from '../../common/lobbies/slot'
 import { MapInfo } from '../../common/maps'
+import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { ParticipatingGameInfo } from '../games/game-atoms'
 import { CurrentActivityState, getCurrentActivity } from './current-activity'
@@ -37,7 +38,16 @@ const LOBBY = {
     team([createHuman(SELF, 'z'), createComputer('t'), createOpen(), createClosed()]),
     team([createObserver(OTHER), createOpen()], true),
   ],
+  bench: [],
 } as Partial<Lobby> as Lobby
+
+/** What `LOBBY` tells others about joining it: 2 people, 4 slots a person can be in and the bench. */
+const JOINABLE_LOBBY = {
+  id: LOBBY_ID,
+  visibility: 'listed',
+  memberCount: 2,
+  capacity: 12,
+} as const
 
 const GAME: ParticipatingGameInfo = {
   gameId: 'game-1',
@@ -54,7 +64,6 @@ function stateWith(overrides: Partial<CurrentActivityState>): CurrentActivitySta
   return {
     userId: SELF,
     lobby: undefined,
-    lobbyRunning: false,
     gameClient: { watchOnly: {} },
     participatingGame: undefined,
     watchedReplay: undefined,
@@ -75,15 +84,11 @@ function watching(gameIds: string[], state: GameStatusString): CurrentActivitySt
 }
 
 describe('client/activity/current-activity', () => {
-  test('a lobby counts its players and open player slots, with the own race', () => {
+  test('a lobby counts its people and the slots and bench places they could be in', () => {
     expect(getCurrentActivity(stateWith({ lobby: LOBBY }))).toEqual({
       kind: 'lobby',
-      id: LOBBY_ID,
+      ...JOINABLE_LOBBY,
       name: 'Fastest 3v3',
-      visibility: 'listed',
-      playerCount: 2,
-      openSlots: 1,
-      inGame: false,
       mapName: 'Fastest',
       mapImageUrl: 'https://cdn.example/fastest-1024.jpg',
       ownRace: 'z',
@@ -96,27 +101,57 @@ describe('client/activity/current-activity', () => {
     expect(activity).toMatchObject({ kind: 'lobby', ownRace: undefined, observing: true })
   })
 
-  test('a lobby is in game while its game runs, or while the own game is loading', () => {
-    expect(getCurrentActivity(stateWith({ lobby: LOBBY, lobbyRunning: true }))).toMatchObject({
-      inGame: true,
+  test('a lobby counts those on its bench as people in it', () => {
+    const lobby: Lobby = {
+      ...LOBBY,
+      bench: [{ userId: makeSbUserId(3), race: 'r', joinedAt: 0 }],
+    }
+    expect(getCurrentActivity(stateWith({ userId: makeSbUserId(3), lobby }))).toMatchObject({
+      kind: 'lobby',
+      memberCount: 3,
+      capacity: 12,
+      ownRace: undefined,
+      observing: false,
     })
-    expect(
-      getCurrentActivity(
-        stateWith({ lobby: LOBBY, gameClient: gameClientIn('game-1', 'launching') }),
-      ),
-    ).toMatchObject({ kind: 'lobby', inGame: true })
   })
 
-  test('a game being played takes the place of the lobby it started from', () => {
+  test('a lobby stays while its game is loading', () => {
+    expect(
+      getCurrentActivity(
+        stateWith({
+          lobby: LOBBY,
+          gameClient: gameClientIn('game-1', 'launching'),
+          participatingGame: GAME,
+        }),
+      ),
+    ).toMatchObject({ kind: 'lobby', ...JOINABLE_LOBBY })
+  })
+
+  test('a game being played takes the place of the lobby it started from, and keeps it', () => {
     const activity = getCurrentActivity(
       stateWith({
         lobby: LOBBY,
-        lobbyRunning: true,
         gameClient: gameClientIn('game-1', 'playing'),
         participatingGame: GAME,
       }),
     )
-    expect(activity).toEqual({ kind: 'game', game: GAME, ownSlot: GAME.slots[1] })
+    expect(activity).toEqual({
+      kind: 'game',
+      game: GAME,
+      ownSlot: GAME.slots[1],
+      lobby: JOINABLE_LOBBY,
+    })
+  })
+
+  test("a match isn't a lobby's game", () => {
+    const activity = getCurrentActivity(
+      stateWith({
+        lobby: LOBBY,
+        gameClient: gameClientIn('game-1', 'playing'),
+        participatingGame: { ...GAME, matchmakingType: MatchmakingType.Match1v1 },
+      }),
+    )
+    expect(activity).toMatchObject({ kind: 'game', lobby: undefined })
   })
 
   test.each(['hasResult', 'resultSent'] as const)('a game counts as played while it %s', state => {
