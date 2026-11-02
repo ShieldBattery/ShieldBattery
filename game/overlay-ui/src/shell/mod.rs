@@ -620,6 +620,9 @@ impl Shell {
         // way: they decide only whether the dock stands on its top edge, which without them it
         // never does.
         let observing = views.observer.is_some() && self.host.mode.is_spectating();
+        // Alt alone, since SC:R's own Ctrl+Alt chords are not a request to see anything counted.
+        let counting_on_screen = self.hotkeys_active()
+            && ctx.input(|input| input.modifiers.alt && !input.modifiers.ctrl);
         let placement = match views.observer {
             Some(view) if observing => self.observer.frame(
                 ctx,
@@ -632,6 +635,7 @@ impl Shell {
                     replay: &mut self.replay,
                     intents: &mut self.intents,
                     hit_rects: &mut hit_rects,
+                    counting_on_screen,
                 },
             ),
             _ => PlaybackControlsPlacement::default(),

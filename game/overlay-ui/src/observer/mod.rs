@@ -18,6 +18,7 @@ pub(crate) mod map_control;
 pub(crate) mod matchup;
 pub(crate) mod military;
 pub(crate) mod minimap;
+pub(crate) mod on_screen;
 pub(crate) mod production;
 pub(crate) mod race_icon;
 pub(crate) mod scoreboard;
@@ -42,6 +43,7 @@ pub use matchup::{
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
+pub use on_screen::{OnScreenPlayerView, OnScreenUnitView, OnScreenView, render_on_screen_view};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,
@@ -98,6 +100,8 @@ pub struct ObserverView {
     /// report. The bar is not drawn at all without one: a share bar with nothing behind it would
     /// read as a game where neither side holds anything.
     pub map_control: Option<MapControlView>,
+    /// How many units each player has in the view, for the count shown while Alt is held.
+    pub on_screen: OnScreenView,
 }
 
 impl ObserverView {

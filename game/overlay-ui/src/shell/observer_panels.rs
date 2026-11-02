@@ -207,6 +207,8 @@ pub(super) struct ObserverFrame<'a> {
     pub(super) replay: &'a mut ReplayCommands,
     pub(super) intents: &'a mut Vec<Intent>,
     pub(super) hit_rects: &'a mut Vec<HitRect>,
+    /// Whether the watcher is holding the key that brings up the on-screen count.
+    pub(super) counting_on_screen: bool,
 }
 
 impl ObserverPanels {
@@ -261,6 +263,7 @@ impl ObserverPanels {
             replay,
             intents,
             hit_rects,
+            counting_on_screen,
         } = shell;
 
         self.map_control_available = view.map_control.is_some();
@@ -717,6 +720,14 @@ impl ObserverPanels {
             if let (Some(playback), Some(event)) = (seekable, outcome.clicked) {
                 replay.queue_seek(playback.event_seek_target(event.secs), event.position);
             }
+        }
+
+        // Drawn last so it covers the wings it may reach across. While it is up it takes the whole
+        // screen's presses, so a drag made with Alt held draws its counting box instead of
+        // selecting what is under it; the wheel stays the game's, which zooms with it.
+        observer::render_on_screen_view(&view.on_screen, ctx, counting_on_screen, screen);
+        if counting_on_screen {
+            hit_rects.push(HitRect::new(screen));
         }
 
         self.dock_plan = Some(DockPlan {

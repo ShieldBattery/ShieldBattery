@@ -1435,7 +1435,7 @@ fn paint_icon(ui: &Ui, rect: Rect, icon: ProductionIcon, code_size: f32, alpha: 
 
 /// The color the game tints a wireframe at this much health: green while the unit is barely hurt,
 /// yellow once a third of it is gone, red once two thirds are.
-fn health_tint(fraction: f32) -> Color32 {
+pub(crate) fn health_tint(fraction: f32) -> Color32 {
     if fraction >= 2.0 / 3.0 {
         theme::TEXT_POSITIVE
     } else if fraction >= 1.0 / 3.0 {

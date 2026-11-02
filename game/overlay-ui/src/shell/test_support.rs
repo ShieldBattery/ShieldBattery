@@ -6,8 +6,8 @@ use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
 use crate::observer::{
     ControlGroupsView, EconomyView, GraphLineView, GraphsView, MapControlSideView, MapControlView,
-    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionView,
-    RaceView, SelectedUnitView, SelectionView, TimelineView,
+    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, OnScreenView, ProductionIcon,
+    ProductionView, RaceView, SelectedUnitView, SelectionView, TimelineView,
 };
 use crate::playback_controls::PlaybackView;
 
@@ -68,6 +68,7 @@ pub(super) fn empty_game() -> ObserverView {
         control_groups: ControlGroupsView::default(),
         selection: SelectionView::default(),
         map_control: None,
+        on_screen: OnScreenView::default(),
     }
 }
 
