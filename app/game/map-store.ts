@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import isDev from 'electron-is-dev'
 import fs, { promises as fsPromises } from 'fs'
 import { mkdirp } from 'mkdirp'
 import path from 'path'
@@ -10,6 +11,15 @@ import log from '../logger'
 
 /** How long a map download may go without receiving any data before it's given up on. */
 const DOWNLOAD_IDLE_MS = 30_000
+
+// Dev-only stand-ins for a member on a slow or broken connection, to see how lobbies and game
+// launches treat someone who doesn't have the map yet. Dev instances share one map store, so a map
+// the host already has would otherwise be ready for everyone at once. Both apply to every map this
+// instance checks, whether or not it's already on disk.
+/** `SB_MAP_DOWNLOAD_DELAY_MS`: how long each map check waits before it starts. */
+const DEBUG_DOWNLOAD_DELAY_MS = isDev ? Number(process.env.SB_MAP_DOWNLOAD_DELAY_MS) || 0 : 0
+/** `SB_MAP_DOWNLOAD_FAIL=1`: every map check fails (after the delay, if there is one). */
+const DEBUG_DOWNLOAD_FAIL = isDev && process.env.SB_MAP_DOWNLOAD_FAIL === '1'
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>
@@ -54,6 +64,14 @@ export class MapStore {
     }
 
     try {
+      if (DEBUG_DOWNLOAD_DELAY_MS) {
+        log.verbose(`Delaying map download by ${DEBUG_DOWNLOAD_DELAY_MS} ms (debug knob)`)
+        await new Promise(resolve => setTimeout(resolve, DEBUG_DOWNLOAD_DELAY_MS))
+      }
+      if (DEBUG_DOWNLOAD_FAIL) {
+        throw new Error('Map download failed (debug knob)')
+      }
+
       if (exists) {
         const hasher = new HashThrough()
         hasher.hasher.update(mapFormat)
