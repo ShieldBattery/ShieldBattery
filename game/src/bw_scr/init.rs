@@ -900,6 +900,7 @@ impl BwScr {
             is_replay_seeking: AtomicBool::new(false),
             replay_start_seek_sent: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
+            deferred_lobby_game_init: Mutex::new(None),
             disable_hd: AtomicBool::new(false),
             shader_replaces: ShaderReplaces::new(),
             renderer_state: Mutex::new(RendererState {

@@ -451,6 +451,8 @@ pub struct BwScr {
     /// Whether the replay has been sent to the frame its setup asked it to start at.
     replay_start_seek_sent: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
+    /// The host's lobby game init record, if it arrived before the lobby was ready to take it.
+    deferred_lobby_game_init: Mutex<Option<Vec<u8>>>,
     shader_replaces: ShaderReplaces,
     renderer_state: Mutex<RendererState>,
     open_replay_file_count: AtomicUsize,
@@ -4853,6 +4855,17 @@ impl bw::Bw for BwScr {
             // would call step_io.
             // Hopefully this doesn't have thread safety issues when called from the async thread..
             // Since the main thread isn't running it's normal loop at all, it's probably fine.
+
+            // Lobby game init records that arrived too early go through the ProcessLobbyCommands
+            // hook again once the lobby is in the state the native handler takes them in.
+            if self.lobby_state.resolve() == 8 {
+                let deferred = self.deferred_lobby_game_init.lock().take();
+                if let Some(record) = deferred {
+                    debug!("Applying the deferred lobby game init command");
+                    (self.process_lobby_commands)(record.as_ptr(), record.len(), 0);
+                }
+            }
+
             if SNP_INITIALIZED.load(Ordering::Relaxed) {
                 (self.snet_recv_packets)();
                 (self.snet_send_packets)();

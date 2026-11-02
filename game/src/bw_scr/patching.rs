@@ -365,6 +365,20 @@ impl BwScr {
                         && byte == bw::LOBBY_GAME_INIT_COMMAND
                         && player == 0
                     {
+                        // A peer whose relay link opens late can get the host's record while it
+                        // is still joining, before ready_lobby_for_start puts the lobby in the
+                        // state the native handler takes records in. Seeing it now would start
+                        // the game without the record's seed, so maybe_receive_turns hands it to
+                        // the native handler once the lobby is ready.
+                        let lobby_state = self.lobby_state.resolve();
+                        if lobby_state < 8 {
+                            debug!(
+                                "Deferring the lobby game init command until the lobby is ready \
+                                 (lobby_state {lobby_state})"
+                            );
+                            *self.deferred_lobby_game_init.lock() = Some(slice.to_vec());
+                            return;
+                        }
                         let seq = self.snet_next_turn_sequence_number();
                         // I think that the sequence number for next turn gets incremented
                         // before reaching this point, so subtract one to get current
