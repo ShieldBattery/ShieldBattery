@@ -588,9 +588,9 @@ fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying, and its status, the upgrades it fights with and how many of
-/// it are stacked where it is selected `alone`: those are only read out for a unit selected alone,
-/// so they are only read for one.
+/// is making and what it is carrying, and its status, the upgrades it fights with, what its owner
+/// has researched for it and how many of it are stacked where it is selected `alone`: those are
+/// only read out for a unit selected alone, so they are only read for one.
 fn selected_unit_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -611,6 +611,7 @@ fn selected_unit_view(
             })
         });
         view.upgrades = production::selected_upgrades(unit, bw);
+        view.research = production::selected_research(unit, bw);
         view.stacked = game_thread::stacked_building_count(unit, bw.active_units);
     }
     view
@@ -772,6 +773,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         production: None,
         cargo: Vec::new(),
         upgrades: Vec::new(),
+        research: Vec::new(),
     }
 }
 
