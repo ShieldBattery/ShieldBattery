@@ -133,6 +133,8 @@ type GameReportActionedSearchNotificationData = MakeSearchable<GameReportActione
 
 export interface GamePointsRefundedNotificationData extends BaseNotificationData {
   type: NotificationType.GamePointsRefunded
+  gameCount?: number
+  culpritId?: SbUserId
 }
 
 type GamePointsRefundedSearchNotificationData = MakeSearchable<GamePointsRefundedNotificationData>

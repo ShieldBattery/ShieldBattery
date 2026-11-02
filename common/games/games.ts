@@ -223,10 +223,27 @@ export interface MatchmakingResultsEvent {
   season: MatchmakingSeasonJson
 }
 
+export enum GamePointsRefundErrorCode {
+  /** No game exists with the given id. */
+  GameNotFound = 'gameNotFound',
+  /** The game isn't in the current season, so its points aren't refundable. */
+  NotCurrentSeason = 'notCurrentSeason',
+  /** The game has no matchmaking point changes at all (e.g. it wasn't a ranked game). */
+  NotRanked = 'notRanked',
+  /**
+   * The game is ranked, but nothing can be refunded to the eligible players (e.g. the only players
+   * who lost points/bonus are the punished ones).
+   */
+  NotRefundable = 'notRefundable',
+  /** A punished user id isn't among the game's participants. */
+  InvalidPlayers = 'invalidPlayers',
+  /** The game's points have already been refunded. */
+  AlreadyRefunded = 'alreadyRefunded',
+}
+
 /**
- * Request to nullify the matchmaking/league points for a game (an admin action taken after an
- * actioned game report). Refunds points lost by everyone who played *except* the punished
- * player(s), for the current season only.
+ * Request to nullify the matchmaking/league points for a game (an admin action). Refunds points lost
+ * by everyone who played *except* the punished player(s), for the current season only.
  */
 export interface NullifyGamePointsRequest {
   /** The players to exclude from the refund (i.e. the punished player(s)). */
@@ -240,6 +257,16 @@ export interface NullifyGamePointsResponse {
    * breakdown lives in the `game_points_refunds` audit row.
    */
   refundedUsers: SbUserId[]
+}
+
+/** The outcome of refunding every current-season ranked game a player played. */
+export interface UserGamesRefundSummary {
+  /** Games whose points were refunded. */
+  refundedGames: number
+  /** Games with nothing to refund, e.g. already refunded, or only the punished player lost. */
+  skippedGames: number
+  /** Games whose refund failed unexpectedly. Each can still be refunded from its own page. */
+  failedGames: number
 }
 
 /**

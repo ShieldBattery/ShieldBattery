@@ -10,6 +10,7 @@ import { GameStatus } from '../../../common/games/game-status'
 import { GameType } from '../../../common/games/game-type'
 import {
   GameDebugInfo,
+  GamePointsRefundErrorCode,
   GameReplayInfo,
   GET_GAMES_LIMIT,
   GetGameResponse,
@@ -79,11 +80,7 @@ import {
   listPendingReviewRequests,
   wasUserInGame,
 } from './game-models'
-import {
-  GamePointsRefundErrorCode,
-  GamePointsRefundService,
-  GamePointsRefundServiceError,
-} from './game-points-refund-service'
+import { GamePointsRefundService, GamePointsRefundServiceError } from './game-points-refund-service'
 import GameResultService, {
   ALL_MANUAL_GAME_RESULTS,
   GameResultServiceError,
@@ -355,9 +352,11 @@ export class GameApi {
       body: Joi.object<NullifyGamePointsRequest>({
         // `.single()` because the client sends this via `encodeBodyAsParams`, which serializes a
         // one-element array as a single `punishedUserIds=<id>` param that the body parser decodes as
-        // a scalar (the usual convention here — see user-api.ts / chat-api.ts). A 3v3 is the largest
-        // matchmaking game, so at most 6 punished players; keep a little slack.
-        punishedUserIds: Joi.array().items(joiUserId()).single().min(1).max(8).required(),
+        // a scalar (the usual convention here — see user-api.ts / chat-api.ts), and an empty array
+        // as no param at all, hence the default: a game nobody is punished for (e.g. one broken by
+        // a server problem) refunds every player who lost. A 3v3 is the largest matchmaking game,
+        // so at most 6 punished players; keep a little slack.
+        punishedUserIds: Joi.array().items(joiUserId()).single().max(8).default([]),
       }),
     })
 
