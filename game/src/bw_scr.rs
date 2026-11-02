@@ -83,8 +83,8 @@ mod game_locale;
 mod game_settings;
 mod game_stats;
 mod hotkey_presses;
-mod image_load_pump;
 mod init;
+mod load_pump;
 mod monitors;
 mod network;
 mod patching;
@@ -4823,7 +4823,7 @@ impl bw::Bw for BwScr {
     unsafe fn init_sprites(&self) {
         unsafe {
             log_time("init_sprites", || {
-                image_load_pump::run(|| (self.init_sprites)())
+                load_pump::run(load_pump::Load::Images, || (self.init_sprites)())
             });
             self.sprites_inited.write(1);
             if let Some(init_rtl) = self.init_real_time_lighting {

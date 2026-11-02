@@ -12,8 +12,8 @@ use crate::game_thread;
 use crate::netcode_v2;
 
 use super::{
-    BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, image_load_pump,
-    is_minimap_mask_draw, replay_save, save_observer_panels, scr,
+    BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, is_minimap_mask_draw, load_pump,
+    replay_save, save_observer_panels, scr,
 };
 
 impl BwScr {
@@ -281,7 +281,7 @@ impl BwScr {
                                     wirefram,
                                     wireframe_remap,
                                     has_init_bw,
-                                    image_load_progress: image_load_pump::progress(),
+                                    image_load_progress: load_pump::progress(),
                                     countdown_start,
                                     game_started,
                                     local_player_id,

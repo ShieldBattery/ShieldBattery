@@ -12,6 +12,7 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 
 #[cfg(debug_assertions)]
 use super::SelectedUnit;
+use super::load_pump::{self, Load};
 use super::network::{TurnReceiveOutcome, TurnSendOutcome};
 use super::selection::flash_target_sprite;
 
@@ -702,7 +703,9 @@ impl BwScr {
             exe.hook_closure_address(
                 InitGameData,
                 move |orig| {
-                    let ok = log_time("init_game_data", || orig());
+                    let ok = log_time("init_game_data", || {
+                        load_pump::run(Load::GameData, || orig())
+                    });
                     if ok == 0 {
                         error!("init_game_data failed");
                         return 0;

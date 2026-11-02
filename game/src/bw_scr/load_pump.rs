@@ -1,17 +1,21 @@
-//! Keeps the game window responsive while SC:R loads its images.
+//! Keeps the game window responsive while SC:R loads its images and, at the game's start, its game
+//! data.
 //!
 //! SC:R loads every image's graphics (`init_sprites`) on the main thread, after the window is up
 //! and before ShieldBattery's own message loop starts. That takes a few seconds from a warm disk
-//! cache and can take most of a minute from a cold one. Windows treats a window whose thread hasn't
-//! checked its message queue for five seconds as not responding: it ghosts the window and offers to
-//! close the program, and players take it up on that.
+//! cache and can take most of a minute from a cold one. Once the countdown ends, the main thread
+//! loads the game's data (`init_game_data`: the map, its tileset, the unit and sprite data), which
+//! from a cold cache takes seconds too, again with nothing checking the queue. Windows treats a
+//! window whose thread hasn't checked its message queue for five seconds as not responding: it
+//! ghosts the window and offers to close the program, and players take it up on that.
 //!
-//! The load opens a file for nearly every image, so the `open_file` hook gives it a place to check
-//! the queue every [`QUEUE_CHECK_INTERVAL`]. A load that runs past [`REDRAW_AFTER`] also redraws the
+//! Both loads open file after file, so the `open_file` hook gives them a place to check the queue
+//! every [`QUEUE_CHECK_INTERVAL`]. An image load that runs past [`REDRAW_AFTER`] also redraws the
 //! loading screen every [`REDRAW_INTERVAL`], showing how far it has gotten. A shorter load pays for
 //! no redraws. Each image's texture records its upload into the renderer's current frame, and a
 //! redraw submits the uploads recorded since the last one, so a redraw moves that work earlier
-//! rather than adding it.
+//! rather than adding it. The game data load is never drawn during, since it is building the
+//! state a frame of the game would draw.
 
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -26,23 +30,44 @@ const REDRAW_AFTER: Duration = Duration::from_secs(1);
 const REDRAW_INTERVAL: Duration = Duration::from_millis(250);
 /// How many redraws of a load are logged one by one.
 const LOGGED_REDRAWS: u32 = 8;
-/// The load opens one file per image, `anim/main_000.anim` through `anim/main_998.anim`, in order.
+/// The image load opens one file per image, `anim/main_000.anim` through `anim/main_998.anim`, in
+/// order.
 const IMAGE_COUNT: u32 = 999;
 const IMAGE_PATH_PREFIX: &[u8] = b"anim/main_";
-/// [`IMAGES_REACHED`] outside of a load.
+/// [`IMAGES_REACHED`] outside of an image load.
 const NOT_LOADING: u32 = u32::MAX;
 
-thread_local! {
-    /// The image load running on this thread. Taken out while a queue check or redraw runs, so the
-    /// file opens those cause don't start another.
-    static PUMP: Cell<Option<ImageLoadPump>> = const { Cell::new(None) };
+/// A load of SC:R's that runs on the main thread with nothing checking the message queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Load {
+    /// `init_sprites`, every image's graphics. Redraws the loading screen as it goes.
+    Images,
+    /// `init_game_data`, the game's own data, as the game starts.
+    GameData,
 }
 
-/// The image file the running load opened last, for the loading screen to show progress with.
+impl Load {
+    fn name(self) -> &'static str {
+        match self {
+            Load::Images => "Image load",
+            Load::GameData => "Game data load",
+        }
+    }
+}
+
+thread_local! {
+    /// The load running on this thread. Taken out while a queue check or redraw runs, so the file
+    /// opens those cause don't start another.
+    static PUMP: Cell<Option<LoadPump>> = const { Cell::new(None) };
+}
+
+/// The image file the running image load opened last, for the loading screen to show progress
+/// with.
 static IMAGES_REACHED: AtomicU32 = AtomicU32::new(NOT_LOADING);
 
 #[derive(Clone, Copy)]
-struct ImageLoadPump {
+struct LoadPump {
+    load: Load,
     start: Instant,
     next_queue_check: Instant,
     next_redraw: Instant,
@@ -60,11 +85,12 @@ struct ImageLoadPump {
     debug: DebugKnobs,
 }
 
-/// Runs `load`, SC:R's image load, checking the message queue and redrawing the loading screen from
-/// the file opens it makes on this thread.
-pub fn run<R>(load: impl FnOnce() -> R) -> R {
+/// Runs `run_load`, the SC:R load `load` names, checking the message queue (and for an image load,
+/// redrawing the loading screen) from the file opens it makes on this thread.
+pub fn run<R>(load: Load, run_load: impl FnOnce() -> R) -> R {
     let start = Instant::now();
-    PUMP.set(Some(ImageLoadPump {
+    PUMP.set(Some(LoadPump {
+        load,
         start,
         next_queue_check: start + QUEUE_CHECK_INTERVAL,
         next_redraw: start + REDRAW_AFTER,
@@ -80,14 +106,19 @@ pub fn run<R>(load: impl FnOnce() -> R) -> R {
         #[cfg(debug_assertions)]
         debug: DebugKnobs::from_env(),
     }));
-    IMAGES_REACHED.store(0, Ordering::Relaxed);
-    let result = load();
-    IMAGES_REACHED.store(NOT_LOADING, Ordering::Relaxed);
+    if load == Load::Images {
+        IMAGES_REACHED.store(0, Ordering::Relaxed);
+    }
+    let result = run_load();
+    if load == Load::Images {
+        IMAGES_REACHED.store(NOT_LOADING, Ordering::Relaxed);
+    }
     if let Some(mut pump) = PUMP.take() {
         pump.track_gap(Instant::now());
         debug!(
-            "Image load: {} file opens (first image at {:?}), {} queue checks, {} redraws taking \
-             {:?} (longest {:?}), longest gap between file opens {:?} after {} opens",
+            "{}: {} file opens (first image at {:?}), {} queue checks, {} redraws taking {:?} \
+             (longest {:?}), longest gap between file opens {:?} after {} opens",
+            load.name(),
             pump.opens,
             pump.first_image_at,
             pump.queue_checks,
@@ -110,7 +141,7 @@ pub fn progress() -> Option<f32> {
 }
 
 /// Called from SC:R's `open_file` with the normalized path (if it could be normalized), before the
-/// file is opened. Does nothing outside of an image load on this thread.
+/// file is opened. Does nothing outside of a load on this thread.
 pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
     let Some(mut pump) = PUMP.take() else {
         return;
@@ -118,7 +149,9 @@ pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
     let now = Instant::now();
     pump.track_gap(now);
     pump.opens += 1;
-    if let Some(image) = path.and_then(image_number) {
+    if pump.load == Load::Images
+        && let Some(image) = path.and_then(image_number)
+    {
         IMAGES_REACHED.store(image, Ordering::Relaxed);
         if pump.first_image_at.is_none() {
             pump.first_image_at = Some(now - pump.start);
@@ -134,7 +167,7 @@ pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
         check_message_queue();
         pump.next_queue_check = Instant::now() + QUEUE_CHECK_INTERVAL;
     }
-    if pumping && now >= pump.next_redraw {
+    if pumping && pump.load == Load::Images && now >= pump.next_redraw {
         let redraw_start = Instant::now();
         // egui lays out a widget it hasn't measured yet on the frame after it first appears, which
         // at the display's rate goes unseen. Redraws here are an interval apart, so each draws a
@@ -165,7 +198,7 @@ pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
     PUMP.set(Some(pump));
 }
 
-impl ImageLoadPump {
+impl LoadPump {
     fn track_gap(&mut self, now: Instant) {
         let gap = now - self.last_open;
         if gap > self.longest_gap {
@@ -214,24 +247,24 @@ fn image_number(path: &[u8]) -> Option<u32> {
 #[cfg(debug_assertions)]
 #[derive(Clone, Copy)]
 struct DebugKnobs {
-    /// `SB_IMAGE_LOAD_FILE_DELAY_MS`: sleeps this long in every file open of the image load, to
-    /// stretch it out the way a cold disk cache does.
+    /// `SB_LOAD_FILE_DELAY_MS`: sleeps this long in every file open of a load, to stretch it out
+    /// the way a cold disk cache does.
     file_open_delay: Option<Duration>,
-    /// `SB_NO_IMAGE_LOAD_PUMP=1`: neither checks the message queue nor redraws during the load.
+    /// `SB_NO_LOAD_PUMP=1`: neither checks the message queue nor redraws during a load.
     pump_off: bool,
 }
 
 #[cfg(debug_assertions)]
 impl DebugKnobs {
     fn from_env() -> DebugKnobs {
-        let file_open_delay = std::env::var("SB_IMAGE_LOAD_FILE_DELAY_MS")
+        let file_open_delay = std::env::var("SB_LOAD_FILE_DELAY_MS")
             .ok()
             .and_then(|ms| ms.parse().ok())
             .map(Duration::from_millis);
-        let pump_off = std::env::var("SB_NO_IMAGE_LOAD_PUMP").is_ok_and(|x| x == "1");
+        let pump_off = std::env::var("SB_NO_LOAD_PUMP").is_ok_and(|x| x == "1");
         if file_open_delay.is_some() || pump_off {
             debug!(
-                "Image load debug knobs: file open delay {file_open_delay:?}, pump off {pump_off}"
+                "Load pump debug knobs: file open delay {file_open_delay:?}, pump off {pump_off}"
             );
         }
         DebugKnobs {
