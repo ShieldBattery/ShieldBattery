@@ -86,6 +86,42 @@ struct Scenario {
     jitter: [Jitter; 2],
     /// The latency buffer the relay starts the session with.
     buffer: u32,
+    outage: Option<Outage>,
+    /// The first step the relays measure, normally the lockstep start's last. A relay that
+    /// anchors its copy of the clock late starts measuring later.
+    measured_from: u32,
+}
+
+/// A slot's link down both ways for a while: its turns, and everything sent to it, get through only
+/// once the link is back.
+#[derive(Clone, Copy, Debug)]
+struct Outage {
+    slot: usize,
+    from_us: i64,
+    until_us: i64,
+}
+
+impl Outage {
+    /// When something arriving at `arrival_us` over `slot`'s link gets through.
+    fn through(outage: Option<Outage>, slot: usize, arrival_us: i64) -> i64 {
+        match outage {
+            Some(x) if x.slot == slot && (x.from_us..x.until_us).contains(&arrival_us) => {
+                x.until_us
+            }
+            _ => arrival_us,
+        }
+    }
+}
+
+/// What the relays measure each turn's lateness against.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Measure {
+    /// The turn's deadline once final, moved by every stop of the clock before then.
+    Final,
+    /// The turn's deadline as it stood when the turn reached its home relay: moved only by the
+    /// clock's stops that relay knew of by then, a hop after the authority for a slot homed
+    /// elsewhere.
+    AtArrival,
 }
 
 /// One tick of one client.
@@ -260,6 +296,8 @@ impl Random {
 }
 
 struct Client {
+    slot: usize,
+    outage: Option<Outage>,
     link_us: i64,
     jitter: Jitter,
     random: Random,
@@ -276,10 +314,19 @@ struct Client {
 }
 
 impl Client {
-    fn new(link_us: i64, jitter: Jitter, seed: u32, rules: Rules) -> Client {
+    fn new(
+        slot: usize,
+        outage: Option<Outage>,
+        link_us: i64,
+        jitter: Jitter,
+        seed: u32,
+        rules: Rules,
+    ) -> Client {
         let mut lead = Lead::new(1);
         lead.set_intended(rollback_target_at(0, CHOSEN_TARGET, LIMIT, true).frames as i32);
         Client {
+            slot,
+            outage,
             link_us,
             jitter,
             random: Random(seed),
@@ -308,7 +355,8 @@ impl Client {
             let spread = (self.jitter.max_us - self.jitter.min_us) as u32;
             arrival += self.jitter.min_us + i64::from(self.random.next() % (spread + 1));
         }
-        self.home_arrivals.push(arrival);
+        self.home_arrivals
+            .push(Outage::through(self.outage, self.slot, arrival));
     }
 
     fn pipe(&self, buffer: u32) -> u32 {
@@ -392,13 +440,21 @@ impl Client {
 struct Relays {
     hop_us: i64,
     start: ClockStart,
+    measure: Measure,
+    outage: Option<Outage>,
     /// Step 23's deadline, once placed.
     anchor: Option<i64>,
     pause_us: i64,
     /// Deadlines from step 23 on.
     deadlines: Vec<i64>,
+    /// The clock's stopped time when each of [`Self::deadlines`] became final.
+    deadline_pauses: Vec<i64>,
+    /// The clock's stopped time at the end of each millisecond so far.
+    pause_history: Vec<i64>,
     /// Each slot's lateness, from step 23 on, in step order.
     lateness: [Vec<i64>; 2],
+    /// How many of [`Self::lateness`]'s first entries no report counts.
+    unmeasured: usize,
 }
 
 impl Relays {
@@ -449,18 +505,20 @@ impl Relays {
                 break;
             }
             self.deadlines.push(nominal);
+            self.deadline_pauses.push(self.pause_us);
             if step.is_multiple_of(REPORT_EVERY_STEPS) {
                 for (slot, client) in clients.iter_mut().enumerate() {
                     if let Some(report) = self.report(slot) {
-                        let deliver = now_us + client.link_us;
+                        let deliver = Outage::through(self.outage, slot, now_us + client.link_us);
                         client.reports.push_back((deliver, report));
                     }
                 }
             }
         }
-        for (lateness, client) in self.lateness.iter_mut().zip(clients.iter()) {
+        let mut first_reports = Vec::new();
+        for (slot, client) in clients.iter().enumerate() {
             loop {
-                let index = lateness.len();
+                let index = self.lateness[slot].len();
                 let step = last_start + index;
                 let (Some(&deadline), Some(&arrival)) =
                     (self.deadlines.get(index), client.home_arrivals.get(step))
@@ -470,18 +528,45 @@ impl Relays {
                 if arrival > now_us {
                     break;
                 }
-                lateness.push(arrival - deadline);
+                let deadline = match self.measure {
+                    Measure::Final => deadline,
+                    Measure::AtArrival => {
+                        let hop = if slot == 0 { 0 } else { self.hop_us };
+                        let known_at_ms = ((arrival - hop) / 1000).max(0) as usize;
+                        let stopped_by_arrival = self
+                            .pause_history
+                            .get(known_at_ms)
+                            .copied()
+                            .unwrap_or(self.pause_us);
+                        deadline - (self.deadline_pauses[index] - stopped_by_arrival).max(0)
+                    }
+                };
+                self.lateness[slot].push(arrival - deadline);
+                // A slot's first measured turn reports at once, as the relays do.
+                if self.lateness[slot].len() == self.unmeasured + 1
+                    && let Some(report) = self.report(slot)
+                {
+                    let deliver = Outage::through(self.outage, slot, now_us + client.link_us);
+                    first_reports.push((slot, deliver, report));
+                }
             }
         }
+        for (slot, deliver, report) in first_reports {
+            clients[slot].reports.push_back((deliver, report));
+        }
+        self.pause_history.push(self.pause_us);
     }
 
     fn report(&self, slot: usize) -> Option<LeadReport> {
         let measured = &self.lateness[slot];
-        if measured.is_empty() {
+        let from = measured
+            .len()
+            .saturating_sub(REPORT_WINDOW)
+            .max(self.unmeasured);
+        if measured.len() <= from {
             return None;
         }
-        let mut window: Vec<i64> =
-            measured[measured.len().saturating_sub(REPORT_WINDOW)..].to_vec();
+        let mut window: Vec<i64> = measured[from..].to_vec();
         window.sort_unstable();
         let rank = |percent: usize| window[(window.len() * percent).div_ceil(100).max(1) - 1];
         Some(LeadReport {
@@ -515,12 +600,24 @@ struct Outcome {
     pipe_floor_at_ms: Option<i64>,
     /// The net schedule correction.
     corrected_ms: i64,
+    /// The p90 lateness of the relay's last report, in milliseconds.
+    last_p90_ms: i64,
+    /// Ticks held back over the run's last 10 s.
+    held_at_end: u32,
 }
 
-fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64) -> [Outcome; 2] {
+fn simulate(
+    scenario: &Scenario,
+    start: ClockStart,
+    rules: Rules,
+    measure: Measure,
+    until_ms: i64,
+) -> [Outcome; 2] {
     let base = Instant::now();
     let mut clients = [0, 1].map(|slot| {
         Client::new(
+            slot,
+            scenario.outage,
             scenario.link_us[slot],
             scenario.jitter[slot],
             0x9e37_79b9_u32 ^ (slot as u32 + 1).wrapping_mul(0x85eb_ca6b),
@@ -530,10 +627,15 @@ fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64)
     let mut relays = Relays {
         hop_us: scenario.hop_us,
         start,
+        measure,
+        outage: scenario.outage,
         anchor: None,
         pause_us: 0,
         deadlines: Vec::new(),
+        deadline_pauses: Vec::new(),
+        pause_history: Vec::new(),
         lateness: [Vec::new(), Vec::new()],
+        unmeasured: (scenario.measured_from + 1 - START_STEPS) as usize,
     };
     // Both game loops start together, each sending its pipe's worth of turns ahead of its loop.
     for client in &mut clients {
@@ -550,7 +652,7 @@ fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64)
             let peer_arrivals: Vec<i64> = clients[peer]
                 .home_arrivals
                 .iter()
-                .map(|x| x + to_this)
+                .map(|x| Outage::through(scenario.outage, slot, x + to_this))
                 .collect();
             let client = &mut clients[slot];
             while client.reports.front().is_some_and(|x| x.0 <= now_us) {
@@ -561,9 +663,15 @@ fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64)
             }
         }
     }
+    let last_p90_ms = [0, 1].map(|slot| {
+        relays
+            .report(slot)
+            .map_or(0, |x| i64::from(x.p90_us) / 1000)
+    });
     clients.map(|client| {
         let mut outcome = Outcome {
             corrected_ms: client.corrected_us / 1000,
+            last_p90_ms: last_p90_ms[client.slot],
             ..Outcome::default()
         };
         for record in &client.records {
@@ -573,6 +681,9 @@ fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64)
             outcome.skipped += record.steps.saturating_sub(1);
             outcome.doubled += u32::from(record.steps > 1);
             outcome.held += u32::from(record.held);
+            if record.at_us >= (until_ms - 10_000) * 1000 {
+                outcome.held_at_end += u32::from(record.held);
+            }
             outcome.lead_changes += u32::from(record.lead_changed);
             if record.at_us >= START_STEPS as i64 * STEP_US {
                 outcome.worst_rollback = outcome.worst_rollback.max(record.rollback);
@@ -603,6 +714,8 @@ const SCENARIOS: [Scenario; 4] = [
             NO_JITTER,
         ],
         buffer: 6,
+        outage: None,
+        measured_from: START_STEPS - 1,
     },
     Scenario {
         name: "cross-region, clean",
@@ -610,6 +723,8 @@ const SCENARIOS: [Scenario; 4] = [
         hop_us: 100_000,
         jitter: [NO_JITTER, NO_JITTER],
         buffer: 5,
+        outage: None,
+        measured_from: START_STEPS - 1,
     },
     Scenario {
         name: "same region",
@@ -617,6 +732,8 @@ const SCENARIOS: [Scenario; 4] = [
         hop_us: 0,
         jitter: [NO_JITTER, NO_JITTER],
         buffer: 1,
+        outage: None,
+        measured_from: START_STEPS - 1,
     },
     Scenario {
         name: "same relay, one jittery player",
@@ -631,6 +748,8 @@ const SCENARIOS: [Scenario; 4] = [
             NO_JITTER,
         ],
         buffer: 1,
+        outage: None,
+        measured_from: START_STEPS - 1,
     },
 ];
 
@@ -643,7 +762,7 @@ fn startup_pacing_ab() {
     for scenario in &SCENARIOS {
         for start in [ClockStart::Authority, ClockStart::HomeRelay] {
             for rules in [Rules::Today, Rules::Fixed] {
-                let outcomes = simulate(scenario, start, rules, RUN_MS);
+                let outcomes = simulate(scenario, start, rules, Measure::Final, RUN_MS);
                 for (slot, x) in outcomes.iter().enumerate() {
                     table.push_str(&format!(
                         "{:<30} {:<9} {:<5} slot {slot}: first 12 s {:>2} | 30 s: skipped {:>2} \
@@ -670,7 +789,7 @@ fn startup_pacing_ab() {
     println!("{table}");
     let run = |name: &str, start, rules| {
         let scenario = SCENARIOS.iter().find(|x| x.name == name).unwrap();
-        simulate(scenario, start, rules, RUN_MS)
+        simulate(scenario, start, rules, Measure::Final, RUN_MS)
     };
 
     // The simulation reproduces the reported start: each player skips and holds frames over and
@@ -723,6 +842,65 @@ fn startup_pacing_ab() {
         assert!(
             fixed[slot].lead_changes <= today[slot].lead_changes,
             "jittery player, lead changes: {fixed:?} against {today:?}\n{table}"
+        );
+    }
+}
+
+#[test]
+fn an_outage_before_pacing_settles() {
+    // The other player's turns stop reaching the relays a few steps before this one's prediction
+    // limit, so it sends turns for steps the coming stop will move before stalling.
+    const OUTAGE_FROM_US: i64 = 1_100_000;
+    // This player's home relay measures its first turn past the step the clock stops at, so the
+    // first report covers only turns sent before the stall: as in prod, where it covered one turn.
+    const MEASURED_FROM: u32 = 34;
+    // A player's link drops just after pacing starts and comes back 24.6 s later, as it did for
+    // one player in prod game 01a18a2b. The relays' report on the first turns measured after it
+    // reaches the other player before the returning player's turns do, while it's still stalled.
+    let scenario = Scenario {
+        name: "outage at the start",
+        link_us: [10_000, 30_000],
+        hop_us: 60_000,
+        jitter: [NO_JITTER, NO_JITTER],
+        buffer: 4,
+        outage: Some(Outage {
+            slot: 1,
+            from_us: OUTAGE_FROM_US,
+            until_us: OUTAGE_FROM_US + 24_600_000,
+        }),
+        measured_from: MEASURED_FROM,
+    };
+    const RUN_MS: i64 = 60_000;
+    let mut table = String::new();
+    let mut outcomes = Vec::new();
+    for measure in [Measure::Final, Measure::AtArrival] {
+        let x = simulate(
+            &scenario,
+            ClockStart::HomeRelay,
+            Rules::Fixed,
+            measure,
+            RUN_MS,
+        );
+        for (slot, x) in x.iter().enumerate() {
+            table.push_str(&format!(
+                "{measure:<9?} slot {slot}: schedule moved {:+} ms, last p90 {:+} ms, held {} (in \
+                 the last 10 s {})\n",
+                x.corrected_ms, x.last_p90_ms, x.held, x.held_at_end,
+            ));
+        }
+        outcomes.push(x);
+    }
+    println!("{table}");
+    let [final_deadlines, at_arrival] = [outcomes[0], outcomes[1]];
+    // Against final deadlines, the player who waited out the other's outage reads a turn sent
+    // before it as early by the whole stop, but one report moves the schedule by no more than a
+    // second before settling, which corrections after it take back. Against deadlines as they
+    // stood at each turn's arrival, nothing is misread. Either way, both players are back on time
+    // well before the end.
+    for x in final_deadlines.iter().chain(&at_arrival) {
+        assert!(
+            x.held_at_end == 0 && x.last_p90_ms.abs() < 100 && x.corrected_ms.abs() < 2_000,
+            "{table}"
         );
     }
 }

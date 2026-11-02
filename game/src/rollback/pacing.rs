@@ -28,7 +28,8 @@
 //! behind the clock by about that round less its buffer. The clock stops for everyone while that
 //! player is further behind than the clock's slack, and every stop moves that player's schedule later along
 //! with its deadlines, so it stays just as far behind until a report corrects it. So until a report
-//! covering a full window has corrected the schedule, a report moves it by all it measures. Before
+//! covering a full window has corrected the schedule, a report moves it by all it measures, up to
+//! [`MAX_START_CORRECTION_US`]. Before
 //! then, one that finds this client less than a step off is ignored rather than taken as the start
 //! of a correction: the first few turns measured were in flight as the start ended, on time however
 //! late the turns after them are, and acting on them would leave no trusted report for a whole
@@ -79,6 +80,12 @@ const MARGIN_US: i64 = 3_000;
 
 /// The most one report moves the schedule by once a full window has corrected it: two steps.
 pub const MAX_CORRECTION_US: i64 = 2 * STEP_US;
+
+/// The most one report moves the schedule by before a full window has corrected it: about a
+/// second. That is more than the slowest round of the lockstep start leaves a player off the clock
+/// on any link a game can be played over, and it keeps a report that misreads this client by far
+/// more than that from moving the schedule by all of it.
+const MAX_START_CORRECTION_US: i64 = REPORT_WINDOW_TURNS as i64 * STEP_US;
 
 /// How fast the part of a correction smaller than a step is applied: 1 ms a tick, about 2.4% of
 /// game speed.
@@ -358,7 +365,7 @@ impl Pacing {
         let limit_us = if self.settled {
             MAX_CORRECTION_US
         } else {
-            i64::MAX
+            MAX_START_CORRECTION_US
         };
         // In whole slew steps, which the game loop's millisecond timing can follow exactly.
         let correction = ((-late_us).clamp(-limit_us, limit_us) as f64 / SLEW_PER_TICK_US as f64)
@@ -547,6 +554,22 @@ mod tests {
         let mut early = Pacing::new(24, 6, start);
         early.on_report(&report(48, -300_000, 0), 54);
         assert_eq!(early.target(start, 3), before - 7);
+    }
+
+    #[test]
+    fn before_a_full_window_one_report_moves_the_schedule_a_second_at_most() {
+        let start = Instant::now();
+        let before = Pacing::new(24, 6, start).target(start, 3);
+        // A report finding this client 24.7 s early (as one measuring turns sent before a long
+        // stop of the clock, against deadlines the stop moved, would).
+        let mut early = Pacing::new(24, 6, start);
+        early.on_report(&report(30, -24_700_000, 0), 30);
+        assert_eq!(early.take_counts().corrected_us, MAX_START_CORRECTION_US);
+        assert_eq!(early.target(start, 3), before - 24);
+        let mut late = Pacing::new(24, 6, start);
+        late.on_report(&report(30, 24_700_000, 0), 30);
+        assert_eq!(late.take_counts().corrected_us, -MAX_START_CORRECTION_US);
+        assert_eq!(late.target(start, 3), before + 24);
     }
 
     #[test]
