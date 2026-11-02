@@ -21,11 +21,12 @@ use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
     MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
-    ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView,
-    UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    ObserverView, OnScreenPlayerView, OnScreenUnitView, OnScreenView, ProductionIcon,
+    ProductionItemView, ProductionPlayerView, ProductionProgressView, ProductionView, RaceView,
+    ResourcesLeftView, SelectedUnitView, SelectionView, Significance, StatusColor, SubjectProgress,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView, UpgradeEffect,
+    WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -481,6 +482,7 @@ pub fn build_view(
         },
         selection: selection(knobs, t),
         map_control: knobs.map_control.then(|| map_control(t)),
+        on_screen: on_screen(knobs, state, t),
     }
 }
 
@@ -607,6 +609,95 @@ fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Milita
         worker_kills,
         worker_losses,
     }
+}
+
+/// What of every player's army the fake camera has in view: a share of it that swells and shrinks
+/// as the view drifts over it, out of step with every other player's, spread over the race's units
+/// in halving shares so a few kinds make up most of it. Each army stands in two clumps that drift
+/// across the view, so grouping has something to split, with a depot-sized building of its owner's
+/// beside the first, which gets a health bar and is not counted.
+fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
+    let mut view = OnScreenView::default();
+    let mut kind_index = std::collections::BTreeMap::new();
+    for index in 0..knobs.player_count() {
+        for &unit in race_units(knobs.race(index)).iter() {
+            kind_index.entry(unit).or_insert(0);
+        }
+    }
+    // Nothing here has the game's own icon atlas, so every tile draws its code; nor its ranks, so
+    // the kinds go in the order of their ids.
+    for (position, (&unit, slot)) in kind_index.iter_mut().enumerate() {
+        *slot = position;
+        view.kinds.push(ProductionIcon {
+            texture: None,
+            index: unit,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        });
+    }
+    for index in 0..knobs.player_count() {
+        view.players.push(OnScreenPlayerView {
+            name: player_name(knobs, index),
+            color: overlay_ui::kit::theme::player_color(index),
+            vision: state.vision[index],
+        });
+        let (army_minerals, _) = army(index, t);
+        let share = (t / 9.0 + index as f64 * 1.7).sin() * 0.5 + 0.5;
+        let mut left = (f64::from(army_minerals) / 60.0 * share) as u32;
+        let race_units = race_units(knobs.race(index));
+        let shielded = knobs.race(index) == RaceView::Protoss;
+        let clumps = [
+            egui::pos2(
+                0.2 + 0.6 * fraction(index as f64 * 0.37 + t / 40.0),
+                0.3 + 0.45 * fraction(index as f64 * 0.53 + t / 55.0),
+            ),
+            egui::pos2(
+                0.1 + 0.8 * fraction(index as f64 * 0.71 + t / 47.0),
+                0.25 + 0.5 * fraction(index as f64 * 0.29 + t / 61.0),
+            ),
+        ];
+        let mut serial = 0usize;
+        for slot in 0..race_units.len() {
+            let count = if slot == race_units.len() - 1 {
+                left
+            } else {
+                left.div_ceil(2)
+            };
+            left -= count;
+            let kind = kind_index[&race_units[(slot + index) % race_units.len()]];
+            for _ in 0..count {
+                serial += 1;
+                let clump = clumps[serial % 3 / 2];
+                let spot = clump
+                    + vec2(
+                        0.05 * (fraction(serial as f64 * 0.618) - 0.5),
+                        0.06 * (fraction(serial as f64 * 0.382) - 0.5),
+                    );
+                let health = 0.15 + 0.85 * fraction(serial as f64 * 0.27 + t / 25.0);
+                view.units.push(OnScreenUnitView {
+                    id: view.units.len() as u32,
+                    player: index,
+                    kind: Some(kind),
+                    position: spot,
+                    bounds: Rect::from_center_size(spot, vec2(0.01, 0.018)),
+                    health: Some(health),
+                    shields: shielded.then(|| fraction(serial as f64 * 0.43 + t / 19.0)),
+                });
+            }
+        }
+        let depot = clumps[0] + vec2(0.06, 0.0);
+        view.units.push(OnScreenUnitView {
+            id: view.units.len() as u32,
+            player: index,
+            kind: None,
+            position: depot,
+            bounds: Rect::from_center_size(depot, vec2(0.03, 0.04)),
+            health: Some(0.5 + 0.5 * fraction(index as f64 * 0.41)),
+            shields: shielded.then_some(1.0),
+        });
+    }
+    view
 }
 
 /// The graphs panel's lines, of whichever thing the watcher asked to see them of.
