@@ -339,6 +339,28 @@ pub struct BwVars {
     pub alliance_rules: AllianceRules,
     /// What the game offers the local player for pausing.
     pub pause_control: Option<PauseControl>,
+    /// The part of the map the main view shows.
+    pub map_view: MapView,
+}
+
+/// A part of the map, in map pixels: where its top-left corner is and how much of the map it spans.
+#[derive(Copy, Clone, Debug)]
+pub struct MapView {
+    pub left: u32,
+    pub top: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl MapView {
+    /// Whether `point` is inside this part of the map.
+    pub fn contains(&self, point: &bw::Point) -> bool {
+        let (Ok(x), Ok(y)) = (u32::try_from(point.x), u32::try_from(point.y)) else {
+            return false;
+        };
+        (self.left..self.left + self.width).contains(&x)
+            && (self.top..self.top + self.height).contains(&y)
+    }
 }
 
 /// What the playback controls need of the game: the replay's length and recorded speed, from its

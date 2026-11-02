@@ -289,6 +289,12 @@ impl BwScr {
                                     stat_txt: self.stat_txt,
                                     alliance_rules,
                                     pause_control,
+                                    map_view: draw_overlay::MapView {
+                                        left: self.screen_x.resolve(),
+                                        top: self.screen_y.resolve(),
+                                        width: self.game_screen_width_bwpx.resolve(),
+                                        height: self.game_screen_height_bwpx.resolve(),
+                                    },
                                 },
                                 apm,
                                 game_stats,

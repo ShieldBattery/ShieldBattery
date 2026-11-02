@@ -7,16 +7,17 @@
 use std::collections::HashMap;
 
 use bw_dat::{Game, Race, Unit, UnitId};
-use egui::Color32;
+use egui::{Color32, Rect, pos2};
 use overlay_ui::kit::theme;
 use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, StatusColor,
-    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
-    TimelineView, UnitStatusView,
+    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
+    OnScreenPlayerView, OnScreenUnitView, OnScreenView, ProductionIcon, ProductionView, RaceView,
+    ResourcesLeftView, SelectedUnitView, SelectionView, StatusColor, TeamCardPlayerView,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView, TimelineView,
+    UnitStatusView,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
@@ -73,6 +74,138 @@ fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
             race: player_race(bw, player_id).1,
         })
         .collect()
+}
+
+/// Every unit of `players` in the main view, for the on-screen count's health bars and the groups
+/// it labels.
+///
+/// Read from the game's active list, which leaves out what is loaded into a transport or a bunker
+/// and so is not on the map to be seen. A unit is in the view when its center is. What gets a bar is
+/// anything of a player's that can be hurt and stands there in its own right (see [`gets_a_bar`]);
+/// what is counted besides is narrower (see [`counts_on_screen`]).
+///
+/// Where a unit stands is given in shares of the game view, which for a watcher is the whole window:
+/// the console that would otherwise take the bottom of it is hidden for them.
+fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
+    let view = bw.map_view;
+    let share = |value: f32, origin: u32, span: u32| (value - origin as f32) / span.max(1) as f32;
+    let to_view = |x: f32, y: f32| {
+        pos2(
+            share(x, view.left, view.width),
+            share(y, view.top, view.height),
+        )
+    };
+    let mut units = Vec::new();
+    let mut kinds: Vec<UnitId> = Vec::new();
+    for unit in bw.active_units {
+        let Some(player) = players
+            .iter()
+            .position(|player| player.player_id == unit.player())
+        else {
+            continue;
+        };
+        let position = unit.position();
+        if !gets_a_bar(unit) || !view.contains(&position) {
+            continue;
+        }
+        let id = unit.id();
+        let kind = counts_on_screen(unit).then(|| {
+            kinds
+                .iter()
+                .position(|&kind| kind == id)
+                .unwrap_or_else(|| {
+                    kinds.push(id);
+                    kinds.len() - 1
+                })
+        });
+        let (x, y) = (f32::from(position.x), f32::from(position.y));
+        let body = id.dimensions();
+        let max_hit_points = unit.max_hp_displayed().max(1) as f32;
+        units.push(OnScreenUnitView {
+            // Only `None` before the game has allocated its units, which is before there are any
+            // to draw.
+            id: bw
+                .units
+                .as_ref()
+                .map_or(0, |units| units.to_unique_id(unit)),
+            player,
+            kind,
+            position: to_view(x, y),
+            bounds: Rect::from_min_max(
+                to_view(x - f32::from(body.left), y - f32::from(body.top)),
+                to_view(
+                    x + f32::from(body.right) + 1.0,
+                    y + f32::from(body.bottom) + 1.0,
+                ),
+            ),
+            health: Some(whole_points(unit.hitpoints()) as f32 / max_hit_points),
+            shields: id.has_shields().then(|| {
+                whole_points(unit.shields()) as f32 / whole_points(id.shields()).max(1) as f32
+            }),
+        });
+    }
+    // The order the game itself ranks units in, highest first: the rank that decides whose portrait
+    // and voice a mixed selection gets. Kinds of equal rank go in the game's own order of unit ids,
+    // so a kind keeps its place whatever happens to the counts around it.
+    let mut order: Vec<usize> = (0..kinds.len()).collect();
+    order.sort_unstable_by_key(|&kind| (std::cmp::Reverse(kinds[kind].rank()), kinds[kind].0));
+    let mut place = vec![0; kinds.len()];
+    for (drawn, &kind) in order.iter().enumerate() {
+        place[kind] = drawn;
+    }
+    for unit in &mut units {
+        unit.kind = unit.kind.map(|kind| place[kind]);
+    }
+    OnScreenView {
+        players: players
+            .iter()
+            .map(|player| OnScreenPlayerView {
+                name: player.name.clone(),
+                color: player.color,
+                vision: player.vision,
+            })
+            .collect(),
+        kinds: order
+            .into_iter()
+            .map(|kind| production::unit_icon(kinds[kind], bw))
+            .collect(),
+        units,
+    }
+}
+
+/// Whether `unit` gets a health bar under it in the on-screen count: anything that can be hurt and
+/// stands on the map in its own right, which leaves out the turret half of a unit already drawn,
+/// what a unit fires or lays, the markers a spell leaves, and hallucinations, whose bars would be
+/// bars of nothing.
+fn gets_a_bar(unit: Unit) -> bool {
+    use bw_dat::unit;
+
+    let id = unit.id();
+    !unit.is_invincible()
+        && !unit.is_hallucination()
+        && !id.is_subunit()
+        && !id.is_powerup()
+        && !matches!(
+            id,
+            unit::SCARAB
+                | unit::INTERCEPTOR
+                | unit::SPIDER_MINE
+                | unit::NUCLEAR_MISSILE
+                | unit::SCANNER_SWEEP
+                | unit::MAP_REVEALER
+                | unit::DISRUPTION_WEB
+                | unit::DARK_SWARM
+        )
+}
+
+/// Whether `unit` is one the on-screen count counts: of what gets a bar (see [`gets_a_bar`]), what
+/// would be thought of as one of a player's units standing there, which is not their buildings, nor
+/// larvae and eggs.
+fn counts_on_screen(unit: Unit) -> bool {
+    use bw_dat::unit;
+
+    let id = unit.id();
+    !id.is_building() && !matches!(id, unit::LARVA | unit::EGG)
 }
 
 /// The observer panels as the last frame handed them to the shell, and what the ones reporting the
@@ -146,6 +279,7 @@ impl ObserverViewCache {
         let control_groups = build_control_groups_view(bw, &players, stats);
         let selection = build_selection_view(bw, &players);
         let map_control = build_map_control_view(&matchup, stats);
+        let on_screen = build_on_screen_view(bw, &players);
         let mut cache = match previous {
             Some(mut cache) => {
                 cache.view.matchup = matchup;
@@ -154,6 +288,7 @@ impl ObserverViewCache {
                 cache.view.control_groups = control_groups;
                 cache.view.selection = selection;
                 cache.view.map_control = map_control;
+                cache.view.on_screen = on_screen;
                 if cache.players != players {
                     cache.players = players;
                     cache.economy = None;
@@ -184,6 +319,7 @@ impl ObserverViewCache {
                     control_groups,
                     selection,
                     map_control,
+                    on_screen,
                 },
                 players,
                 economy: None,
