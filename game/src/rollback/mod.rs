@@ -47,6 +47,13 @@ pub(crate) mod ui_writes;
 /// once-only effect immediately, since nothing will simulate its frame again.
 static TICK_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Whether the step in progress is waiting for turns that haven't arrived. Nothing of the
+/// simulation runs while it waits, but SC:R keeps the game going for the person watching: once a
+/// step has gone 2.5 s without turns, its network step processes input and draws frames in a loop
+/// of its own until they come (the "waiting for players" dialog), so whatever changes there is
+/// the person's doing, not the step's.
+static STEP_WAITING_FOR_TURNS: AtomicBool = AtomicBool::new(false);
+
 /// Whether the step in progress simulates a confirmed frame, one no later tick simulates again.
 static FINAL_STEP: AtomicBool = AtomicBool::new(false);
 
@@ -93,6 +100,22 @@ pub(crate) unsafe fn position(bw: &BwScr) -> Option<u32> {
 /// Whether a tick's steps are running right now.
 pub(crate) fn tick_running() -> bool {
     TICK_RUNNING.load(Ordering::Relaxed)
+}
+
+/// Notes whether the step in progress is waiting for its turns: from a turn receive that found
+/// none, until its turns are in and it goes on to run their commands. Only a tick's steps wait;
+/// outside one, nothing here changes.
+pub(crate) fn note_step_waiting_for_turns(waiting: bool) {
+    if !waiting || tick_running() {
+        STEP_WAITING_FOR_TURNS.store(waiting, Ordering::Relaxed);
+    }
+}
+
+/// Whether the simulation is running right now: a tick's step is in progress and not waiting for
+/// turns. What changes the local selection or anything else of the person's while it runs is the
+/// simulation's doing; anything else is the person's (see [`STEP_WAITING_FOR_TURNS`]).
+pub(crate) fn simulation_running() -> bool {
+    tick_running() && !STEP_WAITING_FOR_TURNS.load(Ordering::Relaxed)
 }
 
 /// Whether the step in progress simulates a confirmed frame, one no later tick simulates again.

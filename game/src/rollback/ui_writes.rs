@@ -36,10 +36,11 @@ static LOG: Mutex<Vec<(u32, UiWrite)>> = Mutex::new(Vec::new());
 
 /// Logs a write the UI is about to make. Called from the hooks on the functions that make them;
 /// calls made by a logic step (triggers make selection circles blink too) are part of the
-/// simulation, which a re-simulation repeats by itself, so only calls between steps are logged,
-/// and only while the rollback engine holds snapshots that could undo them.
+/// simulation, which a re-simulation repeats by itself, so only calls made while the simulation
+/// isn't running are logged (between steps, or while a step waits for turns), and only while the
+/// rollback engine holds snapshots that could undo them.
 pub(crate) fn record(bw: &BwScr, write: UiWrite) {
-    if super::tick_running() || SNAPSHOTS.lock().is_none() {
+    if super::simulation_running() || SNAPSHOTS.lock().is_none() {
         return;
     }
     let Some(frame) = (unsafe { super::position(bw) }) else {

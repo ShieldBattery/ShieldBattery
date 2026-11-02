@@ -526,12 +526,20 @@ impl BwScr {
                 exe.hook_closure_address(
                     ReceiveStormTurns,
                     move |a1, a2, a3, a4, a5, orig| {
+                        // A step that finds no turns waits for them, and from 2.5 s on BW's
+                        // network step processes the person's input while it does. It waits
+                        // until its turns are flushed into the pipe, which only happens once
+                        // they are all in.
                         if game_thread::replay_harness_stalls_step() {
+                            crate::rollback::note_step_waiting_for_turns(true);
                             return 0;
                         }
                         match self.netcode_v2_receive_turns() {
                             TurnReceiveOutcome::Ready => 1,
-                            TurnReceiveOutcome::Stall => 0,
+                            TurnReceiveOutcome::Stall => {
+                                crate::rollback::note_step_waiting_for_turns(true);
+                                0
+                            }
                             TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
                         }
                     },
@@ -542,6 +550,7 @@ impl BwScr {
                 exe.hook_closure_address(
                     FlushLocalTurns,
                     move |a1, a2, orig| {
+                        crate::rollback::note_step_waiting_for_turns(false);
                         if self.netcode_v2_flush_pipe() {
                             0
                         } else {
@@ -1053,26 +1062,36 @@ impl BwScr {
                 // A step takes a unit that dies, changes owner or boards a transport out of the
                 // local selection, which the rollback engine puts back if a restore undoes that;
                 // and the person's own selections make the simulation's selection for them, which
-                // the local selection catches up with after a rollback.
+                // the local selection catches up with after a rollback. The person selects between
+                // ticks, and inside one while a step waits for turns.
                 exe.hook_closure_address(
                     SelectUnits,
                     move |count, units, play_sound, send_command, orig| {
-                        if !crate::rollback::tick_running() {
-                            // The person selecting, which sends a command that makes the
-                            // simulation's selection for them a few steps later.
-                            let person_selecting = crate::rollback_live::native_sync_off()
-                                && !self.selection.engine_selecting.load(Ordering::Relaxed);
-                            let before = person_selecting.then(|| self.rollback_local_selection());
+                        if !crate::rollback::simulation_running() {
+                            let person_selecting =
+                                !self.selection.engine_selecting.load(Ordering::Relaxed);
+                            let during_tick = crate::rollback::tick_running();
+                            let before = (person_selecting
+                                && (during_tick || crate::rollback_live::native_sync_off()))
+                            .then(|| self.rollback_local_selection());
                             orig(count, units, play_sound, send_command);
-                            if let Some(before) = before
+                            let Some(before) = before else {
+                                return;
+                            };
+                            let after = self.rollback_local_selection();
+                            if during_tick {
+                                crate::rollback::selection::note_selection_made_during_tick(
+                                    &before, &after,
+                                );
+                            }
+                            // The person's selection sends a command that makes the simulation's
+                            // selection for them a few steps later.
+                            if crate::rollback_live::native_sync_off()
                                 && let Some(frame) = crate::rollback::position(self)
                                 && let Some(pipe) = netcode_v2::with_turn_state(|s| s.pipe_depth())
                             {
                                 crate::rollback::selection::note_selection_made(
-                                    frame,
-                                    pipe,
-                                    &before,
-                                    &self.rollback_local_selection(),
+                                    frame, pipe, &before, &after,
                                 );
                             }
                             return;

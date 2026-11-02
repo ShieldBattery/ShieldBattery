@@ -111,9 +111,11 @@ static VISION: AtomicI32 = AtomicI32::new(-1);
 /// restores happen under a local selection: with `SB_ROLLBACK_HARNESS_SELECT=24` every 24th frame
 /// selects one of their eggs or up to twelve of their other units (see
 /// [`BwScr::rollback_select_for_harness`]), and the frames between often select a unit of theirs
-/// the moment it appears (see [`BwScr::rollback_select_new_for_harness`]). That player also stands in as the local
-/// player while the game steps (see [`local_stand_in`]). Needs [`VISION_ENV_VAR`] and an armed
-/// harness.
+/// the moment it appears (see [`BwScr::rollback_select_new_for_harness`]). Some steps stalled at
+/// the prediction limit select some as well, as the person can while a live step waits for turns.
+/// That player also stands in as the local player while the game steps (see [`local_stand_in`]).
+/// Needs [`VISION_ENV_VAR`] and an armed harness. Each tick checks that the selection it leaves
+/// is one the status panel can draw.
 const SELECT_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_SELECT";
 
 /// The interval [`SELECT_ENV_VAR`] names, or 0 when no selecting was asked for.
@@ -1071,10 +1073,31 @@ unsafe fn select_if_due(bw: &BwScr) {
             }
             return;
         }
-        let (selected, egg) = bw.rollback_select_for_harness(player, next_select_random);
+        let (selected, egg) = bw.rollback_select_for_harness(player, false, next_select_random);
         match egg {
             true => debug!("{SELECT_ENV_VAR}: frame {frame} selected an egg"),
             false => debug!("{SELECT_ENV_VAR}: frame {frame} selected {selected} units"),
+        }
+    }
+}
+
+/// Selects units for [`local_stand_in`] as the person, on a quarter of the steps that stall at the
+/// prediction limit: a live step that waits that long for turns processes the person's input
+/// while it does, in the middle of a tick.
+unsafe fn select_while_waiting(bw: &BwScr, frame: u32) {
+    unsafe {
+        let Some(player) = local_stand_in() else {
+            return;
+        };
+        if !next_select_random().is_multiple_of(4) {
+            return;
+        }
+        let (selected, egg) = bw.rollback_select_for_harness(player, true, next_select_random);
+        match egg {
+            true => debug!("{SELECT_ENV_VAR}: the stalled step to {frame} selected an egg"),
+            false => {
+                debug!("{SELECT_ENV_VAR}: the stalled step to {frame} selected {selected} units")
+            }
         }
     }
 }
@@ -1168,6 +1191,7 @@ unsafe fn run_tick(
                     crate::rollback_probe::run_game_logic_step(bw, param, orig)
                 });
                 STALLING_STEP.store(false, Ordering::Relaxed);
+                select_while_waiting(bw, step.frame);
                 stalled = true;
                 if ret.is_none() || bw.rollback_frame_count() != before {
                     error!(
@@ -1193,6 +1217,13 @@ unsafe fn run_tick(
             ret
         });
         drop(guard);
+        if local_stand_in().is_some() {
+            debug_assert!(
+                !bw.rollback_local_selection_groups_a_building(),
+                "The tick to frame {:?} left a group selected that holds a building",
+                bw.rollback_frame_count(),
+            );
+        }
         *KNOWLEDGE.lock() = Some(shape.delivered);
         let reached = bw.rollback_frame_count().unwrap_or(current);
         if live_shapes::armed() {

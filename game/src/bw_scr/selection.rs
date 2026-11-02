@@ -930,7 +930,8 @@ impl BwScr {
     }
 
     /// Settles the local selection after a tick that restored and simulated again, against
-    /// `before`, the selection as it was before the restore.
+    /// `before`, the selection as it was before the restore, or the one the person made in its
+    /// place while a step of the tick waited for turns.
     ///
     /// The selection stays out of the snapshot, so a restore leaves it pointing at whatever the
     /// restored state has in each unit's slot: nothing, if the unit was created after the snapshot
@@ -945,8 +946,9 @@ impl BwScr {
     /// The other way round, a unit the restore took out (`dropped`) can end the tick just as it
     /// was before the restore: one created after the snapshot that the re-simulation created
     /// again, such as a tank selected as it left its factory, or one that changed owner after the
-    /// snapshot that the re-simulation put under that owner again. The person can't change the
-    /// selection during a tick, so such a unit goes back where it was, as long as the game would
+    /// snapshot that the re-simulation put under that owner again. Unless the person replaced the
+    /// selection during the tick (and then nothing is `dropped`), such a unit goes back where it
+    /// was, as long as the game would
     /// have kept it selected: it isn't dying, hidden in a transport, out of sight or another kind
     /// of unit than it was, and can be selected together with the rest. Nothing the re-simulation
     /// took out itself goes back. The game takes a unit out of the selection for reasons the
@@ -1057,12 +1059,14 @@ impl BwScr {
     /// without the selection response or a selection command, and only as the game's selection UI
     /// allows (its status panel can't draw anything else): one egg, which half the time is what
     /// it selects when there is one, or one unit of any other kind, or up to twelve units that can
-    /// be selected together (see [`can_be_group_selected`]). `random` picks them. Returns how many
-    /// units it selected and whether they are an egg.
+    /// be selected together (see [`can_be_group_selected`]). `random` picks them. With `as_person`
+    /// it selects through the hooks as the person's own selection, as they can while a step waits
+    /// for turns. Returns how many units it selected and whether they are an egg.
     #[cfg(debug_assertions)]
     pub(crate) unsafe fn rollback_select_for_harness(
         &self,
         player: u8,
+        as_person: bool,
         mut random: impl FnMut() -> u32,
     ) -> (usize, bool) {
         unsafe {
@@ -1095,7 +1099,10 @@ impl BwScr {
             } else {
                 return (0, false);
             };
-            self.engine_select(&selection);
+            match as_person {
+                true => (self.selection.select_units)(selection.len(), selection.as_ptr(), 0, 0),
+                false => self.engine_select(&selection),
+            }
             let egg = (*selection[0]).unit_id == bw_dat::unit::EGG.0;
             (selection.len(), egg)
         }
@@ -1151,6 +1158,21 @@ impl BwScr {
             selection.push(unit);
             self.engine_select(&selection);
             Some(selection.len())
+        }
+    }
+
+    /// Whether the local selection is a group holding a building, which SC:R's status panel can't
+    /// draw (it crashes the renderer). The selection UI never makes one, and the game takes a unit
+    /// that becomes a building out of a group.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_local_selection_groups_a_building(&self) -> bool {
+        unsafe {
+            let units = self.rollback_local_selection();
+            let units = units.iter().flatten().collect::<Vec<_>>();
+            units.len() > 1
+                && units
+                    .iter()
+                    .any(|x| bw_dat::UnitId((*x.unit).unit_id).is_building())
         }
     }
 
