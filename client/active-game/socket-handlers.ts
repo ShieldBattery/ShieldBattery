@@ -20,7 +20,7 @@ import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
-import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
+import { blockUser, unblockUser } from '../social/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -39,7 +39,7 @@ export default function ({
 }) {
   const eventToAction: EventToActionMap = {
     setGameConfig(_, { setup }) {
-      return (dispatch, getState) => {
+      return (_, getState) => {
         const {
           auth: { self },
         } = getState()
@@ -72,28 +72,25 @@ export default function ({
           })
         }
 
-        const buildAndSend = () => {
-          const config: GameLaunchConfig = {
-            localUser: {
-              id: self!.user.id,
-              name: self!.user.name,
-              created: self!.user.created,
-            },
-            blockedUsers: Array.from(getState().relationships.blocks.keys()),
-            replayNameTemplate: getState().settings.account.replayNameTemplate,
-            serverConfig: {
-              serverUrl: makeServerUrl(''),
-            },
-            setup,
-            language: i18n.language,
-          }
-          ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
+        // This must reach the app synchronously: the server sends the game's netcode v2 setup right
+        // behind it, and the app drops a setup for a game it hasn't been configured for. The block
+        // list may still be loading after a reconnect; `ActiveGameBlockSync` sends the full list
+        // once it loads.
+        const config: GameLaunchConfig = {
+          localUser: {
+            id: self!.user.id,
+            name: self!.user.name,
+            created: self!.user.created,
+          },
+          blockedUsers: Array.from(getState().relationships.blocks.keys()),
+          replayNameTemplate: getState().settings.account.replayNameTemplate,
+          serverConfig: {
+            serverUrl: makeServerUrl(''),
+          },
+          setup,
+          language: i18n.language,
         }
-
-        // The game needs the block list to hide blocked players' in-game chat, and relationship
-        // state is cleared on every reconnect, so make sure it's loaded before launching (falling
-        // back to whatever's cached rather than stalling the launch).
-        dispatch(ensureRelationshipsLoaded(buildAndSend))
+        ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
       }
     },
     setNetcodeV2Setup(_, { gameId, setup }) {
