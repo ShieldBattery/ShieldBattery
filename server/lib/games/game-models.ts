@@ -811,13 +811,20 @@ export async function getGames(
     }
 
     if (playerName) {
+      // Resolved to IDs up front so the planner sees a concrete list it can estimate from the
+      // `games_users.user_id` stats. Given the name pattern instead, it can't tell how rare a match
+      // is and walks every public game newest-first probing each one, which reads the whole index
+      // for a rarely-seen (or nonexistent) player.
+      const matchingUsers = await client.query<{ id: SbUserId }>(sql`
+        SELECT id FROM users
+        WHERE name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
+      `)
+      if (!matchingUsers.rows.length) {
+        return []
+      }
+      const playerIds = matchingUsers.rows.map(r => r.id)
       whereClauses.push(sql`
-        EXISTS (
-          SELECT 1 FROM games_users gu2
-          INNER JOIN users u ON gu2.user_id = u.id
-          WHERE gu2.game_id = g.id
-          AND u.name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
-        )
+        g.id IN (SELECT gu2.game_id FROM games_users gu2 WHERE gu2.user_id = ANY(${playerIds}))
       `)
     }
 

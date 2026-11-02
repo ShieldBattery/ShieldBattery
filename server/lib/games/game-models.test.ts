@@ -296,6 +296,31 @@ describe('games/game-models/getGames', () => {
     expect(template.text).not.toContain('g.game_length')
     expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
   })
+
+  test('filters on the IDs of users whose names match playerName', async () => {
+    const query = mockDbClient([])
+    query.mockResolvedValueOnce({ rows: [{ id: 5 }, { id: 9 }], rowCount: 2 })
+
+    await getGames({ limit: 10, offset: 0, playerName: 'te_st%' })
+
+    expect(query).toHaveBeenCalledTimes(2)
+    const usersTemplate = query.mock.calls[0][0]
+    expect(usersTemplate.text).toContain('FROM users')
+    expect(usersTemplate.values).toEqual(['%te\\_st\\%%'])
+    const gamesTemplate = query.mock.calls[1][0]
+    expect(gamesTemplate.text).toContain('gu2.user_id = ANY(')
+    expect(gamesTemplate.text).not.toContain('ILIKE')
+    expect(gamesTemplate.values).toContainEqual([5, 9])
+  })
+
+  test('returns no games without querying them when no user names match playerName', async () => {
+    const query = mockDbClient([])
+
+    expect(await getGames({ limit: 10, offset: 0, playerName: 'nobody' })).toEqual([])
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(query.mock.calls[0][0].text).toContain('FROM users')
+  })
 })
 
 describe('games/game-models/getGamesForUser', () => {
