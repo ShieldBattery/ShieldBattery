@@ -730,8 +730,18 @@ impl ObserverPanels {
 
         // Drawn last so it covers the wings it may reach across. While it is up it takes the whole
         // screen's presses, so a drag made with Alt held draws its counting box instead of
-        // selecting what is under it; the wheel stays the game's, which zooms with it.
-        observer::render_on_screen_view(&view.on_screen, ctx, counting_on_screen, screen);
+        // selecting what is under it, and a press on the minimap moves the view without the game
+        // taking it for a ping; the wheel stays the game's, which zooms with it.
+        let look = observer::render_on_screen_view(
+            &view.on_screen,
+            ctx,
+            counting_on_screen,
+            screen,
+            host.minimap_rect,
+        );
+        if let Some(point) = look {
+            intents.push(Intent::LookAtMinimapPoint(point));
+        }
         if counting_on_screen {
             hit_rects.push(HitRect::new(screen));
         }

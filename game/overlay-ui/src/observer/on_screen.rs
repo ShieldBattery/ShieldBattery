@@ -8,10 +8,12 @@
 //! order the host ranks the kinds. A label goes where its units are, so it needs no room of its own
 //! on the screen; where two would cover each other, the later one moves up out of the way.
 //!
-//! Dragging a box with Alt held picks what is inside it. While the box is being dragged it is drawn,
-//! with a label per player hung over it counting what it covers; once the button is let go the box
-//! is gone and the units it covered are the only ones counted and given bars, labelled where they
-//! go, until Alt is let go. A click without a drag goes back to everything in view.
+//! Units are picked with the mouse much as the game selects them, and once picked they are the only
+//! ones counted and given bars, labelled where they go, until Alt is let go. Dragging a box picks
+//! the units inside it, and while the box is being dragged it is drawn, with a label per player hung
+//! over it counting what it covers. Clicking a unit picks it, and with Ctrl, every unit its owner has
+//! of its kind in view. With Shift, what is picked is added to what already was, and a click on what
+//! already was takes it back out. A click on nothing goes back to everything in view.
 //!
 //! What makes a group is measured on the screen rather than on the map, because the labels are a
 //! fixed size on the screen: zoomed out, units a long way apart on the map are close together on
@@ -84,6 +86,10 @@ const BAR_DROP: f32 = 2.0;
 /// The smallest box, in points either way, that counts as one dragged rather than a click.
 const MIN_BOX: f32 = 6.0;
 
+/// How far outside a unit's body a click still lands on it, since the smallest are only a few points
+/// across.
+const CLICK_SLOP: f32 = 3.0;
+
 /// A player with units in view.
 pub struct OnScreenPlayerView {
     pub name: String,
@@ -134,9 +140,10 @@ struct Label<'a> {
 enum Pick {
     /// Every unit in view.
     Everything,
-    /// The units the box being dragged covers, given in points.
-    Dragging(Rect),
-    /// The units a box covered when it was let go, by id, sorted.
+    /// The units the box being dragged covers, given in points, and those already picked that it
+    /// is adding to (by id, sorted), which is none unless Shift is held.
+    Dragging { dragged: Rect, adding_to: Vec<u32> },
+    /// The units picked, by id, sorted.
     Picked(Vec<u32>),
 }
 
@@ -145,27 +152,45 @@ impl Pick {
     fn includes(&self, unit: &OnScreenUnitView, screen: Rect) -> bool {
         match self {
             Pick::Everything => true,
-            Pick::Dragging(dragged) => {
-                unit.kind.is_some() && dragged.contains(on_screen(unit.position, screen))
+            Pick::Dragging { dragged, adding_to } => {
+                in_box(unit, *dragged, screen) || adding_to.binary_search(&unit.id).is_ok()
             }
             Pick::Picked(ids) => ids.binary_search(&unit.id).is_ok(),
         }
     }
 }
 
-/// The box being dragged, as where it started and where the pointer is, and the units the last one
-/// picked, kept from frame to frame while the count is up.
+/// Whether a box covers `unit`, which it does for a counted unit standing inside it: a box dragged
+/// across an army is after the army, not the buildings it stands among.
+fn in_box(unit: &OnScreenUnitView, dragged: Rect, screen: Rect) -> bool {
+    unit.kind.is_some() && dragged.contains(on_screen(unit.position, screen))
+}
+
+/// The box being dragged, as where it started and where the pointer is, the units picked, and
+/// whether the button went down on the minimap and has not come up, kept from frame to frame while
+/// the count is up.
 #[derive(Clone, Default)]
 struct PickState {
     drag: Option<(Pos2, Pos2)>,
     picked: Option<Vec<u32>>,
+    steering: bool,
 }
 
 /// Draws the health bars and labels, fading them all in and out together. `screen` is the rect the
-/// game view fills.
-pub fn render_on_screen_view(view: &OnScreenView, ctx: &Context, shown: bool, screen: Rect) {
+/// game view fills, and `minimap` the minimap's square where it is up.
+///
+/// Returns where on the minimap the watcher is pressing this frame, for the game's view to be
+/// moved to as a press there moves it without Alt. With Alt, the game would take a press there for
+/// a ping, which says nothing to anyone from a watcher.
+pub fn render_on_screen_view(
+    view: &OnScreenView,
+    ctx: &Context,
+    shown: bool,
+    screen: Rect,
+    minimap: Option<Rect>,
+) -> Option<Pos2> {
     let id = Id::new("sb_on_screen_units");
-    let pick = follow_pick(ctx, id.with("pick"), shown, view, screen);
+    let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, minimap);
     let area = Area::new(id)
         .fixed_pos(screen.min)
         .order(Order::Foreground)
@@ -184,9 +209,13 @@ pub fn render_on_screen_view(view: &OnScreenView, ctx: &Context, shown: bool, sc
                 draw_bars(ui, view, unit, screen);
             }
             let labels = match &pick {
-                Pick::Dragging(dragged) => {
+                Pick::Dragging { dragged, adding_to } => {
                     paint_box(ui, *dragged);
-                    box_labels(view, *dragged, screen)
+                    let mut labels = box_labels(view, *dragged, screen);
+                    labels.extend(group_labels(view, screen, |unit| {
+                        !in_box(unit, *dragged, screen) && adding_to.binary_search(&unit.id).is_ok()
+                    }));
+                    labels
                 }
                 _ => group_labels(view, screen, |unit| pick.includes(unit, screen)),
             };
@@ -195,30 +224,53 @@ pub fn render_on_screen_view(view: &OnScreenView, ctx: &Context, shown: bool, sc
             }
         },
     );
+    look
 }
 
-/// Follows the box the watcher drags with the primary button while the count is up, and what it
-/// picks once the button is let go. A box too small to be one is a click, which picks nothing and
-/// so goes back to everything in view, as does a box that covered nothing; all of it is dropped
-/// with the count.
-fn follow_pick(ctx: &Context, id: Id, shown: bool, view: &OnScreenView, screen: Rect) -> Pick {
+/// Follows what the watcher picks with the primary button while the count is up (see the module's
+/// own docs), taking Ctrl and Shift as they are held when the button is let go, as the game does,
+/// and a double-click as a Ctrl-click, as the game does too. A box too small to be one is a click.
+/// A press on the minimap picks nothing, and the place on it the pointer is at is returned for as
+/// long as the button stays down. All of it is dropped with the count.
+fn follow_pick(
+    ctx: &Context,
+    id: Id,
+    shown: bool,
+    view: &OnScreenView,
+    screen: Rect,
+    minimap: Option<Rect>,
+) -> (Pick, Option<Pos2>) {
     if !shown {
         ctx.data_mut(|data| data.remove::<PickState>(id));
-        return Pick::Everything;
+        return (Pick::Everything, None);
     }
-    let (pressed, down, origin, latest) = ctx.input(|input| {
+    let (pressed, down, origin, latest, modifiers, double_clicked) = ctx.input(|input| {
         (
             input.pointer.primary_pressed(),
             input.pointer.primary_down(),
             input.pointer.press_origin(),
             input.pointer.latest_pos(),
+            input.modifiers,
+            input
+                .pointer
+                .button_double_clicked(egui::PointerButton::Primary),
         )
     });
     let mut state = ctx
         .data(|data| data.get_temp::<PickState>(id))
         .unwrap_or_default();
     if pressed && let Some(origin) = origin {
-        state.drag = Some((origin, origin));
+        if minimap.is_some_and(|minimap| minimap.contains(origin)) {
+            state.steering = true;
+        } else {
+            state.drag = Some((origin, origin));
+        }
+    }
+    let mut look = None;
+    if state.steering {
+        // Kept to the minimap, so a drag off its edge holds the view at the map's edge.
+        look = minimap.zip(latest).map(|(minimap, at)| minimap.clamp(at));
+        state.steering = down;
     }
     let mut dragging = None;
     if let Some((start, end)) = state.drag.as_mut() {
@@ -230,30 +282,105 @@ fn follow_pick(ctx: &Context, id: Id, shown: bool, view: &OnScreenView, screen: 
         if down {
             dragging = big_enough.then_some(dragged);
         } else {
-            let covered = Pick::Dragging(dragged);
-            let mut ids: Vec<u32> = view
-                .units
-                .iter()
-                .filter(|unit| covered.includes(unit, screen))
-                .map(|unit| unit.id)
-                .collect();
-            ids.sort_unstable();
-            state.picked = (big_enough && !ids.is_empty()).then_some(ids);
+            let chosen: Vec<u32> = if big_enough {
+                view.units
+                    .iter()
+                    .filter(|unit| in_box(unit, dragged, screen))
+                    .map(|unit| unit.id)
+                    .collect()
+            } else {
+                match unit_under(view, *end, screen) {
+                    Some(unit) if modifiers.ctrl || double_clicked => same_kind(view, unit),
+                    Some(unit) => vec![unit.id],
+                    None => Vec::new(),
+                }
+            };
+            let toggles = !big_enough;
+            state.picked = repick(state.picked.take(), chosen, modifiers.shift, toggles);
             state.drag = None;
         }
     }
     let pick = match (dragging, &state.picked) {
-        (Some(dragged), _) => Pick::Dragging(dragged),
+        (Some(dragged), picked) => Pick::Dragging {
+            dragged,
+            adding_to: picked
+                .as_ref()
+                .filter(|_| modifiers.shift)
+                .cloned()
+                .unwrap_or_default(),
+        },
         (None, Some(ids)) => Pick::Picked(ids.clone()),
         (None, None) => Pick::Everything,
     };
     ctx.data_mut(|data| data.insert_temp(id, state));
-    pick
+    (pick, look)
+}
+
+/// What is picked once `chosen` is: it alone, or with `adding` what was picked as well. Where
+/// `toggles` and everything chosen was already picked, it is taken back out instead, as a
+/// Shift-click on a unit already selected deselects it in the game. Nothing picked is `None`, which
+/// counts everything in view.
+fn repick(
+    picked: Option<Vec<u32>>,
+    mut chosen: Vec<u32>,
+    adding: bool,
+    toggles: bool,
+) -> Option<Vec<u32>> {
+    let mut ids = if adding {
+        picked.unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    chosen.sort_unstable();
+    let all_picked = chosen.iter().all(|id| ids.binary_search(id).is_ok());
+    if adding && toggles && !chosen.is_empty() && all_picked {
+        ids.retain(|id| chosen.binary_search(id).is_err());
+    } else {
+        ids.extend(chosen);
+        ids.sort_unstable();
+        ids.dedup();
+    }
+    (!ids.is_empty()).then_some(ids)
+}
+
+/// The unit a click at `point` lands on: of those whose body it is on or near, the one whose middle
+/// it is nearest.
+fn unit_under(view: &OnScreenView, point: Pos2, screen: Rect) -> Option<&OnScreenUnitView> {
+    let distance = |unit: &OnScreenUnitView| on_screen(unit.position, screen).distance(point);
+    view.units
+        .iter()
+        .filter(|unit| {
+            body_on_screen(unit, screen)
+                .expand(CLICK_SLOP)
+                .contains(point)
+        })
+        .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+}
+
+/// Every unit in view that `unit`'s owner has of its kind, or just `unit` where it is not a kind
+/// that is counted.
+fn same_kind(view: &OnScreenView, unit: &OnScreenUnitView) -> Vec<u32> {
+    if unit.kind.is_none() {
+        return vec![unit.id];
+    }
+    view.units
+        .iter()
+        .filter(|other| other.player == unit.player && other.kind == unit.kind)
+        .map(|other| other.id)
+        .collect()
 }
 
 /// Where a point given in shares of the game view is on the screen.
 fn on_screen(share: Pos2, screen: Rect) -> Pos2 {
     screen.min + share.to_vec2() * screen.size()
+}
+
+/// The box `unit`'s body fills on the screen.
+fn body_on_screen(unit: &OnScreenUnitView, screen: Rect) -> Rect {
+    Rect::from_min_max(
+        on_screen(unit.bounds.min, screen),
+        on_screen(unit.bounds.max, screen),
+    )
 }
 
 /// The labels for every group of every player's counted units that `included` lets through (see
@@ -302,11 +429,10 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
         .iter()
         .enumerate()
         .filter_map(|(index, player)| {
-            let covered = Pick::Dragging(dragged);
             let inside = view
                 .units
                 .iter()
-                .filter(|unit| unit.player == index && covered.includes(unit, screen));
+                .filter(|unit| unit.player == index && in_box(unit, dragged, screen));
             let kinds = count_kinds(view, inside);
             (!kinds.is_empty()).then(|| Label {
                 player,
@@ -424,10 +550,7 @@ fn draw_bars(ui: &Ui, view: &OnScreenView, unit: &OnScreenUnitView, screen: Rect
         .players
         .get(unit.player)
         .map_or(1.0, |player| vision_alpha(player.vision));
-    let body = Rect::from_min_max(
-        on_screen(unit.bounds.min, screen),
-        on_screen(unit.bounds.max, screen),
-    );
+    let body = body_on_screen(unit, screen);
     let width = body.width().clamp(BAR_MIN_WIDTH, BAR_MAX_WIDTH);
     let left = on_screen(unit.position, screen).x - width / 2.0;
     let mut top = body.bottom() + BAR_DROP;
@@ -558,6 +681,15 @@ mod tests {
         }
     }
 
+    /// A counted unit of `player`'s of `kind` standing at `x`, `y` in shares of the view.
+    fn unit_of(id: u32, player: usize, kind: usize, x: f32, y: f32) -> OnScreenUnitView {
+        OnScreenUnitView {
+            player,
+            kind: Some(kind),
+            ..unit_at(id, x, y)
+        }
+    }
+
     /// What [`follow_pick`] makes of one frame of `events`, with the count up while `shown`.
     fn pick_frame(
         ctx: &Context,
@@ -565,18 +697,131 @@ mod tests {
         shown: bool,
         events: Vec<egui::Event>,
     ) -> Pick {
+        pick_frame_with(ctx, view, shown, egui::Modifiers::NONE, events)
+    }
+
+    /// [`pick_frame`] with `modifiers` held.
+    fn pick_frame_with(
+        ctx: &Context,
+        view: &OnScreenView,
+        shown: bool,
+        modifiers: egui::Modifiers,
+        events: Vec<egui::Event>,
+    ) -> Pick {
+        let input = FrameInput {
+            shown,
+            modifiers,
+            ..FrameInput::default()
+        };
+        frame(ctx, view, input, events).0
+    }
+
+    /// What one frame of the count is given besides its events.
+    struct FrameInput {
+        shown: bool,
+        modifiers: egui::Modifiers,
+        minimap: Option<Rect>,
+        /// How long after the frame before it this one comes, which is long enough by default for
+        /// no two clicks to be taken for a double-click.
+        seconds: f64,
+    }
+
+    impl Default for FrameInput {
+        fn default() -> FrameInput {
+            FrameInput {
+                shown: true,
+                modifiers: egui::Modifiers::NONE,
+                minimap: None,
+                seconds: 0.5,
+            }
+        }
+    }
+
+    /// What [`follow_pick`] makes of one frame of `events`.
+    fn frame(
+        ctx: &Context,
+        view: &OnScreenView,
+        input: FrameInput,
+        mut events: Vec<egui::Event>,
+    ) -> (Pick, Option<Pos2>) {
         let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
-        let mut pick = Pick::Everything;
+        let mut result = (Pick::Everything, None);
+        // As the host reports them, after the frame's other events.
+        events.push(egui::Event::ModifiersChanged(input.modifiers));
+        let time = ctx.input(|state| state.time) + input.seconds;
         let mut out = ctx.run_ui(
             egui::RawInput {
                 screen_rect: Some(screen),
+                time: Some(time),
                 events,
                 ..Default::default()
             },
-            |_| pick = follow_pick(ctx, Id::new("pick"), shown, view, screen),
+            |_| {
+                result = follow_pick(
+                    ctx,
+                    Id::new("pick"),
+                    input.shown,
+                    view,
+                    screen,
+                    input.minimap,
+                )
+            },
         );
         out.textures_delta.clear();
-        pick
+        result
+    }
+
+    /// What is picked after a click at `x`, `y` in shares of the view with `modifiers` held.
+    fn click(
+        ctx: &Context,
+        view: &OnScreenView,
+        modifiers: egui::Modifiers,
+        x: f32,
+        y: f32,
+    ) -> Pick {
+        let at = pos2(x * 1000.0, y * 1000.0);
+        pick_frame_with(
+            ctx,
+            view,
+            true,
+            modifiers,
+            vec![egui::Event::PointerMoved(at)],
+        );
+        pick_frame_with(ctx, view, true, modifiers, vec![button(at, true)]);
+        pick_frame_with(ctx, view, true, modifiers, vec![button(at, false)])
+    }
+
+    /// What is picked after a box is dragged from `from` to `to` with `modifiers` held.
+    fn drag(
+        ctx: &Context,
+        view: &OnScreenView,
+        modifiers: egui::Modifiers,
+        from: Pos2,
+        to: Pos2,
+    ) -> Pick {
+        pick_frame_with(
+            ctx,
+            view,
+            true,
+            modifiers,
+            vec![egui::Event::PointerMoved(from)],
+        );
+        pick_frame_with(ctx, view, true, modifiers, vec![button(from, true)]);
+        pick_frame_with(
+            ctx,
+            view,
+            true,
+            modifiers,
+            vec![egui::Event::PointerMoved(to)],
+        );
+        pick_frame_with(ctx, view, true, modifiers, vec![button(to, false)])
+    }
+
+    fn picked(pick: &Pick) -> &[u32] {
+        match pick {
+            Pick::Picked(ids) => ids,
+            _ => &[],
+        }
     }
 
     fn button(pos: Pos2, pressed: bool) -> egui::Event {
@@ -600,12 +845,15 @@ mod tests {
         pick_frame(&ctx, &view, true, vec![egui::Event::PointerMoved(start)]);
         pick_frame(&ctx, &view, true, vec![button(start, true)]);
         let dragging = pick_frame(&ctx, &view, true, vec![egui::Event::PointerMoved(end)]);
-        assert!(matches!(dragging, Pick::Dragging(rect) if rect == Rect::from_two_pos(start, end)));
+        assert!(matches!(
+            dragging,
+            Pick::Dragging { dragged, .. } if dragged == Rect::from_two_pos(start, end)
+        ));
         let picked = pick_frame(&ctx, &view, true, vec![button(end, false)]);
         assert!(matches!(&picked, Pick::Picked(ids) if ids == &[7]));
         let later = pick_frame(&ctx, &view, true, vec![]);
         assert!(matches!(&later, Pick::Picked(ids) if ids == &[7]));
-        // A click is the way back to everything.
+        // A click on nothing is the way back to everything.
         pick_frame(&ctx, &view, true, vec![button(end, true)]);
         let clicked = pick_frame(&ctx, &view, true, vec![button(end, false)]);
         assert!(matches!(clicked, Pick::Everything));
@@ -618,5 +866,162 @@ mod tests {
             pick_frame(&ctx, &view, true, vec![]),
             Pick::Everything
         ));
+    }
+
+    #[test]
+    fn shift_adds_boxes_and_clicks_to_what_is_picked_and_clicks_take_it_back_out() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![
+                unit_at(1, 0.1, 0.1),
+                unit_at(2, 0.5, 0.5),
+                unit_at(3, 0.9, 0.9),
+            ],
+            ..Default::default()
+        };
+        let none = egui::Modifiers::NONE;
+        let shift = egui::Modifiers::SHIFT;
+        assert_eq!(picked(&click(&ctx, &view, none, 0.1, 0.1)), [1]);
+        assert_eq!(picked(&click(&ctx, &view, shift, 0.5, 0.5)), [1, 2]);
+        let boxed = drag(&ctx, &view, shift, pos2(850.0, 850.0), pos2(950.0, 950.0));
+        assert_eq!(picked(&boxed), [1, 2, 3]);
+        // A box only ever adds, even over units already picked.
+        let boxed = drag(&ctx, &view, shift, pos2(450.0, 450.0), pos2(950.0, 950.0));
+        assert_eq!(picked(&boxed), [1, 2, 3]);
+        assert_eq!(picked(&click(&ctx, &view, shift, 0.5, 0.5)), [1, 3]);
+        // Shift-clicking nothing changes nothing, where a plain click there drops the pick.
+        assert_eq!(picked(&click(&ctx, &view, shift, 0.3, 0.7)), [1, 3]);
+        // A plain click picks the one unit afresh.
+        assert_eq!(picked(&click(&ctx, &view, none, 0.5, 0.5)), [2]);
+        // Taking the last one out leaves nothing picked, which is everything again.
+        assert!(matches!(
+            click(&ctx, &view, shift, 0.5, 0.5),
+            Pick::Everything
+        ));
+    }
+
+    #[test]
+    fn while_shift_is_held_a_box_being_dragged_still_counts_what_was_picked() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![unit_at(1, 0.1, 0.1), unit_at(2, 0.5, 0.5)],
+            ..Default::default()
+        };
+        click(&ctx, &view, egui::Modifiers::NONE, 0.1, 0.1);
+        let shift = egui::Modifiers::SHIFT;
+        let from = pos2(450.0, 450.0);
+        pick_frame_with(
+            &ctx,
+            &view,
+            true,
+            shift,
+            vec![egui::Event::PointerMoved(from)],
+        );
+        pick_frame_with(&ctx, &view, true, shift, vec![button(from, true)]);
+        let to = egui::Event::PointerMoved(pos2(550.0, 550.0));
+        let dragging = pick_frame_with(&ctx, &view, true, shift, vec![to]);
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        assert!(dragging.includes(&view.units[0], screen));
+        assert!(dragging.includes(&view.units[1], screen));
+    }
+
+    #[test]
+    fn ctrl_clicking_picks_the_owners_whole_kind_in_view() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![
+                unit_of(1, 0, 0, 0.1, 0.1),
+                unit_of(2, 0, 0, 0.2, 0.2),
+                unit_of(3, 0, 1, 0.3, 0.3),
+                unit_of(4, 1, 0, 0.6, 0.6),
+                unit_of(5, 1, 0, 0.7, 0.7),
+            ],
+            ..Default::default()
+        };
+        let ctrl = egui::Modifiers::CTRL;
+        let both = egui::Modifiers::CTRL | egui::Modifiers::SHIFT;
+        assert_eq!(picked(&click(&ctx, &view, ctrl, 0.1, 0.1)), [1, 2]);
+        assert_eq!(picked(&click(&ctx, &view, both, 0.7, 0.7)), [1, 2, 4, 5]);
+        // Without Shift it starts over.
+        assert_eq!(picked(&click(&ctx, &view, ctrl, 0.6, 0.6)), [4, 5]);
+        // And with it, on a kind already picked, takes that kind back out.
+        click(&ctx, &view, both, 0.3, 0.3);
+        assert_eq!(picked(&click(&ctx, &view, both, 0.6, 0.6)), [3]);
+    }
+
+    #[test]
+    fn a_double_click_picks_as_a_ctrl_click_does() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![
+                unit_of(1, 0, 0, 0.1, 0.1),
+                unit_of(2, 0, 0, 0.2, 0.2),
+                unit_of(3, 1, 0, 0.6, 0.6),
+            ],
+            ..Default::default()
+        };
+        let at = pos2(100.0, 100.0);
+        let quick = || FrameInput {
+            seconds: 0.05,
+            ..FrameInput::default()
+        };
+        frame(&ctx, &view, quick(), vec![egui::Event::PointerMoved(at)]);
+        frame(&ctx, &view, quick(), vec![button(at, true)]);
+        let (once, _) = frame(&ctx, &view, quick(), vec![button(at, false)]);
+        assert_eq!(picked(&once), [1]);
+        frame(&ctx, &view, quick(), vec![button(at, true)]);
+        let (twice, _) = frame(&ctx, &view, quick(), vec![button(at, false)]);
+        assert_eq!(picked(&twice), [1, 2]);
+    }
+
+    #[test]
+    fn a_press_on_the_minimap_looks_where_it_is_held_and_picks_nothing() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![unit_at(1, 0.05, 0.85)],
+            ..Default::default()
+        };
+        let minimap = Rect::from_min_size(pos2(0.0, 800.0), vec2(200.0, 200.0));
+        let on_minimap = || FrameInput {
+            minimap: Some(minimap),
+            ..FrameInput::default()
+        };
+        let at = pos2(50.0, 850.0);
+        frame(
+            &ctx,
+            &view,
+            on_minimap(),
+            vec![egui::Event::PointerMoved(at)],
+        );
+        let (_, pressed) = frame(&ctx, &view, on_minimap(), vec![button(at, true)]);
+        assert_eq!(pressed, Some(at));
+        // Dragged off the minimap's edge, the look stays on its edge.
+        let off = vec![egui::Event::PointerMoved(pos2(400.0, 900.0))];
+        let (dragging, held) = frame(&ctx, &view, on_minimap(), off);
+        assert!(matches!(dragging, Pick::Everything));
+        assert_eq!(held, Some(pos2(200.0, 900.0)));
+        let let_go = vec![button(pos2(400.0, 900.0), false)];
+        let (released, _) = frame(&ctx, &view, on_minimap(), let_go);
+        assert!(matches!(released, Pick::Everything));
+        let (after, look) = frame(&ctx, &view, on_minimap(), vec![]);
+        assert!(matches!(after, Pick::Everything));
+        assert_eq!(look, None);
+    }
+
+    #[test]
+    fn a_click_lands_on_the_unit_whose_middle_is_nearest() {
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        let mut big = unit_at(1, 0.5, 0.5);
+        big.bounds = Rect::from_center_size(big.position, vec2(0.1, 0.1));
+        let view = OnScreenView {
+            units: vec![big, unit_at(2, 0.52, 0.52)],
+            ..Default::default()
+        };
+        let under = |x, y| unit_under(&view, pos2(x, y), screen).map(|unit| unit.id);
+        assert_eq!(under(518.0, 518.0), Some(2));
+        assert_eq!(under(505.0, 505.0), Some(1));
+        // A small unit is still hit a little outside its body.
+        assert_eq!(under(527.0, 520.0), Some(2));
+        assert_eq!(under(700.0, 700.0), None);
     }
 }

@@ -944,6 +944,7 @@ impl BwScr {
             obs_ui_init_as_player: AtomicBool::new(false),
             console_hidden_state: AtomicBool::new(false),
             followed_unit: Mutex::new(None),
+            minimap_map_area: Mutex::new(None),
             minimap_hidden_state: AtomicBool::new(false),
             command_panel_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),

@@ -146,6 +146,11 @@ pub enum Intent {
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
     /// only right behind a `Seek`, for a jump to something that happened somewhere in particular.
     LookAt(observer::MapPoint),
+    /// Center the game's view on the part of the map the minimap shows at this point, given in the
+    /// overlay's points, as a press there does in the game. The host asks it of the minimap's own
+    /// drawing rather than the shell working it out, because only the host knows where in the
+    /// minimap's square the game drew a map that is not square.
+    LookAtMinimapPoint(egui::Pos2),
     /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
     /// it runs at all. One intent rather than three, because the game carries all three in one
     /// command and sending a partial one would reset the other two.
@@ -313,6 +318,9 @@ pub struct Shell {
     alliances_draft: AlliancesDraft,
     /// The notice of a setting the game changed on its own keys, while one is on screen.
     setting_toast: Option<SettingToast>,
+    /// Whether the on-screen count is up, which takes Alt pressed on its own to bring up but stays
+    /// while Alt is held, so Ctrl can then be added to pick with.
+    counting_on_screen: bool,
     intents: Vec<Intent>,
 }
 
@@ -339,6 +347,7 @@ impl Shell {
             alliances_menu: None,
             alliances_draft: AlliancesDraft::default(),
             setting_toast: None,
+            counting_on_screen: false,
             intents: Vec::new(),
         }
     }
@@ -626,9 +635,12 @@ impl Shell {
         // way: they decide only whether the dock stands on its top edge, which without them it
         // never does.
         let observing = views.observer.is_some() && self.host.mode.is_spectating();
-        // Alt alone, since SC:R's own Ctrl+Alt chords are not a request to see anything counted.
-        let counting_on_screen = self.hotkeys_active()
-            && ctx.input(|input| input.modifiers.alt && !input.modifiers.ctrl);
+        // Ctrl with Alt from the start is AltGr on many keyboards, not a request to see anything
+        // counted.
+        let (alt, ctrl) = ctx.input(|input| (input.modifiers.alt, input.modifiers.ctrl));
+        self.counting_on_screen =
+            self.hotkeys_active() && alt && (self.counting_on_screen || !ctrl);
+        let counting_on_screen = self.counting_on_screen;
         let placement = match views.observer {
             Some(view) if observing => self.observer.frame(
                 ctx,

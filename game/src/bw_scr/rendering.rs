@@ -13,7 +13,7 @@ use crate::netcode_v2;
 
 use super::{
     BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, is_minimap_mask_draw, load_pump,
-    replay_save, save_observer_panels, scr,
+    mask_draw_area, replay_save, save_observer_panels, scr,
 };
 
 impl BwScr {
@@ -295,6 +295,13 @@ impl BwScr {
                                         width: self.game_screen_width_bwpx.resolve(),
                                         height: self.game_screen_height_bwpx.resolve(),
                                     },
+                                    minimap_map: self.minimap_map_area.lock().map(|area| {
+                                        draw_overlay::MinimapMap {
+                                            area,
+                                            map_width: self.map_width_pixels.resolve(),
+                                            map_height: self.map_height_pixels.resolve(),
+                                        }
+                                    }),
                                 },
                                 apm,
                                 game_stats,
@@ -694,6 +701,17 @@ impl BwScr {
                         let cmd = &raw mut (*commands).commands[i];
                         if (*cmd).shader_id == SHADER_ID_MASK {
                             let is_minimap = is_minimap_mask_draw(&*cmd, vertex_buffer);
+                            if is_minimap {
+                                let [left, low, right, high] = mask_draw_area(&*cmd, vertex_buffer);
+                                let area = [left, 1.0 - high, right, 1.0 - low];
+                                let mut last = self.minimap_map_area.lock();
+                                if *last != Some(area) {
+                                    // What to check a minimap click against when it lands on
+                                    // the wrong part of the map.
+                                    debug!("Minimap draws the map at {area:?} of the window");
+                                    *last = Some(area);
+                                }
+                            }
                             let (origin, span) = if is_minimap {
                                 ([0.0, 0.0], map_span)
                             } else {
