@@ -5888,7 +5888,7 @@ fn check_dir_filename(filename: &[u16], compare: &[u8]) -> bool {
 }
 
 /// The port ClientSdk sends Battle.net Agent requests to when it can't read one from Agent.dat,
-/// which create_file_hook always makes it fail to.
+/// which create_file_hook always makes it fail to. The app's game server never listens on it.
 const AGENT_FALLBACK_PORT: u16 = 1120;
 
 fn shell_execute_hook(
