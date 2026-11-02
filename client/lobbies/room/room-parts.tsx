@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getHumanSlots, Lobby } from '../../../common/lobbies'
+import { LobbyMissingMapStatus } from '../../../common/lobbies/lobby-network'
 import { RaceChar, raceCharToLabel } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -152,6 +153,41 @@ export function ReadyMark({ ready, tabIndex }: { ready: boolean; tabIndex?: numb
       <ReadyMarkRoot $ready={ready}>
         <MaterialIcon icon={ready ? 'check_circle' : 'circle'} size={18} filled={ready} />
       </ReadyMarkRoot>
+    </Tooltip>
+  )
+}
+
+const MapStatusMarkRoot = styled.span<{ $failed: boolean }>`
+  flex-shrink: 0;
+  display: flex;
+
+  color: ${props => (props.$failed ? 'var(--theme-error)' : 'var(--theme-on-surface-variant)')};
+`
+
+/**
+ * Marks a member who doesn't have the lobby's map yet, which holds up the start: either their app
+ * is still downloading it, or the download failed. Members who have the map carry no mark at all.
+ */
+export function MapStatusMark({
+  status,
+  tabIndex,
+}: {
+  status: LobbyMissingMapStatus
+  tabIndex?: number
+}) {
+  const { t } = useTranslation()
+  const failed = status === 'failed'
+  return (
+    <Tooltip
+      text={
+        failed
+          ? t('lobbies.room.mapStatus.failed', 'Map download failed')
+          : t('lobbies.room.mapStatus.downloading', 'Downloading map')
+      }
+      tabIndex={tabIndex}>
+      <MapStatusMarkRoot $failed={failed} data-testid={`map-status-${status}`}>
+        <MaterialIcon icon={failed ? 'error' : 'downloading'} size={18} filled={failed} />
+      </MapStatusMarkRoot>
     </Tooltip>
   )
 }

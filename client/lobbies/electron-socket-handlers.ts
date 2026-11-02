@@ -1,6 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { Lobby } from '../../common/lobbies'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
@@ -10,6 +9,7 @@ import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
+import { downloadLobbyMap } from './lobby-map-download'
 import { isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -95,35 +95,15 @@ type EventToActionMap = {
   ) => Dispatchable | void
 }
 
-/**
- * Starts downloading a lobby's new map right away (like joining does), so that game loading isn't
- * left to fetch it from scratch once the countdown completes.
- */
-function downloadLobbyMap(lobby: Lobby) {
-  const { hash, mapData, mapUrl } = lobby.map!
-  ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
-    // This is already logged to our file by the map store, so we just log it to the console for
-    // easy visibility during development
-    console.error('Error downloading map: ' + err.stack)
-  })
-}
-
 const eventToAction: EventToActionMap = {
-  init: (lobbyId, event) => {
+  init: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
-    const { hash, mapData, mapUrl } = event.lobby.map!
-    ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
-      // TODO(tec27): Report this to the server so the loading is canceled immediately
-
-      // This is already logged to our file by the map store, so we just log it to the console for
-      // easy visibility during development
-      console.error('Error downloading map: ' + err.stack)
-    })
-
-    return {
+    // Dispatched first so that the download's own reports read the lobby this init describes.
+    dispatch({
       type: '@lobbies/init',
       payload: event,
-    }
+    })
+    dispatch(downloadLobbyMap(event.lobby))
   },
 
   diff: (lobbyId, event) => dispatch => {
@@ -320,13 +300,14 @@ const eventToAction: EventToActionMap = {
   }),
 
   mapQueueAdvance: (lobbyId, event) => (dispatch, getState) => {
-    if (getState().lobby.info.map?.id !== event.lobby.map!.id) {
-      downloadLobbyMap(event.lobby)
-    }
+    const mapChanged = getState().lobby.info.map?.id !== event.lobby.map!.id
     dispatch({
       type: '@lobbies/updateMapQueueAdvance',
       payload: event,
     })
+    if (mapChanged) {
+      dispatch(downloadLobbyMap(event.lobby))
+    }
   },
 
   seriesGameUpdated: (lobbyId, event) => ({
@@ -339,14 +320,18 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
-  settingsChange: (lobbyId, event) => {
-    if (event.changedSettings.includes('map')) {
-      downloadLobbyMap(event.lobby)
-    }
+  mapStatusChange: (lobbyId, event) => ({
+    type: '@lobbies/updateMapStatusChange',
+    payload: event,
+  }),
 
-    return {
+  settingsChange: (lobbyId, event) => dispatch => {
+    dispatch({
       type: '@lobbies/updateSettingsChange',
       payload: event,
+    })
+    if (event.changedSettings.includes('map')) {
+      dispatch(downloadLobbyMap(event.lobby))
     }
   },
 

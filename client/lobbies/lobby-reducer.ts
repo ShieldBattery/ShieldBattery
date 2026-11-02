@@ -4,6 +4,7 @@ import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
 import {
   changesGameSettings,
+  LobbyMemberMapStatusJson,
   LobbyRunStateJson,
   LobbySeriesGameJson,
 } from '../../common/lobbies/lobby-network'
@@ -75,6 +76,8 @@ export interface CurrentLobbyState {
   chat: SbMessage[]
   /** The members who have marked themselves ready for the lobby's next game. */
   readyUserIds: SbUserId[]
+  /** The members who don't have the lobby's current map yet. Everyone else has it. */
+  mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
   series: LobbySeriesGameJson[]
   activated: boolean
@@ -87,6 +90,7 @@ const DEFAULT_STATE: CurrentLobbyState = {
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
   readyUserIds: [],
+  mapStatuses: [],
   series: [],
   activated: false,
   hasUnread: false,
@@ -134,6 +138,7 @@ function clearLobby(draft: LobbyDraft): void {
   draft.runState = undefined
   draft.loadingState = EMPTY_LOADING_STATE
   draft.readyUserIds = []
+  draft.mapStatuses = []
   draft.series = []
 }
 
@@ -171,6 +176,21 @@ function pushNewBenchJoins(draft: LobbyDraft, previousBenchIds: ReadonlySet<SbUs
 /** Drops one member's explicit ready mark. */
 function forgetReady(draft: LobbyDraft, userId: SbUserId): void {
   draft.readyUserIds = draft.readyUserIds.filter(id => id !== userId)
+}
+
+/**
+ * Drops what the lobby records about one member's copy of its map. The server forgets it without an
+ * event of its own when the member leaves, so the handlers for the events describing a departure
+ * apply the same rule here.
+ */
+function forgetMapStatus(draft: LobbyDraft, userId: SbUserId): void {
+  draft.mapStatuses = draft.mapStatuses.filter(entry => entry.userId !== userId)
+}
+
+/** Forgets everything the member's departure would have taken with it on the server. */
+function forgetMember(draft: LobbyDraft, userId: SbUserId): void {
+  forgetReady(draft, userId)
+  forgetMapStatus(draft, userId)
 }
 
 /**
@@ -249,6 +269,7 @@ const lobbyHandlers = {
       : undefined
     draft.loadingState = EMPTY_LOADING_STATE
     draft.readyUserIds = action.payload.readyUsers.slice()
+    draft.mapStatuses = action.payload.mapStatuses.slice()
     draft.series = castDraft(action.payload.series.slice())
     pushChat(draft, {
       id: nanoid(),
@@ -317,6 +338,10 @@ const lobbyHandlers = {
     if (changesGameSettings(action.payload.changedSettings)) {
       clearReady(draft)
     }
+    // Every recorded map status was about the old map; the server drops them all the same way.
+    if (action.payload.changedSettings.includes('map')) {
+      draft.mapStatuses = []
+    }
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbySettingsChange,
@@ -340,6 +365,10 @@ const lobbyHandlers = {
     // rather than by position so a queue this client has a stale copy of can't misname them.
     const previousQueue = new Map(draft.info.mapQueue.map(map => [map.id, map.name]))
     const advanced = draft.info.mapQueue.length > action.payload.skippedMapIds.length
+    // Every recorded map status was about the old map; the server drops them all the same way.
+    if (draft.info.map?.id !== action.payload.lobby.map?.id) {
+      draft.mapStatuses = []
+    }
 
     draft.info = castDraft(action.payload.lobby)
     pushChat(draft, {
@@ -375,6 +404,9 @@ const lobbyHandlers = {
 
     const { userId, reason } = action.payload
     draft.info.bench = draft.info.bench.filter(benched => benched.userId !== userId)
+    if (reason) {
+      forgetMember(draft, userId)
+    }
 
     // A reason means they're out of the lobby, which nothing else reports for a bench member. An
     // absent one means they were seated, which the accompanying slot events already describe.
@@ -509,6 +541,16 @@ const lobbyHandlers = {
     }
   },
 
+  '@lobbies/updateMapStatusChange'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    const { userId, status } = action.payload
+    const withoutUser = draft.mapStatuses.filter(entry => entry.userId !== userId)
+    draft.mapStatuses = status === 'ready' ? withoutUser : [...withoutUser, { userId, status }]
+  },
+
   '@network/connect'(draft) {
     clearLobby(draft)
   },
@@ -535,7 +577,7 @@ const lobbyHandlers = {
       return
     }
 
-    forgetReady(draft, action.payload.player.userId!)
+    forgetMember(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LeaveLobby,
@@ -549,7 +591,7 @@ const lobbyHandlers = {
       return
     }
 
-    forgetReady(draft, action.payload.player.userId!)
+    forgetMember(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.KickLobbyPlayer,
@@ -563,7 +605,7 @@ const lobbyHandlers = {
       return
     }
 
-    forgetReady(draft, action.payload.player.userId!)
+    forgetMember(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.BanLobbyPlayer,

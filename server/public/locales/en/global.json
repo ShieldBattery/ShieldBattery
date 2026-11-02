@@ -1723,6 +1723,7 @@
       "generic": "Something went wrong. Please try again.",
       "invalidSlotOperation": "That seat cannot be changed right now",
       "invalidTeamLayout": "The teams cannot be rearranged in this layout",
+      "mapNotDownloaded": "Not everyone has the map yet",
       "notEnoughSides": "The game needs players on at least two sides",
       "notEveryoneReady": "Not everyone is ready yet",
       "notHost": "Only the host can do that",
@@ -1995,6 +1996,10 @@
         "visibilityPublic": "Public",
         "visibilityUnlisted": "Unlisted"
       },
+      "mapStatus": {
+        "downloading": "Downloading map",
+        "failed": "Map download failed"
+      },
       "racePicker": {
         "label": "Race"
       },
@@ -2005,9 +2010,12 @@
         "everyoneReady": "Everyone is ready",
         "holdToBypassReadiness": "Hold for {{seconds}} seconds to start without waiting",
         "holdToStartAnyway": "Hold to start anyway",
+        "mapDownloadFailed": "The map failed to download",
+        "mapNotDownloaded": "Not everyone has the map yet",
         "needsOpposingSides": "Needs at least two opposing players",
         "readyCount": "{{readyCount}} of {{readyTotal}} ready",
         "readyUp": "Ready up",
+        "retryMapDownload": "Retry download",
         "startGame": "Start game",
         "startingGame": "Starting game",
         "waitingForHost": "Waiting for the host to start"

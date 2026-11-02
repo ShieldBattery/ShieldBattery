@@ -50,6 +50,7 @@ import {
 import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
+import { retryLobbyMapDownload } from './lobby-map-download'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
@@ -297,6 +298,9 @@ function ConnectedLobby() {
           default:
             assertUnreachable(action)
         }
+      }}
+      onRetryMapDownload={() => {
+        dispatch(retryLobbyMapDownload())
       }}
       onArrangeTeams={arrangement => {
         switch (arrangement) {

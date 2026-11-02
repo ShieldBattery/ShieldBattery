@@ -65,13 +65,21 @@ const MOCK_QUEUED_MAP: MapInfo = {
   uploadDate: new Date(FightingSpirit.uploadDate),
 }
 
-type ScenarioId = 'gathering' | 'full' | 'settingsChanged' | 'countingDown' | 'inGame' | 'regroup'
+type ScenarioId =
+  | 'gathering'
+  | 'full'
+  | 'settingsChanged'
+  | 'mapDownloads'
+  | 'countingDown'
+  | 'inGame'
+  | 'regroup'
 type ViewpointId = 'host' | 'member' | 'benched'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'gathering', label: 'Gathering' },
   { id: 'full', label: 'Gathering · full + bench' },
   { id: 'settingsChanged', label: 'Gathering · setting changed' },
+  { id: 'mapDownloads', label: 'Gathering · map downloads' },
   { id: 'countingDown', label: 'Counting down' },
   { id: 'inGame', label: 'In game' },
   { id: 'regroup', label: 'Regroup' },
@@ -368,7 +376,14 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
     const lobby = makeRegroupLobby()
     dispatch({
       type: '@lobbies/init',
-      payload: { type: 'init', lobby, userInfos: MOCK_USERS, readyUsers: [], series: [] },
+      payload: {
+        type: 'init',
+        lobby,
+        userInfos: MOCK_USERS,
+        readyUsers: [],
+        mapStatuses: [],
+        series: [],
+      },
     })
     // Plays the night out game by game, so every result lands its own summary card in the log
     // rather than only the last one. A game's outcome arrives separately from its regroup, the same
@@ -413,6 +428,14 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       lobby,
       userInfos: MOCK_USERS,
       readyUsers: [PACHI, HEARTCUTTER, NERDRAGE],
+      // Pachi's download failed, so the member viewpoint shows the retry; dronebro's is underway.
+      mapStatuses:
+        scenario === 'mapDownloads'
+          ? [
+              { userId: PACHI, status: 'failed' },
+              { userId: DRONEBRO, status: 'downloading' },
+            ]
+          : [],
       series: [],
     },
   })
@@ -626,6 +649,12 @@ function LobbyRoomTestInner() {
             onForceStart={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onCancelCountdown={() => dispatch({ type: '@lobbies/updateCountdownCanceled' })}
             onSlotAction={(action, slotId) => console.log('onSlotAction', action, slotId)}
+            onRetryMapDownload={() => {
+              dispatch({
+                type: '@lobbies/updateMapStatusChange',
+                payload: { type: 'mapStatusChange', userId: viewerId, status: 'downloading' },
+              })
+            }}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}
             onViewGameSummary={gameId => console.log('onViewGameSummary', gameId)}

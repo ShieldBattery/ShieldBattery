@@ -12,6 +12,7 @@ import {
   isUms,
   Team,
 } from '../../../common/lobbies'
+import { LobbyMissingMapStatus } from '../../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -34,13 +35,14 @@ import {
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { LobbyStartButton } from './lobby-start-button'
+import { LobbyStartBlocker, LobbyStartButton } from './lobby-start-button'
 import {
   getReadyEligibleUsers,
   HostCrown,
   InlineRacePicker,
   LobbyLifecycle,
   lobbyTeamLabel,
+  MapStatusMark,
   RaceMark,
   ReadyMark,
   SectionLabel,
@@ -331,6 +333,7 @@ const ReadyProgress = styled.div`
 
 const ReadyCount = styled.div`
   ${labelMedium};
+  text-align: center;
 `
 
 const ProgressTrack = styled.div`
@@ -350,6 +353,27 @@ const ProgressFill = styled.div<{ $fraction: number }>`
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
+`
+
+/** Tells the viewer their own copy of the map failed to download, with a way to try again. */
+const MapFailedNotice = styled.div`
+  margin-top: 4px;
+  margin-bottom: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+/** Captions the retry button below it, so it's centered over the button's label. */
+const MapFailedText = styled.div`
+  ${bodyMedium};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  color: var(--theme-error);
 `
 
 const WaitingForHost = styled.div`
@@ -417,6 +441,8 @@ interface SlotRowProps {
   isReady: boolean
   /** Whether this row's occupant is off playing the lobby's current game. */
   isInGame: boolean
+  /** Where this row's occupant stands on the lobby's map, if they don't have it yet. */
+  mapStatus: LobbyMissingMapStatus | undefined
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
   onSlotAction: (action: SlotAction, slotId: string) => void
@@ -586,6 +612,7 @@ function SlotRow({
   limits,
   isReady,
   isInGame,
+  mapStatus,
   onSetRace,
   onSitInSlot,
   onSlotAction,
@@ -677,6 +704,16 @@ function SlotRow({
     case SlotType.Observer: {
       const isViewer = slot.userId === viewerId
       const canPickRace = !isObserverTeam && isViewer && isGathering && !slot.hasForcedRace
+      let statusMark: ReactNode
+      if (slot.id === hostSlotId) {
+        statusMark = <HostCrown tabIndex={-1} />
+      } else if (mapStatus) {
+        // Without the map, whether they've readied up doesn't matter yet: the start waits on the
+        // map either way.
+        statusMark = <MapStatusMark status={mapStatus} tabIndex={-1} />
+      } else {
+        statusMark = <ReadyMark ready={isReady} tabIndex={-1} />
+      }
 
       return (
         <OccupiedRow $isViewer={isViewer} $inGame={isInGame} data-testid='lobby-slot'>
@@ -691,6 +728,9 @@ function SlotRow({
             />
           </RowName>
           <RowTrailing data-slot-controls>
+            {mapStatus && slot.id === hostSlotId ? (
+              <MapStatusMark status={mapStatus} tabIndex={-1} />
+            ) : null}
             {isInGame ? <InGameTag>{t('lobbies.lobby.inGame', 'In game')}</InGameTag> : null}
             {!isObserverTeam ? (
               <RaceControl
@@ -701,13 +741,7 @@ function SlotRow({
             ) : null}
           </RowTrailing>
           <RowActions data-slot-controls>
-            <RowStatus>
-              {slot.id === hostSlotId ? (
-                <HostCrown tabIndex={-1} />
-              ) : (
-                <ReadyMark ready={isReady} tabIndex={-1} />
-              )}
-            </RowStatus>
+            <RowStatus>{statusMark}</RowStatus>
             {menu}
           </RowActions>
         </OccupiedRow>
@@ -726,10 +760,12 @@ function SlotRow({
 function BenchRow({
   userId,
   canManage,
+  mapStatus,
   onSlotAction,
 }: {
   userId: SbUserId
   canManage: boolean
+  mapStatus: LobbyMissingMapStatus | undefined
   onSlotAction: (action: SlotAction, slotId: string) => void
 }) {
   const { t } = useTranslation()
@@ -749,6 +785,11 @@ function BenchRow({
       <RowName as='span'>
         <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={LobbyUserMenu} />
       </RowName>
+      {mapStatus ? (
+        <RowTrailing data-slot-controls>
+          <MapStatusMark status={mapStatus} tabIndex={-1} />
+        </RowTrailing>
+      ) : null}
       <RowActions data-slot-controls>
         {actions.length ? <SlotMenu actions={actions} /> : null}
       </RowActions>
@@ -766,6 +807,7 @@ export interface RoomRailProps {
   onForceStart: () => void
   onCancelCountdown: () => void
   onSlotAction: (action: SlotAction, slotId: string) => void
+  onRetryMapDownload: () => void
 }
 
 /**
@@ -783,11 +825,13 @@ export function RoomRail({
   onForceStart,
   onCancelCountdown,
   onSlotAction,
+  onRetryMapDownload,
 }: RoomRailProps) {
   const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
+  const mapStatusEntries = useAppSelector(s => s.lobby.mapStatuses)
   const runState = useAppSelector(s => s.lobby.runState)
   const lifecycle = useLobbyLifecycle()
 
@@ -804,6 +848,15 @@ export function RoomRail({
   const isViewerReadyEligible = eligible.includes(viewerId)
   const isViewerReady = readyUsers.has(viewerId)
   const hasTwoSides = hasOpposingSides(lobby)
+  const mapStatuses = new Map(mapStatusEntries.map(entry => [entry.userId, entry.status]))
+  // Only the people seated in the game have to have its map; the bench isn't loaded into it.
+  const everyoneHasMap = !eligible.some(userId => mapStatuses.has(userId))
+  let startBlocker: LobbyStartBlocker | undefined
+  if (!hasTwoSides) {
+    startBlocker = 'needsOpposingSides'
+  } else if (!everyoneHasMap) {
+    startBlocker = 'mapNotDownloaded'
+  }
 
   const playerTeams: Team[] = []
   let observerTeam: Team | undefined
@@ -853,6 +906,7 @@ export function RoomRail({
                     isObserverTeam={false}
                     isReady={!!slot.userId && readyUsers.has(slot.userId)}
                     isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
+                    mapStatus={slot.userId ? mapStatuses.get(slot.userId) : undefined}
                   />
                 </DraggableSlot>
               ))}
@@ -884,6 +938,7 @@ export function RoomRail({
                     isObserverTeam={true}
                     isReady={!!slot.userId && readyUsers.has(slot.userId)}
                     isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
+                    mapStatus={slot.userId ? mapStatuses.get(slot.userId) : undefined}
                   />
                 </DraggableSlot>
               ))}
@@ -913,6 +968,7 @@ export function RoomRail({
                   key={benched.userId}
                   userId={benched.userId}
                   canManage={isHost && (lifecycle === 'gathering' || lifecycle === 'inGame')}
+                  mapStatus={mapStatuses.get(benched.userId)}
                   onSlotAction={onSlotAction}
                 />
               ))}
@@ -930,13 +986,15 @@ export function RoomRail({
           readyCount={readyCount}
           readyTotal={eligible.length}
           allReady={allReady}
-          hasTwoSides={hasTwoSides}
+          startBlocker={startBlocker}
+          viewerMapFailed={mapStatuses.get(viewerId) === 'failed'}
           countdownTimer={loadingState.countdownTimer}
           gameStartedAt={runState?.startedAt}
           onToggleReady={onToggleReady}
           onStartGame={onStartGame}
           onForceStart={onForceStart}
           onCancelCountdown={onCancelCountdown}
+          onRetryMapDownload={onRetryMapDownload}
         />
       </RailFoot>
     </RailRoot>
@@ -955,13 +1013,15 @@ function RailFootContents({
   readyCount,
   readyTotal,
   allReady,
-  hasTwoSides,
+  startBlocker,
+  viewerMapFailed,
   countdownTimer,
   gameStartedAt,
   onToggleReady,
   onStartGame,
   onForceStart,
   onCancelCountdown,
+  onRetryMapDownload,
 }: {
   isHost: boolean
   isViewerReadyEligible: boolean
@@ -970,13 +1030,15 @@ function RailFootContents({
   readyCount: number
   readyTotal: number
   allReady: boolean
-  hasTwoSides: boolean
+  startBlocker: LobbyStartBlocker | undefined
+  viewerMapFailed: boolean
   countdownTimer: number
   gameStartedAt: number | undefined
   onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
   onCancelCountdown: () => void
+  onRetryMapDownload: () => void
 }) {
   const { t } = useTranslation()
 
@@ -1015,10 +1077,12 @@ function RailFootContents({
           readyCount={readyCount}
           readyTotal={readyTotal}
           allReady={allReady}
-          hasTwoSides={hasTwoSides}
+          startBlocker={startBlocker}
+          viewerMapFailed={viewerMapFailed}
           onToggleReady={onToggleReady}
           onStartGame={onStartGame}
           onForceStart={onForceStart}
+          onRetryMapDownload={onRetryMapDownload}
         />
       )
     default:
@@ -1031,6 +1095,9 @@ function RailFootContents({
  * start, or a seated member's half of the ready check. The host counts as ready without asking, so
  * the two never need the same spot. The ready button always names the action it performs; the
  * viewer's own ready state reads off their row's mark and the tally above it.
+ *
+ * A viewer whose own map download failed is the only one who can fix that, so the retry lives here
+ * with the rest of their part in starting, above whatever else they can do.
  */
 function StartControls({
   isHost,
@@ -1039,10 +1106,12 @@ function StartControls({
   readyCount,
   readyTotal,
   allReady,
-  hasTwoSides,
+  startBlocker,
+  viewerMapFailed,
   onToggleReady,
   onStartGame,
   onForceStart,
+  onRetryMapDownload,
 }: {
   isHost: boolean
   isViewerReadyEligible: boolean
@@ -1050,10 +1119,12 @@ function StartControls({
   readyCount: number
   readyTotal: number
   allReady: boolean
-  hasTwoSides: boolean
+  startBlocker: LobbyStartBlocker | undefined
+  viewerMapFailed: boolean
   onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
+  onRetryMapDownload: () => void
 }) {
   const { t } = useTranslation()
 
@@ -1067,7 +1138,7 @@ function StartControls({
     action = (
       <LobbyStartButton
         allReady={allReady}
-        disabled={!hasTwoSides}
+        blocker={startBlocker}
         onStartGame={onStartGame}
         onForceStart={onForceStart}
       />
@@ -1108,6 +1179,19 @@ function StartControls({
           <ProgressFill $fraction={readyTotal ? readyCount / readyTotal : 0} />
         </ProgressTrack>
       </ReadyProgress>
+      {viewerMapFailed ? (
+        <MapFailedNotice>
+          <MapFailedText>
+            <MaterialIcon icon='error' size={18} filled />
+            {t('lobbies.room.rail.mapDownloadFailed', 'The map failed to download')}
+          </MapFailedText>
+          <FullWidthOutlinedButton
+            label={t('lobbies.room.rail.retryMapDownload', 'Retry download')}
+            onClick={onRetryMapDownload}
+            testName='retry-map-download-button'
+          />
+        </MapFailedNotice>
+      ) : null}
       {action}
     </>
   )

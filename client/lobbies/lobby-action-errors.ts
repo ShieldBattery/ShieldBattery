@@ -23,6 +23,8 @@ export function lobbyActionErrorMessage(err: unknown, t: TFunction): string {
   switch (err.code as LobbyServiceErrorCode | undefined) {
     case LobbyServiceErrorCode.NotEveryoneReady:
       return t('lobbies.actionErrors.notEveryoneReady', 'Not everyone is ready yet')
+    case LobbyServiceErrorCode.MapNotDownloaded:
+      return t('lobbies.actionErrors.mapNotDownloaded', 'Not everyone has the map yet')
     case LobbyServiceErrorCode.NotEnoughSides:
       return t(
         'lobbies.actionErrors.notEnoughSides',

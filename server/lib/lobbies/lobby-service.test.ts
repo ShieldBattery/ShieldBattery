@@ -19,7 +19,7 @@ import {
   openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
-import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
+import { LobbyMapStatus, LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
@@ -3737,6 +3737,228 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
       expect(lobbyPublishes(id)).toContainEqual({ type: 'startCountdown' })
+    })
+  })
+
+  describe('map statuses', () => {
+    function setMapStatus(
+      sockets: Sockets,
+      id: SbLobbyId,
+      status: LobbyMapStatus,
+      mapId = BIG_GAME_HUNTERS.id,
+    ) {
+      lobbyService.setMapStatus({ client: sockets.client, lobbyId: id, mapId, status })
+    }
+
+    /** Makes map lookups find exactly the maps asked for, out of `maps`. */
+    function mockMaps(...maps: MapInfo[]) {
+      asMockedFunction(getMapInfos).mockImplementation(async ids =>
+        maps.filter(map => ids.includes(map.id)),
+      )
+      asMockedFunction(reparseMapsAsNeeded).mockImplementation(async found => [...found])
+    }
+
+    test('a report is announced, and is in the init payload of whoever joins next', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      setMapStatus(joiner, id, 'downloading')
+
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'mapStatusChange', userId: JOINER_USER.id, status: 'downloading' },
+      ])
+
+      await joinLobby(otherHost, id)
+
+      expect((await initPayload(otherHost, id)).mapStatuses).toEqual([
+        { userId: JOINER_USER.id, status: 'downloading' },
+      ])
+    })
+
+    test('reporting what the lobby already records announces nothing', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      // Nothing is recorded for a member who has the map, so `ready` from them changes nothing
+      setMapStatus(joiner, id, 'ready')
+      setMapStatus(joiner, id, 'downloading')
+      setMapStatus(joiner, id, 'downloading')
+      setMapStatus(joiner, id, 'failed')
+      setMapStatus(joiner, id, 'ready')
+      setMapStatus(joiner, id, 'ready')
+
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'mapStatusChange', userId: JOINER_USER.id, status: 'downloading' },
+        { type: 'mapStatusChange', userId: JOINER_USER.id, status: 'failed' },
+        { type: 'mapStatusChange', userId: JOINER_USER.id, status: 'ready' },
+      ])
+      expect(lobbyService.mapStatuses.get(id)?.size ?? 0).toBe(0)
+    })
+
+    test('a member who never reports has the map as far as starting goes', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test.each<LobbyMapStatus>(['downloading', 'failed'])(
+      'a seated member who is %s blocks the start, even a forced one',
+      async status => {
+        const { id } = await createLobby(host, 'Listed lobby', 'listed')
+        await joinLobby(joiner, id)
+        lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+        setMapStatus(joiner, id, status)
+
+        expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
+          expect.objectContaining({ code: LobbyServiceErrorCode.MapNotDownloaded }),
+        )
+        expect(() =>
+          lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.MapNotDownloaded }))
+        expect(lobbyService.lobbyCountdowns.has(id)).toBe(false)
+
+        setMapStatus(joiner, id, 'ready')
+        vi.useFakeTimers()
+        lobbyService.startCountdown({ client: host.client, lobbyId: id })
+
+        expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+      },
+    )
+
+    test('the host and observers have to have the map too', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      await joinLobby(lister, id)
+      const [, , listerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, LISTER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: listerSlot!.id })
+
+      setMapStatus(lister, id, 'downloading')
+      expect(() =>
+        lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.MapNotDownloaded }))
+
+      setMapStatus(lister, id, 'ready')
+      setMapStatus(host, id, 'failed')
+      expect(() =>
+        lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.MapNotDownloaded }))
+    })
+
+    test('a bench member still downloading does not hold up the game they are not in', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      setMapStatus(otherHost, id, 'downloading')
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('a report about a map the lobby is not on is ignored', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      setMapStatus(joiner, id, 'failed', TWO_SLOT_MAP.id)
+
+      expect(lobbyPublishes(id)).toEqual([])
+      expect(lobbyService.mapStatuses.has(id)).toBe(false)
+    })
+
+    test('changing the map forgets every status, and stale reports about the old map stay out', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      setMapStatus(joiner, id, 'failed')
+      setMapStatus(host, id, 'downloading')
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
+
+      expect(lobbyService.mapStatuses.has(id)).toBe(false)
+
+      // A download of the old map that was still in flight when the host changed it
+      setMapStatus(joiner, id, 'failed', BIG_GAME_HUNTERS.id)
+      expect(lobbyService.mapStatuses.has(id)).toBe(false)
+
+      setMapStatus(joiner, id, 'downloading', TWO_SLOT_MAP.id)
+      expect([...lobbyService.mapStatuses.get(id)!]).toEqual([[JOINER_USER.id, 'downloading']])
+    })
+
+    test('a settings change that keeps the map keeps every status', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      setMapStatus(joiner, id, 'downloading')
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true })
+
+      expect([...lobbyService.mapStatuses.get(id)!]).toEqual([[JOINER_USER.id, 'downloading']])
+    })
+
+    test('moving on to a different queued map after a game forgets every status', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+      })
+      await runCountdown(host)
+      // A member who joined the bench mid-game, whose download is still running
+      await joinLobby(otherHost, id)
+      setMapStatus(otherHost, id, 'downloading')
+
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      expect(lobbyService.lobbies.get(id)!.map!.id).toBe(TWO_SLOT_MAP.id)
+      expect(lobbyService.mapStatuses.has(id)).toBe(false)
+    })
+
+    test('a member leaving or being kicked takes only their own status with them', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      await joinLobby(lister, id)
+      setMapStatus(joiner, id, 'downloading')
+      setMapStatus(otherHost, id, 'failed')
+      setMapStatus(lister, id, 'downloading')
+
+      lobbyService.leaveLobby({ client: joiner.client })
+      const [, , otherHostSlot] = findSlotByUserId(
+        lobbyService.lobbies.get(id)!,
+        OTHER_HOST_USER.id,
+      )
+      lobbyService.kickPlayer({ client: host.client, slotId: otherHostSlot!.id })
+
+      expect([...lobbyService.mapStatuses.get(id)!]).toEqual([[LISTER_USER.id, 'downloading']])
+    })
+
+    test('a closed lobby takes its statuses with it', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      setMapStatus(host, id, 'failed')
+
+      lobbyService.leaveLobby({ client: host.client })
+
+      expect(lobbyService.lobbies.has(id)).toBe(false)
+      expect(lobbyService.mapStatuses.has(id)).toBe(false)
+    })
+
+    test('a client that is not in the lobby cannot report', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      expect(() => setMapStatus(joiner, id, 'failed')).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }),
+      )
     })
   })
 

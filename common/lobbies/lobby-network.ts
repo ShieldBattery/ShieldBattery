@@ -53,6 +53,7 @@ export enum LobbyServiceErrorCode {
   InvalidTeamLayout = 'InvalidTeamLayout',
   JoinAlreadyInActivity = 'JoinAlreadyInActivity',
   LobbyFull = 'LobbyFull',
+  MapNotDownloaded = 'MapNotDownloaded',
   NoActiveClient = 'NoActiveClient',
   NoLobby = 'NoLobby',
   NotCountingDown = 'NotCountingDown',
@@ -159,11 +160,48 @@ export interface SetLobbyReadyRequest extends LobbyClientRequest {
   isReady: boolean
 }
 
+/**
+ * Where a member's copy of the lobby's current map stands, as their app reports it. A game can't
+ * load until every member in it has the map file, so a member who is `downloading` or `failed` holds
+ * up the start.
+ */
+export type LobbyMapStatus = 'downloading' | 'ready' | 'failed'
+
+export const ALL_LOBBY_MAP_STATUSES: ReadonlyArray<LobbyMapStatus> = [
+  'downloading',
+  'ready',
+  'failed',
+]
+
+/**
+ * The map statuses a lobby records for its members. Having the map is the default, so a member the
+ * lobby records nothing for has it: either they reported `ready`, or their app predates map status
+ * reporting and never reports at all.
+ */
+export type LobbyMissingMapStatus = Exclude<LobbyMapStatus, 'ready'>
+
+/** One member the lobby records as not having its current map yet. */
+export interface LobbyMemberMapStatusJson {
+  userId: SbUserId
+  status: LobbyMissingMapStatus
+}
+
+/**
+ * The body of a request reporting where the acting client stands on downloading a lobby map. The
+ * report names the map it is about, and one about a map the lobby has since moved off of is ignored.
+ */
+export interface SetLobbyMapStatusRequest extends LobbyClientRequest {
+  mapId: SbMapId
+  status: LobbyMapStatus
+}
+
 /** The body of a request by the host to start the lobby's game. */
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
    * When set, the countdown begins even though some of the lobby's seated members have not marked
-   * themselves ready. Without it, a lobby that isn't fully ready refuses to start.
+   * themselves ready. Without it, a lobby that isn't fully ready refuses to start. A seated member
+   * who is still downloading the map (or failed to) blocks the start either way, since the game
+   * can't load without it.
    */
   force?: boolean
 }
@@ -287,6 +325,7 @@ export type LobbyEvent =
   | LobbyMapQueueAdvanceEvent
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
+  | LobbyMapStatusChangeEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -496,6 +535,8 @@ export interface LobbyInitEvent {
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
   readyUsers: SbUserId[]
+  /** The members who don't have the lobby's current map yet. Everyone else has it. */
+  mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
   series: LobbySeriesGameJson[]
 }
@@ -623,6 +664,21 @@ export interface LobbyReadyChangeEvent {
   type: 'readyChange'
   userId: SbUserId
   isReady: boolean
+}
+
+/**
+ * A member's app reported a change in where it stands on downloading the lobby's current map.
+ * `ready` means the lobby no longer records anything for them.
+ *
+ * The lobby also forgets every member's map status at once, without an event of its own, whenever
+ * its map changes: through a settings change that includes `map`, or a map queue advance that
+ * lands on a different map. Members' apps download the new map and report again. A member leaving
+ * the lobby takes their status with them, also without an event of its own.
+ */
+export interface LobbyMapStatusChangeEvent {
+  type: 'mapStatusChange'
+  userId: SbUserId
+  status: LobbyMapStatus
 }
 
 export interface LobbyChatMessage {

@@ -40,6 +40,7 @@ export interface LobbyRoomProps {
   onForceStart: () => void
   onCancelCountdown: () => void
   onSlotAction: (action: SlotAction, slotId: string) => void
+  onRetryMapDownload: () => void
   onArrangeTeams: (arrangement: TeamArrangement) => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
@@ -64,6 +65,7 @@ export function LobbyRoom({
   onForceStart,
   onCancelCountdown,
   onSlotAction,
+  onRetryMapDownload,
   onArrangeTeams,
   onWatchReplay,
   onViewGameSummary,
@@ -111,6 +113,7 @@ export function LobbyRoom({
                   onForceStart={onForceStart}
                   onCancelCountdown={onCancelCountdown}
                   onSlotAction={onSlotAction}
+                  onRetryMapDownload={onRetryMapDownload}
                 />
               }
               onSendChatMessage={onSendChatMessage}
