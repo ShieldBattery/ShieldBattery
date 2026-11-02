@@ -273,7 +273,7 @@ function getDialog(dialogType: DialogType): {
     case DialogType.MapCompare:
       return { component: MapCompareDialog }
     case DialogType.MapFamilyLink:
-      return { component: MapFamilyLinkDialog, modal: true }
+      return { component: MapFamilyLinkDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
     case DialogType.MapPreview:
