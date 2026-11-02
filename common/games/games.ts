@@ -88,7 +88,21 @@ export interface GameDebugInfo {
      */
     requestedRegions: NetcodeV2RequestedRegion[]
   }
+  /** The chat sent during the game's race draft, in the order it was sent, if it had a draft. */
+  draftMessages?: GameDraftMessage[]
 }
+
+/**
+ * A chat message sent during a team matchmaking game's race draft. Draft chat only reaches the
+ * sender's own team.
+ */
+export interface GameDraftMessage {
+  userId: SbUserId
+  sentAt: Date
+  text: string
+}
+
+export type GameDraftMessageJson = Jsonify<GameDraftMessage>
 
 export interface GameReplayDebugInfo {
   /** The replay file ID. */
@@ -114,6 +128,10 @@ export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson
     })),
     replays: debugInfo.replays,
     netcodeV2: debugInfo.netcodeV2,
+    draftMessages: debugInfo.draftMessages?.map(message => ({
+      ...message,
+      sentAt: Number(message.sentAt),
+    })),
   }
 }
 

@@ -7,6 +7,14 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { createSnakePickOrder, DraftState } from './draft-state'
 import { MatchmakingPlayer } from './matchmaking-entity'
 
+vi.mock('../messaging/process-chat-message', () => ({
+  processMessageContents: vi.fn(async (text: string) => [
+    text.replace('@teammate', '<@2>'),
+    [],
+    [],
+  ]),
+}))
+
 describe('matchmaking/draft-state/createSnakePickOrder', () => {
   test('2v2 lets the lower-rated team pick first and last', () => {
     expect(createSnakePickOrder(2, 0)).toEqual([
@@ -100,5 +108,26 @@ describe('matchmaking/draft-state/DraftState', () => {
     ])
 
     expect(await runDraft(draft)).toEqual([4, 1, 2, 5, 6, 3])
+  })
+
+  test('logs the draft chat in order, as its senders wrote it', async () => {
+    const draft = createDraft([
+      [makePlayer(1, 1600), makePlayer(2, 1500)],
+      [makePlayer(3, 1200), makePlayer(4, 1000)],
+    ])
+    vi.setSystemTime(new Date('2026-10-31T12:00:00Z'))
+
+    await draft.sendChatMessage(makeSbUserId(1), 'zerg pls @teammate')
+    vi.setSystemTime(new Date('2026-10-31T12:00:05Z'))
+    await draft.sendChatMessage(makeSbUserId(3), 'gl hf')
+
+    expect(draft.getChatLog()).toEqual([
+      {
+        userId: makeSbUserId(1),
+        sentAt: new Date('2026-10-31T12:00:00Z'),
+        text: 'zerg pls @teammate',
+      },
+      { userId: makeSbUserId(3), sentAt: new Date('2026-10-31T12:00:05Z'), text: 'gl hf' },
+    ])
   })
 })
