@@ -1603,9 +1603,11 @@ mod tests {
 
     #[test]
     fn number_keys_are_the_shown_players_even_where_they_have_no_group() {
+        let ctx = fresh_ctx();
         let mut shell = spectating_shell();
         // Nobody's keys are shown: the game recalls the watcher's own groups.
         assert!(!shell.key_pressed(Key::Num1, Modifiers::NONE));
+        assert!(!run_frame_at(&mut shell, &ctx, None, 0.0).button_click);
         shell.observer.number_keys = Some((3, 1 << 1));
         assert!(shell.key_pressed(Key::Num1, Modifiers::NONE));
         assert!(
@@ -1616,6 +1618,7 @@ mod tests {
                     key: 1,
                 })
         );
+        assert!(run_frame_at(&mut shell, &ctx, None, 1.0).button_click);
         // Taken but empty, rather than left to recall somebody else's group on the same digit.
         assert!(shell.key_pressed(Key::Num6, Modifiers::NONE));
         assert!(
@@ -1626,5 +1629,6 @@ mod tests {
                     key: 6,
                 })
         );
+        assert!(!run_frame_at(&mut shell, &ctx, None, 2.0).button_click);
     }
 }
