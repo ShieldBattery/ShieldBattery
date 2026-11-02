@@ -1,6 +1,7 @@
 import {
   defaultPreferenceData,
   MatchmakingPreferences,
+  MatchmakingPreferencesDraft,
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
@@ -9,10 +10,10 @@ import db, { DbClient } from '../db'
 import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 
-type DbMatchmakingPreferences = Dbify<MatchmakingPreferences> & { selected: boolean }
+type DbMatchmakingPreferences = Dbify<MatchmakingPreferencesDraft> & { selected: boolean }
 
 export interface StoredMatchmakingPreferences {
-  preferences: MatchmakingPreferences
+  preferences: MatchmakingPreferencesDraft
   /**
    * Whether this type was part of the user's most recent matchmaking search. Drives the default mode
    * selection on the find-match page so users don't have to re-check their modes every session.
@@ -29,7 +30,7 @@ function convertFromDb(dbResult: DbMatchmakingPreferences): StoredMatchmakingPre
       mapPoolId: dbResult.map_pool_id,
       mapSelections: dbResult.map_selections,
       data: dbResult.data,
-    } as MatchmakingPreferences,
+    } as MatchmakingPreferencesDraft,
     selected: dbResult.selected,
   }
 }
@@ -56,7 +57,7 @@ export async function upsertMatchmakingPreferences({
       INSERT INTO matchmaking_preferences AS mp
         (user_id, matchmaking_type, race, map_pool_id, map_selections, data)
       VALUES
-        (${userId}, ${matchmakingType}, ${race ?? 'r'}, ${mapPoolId ?? 1},
+        (${userId}, ${matchmakingType}, ${race ?? null}, ${mapPoolId ?? 1},
           ${mapSelections ?? []}, ${data ?? defaultPreferenceData(matchmakingType)})
       ON CONFLICT (user_id, matchmaking_type)
       DO UPDATE SET

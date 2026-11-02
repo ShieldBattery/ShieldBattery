@@ -5,8 +5,8 @@ import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
 import {
   getMatchmakingModeInfo,
-  MatchmakingPreferences,
   MatchmakingPreferencesData1v1,
+  MatchmakingPreferencesDraft,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
@@ -36,7 +36,7 @@ import {
  * meaningful for modes whose descriptor has `supportsAlternateRace`; they're ignored otherwise.
  */
 interface FindMatchModel {
-  race: RaceChar
+  race: RaceChar | null
   mapSelections: SbMapId[]
   useAlternateRace: boolean
   alternateRace: AssignedRaceChar
@@ -74,9 +74,9 @@ function FindMatchForm({
   useFormCallbacks(form, { onValidatedChange })
 
   const race = getInputValue('race')
-  const canUseAlternateRace = mode.supportsAlternateRace && race !== 'r'
+  const canUseAlternateRace = mode.supportsAlternateRace && !!race && race !== 'r'
   const useAlternateRace = canUseAlternateRace ? getInputValue('useAlternateRace') : false
-  const hiddenAlternateRaces = race !== 'r' ? [race] : []
+  const hiddenAlternateRaces = race && race !== 'r' ? [race] : []
   const isTeamMode = mode.teamSize > 1
 
   return (
@@ -199,7 +199,7 @@ function buildPreferences(
   model: ReadonlyDeep<FindMatchModel>,
   userId: SbUserId,
   mapPoolId: number,
-): MatchmakingPreferences {
+): MatchmakingPreferencesDraft {
   const mode = getMatchmakingModeInfo(type)
   // The discriminant (`matchmakingType`) is only known at runtime here, so the union can't be
   // constructed without a cast; the descriptor decides which `data` shape is correct.
@@ -211,11 +211,11 @@ function buildPreferences(
     mapSelections: model.mapSelections,
     data: mode.supportsAlternateRace
       ? {
-          useAlternateRace: model.race !== 'r' ? model.useAlternateRace : false,
+          useAlternateRace: model.race && model.race !== 'r' ? model.useAlternateRace : false,
           alternateRace: model.alternateRace,
         }
       : {},
-  } as MatchmakingPreferences
+  } as MatchmakingPreferencesDraft
 }
 
 export interface FindMatchContentProps {
@@ -233,7 +233,7 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
   const prefs = useAppSelector(
     s =>
       s.matchmakingPreferences.byType.get(type)?.preferences as
-        | Immutable<MatchmakingPreferences>
+        | Immutable<MatchmakingPreferencesDraft>
         | undefined,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(type))
@@ -262,7 +262,7 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
         buildPreferences(
           type,
           {
-            race: prefs.race ?? 'r',
+            race: prefs.race,
             useAlternateRace: data?.useAlternateRace ?? false,
             alternateRace: data?.alternateRace ?? 'z',
             mapSelections,
@@ -282,7 +282,7 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
   const mapPoolOutdated = !!mapPool && prefs.mapPoolId !== mapPool.id
 
   const data = prefs.data as Immutable<MatchmakingPreferencesData1v1> | undefined
-  const race = prefs.race ?? 'r'
+  const race = prefs.race
 
   return (
     <FindMatchForm
