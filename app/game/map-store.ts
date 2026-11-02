@@ -2,11 +2,14 @@ import { net } from 'electron'
 import fs, { promises as fsPromises } from 'fs'
 import { mkdirp } from 'mkdirp'
 import path from 'path'
-import { Readable } from 'stream'
+import { Readable, Transform } from 'stream'
 import { pipeline } from 'stream/promises'
 import HashThrough from '../../common/hash-through'
 import { MapExtension } from '../../common/maps'
 import log from '../logger'
+
+/** How long a map download may go without receiving any data before it's given up on. */
+const DOWNLOAD_IDLE_MS = 30_000
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>
@@ -71,25 +74,49 @@ export class MapStore {
 
       await mkdirp(path.dirname(mapPath))
       log.verbose(`Downloading map from ${mapUrl} to ${mapPath}`)
-      const res = await net.fetch(mapUrl)
-      if (!res.ok) {
-        throw new Error(`Failed to download map: ${res.status} ${res.statusText}`)
+      // A download that stops receiving data is given up on, rather than holding the file open
+      // (where StarCraft can't read it) and holding every later request for this map until the
+      // app restarts.
+      const idle = new AbortController()
+      let idleTimer: ReturnType<typeof setTimeout> | undefined
+      const stillReceiving = () => {
+        clearTimeout(idleTimer)
+        idleTimer = setTimeout(
+          () => idle.abort(new Error(`Map download received nothing for ${DOWNLOAD_IDLE_MS} ms`)),
+          DOWNLOAD_IDLE_MS,
+        )
       }
-      if (!res.body) {
-        throw new Error(`Failed to download map, response had no body`)
-      }
-
+      stillReceiving()
       const hasher = new HashThrough()
       hasher.hasher.update(mapFormat)
-      // NOTE(tec27): The type of `body` doesn't say it has asyncIterator for some reason but it
-      // should? Not really sure why the types don't align here
-      const doneWriting = pipeline(
-        Readable.fromWeb(res.body as any),
-        hasher,
-        fs.createWriteStream(mapPath),
-      )
-      hasher.resume()
-      await doneWriting
+      try {
+        const res = await net.fetch(mapUrl, { signal: idle.signal })
+        if (!res.ok) {
+          throw new Error(`Failed to download map: ${res.status} ${res.statusText}`)
+        }
+        if (!res.body) {
+          throw new Error(`Failed to download map, response had no body`)
+        }
+
+        // NOTE(tec27): The type of `body` doesn't say it has asyncIterator for some reason but it
+        // should? Not really sure why the types don't align here
+        const doneWriting = pipeline(
+          Readable.fromWeb(res.body as any),
+          new Transform({
+            transform(chunk, _encoding, callback) {
+              stillReceiving()
+              callback(null, chunk)
+            },
+          }),
+          hasher,
+          fs.createWriteStream(mapPath),
+          { signal: idle.signal },
+        )
+        hasher.resume()
+        await doneWriting
+      } finally {
+        clearTimeout(idleTimer)
+      }
 
       const hash = await hasher.hashPromise
       if (hash !== mapHash) {

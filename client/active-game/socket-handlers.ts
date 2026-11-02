@@ -55,27 +55,10 @@ export default function ({
           slots: setup.slots.map(({ userId, race, type }) => ({ userId, race, type })),
         })
 
-        if ('mapUrl' in setup.map) {
-          const {
-            hash,
-            mapData: { format },
-            mapUrl,
-          } = setup.map
-          // The map should already be downloaded at this point, but just in case we trigger a check
-          // to re-download it if necessary
-          ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl!)?.catch(err => {
-            // TODO(tec27): Report this to the server so the loading is canceled immediately
-
-            // This is already logged to our file by the map store, so we just log it to the console
-            // for easy visibility during development
-            console.error('Error downloading map: ' + err.stack)
-          })
-        }
-
         // This must reach the app synchronously: the server sends the game's netcode v2 setup right
         // behind it, and the app drops a setup for a game it hasn't been configured for. The block
         // list may still be loading after a reconnect; `ActiveGameBlockSync` sends the full list
-        // once it loads.
+        // once it loads. The app makes sure the map is downloaded before the game process gets it.
         const config: GameLaunchConfig = {
           localUser: {
             id: self!.user.id,

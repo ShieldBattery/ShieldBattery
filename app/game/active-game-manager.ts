@@ -93,6 +93,16 @@ interface ActiveGameInfo {
    */
   netcodeV2Setup?: NetcodeV2Setup
   /**
+   * False while the game's map is still being checked or downloaded. The game process opens the
+   * map as soon as it gets `setupGame`, so that waits for this.
+   */
+  mapReady?: boolean
+  /**
+   * Whether the current game process has connected and been sent everything `setupGame` depends
+   * on (see {@link ActiveGameManager.handleGameConnected}).
+   */
+  processConfigured?: boolean
+  /**
    * The results of the game delivered once our local process has completed.
    */
   result?: {
@@ -358,6 +368,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       // A fresh launch's transport is unknown until the new game's init reports it; this also
       // applies when relaunching the same game id, so don't carry it over from `current` either.
       networkStatus: undefined,
+      processConfigured: false,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -365,7 +376,40 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
     log.verbose(`Creating new game ${gameId}`)
     this.setStatus(this.activeGame, GameStatus.Launching)
+    this.prepareMap(this.activeGame)
     return gameId
+  }
+
+  /**
+   * Makes sure `game`'s map is on disk before its setup goes out, downloading it if it isn't (or
+   * joining a download of it that's already running). A map that can't be downloaded fails the
+   * game, which tells the server so it cancels the load right away.
+   */
+  private prepareMap(game: ActiveGameInfo) {
+    const { map } = game.config!.setup
+    if (isReplayMapInfo(map) || !map.mapUrl) {
+      game.mapReady = true
+      return
+    }
+    game.mapReady = false
+    this.mapStore.downloadMap(map.hash, map.mapData.format, map.mapUrl).then(
+      () => {
+        if (this.gameFor(game.id) !== game) {
+          return
+        }
+        game.mapReady = true
+        this.maybeSendGameSetup(game)
+      },
+      (err: unknown) => {
+        if (this.activeGame !== game) {
+          return
+        }
+        log.error(`Couldn't download the map for game ${game.id}: ${getErrorStack(err)}`)
+        this.emit('gameCommand', game.id, 'quit')
+        this.setStatus(game, GameStatus.Error, new Error(`Map download failed`))
+        this.activeGame = null
+      },
+    )
   }
 
   private launchWatchOnlyGame(config: GameLaunchConfig): string | null {
@@ -449,17 +493,17 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   /**
    * Sends the game setup command (preceded by everything it depends on) once every input has
-   * arrived: the config always, plus the netcode v2 handoff for games using it. The game process
-   * consumes the netcode v2 setup when its game init starts, so it must be delivered before
-   * `setupGame`.
+   * arrived: the config and the map file always, plus the netcode v2 handoff for games using it,
+   * and only after the game process has been sent its user, settings and the rest
+   * ({@link handleGameConnected}). The game process consumes the netcode v2 setup when its game
+   * init starts, so it must be delivered before `setupGame`.
    *
-   * May fire before the game process has connected — those sends go nowhere, and
-   * `handleGameConnected` re-runs this once the process is ready. Takes the game explicitly (not
-   * `this.activeGame`) so callers that suspended across an await operate on the game they
-   * captured, not one that replaced it in the meantime.
+   * Called whenever one of those inputs arrives; the last to arrive sends. Takes the game
+   * explicitly (not `this.activeGame`) so callers that suspended across an await operate on the
+   * game they captured, not one that replaced it in the meantime.
    */
   private maybeSendGameSetup(game: ActiveGameInfo) {
-    if (!game.config) {
+    if (!game.config || !game.processConfigured || game.mapReady === false) {
       return
     }
     if (game.config.setup.useNetcodeV2 && !game.netcodeV2Setup) {
@@ -555,6 +599,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       },
     })
 
+    game.processConfigured = true
     this.maybeSendGameSetup(game)
   }
 
