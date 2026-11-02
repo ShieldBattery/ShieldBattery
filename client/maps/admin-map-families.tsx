@@ -738,12 +738,8 @@ const EditorHeader = styled.div`
   margin: 16px 0;
 `
 
-const BackLink = styled(Link)`
-  ${bodyMedium};
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  width: fit-content;
+const BackButton = styled(TextButton)`
+  align-self: flex-start;
 `
 
 const EditorTitle = styled.div`
@@ -913,10 +909,7 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
   return (
     <Content>
       <EditorHeader>
-        <BackLink href={BASE_URL}>
-          <MaterialIcon icon='arrow_back' size={20} />
-          Map families
-        </BackLink>
+        <BackButton label='Map families' iconStart='arrow_back' onClick={() => push(BASE_URL)} />
       </EditorHeader>
       {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       {!data && fetching ? <LoadingDotsArea /> : null}
