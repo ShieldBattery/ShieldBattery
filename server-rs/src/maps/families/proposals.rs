@@ -1,6 +1,7 @@
 //! The staff families queue: open suggestions grouped into proposals (the files of connected open
 //! suggestions, joined through the families they touch), each with a tree built from the rules'
-//! proposals for staff to accept or edit.
+//! proposals for staff to accept or edit. Reviewers outside staff get the same queue restricted to
+//! listed maps.
 
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -137,6 +138,8 @@ struct TreeEdge {
     child: SbMapId,
     relation: MapFamilyRelation,
     similarity: f32,
+    /// Whether a person proposed it, rather than the detection rules.
+    review: bool,
 }
 
 fn tree_edge(
@@ -165,13 +168,15 @@ fn tree_edge(
         child: newer,
         relation,
         similarity: suggestion.terrain_similarity.unwrap_or(0.0),
+        review: suggestion.is_review(),
     })
 }
 
 /// Builds a proposed tree over one group: each file not yet in a family goes under the older side
-/// of its best edge (versions, variants and translations before forks, then the newest version
-/// older than it, so a chain of versions links each to the one before, then the most similar
-/// terrain), skipping edges that would close a cycle. Files in families keep their place.
+/// of its best edge (edges a person proposed first, then versions, variants and translations
+/// before forks, then the newest version older than it, so a chain of versions links each to the
+/// one before, then the most similar terrain), skipping edges that would close a cycle. Files in
+/// families keep their place.
 fn propose_tree(
     map_ids: &[SbMapId],
     suggestions: &[&MapLinkSuggestion],
@@ -188,8 +193,12 @@ fn propose_tree(
             .and_then(VersionKey::parse)
     };
     edges.sort_by(|x, y| {
-        (x.relation == MapFamilyRelation::Fork)
-            .cmp(&(y.relation == MapFamilyRelation::Fork))
+        y.review
+            .cmp(&x.review)
+            .then(
+                (x.relation == MapFamilyRelation::Fork)
+                    .cmp(&(y.relation == MapFamilyRelation::Fork)),
+            )
             .then(
                 version(&y.parent)
                     .partial_cmp(&version(&x.parent))
@@ -273,8 +282,12 @@ struct FileRow {
     games_total: Option<i32>,
 }
 
-/// Loads every proposal, the most played first.
-pub async fn load_proposals(db: &PgPool) -> eyre::Result<Vec<MapFamilyProposal>> {
+/// Loads every proposal, the most played first. With `listed_only`, only suggestions between two
+/// listed maps are grouped.
+pub async fn load_proposals(
+    db: &PgPool,
+    listed_only: bool,
+) -> eyre::Result<Vec<MapFamilyProposal>> {
     // Pairs already in one family were settled by linking, so they aren't waiting for anyone.
     let suggestions = sqlx::query_as!(
         MapLinkSuggestion,
@@ -290,7 +303,12 @@ pub async fn load_proposals(db: &PgPool) -> eyre::Result<Vec<MapFamilyProposal>>
                     INNER JOIN map_family_members fb ON fb.family_id = fa.family_id
                     WHERE fa.map_id = s.map_a AND fb.map_id = s.map_b
                 )
-        "#
+                AND (NOT $1 OR (
+                    EXISTS (SELECT 1 FROM maps m WHERE m.id = s.map_a AND m.listed)
+                    AND EXISTS (SELECT 1 FROM maps m WHERE m.id = s.map_b AND m.listed)
+                ))
+        "#,
+        listed_only,
     )
     .fetch_all(db)
     .await
@@ -394,8 +412,13 @@ pub async fn load_proposals(db: &PgPool) -> eyre::Result<Vec<MapFamilyProposal>>
 
 /// Loads the groups `map_ids` are in, merged into one: the proposals holding the maps or their
 /// families, plus the maps no proposal holds (with their families, if they're in one). Old ids
-/// resolve to their maps, and ids that match no map are left out.
-pub async fn load_group(db: &PgPool, map_ids: &[SbMapId]) -> eyre::Result<MapFamilyProposal> {
+/// resolve to their maps, and ids that match no map are left out. With `listed_only`, unlisted maps
+/// are left out too.
+pub async fn load_group(
+    db: &PgPool,
+    map_ids: &[SbMapId],
+    listed_only: bool,
+) -> eyre::Result<MapFamilyProposal> {
     let ids: Vec<Uuid> = map_ids.iter().map(|id| id.0).collect();
     let rows = sqlx::query!(
         r#"
@@ -407,9 +430,10 @@ pub async fn load_group(db: &PgPool, map_ids: &[SbMapId]) -> eyre::Result<MapFam
             WHERE m.id IN (
                 SELECT COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = x), x)
                 FROM unnest($1::uuid[]) x
-            )
+            ) AND (NOT $2 OR m.listed)
         "#,
         &ids,
+        listed_only,
     )
     .fetch_all(db)
     .await
@@ -422,7 +446,7 @@ pub async fn load_group(db: &PgPool, map_ids: &[SbMapId]) -> eyre::Result<MapFam
         links: Vec::new(),
         games: 0,
     };
-    let mut proposals = load_proposals(db).await?;
+    let mut proposals = load_proposals(db, listed_only).await?;
     let mut held: HashSet<SbMapId> = HashSet::new();
     for row in &rows {
         if held.contains(&row.id) {

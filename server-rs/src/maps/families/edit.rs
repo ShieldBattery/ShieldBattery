@@ -1,7 +1,10 @@
 //! Changing families by hand: linking a file under another, taking a file out of its family,
 //! editing a member, deciding suggestions, and reports from users. Every change to a family takes
 //! the families lock and rewrites the derived lines of the families it touched before its
-//! transaction commits.
+//! transaction commits, and every change a person makes is recorded in the family history.
+//!
+//! Reviewers (trusted users outside staff) may only change listed maps, and only suggestions and
+//! reports that are still open.
 
 use std::collections::{HashMap, HashSet};
 
@@ -11,6 +14,10 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::families::graphql::MapLinkSuggestionStatus;
+use crate::maps::families::history::{
+    self, Change, HistoryDetails, HistoryEntry, MapFamilyHistoryKind, MapFamilySuggestionChange,
+};
 use crate::maps::families::rules::file_version;
 use crate::maps::families::{MapFamilyRelation, MapLinkSource, lock_families, recompute_family};
 use crate::users::SbUserId;
@@ -41,6 +48,12 @@ pub enum FamilyEditError {
     NotPublisher,
     #[error("only listed maps can be linked")]
     Unlisted,
+    #[error("reviewers can only change listed maps")]
+    ReviewerUnlisted,
+    #[error("reviewers can only decide what's still open")]
+    ReviewerDecided,
+    #[error("family not found")]
+    FamilyNotFound,
     #[error("suggestion not found")]
     SuggestionNotFound,
     #[error("report not found")]
@@ -181,6 +194,43 @@ async fn load_map_row(
     .ok_or(FamilyEditError::MapNotFound)
 }
 
+/// Checks that a reviewer only touches listed maps. Other sources may touch any map.
+async fn check_reviewer_listed(
+    tx: &mut Transaction<'_, Postgres>,
+    source: MapLinkSource,
+    map_ids: &[SbMapId],
+) -> Result<(), FamilyEditError> {
+    if source != MapLinkSource::Reviewer {
+        return Ok(());
+    }
+    for &map_id in map_ids {
+        if !load_map_row(tx, map_id).await?.listed {
+            return Err(FamilyEditError::ReviewerUnlisted);
+        }
+    }
+    Ok(())
+}
+
+struct SuggestionStatusRow {
+    map_a: SbMapId,
+    map_b: SbMapId,
+    status: String,
+}
+
+fn suggestion_changes(
+    rows: Vec<SuggestionStatusRow>,
+    after: MapLinkSuggestionStatus,
+) -> Vec<MapFamilySuggestionChange> {
+    rows.into_iter()
+        .map(|row| MapFamilySuggestionChange {
+            map_a: row.map_a,
+            map_b: row.map_b,
+            before: MapLinkSuggestionStatus::from_db(&row.status),
+            after,
+        })
+        .collect()
+}
+
 /// A request to place a file in a family under another file.
 #[derive(Debug, Clone)]
 pub struct LinkRequest {
@@ -215,6 +265,7 @@ pub async fn link(
     }
     load_map_row(tx, map_id).await?;
     load_map_row(tx, parent_id).await?;
+    check_reviewer_listed(tx, source, &[map_id, parent_id]).await?;
 
     lock_families(tx).await?;
     let member = load_membership(tx, map_id).await?;
@@ -230,6 +281,13 @@ pub async fn link(
             return Err(FamilyEditError::Cycle);
         }
     }
+
+    let touched: Vec<Uuid> = member
+        .iter()
+        .chain(parent.iter())
+        .map(|m| m.family_id)
+        .collect();
+    let before = history::snapshot(tx, &touched, &[map_id, parent_id]).await?;
 
     let family_id = match &parent {
         Some(p) => p.family_id,
@@ -311,38 +369,70 @@ pub async fn link(
     }
 
     let (a, b) = ordered(map_id, parent_id);
-    sqlx::query!(
+    let mut accepted = sqlx::query_as!(
+        SuggestionStatusRow,
         r#"
-            UPDATE map_link_suggestions
+            UPDATE map_link_suggestions s
             SET status = 'accepted', decided_by = $3, decided_at = now()
-            WHERE map_a = $1 AND map_b = $2
+            FROM map_link_suggestions old
+            WHERE s.map_a = $1 AND s.map_b = $2 AND s.status <> 'accepted'
+                AND old.map_a = s.map_a AND old.map_b = s.map_b
+            RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId", old.status
         "#,
         a as _,
         b as _,
         actor as _,
     )
-    .execute(&mut **tx)
+    .fetch_all(&mut **tx)
     .await
     .wrap_err("Failed to accept suggestion")?;
-    sqlx::query!(
-        r#"
-            UPDATE map_link_suggestions s
-            SET status = 'accepted', decided_by = $2, decided_at = now()
-            FROM map_family_members fa, map_family_members fb
-            WHERE s.status = 'open' AND fa.map_id = s.map_a AND fb.map_id = s.map_b
-                AND fa.family_id = $1 AND fb.family_id = $1
-        "#,
-        family_id,
-        actor as _,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to accept suggestions within the family")?;
+    accepted.extend(
+        sqlx::query_as!(
+            SuggestionStatusRow,
+            r#"
+                UPDATE map_link_suggestions s
+                SET status = 'accepted', decided_by = $2, decided_at = now()
+                FROM map_family_members fa, map_family_members fb
+                WHERE s.status = 'open' AND fa.map_id = s.map_a AND fb.map_id = s.map_b
+                    AND fa.family_id = $1 AND fb.family_id = $1
+                RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId",
+                    'open' as "status!"
+            "#,
+            family_id,
+            actor as _,
+        )
+        .fetch_all(&mut **tx)
+        .await
+        .wrap_err("Failed to accept suggestions within the family")?,
+    );
 
     recompute_family(tx, family_id).await?;
     if let Some(old_family) = old_family {
         recompute_family(tx, old_family).await?;
     }
+
+    let touched: Vec<Uuid> = [Some(family_id), old_family]
+        .into_iter()
+        .flatten()
+        .collect();
+    let after = history::snapshot(tx, &touched, &[map_id, parent_id]).await?;
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::Link,
+            actor,
+            source,
+            map_id: Some(map_id),
+            other_map_id: Some(parent_id),
+            family_id: None,
+            details: HistoryDetails {
+                members: history::diff(&before, &after),
+                suggestions: suggestion_changes(accepted, MapLinkSuggestionStatus::Accepted),
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -407,6 +497,7 @@ pub async fn remove(
     source: MapLinkSource,
     actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
+    check_reviewer_listed(tx, source, &[map_id]).await?;
     lock_families(tx).await?;
     let member = load_membership(tx, map_id)
         .await?
@@ -414,6 +505,7 @@ pub async fn remove(
     if member.source > source {
         return Err(FamilyEditError::Locked);
     }
+    let before = history::snapshot(tx, &[member.family_id], &[]).await?;
     let members = load_family_members(tx, member.family_id).await?;
     let starts_line = member.relation.starts_line() || member.parent.is_none();
     match successor(&members, map_id) {
@@ -452,17 +544,22 @@ pub async fn remove(
         .filter(|m| m.map_id != map_id)
         .map(|m| m.map_id.0)
         .collect();
-    sqlx::query!(
+    let rejected = sqlx::query_as!(
+        SuggestionStatusRow,
         r#"
-            UPDATE map_link_suggestions
+            UPDATE map_link_suggestions s
             SET status = 'rejected', decided_by = $3, decided_at = now()
-            WHERE (map_a = $1 AND map_b = ANY($2)) OR (map_b = $1 AND map_a = ANY($2))
+            FROM map_link_suggestions old
+            WHERE ((s.map_a = $1 AND s.map_b = ANY($2)) OR (s.map_b = $1 AND s.map_a = ANY($2)))
+                AND s.status <> 'rejected'
+                AND old.map_a = s.map_a AND old.map_b = s.map_b
+            RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId", old.status
         "#,
         map_id as _,
         &relatives,
         actor as _,
     )
-    .execute(&mut **tx)
+    .fetch_all(&mut **tx)
     .await
     .wrap_err("Failed to reject suggestions")?;
     sqlx::query!(
@@ -473,6 +570,25 @@ pub async fn remove(
     .await
     .wrap_err("Failed to remove family member")?;
     recompute_family(tx, member.family_id).await?;
+
+    let after = history::snapshot(tx, &[member.family_id], &[]).await?;
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::Remove,
+            actor,
+            source,
+            map_id: Some(map_id),
+            other_map_id: None,
+            family_id: None,
+            details: HistoryDetails {
+                members: history::diff(&before, &after),
+                suggestions: suggestion_changes(rejected, MapLinkSuggestionStatus::Rejected),
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -483,11 +599,18 @@ pub async fn update_member(
     map_id: SbMapId,
     version_label: Option<Option<String>>,
     pinned_current: Option<bool>,
+    source: MapLinkSource,
+    actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
+    check_reviewer_listed(tx, source, &[map_id]).await?;
     lock_families(tx).await?;
     let member = load_membership(tx, map_id)
         .await?
         .ok_or(FamilyEditError::NotInFamily)?;
+    if member.source > source {
+        return Err(FamilyEditError::Locked);
+    }
+    let before = history::snapshot(tx, &[member.family_id], &[]).await?;
     if pinned_current == Some(true) {
         if !load_map_row(tx, map_id).await?.listed {
             return Err(FamilyEditError::PinUnlisted);
@@ -521,6 +644,71 @@ pub async fn update_member(
     .await
     .wrap_err("Failed to update family member")?;
     recompute_family(tx, member.family_id).await?;
+
+    let after = history::snapshot(tx, &[member.family_id], &[]).await?;
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::UpdateMember,
+            actor,
+            source,
+            map_id: Some(map_id),
+            other_map_id: None,
+            family_id: None,
+            details: HistoryDetails {
+                members: history::diff(&before, &after),
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Sets a family's staff-only working label.
+pub async fn set_label(
+    tx: &mut Transaction<'_, Postgres>,
+    family_id: Uuid,
+    label: Option<String>,
+    actor: SbUserId,
+) -> Result<(), FamilyEditError> {
+    let before = sqlx::query_scalar!(
+        "SELECT label FROM map_families WHERE id = $1 FOR UPDATE",
+        family_id,
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .wrap_err("Failed to load family label")?
+    .ok_or(FamilyEditError::FamilyNotFound)?;
+    sqlx::query!(
+        "UPDATE map_families SET label = $2, updated_at = now() WHERE id = $1",
+        family_id,
+        label,
+    )
+    .execute(&mut **tx)
+    .await
+    .wrap_err("Failed to set family label")?;
+    if before != label {
+        history::record(
+            tx,
+            HistoryEntry {
+                kind: MapFamilyHistoryKind::SetLabel,
+                actor,
+                source: MapLinkSource::Moderator,
+                map_id: None,
+                other_map_id: None,
+                family_id: Some(family_id),
+                details: HistoryDetails {
+                    label: Some(Change {
+                        before,
+                        after: label,
+                    }),
+                    ..Default::default()
+                },
+            },
+        )
+        .await?;
+    }
     Ok(())
 }
 
@@ -550,11 +738,27 @@ pub async fn decide_suggestion(
     x: SbMapId,
     y: SbMapId,
     decision: MapLinkSuggestionDecision,
+    source: MapLinkSource,
     actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
     let (a, b) = ordered(x, y);
+    let before = sqlx::query_scalar!(
+        "SELECT status FROM map_link_suggestions WHERE map_a = $1 AND map_b = $2 FOR UPDATE",
+        a as _,
+        b as _,
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .wrap_err("Failed to load suggestion")?
+    .ok_or(FamilyEditError::SuggestionNotFound)?;
+    if source == MapLinkSource::Reviewer {
+        if before != "open" {
+            return Err(FamilyEditError::ReviewerDecided);
+        }
+        check_reviewer_listed(tx, source, &[a, b]).await?;
+    }
     let open = decision == MapLinkSuggestionDecision::Open;
-    let updated = sqlx::query!(
+    sqlx::query!(
         r#"
             UPDATE map_link_suggestions
             SET status = $3,
@@ -571,8 +775,28 @@ pub async fn decide_suggestion(
     .execute(&mut **tx)
     .await
     .wrap_err("Failed to decide suggestion")?;
-    if updated.rows_affected() == 0 {
-        return Err(FamilyEditError::SuggestionNotFound);
+    if before != decision.status() {
+        history::record(
+            tx,
+            HistoryEntry {
+                kind: MapFamilyHistoryKind::DecideSuggestion,
+                actor,
+                source,
+                map_id: Some(a),
+                other_map_id: Some(b),
+                family_id: None,
+                details: HistoryDetails {
+                    suggestions: vec![MapFamilySuggestionChange {
+                        map_a: a,
+                        map_b: b,
+                        before: MapLinkSuggestionStatus::from_db(&before),
+                        after: MapLinkSuggestionStatus::from_db(decision.status()),
+                    }],
+                    ..Default::default()
+                },
+            },
+        )
+        .await?;
     }
     Ok(())
 }
@@ -801,7 +1025,10 @@ pub async fn insert_report(
 }
 
 /// How staff closed a family report.
-#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(
+    async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum MapFamilyReportStatus {
     /// Waiting for staff.
     Open,
@@ -833,10 +1060,35 @@ pub async fn set_report_status(
     tx: &mut Transaction<'_, Postgres>,
     id: Uuid,
     status: MapFamilyReportStatus,
+    source: MapLinkSource,
     actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
+    let report = sqlx::query!(
+        r#"
+            SELECT map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId", status
+            FROM map_family_reports
+            WHERE id = $1
+            FOR UPDATE
+        "#,
+        id,
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .wrap_err("Failed to load family report")?
+    .ok_or(FamilyEditError::ReportNotFound)?;
+    let before = MapFamilyReportStatus::from_db(&report.status);
+    if source == MapLinkSource::Reviewer {
+        if before != MapFamilyReportStatus::Open {
+            return Err(FamilyEditError::ReviewerDecided);
+        }
+        let maps: Vec<SbMapId> = [Some(report.map_id), report.other_map_id]
+            .into_iter()
+            .flatten()
+            .collect();
+        check_reviewer_listed(tx, source, &maps).await?;
+    }
     let open = status == MapFamilyReportStatus::Open;
-    let updated = sqlx::query!(
+    sqlx::query!(
         r#"
             UPDATE map_family_reports
             SET status = $2,
@@ -852,8 +1104,27 @@ pub async fn set_report_status(
     .execute(&mut **tx)
     .await
     .wrap_err("Failed to update family report")?;
-    if updated.rows_affected() == 0 {
-        return Err(FamilyEditError::ReportNotFound);
+    if before != status {
+        history::record(
+            tx,
+            HistoryEntry {
+                kind: MapFamilyHistoryKind::ReportStatus,
+                actor,
+                source,
+                map_id: Some(report.map_id),
+                other_map_id: report.other_map_id,
+                family_id: None,
+                details: HistoryDetails {
+                    report_id: Some(id),
+                    report_status: Some(Change {
+                        before,
+                        after: status,
+                    }),
+                    ..Default::default()
+                },
+            },
+        )
+        .await?;
     }
     Ok(())
 }
