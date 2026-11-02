@@ -50,7 +50,8 @@ pub use scoreboard::{ScoreboardOutcome, render_scoreboard_view};
 pub use selection::{
     CarriedUnitView, ProductionProgressView, ResourcesLeftView, SelectedUnitClick,
     SelectedUnitView, SelectionCase, SelectionOutcome, SelectionView, StatusColor, SubjectProgress,
-    UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, render_selection_view,
+    UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
+    render_selection_view,
 };
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
