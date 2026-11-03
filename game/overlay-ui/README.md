@@ -135,8 +135,8 @@ sides keeps the clock alone.
 
 The matchup can instead take the form of the **compact scoreboard** (`observer::scoreboard`), which
 is the one a first-time watcher gets: a stats wing at the top of the right edge, as wide as the wings
-stacked under it, with a row per player (color square, race icon, name, then supply, workers,
-minerals, gas and APM) under a single row of headings drawn as glyphs, so each player is named once
+stacked under it, with a row per player (color square, race icon, name, then minerals, gas, workers,
+supply and APM) under a single row of headings drawn as glyphs, so each player is named once
 and each column is labeled once for the whole game. It takes every shape of game, ruling its sides
 apart the way the wings do, so it has no team cards, and keeps the clock in the middle of its title
 row. `PanelPrefs::compact_scoreboard` says which form the matchup takes, and

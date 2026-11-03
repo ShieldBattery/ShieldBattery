@@ -55,35 +55,36 @@ const IDENTITY_WIDTH: f32 = {
 const NAME_WIDTH: f32 =
     IDENTITY_WIDTH - STAT_COLOR_BAR - STAT_BAR_GAP - STAT_RACE_ICON - STAT_RACE_ICON_GAP - NAME_GAP;
 
-/// A number column, in the order a row reads them.
+/// A number column, in the order a row reads them: the bank and supply in the order StarCraft's own
+/// resource readout gives them, with workers ahead of supply and the rate last.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Column {
-    Supply,
-    Workers,
     Minerals,
     Gas,
+    Workers,
+    Supply,
     Apm,
 }
 
 impl Column {
     const ALL: [Column; 5] = [
-        Column::Supply,
-        Column::Workers,
         Column::Minerals,
         Column::Gas,
+        Column::Workers,
+        Column::Supply,
         Column::Apm,
     ];
 
     /// How wide the column is. A column's heading is centered in it, and so is its number, short of
     /// supply's, which stands on its slash in the middle. The widths are what keeps two neighbors'
-    /// numbers apart at their longest: three digits either side of supply's slash, three of
-    /// workers, four of a rate, and five of a bank.
+    /// numbers apart at their longest: five digits of a bank, three of workers, three either side
+    /// of supply's slash, and four of a rate.
     const fn width(self) -> f32 {
         match self {
-            Column::Supply => 74.0,
-            Column::Workers => 44.0,
             Column::Minerals => 56.0,
             Column::Gas => 56.0,
+            Column::Workers => 44.0,
+            Column::Supply => 74.0,
             Column::Apm => 44.0,
         }
     }
@@ -202,10 +203,10 @@ fn draw_headings(ui: &Ui, rect: Rect, first_team: Option<u8>) {
         let icon = Rect::from_center_size(cell.center(), Vec2::splat(COLUMN_ICON));
         let glyph = |glyph| widgets::paint_column_glyph(ui.painter(), icon, glyph, 1.0);
         match column {
-            Column::Supply => glyph(ColumnGlyph::Supply),
-            Column::Workers => glyph(ColumnGlyph::Workers),
             Column::Minerals => glyph(ColumnGlyph::Minerals),
             Column::Gas => glyph(ColumnGlyph::Gas),
+            Column::Workers => glyph(ColumnGlyph::Workers),
+            Column::Supply => glyph(ColumnGlyph::Supply),
             // The rate counts nothing an icon could stand for, and the three letters are what every
             // caster already calls it.
             Column::Apm => paint_heading_label(ui, cell, &tr!("observer.apm", "APM")),
@@ -257,6 +258,9 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
     for column in Column::ALL {
         let cell = cursor.take(column.width());
         match column {
+            Column::Minerals => paint_count(ui, cell, &value, player.minerals, Align::Center),
+            Column::Gas => paint_count(ui, cell, &value, player.gas, Align::Center),
+            Column::Workers => paint_count(ui, cell, &value, player.workers, Align::Center),
             Column::Supply => {
                 // A supply block is production time a player is losing, so it is the one number on
                 // the row that changes color.
@@ -273,9 +277,6 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
                     player.supply_max,
                 );
             }
-            Column::Workers => paint_count(ui, cell, &value, player.workers, Align::Center),
-            Column::Minerals => paint_count(ui, cell, &value, player.minerals, Align::Center),
-            Column::Gas => paint_count(ui, cell, &value, player.gas, Align::Center),
             Column::Apm => paint_count(ui, cell, &rate, player.apm, Align::Center),
         }
     }
