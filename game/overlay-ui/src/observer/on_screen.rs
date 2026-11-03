@@ -2,14 +2,15 @@
 //! shown for as long as Alt is held.
 //!
 //! A fight on screen is read as who has what there, and the stats wings only answer that for the
-//! whole map. This answers it on the map itself. Every unit in view gets a health bar under it, and
-//! every group of a player's units gets a label hung just above it: their name on a thin band of
-//! their own color over a tile for every kind of unit in the group with how many of it, in the
-//! order the host ranks the kinds. A label goes where its units are, so it needs no room of its own
-//! on the screen; where two would cover each other, the later one moves up out of the way, and one
-//! that would stand under a panel steps out from under it where it can. Every count is set on a
-//! dark badge hanging off its tile's corner, the largest thing on the label, so it reads on a small
-//! stream. All of it is drawn under the panels and dialogs.
+//! whole map. This answers it on the map itself. Every unit in view, short of buildings, gets the
+//! health bar SC:R draws under a selected unit, where it draws it, and every group of a player's
+//! units gets a label hung just above it: their name on a thin band of their own color over a tile
+//! for every kind of unit in the group with how many of it, in the order the host ranks the kinds.
+//! A label goes where its units are, so it needs no room of its own on the screen; where two would
+//! cover each other, the later one moves up out of the way, and one that would stand under a panel
+//! steps out from under it where it can. Every count is set on a dark badge hanging off its tile's
+//! corner, the largest thing on the label, so it reads on a small stream. All of it is drawn under
+//! the panels and dialogs.
 //!
 //! Units are picked with the mouse much as the game selects them, and once picked they are the only
 //! ones counted and given bars, labelled where they go, until Alt is let go. Dragging a box picks
@@ -30,11 +31,9 @@ use egui::{
     pos2, vec2,
 };
 
-use crate::colors::BLUE60;
 use crate::kit::motion;
 use crate::kit::text;
 use crate::kit::theme;
-use crate::observer::selection::health_tint;
 use crate::observer::{
     ProductionIcon, owner_tint, paint_icon_glow, paint_owner_wash, paint_text, paint_tile_chrome,
     unit_codes, vision_alpha,
@@ -97,13 +96,14 @@ const LABEL_GAP: f32 = 8.0;
 const BAND_COLOR_ALPHA: f32 = 0.6;
 const BAND_BASE_ALPHA: f32 = 0.7;
 
-/// The size of a unit's health bar, and of its shield bar where it has one: as wide as the unit,
-/// within these bounds, and hung this far under it.
-const BAR_MIN_WIDTH: f32 = 14.0;
-const BAR_MAX_WIDTH: f32 = 56.0;
-const HEALTH_BAR_HEIGHT: f32 = 3.0;
-const SHIELD_BAR_HEIGHT: f32 = 2.0;
-const BAR_DROP: f32 = 2.0;
+/// The colors SC:R fills a selected unit's bars with: its shields, its health while two thirds of
+/// it or more is left, a third or more, and less, and what of either is gone. Read off the bars it
+/// draws, but for the middle one, which is the yellow between the other two.
+const BAR_SHIELDS: Color32 = Color32::from_rgb(12, 72, 204);
+const BAR_HEALTHY: Color32 = Color32::from_rgb(35, 150, 35);
+const BAR_HURT: Color32 = Color32::from_rgb(200, 180, 10);
+const BAR_DYING: Color32 = Color32::from_rgb(166, 8, 8);
+const BAR_EMPTY: Color32 = Color32::from_gray(127);
 
 /// The smallest box, in points either way, that counts as one dragged rather than a click.
 const MIN_BOX: f32 = 6.0;
@@ -129,7 +129,7 @@ pub struct OnScreenUnitView {
     /// Whose it is, as an index into [`OnScreenView::players`].
     pub player: usize,
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
-    /// health bar but is not counted (a building).
+    /// health bar but is not counted (a larva or an egg).
     pub kind: Option<usize>,
     /// Whether it is a worker, which mining spreads further from the next one than an army spreads.
     pub worker: bool,
@@ -137,6 +137,10 @@ pub struct OnScreenUnitView {
     pub position: Pos2,
     /// The box its body fills, in the same shares.
     pub bounds: Rect,
+    /// The box the game draws its health bar in when it is selected, in the same shares, which its
+    /// bar here is drawn in too. `None` where it gets no bar here, which is where the game draws
+    /// its own already, for a unit in the watcher's selection.
+    pub bar: Option<Rect>,
     /// How much of its health it has left, from 0 to 1, or `None` for one that cannot be hurt.
     pub health: Option<f32>,
     /// How much of its shields it has left, for a unit that has shields.
@@ -640,43 +644,49 @@ fn paint_box(ui: &Ui, dragged: Rect) {
     );
 }
 
-/// Draws a unit's bars centered under it: its shields where it has them, then its health in the
-/// color of how hurt it is, each on a dark track so it reads over any terrain.
+/// Draws a unit's bars where and as SC:R draws them under a selected unit: in the box the classic
+/// bar fills, a solid bar of what it has left in the color of how hurt it is over grey for what is
+/// gone, and where it has shields, one of them in blue above it, a pixel of the game's between.
 fn draw_bars(ui: &Ui, view: &OnScreenView, unit: &OnScreenUnitView, screen: Rect) {
-    let Some(health) = unit.health else {
+    let (Some(health), Some(bar)) = (unit.health, unit.bar) else {
         return;
     };
     let alpha = view
         .players
         .get(unit.player)
         .map_or(1.0, |player| vision_alpha(player.vision));
-    let body = body_on_screen(unit, screen);
-    let width = body.width().clamp(BAR_MIN_WIDTH, BAR_MAX_WIDTH);
-    let left = on_screen(unit.position, screen).x - width / 2.0;
-    let mut top = body.bottom() + BAR_DROP;
-    if let Some(shields) = unit.shields {
-        let bar = Rect::from_min_size(pos2(left, top), vec2(width, SHIELD_BAR_HEIGHT));
-        paint_bar(ui, bar, shields, BLUE60, alpha);
-        top = bar.bottom();
+    let rect = Rect::from_min_max(on_screen(bar.min, screen), on_screen(bar.max, screen));
+    // One of the game's pixels: the box is 5 of them tall, or 7 with shields.
+    let pixel = rect.height() / if unit.shields.is_some() { 7.0 } else { 5.0 };
+    let painter = ui.painter();
+    let paint = |top: f32, fraction: f32, color: Color32| {
+        let track = Rect::from_min_size(
+            pos2(rect.left(), rect.top() + top * pixel),
+            vec2(rect.width(), BAR_HEIGHT * pixel),
+        );
+        painter.rect_filled(track, 0.0, BAR_EMPTY.gamma_multiply(alpha));
+        let mut filled = track;
+        filled.set_right(track.left() + track.width() * fraction.clamp(0.0, 1.0));
+        painter.rect_filled(filled, 0.0, color.gamma_multiply(alpha));
+    };
+    let health_color = if health >= 2.0 / 3.0 {
+        BAR_HEALTHY
+    } else if health >= 1.0 / 3.0 {
+        BAR_HURT
+    } else {
+        BAR_DYING
+    };
+    match unit.shields {
+        Some(shields) => {
+            paint(0.0, shields, BAR_SHIELDS);
+            paint(BAR_HEIGHT + 1.0, health, health_color);
+        }
+        None => paint(1.0, health, health_color),
     }
-    let bar = Rect::from_min_size(pos2(left, top), vec2(width, HEALTH_BAR_HEIGHT));
-    paint_bar(ui, bar, health, health_tint(health), alpha);
 }
 
-/// Paints one bar: a dark track, then however much of it is filled.
-fn paint_bar(ui: &Ui, rect: Rect, fraction: f32, color: Color32, alpha: f32) {
-    let painter = ui.painter();
-    painter.rect_filled(
-        rect.expand(theme::HAIRLINE),
-        0.0,
-        Color32::BLACK.gamma_multiply(0.75 * alpha),
-    );
-    let mut filled = rect;
-    filled.set_right(rect.left() + rect.width() * fraction.clamp(0.0, 1.0));
-    if filled.width() > 0.0 {
-        painter.rect_filled(filled, 0.0, color.gamma_multiply(alpha));
-    }
-}
+/// How tall each of a unit's bars is, in the game's pixels.
+const BAR_HEIGHT: f32 = 3.0;
 
 /// Draws one label into `rect`: a dark plate under it all, then the owner's name on a band of
 /// their color as wide as the label, then a tile for each kind, wrapping onto as many lines as it
@@ -806,6 +816,7 @@ mod tests {
             worker: false,
             position,
             bounds: Rect::from_center_size(position, vec2(0.01, 0.01)),
+            bar: None,
             health: Some(1.0),
             shields: None,
         }
