@@ -111,8 +111,12 @@ impl BwScr {
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
                     let wirefram = self.wirefram.map_or(null_mut(), |x| x.resolve());
-                    let replay_visions = self.replay_visions.resolve();
+                    let engine_replay_visions = self.replay_visions.resolve();
                     let show_entire_map = self.replay_show_entire_map.resolve() != 0;
+                    let replay_visions = self
+                        .replay_vision_choice
+                        .lock()
+                        .selected_players(engine_replay_visions, show_entire_map);
                     let local_player_id = self.local_unique_player_id.resolve() as u8;
                     // The header is only a replay's, and it is only populated once one is running.
                     let replay = is_replay
@@ -323,7 +327,8 @@ impl BwScr {
                                 // the effective mask used to draw the entire map.
                                 || (is_replay_or_obs
                                     && overlay_out.show_entire_map
-                                    && self.local_visions.resolve() != 0xff)
+                                    && (engine_replay_visions != 0xff
+                                        || self.local_visions.resolve() != 0xff))
                             {
                                 self.note_replay_vision_choice(
                                     replay_visions,
