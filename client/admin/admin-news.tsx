@@ -671,11 +671,15 @@ function AdminNewsCreate() {
   return <NewsEditor post={undefined} />
 }
 
-function AdminNewsEdit({ params: { id } }: { params: { id: string } }) {
+export function AdminNewsEdit({ params: { id } }: { params: { id: string } }) {
   const { t } = useTranslation()
+  // The editor seeds its form state once from `post`, so it must never mount with a partial cache
+  // result: the public news queries cache a post without its nullable `coverImagePath`, which
+  // graphcache fills in as `null` and would later be saved over the real value.
   const [{ data, fetching, error }] = useQuery({
     query: AdminNewsPostQuery,
     variables: { id },
+    requestPolicy: 'network-only',
   })
 
   const post = data?.newsPost
