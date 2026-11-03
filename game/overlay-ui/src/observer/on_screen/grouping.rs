@@ -3,8 +3,10 @@
 //!
 //! Two units stand together when they are within reach of each other, and a group is every unit a
 //! chain of such pairs joins (single linkage). Whether two units are joined depends on nothing but
-//! where those two stand, so panning the view, or a unit coming into it somewhere else, never splits
-//! or joins a group it does not reach.
+//! where those two stand, and whether they were together the frame before, so panning the view, or
+//! a unit coming into it somewhere else, never splits or joins a group it does not reach. Two that
+//! were together keep a longer reach (see [`KEEP_TOGETHER`]), so a unit at the edge of a group
+//! moving about it, as workers mining do, does not flicker in and out of it.
 //!
 //! The reach is measured on the map, so a group is the same units in a window of any size: about
 //! three tiles, which keeps a clump and the stragglers at its edge together and an army a few
@@ -25,6 +27,9 @@ const WORKER_REACH: f32 = 128.0;
 /// labels of two groups always have room to stand apart.
 const LABEL_ROOM: f32 = 96.0;
 
+/// How much further than its reach two units that were together the frame before stay together.
+const KEEP_TOGETHER: f32 = 1.25;
+
 /// A unit to group: where it stands on the screen, and whether it is a worker.
 pub(super) struct Member {
     pub at: Pos2,
@@ -34,7 +39,12 @@ pub(super) struct Member {
 /// Splits `members` into the groups they stand in, each as indices into `members`, in the order of
 /// each group's first member. `points_per_map_pixel` is how many points on the screen one of the
 /// map's pixels takes up, or 0 where that is not known, which leaves only [`LABEL_ROOM`].
-pub(super) fn stand_together(members: &[Member], points_per_map_pixel: f32) -> Vec<Vec<usize>> {
+/// `were_together` says whether two members, by index, were in one group the frame before.
+pub(super) fn stand_together(
+    members: &[Member],
+    points_per_map_pixel: f32,
+    were_together: impl Fn(usize, usize) -> bool,
+) -> Vec<Vec<usize>> {
     let reach = |a: &Member, b: &Member| {
         let on_map = if a.worker && b.worker {
             WORKER_REACH
@@ -46,7 +56,12 @@ pub(super) fn stand_together(members: &[Member], points_per_map_pixel: f32) -> V
     let mut parent: Vec<usize> = (0..members.len()).collect();
     for (a, first) in members.iter().enumerate() {
         for (b, second) in members.iter().enumerate().skip(a + 1) {
-            if first.at.distance(second.at) <= reach(first, second) {
+            let kept = if were_together(a, b) {
+                KEEP_TOGETHER
+            } else {
+                1.0
+            };
+            if first.at.distance(second.at) <= reach(first, second) * kept {
                 let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
                 parent[ra.max(rb)] = ra.min(rb);
             }
@@ -111,7 +126,7 @@ mod tests {
     }
 
     fn group_sizes(members: &[Member], scale: f32) -> Vec<usize> {
-        let mut sizes: Vec<usize> = stand_together(members, scale)
+        let mut sizes: Vec<usize> = stand_together(members, scale, |_, _| false)
             .iter()
             .map(Vec::len)
             .collect();
@@ -165,13 +180,13 @@ mod tests {
             unit(100.0 + gap, 100.0),
             unit(130.0 + gap, 100.0),
         ];
-        let before = stand_together(&members, SCALE);
+        let before = stand_together(&members, SCALE, |_, _| false);
         let shift = vec2(37.25, -11.5);
         for member in &mut members {
             member.at += shift;
         }
         members.push(unit(2000.0, 1200.0));
-        let after = stand_together(&members, SCALE);
+        let after = stand_together(&members, SCALE, |_, _| false);
         assert_eq!(before, vec![vec![0, 1], vec![2, 3]]);
         assert_eq!(after, vec![vec![0, 1], vec![2, 3], vec![4]]);
     }
@@ -188,6 +203,17 @@ mod tests {
     }
 
     #[test]
+    fn units_together_the_frame_before_stay_together_a_little_further() {
+        // A little over the reach apart: two groups, unless they were one the frame before.
+        let members = [unit(100.0, 100.0), unit(100.0 + 100.0 * SCALE, 100.0)];
+        assert_eq!(stand_together(&members, SCALE, |_, _| false).len(), 2);
+        assert_eq!(stand_together(&members, SCALE, |_, _| true).len(), 1);
+        // And well past it, apart whatever they were.
+        let apart = [unit(100.0, 100.0), unit(100.0 + 150.0 * SCALE, 100.0)];
+        assert_eq!(stand_together(&apart, SCALE, |_, _| true).len(), 2);
+    }
+
+    #[test]
     fn groups_come_in_the_order_of_their_first_member() {
         let members = [
             unit(900.0, 900.0),
@@ -196,9 +222,9 @@ mod tests {
             unit(110.0, 100.0),
         ];
         assert_eq!(
-            stand_together(&members, SCALE),
+            stand_together(&members, SCALE, |_, _| false),
             vec![vec![0, 2], vec![1, 3]]
         );
-        assert!(stand_together(&[], SCALE).is_empty());
+        assert!(stand_together(&[], SCALE, |_, _| false).is_empty());
     }
 }
