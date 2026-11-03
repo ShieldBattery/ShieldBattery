@@ -631,6 +631,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.error('Error merging SC:R settings: ' + err)
     })
   })
+  ipcMain.handle('settingsScrGetBlizzard', () => scrSettings.getBlizzardSettings())
+  ipcMain.handle('settingsScrCopyFromBlizzard', () => scrSettings.copyFromBlizzard())
   ipcMain.handle('windowGetStatus', async () => {
     if (!mainWindow) {
       return {

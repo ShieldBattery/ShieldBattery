@@ -16,14 +16,23 @@ import {
 import { getTeamColorPresetLabel } from '../../../common/settings/team-colors'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { OutlinedButton } from '../../material/button'
+import { OutlinedButton, TextButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { standardEasing } from '../../material/curve-constants'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyMedium, bodySmall, labelMedium, titleMedium } from '../../styles/typography'
-import { mergeLocalSettings } from '../action-creators'
+import { bodyMedium, bodySmall, titleMedium } from '../../styles/typography'
+import { mergeLocalSettings, openSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SettingsSectionDescription } from '../settings-content'
+import { GameSettingsPage } from '../settings-page'
 import { GameDefaultsRadio } from './game-defaults-radio'
+import {
+  SettingName,
+  SettingPage,
+  TableHeader,
+  TableHeaderCell,
+  TableRow,
+  TableRows,
+} from './settings-table'
 
 const ARROW_KEY_DELTAS: Readonly<Record<string, number>> = {
   ArrowRight: 1,
@@ -84,55 +93,11 @@ const PresetCardDescription = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const TableHeader = styled.div`
-  display: grid;
-  grid-template-columns: ${TABLE_COLUMNS};
-  column-gap: 16px;
-  align-items: center;
-  padding: 0 12px;
-  margin-bottom: 4px;
-`
-
-const TableHeaderCell = styled.div<{ $highlighted?: boolean }>`
-  ${labelMedium};
-
-  color: ${props =>
-    props.$highlighted ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)'};
-  transition: color 150ms linear;
-`
-
 /* Indented past the mismatch dot the values below it carry, so the column reads as one edge. */
 const TableHeaderValueCell = styled(TableHeaderCell)`
   padding-left: 14px;
 
   color: var(--theme-on-surface);
-`
-
-const TableRows = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
-const TableRow = styled.div`
-  display: grid;
-  grid-template-columns: ${TABLE_COLUMNS};
-  column-gap: 16px;
-  align-items: center;
-  padding: 8px 12px;
-
-  background-color: var(--theme-container-low);
-  border-radius: 4px;
-`
-
-const SettingName = styled.div`
-  ${bodyMedium};
-`
-
-const SettingPage = styled.div`
-  ${bodySmall};
-
-  color: var(--theme-on-surface-variant);
 `
 
 const ValueCell = styled.div`
@@ -170,6 +135,18 @@ const TableFooter = styled.div`
 
 const TableCaption = styled.div`
   ${bodySmall};
+
+  color: var(--theme-on-surface-variant);
+`
+
+const BattleNetNote = styled.div`
+  ${bodySmall};
+
+  margin-top: 24px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
   color: var(--theme-on-surface-variant);
 `
@@ -282,7 +259,7 @@ export function GameDefaultsSettings() {
     ),
     [GameDefaultsPreset.Legacy]: t(
       'settings.game.defaults.legacyDescription',
-      'Matches Battle.net.',
+      'Matches Battle.net behavior for the settings below.',
     ),
   }
 
@@ -322,7 +299,7 @@ export function GameDefaultsSettings() {
           ))}
         </PresetCards>
 
-        <TableHeader>
+        <TableHeader $columns={TABLE_COLUMNS}>
           <TableHeaderCell>{t('settings.game.defaults.table.setting', 'Setting')}</TableHeaderCell>
           <TableHeaderValueCell>
             {t('settings.game.defaults.table.yourValue', 'Your value')}
@@ -337,7 +314,7 @@ export function GameDefaultsSettings() {
 
         <TableRows>
           {rows.map(row => (
-            <TableRow key={row.key}>
+            <TableRow key={row.key} $columns={TABLE_COLUMNS}>
               <div>
                 <SettingName>{row.name}</SettingName>
                 <SettingPage>{row.page}</SettingPage>
@@ -373,6 +350,20 @@ export function GameDefaultsSettings() {
             testName='game-defaults-reset-to-preset'
           />
         </TableFooter>
+
+        <BattleNetNote>
+          <span>
+            {t(
+              'settings.game.defaults.battleNetNote',
+              'To copy your other StarCraft settings from Battle.net, use the Battle.net page.',
+            )}
+          </span>
+          <TextButton
+            label={t('settings.game.defaults.openBattleNet', 'Open Battle.net page')}
+            onClick={() => dispatch(openSettings(GameSettingsPage.BattleNet))}
+            testName='game-defaults-open-battle-net'
+          />
+        </BattleNetNote>
       </SectionContainer>
     </FormContainer>
   )

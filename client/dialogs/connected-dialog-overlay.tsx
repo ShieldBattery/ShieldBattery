@@ -152,6 +152,9 @@ const ReplayInfoDialog = React.lazy(async () => ({
 const ReplayLoadDialog = React.lazy(async () => ({
   default: (await import('../replays/replay-load-dialog')).ReplayLoadDialog,
 }))
+const BattleNetSettingsCopyDialog = React.lazy(async () => ({
+  default: (await import('../settings/game/battle-net-copy-dialog')).BattleNetSettingsCopyDialog,
+}))
 const GameDefaultsApplyDialog = React.lazy(async () => ({
   default: (await import('../settings/game/game-defaults-apply-dialog')).GameDefaultsApplyDialog,
 }))
@@ -259,6 +262,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ExternalLinkDialog }
     case DialogType.FailedToAcceptMatch:
       return { component: FailedToAcceptMatchDialog }
+    case DialogType.BattleNetSettingsCopy:
+      return { component: BattleNetSettingsCopyDialog }
     case DialogType.GameDefaultsApply:
       return { component: GameDefaultsApplyDialog }
     case DialogType.GameDefaultsFirstRun:

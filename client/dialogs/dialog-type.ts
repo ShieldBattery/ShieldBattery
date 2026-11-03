@@ -41,6 +41,7 @@ export enum DialogType {
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  BattleNetSettingsCopy = 'battleNetSettingsCopy',
   GameDefaultsApply = 'gameDefaultsApply',
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
   JoinCode = 'joinCode',
@@ -263,6 +264,15 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
   }
 >
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
+type BattleNetSettingsCopyDialogPayload = BaseDialogPayload<
+  typeof DialogType.BattleNetSettingsCopy,
+  {
+    /** How many StarCraft settings differ from Battle.net's, and so would be replaced. */
+    settingCount: number
+    /** How many ShieldBattery features make the game feel different from Battle.net. */
+    featureCount: number
+  }
+>
 type GameDefaultsApplyDialogPayload = BaseDialogPayload<
   typeof DialogType.GameDefaultsApply,
   {
@@ -493,6 +503,7 @@ export type DialogPayload =
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | BattleNetSettingsCopyDialogPayload
   | GameDefaultsApplyDialogPayload
   | GameDefaultsFirstRunDialogPayload
   | JoinCodeDialogPayload

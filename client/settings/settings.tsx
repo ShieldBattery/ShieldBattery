@@ -17,6 +17,7 @@ import { closeSettings, SETTINGS_PAGE_KEY, useIsSettingsOpen } from './action-cr
 import { AppReplaySettings } from './app/replay-settings'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
+import { BattleNetSettings } from './game/battle-net-settings'
 import { GameDefaultsSettings } from './game/game-defaults-settings'
 import { GameplaySettings } from './game/gameplay-settings'
 import { GameInputSettings } from './game/input-settings'
@@ -183,7 +184,7 @@ function Settings({
               GameSettingsPage.Gameplay,
             ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
             {[GameSettingsPage.Network].map(getNavEntriesMapper())}
-            {[GameSettingsPage.Defaults].map(
+            {[GameSettingsPage.Defaults, GameSettingsPage.BattleNet].map(
               getNavEntriesMapper({ disabled: !isStarcraftHealthy }),
             )}
           </>
@@ -270,6 +271,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
         return <GameNetworkSettings />
       case GameSettingsPage.Defaults:
         return <GameDefaultsSettings />
+      case GameSettingsPage.BattleNet:
+        return <BattleNetSettings />
       default:
         page satisfies never
     }
@@ -328,6 +331,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case GameSettingsPage.Defaults:
       title = t('settings.game.defaults.title', 'Defaults')
+      break
+    case GameSettingsPage.BattleNet:
+      title = t('settings.game.battleNet.title', 'Battle.net')
       break
     default:
       title = page satisfies never

@@ -462,3 +462,16 @@ export interface ScrSettings {
   showFps: boolean
   showTurnRate: boolean
 }
+
+/**
+ * The values Battle.net's own settings file holds for the SC:R settings ShieldBattery keeps a copy
+ * of, or `found: false` if the file couldn't be read.
+ */
+export type BlizzardScrSettings =
+  | { found: true; settings: Partial<Omit<ScrSettings, 'version'>> }
+  | { found: false }
+
+/** What copying Battle.net's settings over ShieldBattery's did. */
+export type BlizzardScrSettingsCopy =
+  | { found: true; changed: Array<keyof ScrSettings> }
+  | { found: false }

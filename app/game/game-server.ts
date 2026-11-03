@@ -248,7 +248,7 @@ export class GameServer {
             })
           }
           if (Object.keys(change.scr).length > 0) {
-            this.scrSettings.mergeFromGame(change.scr).catch(err => {
+            this.scrSettings.merge(change.scr).catch(err => {
               log.error(`Error saving in-game SC:R settings: ${err.stack ?? err}`)
             })
           }

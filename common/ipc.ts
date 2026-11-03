@@ -26,7 +26,12 @@ import {
   ReplayPlaylist,
   ReplayTrashResult,
 } from './replays-library'
-import { LocalSettings, ScrSettings } from './settings/local-settings'
+import {
+  BlizzardScrSettings,
+  BlizzardScrSettingsCopy,
+  LocalSettings,
+  ScrSettings,
+} from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 import { ClientProof } from './users/client-proof'
 import { SbUserId } from './users/sb-user-id'
@@ -404,6 +409,10 @@ interface IpcInvokeables {
   settingsScrGet: () => Promise<Partial<ScrSettings>>
   settingsLocalMerge: (settings: Readonly<Partial<LocalSettings>>) => void
   settingsScrMerge: (settings: Readonly<Partial<ScrSettings>>) => void
+  /** Reads Battle.net's own settings file for the SC:R settings ShieldBattery keeps a copy of. */
+  settingsScrGetBlizzard: () => Promise<BlizzardScrSettings>
+  /** Replaces the SC:R settings Battle.net's settings file has values for with those values. */
+  settingsScrCopyFromBlizzard: () => Promise<BlizzardScrSettingsCopy>
 
   settingsAutoPickStarcraftPath: () => Promise<boolean>
   settingsCheckStarcraftPath: (path: string) => Promise<{ path: boolean; version: boolean }>

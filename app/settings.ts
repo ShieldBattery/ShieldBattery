@@ -4,10 +4,13 @@ import { EventEmitter } from 'node:events'
 import { isDeepStrictEqual } from 'node:util'
 import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
+import { timeoutPromise } from '../common/async/timeout-promise'
 import { DEV_INDICATOR } from '../common/flags'
 import { SCR_GAMMA_DEFAULT, SCR_GAMMA_MAX, SCR_GAMMA_MIN } from '../common/settings/blizz-settings'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
 import {
+  BlizzardScrSettings,
+  BlizzardScrSettingsCopy,
   FfaColorPreset,
   GameDefaultsPreset,
   LocalSettings,
@@ -21,6 +24,7 @@ import {
   neutralColorForCustomTeamColors,
 } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
+import { pickValidScrSettings } from './game/in-game-settings'
 import log from './logger'
 import { applyLaunchOverrides, dropLaunchOverriddenSettings } from './scr-launch-overrides'
 
@@ -551,6 +555,32 @@ export function fromSbToBlizzard(sbSettings: Partial<ScrSettings>): Record<strin
   )
 }
 
+/**
+ * How many times a read of Battle.net's settings file is tried. The file often lives in a synced
+ * folder (OneDrive), which holds it locked or half-written for moments at a time.
+ */
+const BLIZZARD_READ_ATTEMPTS = 4
+const BLIZZARD_READ_RETRY_DELAY_MS = 250
+
+/**
+ * The settings in Battle.net's settings file that ShieldBattery keeps a copy of, as the app stores
+ * them, leaving out values it couldn't have chosen itself.
+ */
+function scrSettingsFromBlizzard(
+  blizzardSettings: Record<string, unknown>,
+): Partial<Omit<ScrSettings, 'version'>> {
+  const settings = fromBlizzardToSb(blizzardSettings)
+  if (settings.gamma !== undefined) {
+    settings.gamma = normalizeGamma(settings.gamma)
+  }
+  const rejected: string[] = []
+  const valid = pickValidScrSettings(settings, rejected)
+  if (rejected.length > 0) {
+    log.warning(`Ignoring Battle.net settings with unusable values: ${rejected.join(', ')}`)
+  }
+  return valid
+}
+
 function normalizeGamma(value: unknown): number {
   const gamma = Number(value)
   if (!Number.isFinite(gamma)) {
@@ -565,11 +595,12 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   private blizzardFilepath: string
   private blizzardSettings!: Record<string, any>
   /**
-   * Settings a running game's own options screen changed. SC:R doesn't write its settings file when
-   * a game ends, so the file read back after the game holds what it launched with; these are
-   * applied over it so the player's in-game choices survive that read.
+   * Settings changed since the game settings file was last written, by a running game's options
+   * screen or by the app. SC:R doesn't write its settings file when a game ends, so the file read
+   * back after the last game holds what the games launched with; these are applied over it so no
+   * change made while a game ran is undone by that read.
    */
-  private changedInGame: Partial<ScrSettings> = {}
+  private changedSinceGameFileWritten: Partial<ScrSettings> = {}
   /** Whether the game settings file was last written with HD graphics forced off. */
   private hdGraphicsForcedOff = false
 
@@ -745,6 +776,7 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     log.debug('Writing ScrSettings to game settings file')
     await this.initialized
     this.hdGraphicsForcedOff = alwaysStartSd
+    this.changedSinceGameFileWritten = {}
     const merged = applyLaunchOverrides(
       {
         ...this.blizzardSettings,
@@ -771,20 +803,85 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     const newData = fromBlizzardToSb(JSON.parse(contents))
     if (this.hdGraphicsForcedOff) {
       // The file holds the forced value, not the player's preference. Their in-game changes arrive
-      // through `changedInGame`.
+      // through `changedSinceGameFileWritten`.
       dropLaunchOverriddenSettings(newData)
     }
     if (newData.gamma !== undefined) {
       newData.gamma = normalizeGamma(newData.gamma)
     }
-    const changedInGame = this.changedInGame
-    this.changedInGame = {}
-    await this.merge({ ...newData, ...changedInGame })
+    const changed = this.changedSinceGameFileWritten
+    this.changedSinceGameFileWritten = {}
+    await super.merge({ ...newData, ...changed })
   }
 
-  /** Records settings a running game's options screen changed, and applies them right away. */
-  async mergeFromGame(settings: Readonly<Partial<ScrSettings>>) {
-    this.changedInGame = { ...this.changedInGame, ...settings }
-    await this.merge(settings)
+  /** Applies changed settings, noting them so a running game's settings file can't undo them. */
+  override async merge(settings: Readonly<Partial<ScrSettings>>): Promise<void> {
+    this.changedSinceGameFileWritten = { ...this.changedSinceGameFileWritten, ...settings }
+    await super.merge(settings)
+  }
+
+  /** Reads Battle.net's settings file as it is now. */
+  async getBlizzardSettings(): Promise<BlizzardScrSettings> {
+    await this.initialized
+    const blizzardSettings = await this.readBlizzardFileWithRetries()
+    return blizzardSettings
+      ? { found: true, settings: scrSettingsFromBlizzard(blizzardSettings) }
+      : { found: false }
+  }
+
+  /**
+   * Replaces every setting Battle.net's settings file has a value for with that value, as the file
+   * is now.
+   */
+  async copyFromBlizzard(): Promise<BlizzardScrSettingsCopy> {
+    await this.initialized
+    const blizzardSettings = await this.readBlizzardFileWithRetries()
+    if (!blizzardSettings) {
+      return { found: false }
+    }
+    const fromBlizzard = scrSettingsFromBlizzard(blizzardSettings)
+    const changed = (Object.keys(fromBlizzard) as Array<keyof typeof fromBlizzard>).filter(
+      key => !isDeepStrictEqual(fromBlizzard[key], this.settings[key]),
+    )
+    if (changed.length > 0) {
+      log.info(
+        'Copying Battle.net settings: ' +
+          changed
+            .map(
+              key =>
+                `${key} ${JSON.stringify(this.settings[key])} -> ${JSON.stringify(fromBlizzard[key])}`,
+            )
+            .join(', '),
+      )
+      await this.merge(Object.fromEntries(changed.map(key => [key, fromBlizzard[key]])))
+    } else {
+      log.info('Copying Battle.net settings: already the same')
+    }
+    return { found: true, changed }
+  }
+
+  /**
+   * Reads Battle.net's settings file, keeping what it read as the base game settings files are
+   * written over. Returns `undefined` if the file doesn't exist or can't be read.
+   */
+  private async readBlizzardFileWithRetries(): Promise<Record<string, unknown> | undefined> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
+        const blizzardSettings = JSON.parse(contents)
+        this.blizzardSettings = blizzardSettings
+        return blizzardSettings
+      } catch (err: any) {
+        if (err?.code === 'ENOENT') {
+          log.warning(`No Battle.net settings file at ${this.blizzardFilepath}`)
+          return undefined
+        }
+        if (attempt >= BLIZZARD_READ_ATTEMPTS) {
+          log.error(`Error reading/parsing the Blizzard settings file: ${err?.stack ?? err}`)
+          return undefined
+        }
+      }
+      await timeoutPromise(BLIZZARD_READ_RETRY_DELAY_MS)[0]
+    }
   }
 }

@@ -2786,6 +2786,39 @@
       "save": "There was an issue saving the settings."
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "Color APM alert text",
+        "apmAlertSound": "Play APM alert sound",
+        "apmAlertValue": "APM alert threshold",
+        "copyButton": "Copy from Battle.net",
+        "copyConfirm": "Copy settings",
+        "copyDialogFeatures_one": "Also switch {{count}} ShieldBattery feature to how Battle.net plays",
+        "copyDialogFeatures_other": "Also switch {{count}} ShieldBattery features to how Battle.net plays",
+        "copyDialogFeaturesOnly_one": "This switches {{count}} ShieldBattery feature to how Battle.net plays.",
+        "copyDialogFeaturesOnly_other": "This switches {{count}} ShieldBattery features to how Battle.net plays.",
+        "copyDialogNotKept": "Your current values won't be kept.",
+        "copyDialogSettings_one": "This replaces {{count}} StarCraft setting in ShieldBattery with your Battle.net value.",
+        "copyDialogSettings_other": "This replaces {{count}} StarCraft settings in ShieldBattery with your Battle.net values.",
+        "copyDialogTitle": "Copy Battle.net settings?",
+        "copyError": "Couldn't copy the Battle.net settings. Nothing was changed.",
+        "customCursorSize": "Custom cursor size",
+        "differenceSummary_one": "{{count}} setting differs from Battle.net. Settings that already match aren't listed.",
+        "differenceSummary_other": "{{count}} settings differ from Battle.net. Settings that already match aren't listed.",
+        "featuresTitle": "ShieldBattery features",
+        "featureSummary_one": "{{count}} ShieldBattery feature makes the game feel different from Battle.net.",
+        "featureSummary_other": "{{count}} ShieldBattery features make the game feel different from Battle.net.",
+        "intro": "ShieldBattery keeps its own copy of your StarCraft settings, so changes made through Battle.net don't carry over.",
+        "matches": "Your settings match Battle.net.",
+        "notFound": "ShieldBattery couldn't read the Battle.net settings file. Launching StarCraft from Battle.net once creates it.",
+        "notSet": "Not set",
+        "settingsTitle": "StarCraft settings",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "Setting",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_one": "New features will use {{preset}} defaults from now on. What about the {{count}} setting this preset covers?",
@@ -2798,6 +2831,7 @@
           "resetToRecommendedDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the ShieldBattery defaults.",
           "switchedTitle": "Switched to {{preset}}"
         },
+        "battleNetNote": "To copy your other StarCraft settings from Battle.net, use the Battle.net page.",
         "firstRun": {
           "continue": "Continue",
           "cursorSize": "Cursor size",
@@ -2815,7 +2849,8 @@
           "title": "Same game. Your call on the details."
         },
         "intro": "The preset decides which values ShieldBattery's own gameplay settings start on. It also picks the default for anything added later.",
-        "legacyDescription": "Matches Battle.net.",
+        "legacyDescription": "Matches Battle.net behavior for the settings below.",
+        "openBattleNet": "Open Battle.net page",
         "preset": {
           "legacy": "Legacy",
           "recommended": "Recommended"

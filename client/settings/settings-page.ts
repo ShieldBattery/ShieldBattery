@@ -21,6 +21,7 @@ export enum GameSettingsPage {
   Gameplay = 'GameGameplay',
   Network = 'GameNetwork',
   Defaults = 'GameDefaults',
+  BattleNet = 'GameBattleNet',
 }
 
 export type SettingsPage = UserSettingsPage | AppSettingsPage | GameSettingsPage
