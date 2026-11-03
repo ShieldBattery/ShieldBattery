@@ -17,6 +17,7 @@ export enum PunishmentDuration {
   ThreeMonths = '3mo',
   SixMonths = '6mo',
   OneYear = '1y',
+  Permanent = 'permanent',
   Custom = 'custom',
 }
 
@@ -51,6 +52,8 @@ const PRESET_LENGTHS: Record<PresetDuration, { ms: number } | { months: number }
   [PunishmentDuration.ThreeMonths]: { months: 3 },
   [PunishmentDuration.SixMonths]: { months: 6 },
   [PunishmentDuration.OneYear]: { months: 12 },
+  // Matches the cap the server applies to automatic ban-evasion bans, so evading stays permanent.
+  [PunishmentDuration.Permanent]: { months: 100 * 12 },
 }
 
 const LABELS: Record<PunishmentDuration, string> = {
@@ -71,6 +74,7 @@ const LABELS: Record<PunishmentDuration, string> = {
   [PunishmentDuration.ThreeMonths]: '3 months',
   [PunishmentDuration.SixMonths]: '6 months',
   [PunishmentDuration.OneYear]: '1 year',
+  [PunishmentDuration.Permanent]: 'Permanent',
   [PunishmentDuration.Custom]: 'Custom',
 }
 
