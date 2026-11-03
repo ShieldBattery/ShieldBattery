@@ -436,6 +436,7 @@ pub fn render(
             // The fake game answers these the way the real one does: vision changes what the
             // watcher is shown, and a selection is what the game would put in its console.
             Intent::ToggleVision { player_id } => state.observer.toggle_vision(player_id),
+            Intent::SetShowEntireMap(show) => state.observer.show_entire_map = show,
             Intent::SelectProduction { player_id, item } => {
                 state.observer.note_selection(player_id, item as usize)
             }

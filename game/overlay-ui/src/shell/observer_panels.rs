@@ -807,7 +807,7 @@ impl ObserverPanels {
             ctx,
             square,
             shown,
-            &view.matchup.players,
+            view,
             self.vision_picker_open,
             observer::MinimapKeys {
                 vision: &vision_keys,
@@ -819,6 +819,9 @@ impl ObserverPanels {
         self.vision_picker_open = shown && outcome.picker_open;
         if let Some(player_id) = outcome.toggled_vision {
             intents.push(Intent::ToggleVision { player_id });
+        }
+        if let Some(show) = outcome.show_entire_map {
+            intents.push(Intent::SetShowEntireMap(show));
         }
         if outcome.open_menu {
             self.vision_picker_open = false;
@@ -891,6 +894,64 @@ mod tests {
     use crate::shell::{Intent, PanelPrefs};
 
     const SMALL_SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
+
+    #[test]
+    fn entire_map_switch_sends_its_new_value_and_keeps_the_picker_open() {
+        use super::{ObserverPanels, hotkeys::Hotkeys};
+        use crate::kit::{theme, tiers, widgets};
+
+        for initial in [false, true] {
+            let ctx = fresh_ctx();
+            let mut panels = ObserverPanels {
+                vision_picker_open: true,
+                ..Default::default()
+            };
+            let mut game = empty_game();
+            game.show_entire_map = initial;
+            let hotkeys = Hotkeys::default();
+            let square = Rect::from_min_size(egui::pos2(20.0, 400.0), egui::vec2(250.0, 250.0));
+            let mut time = 0.0;
+            let mut frame = |panels: &mut ObserverPanels, events| {
+                time += 0.1;
+                ctx.begin_pass(egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN)),
+                    time: Some(time),
+                    events,
+                    ..Default::default()
+                });
+                let mut intents = Vec::new();
+                panels.frame_minimap(&ctx, &game, Some(square), true, &hotkeys, &mut intents);
+                ctx.end_pass().textures_delta.clear();
+                intents
+            };
+            for _ in 0..3 {
+                assert!(frame(&mut panels, Vec::new()).is_empty());
+            }
+            let picker = ctx
+                .memory(|memory| memory.area_rect(egui::Id::new("sb_minimap_vision_picker")))
+                .expect("the vision picker is drawn");
+            let switch = egui::pos2(
+                picker.right() - tiers::PANEL_MARGIN_WIDTH * 0.5 - widgets::SWITCH_SIZE.x * 0.5,
+                picker.top()
+                    + tiers::PANEL_MARGIN_HEIGHT * 0.5
+                    + 20.0
+                    + theme::SPACE_XS
+                    + theme::HIT_PANEL * 0.5,
+            );
+            frame(&mut panels, vec![egui::Event::PointerMoved(switch)]);
+            let button = |pressed| egui::Event::PointerButton {
+                pos: switch,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            };
+            assert!(frame(&mut panels, vec![button(true)]).is_empty());
+            let intents = frame(&mut panels, vec![button(false)]);
+            assert_eq!(intents.len(), 1, "{intents:?}");
+            assert!(matches!(intents[0], Intent::SetShowEntireMap(value) if value != initial));
+            assert!(panels.vision_picker_open);
+        }
+    }
 
     /// The dock's strip among a frame's hit rects: as tall as a strip is and as wide as the plate.
     fn dock_rect(output: &crate::shell::FrameOutput) -> Option<Rect> {

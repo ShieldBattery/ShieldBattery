@@ -124,6 +124,8 @@ pub enum Intent {
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
     ToggleVision { player_id: u8 },
+    /// Show the entire map while preserving the chosen player visions for switching back.
+    SetShowEntireMap(bool),
     /// Select whatever is making this entry of a player's production row, and on a repeated ask,
     /// move on to the next one of them.
     SelectProduction { player_id: u8, item: u32 },

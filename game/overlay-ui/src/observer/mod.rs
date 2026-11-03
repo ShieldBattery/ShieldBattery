@@ -81,6 +81,8 @@ use crate::tr;
 /// the panels are toggled by keys that arrive between frames, and only the shell knows which of
 /// them the watcher has hidden.
 pub struct ObserverView {
+    /// Whether the game's entire-map vision is enabled.
+    pub show_entire_map: bool,
     pub matchup: MatchupView,
     /// The corner cards a game too big for the matchup bar is read from, or `None` for one the bar
     /// still has room for. Two cards at most: a game of more sides than that is cut into two halves

@@ -31,6 +31,8 @@ pub struct ReplayVisionChoice {
     /// The players whose vision the viewer turned off, a bit per player: on the Vision panel, or
     /// through the overlay's guess at the replay's start that they only watch.
     off: u8,
+    /// The entire-map setting, once the viewer explicitly chooses it. Until then SC:R owns it.
+    show_entire_map: Option<bool>,
     /// Whether the replay is starting over for a seek and still has to be given the choice back.
     restore_after_restart: bool,
 }
@@ -39,6 +41,7 @@ impl ReplayVisionChoice {
     pub fn new() -> Self {
         Self {
             off: 0,
+            show_entire_map: None,
             restore_after_restart: false,
         }
     }
@@ -46,6 +49,10 @@ impl ReplayVisionChoice {
     /// The viewer changed the visions shown from `shown` to `chosen`.
     fn note_change(&mut self, shown: u8, chosen: u8) {
         self.off = (self.off | (shown & !chosen)) & !(chosen & !shown);
+    }
+
+    pub(super) fn note_entire_map_change(&mut self, show: bool) {
+        self.show_entire_map = Some(show);
     }
 
     /// A seek is starting the replay over.
@@ -94,9 +101,15 @@ impl BwScr {
     pub unsafe fn restore_replay_visions(&self) {
         unsafe {
             let reset = self.replay_visions.resolve();
-            let Some(players) = self.replay_vision_choice.lock().take_restore(reset) else {
+            let mut choice = self.replay_vision_choice.lock();
+            let Some(players) = choice.take_restore(reset) else {
                 return;
             };
+            let show_entire_map = choice.show_entire_map;
+            drop(choice);
+            if let Some(show) = show_entire_map {
+                self.replay_show_entire_map.write(u8::from(show));
+            }
             debug!(
                 "Replay started over with visions {reset:#04x}, giving back the chosen {players:#04x}"
             );
@@ -111,7 +124,12 @@ impl BwScr {
         unsafe {
             let players = self.players();
             let not_left = players_not_left((0..8).map(|i| (*players.add(i)).player_type));
-            let shown = self.replay_vision_choice.lock().shown_of(not_left);
+            let choice = self.replay_vision_choice.lock();
+            let shown = choice.shown_of(not_left);
+            if let Some(show) = choice.show_entire_map {
+                self.replay_show_entire_map.write(u8::from(show));
+            }
+            drop(choice);
             if shown != self.replay_visions.resolve() {
                 debug!("Keyframe restore shows visions {shown:#04x}");
             }
