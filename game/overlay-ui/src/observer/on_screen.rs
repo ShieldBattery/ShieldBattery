@@ -22,9 +22,13 @@
 //! What makes a group is how near its units stand on the map, so a group is the same units in a
 //! window of any size, but never nearer on the screen than two labels need to stand apart: zoomed
 //! out, groups apart on the map come close together on the screen and share a label (see
-//! [`grouping`]).
+//! [`grouping`]). A group's label eases toward where it is placed over a few frames, on the map
+//! rather than the screen, so it doesn't jump as its group changes and doesn't trail its units as
+//! the view pans.
 
 mod grouping;
+
+use std::collections::HashMap;
 
 use egui::{
     Align, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2,
@@ -154,19 +158,37 @@ pub struct OnScreenView {
     /// The icon of every kind of unit counted, in the order their tiles are drawn.
     pub kinds: Vec<ProductionIcon>,
     pub units: Vec<OnScreenUnitView>,
-    /// How much of the map the game view shows, in the map's pixels across and down, which is what
-    /// tells how far apart units stand on the map. Zero where it is not known.
-    pub map_span: Vec2,
+    /// The part of the map the game view shows, in the map's pixels, which is what tells how far
+    /// apart units stand on the map, and where on it a label stands as the view moves. `None` where
+    /// it is not known.
+    pub map_view: Option<Rect>,
 }
 
 /// One label to draw: whose units it counts, how many of each kind (in drawing order), the top
-/// middle of what it labels, which it is hung over, and how much bigger than a group's it is.
+/// middle of what it labels, which it is hung over, how much bigger than a group's it is, and the
+/// group it labels, if it labels one.
 struct Label<'a> {
     player: &'a OnScreenPlayerView,
     kinds: Vec<(usize, u32)>,
     anchor: Pos2,
     scale: f32,
+    /// The group's key: the lowest id of the units in it, which stays the group's for as long as
+    /// that unit stays in it. `None` for a dragged box's label.
+    key: Option<u32>,
 }
+
+/// What the count keeps of the frame before, while it is up: which group each unit was in, by id
+/// and group key, and where on the map each group's label stood.
+#[derive(Clone, Default)]
+struct Memory {
+    group_of: HashMap<u32, u32>,
+    label_at: HashMap<u32, Pos2>,
+}
+
+/// How long, in seconds, a label takes to cover most of the way to where it is placed: long enough
+/// that it doesn't jump as its group gains or loses a unit or a label it stacks over comes and goes,
+/// short enough that it keeps up with units on the move.
+const LABEL_SETTLE_SECS: f32 = 0.08;
 
 /// What the count is about this frame.
 enum Pick {
@@ -228,6 +250,10 @@ pub fn render_on_screen_view(
 ) -> Option<Pos2> {
     let id = Id::new("sb_on_screen_units");
     let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, minimap);
+    let memory_id = id.with("memory");
+    if !shown {
+        ctx.data_mut(|data| data.remove::<Memory>(memory_id));
+    }
     let area = Area::new(id)
         .fixed_pos(screen.min)
         .order(Order::Background)
@@ -245,20 +271,33 @@ pub fn render_on_screen_view(
             for unit in view.units.iter().filter(|unit| pick.includes(unit, screen)) {
                 draw_bars(ui, view, unit, screen);
             }
-            let labels = match &pick {
+            let before = ui
+                .ctx()
+                .data(|data| data.get_temp::<Memory>(memory_id))
+                .unwrap_or_default();
+            let (labels, group_of) = match &pick {
                 Pick::Dragging { dragged, adding_to } => {
                     paint_box(ui, *dragged);
                     let mut labels = box_labels(view, *dragged, screen);
-                    labels.extend(group_labels(view, screen, |unit| {
+                    let (groups, group_of) = group_labels(view, screen, &before.group_of, |unit| {
                         !in_box(unit, *dragged, screen) && adding_to.binary_search(&unit.id).is_ok()
-                    }));
-                    labels
+                    });
+                    labels.extend(groups);
+                    (labels, group_of)
                 }
-                _ => group_labels(view, screen, |unit| pick.includes(unit, screen)),
+                _ => group_labels(view, screen, &before.group_of, |unit| {
+                    pick.includes(unit, screen)
+                }),
             };
             // The minimap is the game's own, and no panel of the overlay's covers it.
             let panels: Vec<Rect> = panels.iter().copied().chain(minimap).collect();
-            for (label, rect) in place_labels(ui, labels, screen, &panels) {
+            let placed = place_labels(ui, labels, screen, &panels);
+            let seconds = ui.input(|input| input.stable_dt);
+            let (placed, label_at) =
+                settle(placed, &before.label_at, view.map_view, screen, seconds);
+            ui.ctx()
+                .data_mut(|data| data.insert_temp(memory_id, Memory { group_of, label_at }));
+            for (label, rect) in placed {
                 draw_label(ui, view, &label, rect);
             }
         },
@@ -423,18 +462,20 @@ fn body_on_screen(unit: &OnScreenUnitView, screen: Rect) -> Rect {
 }
 
 /// The labels for every group of every player's counted units that `included` lets through (see
-/// the module's own docs for what makes a group).
+/// the module's own docs for what makes a group), and the key of the group each of those units is
+/// in. `before` is the key of the group each unit was in the frame before.
 fn group_labels<'a>(
     view: &'a OnScreenView,
     screen: Rect,
+    before: &HashMap<u32, u32>,
     included: impl Fn(&OnScreenUnitView) -> bool,
-) -> Vec<Label<'a>> {
-    let points_per_map_pixel = if view.map_span.x > 0.0 {
-        screen.width() / view.map_span.x
-    } else {
-        0.0
-    };
+) -> (Vec<Label<'a>>, HashMap<u32, u32>) {
+    let points_per_map_pixel = view
+        .map_view
+        .filter(|map_view| map_view.width() > 0.0)
+        .map_or(0.0, |map_view| screen.width() / map_view.width());
     let mut labels = Vec::new();
+    let mut group_of = HashMap::new();
     for (index, player) in view.players.iter().enumerate() {
         let units: Vec<&OnScreenUnitView> = view
             .units
@@ -448,8 +489,14 @@ fn group_labels<'a>(
                 worker: unit.worker,
             })
             .collect();
-        for members in grouping::stand_together(&members, points_per_map_pixel) {
+        let were_together = |a: usize, b: usize| {
+            let group = |i: usize| before.get(&units[i].id);
+            group(a).is_some_and(|group_a| group(b) == Some(group_a))
+        };
+        for members in grouping::stand_together(&members, points_per_map_pixel, were_together) {
             let members: Vec<&OnScreenUnitView> = members.into_iter().map(|i| units[i]).collect();
+            let key = members.iter().map(|unit| unit.id).min().unwrap_or(0);
+            group_of.extend(members.iter().map(|unit| (unit.id, key)));
             let top = members
                 .iter()
                 .map(|unit| on_screen(unit.bounds.min, screen).y)
@@ -465,10 +512,11 @@ fn group_labels<'a>(
                 kinds: count_kinds(view, members),
                 anchor: pos2((left + right) / 2.0, top),
                 scale: 1.0,
+                key: Some(key),
             });
         }
     }
-    labels
+    (labels, group_of)
 }
 
 /// One label for each player with counted units inside `dragged`, all hung over its top edge.
@@ -487,6 +535,7 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
                 kinds,
                 anchor: dragged.center_top(),
                 scale: BOX_LABEL_SCALE,
+                key: None,
             })
         })
         .collect()
@@ -617,6 +666,46 @@ fn out_from_under(rect: Rect, panels: &[Rect], labels: &[Rect], screen: Rect) ->
             shift(a).total_cmp(&shift(b))
         })
         .unwrap_or(rect)
+}
+
+/// The labels `placed`, each moved from where it stood the frame before, `before` by group on the
+/// map, only part of the way to where it is placed, as far as [`LABEL_SETTLE_SECS`] has it go in
+/// `seconds`, and where each group's label now stands. Kept on the map, given the part of it the
+/// view shows (`map_view`), so a label pinned to its units doesn't trail them as the view pans. A
+/// label new this frame, or one over a dragged box, stands where it is placed.
+fn settle<'a>(
+    placed: Vec<(Label<'a>, Rect)>,
+    before: &HashMap<u32, Pos2>,
+    map_view: Option<Rect>,
+    screen: Rect,
+    seconds: f32,
+) -> (Vec<(Label<'a>, Rect)>, HashMap<u32, Pos2>) {
+    let map_view = map_view.filter(|map_view| map_view.width() > 0.0 && map_view.height() > 0.0);
+    let to_map = |point: Pos2| match map_view {
+        Some(map_view) => map_view.min + (point - screen.min) / screen.size() * map_view.size(),
+        None => point,
+    };
+    let to_screen = |point: Pos2| match map_view {
+        Some(map_view) => screen.min + (point - map_view.min) / map_view.size() * screen.size(),
+        None => point,
+    };
+    let share = 1.0 - (-seconds / LABEL_SETTLE_SECS).exp();
+    let mut label_at = HashMap::new();
+    let settled = placed
+        .into_iter()
+        .map(|(label, rect)| {
+            let Some(key) = label.key else {
+                return (label, rect);
+            };
+            let wanted = to_map(rect.min);
+            let at = before
+                .get(&key)
+                .map_or(wanted, |&from| from + (wanted - from) * share);
+            label_at.insert(key, at);
+            (label, Rect::from_min_size(to_screen(at), rect.size()))
+        })
+        .collect();
+    (settled, label_at)
 }
 
 /// `rect` moved the least it takes to sit inside `screen`, short of its edges.
@@ -1177,6 +1266,66 @@ mod tests {
         // And a label clear of everything stays put.
         let clear = Rect::from_min_size(pos2(600.0, 400.0), size);
         assert_eq!(out_from_under(clear, &[bottom, top], &[], screen), clear);
+    }
+
+    #[test]
+    fn a_label_settles_toward_its_place_on_the_map_and_keeps_to_it_as_the_view_pans() {
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        let map_view = Rect::from_min_size(pos2(2000.0, 3000.0), vec2(500.0, 500.0));
+        let player = OnScreenPlayerView {
+            name: String::new(),
+            color: Color32::WHITE,
+            vision: true,
+        };
+        let label = |key| Label {
+            player: &player,
+            kinds: Vec::new(),
+            anchor: Pos2::ZERO,
+            scale: 1.0,
+            key,
+        };
+        let size = vec2(80.0, 60.0);
+        let placed = |key, at: Pos2| vec![(label(key), Rect::from_min_size(at, size))];
+        // New: where it is placed.
+        let (first, label_at) = settle(
+            placed(Some(1), pos2(400.0, 400.0)),
+            &HashMap::new(),
+            Some(map_view),
+            screen,
+            0.016,
+        );
+        assert_eq!(first[0].1.min, pos2(400.0, 400.0));
+        assert_eq!(label_at[&1], pos2(2200.0, 3200.0));
+        // Placed elsewhere a frame later: only part of the way there.
+        let (moved, _) = settle(
+            placed(Some(1), pos2(500.0, 400.0)),
+            &label_at,
+            Some(map_view),
+            screen,
+            0.016,
+        );
+        let x = moved[0].1.min.x;
+        assert!(x > 400.0 && x < 450.0, "{x}");
+        // The view panned so its units stand 100 points further left: so does it, at once.
+        let panned = map_view.translate(vec2(50.0, 0.0));
+        let (kept, _) = settle(
+            placed(Some(1), pos2(300.0, 400.0)),
+            &label_at,
+            Some(panned),
+            screen,
+            0.016,
+        );
+        assert_eq!(kept[0].1.min, pos2(300.0, 400.0));
+        // A box's label stands where it is placed.
+        let (boxed, label_at) = settle(
+            placed(None, pos2(10.0, 10.0)),
+            &label_at,
+            Some(map_view),
+            screen,
+            0.016,
+        );
+        assert_eq!(boxed[0].1.min, pos2(10.0, 10.0));
+        assert!(label_at.is_empty());
     }
 
     #[test]

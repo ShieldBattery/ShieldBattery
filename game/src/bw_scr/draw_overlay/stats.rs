@@ -181,7 +181,10 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
             .map(|kind| production::unit_icon(kinds[kind], bw))
             .collect(),
         units,
-        map_span: vec2(view.width as f32, view.height as f32),
+        map_view: Some(Rect::from_min_size(
+            pos2(view.left as f32, view.top as f32),
+            vec2(view.width as f32, view.height as f32),
+        )),
     }
 }
 

@@ -336,29 +336,31 @@ line. A group is every unit a chain of near pairs joins (`observer::on_screen::g
 are near within three tiles on the map, or four between two workers, so a base's workers spread over
 its mineral line are one group, and always near within 96 points on the screen, so groups merge as
 the view zooms out. Whether two units are joined depends only on where those two stand, so panning
-the view never regroups anything. A label needs no room of its own, since it goes where its units
-are; one that would cover another moves up out of the way, one under a panel steps just past the
-panel's nearest edge where there is room within a short way, and every label is kept on screen. Each
-label sits on a dark plate that sets it apart from units of its player's color, and each count is on
-a dark badge hanging off its tile's corner, sized to read on a 720p stream. The count is drawn under
-every panel and dialog, and labels over a dragged box are drawn 1.3 times as large. With Alt held,
-units are picked as the game selects them, and once picked only they are counted and given bars,
-labelled where they go, until Alt is let go: dragging a box picks the units in it (drawn while it is
-dragged, with a label per player stacked over it counting what it covers), clicking a unit picks it,
-and `Ctrl`-clicking or double-clicking one picks every unit its owner has of its kind in view.
-`Shift` adds a box or click to what is already picked, and a `Shift`-click on what already is takes
-it back out; a plain click on nothing goes back to everything (the DLL turns down the
-keyboard-layout switch Windows asks for when Alt and Shift held for such a click are let go). Ctrl
-and Shift count as they are held when the button comes up, and Ctrl can be added once the count is
-up. A press or drag on the minimap picks nothing and moves the view there as it does without Alt,
-where the game would take it for a ping; the host turns the point into a place on the map from where
-the minimap last drew the map, which only it knows for a map that is not square. While the count is
-up the shell takes the whole screen's presses (not the wheel), so picking does not select anything
-in the game. The host hands over every unit in view with its id, owner, kind, position, body box,
-health and shields, in shares of the game view; the DLL reads them from the game's active list,
-gives a bar to anything that can be hurt (leaving out turrets, what a unit fires or lays, spell
-markers and hallucinations) and counts the same less buildings, larvae and eggs; fog is not
-consulted, as it is not for any other panel.
+the view never regroups anything. Two units that were together the frame before stay together out to
+a quarter past their reach, and each group's label eases toward its place on the map over a few
+frames, so neither flickers nor jumps as units move about. A label needs no room of its own, since
+it goes where its units are; one that would cover another moves up out of the way, one under a panel
+steps just past the panel's nearest edge where there is room within a short way, and every label is
+kept on screen. Each label sits on a dark plate that sets it apart from units of its player's color,
+and each count is on a dark badge hanging off its tile's corner, sized to read on a 720p stream. The
+count is drawn under every panel and dialog, and labels over a dragged box are drawn 1.3 times as
+large. With Alt held, units are picked as the game selects them, and once picked only they are
+counted and given bars, labelled where they go, until Alt is let go: dragging a box picks the units
+in it (drawn while it is dragged, with a label per player stacked over it counting what it covers),
+clicking a unit picks it, and `Ctrl`-clicking or double-clicking one picks every unit its owner has
+of its kind in view. `Shift` adds a box or click to what is already picked, and a `Shift`-click on
+what already is takes it back out; a plain click on nothing goes back to everything (the DLL turns
+down the keyboard-layout switch Windows asks for when Alt and Shift held for such a click are let
+go). Ctrl and Shift count as they are held when the button comes up, and Ctrl can be added once the
+count is up. A press or drag on the minimap picks nothing and moves the view there as it does
+without Alt, where the game would take it for a ping; the host turns the point into a place on the
+map from where the minimap last drew the map, which only it knows for a map that is not square.
+While the count is up the shell takes the whole screen's presses (not the wheel), so picking does
+not select anything in the game. The host hands over every unit in view with its id, owner, kind,
+position, body box, health and shields, in shares of the game view; the DLL reads them from the
+game's active list, gives a bar to anything that can be hurt (leaving out turrets, what a unit fires
+or lays, spell markers and hallucinations) and counts the same less buildings, larvae and eggs; fog
+is not consulted, as it is not for any other panel.
 
 Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `Shift+E` switches the
 matchup between the bar and the compact scoreboard, `R` (or `` ` ``) takes the dock on
