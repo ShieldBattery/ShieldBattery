@@ -131,6 +131,12 @@ pub enum Intent {
     SelectControlGroup { player_id: u8, key: u8 },
     /// Select the unit at this place in the selection alone, or look at it where it already is.
     PickSelectedUnit(usize),
+    /// Take the unit at this place in the selection out of it, keeping the rest. A unit selected
+    /// alone stays selected.
+    DeselectSelectedUnit(usize),
+    /// Keep only the units of the selection that are of the same kind as the one at this place:
+    /// the same unit type, owned by the same player.
+    PickSelectedKind(usize),
     /// Have the game's view follow the unit at this place in the selection.
     FollowSelectedUnit(usize),
     /// Select nothing, which the game gives a watcher no way of their own to do.
