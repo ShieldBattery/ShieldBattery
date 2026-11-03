@@ -8,7 +8,9 @@
 //!
 //! The one change no command carries is SC:R stopping playback when the replay reaches its end.
 //! Starting the replay over for a seek keeps it stopped, so a seek made after the end is followed
-//! by a speed command that puts back the playback last seen here.
+//! by a speed command that puts back the playback last seen here. Any speed command clears that
+//! stop and lets the game simulate on past the end, so once the replay has ended a speed change is
+//! only noted here, to be sent by that same restore.
 
 use std::time::{Duration, Instant};
 
@@ -129,6 +131,16 @@ impl ReplayPlayback {
         })
     }
 
+    /// Takes a speed change asked for after the replay's end as the playback to show and to restore.
+    ///
+    /// Sent, it would clear SC:R's stop at the end and the game would simulate on with no orders
+    /// left to give.
+    fn hold_speed(&mut self, speed_index: u32, multiplier: u32, paused: bool) {
+        self.paused = paused;
+        self.speed_index = speed_index;
+        self.multiplier = multiplier;
+    }
+
     /// What the overlay should show, now.
     pub fn state(&mut self) -> PlaybackState {
         PlaybackState {
@@ -218,6 +230,12 @@ impl BwScr {
                     multiplier,
                     paused,
                 } => {
+                    if crate::replay_seek::replay_ended(self) {
+                        self.replay_playback
+                            .lock()
+                            .hold_speed(speed_index, multiplier, paused);
+                        return;
+                    }
                     let mut data = [0u8; SPEED_COMMAND_LEN];
                     data[0] = commands::id::REPLAY_SPEED;
                     data[1] = u8::from(paused);
@@ -321,6 +339,30 @@ mod tests {
             })
         );
         assert_eq!(playback.take_restore(), None);
+    }
+
+    #[test]
+    fn a_speed_held_after_the_end_is_what_the_restart_puts_back() {
+        let mut playback = ReplayPlayback::new();
+        playback.hold_speed(6, 2, false);
+        assert_eq!(
+            playback.state(),
+            PlaybackState {
+                paused: false,
+                speed_index: 6,
+                multiplier: 2,
+                seek_pending: false,
+            }
+        );
+        playback.note_restart(true);
+        assert_eq!(
+            playback.take_restore(),
+            Some(ReplayCommand::Speed {
+                speed_index: 6,
+                multiplier: 2,
+                paused: false,
+            })
+        );
     }
 
     #[test]
