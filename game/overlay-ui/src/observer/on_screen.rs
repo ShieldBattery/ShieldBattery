@@ -15,9 +15,10 @@
 //! of its kind in view. With Shift, what is picked is added to what already was, and a click on what
 //! already was takes it back out. A click on nothing goes back to everything in view.
 //!
-//! What makes a group is measured on the screen rather than on the map, because the labels are a
-//! fixed size on the screen: zoomed out, units a long way apart on the map are close together on
-//! the screen and share a label, and zoomed in they get one each (see [`grouping`]).
+//! What makes a group is how near its units stand on the map, so a group is the same units in a
+//! window of any size, but never nearer on the screen than two labels need to stand apart: zoomed
+//! out, groups apart on the map come close together on the screen and share a label (see
+//! [`grouping`]).
 
 mod grouping;
 
@@ -109,6 +110,8 @@ pub struct OnScreenUnitView {
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
     /// health bar but is not counted (a building).
     pub kind: Option<usize>,
+    /// Whether it is a worker, which mining spreads further from the next one than an army spreads.
+    pub worker: bool,
     /// Where it stands, in shares of the game view (0 to 1 across and down it).
     pub position: Pos2,
     /// The box its body fills, in the same shares.
@@ -126,6 +129,9 @@ pub struct OnScreenView {
     /// The icon of every kind of unit counted, in the order their tiles are drawn.
     pub kinds: Vec<ProductionIcon>,
     pub units: Vec<OnScreenUnitView>,
+    /// How much of the map the game view shows, in the map's pixels across and down, which is what
+    /// tells how far apart units stand on the map. Zero where it is not known.
+    pub map_span: Vec2,
 }
 
 /// One label to draw: whose units it counts, how many of each kind (in drawing order), and the top
@@ -390,6 +396,11 @@ fn group_labels<'a>(
     screen: Rect,
     included: impl Fn(&OnScreenUnitView) -> bool,
 ) -> Vec<Label<'a>> {
+    let points_per_map_pixel = if view.map_span.x > 0.0 {
+        screen.width() / view.map_span.x
+    } else {
+        0.0
+    };
     let mut labels = Vec::new();
     for (index, player) in view.players.iter().enumerate() {
         let units: Vec<&OnScreenUnitView> = view
@@ -397,11 +408,14 @@ fn group_labels<'a>(
             .iter()
             .filter(|unit| unit.player == index && unit.kind.is_some() && included(unit))
             .collect();
-        let points: Vec<Pos2> = units
+        let members: Vec<grouping::Member> = units
             .iter()
-            .map(|unit| on_screen(unit.position, screen))
+            .map(|unit| grouping::Member {
+                at: on_screen(unit.position, screen),
+                worker: unit.worker,
+            })
             .collect();
-        for members in grouping::stand_together(&points) {
+        for members in grouping::stand_together(&members, points_per_map_pixel) {
             let members: Vec<&OnScreenUnitView> = members.into_iter().map(|i| units[i]).collect();
             let top = members
                 .iter()
@@ -674,6 +688,7 @@ mod tests {
             id,
             player: 0,
             kind: Some(0),
+            worker: false,
             position,
             bounds: Rect::from_center_size(position, vec2(0.01, 0.01)),
             health: Some(1.0),
