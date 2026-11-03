@@ -62,7 +62,7 @@
     "disconnectedTitle": "게임 연결 끊김",
     "dropAction": "강퇴",
     "dropCountdown": "{{time}} 후 강퇴",
-    "dropRule": "강퇴는 플레이어의 접속이 끊긴 지 {{seconds}}초가 지나야 각자 사용할 수 있습니다. 강퇴된 플레이어는 게임에서 패배합니다.",
+    "dropRuleWithin": "플레이어의 접속이 끊긴 후 최대 {{seconds}}초 안에 강퇴할 수 있습니다. 강퇴된 플레이어는 게임에서 패배합니다.",
     "interruptedBody": "계속 다시 연결을 시도합니다. 게임은 일시 정지 상태이고 상대에게는 재연결 중으로 보이므로 아직 잃은 것은 없습니다.",
     "interruptedSubtitle": "ShieldBattery 서버와의 연결이 끊어졌습니다.",
     "interruptedTitle": "연결 끊김",

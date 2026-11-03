@@ -62,7 +62,7 @@
     "disconnectedTitle": "Disconnected from the game",
     "dropAction": "Drop",
     "dropCountdown": "Drop in {{time}}",
-    "dropRule": "Drop unlocks {{seconds}} seconds after a player disconnects, per player. Dropped players lose the game.",
+    "dropRuleWithin": "Drop unlocks within {{seconds}} seconds after a player disconnects. Dropped players lose the game.",
     "interruptedBody": "We'll keep trying. The game is paused, and your opponents see you as reconnecting, so nothing is lost yet.",
     "interruptedSubtitle": "Your connection to the ShieldBattery server was lost.",
     "interruptedTitle": "Connection interrupted",

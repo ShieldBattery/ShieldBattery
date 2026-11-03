@@ -62,7 +62,7 @@
     "disconnectedTitle": "已与游戏断开连接",
     "dropAction": "踢出",
     "dropCountdown": "{{time}} 后踢出",
-    "dropRule": "玩家掉线 {{seconds}} 秒后才能将其踢出，每名玩家单独计时。被踢出的玩家判负。",
+    "dropRuleWithin": "玩家掉线后，最多 {{seconds}} 秒即可将其踢出。被踢出的玩家判负。",
     "interruptedBody": "我们会继续尝试。游戏已暂停，对手看到的是您正在重连，所以目前还没有任何损失。",
     "interruptedSubtitle": "与 ShieldBattery 服务器的连接已中断。",
     "interruptedTitle": "连接中断",

@@ -141,6 +141,7 @@ struct ParkedChannels {
     _request_drop: mpsc::Receiver<SlotId>,
     _session_start: mpsc::Sender<Option<u32>>,
     _connectivity: mpsc::Sender<(SlotId, bool)>,
+    _disconnect_budgets: watch::Sender<Vec<rally_point_client::proto::messages::DisconnectBudget>>,
     _region_labels: mpsc::Sender<Vec<(u64, String)>>,
     _phase_status: watch::Sender<PhaseStatus>,
     _lead_report: watch::Sender<Option<LeadReport>>,
@@ -405,6 +406,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (request_drop_tx, request_drop_rx) = mpsc::channel(1);
     let (session_start_tx, session_start_rx) = mpsc::channel(16);
     let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
+    let (disconnect_budgets_tx, disconnect_budgets_rx) = watch::channel(Vec::new());
     let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
     let (phase_status_tx, phase_status_rx) = watch::channel(PhaseStatus::default());
     let (lead_report_tx, lead_report_rx) = watch::channel(None);
@@ -428,6 +430,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         request_drop: request_drop_tx,
         session_start: session_start_rx,
         connectivity: connectivity_rx,
+        disconnect_budgets: disconnect_budgets_rx,
         region_labels: region_labels_rx,
         phase_status: phase_status_rx,
         lead_report: lead_report_rx,
@@ -450,6 +453,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _request_drop: request_drop_rx,
         _session_start: session_start_tx,
         _connectivity: connectivity_tx,
+        _disconnect_budgets: disconnect_budgets_tx,
         _region_labels: region_labels_tx,
         _phase_status: phase_status_tx,
         _lead_report: lead_report_tx,
