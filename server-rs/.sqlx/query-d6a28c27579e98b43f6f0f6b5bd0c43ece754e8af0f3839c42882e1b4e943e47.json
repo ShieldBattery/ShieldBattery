@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id as \"id: SbMapId\",\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\"\n            FROM maps m\n            WHERE m.id IN (\n                SELECT COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = x), x)\n                FROM unnest($1::uuid[]) x\n            )\n        ",
+  "query": "\n            SELECT m.id as \"id: SbMapId\",\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\"\n            FROM maps m\n            WHERE m.id IN (\n                SELECT COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = x), x)\n                FROM unnest($1::uuid[]) x\n            ) AND (NOT $2 OR m.listed)\n        ",
   "describe": {
     "columns": [
       {
@@ -29,7 +29,8 @@
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "UuidArray",
+        "Bool"
       ]
     },
     "nullable": [
@@ -38,5 +39,5 @@
       null
     ]
   },
-  "hash": "72e67d83b5dfb834960b68eca6b0f894a05b199742f3ae670555caf55dd07069"
+  "hash": "d6a28c27579e98b43f6f0f6b5bd0c43ece754e8af0f3839c42882e1b4e943e47"
 }

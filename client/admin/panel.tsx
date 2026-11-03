@@ -345,7 +345,7 @@ export default function AdminPanel() {
         },
         {
           path: '/admin/map-families',
-          allowed: !!perms?.manageMaps,
+          allowed: !!(perms?.manageMaps || perms?.reviewMapFamilies),
           Component: LoadableMapFamilies,
           title: 'Map families',
           description: 'Link map versions and review related-map reports',

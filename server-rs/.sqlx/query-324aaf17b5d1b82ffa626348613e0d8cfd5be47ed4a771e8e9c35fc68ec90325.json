@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT map_id as \"map_id: SbMapId\", other_map_id as \"other_map_id: SbMapId\", status\n            FROM map_family_reports\n            WHERE id = $1\n            FOR UPDATE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "other_map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "other_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "324aaf17b5d1b82ffa626348613e0d8cfd5be47ed4a771e8e9c35fc68ec90325"
+}

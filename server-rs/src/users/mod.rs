@@ -935,7 +935,8 @@ impl UsersMutation {
                     manage_restricted_names = $16,
                     manage_signup_codes = $17,
                     manage_live_streams = $18,
-                    use_development_client = $19
+                    review_map_families = $19,
+                    use_development_client = $20
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -956,6 +957,7 @@ impl UsersMutation {
             permissions.manage_restricted_names,
             permissions.manage_signup_codes,
             permissions.manage_live_streams,
+            permissions.review_map_families,
             permissions.use_development_client,
         )
         .execute(ctx.data::<PgPool>()?)
@@ -1492,6 +1494,7 @@ impl CurrentUserRepo {
                         mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
                         manage_restricted_names, manage_signup_codes, manage_live_streams,
+                        review_map_families,
                         use_development_client
                     FROM permissions
                     WHERE user_id = $1

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, map_id as \"map_id: SbMapId\", other_map_id as \"other_map_id: SbMapId\",\n                    kind, suggested_relation as \"suggested_relation: MapFamilyRelation\", note,\n                    reported_by as \"reported_by: SbUserId\", reported_at, status,\n                    resolved_by as \"resolved_by: SbUserId\", resolved_at\n                FROM map_family_reports\n                WHERE status = $1\n                ORDER BY reported_at, id\n                LIMIT $2 OFFSET $3\n            ",
+  "query": "\n                SELECT r.id, r.map_id as \"map_id: SbMapId\",\n                    r.other_map_id as \"other_map_id: SbMapId\", r.kind,\n                    r.suggested_relation as \"suggested_relation: MapFamilyRelation\", r.note,\n                    r.reported_by as \"reported_by: SbUserId\", r.reported_at, r.status,\n                    r.resolved_by as \"resolved_by: SbUserId\", r.resolved_at\n                FROM map_family_reports r\n                WHERE r.status = $1 AND (NOT $4 OR (\n                    EXISTS (SELECT 1 FROM maps m WHERE m.id = r.map_id AND m.listed)\n                    AND (r.other_map_id IS NULL OR EXISTS (\n                        SELECT 1 FROM maps m WHERE m.id = r.other_map_id AND m.listed\n                    ))\n                ))\n                ORDER BY r.reported_at, r.id\n                LIMIT $2 OFFSET $3\n            ",
   "describe": {
     "columns": [
       {
@@ -142,7 +142,8 @@
       "Left": [
         "Text",
         "Int8",
-        "Int8"
+        "Int8",
+        "Bool"
       ]
     },
     "nullable": [
@@ -159,5 +160,5 @@
       true
     ]
   },
-  "hash": "a3947cc56698becae100af965d441571a78e6b4af081e1bcc93a4da4b23218e1"
+  "hash": "5741f474969bc08af382c78ef31c0d50de69c41bd5ec6e833541c3d9b3459227"
 }

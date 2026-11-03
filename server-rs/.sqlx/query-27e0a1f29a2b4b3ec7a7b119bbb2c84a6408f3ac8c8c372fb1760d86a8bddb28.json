@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT count(*) as \"count!\"\n                FROM map_family_reports r\n                WHERE r.status = $1 AND (NOT $2 OR (\n                    EXISTS (SELECT 1 FROM maps m WHERE m.id = r.map_id AND m.listed)\n                    AND (r.other_map_id IS NULL OR EXISTS (\n                        SELECT 1 FROM maps m WHERE m.id = r.other_map_id AND m.listed\n                    ))\n                ))\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "27e0a1f29a2b4b3ec7a7b119bbb2c84a6408f3ac8c8c372fb1760d86a8bddb28"
+}

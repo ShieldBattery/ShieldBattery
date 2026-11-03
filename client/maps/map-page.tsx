@@ -811,6 +811,7 @@ function MapActions({
   const map = useFragment(MapPage_ActionsFragment, mapRef)
   const selfUser = useSelfUser()
   const canManageMaps = useHasAnyPermission('manageMaps')
+  const canReviewFamilies = useHasAnyPermission('reviewMapFamilies')
 
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
@@ -952,11 +953,13 @@ function MapActions({
       ])
     }
   }
-  if (canManageMaps) {
+  if (canManageMaps || (canReviewFamilies && map.listed)) {
     menuItems.push([
       t('maps.page.editFamily', 'Edit family…'),
       () => push(urlPath`/admin/map-families/maps/${map.id}`),
     ])
+  }
+  if (canManageMaps) {
     if (map.listed && map.familyMember && !map.familyMember.isCurrent) {
       menuItems.push([
         t('maps.page.pinAsCurrent', 'Pin as current version'),
