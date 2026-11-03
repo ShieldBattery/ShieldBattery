@@ -85,6 +85,7 @@ mod rollback_probe;
 mod rollback_soak;
 mod scr_stdout;
 mod snp;
+mod startup_trace;
 mod sync;
 mod team_colors;
 mod windows;
@@ -272,6 +273,7 @@ pub extern "C" fn OnInject() {
         Ok(file) => crash_dump::set_breadcrumb_file(file),
         Err(e) => error!("Couldn't duplicate the log handle for crash breadcrumbs: {e}"),
     }
+    startup_trace::init();
     // SC:R reports renderer failures only on stdout, so this has to happen before its CRT starts.
     scr_stdout::init();
     forge::mouse_speed::capture();
@@ -343,6 +345,7 @@ fn spawn_oninject_threads_from_env() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
+    startup_trace::finish();
     // The game's own startup doesn't tolerate other threads running alongside it, so this is the
     // earliest point at which the DLL can start any.
     crash_dump::start_dump_thread();

@@ -30,6 +30,7 @@ use winapi::um::errhandlingapi::{
 };
 use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, WriteFile};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::memoryapi::VirtualQuery;
 use winapi::um::minwinbase::EXCEPTION_ACCESS_VIOLATION;
 use winapi::um::processthreadsapi::{
@@ -41,12 +42,14 @@ use winapi::um::tlhelp32::MODULEENTRY32W;
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
 use winapi::um::winnt::{
     EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
-    IMAGE_NT_HEADERS, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
+    IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE, MEMORY_BASIC_INFORMATION,
+    PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOACCESS,
     PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
 };
 use winapi::vc::excpt::EXCEPTION_CONTINUE_SEARCH;
 
 use crate::bw_scr::Thiscall;
+use crate::startup_trace;
 use crate::windows;
 
 /// Stack reserved for exception handling on threads that call
@@ -56,6 +59,9 @@ const HANDLER_STACK_GUARANTEE: u32 = 64 * 1024;
 /// How long the faulting thread waits for the dump thread before giving up and terminating.
 const DUMP_WAIT_MS: u32 = 60_000;
 const MINIDUMP_WITH_DATA_SEGS: u32 = 1;
+/// Puts the type and protection of every region of the address space in the dump.
+const MINIDUMP_WITH_FULL_MEMORY_INFO: u32 = 0x800;
+const PAGE_SIZE: usize = 0x1000;
 const CPP_EXCEPTION_CODE: u32 = 0xe06d7363;
 
 /// Thread whose exception is currently being handled (0 = no crash yet). Only the first crashing
@@ -77,6 +83,9 @@ static BREADCRUMB_FILE: AtomicUsize = AtomicUsize::new(0);
 /// across reports.
 static OWN_IMAGE_START: AtomicUsize = AtomicUsize::new(0);
 static OWN_IMAGE_END: AtomicUsize = AtomicUsize::new(0);
+/// A page the crash path found worth having in the dump beyond what `MINIDUMP_WITH_DATA_SEGS`
+/// covers (0 = none). It goes in along with the pages on either side of it.
+static DUMP_EXTRA_PAGE: AtomicUsize = AtomicUsize::new(0);
 
 type MiniDumpWriteDumpFn = unsafe extern "system" fn(
     HANDLE,
@@ -427,8 +436,140 @@ fn is_read_ok_protect(protect: u32) -> bool {
             | PAGE_READWRITE
             | PAGE_EXECUTE_READWRITE
             | PAGE_WRITECOPY
+            | PAGE_EXECUTE_WRITECOPY
             | PAGE_EXECUTE_READ)
         != 0
+}
+
+/// Whether `len` bytes at `address` can be read without faulting. They have to lie in one region.
+fn readable(address: usize, len: usize) -> bool {
+    unsafe {
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        if VirtualQuery(address as *const _, &mut info, mem::size_of_val(&info)) == 0 {
+            return false;
+        }
+        let region_end = info.BaseAddress as usize + info.RegionSize;
+        info.State == MEM_COMMIT
+            && info.Protect & (PAGE_GUARD | PAGE_NOACCESS) == 0
+            && is_read_ok_protect(info.Protect)
+            && address
+                .checked_add(len)
+                .is_some_and(|end| end <= region_end)
+    }
+}
+
+/// The pointer slot an indirect `call [slot]` (`ff 15`) reads its target from, given the call's
+/// 6 bytes and the address of the instruction after it. None if the bytes are some other
+/// instruction.
+fn indirect_call_slot(call: [u8; 6], return_address: usize) -> Option<usize> {
+    if call[..2] != [0xff, 0x15] {
+        return None;
+    }
+    let operand = i32::from_le_bytes([call[2], call[3], call[4], call[5]]);
+    if cfg!(target_arch = "x86_64") {
+        // rip-relative
+        Some(return_address.wrapping_add_signed(operand as isize))
+    } else {
+        Some(operand as u32 as usize)
+    }
+}
+
+/// Formats an address relative to the game's exe image when it's in or just past it.
+struct ExeAddress(usize);
+
+impl fmt::Display for ExeAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (base, size) = unsafe {
+            let base = GetModuleHandleW(null_mut()) as usize;
+            if base == 0 {
+                (0, 0)
+            } else {
+                let dos = base as *const IMAGE_DOS_HEADER;
+                let nt = (base + (*dos).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
+                (base, (*nt).OptionalHeader.SizeOfImage as usize)
+            }
+        };
+        match self.0.checked_sub(base) {
+            Some(offset) if base != 0 && offset < size => write!(f, "StarCraft+{offset:x}"),
+            Some(offset) if base != 0 && offset - size < 0x100_0000 => {
+                write!(f, "StarCraft end+{:x}", offset - size)
+            }
+            _ => write!(f, "{:x}", self.0),
+        }
+    }
+}
+
+fn memory_type_name(kind: u32) -> &'static str {
+    match kind {
+        MEM_IMAGE => "image",
+        MEM_MAPPED => "mapped",
+        MEM_PRIVATE => "private",
+        _ => "?",
+    }
+}
+
+/// For a crash that jumped to a bad address through `call [slot]`, as calling an import that was
+/// never resolved does: says where the call came from, what the slot and its page hold and what
+/// memory it's in, and marks the page for the dump. Writes nothing for any other crash.
+unsafe fn breadcrumb_failed_call(exception: *mut EXCEPTION_POINTERS) {
+    unsafe {
+        let record = &*(*exception).ExceptionRecord;
+        let executing = record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION
+            && record.NumberParameters >= 2
+            && record.ExceptionInformation[0] == 8;
+        if !executing {
+            return;
+        }
+        #[cfg(target_arch = "x86")]
+        let stack_pointer = (*(*exception).ContextRecord).Esp as usize;
+        #[cfg(target_arch = "x86_64")]
+        let stack_pointer = (*(*exception).ContextRecord).Rsp as usize;
+        if !readable(stack_pointer, mem::size_of::<usize>()) {
+            return;
+        }
+        let return_address = (stack_pointer as *const usize).read_unaligned();
+        let Some(call_start) = return_address.checked_sub(6) else {
+            return;
+        };
+        if !readable(call_start, 6) {
+            return;
+        }
+        let call = (call_start as *const [u8; 6]).read_unaligned();
+        let Some(slot) = indirect_call_slot(call, return_address) else {
+            return;
+        };
+        let caller = ExeAddress(call_start);
+        if !readable(slot, mem::size_of::<usize>()) {
+            breadcrumb!(
+                "Faulting call at {caller} read its target from unreadable {}",
+                ExeAddress(slot)
+            );
+            return;
+        }
+        let target = (slot as *const usize).read_unaligned();
+        breadcrumb!(
+            "Faulting call at {caller} read its target {target:x} from {}",
+            ExeAddress(slot)
+        );
+
+        let page = slot & !(PAGE_SIZE - 1);
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        VirtualQuery(page as *const _, &mut info, mem::size_of_val(&info));
+        let pointers = PAGE_SIZE / mem::size_of::<usize>();
+        let null = (0..pointers)
+            .filter(|&i| (page as *const usize).add(i).read_unaligned() == 0)
+            .count();
+        breadcrumb!(
+            "Its region: {} memory allocated at {}, {:x} bytes from {}, protect {:x}; {null} of \
+             the page's {pointers} pointers are null",
+            memory_type_name(info.Type),
+            ExeAddress(info.AllocationBase as usize),
+            info.RegionSize,
+            ExeAddress(info.BaseAddress as usize),
+            info.Protect,
+        );
+        DUMP_EXTRA_PAGE.store(page, Ordering::Relaxed);
+    }
 }
 
 unsafe fn write_stack(exception: *mut EXCEPTION_POINTERS, filename: &str) {
@@ -553,6 +694,8 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
             "Thread {thread_id:x} crash detail: {}",
             CrashDetail(exception)
         );
+        breadcrumb_failed_call(exception);
+        startup_trace::breadcrumb_crash_before_game_init(breadcrumb);
 
         if !windows::thread_has_tls() {
             // A thread without TLS is one of the loader's workers (see `windows::thread_has_tls`),
@@ -746,14 +889,25 @@ unsafe fn write_minidump(
             exception,
             client_pointers: 0,
         };
+        let mut extra = ExtraDumpMemory::new(DUMP_EXTRA_PAGE.load(Ordering::Relaxed));
+        let mut callback = MinidumpCallbackInformation {
+            routine: add_extra_dump_memory,
+            param: &mut extra as *mut ExtraDumpMemory as *mut c_void,
+        };
+        // Dumps with nothing extra to add are written without a callback, leaving all of
+        // dbghelp's choices to it.
+        let callback = match extra.count {
+            0 => null_mut(),
+            _ => &mut callback as *mut MinidumpCallbackInformation as *mut c_void,
+        };
         let ok = minidump_write_dump(
             GetCurrentProcess(),
             GetCurrentProcessId(),
             file,
-            MINIDUMP_WITH_DATA_SEGS,
+            MINIDUMP_WITH_DATA_SEGS | MINIDUMP_WITH_FULL_MEMORY_INFO,
             &mut exception_param,
             null_mut(),
-            null_mut(),
+            callback,
         );
         if ok == 0 {
             Err(io::Error::last_os_error())
@@ -773,6 +927,93 @@ struct MinidumpExceptionInfo {
     client_pointers: u32,
 }
 
+#[repr(C, packed(4))]
+struct MinidumpCallbackInformation {
+    routine: MinidumpCallbackFn,
+    param: *mut c_void,
+}
+
+/// Leading fields of MINIDUMP_CALLBACK_INPUT, all a callback here needs.
+#[repr(C, packed(4))]
+struct MinidumpCallbackInput {
+    process_id: u32,
+    process_handle: HANDLE,
+    callback_type: u32,
+}
+
+/// MINIDUMP_CALLBACK_OUTPUT is a union; each callback type writes its own fields at its start.
+type MinidumpCallbackFn =
+    unsafe extern "system" fn(*mut c_void, *const MinidumpCallbackInput, *mut u8) -> i32;
+
+const MINIDUMP_CALLBACK_INCLUDE_MODULE: u32 = 4;
+const MINIDUMP_CALLBACK_MEMORY: u32 = 5;
+const MINIDUMP_CALLBACK_READ_MEMORY_FAILURE: u32 = 14;
+
+/// Pages to add to a dump, handed to dbghelp one per memory callback.
+struct ExtraDumpMemory {
+    pages: [usize; 3],
+    count: usize,
+    next: usize,
+}
+
+impl ExtraDumpMemory {
+    /// `page` and its neighbours, as far as they're readable. Nothing if `page` is 0.
+    fn new(page: usize) -> ExtraDumpMemory {
+        let mut extra = ExtraDumpMemory {
+            pages: [0; 3],
+            count: 0,
+            next: 0,
+        };
+        if page != 0 {
+            let candidates = [
+                page.wrapping_sub(PAGE_SIZE),
+                page,
+                page.wrapping_add(PAGE_SIZE),
+            ];
+            for candidate in candidates {
+                if readable(candidate, PAGE_SIZE) {
+                    extra.pages[extra.count] = candidate;
+                    extra.count += 1;
+                }
+            }
+        }
+        extra
+    }
+}
+
+/// Minidump callback that adds `ExtraDumpMemory` (its `param`) to the dump. The module and thread
+/// callbacks (types 0 through 4) return TRUE to keep everything dbghelp would write anyway; FALSE
+/// for the other types leaves them to dbghelp's defaults.
+unsafe extern "system" fn add_extra_dump_memory(
+    param: *mut c_void,
+    input: *const MinidumpCallbackInput,
+    output: *mut u8,
+) -> i32 {
+    unsafe {
+        match (*input).callback_type {
+            0..=MINIDUMP_CALLBACK_INCLUDE_MODULE => 1,
+            MINIDUMP_CALLBACK_MEMORY => {
+                let extra = &mut *(param as *mut ExtraDumpMemory);
+                if extra.next == extra.count {
+                    return 0;
+                }
+                let page = extra.pages[extra.next];
+                extra.next += 1;
+                // MemoryBase: u64, then MemorySize: u32
+                (output as *mut u64).write_unaligned(page as u64);
+                (output.add(8) as *mut u32).write_unaligned(PAGE_SIZE as u32);
+                1
+            }
+            MINIDUMP_CALLBACK_READ_MEMORY_FAILURE => {
+                // Status = S_OK: leave out the unreadable memory instead of failing the dump.
+                (output as *mut i32).write_unaligned(0);
+                1
+            }
+            _ => 0,
+        }
+    }
+}
+
 unsafe fn load_minidump_write_dump() -> Result<MiniDumpWriteDumpFn, io::Error> {
     unsafe {
         let dbghelp = windows::load_library("dbghelp")?;
@@ -785,6 +1026,17 @@ unsafe fn load_minidump_write_dump() -> Result<MiniDumpWriteDumpFn, io::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn indirect_call_slot_is_rip_relative() {
+        // call [rip-0x10], ending at 0x1000
+        let call = [0xff, 0x15, 0xf0, 0xff, 0xff, 0xff];
+        assert_eq!(indirect_call_slot(call, 0x1000), Some(0xff0));
+        // mov rax, [rip+0x10]
+        let not_call = [0x48, 0x8b, 0x05, 0x10, 0x00, 0x00];
+        assert_eq!(indirect_call_slot(not_call, 0x1000), None);
+    }
 
     #[test]
     fn stack_buf_truncates_instead_of_overflowing() {
