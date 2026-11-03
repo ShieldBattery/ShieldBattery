@@ -1,0 +1,126 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT map_id, family_id, parent_map_id as \"parent_id: SbMapId\",\n                relation as \"relation: MapFamilyRelation\", version_label, pinned_current,\n                source as \"source: MapLinkSource\"\n            FROM map_family_members\n            WHERE family_id = ANY($1) OR map_id = ANY($2)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "parent_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "parent_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "relation: MapFamilyRelation",
+        "type_info": {
+          "Custom": {
+            "name": "map_family_relation",
+            "kind": {
+              "Enum": [
+                "root",
+                "version",
+                "variant",
+                "translation",
+                "fork"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "relation"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "version_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "version_label"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "pinned_current",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "pinned_current"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "source: MapLinkSource",
+        "type_info": {
+          "Custom": {
+            "name": "map_link_source",
+            "kind": {
+              "Enum": [
+                "rule",
+                "publisher",
+                "reviewer",
+                "moderator"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d222b66af3e4511c17d22ae59b5c995a797e83d6d3162ca81c02b0f345c14763"
+}

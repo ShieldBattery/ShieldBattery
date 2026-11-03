@@ -23,9 +23,10 @@ use crate::maps::families::edit::{
     self, FamilyEditError, LinkRequest, MapFamilyReportKind, MapFamilyReportStatus,
     MapLinkSuggestionDecision, ReportRequest,
 };
+use crate::maps::families::history::{self, MapFamilyHistory};
 use crate::maps::families::proposals::{self, MapFamilyProposal};
 use crate::maps::families::rules::{Older, ProposedRelation};
-use crate::maps::families::{MapFamilyRelation, MapLinkSource};
+use crate::maps::families::{MapFamilyRelation, MapLinkSource, REVIEW_RULE};
 use crate::maps::search::MapSearchRepo;
 use crate::maps::{SbMapId, compare};
 use crate::users::permissions::RequiredPermission;
@@ -40,7 +41,36 @@ pub(crate) async fn is_staff(ctx: &Context<'_>) -> bool {
     RequiredPermission::ManageMaps.check(ctx).await.is_ok()
 }
 
-async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbUser>> {
+/// Who is working the families queue: staff see and change every file, reviewers only listed
+/// ones.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum QueueAccess {
+    Staff,
+    Reviewer,
+}
+
+impl QueueAccess {
+    async fn of(ctx: &Context<'_>) -> Result<Self> {
+        if is_staff(ctx).await {
+            return Ok(Self::Staff);
+        }
+        RequiredPermission::ReviewMapFamilies.check(ctx).await?;
+        Ok(Self::Reviewer)
+    }
+
+    fn listed_only(self) -> bool {
+        self == Self::Reviewer
+    }
+
+    fn source(self) -> MapLinkSource {
+        match self {
+            Self::Staff => MapLinkSource::Moderator,
+            Self::Reviewer => MapLinkSource::Reviewer,
+        }
+    }
+}
+
+pub(crate) async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbUser>> {
     let Some(id) = id else {
         return Ok(None);
     };
@@ -632,7 +662,8 @@ pub(crate) async fn similar_maps(ctx: &Context<'_>, map_id: SbMapId) -> Result<V
 }
 
 /// The status of a detected pair of possibly related files.
-#[derive(Enum, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Enum, Copy, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MapLinkSuggestionStatus {
     /// Waiting for staff.
     Open,
@@ -645,7 +676,7 @@ pub enum MapLinkSuggestionStatus {
 }
 
 impl MapLinkSuggestionStatus {
-    fn from_db(status: &str) -> Self {
+    pub(crate) fn from_db(status: &str) -> Self {
         match status {
             "accepted" => Self::Accepted,
             "rejected" => Self::Rejected,
@@ -684,6 +715,11 @@ impl MapLinkSuggestion {
 
     pub fn is_open(&self) -> bool {
         self.status == "open"
+    }
+
+    /// Whether a person proposed it, rather than the detection rules.
+    pub fn is_review(&self) -> bool {
+        self.verdict.0.get("rule").and_then(Value::as_str) == Some(REVIEW_RULE)
     }
 }
 
@@ -891,9 +927,13 @@ fn edit_error(error: FamilyEditError) -> async_graphql::Error {
     let code = match &error {
         FamilyEditError::MapNotFound
         | FamilyEditError::NotInFamily
+        | FamilyEditError::FamilyNotFound
         | FamilyEditError::SuggestionNotFound
         | FamilyEditError::ReportNotFound => "NOT_FOUND",
-        FamilyEditError::Locked | FamilyEditError::NotPublisher => "FORBIDDEN",
+        FamilyEditError::Locked
+        | FamilyEditError::NotPublisher
+        | FamilyEditError::ReviewerUnlisted
+        | FamilyEditError::ReviewerDecided => "FORBIDDEN",
         FamilyEditError::ReportingRestricted => "RESTRICTED",
         FamilyEditError::TooManyReports => "RATE_LIMITED",
         FamilyEditError::Other(e) => return async_graphql::Error::new(format!("{e:?}")),
@@ -922,16 +962,17 @@ impl MapFamiliesQuery {
 
     /// Groups of possibly related files waiting for staff, the most played first. Each holds the
     /// files of connected open suggestions, the families they touch, and a proposed tree. Only
-    /// available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// available to users who can manage maps or review map families; reviewers only get
+    /// suggestions between listed maps.
     async fn map_family_proposals(
         &self,
         ctx: &Context<'_>,
         #[graphql(default = 20)] limit: i32,
         #[graphql(default = 0)] offset: i32,
     ) -> Result<Vec<MapFamilyProposal>> {
+        let access = QueueAccess::of(ctx).await?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let proposals = proposals::load_proposals(db).await?;
+        let proposals = proposals::load_proposals(db, access.listed_only()).await?;
         Ok(proposals
             .into_iter()
             .skip(offset.max(0) as usize)
@@ -939,18 +980,21 @@ impl MapFamiliesQuery {
             .collect())
     }
 
-    /// How many groups `mapFamilyProposals` holds. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// How many groups `mapFamilyProposals` holds. Only available to users who can manage maps or
+    /// review map families.
     async fn map_family_proposal_count(&self, ctx: &Context<'_>) -> Result<i32> {
+        let access = QueueAccess::of(ctx).await?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let count = proposals::load_proposals(db).await?.len();
+        let count = proposals::load_proposals(db, access.listed_only())
+            .await?
+            .len();
         Ok(i32::try_from(count).unwrap_or(i32::MAX))
     }
 
     /// The groups of possibly related files the maps are in, merged into one, as
     /// `mapFamilyProposals` would list them. A map with nothing to sort adds itself and its
-    /// family. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// family. Only available to users who can manage maps or review map families; reviewers only
+    /// get listed maps.
     async fn map_family_group(
         &self,
         ctx: &Context<'_>,
@@ -962,16 +1006,17 @@ impl MapFamiliesQuery {
                 format!("Between 1 and {MAX_QUEUE_PAGE} maps can be loaded"),
             ));
         }
+        let access = QueueAccess::of(ctx).await?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let group = proposals::load_group(db, &map_ids).await?;
+        let group = proposals::load_group(db, &map_ids, access.listed_only()).await?;
         if group.is_empty() {
             return Err(graphql_error("NOT_FOUND", "Map not found"));
         }
         Ok(group)
     }
 
-    /// Family reports with a status, oldest first. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// Family reports with a status, oldest first. Only available to users who can manage maps or
+    /// review map families; reviewers only get reports about listed maps.
     async fn map_family_reports(
         &self,
         ctx: &Context<'_>,
@@ -979,44 +1024,88 @@ impl MapFamiliesQuery {
         #[graphql(default = 20)] limit: i32,
         #[graphql(default = 0)] offset: i32,
     ) -> Result<Vec<MapFamilyReport>> {
+        let access = QueueAccess::of(ctx).await?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         Ok(sqlx::query_as!(
             MapFamilyReport,
             r#"
-                SELECT id, map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId",
-                    kind, suggested_relation as "suggested_relation: MapFamilyRelation", note,
-                    reported_by as "reported_by: SbUserId", reported_at, status,
-                    resolved_by as "resolved_by: SbUserId", resolved_at
-                FROM map_family_reports
-                WHERE status = $1
-                ORDER BY reported_at, id
+                SELECT r.id, r.map_id as "map_id: SbMapId",
+                    r.other_map_id as "other_map_id: SbMapId", r.kind,
+                    r.suggested_relation as "suggested_relation: MapFamilyRelation", r.note,
+                    r.reported_by as "reported_by: SbUserId", r.reported_at, r.status,
+                    r.resolved_by as "resolved_by: SbUserId", r.resolved_at
+                FROM map_family_reports r
+                WHERE r.status = $1 AND (NOT $4 OR (
+                    EXISTS (SELECT 1 FROM maps m WHERE m.id = r.map_id AND m.listed)
+                    AND (r.other_map_id IS NULL OR EXISTS (
+                        SELECT 1 FROM maps m WHERE m.id = r.other_map_id AND m.listed
+                    ))
+                ))
+                ORDER BY r.reported_at, r.id
                 LIMIT $2 OFFSET $3
             "#,
             status.as_str(),
             i64::from(limit.clamp(1, MAX_QUEUE_PAGE)),
             i64::from(offset.max(0)),
+            access.listed_only(),
         )
         .fetch_all(db)
         .await
         .wrap_err("Failed to load family reports")?)
     }
 
-    /// How many family reports have a status. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// How many family reports `mapFamilyReports` holds for a status. Only available to users who
+    /// can manage maps or review map families.
     async fn map_family_report_count(
         &self,
         ctx: &Context<'_>,
         #[graphql(default_with = "MapFamilyReportStatus::Open")] status: MapFamilyReportStatus,
     ) -> Result<i32> {
+        let access = QueueAccess::of(ctx).await?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let count = sqlx::query_scalar!(
-            r#"SELECT count(*) as "count!" FROM map_family_reports WHERE status = $1"#,
+            r#"
+                SELECT count(*) as "count!"
+                FROM map_family_reports r
+                WHERE r.status = $1 AND (NOT $2 OR (
+                    EXISTS (SELECT 1 FROM maps m WHERE m.id = r.map_id AND m.listed)
+                    AND (r.other_map_id IS NULL OR EXISTS (
+                        SELECT 1 FROM maps m WHERE m.id = r.other_map_id AND m.listed
+                    ))
+                ))
+            "#,
             status.as_str(),
+            access.listed_only(),
         )
         .fetch_one(db)
         .await
         .wrap_err("Failed to count family reports")?;
         Ok(i32::try_from(count).unwrap_or(i32::MAX))
+    }
+
+    /// Changes people made to families, suggestions and family reports, newest first. Filtered to
+    /// changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
+    /// made. Only available to users who can manage maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn map_family_history(
+        &self,
+        ctx: &Context<'_>,
+        map_ids: Option<Vec<SbMapId>>,
+        family_ids: Option<Vec<Uuid>>,
+        actor_id: Option<SbUserId>,
+        #[graphql(default = 50)] limit: i32,
+        #[graphql(default = 0)] offset: i32,
+    ) -> Result<Vec<MapFamilyHistory>> {
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(history::load_history(
+            db,
+            map_ids.as_deref(),
+            family_ids.as_deref(),
+            actor_id,
+            i64::from(limit.clamp(1, MAX_QUEUE_PAGE)),
+            i64::from(offset.max(0)),
+        )
+        .await?)
     }
 }
 
@@ -1063,13 +1152,14 @@ impl MapFamiliesMutation {
     /// Places maps in families, in order, each under its parent with its whole subtree. A parent
     /// outside any family starts a new one; a map in another family moves out of it. Open
     /// suggestions between maps that end up in one family are accepted. Only available to users who
-    /// can manage maps. Returns the linked maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// can manage maps or review map families; reviewers can only link listed maps. Returns the
+    /// linked maps.
     async fn map_family_link(
         &self,
         ctx: &Context<'_>,
         links: Vec<MapFamilyLinkInput>,
     ) -> Result<Vec<SbMap>> {
+        let access = QueueAccess::of(ctx).await?;
         let user = require_current_user(ctx)?;
         if links.len() > MAX_LINKS_PER_CALL {
             return Err(graphql_error(
@@ -1089,7 +1179,7 @@ impl MapFamiliesMutation {
         }
         let mut tx = db.begin().await?;
         for request in &requests {
-            edit::link(&mut tx, request, MapLinkSource::Moderator, user.id)
+            edit::link(&mut tx, request, access.source(), user.id)
                 .await
                 .map_err(edit_error)?;
         }
@@ -1105,14 +1195,15 @@ impl MapFamiliesMutation {
     }
 
     /// Takes a map out of its family. When it starts a line, its oldest version takes its place.
-    /// Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// Only available to users who can manage maps or review map families; reviewers can only
+    /// remove listed maps.
     async fn map_family_remove(&self, ctx: &Context<'_>, map_id: SbMapId) -> Result<SbMap> {
+        let access = QueueAccess::of(ctx).await?;
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let map_id = resolve_existing_map_id(db, map_id).await?;
         let mut tx = db.begin().await?;
-        edit::remove(&mut tx, map_id, MapLinkSource::Moderator, user.id)
+        edit::remove(&mut tx, map_id, access.source(), user.id)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
@@ -1121,8 +1212,8 @@ impl MapFamiliesMutation {
 
     /// Changes a member's version label (null clears it) and whether it's pinned as its line's
     /// current version. Only listed maps can be pinned; pinning one unpins the rest of its line.
-    /// Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// Only available to users who can manage maps or review map families; reviewers can only
+    /// change listed maps.
     async fn map_family_update_member(
         &self,
         ctx: &Context<'_>,
@@ -1130,12 +1221,21 @@ impl MapFamiliesMutation {
         version_label: MaybeUndefined<String>,
         pinned_current: Option<bool>,
     ) -> Result<SbMap> {
+        let access = QueueAccess::of(ctx).await?;
+        let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let map_id = resolve_existing_map_id(db, map_id).await?;
         let mut tx = db.begin().await?;
-        edit::update_member(&mut tx, map_id, maybe_label(version_label), pinned_current)
-            .await
-            .map_err(edit_error)?;
+        edit::update_member(
+            &mut tx,
+            map_id,
+            maybe_label(version_label),
+            pinned_current,
+            access.source(),
+            user.id,
+        )
+        .await
+        .map_err(edit_error)?;
         tx.commit().await?;
         load_sb_map(ctx, map_id).await
     }
@@ -1148,23 +1248,18 @@ impl MapFamiliesMutation {
         family_id: Uuid,
         label: Option<String>,
     ) -> Result<MapFamily> {
+        let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let label = label
             .as_deref()
             .map(str::trim)
             .filter(|l| !l.is_empty())
             .map(str::to_string);
-        let updated = sqlx::query!(
-            "UPDATE map_families SET label = $2, updated_at = now() WHERE id = $1",
-            family_id,
-            label,
-        )
-        .execute(db)
-        .await
-        .wrap_err("Failed to set family label")?;
-        if updated.rows_affected() == 0 {
-            return Err(graphql_error("NOT_FOUND", "Family not found"));
-        }
+        let mut tx = db.begin().await?;
+        edit::set_label(&mut tx, family_id, label, user.id)
+            .await
+            .map_err(edit_error)?;
+        tx.commit().await?;
         let data = ctx
             .data::<DataLoader<MapFamilyLoader>>()?
             .load_one(MapFamilyId(family_id))
@@ -1174,8 +1269,8 @@ impl MapFamiliesMutation {
     }
 
     /// Rejects a suggestion, marks it as a UMS map on the other's terrain, or reopens it. Accepting
-    /// one is linking its maps with `mapFamilyLink`. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// one is linking its maps with `mapFamilyLink`. Only available to users who can manage maps
+    /// or review map families; reviewers can only decide open suggestions between listed maps.
     async fn map_link_suggestion_decide(
         &self,
         ctx: &Context<'_>,
@@ -1183,10 +1278,11 @@ impl MapFamiliesMutation {
         map_b: SbMapId,
         decision: MapLinkSuggestionDecision,
     ) -> Result<MapLinkSuggestion> {
+        let access = QueueAccess::of(ctx).await?;
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let mut tx = db.begin().await?;
-        edit::decide_suggestion(&mut tx, map_a, map_b, decision, user.id)
+        edit::decide_suggestion(&mut tx, map_a, map_b, decision, access.source(), user.id)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
@@ -1195,18 +1291,19 @@ impl MapFamiliesMutation {
             .ok_or_else(|| graphql_error("NOT_FOUND", "Suggestion not found"))
     }
 
-    /// Sets a family report's status. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// Sets a family report's status. Only available to users who can manage maps or review map
+    /// families; reviewers can only close open reports about listed maps.
     async fn map_family_report_set_status(
         &self,
         ctx: &Context<'_>,
         id: Uuid,
         status: MapFamilyReportStatus,
     ) -> Result<MapFamilyReport> {
+        let access = QueueAccess::of(ctx).await?;
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let mut tx = db.begin().await?;
-        edit::set_report_status(&mut tx, id, status, user.id)
+        edit::set_report_status(&mut tx, id, status, access.source(), user.id)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
