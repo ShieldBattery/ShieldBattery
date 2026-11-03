@@ -165,6 +165,7 @@ impl ObserverViewCache {
             }
             None => ObserverViewCache {
                 view: ObserverView {
+                    show_entire_map: bw.show_entire_map,
                     matchup,
                     team_cards,
                     economy: EconomyView {
@@ -194,6 +195,7 @@ impl ObserverViewCache {
             },
         };
 
+        cache.view.show_entire_map = bw.show_entire_map;
         let samples = stats.map(StatsAsOf::samples_stamp);
         if stale(&cache.economy, &samples, prefs.economy) {
             cache.view.economy = build_economy_view(&cache.players, stats);

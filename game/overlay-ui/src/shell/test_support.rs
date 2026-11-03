@@ -43,6 +43,7 @@ pub(super) fn replay() -> PlaybackView {
 /// A game with nobody in it, which is enough for the panels to be placed and drawn.
 pub(super) fn empty_game() -> ObserverView {
     ObserverView {
+        show_entire_map: false,
         matchup: MatchupView {
             players: Vec::new(),
             elapsed_secs: 0,

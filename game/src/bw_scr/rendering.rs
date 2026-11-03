@@ -112,6 +112,7 @@ impl BwScr {
                     let cmdicons = self.cmdicons.resolve();
                     let wirefram = self.wirefram.map_or(null_mut(), |x| x.resolve());
                     let replay_visions = self.replay_visions.resolve();
+                    let show_entire_map = self.replay_show_entire_map.resolve() != 0;
                     let local_player_id = self.local_unique_player_id.resolve() as u8;
                     // The header is only a replay's, and it is only populated once one is running.
                     let replay = is_replay
@@ -269,6 +270,7 @@ impl BwScr {
                                     rgb_colors,
                                     use_rgb_colors,
                                     replay_visions,
+                                    show_entire_map,
                                     active_units,
                                     units,
                                     client_selection,
@@ -308,7 +310,16 @@ impl BwScr {
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
                             }
-                            if replay_visions != overlay_out.replay_visions {
+                            if show_entire_map != overlay_out.show_entire_map {
+                                self.replay_vision_choice
+                                    .lock()
+                                    .note_entire_map_change(overlay_out.show_entire_map);
+                                self.replay_show_entire_map
+                                    .write(u8::from(overlay_out.show_entire_map));
+                            }
+                            if replay_visions != overlay_out.replay_visions
+                                || show_entire_map != overlay_out.show_entire_map
+                            {
                                 self.note_replay_vision_choice(
                                     replay_visions,
                                     overlay_out.replay_visions,
