@@ -335,7 +335,11 @@ spread over its mineral line are one group, and always near within 96 points on 
 groups merge as the view zooms out. Whether two units are joined depends only on where those two
 stand, so panning the view never regroups anything. A label needs no room of its own, since it goes
 where its units are; one that would cover
-another moves up out of the way, and every label is kept on screen. With Alt held, units are picked
+another moves up out of the way, one under a panel steps just past the panel's nearest edge where
+there is room within a short way, and every label is kept on screen. Each label sits on a dark plate that sets it apart from units of its player's color,
+and each count is on a dark badge hanging off its tile's corner, sized to read on a 720p stream. The
+count is drawn under every panel and dialog, and labels over a dragged box are drawn 1.3 times as
+large. With Alt held, units are picked
 as the game selects them, and once picked only they are counted and given bars, labelled where they
 go, until Alt is let go: dragging a box picks the units in it (drawn while it is dragged, with a
 label per player stacked over it counting what it covers), clicking a unit picks it, and

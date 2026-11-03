@@ -653,7 +653,6 @@ impl Shell {
                     replay: &mut self.replay,
                     intents: &mut self.intents,
                     hit_rects: &mut hit_rects,
-                    counting_on_screen,
                 },
             ),
             _ => PlaybackControlsPlacement::default(),
@@ -681,6 +680,29 @@ impl Shell {
                 plate,
                 &mut hit_rects,
             );
+        }
+        // Drawn once every panel is, so its labels can be moved out from under them, and under
+        // them all. While it is up it takes the whole screen's presses, so a drag made with Alt
+        // held draws its counting box instead of selecting what is under it, and a press on the
+        // minimap moves the view without the game taking it for a ping; the wheel stays the
+        // game's, which zooms with it.
+        if let Some(view) = views.observer.filter(|_| observing) {
+            let screen = ctx.viewport_rect();
+            let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
+            let look = crate::observer::render_on_screen_view(
+                &view.on_screen,
+                ctx,
+                counting_on_screen,
+                screen,
+                &panels,
+                self.host.minimap_rect,
+            );
+            if let Some(point) = look {
+                self.intents.push(Intent::LookAtMinimapPoint(point));
+            }
+            if counting_on_screen {
+                hit_rects.push(HitRect::new(screen));
+            }
         }
 
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since
