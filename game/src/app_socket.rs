@@ -333,8 +333,10 @@ pub fn send_message<'a, T: serde::Serialize>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(debug_assertions)]
     use crate::debug_control::DebugControlCommand;
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_ping_dispatches_to_game_state() {
         let result =
@@ -347,6 +349,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_query_state_dispatches_to_game_state() {
         let result = handle_app_message(
@@ -360,6 +363,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_force_unsynced_leave_dispatches_to_game_state() {
         let result = handle_app_message(
@@ -373,6 +377,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_force_desync_dispatches_to_game_state() {
         let result = handle_app_message(
@@ -386,6 +391,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_screenshot_dispatches_to_game_state() {
         let result = handle_app_message(
@@ -399,6 +405,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_send_chat_dispatches_to_game_state() {
         let result = handle_app_message(
@@ -412,6 +419,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_control_request_drop_dispatches_to_game_state() {
         let result = handle_app_message(

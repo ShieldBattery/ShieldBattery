@@ -3372,6 +3372,7 @@ mod tests {
         assert_eq!(state.net_stats.buffer_change_count(), 1);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn debug_snapshot_reflects_mapped_and_unmapped_slots() {
         use crate::debug_control::TurnSlotSnapshot;
@@ -3498,6 +3499,7 @@ mod tests {
         );
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     fn forced_unsynced_leaves_drain_in_order_then_empty() {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
