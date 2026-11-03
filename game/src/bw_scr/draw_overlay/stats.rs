@@ -25,6 +25,7 @@ use overlay_ui::shell::PanelPrefs;
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
+use crate::bw_scr::selection::SPRITE_SELECTED;
 use crate::bw_scr::stat_txt::{StatTxt, UnitStatus};
 use crate::game_thread;
 
@@ -80,9 +81,11 @@ fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
 /// it labels.
 ///
 /// Read from the game's active list, which leaves out what is loaded into a transport or a bunker
-/// and so is not on the map to be seen. A unit is in the view when its center is. What gets a bar is
-/// anything of a player's that can be hurt and stands there in its own right (see [`gets_a_bar`]);
-/// what is counted besides is narrower (see [`counts_on_screen`]).
+/// and so is not on the map to be seen. A unit is in the view when its center is. What is in it is
+/// anything of a player's that can be hurt and stands there in its own right, short of buildings
+/// (see [`in_on_screen_view`]); what is counted besides is narrower (see [`counts_on_screen`]).
+/// Each one's bar goes where the game draws its own (see [`game_bar`]), and none goes on a unit in
+/// the watcher's selection, which has the game's.
 ///
 /// Where a unit stands is given in shares of the game view, which for a watcher is the whole window:
 /// the console that would otherwise take the bottom of it is hidden for them.
@@ -105,7 +108,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
             continue;
         };
         let position = unit.position();
-        if !gets_a_bar(unit) || !view.contains(&position) {
+        if !in_on_screen_view(unit) || !view.contains(&position) {
             continue;
         }
         let id = unit.id();
@@ -121,6 +124,10 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
         let (x, y) = (f32::from(position.x), f32::from(position.y));
         let body = id.dimensions();
         let max_hit_points = unit.max_hp_displayed().max(1) as f32;
+        let bar = unit
+            .sprite()
+            .filter(|sprite| sprite.flags() & SPRITE_SELECTED == 0)
+            .and_then(|sprite| game_bar(unit, sprite.id()));
         units.push(OnScreenUnitView {
             // Only `None` before the game has allocated its units, which is before there are any
             // to draw.
@@ -139,6 +146,9 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
                     y + f32::from(body.bottom) + 1.0,
                 ),
             ),
+            bar: bar.map(|bar| {
+                Rect::from_min_max(to_view(bar.min.x, bar.min.y), to_view(bar.max.x, bar.max.y))
+            }),
             health: Some(whole_points(unit.hitpoints()) as f32 / max_hit_points),
             shields: id.has_shields().then(|| {
                 whole_points(unit.shields()) as f32 / whole_points(id.shields()).max(1) as f32
@@ -175,16 +185,18 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
     }
 }
 
-/// Whether `unit` gets a health bar under it in the on-screen count: anything that can be hurt and
-/// stands on the map in its own right, which leaves out the turret half of a unit already drawn,
-/// what a unit fires or lays, the markers a spell leaves, and hallucinations, whose bars would be
-/// bars of nothing.
-fn gets_a_bar(unit: Unit) -> bool {
+/// Whether `unit` is in the on-screen count, with a health bar under it: anything that can be hurt
+/// and stands on the map in its own right, which leaves out the turret half of a unit already
+/// drawn, what a unit fires or lays, the markers a spell leaves, and hallucinations, whose bars
+/// would be bars of nothing. Buildings are left out too: they stand still where the watcher already
+/// knows them, and their bars would only crowd those of the units around them.
+fn in_on_screen_view(unit: Unit) -> bool {
     use bw_dat::unit;
 
     let id = unit.id();
     !unit.is_invincible()
         && !unit.is_hallucination()
+        && !id.is_building()
         && !id.is_subunit()
         && !id.is_powerup()
         && !matches!(
@@ -200,14 +212,53 @@ fn gets_a_bar(unit: Unit) -> bool {
         )
 }
 
-/// Whether `unit` is one the on-screen count counts: of what gets a bar (see [`gets_a_bar`]), what
-/// would be thought of as one of a player's units standing there, which is not their buildings, nor
-/// larvae and eggs.
+/// Whether `unit` is one the on-screen count counts: of what is in its view (see
+/// [`in_on_screen_view`]), what would be thought of as one of a player's units standing there,
+/// which is not larvae and eggs.
 fn counts_on_screen(unit: Unit) -> bool {
     use bw_dat::unit;
 
-    let id = unit.id();
-    !id.is_building() && !matches!(id, unit::LARVA | unit::EGG)
+    !matches!(unit.id(), unit::LARVA | unit::EGG)
+}
+
+/// How tall, in pixels, each of the selection circles the game draws is, by the index sprites.dat
+/// gives a sprite's circle. Read off the circles the game draws, but for the largest, which no
+/// unit has, taken at the three fifths of its width every other one is.
+const SELECTION_CIRCLE_HEIGHTS: [i32; 10] = [13, 19, 29, 37, 43, 56, 66, 73, 88, 134];
+
+/// The first sprite sprites.dat gives a health bar, a selection circle and the circle's offset: the
+/// game keeps those fields for it and every sprite after it only, the first entry being its.
+const FIRST_SELECTABLE_SPRITE: u16 = 130;
+
+/// The box, in map pixels, the game draws `unit`'s health bar in under a selected `sprite`, as the
+/// game works it out from sprites.dat: centered under the unit with its middle 8 pixels below the
+/// bottom of the unit's selection circle, as wide as sprites.dat says cut down to a whole number of
+/// boxes three pixels wide (at least six of them), and 5 pixels tall, or 7 with a row of shields.
+/// `None` for a sprite sprites.dat gives none.
+fn game_bar(unit: Unit, sprite: bw_dat::SpriteId) -> Option<Rect> {
+    let fields = bw_dat::SpriteId(sprite.0.checked_sub(FIRST_SELECTABLE_SPRITE)?);
+    let circle = *SELECTION_CIRCLE_HEIGHTS.get(usize::from(fields.selection_circle()))?;
+    let position = unit.position();
+    Some(bar_box(
+        (i32::from(position.x), i32::from(position.y)),
+        i32::from(fields.selection_y()) + circle / 2,
+        fields.health_bar_width() as i32,
+        unit.id().has_shields(),
+    ))
+}
+
+/// The box [`game_bar`] works out for a unit standing at `position`, the middle of the bottom edge
+/// of whose selection circle is `circle_bottom` pixels below it, and whose bar sprites.dat makes
+/// `wanted` pixels wide.
+fn bar_box(position: (i32, i32), circle_bottom: i32, wanted: i32, shields: bool) -> Rect {
+    let width = (wanted - (wanted - 1).rem_euclid(3)).max(19);
+    let height = if shields { 7 } else { 5 };
+    let left = position.0 - width / 2;
+    let top = position.1 + circle_bottom + 8 - height / 2;
+    Rect::from_min_size(
+        pos2(left as f32, top as f32),
+        vec2(width as f32, height as f32),
+    )
 }
 
 /// The observer panels as the last frame handed them to the shell, and what the ones reporting the
@@ -1139,6 +1190,33 @@ pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bar_goes_where_the_game_drew_its_own() {
+        let drawn = |left: f32, top: f32, width: f32, height: f32| {
+            Rect::from_min_size(pos2(left, top), vec2(width, height))
+        };
+        // Read off the bars the game drew under selected units in a replay: an SCV with the
+        // smallest circle, a mutalisk, a command center with a large one, and a pylon's shields.
+        assert_eq!(
+            bar_box((437, 107), 11 + 13 / 2, 22, false),
+            drawn(426.0, 130.0, 22.0, 5.0)
+        );
+        assert_eq!(
+            bar_box((3761, 367), 5 + 29 / 2, 40, false),
+            drawn(3741.0, 392.0, 40.0, 5.0)
+        );
+        assert_eq!(
+            bar_box((384, 240), 6 + 88 / 2, 110, false),
+            drawn(330.0, 296.0, 109.0, 5.0)
+        );
+        assert_eq!(
+            bar_box((800, 1760), 11 + 43 / 2, 54, true).size(),
+            vec2(52.0, 7.0)
+        );
+        // However narrow sprites.dat makes one, it is six boxes wide.
+        assert_eq!(bar_box((0, 0), 0, 0, false).width(), 19.0);
+    }
 
     fn player(player_id: u8, team: u8) -> StatsPlayer {
         StatsPlayer {

@@ -614,8 +614,8 @@ fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Milita
 /// What of every player's army the fake camera has in view: a share of it that swells and shrinks
 /// as the view drifts over it, out of step with every other player's, spread over the race's units
 /// in halving shares so a few kinds make up most of it. Each army stands in two clumps that drift
-/// across the view, so grouping has something to split, with a depot-sized building of its owner's
-/// beside the first, which gets a health bar and is not counted.
+/// across the view, so grouping has something to split. Each unit's bar is a 31-pixel one hung under
+/// it as on a view of the map 480 pixels tall.
 fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
     let mut view = OnScreenView::default();
     let mut kind_index = std::collections::BTreeMap::new();
@@ -682,22 +682,15 @@ fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
                     worker: false,
                     position: spot,
                     bounds: Rect::from_center_size(spot, vec2(0.01, 0.018)),
+                    bar: Some(Rect::from_center_size(
+                        spot + vec2(0.0, 0.03),
+                        vec2(31.0 / 640.0, if shielded { 7.0 } else { 5.0 } / 480.0),
+                    )),
                     health: Some(health),
                     shields: shielded.then(|| fraction(serial as f64 * 0.43 + t / 19.0)),
                 });
             }
         }
-        let depot = clumps[0] + vec2(0.06, 0.0);
-        view.units.push(OnScreenUnitView {
-            id: view.units.len() as u32,
-            player: index,
-            kind: None,
-            worker: false,
-            position: depot,
-            bounds: Rect::from_center_size(depot, vec2(0.03, 0.04)),
-            health: Some(0.5 + 0.5 * fraction(index as f64 * 0.41)),
-            shields: shielded.then_some(1.0),
-        });
     }
     view
 }
