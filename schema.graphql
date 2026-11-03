@@ -555,12 +555,12 @@ type MapAnalysis {
 	"""
 	Who the map's description says made it, normalized for comparison (lowercase, letters and
 	digits only). A hint for sorting families, never shown as a credit. Only available to users
-	who can manage maps.
+	who can manage maps or review map families.
 	"""
 	makers: [String!]!
 	"""
 	Who the map's description credits as the original, normalized like `makers`. Only
-	available to users who can manage maps.
+	available to users who can manage maps or review map families.
 	"""
 	credited: [String!]!
 	"""
@@ -698,6 +698,76 @@ type MapFamily {
 }
 
 """
+A change a person made to families, suggestions or family reports.
+"""
+type MapFamilyHistory {
+	id: String!
+	kind: MapFamilyHistoryKind!
+	actor: SbUser
+	"""
+	The role the actor acted in.
+	"""
+	source: MapLinkSource!
+	"""
+	The map the change was about. Null for a label change.
+	"""
+	map: SbMap
+	"""
+	The parent of a link, or the other map of a suggestion or report.
+	"""
+	otherMap: SbMap
+	"""
+	The family of a label change.
+	"""
+	familyId: UUID
+	"""
+	Every file whose place changed, including files that moved along with the map.
+	"""
+	memberChanges: [MapFamilyMemberChange!]!
+	"""
+	Every suggestion whose status changed, including ones a link accepted or a removal
+	rejected.
+	"""
+	suggestionChanges: [MapFamilySuggestionChange!]!
+	labelBefore: String
+	labelAfter: String
+	reportId: UUID
+	reportStatusBefore: MapFamilyReportStatus
+	reportStatusAfter: MapFamilyReportStatus
+	createdAt: DateTime!
+}
+
+"""
+What kind of change a history entry records.
+"""
+enum MapFamilyHistoryKind {
+	"""
+	A map was placed under another map.
+	"""
+	LINK
+	"""
+	A map was taken out of its family.
+	"""
+	REMOVE
+	"""
+	A member's version label or pinned current version changed.
+	"""
+	UPDATE_MEMBER
+	"""
+	A family's staff label changed.
+	"""
+	SET_LABEL
+	"""
+	A suggestion was rejected, marked terrain only, or reopened.
+	"""
+	DECIDE_SUGGESTION
+	"""
+	A family report was resolved, dismissed or reopened.
+	"""
+	REPORT_STATUS
+}
+
+"""
 Places a map under another map in a family.
 """
 input MapFamilyLinkInput {
@@ -757,6 +827,37 @@ type MapFamilyMember {
 	maps.
 	"""
 	linkedBy: SbUser
+}
+
+"""
+How one file's place changed.
+"""
+type MapFamilyMemberChange {
+	id: String!
+	mapId: SbMapId!
+	map: SbMap!
+	"""
+	Null when the file wasn't in a family.
+	"""
+	before: MapFamilyMemberState
+	"""
+	Null when the file left its family.
+	"""
+	after: MapFamilyMemberState
+}
+
+"""
+A file's place in its family at one point in time.
+"""
+type MapFamilyMemberState {
+	id: String!
+	familyId: UUID!
+	parentId: SbMapId
+	parent: SbMap
+	relation: MapFamilyRelation!
+	versionLabel: String
+	pinnedCurrent: Boolean!
+	source: MapLinkSource!
 }
 
 """
@@ -908,6 +1009,17 @@ enum MapFamilyReportStatus {
 	Staff found nothing to change.
 	"""
 	DISMISSED
+}
+
+"""
+How one suggestion's status changed.
+"""
+type MapFamilySuggestionChange {
+	id: String!
+	mapA: SbMapId!
+	mapB: SbMapId!
+	before: MapLinkSuggestionStatus!
+	after: MapLinkSuggestionStatus!
 }
 
 type MapFile {
@@ -1096,7 +1208,7 @@ type MapLibraryEdge {
 
 """
 Who set a file's place in its family. A place can only be changed by the same or a higher
-source: moderators over publishers over the detection rules.
+source: moderators over reviewers over publishers over the detection rules.
 """
 enum MapLinkSource {
 	"""
@@ -1107,6 +1219,10 @@ enum MapLinkSource {
 	The user who published the map.
 	"""
 	PUBLISHER
+	"""
+	A trusted user outside staff who works the families queue for listed maps.
+	"""
+	REVIEWER
 	"""
 	Staff.
 	"""
@@ -1646,18 +1762,21 @@ type Mutation {
 	Places maps in families, in order, each under its parent with its whole subtree. A parent
 	outside any family starts a new one; a map in another family moves out of it. Open
 	suggestions between maps that end up in one family are accepted. Only available to users who
-	can manage maps. Returns the linked maps.
+	can manage maps or review map families; reviewers can only link listed maps. Returns the
+	linked maps.
 	"""
 	mapFamilyLink(links: [MapFamilyLinkInput!]!): [SbMap!]!
 	"""
 	Takes a map out of its family. When it starts a line, its oldest version takes its place.
-	Only available to users who can manage maps.
+	Only available to users who can manage maps or review map families; reviewers can only
+	remove listed maps.
 	"""
 	mapFamilyRemove(mapId: SbMapId!): SbMap!
 	"""
 	Changes a member's version label (null clears it) and whether it's pinned as its line's
 	current version. Only listed maps can be pinned; pinning one unpins the rest of its line.
-	Only available to users who can manage maps.
+	Only available to users who can manage maps or review map families; reviewers can only
+	change listed maps.
 	"""
 	mapFamilyUpdateMember(mapId: SbMapId!, versionLabel: String, pinnedCurrent: Boolean): SbMap!
 	"""
@@ -1666,11 +1785,13 @@ type Mutation {
 	mapFamilySetLabel(familyId: UUID!, label: String): MapFamily!
 	"""
 	Rejects a suggestion, marks it as a UMS map on the other's terrain, or reopens it. Accepting
-	one is linking its maps with `mapFamilyLink`. Only available to users who can manage maps.
+	one is linking its maps with `mapFamilyLink`. Only available to users who can manage maps
+	or review map families; reviewers can only decide open suggestions between listed maps.
 	"""
 	mapLinkSuggestionDecide(mapA: SbMapId!, mapB: SbMapId!, decision: MapLinkSuggestionDecision!): MapLinkSuggestion!
 	"""
-	Sets a family report's status. Only available to users who can manage maps.
+	Sets a family report's status. Only available to users who can manage maps or review map
+	families; reviewers can only close open reports about listed maps.
 	"""
 	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
 	"""
@@ -1909,27 +2030,38 @@ type Query {
 	"""
 	Groups of possibly related files waiting for staff, the most played first. Each holds the
 	files of connected open suggestions, the families they touch, and a proposed tree. Only
-	available to users who can manage maps.
+	available to users who can manage maps or review map families; reviewers only get
+	suggestions between listed maps.
 	"""
 	mapFamilyProposals(limit: Int! = 20, offset: Int! = 0): [MapFamilyProposal!]!
 	"""
-	How many groups `mapFamilyProposals` holds. Only available to users who can manage maps.
+	How many groups `mapFamilyProposals` holds. Only available to users who can manage maps or
+	review map families.
 	"""
 	mapFamilyProposalCount: Int!
 	"""
 	The groups of possibly related files the maps are in, merged into one, as
 	`mapFamilyProposals` would list them. A map with nothing to sort adds itself and its
-	family. Only available to users who can manage maps.
+	family. Only available to users who can manage maps or review map families; reviewers only
+	get listed maps.
 	"""
 	mapFamilyGroup(mapIds: [SbMapId!]!): MapFamilyProposal!
 	"""
-	Family reports with a status, oldest first. Only available to users who can manage maps.
+	Family reports with a status, oldest first. Only available to users who can manage maps or
+	review map families; reviewers only get reports about listed maps.
 	"""
 	mapFamilyReports(status: MapFamilyReportStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapFamilyReport!]!
 	"""
-	How many family reports have a status. Only available to users who can manage maps.
+	How many family reports `mapFamilyReports` holds for a status. Only available to users who
+	can manage maps or review map families.
 	"""
 	mapFamilyReportCount(status: MapFamilyReportStatus! = OPEN): Int!
+	"""
+	Changes people made to families, suggestions and family reports, newest first. Filtered to
+	changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
+	made. Only available to users who can manage maps.
+	"""
+	mapFamilyHistory(mapIds: [SbMapId!], familyIds: [UUID!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -2254,6 +2386,7 @@ type SbPermissions {
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 	manageLiveStreams: Boolean!
+	reviewMapFamilies: Boolean!
 }
 
 input SbPermissionsInput {
@@ -2280,6 +2413,7 @@ input SbPermissionsInput {
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 	manageLiveStreams: Boolean!
+	reviewMapFamilies: Boolean!
 }
 
 type SbUser {

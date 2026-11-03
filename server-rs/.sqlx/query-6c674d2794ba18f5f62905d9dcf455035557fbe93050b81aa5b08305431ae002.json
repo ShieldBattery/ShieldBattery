@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT s.map_a as \"map_a: SbMapId\", s.map_b as \"map_b: SbMapId\",\n                s.terrain_similarity, s.name_match, s.verdict as \"verdict: Json<Value>\", s.status,\n                s.decided_by as \"decided_by: SbUserId\", s.decided_at, s.created_at\n            FROM map_link_suggestions s\n            WHERE s.status = 'open'\n                AND NOT EXISTS (\n                    SELECT 1\n                    FROM map_family_members fa\n                    INNER JOIN map_family_members fb ON fb.family_id = fa.family_id\n                    WHERE fa.map_id = s.map_a AND fb.map_id = s.map_b\n                )\n        ",
+  "query": "\n            SELECT s.map_a as \"map_a: SbMapId\", s.map_b as \"map_b: SbMapId\",\n                s.terrain_similarity, s.name_match, s.verdict as \"verdict: Json<Value>\", s.status,\n                s.decided_by as \"decided_by: SbUserId\", s.decided_at, s.created_at\n            FROM map_link_suggestions s\n            WHERE s.status = 'open'\n                AND NOT EXISTS (\n                    SELECT 1\n                    FROM map_family_members fa\n                    INNER JOIN map_family_members fb ON fb.family_id = fa.family_id\n                    WHERE fa.map_id = s.map_a AND fb.map_id = s.map_b\n                )\n                AND (NOT $1 OR (\n                    EXISTS (SELECT 1 FROM maps m WHERE m.id = s.map_a AND m.listed)\n                    AND EXISTS (SELECT 1 FROM maps m WHERE m.id = s.map_b AND m.listed)\n                ))\n        ",
   "describe": {
     "columns": [
       {
@@ -104,7 +104,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Bool"
+      ]
     },
     "nullable": [
       false,
@@ -118,5 +120,5 @@
       false
     ]
   },
-  "hash": "5a602eb622d3be3aa037a15e87d33a84b5fcab46bdc9c53a5bf4a39e53b368e8"
+  "hash": "6c674d2794ba18f5f62905d9dcf455035557fbe93050b81aa5b08305431ae002"
 }

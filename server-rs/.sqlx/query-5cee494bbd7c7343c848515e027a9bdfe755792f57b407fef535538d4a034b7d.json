@@ -114,6 +114,7 @@
               "Enum": [
                 "rule",
                 "publisher",
+                "reviewer",
                 "moderator"
               ]
             }

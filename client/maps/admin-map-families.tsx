@@ -8,16 +8,20 @@ import { Link, Route, Switch } from 'wouter'
 import { mapIdFromRouteSegment, urlForMap } from '../../common/map-url'
 import { makeSbMapId, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
+  MapFamilyHistoryKind,
   MapFamilyRelation,
   MapFamilyReportKind,
   MapFamilyReportStatus,
   MapLinkSource,
   MapLinkSuggestionDecision,
+  MapLinkSuggestionStatus,
   MapProposedRelation,
 } from '../gql/graphql'
-import { NarrowDuration } from '../i18n/date-formats'
+import { NarrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { jotaiStore } from '../jotai-store'
@@ -63,6 +67,8 @@ const BASE_URL = '/admin/map-families'
 const PAGE_SIZE = 50
 /** How many queued groups "Next" looks through for one that hasn't been skipped. */
 const NEXT_LOOKAHEAD = 100
+/** How many history entries the family editor loads at a time. */
+const EDITOR_HISTORY_PAGE_SIZE = 20
 
 function editorUrl(mapId: SbMapId, withIds: ReadonlyArray<SbMapId> = []): string {
   return withIds.length
@@ -93,6 +99,7 @@ const PROPOSED_RELATION_LABELS: Record<MapProposedRelation, string> = {
 const SOURCE_LABELS: Record<MapLinkSource, string> = {
   [MapLinkSource.Rule]: 'Placed by rule',
   [MapLinkSource.Publisher]: 'Placed by publisher',
+  [MapLinkSource.Reviewer]: 'Placed by reviewer',
   [MapLinkSource.Moderator]: 'Placed by staff',
 }
 
@@ -104,7 +111,7 @@ const MapFamilyProposalCountsQuery = graphql(/* GraphQL */ `
 `)
 
 const MapFamilyProposalsQuery = graphql(/* GraphQL */ `
-  query AdminMapFamilyProposals($limit: Int!, $offset: Int!) {
+  query AdminMapFamilyProposals($limit: Int!, $offset: Int!, $isStaff: Boolean!) {
     mapFamilyProposals(limit: $limit, offset: $offset) {
       id
       games
@@ -115,7 +122,7 @@ const MapFamilyProposalsQuery = graphql(/* GraphQL */ `
       families {
         id
         familyId
-        label
+        label @include(if: $isStaff)
       }
       suggestions {
         id
@@ -125,7 +132,7 @@ const MapFamilyProposalsQuery = graphql(/* GraphQL */ `
 `)
 
 const MapFamilyReportsQuery = graphql(/* GraphQL */ `
-  query AdminMapFamilyReports($limit: Int!, $offset: Int!) {
+  query AdminMapFamilyReports($limit: Int!, $offset: Int!, $isStaff: Boolean!) {
     mapFamilyReports(status: OPEN, limit: $limit, offset: $offset) {
       id
       kind
@@ -140,7 +147,7 @@ const MapFamilyReportsQuery = graphql(/* GraphQL */ `
         id
         name
       }
-      reportedBy {
+      reportedBy @include(if: $isStaff) {
         id
       }
     }
@@ -184,7 +191,7 @@ const AdminMapFamilies_FileFragment = graphql(/* GraphQL */ `
 `)
 
 const MapFamilyGroupQuery = graphql(/* GraphQL */ `
-  query AdminMapFamilyGroup($mapIds: [SbMapId!]!) {
+  query AdminMapFamilyGroup($mapIds: [SbMapId!]!, $isStaff: Boolean!) {
     mapFamilyGroup(mapIds: $mapIds) {
       id
       games
@@ -197,7 +204,7 @@ const MapFamilyGroupQuery = graphql(/* GraphQL */ `
       families {
         id
         familyId
-        label
+        label @include(if: $isStaff)
         members {
           id
           mapId
@@ -328,6 +335,78 @@ const AddFileByIdQuery = graphql(/* GraphQL */ `
   }
 `)
 
+const MapFamilyHistoryQuery = graphql(/* GraphQL */ `
+  query AdminMapFamilyHistory(
+    $mapIds: [SbMapId!]
+    $familyIds: [UUID!]
+    $actorId: SbUserId
+    $limit: Int!
+    $offset: Int!
+  ) {
+    mapFamilyHistory(
+      mapIds: $mapIds
+      familyIds: $familyIds
+      actorId: $actorId
+      limit: $limit
+      offset: $offset
+    ) {
+      id
+      kind
+      source
+      createdAt
+      labelBefore
+      labelAfter
+      reportStatusAfter
+      actor {
+        id
+      }
+      map {
+        id
+        name
+      }
+      otherMap {
+        id
+        name
+      }
+      memberChanges {
+        id
+        mapId
+        map {
+          id
+          name
+        }
+        before {
+          id
+          parent {
+            id
+            name
+          }
+          relation
+          versionLabel
+          pinnedCurrent
+        }
+        after {
+          id
+          parent {
+            id
+            name
+          }
+          relation
+          versionLabel
+          pinnedCurrent
+        }
+      }
+      suggestionChanges {
+        id
+        mapA
+        mapB
+        before
+        after
+      }
+    }
+  }
+`)
+
 const Content = styled.div`
   max-width: 960px;
   margin: 0 16px;
@@ -413,24 +492,36 @@ const LoadMoreRow = styled.div`
 `
 
 export function AdminMapFamilies() {
+  const isStaff = useHasAnyPermission('manageMaps')
   return (
     <Switch>
       <Route path={`${BASE_URL}/maps/:mapId`}>
         {params => <FamilyEditorPage mapId={params.mapId} />}
       </Route>
       <Route path={`${BASE_URL}/reports`}>
-        <FamilyQueue tab='reports' />
+        <FamilyQueue tab='reports' isStaff={isStaff} />
       </Route>
+      {isStaff ? (
+        <Route path={`${BASE_URL}/history`}>
+          <FamilyQueue tab='history' isStaff={isStaff} />
+        </Route>
+      ) : null}
       <Route>
-        <FamilyQueue tab='proposals' />
+        <FamilyQueue tab='proposals' isStaff={isStaff} />
       </Route>
     </Switch>
   )
 }
 
-type QueueTab = 'proposals' | 'reports'
+type QueueTab = 'proposals' | 'reports' | 'history'
 
-function FamilyQueue({ tab }: { tab: QueueTab }) {
+const TAB_URLS: Record<QueueTab, string> = {
+  proposals: BASE_URL,
+  reports: `${BASE_URL}/reports`,
+  history: `${BASE_URL}/history`,
+}
+
+function FamilyQueue({ tab, isStaff }: { tab: QueueTab; isStaff: boolean }) {
   // Bumped on refresh to re-mount the pages and force a fresh fetch.
   const [refreshToken, setRefreshToken] = useState(0)
   const [{ data: counts }, refetchCounts] = useQuery({
@@ -450,11 +541,7 @@ function FamilyQueue({ tab }: { tab: QueueTab }) {
           }}
         />
       </HeadlineRow>
-      <StyledTabs
-        activeTab={tab}
-        onChange={(value: QueueTab) =>
-          push(value === 'reports' ? `${BASE_URL}/reports` : BASE_URL)
-        }>
+      <StyledTabs activeTab={tab} onChange={(value: QueueTab) => push(TAB_URLS[value])}>
         <TabItem
           value='proposals'
           text={`Proposals${counts ? ` (${counts.mapFamilyProposalCount})` : ''}`}
@@ -463,20 +550,22 @@ function FamilyQueue({ tab }: { tab: QueueTab }) {
           value='reports'
           text={`Reports${counts ? ` (${counts.mapFamilyReportCount})` : ''}`}
         />
+        {isStaff ? <TabItem value='history' text='History' /> : null}
       </StyledTabs>
-      {tab === 'proposals' ? (
-        <ProposalsTable key={refreshToken} />
-      ) : (
+      {tab === 'proposals' ? <ProposalsTable key={refreshToken} isStaff={isStaff} /> : null}
+      {tab === 'reports' ? (
         <ReportsTable
           key={refreshToken}
+          isStaff={isStaff}
           onChanged={() => refetchCounts({ requestPolicy: 'network-only' })}
         />
-      )}
+      ) : null}
+      {tab === 'history' ? <HistoryTab key={refreshToken} /> : null}
     </Content>
   )
 }
 
-function ProposalsTable() {
+function ProposalsTable({ isStaff }: { isStaff: boolean }) {
   const [pages, setPages] = useState(1)
   return (
     <Table>
@@ -490,6 +579,7 @@ function ProposalsTable() {
       {Array.from({ length: pages }, (_, i) => (
         <ProposalsPage
           key={i}
+          isStaff={isStaff}
           offset={i * PAGE_SIZE}
           isLastPage={i === pages - 1}
           onLoadMore={() => setPages(p => p + 1)}
@@ -501,16 +591,18 @@ function ProposalsTable() {
 
 function ProposalsPage({
   offset,
+  isStaff,
   isLastPage,
   onLoadMore,
 }: {
   offset: number
+  isStaff: boolean
   isLastPage: boolean
   onLoadMore: () => void
 }) {
   const [{ data, fetching, error }] = useQuery({
     query: MapFamilyProposalsQuery,
-    variables: { limit: PAGE_SIZE, offset },
+    variables: { limit: PAGE_SIZE, offset, isStaff },
     requestPolicy: 'cache-and-network',
   })
   const proposals = data?.mapFamilyProposals ?? []
@@ -552,6 +644,11 @@ function ProposalsPage({
   )
 }
 
+/** Rule "review" marks a proposal a person wrote in a review rather than a detection rule. */
+function ruleLabel(rule: string): string {
+  return rule === 'review' ? 'proposed in review' : `rule ${rule}`
+}
+
 function reportLabel(
   kind: MapFamilyReportKind,
   otherName: string | undefined,
@@ -565,7 +662,7 @@ function reportLabel(
   return `Related to ${otherName ?? 'another map'}${as}`
 }
 
-function ReportsTable({ onChanged }: { onChanged: () => void }) {
+function ReportsTable({ isStaff, onChanged }: { isStaff: boolean; onChanged: () => void }) {
   const [pages, setPages] = useState(1)
   return (
     <Table>
@@ -574,12 +671,13 @@ function ReportsTable({ onChanged }: { onChanged: () => void }) {
         <Cell $width={200}>Map</Cell>
         <Cell $width={240}>Report</Cell>
         <Cell>Note</Cell>
-        <Cell $width={140}>Reporter</Cell>
+        {isStaff ? <Cell $width={140}>Reporter</Cell> : null}
         <Cell $width={56} />
       </TableHeader>
       {Array.from({ length: pages }, (_, i) => (
         <ReportsPage
           key={i}
+          isStaff={isStaff}
           offset={i * PAGE_SIZE}
           isLastPage={i === pages - 1}
           onLoadMore={() => setPages(p => p + 1)}
@@ -592,11 +690,13 @@ function ReportsTable({ onChanged }: { onChanged: () => void }) {
 
 function ReportsPage({
   offset,
+  isStaff,
   isLastPage,
   onLoadMore,
   onChanged,
 }: {
   offset: number
+  isStaff: boolean
   isLastPage: boolean
   onLoadMore: () => void
   onChanged: () => void
@@ -604,7 +704,7 @@ function ReportsPage({
   const snackbarController = useSnackbarController()
   const [{ data, fetching, error }, refetch] = useQuery({
     query: MapFamilyReportsQuery,
-    variables: { limit: PAGE_SIZE, offset },
+    variables: { limit: PAGE_SIZE, offset, isStaff },
     requestPolicy: 'cache-and-network',
   })
   const [, setStatus] = useMutation(SetReportStatusMutation)
@@ -636,15 +736,17 @@ function ReportsPage({
           <Cell $width={200}>{r.map.name}</Cell>
           <Cell $width={240}>{reportLabel(r.kind, r.otherMap?.name, r.suggestedRelation)}</Cell>
           <Cell>{r.note ? r.note : <MutedText>No note</MutedText>}</Cell>
-          <Cell $width={140}>
-            {r.reportedBy ? (
-              <span onClick={e => e.stopPropagation()}>
-                <ConnectedUsername userId={r.reportedBy.id} />
-              </span>
-            ) : (
-              <MutedText>Unknown user</MutedText>
-            )}
-          </Cell>
+          {isStaff ? (
+            <Cell $width={140}>
+              {r.reportedBy ? (
+                <span onClick={e => e.stopPropagation()}>
+                  <ConnectedUsername userId={r.reportedBy.id} />
+                </span>
+              ) : (
+                <MutedText>Unknown user</MutedText>
+              )}
+            </Cell>
+          ) : null}
           <Cell $width={56} onClick={e => e.stopPropagation()}>
             <OverflowMenu
               label='Report actions'
@@ -890,6 +992,7 @@ const ResetButton = styled(TextButton)`
 `
 
 function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
+  const isStaff = useHasAnyPermission('manageMaps')
   const routeMapId = mapIdFromRouteSegment(mapIdParam) ?? makeSbMapId(mapIdParam)
   const [withParam, setWithParam] = useLocationSearchParam('with')
   const withIds = withParam
@@ -902,7 +1005,7 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
 
   const [{ data, fetching, error }, refetch] = useQuery({
     query: MapFamilyGroupQuery,
-    variables: { mapIds },
+    variables: { mapIds, isStaff },
     requestPolicy: 'cache-and-network',
   })
 
@@ -918,6 +1021,7 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
           key={routeMapId}
           group={data.mapFamilyGroup}
           mapIds={mapIds}
+          isStaff={isStaff}
           onAddFile={id => setWithParam([...withIds, id].join(','))}
           refetch={() => refetch({ requestPolicy: 'network-only' })}
         />
@@ -931,11 +1035,13 @@ type GroupData = ResultOf<typeof MapFamilyGroupQuery>['mapFamilyGroup']
 function FamilyEditor({
   group,
   mapIds,
+  isStaff,
   onAddFile,
   refetch,
 }: {
   group: GroupData
   mapIds: ReadonlyArray<SbMapId>
+  isStaff: boolean
   onAddFile: (id: SbMapId) => void
   refetch: () => void
 }) {
@@ -1076,7 +1182,11 @@ function FamilyEditor({
 
     try {
       const result = await client
-        .query(MapFamilyGroupQuery, { mapIds: [...mapIds] }, { requestPolicy: 'network-only' })
+        .query(
+          MapFamilyGroupQuery,
+          { mapIds: [...mapIds], isStaff },
+          { requestPolicy: 'network-only' },
+        )
         .toPromise()
       const stillOpen = result.data?.mapFamilyGroup.suggestions.length ?? 0
       setEdits(new Map())
@@ -1116,7 +1226,7 @@ function FamilyEditor({
       <MutedText>
         {files.length} {files.length === 1 ? 'file' : 'files'} · {group.games} games
       </MutedText>
-      {group.families.length ? (
+      {isStaff && group.families.length ? (
         <FamilyLabels>
           {group.families.map(family => {
             const top = family.members.find(m => !m.parentId)
@@ -1175,7 +1285,7 @@ function FamilyEditor({
               const newer = older === s.mapA.id ? s.mapB.id : s.mapA.id
               const facts = [
                 s.proposedRelation ? PROPOSED_RELATION_LABELS[s.proposedRelation] : 'no proposal',
-                s.rule ? `rule ${s.rule}` : undefined,
+                s.rule ? ruleLabel(s.rule) : undefined,
                 s.terrainSimilarity !== null && s.terrainSimilarity !== undefined
                   ? `${Math.round(s.terrainSimilarity * 100)}% terrain`
                   : undefined,
@@ -1232,6 +1342,19 @@ function FamilyEditor({
 
       <SectionTitle>Add a file</SectionTitle>
       <AddFile present={new Set(files.map(f => f.id))} onAdd={onAddFile} />
+
+      {isStaff ? (
+        <>
+          <SectionTitle>History</SectionTitle>
+          <HistoryList
+            mapIds={files.map(f => f.id)}
+            familyIds={group.families.map(f => f.familyId)}
+            actorId={undefined}
+            pageSize={EDITOR_HISTORY_PAGE_SIZE}
+            onActor={undefined}
+          />
+        </>
+      ) : null}
 
       <Footer>
         {edited ? (
@@ -1507,4 +1630,361 @@ function AddFile({
       ) : null}
     </>
   )
+}
+
+// History
+
+const HistoryItem = styled.div`
+  ${bodyMedium};
+  padding: 8px 16px;
+
+  & + & {
+    border-top: 1px solid var(--theme-outline-variant);
+  }
+`
+
+const HistoryLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
+const HistoryTime = styled.div`
+  ${bodySmall};
+  flex: 0 0 120px;
+  color: var(--theme-on-surface-variant);
+`
+
+const HistoryActor = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+const HistorySummary = styled.div`
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+`
+
+const HistoryDetails = styled(RowMeta)`
+  margin: 4px 0 4px 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+const FilterBar = styled.div`
+  ${bodyMedium};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+`
+
+const SOURCE_CHIP_LABELS: Record<MapLinkSource, string> = {
+  [MapLinkSource.Rule]: 'Rule',
+  [MapLinkSource.Publisher]: 'Publisher',
+  [MapLinkSource.Reviewer]: 'Reviewer',
+  [MapLinkSource.Moderator]: 'Staff',
+}
+
+const SUGGESTION_STATUS_LABELS: Record<MapLinkSuggestionStatus, string> = {
+  [MapLinkSuggestionStatus.Open]: 'Open',
+  [MapLinkSuggestionStatus.Accepted]: 'Linked',
+  [MapLinkSuggestionStatus.Rejected]: 'Not related',
+  [MapLinkSuggestionStatus.TerrainOnly]: 'Terrain only',
+}
+
+type HistoryEntry = ResultOf<typeof MapFamilyHistoryQuery>['mapFamilyHistory'][number]
+type HistoryMapRef = { id: SbMapId; name: string }
+type HistoryMemberState = NonNullable<HistoryEntry['memberChanges'][number]['before']>
+
+function HistoryTab() {
+  const [actorParam, setActorParam] = useLocationSearchParam('by')
+  const actorId = actorParam ? (Number(actorParam) as SbUserId) : undefined
+
+  return (
+    <>
+      {actorId ? (
+        <FilterBar>
+          <span>Changes by</span>
+          <ConnectedUsername userId={actorId} />
+          <TextButton label='Clear' onClick={() => setActorParam('')} />
+        </FilterBar>
+      ) : null}
+      <HistoryList
+        mapIds={undefined}
+        familyIds={undefined}
+        pageSize={PAGE_SIZE}
+        actorId={actorId}
+        onActor={id => setActorParam(String(id))}
+      />
+    </>
+  )
+}
+
+function HistoryList({
+  mapIds,
+  familyIds,
+  actorId,
+  pageSize,
+  onActor,
+}: {
+  mapIds: ReadonlyArray<SbMapId> | undefined
+  familyIds: ReadonlyArray<string> | undefined
+  actorId: SbUserId | undefined
+  pageSize: number
+  onActor: ((userId: SbUserId) => void) | undefined
+}) {
+  const [pages, setPages] = useState(1)
+  return (
+    <Rows>
+      {Array.from({ length: pages }, (_, i) => (
+        <HistoryPage
+          key={i}
+          mapIds={mapIds}
+          familyIds={familyIds}
+          actorId={actorId}
+          pageSize={pageSize}
+          offset={i * pageSize}
+          isLastPage={i === pages - 1}
+          onLoadMore={() => setPages(p => p + 1)}
+          onActor={onActor}
+        />
+      ))}
+    </Rows>
+  )
+}
+
+function HistoryPage({
+  mapIds,
+  familyIds,
+  actorId,
+  pageSize,
+  offset,
+  isLastPage,
+  onLoadMore,
+  onActor,
+}: {
+  mapIds: ReadonlyArray<SbMapId> | undefined
+  familyIds: ReadonlyArray<string> | undefined
+  actorId: SbUserId | undefined
+  pageSize: number
+  offset: number
+  isLastPage: boolean
+  onLoadMore: () => void
+  onActor: ((userId: SbUserId) => void) | undefined
+}) {
+  const [{ data, fetching, error }] = useQuery({
+    query: MapFamilyHistoryQuery,
+    variables: {
+      mapIds: mapIds ? [...mapIds] : undefined,
+      familyIds: familyIds?.length ? [...familyIds] : undefined,
+      actorId,
+      limit: pageSize,
+      offset,
+    },
+    requestPolicy: 'cache-and-network',
+  })
+  const entries = data?.mapFamilyHistory ?? []
+
+  return (
+    <>
+      {entries.map(entry => (
+        <HistoryRow key={entry.id} entry={entry} onActor={onActor} />
+      ))}
+      {offset === 0 && data && !entries.length ? <EmptyText>No changes yet.</EmptyText> : null}
+      {fetching && !data ? <LoadingDotsArea /> : null}
+      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+      {isLastPage && entries.length === pageSize ? (
+        <LoadMoreRow>
+          <OutlinedButton label='Load more' onClick={onLoadMore} />
+        </LoadMoreRow>
+      ) : null}
+    </>
+  )
+}
+
+function MapLink({ map }: { map: HistoryMapRef | null | undefined }) {
+  return map ? <Link href={editorUrl(map.id)}>{map.name}</Link> : <MutedText>a map</MutedText>
+}
+
+function describeMemberState(state: HistoryMemberState | null): string {
+  if (!state) {
+    return 'not in a family'
+  }
+  return [
+    state.parent?.name ?? '—',
+    RELATION_LABELS[state.relation],
+    state.versionLabel ? `version ${state.versionLabel}` : undefined,
+    state.pinnedCurrent ? 'pinned' : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function HistoryRow({
+  entry,
+  onActor,
+}: {
+  entry: HistoryEntry
+  onActor: ((userId: SbUserId) => void) | undefined
+}) {
+  const format = useFormat(shortTimestamp)
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <HistoryItem>
+      <HistoryLine>
+        <HistoryTime>{format.format(new Date(entry.createdAt))}</HistoryTime>
+        <HistoryActor>
+          {entry.actor ? (
+            <>
+              <ConnectedUsername userId={entry.actor.id} />
+              {onActor ? (
+                <Tooltip text='Only changes by this person' position='bottom' tabIndex={-1}>
+                  <IconButton
+                    icon={<MaterialIcon icon='filter_alt' />}
+                    ariaLabel='Only changes by this person'
+                    onClick={() => onActor(entry.actor!.id)}
+                  />
+                </Tooltip>
+              ) : null}
+            </>
+          ) : (
+            <MutedText>System</MutedText>
+          )}
+          <RoomChip>{SOURCE_CHIP_LABELS[entry.source]}</RoomChip>
+        </HistoryActor>
+        <HistorySummary>
+          <HistorySummaryText entry={entry} />
+        </HistorySummary>
+        {entry.memberChanges.length ? (
+          <IconButton
+            icon={<MaterialIcon icon={expanded ? 'expand_less' : 'expand_more'} />}
+            ariaLabel={expanded ? 'Hide file changes' : 'Show file changes'}
+            onClick={() => setExpanded(e => !e)}
+          />
+        ) : null}
+      </HistoryLine>
+      {expanded ? (
+        <HistoryDetails>
+          {entry.memberChanges.map(c => (
+            <div key={c.id}>
+              <MapLink map={c.map} />: {describeMemberState(c.before ?? null)} →{' '}
+              {describeMemberState(c.after ?? null)}
+            </div>
+          ))}
+        </HistoryDetails>
+      ) : null}
+    </HistoryItem>
+  )
+}
+
+function HistorySummaryText({ entry }: { entry: HistoryEntry }) {
+  const { map, otherMap } = entry
+  const others = entry.memberChanges.filter(c => c.mapId !== map?.id).length
+  const accepted = entry.suggestionChanges.filter(
+    c => c.after === MapLinkSuggestionStatus.Accepted,
+  ).length
+  const rejected = entry.suggestionChanges.filter(
+    c => c.after === MapLinkSuggestionStatus.Rejected,
+  ).length
+  const counts = (suggestionVerb: string, suggestions: number) =>
+    [
+      others ? `${others} other ${others === 1 ? 'file' : 'files'} changed` : undefined,
+      suggestions
+        ? `${suggestions} ${suggestions === 1 ? 'suggestion' : 'suggestions'} ${suggestionVerb}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .map(c => ` · ${c}`)
+      .join('')
+  const mapChange = entry.memberChanges.find(c => c.mapId === map?.id)
+
+  switch (entry.kind) {
+    case MapFamilyHistoryKind.Link: {
+      const after = mapChange?.after
+      return (
+        <>
+          placed <MapLink map={map} /> under <MapLink map={otherMap} />
+          {after ? ` as ${RELATION_LABELS[after.relation].toLowerCase()}` : ''}
+          <MutedText>{counts('accepted', accepted)}</MutedText>
+        </>
+      )
+    }
+    case MapFamilyHistoryKind.Remove:
+      return (
+        <>
+          took <MapLink map={map} /> out of its family
+          <MutedText>{counts('rejected', rejected)}</MutedText>
+        </>
+      )
+    case MapFamilyHistoryKind.UpdateMember: {
+      const before = mapChange?.before
+      const after = mapChange?.after
+      const parts: string[] = []
+      if ((before?.versionLabel ?? '') !== (after?.versionLabel ?? '')) {
+        parts.push(
+          after?.versionLabel
+            ? `set the version to “${after.versionLabel}”${
+                before?.versionLabel ? ` (was “${before.versionLabel}”)` : ''
+              }`
+            : 'cleared the version',
+        )
+      }
+      if (before?.pinnedCurrent !== after?.pinnedCurrent) {
+        parts.push(after?.pinnedCurrent ? 'pinned as current' : 'unpinned as current')
+      }
+      return (
+        <>
+          <MapLink map={map} />: {parts.length ? parts.join(' and ') : 'updated the member'}
+        </>
+      )
+    }
+    case MapFamilyHistoryKind.SetLabel:
+      return entry.labelAfter ? (
+        <>
+          set a family's label to “{entry.labelAfter}”
+          {entry.labelBefore ? <MutedText> (was “{entry.labelBefore}”)</MutedText> : null}
+        </>
+      ) : (
+        <>cleared a family's label</>
+      )
+    case MapFamilyHistoryKind.DecideSuggestion: {
+      const change =
+        entry.suggestionChanges.find(
+          c =>
+            (c.mapA === map?.id && c.mapB === otherMap?.id) ||
+            (c.mapB === map?.id && c.mapA === otherMap?.id),
+        ) ?? entry.suggestionChanges[0]
+      let afterLabel = change ? SUGGESTION_STATUS_LABELS[change.after] : ''
+      if (change?.after === MapLinkSuggestionStatus.Open) {
+        afterLabel = 'Reopened'
+      }
+      return (
+        <>
+          <MapLink map={map} /> – <MapLink map={otherMap} />:{' '}
+          {change ? `${SUGGESTION_STATUS_LABELS[change.before]} → ${afterLabel}` : 'decided'}
+        </>
+      )
+    }
+    case MapFamilyHistoryKind.ReportStatus: {
+      let verb = 'reopened'
+      if (entry.reportStatusAfter === MapFamilyReportStatus.Resolved) {
+        verb = 'resolved'
+      } else if (entry.reportStatusAfter === MapFamilyReportStatus.Dismissed) {
+        verb = 'dismissed'
+      }
+      return (
+        <>
+          {verb} a report about <MapLink map={map} />
+        </>
+      )
+    }
+    default:
+      return <MutedText>Unknown change</MutedText>
+  }
 }

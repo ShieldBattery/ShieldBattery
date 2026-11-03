@@ -49,15 +49,15 @@ impl MapFileAnalysis {
 
     /// Who the map's description says made it, normalized for comparison (lowercase, letters and
     /// digits only). A hint for sorting families, never shown as a credit. Only available to users
-    /// who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// who can manage maps or review map families.
+    #[graphql(guard = RequiredPermission::ManageMaps.or(RequiredPermission::ReviewMapFamilies))]
     async fn makers(&self) -> &[String] {
         &self.makers
     }
 
     /// Who the map's description credits as the original, normalized like `makers`. Only
-    /// available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// available to users who can manage maps or review map families.
+    #[graphql(guard = RequiredPermission::ManageMaps.or(RequiredPermission::ReviewMapFamilies))]
     async fn credited(&self) -> &[String] {
         &self.credited
     }

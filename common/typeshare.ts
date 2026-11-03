@@ -79,6 +79,7 @@ export interface SbPermissions {
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
   manageLiveStreams: boolean
+  reviewMapFamilies: boolean
 }
 
 export interface UploadMapResponse {
