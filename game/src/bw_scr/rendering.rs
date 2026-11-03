@@ -319,6 +319,11 @@ impl BwScr {
                             }
                             if replay_visions != overlay_out.replay_visions
                                 || show_entire_map != overlay_out.show_entire_map
+                                // SC:R takes vision away when a player leaves, including from
+                                // the effective mask used to draw the entire map.
+                                || (is_replay_or_obs
+                                    && overlay_out.show_entire_map
+                                    && self.local_visions.resolve() != 0xff)
                             {
                                 self.note_replay_vision_choice(
                                     replay_visions,

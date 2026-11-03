@@ -142,6 +142,9 @@ impl BwScr {
     /// the units that need detection as those players see them, and gives a replay the buildings
     /// those players would remember had their vision been shown since it began.
     ///
+    /// Entire-map vision draws units through every player's eyes while keeping the chosen replay
+    /// visions for switching back. The terrain flag alone does not reveal their sprites.
+    ///
     /// Sets the minimap's tile vision along with the other two globals, as SC:R's own vision
     /// filter does. SC:R folds `minimap_tile_vision_mask ^ local_visions` into its turn sync
     /// hash, but only players send that hash and check it against others; replays and observers
@@ -149,9 +152,13 @@ impl BwScr {
     pub unsafe fn write_replay_visions(&self, players: u8) {
         unsafe {
             self.replay_visions.write(players);
-            self.local_visions.write(players);
+            let local_visions = match self.replay_show_entire_map.resolve() != 0 {
+                true => 0xff,
+                false => players,
+            };
+            self.local_visions.write(local_visions);
             if let Some(mask) = &self.minimap_tile_vision_mask {
-                mask.write(u32::from(players) << 8);
+                mask.write(u32::from(local_visions) << 8);
             }
             self.redraw_units_needing_detection();
             crate::remembered_buildings::rebuild(self);

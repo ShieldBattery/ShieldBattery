@@ -194,6 +194,7 @@
     "dockCollapse": "Свернуть док",
     "dockExpand": "Развернуть док",
     "dockNoRoom": "На этом экране для панели нет места",
+    "entireMap": "Вся карта",
     "eventBaseDestroyed": "Уничтожил базу",
     "eventBaseLost": "Потерял базу",
     "eventBuilt": "Построено",

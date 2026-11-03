@@ -1855,6 +1855,17 @@ impl Preset {
         }
     }
 
+    /// The vision menu over a team game, including the entire-map setting.
+    pub const fn vision_picker() -> Preset {
+        Preset {
+            players: 4,
+            team_size: 2,
+            panels: Screen::Analyst,
+            showcase: Showcase::VisionPicker,
+            hover: Hover::None,
+        }
+    }
+
     pub const ALL: [Preset; 39] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
@@ -1898,13 +1909,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Status),
         Preset::selection_showcase(Showcase::Spells),
         // The vision list is shown over a team game, which is the one with a list worth reading.
-        Preset {
-            players: 4,
-            team_size: 2,
-            panels: Screen::Analyst,
-            showcase: Showcase::VisionPicker,
-            hover: Hover::None,
-        },
+        Preset::vision_picker(),
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),
