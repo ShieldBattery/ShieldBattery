@@ -6,7 +6,10 @@
 //! every group of a player's units gets a label hung just above it: their name on a thin band of
 //! their own color over a tile for every kind of unit in the group with how many of it, in the
 //! order the host ranks the kinds. A label goes where its units are, so it needs no room of its own
-//! on the screen; where two would cover each other, the later one moves up out of the way.
+//! on the screen; where two would cover each other, the later one moves up out of the way, and one
+//! that would stand under a panel steps out from under it where it can. Every count is set on a
+//! dark badge hanging off its tile's corner, the largest thing on the label, so it reads on a small
+//! stream. All of it is drawn under the panels and dialogs.
 //!
 //! Units are picked with the mouse much as the game selects them, and once picked they are the only
 //! ones counted and given bars, labelled where they go, until Alt is let go. Dragging a box picks
@@ -37,39 +40,57 @@ use crate::observer::{
     unit_codes, vision_alpha,
 };
 
+// A label's sizes, in points on a screen 1080 lines tall, which the overlay scales a point to keep
+// to. They are set for a watcher of a stream 720 lines tall, where a point is two thirds of a
+// pixel, to still read the counts through its encoding.
+
 /// Height of the band a group's owner is named on.
-const NAME_BAND_HEIGHT: f32 = 16.0;
+const NAME_BAND_HEIGHT: f32 = 19.0;
 
 /// Text size of the owner's name on the band.
-const NAME_SIZE: f32 = 13.0;
+const NAME_SIZE: f32 = 15.0;
 
 /// How far the band's text is set in from either end of it.
-const NAME_INSET: f32 = 5.0;
+const NAME_INSET: f32 = 6.0;
 
 /// Gap between the band and the tiles under it.
 const BAND_GAP: f32 = 2.0;
 
 /// A unit kind's tile, and the gap between two of them, across a line and down to the next.
-const TILE_WIDTH: f32 = 34.0;
-const TILE_HEIGHT: f32 = 28.0;
-const TILE_GAP: f32 = 3.0;
+const TILE_WIDTH: f32 = 40.0;
+const TILE_HEIGHT: f32 = 33.0;
+const TILE_GAP: f32 = 4.0;
 
 /// How many tiles a line holds before the next kind wraps onto a line of its own.
 const TILES_PER_LINE: usize = 6;
 
 /// Text size of the code a tile names its kind with where the host has no icon atlas.
-const TILE_TEXT_SIZE: f32 = 10.0;
+const TILE_TEXT_SIZE: f32 = 12.0;
 
-/// Text size of the count in a tile's corner, and how far in from the corner it sits.
-const TILE_COUNT_SIZE: f32 = 11.0;
-const TILE_COUNT_INSET: f32 = 2.0;
+/// The badge a tile's count is set on: its height, its text size, how far its text is set in from
+/// its ends, and how far it hangs below the tile, whose bottom right corner it sits over. Hung off
+/// the tile so it covers less of the icon and reads as its own mark rather than as part of it.
+const BADGE_HEIGHT: f32 = 18.0;
+const BADGE_TEXT_SIZE: f32 = 17.0;
+const BADGE_INSET: f32 = 4.0;
+const BADGE_OVERHANG: f32 = 6.0;
+
+/// How much bigger a label hung over a dragged box is than a group's: the watcher dragged it to read
+/// it, and there is only ever one of it for each player.
+const BOX_LABEL_SCALE: f32 = 1.3;
+
+/// How far the dark plate under a label reaches past it, and how dark it is: what sets the label
+/// apart from the units it stands over, which may be its own player's color.
+const PLATE_MARGIN: f32 = 3.0;
+const PLATE_ALPHA: f32 = 0.6;
 
 /// How far above the top of a group's units its label's bottom edge sits.
 const LIFT: f32 = 8.0;
 
-/// Room kept between a label and the screen's edges, and between two labels.
+/// Room kept between a label and the screen's edges, and between two labels or a label and a
+/// panel, which leaves room for the plates under them.
 const EDGE_MARGIN: f32 = 4.0;
-const LABEL_GAP: f32 = 4.0;
+const LABEL_GAP: f32 = 8.0;
 
 /// How much of a player's color the band behind their name is, and how dark the base under it is,
 /// so the name reads the same on any color and over any terrain.
@@ -134,12 +155,13 @@ pub struct OnScreenView {
     pub map_span: Vec2,
 }
 
-/// One label to draw: whose units it counts, how many of each kind (in drawing order), and the top
-/// middle of what it labels, which it is hung over.
+/// One label to draw: whose units it counts, how many of each kind (in drawing order), the top
+/// middle of what it labels, which it is hung over, and how much bigger than a group's it is.
 struct Label<'a> {
     player: &'a OnScreenPlayerView,
     kinds: Vec<(usize, u32)>,
     anchor: Pos2,
+    scale: f32,
 }
 
 /// What the count is about this frame.
@@ -183,7 +205,11 @@ struct PickState {
 }
 
 /// Draws the health bars and labels, fading them all in and out together. `screen` is the rect the
-/// game view fills, and `minimap` the minimap's square where it is up.
+/// game view fills, `panels` the rects of the overlay's panels, and `minimap` the minimap's square
+/// where it is up.
+///
+/// Drawn under every panel and dialog, which cover what they stand over of the map anyway, with
+/// each label moved out from under the panels where it can be.
 ///
 /// Returns where on the minimap the watcher is pressing this frame, for the game's view to be
 /// moved to as a press there moves it without Alt. With Alt, the game would take a press there for
@@ -193,13 +219,14 @@ pub fn render_on_screen_view(
     ctx: &Context,
     shown: bool,
     screen: Rect,
+    panels: &[Rect],
     minimap: Option<Rect>,
 ) -> Option<Pos2> {
     let id = Id::new("sb_on_screen_units");
     let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, minimap);
     let area = Area::new(id)
         .fixed_pos(screen.min)
-        .order(Order::Foreground)
+        .order(Order::Background)
         .interactable(false);
     // Pinned to the units they count, so they fade in and out where they stand rather than sliding.
     motion::presence_area_along(
@@ -225,7 +252,9 @@ pub fn render_on_screen_view(
                 }
                 _ => group_labels(view, screen, |unit| pick.includes(unit, screen)),
             };
-            for (label, rect) in place_labels(ui, labels, screen) {
+            // The minimap is the game's own, and no panel of the overlay's covers it.
+            let panels: Vec<Rect> = panels.iter().copied().chain(minimap).collect();
+            for (label, rect) in place_labels(ui, labels, screen, &panels) {
                 draw_label(ui, view, &label, rect);
             }
         },
@@ -431,6 +460,7 @@ fn group_labels<'a>(
                 player,
                 kinds: count_kinds(view, members),
                 anchor: pos2((left + right) / 2.0, top),
+                scale: 1.0,
             });
         }
     }
@@ -452,6 +482,7 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
                 player,
                 kinds,
                 anchor: dragged.center_top(),
+                scale: BOX_LABEL_SCALE,
             })
         })
         .collect()
@@ -475,29 +506,39 @@ fn count_kinds<'a>(
         .collect()
 }
 
-/// The size of the label for a group of `kinds` kinds whose owner's name is `name_width` wide.
-fn label_size(kinds: usize, name_width: f32) -> Vec2 {
+/// The size of a label of `kinds` kinds whose owner's name is `name_width` wide at `scale`.
+fn label_size(kinds: usize, name_width: f32, scale: f32) -> Vec2 {
     let columns = kinds.clamp(1, TILES_PER_LINE) as f32;
     let lines = kinds.div_ceil(TILES_PER_LINE).max(1) as f32;
     let tiles = vec2(
         TILE_WIDTH * columns + TILE_GAP * (columns - 1.0),
-        TILE_HEIGHT * lines + TILE_GAP * (lines - 1.0),
+        LINE_HEIGHT * lines + TILE_GAP * (lines - 1.0),
     );
     vec2(
-        tiles.x.max(name_width + NAME_INSET * 2.0),
-        NAME_BAND_HEIGHT + BAND_GAP + tiles.y,
+        (tiles.x * scale).max(name_width + NAME_INSET * scale * 2.0),
+        (NAME_BAND_HEIGHT + BAND_GAP + tiles.y) * scale,
     )
 }
+
+/// The height of a line of tiles, with the count badges hanging under it.
+const LINE_HEIGHT: f32 = TILE_HEIGHT + BADGE_OVERHANG;
 
 /// Where every label goes: centered over what it labels and clear of the screen's edges, the
 /// labels lowest on screen placed first so that a label that would cover one already placed is
 /// moved up above it, and under every placed label instead where that would take it off the top.
-fn place_labels<'a>(ui: &Ui, labels: Vec<Label<'a>>, screen: Rect) -> Vec<(Label<'a>, Rect)> {
+/// Then one that would stand under one of `panels` is moved out from under it (see
+/// [`out_from_under`]).
+fn place_labels<'a>(
+    ui: &Ui,
+    labels: Vec<Label<'a>>,
+    screen: Rect,
+    panels: &[Rect],
+) -> Vec<(Label<'a>, Rect)> {
     let mut wanted: Vec<(Label, Rect)> = labels
         .into_iter()
         .map(|label| {
-            let name_width = name_spec(1.0).galley(ui, &label.player.name).size().x;
-            let size = label_size(label.kinds.len(), name_width);
+            let name = name_spec(1.0, label.scale).galley(ui, &label.player.name);
+            let size = label_size(label.kinds.len(), name.size().x, label.scale);
             let bottom_center = label.anchor - vec2(0.0, LIFT);
             let rect = Rect::from_min_size(bottom_center - vec2(size.x / 2.0, size.y), size);
             let rect = keep_on_screen(rect, screen);
@@ -507,26 +548,71 @@ fn place_labels<'a>(ui: &Ui, labels: Vec<Label<'a>>, screen: Rect) -> Vec<(Label
     wanted.sort_by(|(_, a), (_, b)| b.bottom().total_cmp(&a.bottom()));
     let mut placed: Vec<(Label, Rect)> = Vec::with_capacity(wanted.len());
     for (label, mut rect) in wanted {
-        while let Some(blocking) = placed
-            .iter()
-            .map(|(_, other)| *other)
-            .find(|other| other.expand(LABEL_GAP / 2.0).intersects(rect))
-        {
+        let labels: Vec<Rect> = placed.iter().map(|(_, other)| *other).collect();
+        while let Some(&blocking) = labels.iter().find(|&&other| covers(other, rect)) {
             rect = rect.translate(vec2(0.0, blocking.top() - LABEL_GAP - rect.bottom()));
             if rect.top() < screen.top() + EDGE_MARGIN {
                 // No room above what it collided with: hung under the lowest label instead, which
                 // nothing placed so far reaches past.
-                let lowest = placed
-                    .iter()
-                    .map(|(_, other)| other.bottom())
-                    .fold(f32::MIN, f32::max);
+                let lowest = labels.iter().map(Rect::bottom).fold(f32::MIN, f32::max);
                 rect = rect.translate(vec2(0.0, lowest + LABEL_GAP - rect.top()));
                 break;
             }
         }
+        let rect = out_from_under(rect, panels, &labels, screen);
         placed.push((label, rect));
     }
     placed
+}
+
+/// How far a label is moved at most to stand clear of a panel. Any further and it would stand
+/// away from the units it labels, so it is left where it is, under the panel, which covers those
+/// units as well.
+const MAX_PANEL_SHIFT: f32 = 120.0;
+
+/// Whether `other` and a label at `rect` are too close, leaving less than [`LABEL_GAP`] between.
+fn covers(other: Rect, rect: Rect) -> bool {
+    other.expand(LABEL_GAP / 2.0).intersects(rect)
+}
+
+/// `rect` moved the least it takes to stand clear of every one of `panels` it is under: just past
+/// one of their edges, on screen, and clear of the other panels and of `labels`, the ones already
+/// placed. Left where it is when there is no such place within [`MAX_PANEL_SHIFT`].
+fn out_from_under(rect: Rect, panels: &[Rect], labels: &[Rect], screen: Rect) -> Rect {
+    let under: Vec<Rect> = panels
+        .iter()
+        .copied()
+        .filter(|&panel| covers(panel, rect))
+        .collect();
+    if under.is_empty() {
+        return rect;
+    }
+    let room = screen.shrink(EDGE_MARGIN);
+    let clear = |moved: &Rect| {
+        room.contains_rect(*moved)
+            && panels
+                .iter()
+                .chain(labels)
+                .all(|&other| !covers(other, *moved))
+    };
+    under
+        .iter()
+        .flat_map(|panel| {
+            [
+                vec2(0.0, panel.top() - LABEL_GAP - rect.bottom()),
+                vec2(0.0, panel.bottom() + LABEL_GAP - rect.top()),
+                vec2(panel.left() - LABEL_GAP - rect.right(), 0.0),
+                vec2(panel.right() + LABEL_GAP - rect.left(), 0.0),
+            ]
+        })
+        .filter(|shift| shift.length() <= MAX_PANEL_SHIFT)
+        .map(|shift| rect.translate(shift))
+        .filter(clear)
+        .min_by(|a, b| {
+            let shift = |moved: &Rect| moved.min.distance(rect.min);
+            shift(a).total_cmp(&shift(b))
+        })
+        .unwrap_or(rect)
 }
 
 /// `rect` moved the least it takes to sit inside `screen`, short of its edges.
@@ -537,8 +623,8 @@ fn keep_on_screen(rect: Rect, screen: Rect) -> Rect {
     rect.translate(vec2(dx, dy))
 }
 
-fn name_spec(alpha: f32) -> text::TextSpec {
-    text::player_name(NAME_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha))
+fn name_spec(alpha: f32, scale: f32) -> text::TextSpec {
+    text::player_name(NAME_SIZE * scale).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha))
 }
 
 /// Paints the box the watcher dragged: a hairline edge over a faint wash, so what is inside it
@@ -592,14 +678,21 @@ fn paint_bar(ui: &Ui, rect: Rect, fraction: f32, color: Color32, alpha: f32) {
     }
 }
 
-/// Draws one label into `rect`: the owner's name on a band of their color as wide as the label,
-/// then a tile for each kind, wrapping onto as many lines as it takes.
+/// Draws one label into `rect`: a dark plate under it all, then the owner's name on a band of
+/// their color as wide as the label, then a tile for each kind, wrapping onto as many lines as it
+/// takes.
 fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
     let player = label.player;
+    let scale = label.scale;
     let alpha = vision_alpha(player.vision);
-    let band = Rect::from_min_size(rect.min, vec2(rect.width(), NAME_BAND_HEIGHT));
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     let painter = ui.painter();
+    painter.rect_filled(
+        rect.expand(PLATE_MARGIN),
+        theme::radius(theme::RADIUS_CHIP + PLATE_MARGIN as u8),
+        Color32::BLACK.gamma_multiply(PLATE_ALPHA * alpha),
+    );
+    let band = Rect::from_min_size(rect.min, vec2(rect.width(), NAME_BAND_HEIGHT * scale));
     painter.rect_filled(
         band,
         corner_radius,
@@ -612,17 +705,19 @@ fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
     );
     paint_text(
         ui,
-        band.shrink2(vec2(NAME_INSET, 0.0)),
-        &name_spec(alpha),
+        band.shrink2(vec2(NAME_INSET * scale, 0.0)),
+        &name_spec(alpha, scale),
         &player.name,
         Align::Center,
     );
 
+    let (tile_width, tile_height) = (TILE_WIDTH * scale, TILE_HEIGHT * scale);
+    let gap = TILE_GAP * scale;
     let columns = label.kinds.len().clamp(1, TILES_PER_LINE) as f32;
-    let tiles_width = TILE_WIDTH * columns + TILE_GAP * (columns - 1.0);
+    let tiles_width = tile_width * columns + gap * (columns - 1.0);
     // The tiles are centered under the band, which is wider than them where the name is.
     let left = rect.center().x - tiles_width / 2.0;
-    let top = band.bottom() + BAND_GAP;
+    let top = band.bottom() + BAND_GAP * scale;
     for (i, &(kind, count)) in label.kinds.iter().enumerate() {
         let Some(icon) = view.kinds.get(kind) else {
             continue;
@@ -630,17 +725,18 @@ fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
         let (line, column) = (i / TILES_PER_LINE, i % TILES_PER_LINE);
         let tile = Rect::from_min_size(
             pos2(
-                left + column as f32 * (TILE_WIDTH + TILE_GAP),
-                top + line as f32 * (TILE_HEIGHT + TILE_GAP),
+                left + column as f32 * (tile_width + gap),
+                top + line as f32 * (LINE_HEIGHT * scale + gap),
             ),
-            vec2(TILE_WIDTH, TILE_HEIGHT),
+            vec2(tile_width, tile_height),
         );
-        draw_tile(ui, tile, icon, count, player.color, alpha);
+        draw_tile(ui, tile, icon, player.color, alpha, scale);
+        draw_badge(ui, tile, count, alpha, scale);
     }
 }
 
-/// Draws one kind's tile: its icon washed in its `owner`'s color, and how many of it there are.
-fn draw_tile(ui: &Ui, rect: Rect, icon: &ProductionIcon, count: u32, owner: Color32, alpha: f32) {
+/// Draws one kind's tile: its icon washed in its `owner`'s color.
+fn draw_tile(ui: &Ui, rect: Rect, icon: &ProductionIcon, owner: Color32, alpha: f32, scale: f32) {
     paint_tile_chrome(ui, rect, false);
     paint_owner_wash(ui.painter(), rect, owner, alpha);
     let icon_rect = rect.shrink(theme::HAIRLINE);
@@ -657,24 +753,43 @@ fn draw_tile(ui: &Ui, rect: Rect, icon: &ProductionIcon, count: u32, owner: Colo
         None => paint_text(
             ui,
             icon_rect,
-            &text::body(TILE_TEXT_SIZE, text::BodyWeight::Semibold)
+            &text::body(TILE_TEXT_SIZE * scale, text::BodyWeight::Semibold)
                 .with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
             &unit_codes::code_or_index(icon.index),
             Align::Center,
         ),
     }
-    // Tucked into the corner as the production tiles' counts are, so the tile still reads as one
-    // thing with a number on it rather than as two boxes.
-    let spec = text::body(TILE_COUNT_SIZE, text::BodyWeight::Semibold);
-    let galley = spec.galley(ui, &count.to_string());
-    ui.painter().galley(
-        pos2(
-            rect.right() - TILE_COUNT_INSET - galley.size().x,
-            rect.bottom() - TILE_COUNT_INSET - galley.size().y,
-        ),
-        galley,
-        theme::TEXT_PRIMARY.gamma_multiply(alpha),
+}
+
+/// Draws how many of a kind there are on a dark badge over the bottom right corner of its `tile`,
+/// hanging below it: the number the label is read for, so set larger than anything else on it.
+fn draw_badge(ui: &Ui, tile: Rect, count: u32, alpha: f32, scale: f32) {
+    let text = count.to_string();
+    let spec = text::numeral(BADGE_TEXT_SIZE * scale)
+        .with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha));
+    let height = BADGE_HEIGHT * scale;
+    let width = (spec.galley(ui, &text).size().x + BADGE_INSET * scale * 2.0).max(height);
+    let bottom = tile.bottom() + BADGE_OVERHANG * scale;
+    let badge = Rect::from_min_max(
+        pos2(tile.right() - width, bottom - height),
+        pos2(tile.right(), bottom),
     );
+    let painter = ui.painter();
+    painter.rect_filled(
+        badge,
+        height / 2.0,
+        Color32::BLACK.gamma_multiply(0.9 * alpha),
+    );
+    painter.rect_stroke(
+        badge,
+        height / 2.0,
+        Stroke::new(
+            theme::HAIRLINE,
+            theme::alpha(theme::TEXT_PRIMARY, 0.35 * alpha),
+        ),
+        StrokeKind::Inside,
+    );
+    paint_text(ui, badge, &spec, &text, Align::Center);
 }
 
 #[cfg(test)]
@@ -1021,6 +1136,36 @@ mod tests {
         let (after, look) = frame(&ctx, &view, on_minimap(), vec![]);
         assert!(matches!(after, Pick::Everything));
         assert_eq!(look, None);
+    }
+
+    #[test]
+    fn a_label_moves_the_least_it_takes_out_from_under_a_panel() {
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        let size = vec2(80.0, 60.0);
+        let bottom = Rect::from_min_max(pos2(0.0, 800.0), pos2(400.0, 1000.0));
+        let label = Rect::from_min_size(pos2(300.0, 780.0), size);
+        let moved = out_from_under(label, &[bottom], &[], screen);
+        assert_eq!(moved, label.translate(vec2(0.0, 800.0 - LABEL_GAP - 840.0)));
+        // Just over a wing's inner edge, it steps out past that edge.
+        let wing = Rect::from_min_max(pos2(0.0, 200.0), pos2(300.0, 700.0));
+        let label = Rect::from_min_size(pos2(280.0, 400.0), size);
+        let moved = out_from_under(label, &[wing], &[], screen);
+        assert_eq!(moved, label.translate(vec2(300.0 + LABEL_GAP - 280.0, 0.0)));
+        // With no room above a panel along the top, it goes under it.
+        let top = Rect::from_min_max(pos2(0.0, 0.0), pos2(1000.0, 100.0));
+        let label = Rect::from_min_size(pos2(300.0, 30.0), size);
+        let moved = out_from_under(label, &[top], &[], screen);
+        assert_eq!(moved.top(), top.bottom() + LABEL_GAP);
+        // A place already taken by a label is no way out.
+        let taken = Rect::from_min_size(pos2(300.0, 108.0), size);
+        let moved = out_from_under(label, &[top], &[taken], screen);
+        assert_eq!(moved, label);
+        // Deep under a big panel, it stays with its units rather than stand far from them.
+        let deep = Rect::from_min_size(pos2(100.0, 400.0), size);
+        assert_eq!(out_from_under(deep, &[wing], &[], screen), deep);
+        // And a label clear of everything stays put.
+        let clear = Rect::from_min_size(pos2(600.0, 400.0), size);
+        assert_eq!(out_from_under(clear, &[bottom, top], &[], screen), clear);
     }
 
     #[test]
