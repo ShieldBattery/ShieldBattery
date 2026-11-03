@@ -2,16 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { GameSourceFilter } from '../../common/games/game-filters'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { elevationPlus1 } from '../material/shadows'
-import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleLarge } from '../styles/typography'
 import { getGames } from './action-creators'
-import { parseSource } from './game-filter-url'
 import { GameListFilters, GameListView } from './game-list-view'
 import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
 import { GameListSearchPage } from './use-game-list-search'
@@ -102,11 +99,6 @@ export function GameList() {
   // but if this page is meant to feel live we should re-run it periodically.
   const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
 
-  // The live-games feed is matchmaking-only (`load_live_game_candidates` filters by source
-  // server-side), so showing it above a list filtered to custom games would contradict the filter.
-  const [sourceParam] = useLocationSearchParam('source')
-  const showLiveGames = parseSource(sourceParam) !== GameSourceFilter.Custom
-
   const loadPage = (
     filters: GameListFilters,
     offset: number,
@@ -131,7 +123,7 @@ export function GameList() {
   return (
     <CenteredContentContainer $fullWidth={true} data-content-fullbleed='' ref={setScrollParent}>
       <PageColumn>
-        {showLiveGames ? <LiveGamesFeed query={data} /> : null}
+        <LiveGamesFeed query={data} />
 
         <GameListView
           loadPage={loadPage}
