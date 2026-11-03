@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT user_id as \"user_id: SbUserId\", edit_permissions, debug, ban_users,\n                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_game_reports,\n                        manage_restricted_names, manage_signup_codes, manage_live_streams,\n                        use_development_client\n                    FROM permissions\n                    WHERE user_id = ANY($1)\n            ",
+  "query": "\n                    SELECT user_id as \"id\", edit_permissions, debug, ban_users, manage_leagues,\n                        manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_game_reports,\n                        manage_restricted_names, manage_signup_codes, manage_live_streams,\n                        review_map_families,\n                        use_development_client\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "user_id: SbUserId",
+        "name": "id",
         "type_info": "Int4",
         "origin": {
           "Table": {
@@ -203,6 +203,17 @@
       },
       {
         "ordinal": 18,
+        "name": "review_map_families",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "review_map_families"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
         "name": "use_development_client",
         "type_info": "Bool",
         "origin": {
@@ -215,7 +226,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int4Array"
+        "Int4"
       ]
     },
     "nullable": [
@@ -237,8 +248,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "0004de0ff11b387eb14d55c93245d7ea139fdae4873339cc5655634521d53d8e"
+  "hash": "921a6fb7adf7c37314307be69855163571c6c33b8391446392d95088fdbd4340"
 }

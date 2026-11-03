@@ -9,6 +9,7 @@
 
 pub mod edit;
 pub mod graphql;
+pub mod history;
 pub mod proposals;
 pub mod rules;
 
@@ -29,8 +30,20 @@ use crate::maps::families::rules::{
 use crate::maps::parse::{FINGERPRINT_VERSION, MAP_PARSER_VERSION};
 
 /// How a file in a family relates to its parent.
-#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq, Hash, sqlx::Type)]
+#[derive(
+    async_graphql::Enum,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    sqlx::Type,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[sqlx(type_name = "map_family_relation", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum MapFamilyRelation {
     /// The family's first file. It has no parent.
     Root,
@@ -54,19 +67,37 @@ impl MapFamilyRelation {
 }
 
 /// Who set a file's place in its family. A place can only be changed by the same or a higher
-/// source: moderators over publishers over the detection rules.
+/// source: moderators over reviewers over publishers over the detection rules.
 #[derive(
-    async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord, sqlx::Type,
+    async_graphql::Enum,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    PartialOrd,
+    Ord,
+    sqlx::Type,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 #[sqlx(type_name = "map_link_source", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum MapLinkSource {
     /// The detection rules, e.g. for files with the same scenario.
     Rule,
     /// The user who published the map.
     Publisher,
+    /// A trusted user outside staff who works the families queue for listed maps.
+    Reviewer,
     /// Staff.
     Moderator,
 }
+
+/// The rule of a suggestion whose proposal a person wrote (e.g. carried over from a review done
+/// outside this database). Rescans keep its proposal instead of replacing it with the rules'.
+pub const REVIEW_RULE: &str = "review";
 
 /// The least terrain similarity for a pair to be a candidate.
 const MIN_TERRAIN_SIMILARITY: f32 = 0.90;
@@ -307,7 +338,8 @@ impl FamilyDetector {
             .into_iter()
             .map(|s| ((s.map_a, s.map_b), s.status))
             .collect();
-        // Open suggestions are proposed again, so they reflect the map's latest analysis.
+        // Open suggestions are proposed again, so they reflect the map's latest analysis. A
+        // suggestion carrying a person's proposal (`REVIEW_RULE`) keeps it.
         for (&(a, b), status) in &existing {
             if status == "open" && !candidates.contains_key(&(a, b)) {
                 candidates.insert(
@@ -365,6 +397,7 @@ impl FamilyDetector {
                         SET verdict = $3, verdict_rules_version = $4, status = $5,
                             decided_at = CASE WHEN $6 THEN now() ELSE NULL END
                         WHERE map_a = $1 AND map_b = $2 AND status = 'open'
+                            AND verdict->>'rule' IS DISTINCT FROM $7
                     "#,
                     candidate.a as _,
                     candidate.b as _,
@@ -372,6 +405,7 @@ impl FamilyDetector {
                     FAMILY_RULES_VERSION,
                     status,
                     decided,
+                    REVIEW_RULE,
                 )
                 .execute(&mut *tx)
                 .await
