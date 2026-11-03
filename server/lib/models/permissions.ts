@@ -26,6 +26,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
     manageRestrictedNames: props.manage_restricted_names,
     manageSignupCodes: props.manage_signup_codes,
     manageLiveStreams: props.manage_live_streams,
+    reviewMapFamilies: props.review_map_families,
   }
 }
 
@@ -51,7 +52,7 @@ export async function getPermissions(
         manage_map_pools, mass_delete_maps, manage_matchmaking, manage_matchmaking_times,
         moderate_chat_channels, manage_matchmaking_seasons, manage_news,
         manage_bug_reports, manage_game_reports, manage_restricted_names, manage_signup_codes,
-        manage_live_streams, use_development_client
+        manage_live_streams, review_map_families, use_development_client
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -89,7 +90,8 @@ export async function updatePermissions(
       manage_game_reports=${!!perms.manageGameReports},
       manage_restricted_names=${!!perms.manageRestrictedNames},
       manage_signup_codes=${!!perms.manageSignupCodes},
-      manage_live_streams=${!!perms.manageLiveStreams}
+      manage_live_streams=${!!perms.manageLiveStreams},
+      review_map_families=${!!perms.reviewMapFamilies}
     WHERE user_id = ${userId}
     RETURNING *;
   `
