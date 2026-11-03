@@ -79,6 +79,7 @@ export const Container = styled(m.div)`
 export const NavContainer = styled.div`
   width: 272px;
   padding: 16px 0;
+  overflow-y: auto;
   background-color: var(--color-grey-blue30);
 
   flex-shrink: 0;
@@ -181,9 +182,14 @@ const Content = styled.div`
   max-width: 704px;
 `
 
+/*
+  As tall as the close button beside the content, so the title starts centered on it. The bottom
+  margin leaves 16px under the title's text.
+*/
 const TitleBar = styled.div`
   position: relative;
-  margin-bottom: 16px;
+  min-height: 48px;
+  margin-bottom: 10px;
 
   display: flex;
   flex-direction: row;
@@ -209,11 +215,11 @@ const CloseButton = styled(IconButton)`
 
 const LabeledCloseButton = styled.div`
   /*
-    Stays put while the settings body scrolls beneath it. The offset matches ContentContainer's
-    padding so the button sticks exactly where it starts.
+    Stays put while the settings body scrolls beneath it. Sticky offsets are measured from inside
+    ContentContainer's padding, so an offset of 0 sticks it exactly where it starts.
   */
   position: sticky;
-  top: 16px;
+  top: 0;
   ${labelSmall};
   display: flex;
   flex-direction: column;
