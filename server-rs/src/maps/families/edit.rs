@@ -1180,7 +1180,8 @@ mod tests {
 
     #[test]
     fn sources_rank_moderators_highest() {
-        assert!(MapLinkSource::Moderator > MapLinkSource::Publisher);
+        assert!(MapLinkSource::Moderator > MapLinkSource::Reviewer);
+        assert!(MapLinkSource::Reviewer > MapLinkSource::Publisher);
         assert!(MapLinkSource::Publisher > MapLinkSource::Rule);
     }
 }

@@ -181,16 +181,6 @@ pub async fn snapshot(
         .collect())
 }
 
-/// The families the snapshot's members are in.
-pub fn families(snapshot: &Snapshot) -> Vec<Uuid> {
-    snapshot
-        .values()
-        .map(|m| m.family_id)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
 /// The members whose place differs between the snapshots.
 pub fn diff(before: &Snapshot, after: &Snapshot) -> Vec<MapFamilyMemberChange> {
     let ids: BTreeSet<&Uuid> = before.keys().chain(after.keys()).collect();

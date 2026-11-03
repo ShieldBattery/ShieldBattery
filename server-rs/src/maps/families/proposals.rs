@@ -481,6 +481,7 @@ pub async fn load_group(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::maps::families::REVIEW_RULE;
 
     fn id(n: u8) -> SbMapId {
         SbMapId(Uuid::from_bytes([n; 16]))
@@ -604,6 +605,26 @@ mod tests {
         let links = propose_tree(&[id(1), id(2), id(3)], &refs, &files);
         // 1 is in a family, so it's never placed even though the rules call 2 older than it.
         assert_eq!(placed(&links), [(2, None, Root), (3, Some(2), Version)]);
+    }
+
+    #[test]
+    fn reviewed_edges_beat_the_rules() {
+        use MapFamilyRelation::*;
+        let files = HashMap::from([
+            (id(1), file(1, false)),
+            (id(2), file(2, false)),
+            (id(3), file(3, false)),
+        ]);
+        let mut reviewed = suggestion(1, 3, "fork", Some("a"), 0.5);
+        reviewed.verdict.0["rule"] = REVIEW_RULE.into();
+        let suggestions = [suggestion(2, 3, "version", Some("a"), 0.99), reviewed];
+        let refs: Vec<_> = suggestions.iter().collect();
+        let links = propose_tree(&[id(1), id(2), id(3)], &refs, &files);
+        // The rules' edge is a more similar version, but the person's fork still places 3.
+        assert_eq!(
+            placed(&links),
+            [(1, None, Root), (2, None, Root), (3, Some(1), Fork)]
+        );
     }
 
     #[test]
