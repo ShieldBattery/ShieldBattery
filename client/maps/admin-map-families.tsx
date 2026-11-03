@@ -1,11 +1,11 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
-import { atom, useAtomValue } from 'jotai'
+import { atom, useAtom, useAtomValue } from 'jotai'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useClient, useMutation, useQuery } from 'urql'
 import { Link, Route, Switch } from 'wouter'
-import { mapIdFromRouteSegment, urlForMap } from '../../common/map-url'
+import { mapIdFromRouteSegment, urlForMap, urlForMapCompare } from '../../common/map-url'
 import { makeSbMapId, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -27,6 +27,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { jotaiStore } from '../jotai-store'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
+import { LinkButton } from '../material/link-button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -38,7 +39,6 @@ import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import {
   bodyLarge,
@@ -50,7 +50,6 @@ import {
   titleMedium,
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { openMapCompareDialog } from './action-creators'
 import {
   FamilyEditorFile,
   FamilyPlacement,
@@ -78,6 +77,24 @@ function editorUrl(mapId: SbMapId, withIds: ReadonlyArray<SbMapId> = []): string
 
 /** Map ids of the groups skipped with "Next" this session, so "Next" doesn't come back to them. */
 const skippedMapIdsAtom = atom<ReadonlySet<SbMapId>>(new Set<SbMapId>())
+
+/**
+ * The editor's unsaved changes, kept outside the editor so they survive leaving its page (to
+ * compare two of its maps, say) and coming back. Only the most recently edited group's are kept.
+ */
+const editorDraftAtom = atom<
+  | {
+      /** The editor's map ids, joined. */
+      key: string
+      edits: ReadonlyMap<SbMapId, FamilyPlacement>
+      /** Label edits by family id. */
+      familyLabels: ReadonlyMap<string, string>
+    }
+  | undefined
+>(undefined)
+
+const NO_EDITS: ReadonlyMap<SbMapId, FamilyPlacement> = new Map()
+const NO_LABEL_EDITS: ReadonlyMap<string, string> = new Map()
 
 const RELATION_LABELS: Record<MapFamilyRelation, string> = {
   [MapFamilyRelation.Root]: 'Top of a tree',
@@ -1045,12 +1062,25 @@ function FamilyEditor({
   onAddFile: (id: SbMapId) => void
   refetch: () => void
 }) {
-  const dispatch = useAppDispatch()
   const client = useClient()
   const snackbarController = useSnackbarController()
   const skippedMapIds = useAtomValue(skippedMapIdsAtom)
-  const [edits, setEdits] = useState<ReadonlyMap<SbMapId, FamilyPlacement>>(new Map())
-  const [familyLabels, setFamilyLabels] = useState<ReadonlyMap<string, string>>(new Map())
+  const draftKey = mapIds.join(',')
+  const [draft, setDraft] = useAtom(editorDraftAtom)
+  const edits = draft?.key === draftKey ? draft.edits : NO_EDITS
+  const familyLabels = draft?.key === draftKey ? draft.familyLabels : NO_LABEL_EDITS
+  const setEdits = (newEdits: ReadonlyMap<SbMapId, FamilyPlacement>) =>
+    setDraft(d => ({
+      key: draftKey,
+      edits: newEdits,
+      familyLabels: d?.key === draftKey ? d.familyLabels : NO_LABEL_EDITS,
+    }))
+  const setFamilyLabels = (newLabels: ReadonlyMap<string, string>) =>
+    setDraft(d => ({
+      key: draftKey,
+      edits: d?.key === draftKey ? d.edits : NO_EDITS,
+      familyLabels: newLabels,
+    }))
   const [applying, setApplying] = useState(false)
 
   const [, link] = useMutation(FamilyLinkMutation)
@@ -1271,7 +1301,6 @@ function FamilyEditor({
               )
             }
             onRemove={() => onImmediate("Couldn't remove the map", removeMember({ mapId: row.id }))}
-            onCompare={parentId => dispatch(openMapCompareDialog(parentId, row.id))}
           />
         ))}
       </Rows>
@@ -1297,11 +1326,13 @@ function FamilyEditor({
                     {nameOf(older)} → {nameOf(newer)} <MutedText>· {facts.join(' · ')}</MutedText>
                   </PairText>
                   <Tooltip text='Compare' position='bottom' tabIndex={-1}>
-                    <IconButton
-                      icon={<MaterialIcon icon='compare' />}
-                      ariaLabel='Compare'
-                      onClick={() => dispatch(openMapCompareDialog(older, newer))}
-                    />
+                    <LinkButton href={urlForMapCompare(older, newer)}>
+                      <IconButton
+                        styledAs='div'
+                        icon={<MaterialIcon icon='compare' />}
+                        ariaLabel='Compare'
+                      />
+                    </LinkButton>
                   </Tooltip>
                   <OverflowMenu
                     label='Pair actions'
@@ -1418,7 +1449,6 @@ function FamilyFileRow({
   onChange,
   onPin,
   onRemove,
-  onCompare,
 }: {
   depth: number
   file: FamilyEditorFile
@@ -1431,7 +1461,6 @@ function FamilyFileRow({
   onChange: (placement: FamilyPlacement) => void
   onPin: (pinned: boolean) => void
   onRemove: () => void
-  onCompare: (parentId: SbMapId) => void
 }) {
   const { t } = useTranslation()
   const format = useFormat(firstSeenFormat)
@@ -1549,11 +1578,13 @@ function FamilyFileRow({
       <RowActions>
         {placement.kind === 'tree' && placement.parentId ? (
           <Tooltip text='Compare with parent' position='bottom' tabIndex={-1}>
-            <IconButton
-              icon={<MaterialIcon icon='compare' />}
-              ariaLabel='Compare with parent'
-              onClick={() => onCompare(placement.parentId!)}
-            />
+            <LinkButton href={urlForMapCompare(placement.parentId, file.id)}>
+              <IconButton
+                styledAs='div'
+                icon={<MaterialIcon icon='compare' />}
+                ariaLabel='Compare with parent'
+              />
+            </LinkButton>
           </Tooltip>
         ) : null}
         {menuItems.length ? (
