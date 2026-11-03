@@ -329,13 +329,12 @@ where it has shields), and each player's units are split into the groups they st
 getting a label hung just above it: the player's name on a thin band of their own color, over a tile
 per kind of unit in the group (its icon, or its code without an atlas, and how many), highest rank
 first (units.dat's rank, the one that decides whose portrait and voice a mixed selection gets), six
-to a line. Groups are measured on the screen, since the labels are a fixed size there, by HDBSCAN
-over the units' places on the screen (`observer::on_screen::grouping`): fewer than five units are
-never a group of their own, so a few stragglers behind an army are part of it; groups the clustering
-would split but that stand within 96 points of each other are kept whole, which is what merges
-groups as the view zooms out; and a unit that fell out of a group rejoins it while the gap is within
-a reach that grows with the fourth root of the group's size. Whatever is left is grouped by distance
-alone. A label needs no room of its own, since it goes where its units are; one that would cover
+to a line. A group is every unit a chain of near pairs joins (`observer::on_screen::grouping`): two
+units are near within three tiles on the map, or four between two workers, so a base's workers
+spread over its mineral line are one group, and always near within 96 points on the screen, so
+groups merge as the view zooms out. Whether two units are joined depends only on where those two
+stand, so panning the view never regroups anything. A label needs no room of its own, since it goes
+where its units are; one that would cover
 another moves up out of the way, and every label is kept on screen. With Alt held, units are picked
 as the game selects them, and once picked only they are counted and given bars, labelled where they
 go, until Alt is let go: dragging a box picks the units in it (drawn while it is dragged, with a

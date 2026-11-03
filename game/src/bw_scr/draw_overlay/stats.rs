@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use bw_dat::{Game, Race, Unit, UnitId};
-use egui::{Color32, Rect, pos2};
+use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::kit::theme;
 use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
@@ -130,6 +130,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
                 .map_or(0, |units| units.to_unique_id(unit)),
             player,
             kind,
+            worker: id.is_worker(),
             position: to_view(x, y),
             bounds: Rect::from_min_max(
                 to_view(x - f32::from(body.left), y - f32::from(body.top)),
@@ -170,6 +171,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
             .map(|kind| production::unit_icon(kinds[kind], bw))
             .collect(),
         units,
+        map_span: vec2(view.width as f32, view.height as f32),
     }
 }
 
