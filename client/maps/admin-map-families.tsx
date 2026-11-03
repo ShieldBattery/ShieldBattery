@@ -84,8 +84,8 @@ const skippedMapIdsAtom = atom<ReadonlySet<SbMapId>>(new Set<SbMapId>())
  */
 const editorDraftAtom = atom<
   | {
-      /** The editor's map ids, joined. */
-      key: string
+      /** The map the editor was opened for, which the editor component is keyed by. */
+      key: SbMapId
       edits: ReadonlyMap<SbMapId, FamilyPlacement>
       /** Label edits by family id. */
       familyLabels: ReadonlyMap<string, string>
@@ -1065,7 +1065,7 @@ function FamilyEditor({
   const client = useClient()
   const snackbarController = useSnackbarController()
   const skippedMapIds = useAtomValue(skippedMapIdsAtom)
-  const draftKey = mapIds.join(',')
+  const draftKey = mapIds[0]
   const [draft, setDraft] = useAtom(editorDraftAtom)
   const edits = draft?.key === draftKey ? draft.edits : NO_EDITS
   const familyLabels = draft?.key === draftKey ? draft.familyLabels : NO_LABEL_EDITS

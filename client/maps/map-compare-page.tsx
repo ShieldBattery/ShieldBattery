@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { useRoute } from 'wouter'
+import { Link, useRoute } from 'wouter'
 import {
   ALL_MAP_COMPARE_VIEWS,
   MAP_COMPARE_SEGMENT,
@@ -389,7 +389,7 @@ const Names = styled.div`
   min-width: 0;
 `
 
-const NameLink = styled.a`
+const NameLink = styled(Link)`
   ${titleSmall};
   overflow: hidden;
   text-overflow: ellipsis;
