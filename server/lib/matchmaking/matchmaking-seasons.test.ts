@@ -81,6 +81,13 @@ describe('matchmaking/matchmaking-seasons', () => {
     expect(seasons[0].startDate).toEqual(new Date('2023-01-01'))
   })
 
+  test('should retry loading seasons after a failed load', async () => {
+    getMatchmakingSeasonsMock.mockRejectedValueOnce(new Error('connection lost'))
+
+    await expect(service.getAllSeasons()).rejects.toThrow('connection lost')
+    await expect(service.getAllSeasons()).resolves.toHaveLength(3)
+  })
+
   test('should retrieve the right season for a given date', async () => {
     let [season, seasonEnd] = await service.getSeasonForDate(new Date('2022-05-01T00:00:00'))
     expect(season.id).toBe(1)
