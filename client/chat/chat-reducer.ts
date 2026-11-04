@@ -506,6 +506,13 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
     return
   }
 
+  // A read position that already covers the message leaves nothing unread: the server can announce
+  // a message after a page that holds it has been read.
+  const readTime = state.idToLastReadTime.get(channelId)
+  if (arrival.time !== undefined && readTime !== undefined && arrival.time <= readTime) {
+    return
+  }
+
   state.unreadChannels.add(channelId)
 
   if (isChannelActivated) {

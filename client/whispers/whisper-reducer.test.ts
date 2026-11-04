@@ -689,6 +689,23 @@ describe('client/whispers/whisper-reducer', () => {
       expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
       expect(sessionOf(state).hasUnread).toBe(true)
     })
+
+    test('does not raise the unread flag once the read position covers it', () => {
+      let state = makeState({ messages: [textMessage(100), textMessage(200)], lastReadTime: 200 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test('a covered message announced after its window was dropped does not raise the flag', () => {
+      let state = makeState({ lastReadTime: 200 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
   })
 
   describe('pages in flight for a window that no longer exists', () => {

@@ -1163,6 +1163,18 @@ describe('client/chat/chat-reducer', () => {
       expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
     })
 
+    test('a message already in the window and already read does not raise the unread flag', () => {
+      let state = makeState({
+        messages: [textMessage(100), textMessage(200)],
+        lastReadTime: 200,
+      })
+
+      state = chatReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
     test('a message already in the window still counts as an unread arrival', () => {
       let state = makeState({
         messages: [textMessage(100), textMessage(200)],
@@ -1205,6 +1217,22 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, updateMessageAction(100, true))
 
       expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a message the read position already covers does not raise the unread flag', () => {
+      const state = makeState({ lastReadTime: 200 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, false))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a message past the read position raises the unread flag', () => {
+      const state = makeState({ lastReadTime: 200 })
+
+      const result = chatReducer(state, updateMessageAction(201, false, false))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
 
     test('a read-time advance past the mention clears the derived unread-mention state', () => {

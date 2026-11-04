@@ -330,6 +330,16 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
     return
   }
 
+  // A read position that already covers the message leaves nothing unread: the server can announce
+  // a message after a page that holds it has been read.
+  if (
+    arrival.time !== undefined &&
+    session.lastReadTime !== undefined &&
+    arrival.time <= session.lastReadTime
+  ) {
+    return
+  }
+
   session.hasUnread = true
 
   if (session.activated) {
