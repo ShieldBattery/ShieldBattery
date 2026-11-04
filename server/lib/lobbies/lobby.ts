@@ -1244,8 +1244,17 @@ function findObserverSlotToFill(team: Team): number {
   return closedIndex !== -1 ? closedIndex : team.slots.findIndex(isSlotUnoccupied)
 }
 
-function countComputers(lobby: Lobby): number {
-  return getLobbySlots(lobby).filter(slot => slot.type === SlotType.Computer).length
+/**
+ * Returns the race of each computer opponent among a lobby's (non-UMS) computers. A team melee/ffa
+ * team of computers plays as a single player in the game, so it counts once, with the race its
+ * slots share; every other computer slot is an opponent of its own.
+ */
+function computerOpponentRaces(lobby: Lobby): RaceChar[] {
+  const isControlled = hasControlledOpens(lobby.gameType)
+  return lobby.teams.flatMap(team => {
+    const computers = team.slots.filter(slot => slot.type === SlotType.Computer)
+    return (isControlled ? computers.slice(0, 1) : computers).map(slot => slot.race)
+  })
 }
 
 /** The settings of a lobby that its host can change while it is gathering. */
@@ -1281,7 +1290,8 @@ export interface LobbySettings {
  * has just displaced onto it, and only into player slots — waiting for a seat is waiting to play,
  * so it never turns someone into an observer. Whoever still finds no slot keeps waiting, in the
  * order they were already in. Computers are added back after everyone else, and only as far as the
- * new layout has room for them.
+ * new layout has room for them. They come back as the opponents they were: a team melee/ffa team of
+ * computers is one computer, and a computer moving into team melee/ffa claims an empty team whole.
  *
  * The host has no claim on a seat beyond going first, so a change that leaves them without one
  * (turning observers off while they are observing a lobby whose player slots are all taken) puts
@@ -1418,27 +1428,19 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   if (!keepsLayout && !isUms(next.gameType)) {
     // UMS computers are part of the map, so they come back with the layout rather than from the
     // lobby that preceded it.
-    const races = getLobbySlots(lobby)
-      .filter(slot => slot.type === SlotType.Computer)
-      .map(slot => slot.race)
-    let placed = 0
-    while (placed < races.length) {
+    for (const race of computerOpponentRaces(lobby)) {
       // A controlled team is built around the humans in it and only holds computers as a whole
-      // team of them, so in those game types computers get a seat by claiming a team that is
-      // still empty; once none is left the remaining computers have nowhere to go. (The general
-      // seat search can't be used to find one: it ranks teams by open seats, which can prefer a
-      // human's team over a smaller empty one.)
+      // team of them, which plays as a single computer, so in those game types each computer gets
+      // a seat by claiming a team that is still empty; once none is left the remaining computers
+      // have nowhere to go. (The general seat search can't be used to find one: it ranks teams by
+      // open seats, which can prefer a human's team over a smaller empty one.)
       const seat = hasControlledOpens(next.gameType)
         ? findEmptyTeamSeat(updated)
         : findPlayerSeat(updated)
       if (!seat) {
         break
       }
-      const before = countComputers(updated)
-      updated = addPlayer(updated, seat[0], seat[1], createComputer(races[placed]))
-      // Adding a computer to an empty team in team melee/ffa fills the rest of that team with
-      // computers, which stands in for as many of the ones still to be placed.
-      placed += Math.max(1, countComputers(updated) - before)
+      updated = addPlayer(updated, seat[0], seat[1], createComputer(race))
     }
   }
 

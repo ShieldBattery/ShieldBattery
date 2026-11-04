@@ -2169,6 +2169,15 @@ const LOST_TEMPLE: MapInfo = {
 }
 
 /** The settings a lobby currently has, with the ones a test is changing applied on top. */
+function computerSlots(lobby: Lobby): Slot[] {
+  return lobby.teams.flatMap(team => team.slots).filter(slot => slot.type === 'computer')
+}
+
+/** Counts the player teams with computers in them, each of which plays as one in team melee. */
+function computerTeamCount(lobby: Lobby): number {
+  return lobby.teams.filter(team => team.slots.some(slot => slot.type === 'computer')).length
+}
+
 function settingsFor(lobby: Lobby, changes: Partial<LobbySettings> = {}): LobbySettings {
   return {
     map: lobby.map!,
@@ -2575,6 +2584,87 @@ describe('Lobbies - settings changes', () => {
       expect(team.slots.slice(1).every(slot => slot.type === 'controlledOpen')).toBe(true)
     }
     expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
+  })
+
+  test('should give each computer an empty team of its own when changing to a controlled type', () => {
+    let lobby = createLobby({
+      name: 'Comp stomp, but teams',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    const races: RaceChar[] = ['t', 'z', 'p', 'r']
+    races.forEach((race, i) => {
+      lobby = addPlayer(lobby, 0, i + 1, createComputer(race))
+    })
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamMelee, gameSubType: 4, numSlots: 8 }),
+    )
+
+    // A computer team plays as one computer, so filling a team with computers stands in for only
+    // one of them: each of the first three gets an empty team, and the fourth has none left
+    expect(updated.teams[0].slots[0].userId).toBe(HOST_USER_ID)
+    for (const [i, team] of updated.teams.slice(1).entries()) {
+      expect(team.slots.map(slot => [slot.type, slot.race])).toEqual([
+        ['computer', races[i]],
+        ['computer', races[i]],
+      ])
+    }
+  })
+
+  test('should turn a computer team into one computer when leaving a controlled game type', () => {
+    const lobby = addPlayer(TEAM_MELEE_2, 1, 0, createComputer('p'))
+    expect(lobby.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+
+    const melee = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.Melee, gameSubType: 0 }),
+    )
+    const teamMelee = applySettingsChange(lobby, settingsFor(lobby, { gameSubType: 4 }))
+
+    expect(computerSlots(melee).map(slot => slot.race)).toEqual(['p'])
+    expect(computerTeamCount(teamMelee)).toBe(1)
+    expect(computerSlots(teamMelee)).toHaveLength(2)
+  })
+
+  test('should keep the number of computers steady when switching game types back and forth', () => {
+    let lobby = createLobby({
+      name: 'Indecisive host',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    for (let i = 1; i <= 4; i++) {
+      lobby = addPlayer(lobby, 0, i, createComputer('t'))
+    }
+    const toTeamMelee = (l: Lobby) =>
+      applySettingsChange(
+        l,
+        settingsFor(l, { gameType: GameType.TeamMelee, gameSubType: 3, numSlots: 8 }),
+      )
+    const toMelee = (l: Lobby) =>
+      applySettingsChange(l, settingsFor(l, { gameType: GameType.Melee, gameSubType: 0 }))
+
+    // Teams of [3, 3, 2] with the host in the first leave room for two of the four computers, as
+    // a team of three and a team of two. Each of those is one computer again in melee, and the
+    // counts hold from then on rather than growing with the size of the teams.
+    for (let round = 0; round < 3; round++) {
+      lobby = toTeamMelee(lobby)
+      expect(computerTeamCount(lobby)).toBe(2)
+      expect(computerSlots(lobby)).toHaveLength(5)
+      lobby = toMelee(lobby)
+      expect(computerSlots(lobby)).toHaveLength(2)
+    }
   })
 
   test('should let people keep their races when a change builds a new team melee layout', () => {
