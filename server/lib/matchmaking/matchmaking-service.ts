@@ -793,28 +793,35 @@ export class MatchmakingService {
     }
     this.queueEntries.set(userId, queueEntry)
 
-    // Queue the player in the Rust matchmaker with per-mode ratings, then (for the first queuer)
-    // fetch the process token as a baseline for the watchdog. The two requests are sequential so the
-    // token is guaranteed to be from the same server-rs instance that accepted the queue entry.
-    let result: Result<unknown, RsMatchmakerError> = await this.sequenceRustQueueRequest(
-      userId,
-      () => {
-        queueEntry.sentToRust = true
-        return this.queuePlayerInRust(queueRequest)
-      },
-    )
-    if (result.isOk() && this.lastKnownProcessToken === undefined) {
+    // For the first queuer, fetch the process token as a baseline for the watchdog, then queue the
+    // player in the Rust matchmaker with per-mode ratings. The token comes first so that a server-rs
+    // restart between the two requests leaves a baseline from the old process, which the watchdog
+    // then flags; the other order would baseline the new process and never notice that the queue
+    // entry was lost with the old one.
+    let result: Result<unknown, RsMatchmakerError> = Result.ok()
+    if (this.lastKnownProcessToken === undefined) {
       const tokenResult = await this.matchmakerClient.getProcessToken()
       if (tokenResult.isOk()) {
-        this.lastKnownProcessToken = tokenResult.value
+        this.lastKnownProcessToken ??= tokenResult.value
       }
       result = tokenResult
+    }
+    if (result.isOk()) {
+      result = await this.sequenceRustQueueRequest(userId, () => {
+        if (this.queueEntries.get(userId) !== queueEntry) {
+          // A search that ended before its turn to be queued is never sent, since whatever ended it
+          // issued its cancel first
+          return Promise.resolve(Result.ok())
+        }
+        queueEntry.sentToRust = true
+        return this.queuePlayerInRust(queueRequest)
+      })
     }
     if (result.isError()) {
       this.playerQueueData.delete(userId)
       this.queueEntries.delete(userId)
-      // We may have already added the player to the Rust queue (e.g. the token fetch failed after a
-      // successful queue); best-effort cancel it so we don't leave a ghost entry behind.
+      // The player may be in the Rust queue anyway (e.g. the queue request was handled but its
+      // response was lost); best-effort cancel it so we don't leave a ghost entry behind.
       this.cancelPlayerInRust(userId).catch(err => {
         logger.error({ err, userId }, 'error canceling player in Rust matchmaker')
       })

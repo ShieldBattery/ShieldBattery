@@ -494,17 +494,45 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
-  test('cancels the Rust queue entry when the token fetch fails after a successful queue', async () => {
-    // The queue starts idle, so the first queuer triggers a token fetch. If that fetch fails after
-    // the player was already added to the Rust queue, we must cancel them rather than leave a ghost.
+  test("doesn't queue the player in Rust when the token fetch fails", async () => {
+    // The queue starts idle, so the first queuer triggers a token fetch, which comes before queuing
     matchmakerClient.getProcessToken.mockResolvedValueOnce(
       Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')),
     )
 
     await expect(queuePlayer(USER_A, CLIENT_A)).rejects.toThrow('boom')
 
-    expect(matchmakerClient.queue).toHaveBeenCalled()
-    expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A)
+    expect(matchmakerClient.queue).not.toHaveBeenCalled()
+    await expect(service.cancel(USER_A)).rejects.toThrow('does not have an active')
+  })
+
+  test('notices a restart right after the first player is queued', async () => {
+    matchmakerClient.queue.mockImplementationOnce(async () => {
+      // server-rs handles the queue request and then restarts, losing the player
+      matchmakerClient.getProcessToken.mockResolvedValue(Result.ok('token-2'))
+      return Result.ok()
+    })
+
+    await queuePlayer(USER_A, CLIENT_A)
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(errorPublishedFor(USER_A)).toBe(true)
+  })
+
+  test("doesn't queue a search that was canceled while the token was being fetched", async () => {
+    let finishTokenFetch!: (result: Result<string, RsMatchmakerError>) => void
+    matchmakerClient.getProcessToken.mockImplementationOnce(
+      () => new Promise(resolve => (finishTokenFetch = resolve)),
+    )
+    const searching = queuePlayer(USER_A, CLIENT_A)
+    await drainMatchmakingTasks()
+    await service.cancel(USER_A)
+
+    finishTokenFetch(Result.ok('token-1'))
+    await searching.catch(() => {})
+
+    // The cancel already went out, so a queue request now would be left behind in the matchmaker
+    expect(matchmakerClient.queue).not.toHaveBeenCalled()
   })
 
   test('an idle-period restart does not falsely kick the next queuer', async () => {
