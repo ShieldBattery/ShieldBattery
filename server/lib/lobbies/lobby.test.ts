@@ -1468,6 +1468,18 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
   })
 
+  test('should reset a slot without a forced race to random once its occupant leaves', () => {
+    // The first force of Accipiter leaves the race up to the player
+    const babo = createHuman(makeSbUserId(1), 'z', false, 1)
+    let lobby = addPlayer(UMS_LOBBY_3, 0, 1, babo)
+    lobby = removePlayer(lobby, 0, 1, lobby.teams[0].slots[1])!
+    evaluateUmsSlot(lobby.teams[0].slots[1], 'open', undefined, 'r', false, 1)
+
+    lobby = setRace(lobby, 0, 0, 'p')
+    lobby = movePlayerToSlot(lobby, 0, 0, 0, 1)
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'r', false, 0)
+  })
+
   test('should support moving players between slots', () => {
     let l1 = UMS_LOBBY_1
     let team1 = l1.teams[0]

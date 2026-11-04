@@ -564,6 +564,16 @@ export function reassignHost(lobby: Lobby): Lobby {
 }
 
 /**
+ * Returns the open slot a UMS player slot becomes once its occupant leaves it. The slot keeps the
+ * map data it was built from: its player id, and its race if the map forces one. A race the map
+ * leaves up to the player was the occupant's own pick, so it doesn't stay behind for whoever takes
+ * the slot next.
+ */
+function vacatedUmsSlot(slot: Slot): Slot {
+  return createOpen(slot.hasForcedRace ? slot.race : undefined, slot.hasForcedRace, slot.playerId)
+}
+
+/**
  * Removes the player at the specified `teamIndex` and `slotIndex` from a lobby, returning the
  * updated lobby. If the lobby is closed (e.g. because it no longer has anyone in it),
  * `undefined` will be returned. Note that if the host is being removed, a new, suitable host will
@@ -586,9 +596,7 @@ export function removePlayer(
   // team also never holds controlled slots, so a departing observer skips the controlled-team
   // cleanup even in game types whose player teams need it.
   const vacatedSlot =
-    isUms(lobby.gameType) && !team.isObserver
-      ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
-      : createOpen()
+    isUms(lobby.gameType) && !team.isObserver ? vacatedUmsSlot(toRemove) : createOpen()
   const updated =
     hasControlledOpens(lobby.gameType) && !team.isObserver
       ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
@@ -699,9 +707,7 @@ export function movePlayerToSlot(
     // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
     // Observer slots carry no map data, so they get a plain open slot even in UMS.
     const vacated =
-      isUms(lobby.gameType) && !sourceTeam.isObserver
-        ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
-        : createOpen()
+      isUms(lobby.gameType) && !sourceTeam.isObserver ? vacatedUmsSlot(originalSlot) : createOpen()
     updated = produce(updated, draft => {
       draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = vacated
     })
