@@ -41,6 +41,11 @@ export interface RsRecentOpponent {
 export interface RsQueueRequest {
   id: SbUserId
   /**
+   * Identifies the search being queued. The matchmaker echoes it with every match it forms from the
+   * queue entry, including after a requeue, so a match can be traced to the search it came from.
+   */
+  searchId: string
+  /**
    * Per-mode ratings. One entry per queued mode; Rust derives the set of queued modes from these
    * entries, so there must be exactly one per type the player is queuing for.
    */

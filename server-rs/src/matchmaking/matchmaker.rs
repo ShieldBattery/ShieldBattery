@@ -110,6 +110,10 @@ pub struct Player {
     /// This player's measured round-trip time (ms) to `region`. Present only alongside a `region`;
     /// a player missing either carries no latency signal.
     pub rtt_ms: Option<f32>,
+    /// Opaque id Node.js gives the search this entry belongs to. Matching ignores it; it's echoed
+    /// back with every match formed from the entry, so a match formed from an earlier search can
+    /// be told apart from one for the player's current search.
+    pub search_id: String,
     /// Per-mode opponents from this player's recent games, used to discourage rematches. Modes
     /// with no recent games have no entry.
     pub recent_opponents: HashMap<MatchmakingType, Vec<RecentOpponent>>,
@@ -1317,6 +1321,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }
@@ -1341,6 +1346,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }
@@ -1860,6 +1866,7 @@ mod tests {
                         map_selections,
                         region: region.map(str::to_string),
                         rtt_ms,
+                        search_id: String::new(),
                         recent_opponents: HashMap::new(),
                     },
                     modes: mode.into(),
@@ -2608,6 +2615,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         let certain = Player {
@@ -2622,6 +2630,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
 
@@ -2692,6 +2701,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         let player_b = Player {
@@ -2715,6 +2725,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         matchmaker.insert_player(player_a).unwrap();
@@ -2754,6 +2765,7 @@ mod tests {
             map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }

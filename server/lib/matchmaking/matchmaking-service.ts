@@ -430,11 +430,10 @@ interface QueueEntry {
   types: Set<MatchmakingType>
   matchId?: string
   /**
-   * Whether this search's queue request has been sent to the Rust matchmaker. Until it has, any Rust
-   * queue entry for the player is left over from an earlier search, so a match Rust forms from it
-   * isn't this search's.
+   * Identifies this search to the Rust matchmaker, which names it in every match it forms from the
+   * search. A match naming any other search was formed from one the player has since left.
    */
-  sentToRust?: boolean
+  searchId: string
   /**
    * Whether the Rust matchmaker has matched this search, which shows that it had the search queued
    * even if the queue request's response never arrived.
@@ -754,8 +753,10 @@ export class MatchmakingService {
       return { type, race, mmr, playerData }
     })
 
+    const searchId = nanoid()
     const queueRequest: RsQueueRequest = {
       id: userId,
+      searchId,
       modeRatings: typeDataEntries.map(d => ({
         mode: d.type,
         rating: d.mmr.rating,
@@ -795,6 +796,7 @@ export class MatchmakingService {
     const queueEntry: QueueEntry = {
       types: new Set(typeDataEntries.map(d => d.type)),
       userId,
+      searchId,
     }
     this.queueEntries.set(userId, queueEntry)
 
@@ -818,7 +820,6 @@ export class MatchmakingService {
           // issued its cancel first
           return Promise.resolve(Result.ok())
         }
-        queueEntry.sentToRust = true
         return this.queuePlayerInRust(queueRequest)
       })
     }
@@ -1805,14 +1806,17 @@ export class MatchmakingService {
 
   private async handleMatchFound(event: MatchFoundMessage): Promise<void> {
     const allEntries = [...event.teamA, ...event.teamB]
-    // Only a search that Rust knows about and that's still waiting for a match can take this one.
-    // The entry of a player who is already in a match outlives it if they're requeued, so they're
+    // Only the search the match was formed from, while it's still waiting for a match, can take this
+    // one. The entry of a player who is already in a match outlives it if they're requeued, so they're
     // left out here rather than compared by identity after the ban check.
     const expected = new Map(
       allEntries.map(p => {
         const userId = makeSbUserId(p.id)
         const entry = this.queueEntries.get(userId)
-        return [userId, entry?.sentToRust && !entry.matchId ? entry : undefined] as const
+        return [
+          userId,
+          entry?.searchId === p.searchId && !entry.matchId ? entry : undefined,
+        ] as const
       }),
     )
     let banned: Set<SbUserId>

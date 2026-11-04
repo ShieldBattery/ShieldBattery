@@ -168,6 +168,21 @@ describe('matchmaking/matchmaking-service', () => {
     )
   }
 
+  /** The search id of every queue request sent to the matchmaker for a player, oldest first. */
+  function queuedSearchIds(userId: SbUserId): string[] {
+    return matchmakerClient.queue.mock.calls
+      .filter(([r]) => r.id === userId)
+      .map(([r]) => r.searchId)
+  }
+
+  /**
+   * A player as the matchmaker names them in a match it formed from their most recently queued
+   * search.
+   */
+  function matched(userId: SbUserId, ticket: string) {
+    return { id: userId, ticket, searchId: queuedSearchIds(userId).at(-1) ?? 'never-queued' }
+  }
+
   async function queuePlayer(
     userId: SbUserId,
     clientId: string,
@@ -357,7 +372,7 @@ describe('matchmaking/matchmaking-service', () => {
         DEFAULT_PUBKEY,
         region ? { region: makeGameServerRegionId(region), regionManual: true } : undefined,
       )
-      entries.push({ id: userId, ticket: 'ticket-' + userId })
+      entries.push(matched(userId, 'ticket-' + userId))
     }
     const unmatchedUser = makeSbUserId(10)
     clientSockets.set(unmatchedUser, createFakeClient(unmatchedUser, 'UNMATCHED'))
@@ -466,13 +481,13 @@ describe('matchmaking/matchmaking-service', () => {
     await drainMatchmakingTasks()
 
     // The matchmaker matched A's previous search before that search's removal reached it. A's new
-    // search hasn't been sent to the matchmaker yet, so the match can't be for it.
+    // search hasn't even been sent to the matchmaker yet, so the match can't be for it.
     redisHandler({
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -492,6 +507,40 @@ describe('matchmaking/matchmaking-service', () => {
     finishCancel()
     await searching
     expect(matchmakerClient.queue).toHaveBeenLastCalledWith(expect.objectContaining({ id: USER_A }))
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
+  test("doesn't give a queued search a match formed from the player's previous search", async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    const previousSearch = matched(USER_A, 'ticket-a')
+    await service.cancel(USER_A)
+    await drainMatchmakingTasks()
+    await queuePlayer(USER_A, CLIENT_A)
+
+    // The matchmaker matched A's previous search before that search's removal reached it, and the
+    // match's event only arrives once A's new search is queued
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [previousSearch],
+        teamB: [matched(USER_B, 'ticket-b')],
+        quality: 1,
+        skillVariance: 0,
+        ratingVarianceMultiplier: 1,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+        rematchPenalty: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+
+    expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
+    expect(matchmakerClient.requeue).not.toHaveBeenCalledWith('ticket-a')
+    await expect(service.accept(USER_A)).rejects.toThrow('No active match')
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
@@ -546,8 +595,8 @@ describe('matchmaking/matchmaking-service', () => {
         type: 'matchFound',
         data: {
           mode: MatchmakingType.Match1v1,
-          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
           quality: 1,
           skillVariance: 0,
           ratingVarianceMultiplier: 1,
@@ -577,8 +626,8 @@ describe('matchmaking/matchmaking-service', () => {
         type: 'matchFound',
         data: {
           mode: MatchmakingType.Match1v1,
-          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
           quality: 1,
           skillVariance: 0,
           ratingVarianceMultiplier: 1,
@@ -710,8 +759,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -744,8 +793,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -782,8 +831,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 12.5,
         skillVariance: 30000,
         ratingVarianceMultiplier: 1.5,
@@ -839,8 +888,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 12.5,
         skillVariance: 30000,
         ratingVarianceMultiplier: 1,
@@ -893,8 +942,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -914,8 +963,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a2' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b2' }],
+        teamA: [matched(USER_A, 'ticket-a2')],
+        teamB: [matched(USER_B, 'ticket-b2')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -959,8 +1008,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 12.5,
         skillVariance: 30000,
         ratingVarianceMultiplier: 1,
@@ -1008,8 +1057,8 @@ describe('matchmaking/matchmaking-service', () => {
         type: 'matchFound',
         data: {
           mode: MatchmakingType.Match1v1,
-          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
           quality: 12.5,
           skillVariance: 30000,
           ratingVarianceMultiplier: 1,
@@ -1105,8 +1154,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 12.5,
         skillVariance: 30000,
         ratingVarianceMultiplier: 1,
@@ -1200,8 +1249,8 @@ describe('matchmaking/matchmaking-service', () => {
         type: 'matchFound',
         data: {
           mode: MatchmakingType.Match1v1,
-          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
           quality: 12.5,
           skillVariance: 30000,
           ratingVarianceMultiplier: 1,
@@ -1252,8 +1301,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1301,8 +1350,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1458,8 +1507,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1532,8 +1581,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1569,8 +1618,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound' as const,
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: opponent, ticket: `ticket-${opponent}` }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(opponent, `ticket-${opponent}`)],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1616,8 +1665,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1644,8 +1693,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1693,8 +1742,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1740,8 +1789,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1788,8 +1837,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
@@ -1837,8 +1886,8 @@ describe('matchmaking/matchmaking-service', () => {
       type: 'matchFound',
       data: {
         mode: MatchmakingType.Match1v1,
-        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
-        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(USER_B, 'ticket-b')],
         quality: 1,
         skillVariance: 0,
         ratingVarianceMultiplier: 1,
