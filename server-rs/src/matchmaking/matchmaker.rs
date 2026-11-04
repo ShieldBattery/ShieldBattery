@@ -1165,8 +1165,10 @@ impl<T: QueueSelector> Matchmaker<T> {
 
                     let mut oldest_queue_time = queue_entries[0].entry.queue_time;
                     let mut count = 0;
-                    let mut mean = 0.0;
-                    let mut m2 = 0.0;
+                    // Accumulated in f64: deviations between finite f32 ratings can overflow f32,
+                    // which drives the variance negative (down to -inf) and the quality to +inf.
+                    let mut mean = 0.0f64;
+                    let mut m2 = 0.0f64;
                     let mut rating_variance_multiplier = 1.0_f32;
                     let mut lowest_rating = f32::INFINITY;
                     let mut highest_rating = f32::NEG_INFINITY;
@@ -1179,12 +1181,12 @@ impl<T: QueueSelector> Matchmaker<T> {
                         }
                         // Calculate variance with Welford's algorithm over effective ratings
                         count += 1;
-                        let r = q.effective_rating;
+                        let r = f64::from(q.effective_rating);
                         let delta = r - mean;
-                        mean += delta / count as f32;
+                        mean += delta / count as f64;
                         m2 += delta * (r - mean);
-                        lowest_rating = lowest_rating.min(r);
-                        highest_rating = highest_rating.max(r);
+                        lowest_rating = lowest_rating.min(q.effective_rating);
+                        highest_rating = highest_rating.max(q.effective_rating);
                     }
 
                     if mode_cfg.max_rating_spread > 0.0
@@ -1194,7 +1196,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                         return None;
                     }
 
-                    let variance = m2 / (count as f32 - 1.0);
+                    let variance = (m2 / (count as f64 - 1.0)) as f32;
                     let wait_time = now - oldest_queue_time;
                     let wait_seconds = wait_time.as_secs_f32();
                     let variance_penalty =
@@ -2634,6 +2636,31 @@ mod tests {
             result[0].quality < 0.0,
             "uncertain player should cause negative quality at t=0: got {}",
             result[0].quality
+        );
+    }
+
+    #[test]
+    fn rating_spread_past_f32_range_is_not_a_perfect_match() {
+        // The ratings' difference overflows f32, so their variance must come out huge (and the
+        // match rejected), not as a negative penalty that makes the most lopsided pair possible
+        // look infinitely good.
+        let mut matchmaker = Matchmaker::with_queue_selector(default_config(), TestQueueSelector);
+        matchmaker
+            .insert_player(make_player(0, f32::MAX, MatchmakingType::Match1v1))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player(1, f32::MIN, MatchmakingType::Match1v1))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert!(
+            result.is_empty(),
+            "formed (quality, skill_variance) = {:?}",
+            result
+                .iter()
+                .map(|m| (m.quality, m.skill_variance))
+                .collect::<Vec<_>>()
         );
     }
 
