@@ -187,10 +187,17 @@ function forgetMapStatus(draft: LobbyDraft, userId: SbUserId): void {
   draft.mapStatuses = draft.mapStatuses.filter(entry => entry.userId !== userId)
 }
 
-/** Forgets everything the member's departure would have taken with it on the server. */
+/**
+ * Forgets everything the member's departure would have taken with it on the server, including
+ * their place in the running game: the server stops counting someone who leaves the lobby as being
+ * in its game, without a `memberGameEnded` of its own for it.
+ */
 function forgetMember(draft: LobbyDraft, userId: SbUserId): void {
   forgetReady(draft, userId)
   forgetMapStatus(draft, userId)
+  if (draft.runState) {
+    draft.runState.inGameUsers = draft.runState.inGameUsers.filter(id => id !== userId)
+  }
 }
 
 /**

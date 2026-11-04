@@ -720,6 +720,27 @@ describe('client/lobbies/lobby-reducer', () => {
     expect((lastMessage as LobbyMemberGameEndedMessage).userId).toBe(HOST_SLOT.userId)
   })
 
+  test('a member leaving during the game is no longer counted as in it', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: {
+        runState: {
+          gameId: 'game-1',
+          inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!],
+          elapsedMs: 0,
+        },
+      },
+    })
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateLeave',
+      payload: { type: 'leave', player: SLOT_A },
+    })
+
+    expect(state.runState?.inGameUsers).toEqual([HOST_SLOT.userId])
+  })
+
   test('regroup clears runState and logs the finished game', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, {
