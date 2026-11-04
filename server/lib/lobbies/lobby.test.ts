@@ -24,6 +24,7 @@ import {
   addPlayer,
   addToBench,
   applySettingsChange,
+  arrangeOccupants,
   closeSlot,
   createLobby,
   findAvailableSlot,
@@ -1478,6 +1479,56 @@ describe('Lobbies - Use map settings', () => {
     lobby = setRace(lobby, 0, 0, 'p')
     lobby = movePlayerToSlot(lobby, 0, 0, 0, 1)
     evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'r', false, 0)
+  })
+
+  test('should keep the races of occupants arranged past a slot with a forced race', () => {
+    // A force whose first slot forces protoss, followed by slots that leave the race up to the
+    // player
+    const map: MapInfo = {
+      ...UMS_MAP_3,
+      mapData: {
+        ...UMS_MAP_3.mapData,
+        umsForces: [
+          {
+            name: 'Players',
+            teamId: 1,
+            players: [
+              { id: 0, race: 'p', typeId: 6, computer: false },
+              { id: 1, race: 'any', typeId: 6, computer: false },
+              { id: 2, race: 'any', typeId: 6, computer: false },
+            ],
+          },
+          {
+            name: 'Others',
+            teamId: 2,
+            players: [{ id: 3, race: 'any', typeId: 6, computer: false }],
+          },
+        ],
+      },
+    }
+    let lobby = createLobby({
+      name: 'Arranged',
+      map,
+      gameType: GameType.UseMapSettings,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      allowObservers: false,
+    })
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z', false, 1))
+
+    // The host goes to the slot the other player is in, which swaps that player into the host's
+    // forced-protoss slot on their way to their own
+    lobby = arrangeOccupants(lobby, [
+      [0, 1],
+      [0, 2],
+      [0, 0],
+      [1, 0],
+    ])
+
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'p', true, 0)
+    evaluateUmsSlot(lobby.teams[0].slots[1], 'human', HOST_USER_ID, 'p', false, 1)
+    evaluateUmsSlot(lobby.teams[0].slots[2], 'human', makeSbUserId(1), 'z', false, 2)
+    expect(lobby.host).toEqual(lobby.teams[0].slots[1])
   })
 
   test('should support moving players between slots', () => {

@@ -868,13 +868,12 @@ export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosi
   // Occupants are tracked by slot id rather than by position: placing one moves the occupants
   // around it, and in team melee/ffa can rebuild the slots of an emptied or filled team, but an
   // occupant's own slot keeps its id wherever it goes.
-  const occupantIds = getPlayerSlotPositions(lobby)
+  const occupants = getPlayerSlotPositions(lobby)
     .map(([teamIndex, slotIndex]) => lobby.teams[teamIndex].slots[slotIndex])
     .filter(isSlotOccupied)
-    .map(slot => slot.id)
 
   let updated = lobby
-  occupantIds.forEach((occupantId, i) => {
+  occupants.forEach(({ id: occupantId }, i) => {
     const [destTeamIndex, destSlotIndex] = positions[i]
     const [sourceTeamIndex, sourceSlotIndex] = findSlotById(updated, occupantId)
     if (sourceTeamIndex === undefined) {
@@ -890,7 +889,25 @@ export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosi
       : swapSlots(updated, sourceTeamIndex, sourceSlotIndex!, destTeamIndex, destSlotIndex)
   })
 
-  return updated
+  if (!isUms(lobby.gameType)) {
+    return updated
+  }
+  // Placing one occupant can send another through a slot on the way to their own, and a UMS slot
+  // with a forced race gives that race to whoever passes through it. Only the slot an occupant
+  // ends up in decides their race, so anyone landing in a slot that leaves the race up to them gets
+  // back the race they started with.
+  const startingRaces = new Map(occupants.map(slot => [slot.id, slot.race]))
+  updated = produce(updated, draft => {
+    for (const team of draft.teams) {
+      for (const slot of team.slots) {
+        const race = startingRaces.get(slot.id)
+        if (race !== undefined && !slot.hasForcedRace) {
+          slot.race = race
+        }
+      }
+    }
+  })
+  return reassignHost(updated)
 }
 
 /**
