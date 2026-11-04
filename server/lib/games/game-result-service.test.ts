@@ -305,6 +305,12 @@ describe('games/game-result-service/getValidationTeams', () => {
     expect(getValidationTeams(config, humans)).toBe(null)
   })
 
+  test('does not validate teams for a UMS lobby config, even with lockedAlliances: true', () => {
+    const config = lobbyConfig({ gameType: GameType.UseMapSettings, lockedAlliances: true })
+
+    expect(getValidationTeams(config, humans)).toBe(null)
+  })
+
   test('falls back to one-player teams for a locked-alliance FFA melee with no determinable teams', () => {
     const config = matchmakingConfig([
       [

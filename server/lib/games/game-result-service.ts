@@ -130,11 +130,17 @@ export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
  * If alliances are locked but the config has no determinable teams (a free-for-all melee with
  * more than 2 players), each player is treated as their own team, which still limits the game to a
  * single winner.
+ *
+ * UMS games are never validated, whatever their alliance setting.
  */
 export function getValidationTeams(
   config: GameConfig,
   humans: ReadonlyArray<SbUserId>,
 ): SbUserId[][] | null {
+  if (config.gameType === GameType.UseMapSettings) {
+    // A map's triggers decide who wins, so its forces can win or lose in any combination.
+    return null
+  }
   const alliancesLocked = config.lockedAlliances ?? config.gameSource === GameSource.Matchmaking
   if (!alliancesLocked) {
     return null
