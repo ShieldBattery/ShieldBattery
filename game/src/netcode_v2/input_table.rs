@@ -133,14 +133,21 @@ impl InputTable {
     }
 
     /// Makes turns whose hold has run out by `now` usable, noting any whose step already ran on a
-    /// prediction that the turn contradicts.
+    /// prediction that the turn contradicts. A turn for a step at or past its slot's leave
+    /// contradicts nothing: no step from the leave's on dispatches the slot's turns once the leave
+    /// is applied, and applying it simulates every one of those steps again.
     pub fn release_held(&mut self, now: Instant) {
-        for slot in &mut self.slots {
+        for (storm, slot) in self.slots.iter_mut().enumerate() {
+            let leave_step = self
+                .leaves
+                .iter()
+                .find(|x| x.storm.0 as usize == storm)
+                .map(|x| x.step);
             while let Some(turn) = slot.turns.get(slot.usable)
                 && turn.usable_at.is_none_or(|x| x <= now)
             {
                 let step = slot.first + slot.usable as u32;
-                if step < self.frontier {
+                if step < self.frontier && leave_step.is_none_or(|x| step < x) {
                     if !matches_prediction(&turn.bytes) {
                         self.mispredicted = Some(self.mispredicted.map_or(step, |x| x.min(step)));
                         self.counts.mispredicted_turns += 1;
@@ -761,6 +768,34 @@ mod tests {
         assert_eq!(t.known_until_for(&required()), 2, "turn 2 is still missing");
         t.push(B, idle(), start());
         assert_eq!(t.known_until_for(&required()), 5);
+    }
+
+    #[test]
+    fn a_turn_arriving_past_its_slots_leave_asks_for_nothing() {
+        let mut t = table(8);
+        for _ in 0..6 {
+            t.push(A, idle(), start());
+        }
+        t.push(B, idle(), start());
+        t.push(B, idle(), start());
+        // A leave without a count of B's turns goes to the first step this client has none for.
+        t.schedule_leave(B, 0x40000006, t.first_step_without_turn(B));
+        t.dispatch(0, &required());
+        t.dispatch(1, &required());
+        assert_eq!(t.take_due_leaves(2, &required()), vec![(B, 0x40000006)]);
+        let mut only_a = required();
+        only_a[1] = false;
+        for step in 2..5 {
+            t.dispatch(step, &only_a);
+        }
+        // A turn of B's for step 2 was still on its way. No step from the leave's on dispatches
+        // B's turns, and step 2 applied the leave, which no rollback may undo.
+        t.push(B, command(1), start());
+        t.push(B, command(2), start());
+        assert_eq!(t.take_rollback_target(&only_a), None);
+        let counts = t.take_counts();
+        assert_eq!(counts.mispredicted_turns, 0);
+        assert_eq!(counts.confirmed_predictions, 0);
     }
 
     #[test]
