@@ -493,7 +493,12 @@ export function setRace(
     })
   } else {
     return produce(lobby, draft => {
-      draft.teams[teamIndex].slots[slotIndex].race = newRace
+      const slot = draft.teams[teamIndex].slots[slotIndex]
+      slot.race = newRace
+      if (slot.id === draft.host.id) {
+        // The lobby's host is a copy of their slot, so it has to follow along with the change.
+        draft.host.race = newRace
+      }
     })
   }
 }

@@ -378,6 +378,13 @@ describe('Lobbies - melee', () => {
     expect(lobby.teams[t1!].slots[s1!].race).toBe('z')
   })
 
+  test('should keep the host a copy of their slot when they change race', () => {
+    const lobby = setRace(BOXER_LOBBY, 0, 0, 'p')
+
+    expect(lobby.teams[0].slots[0].race).toBe('p')
+    expect(lobby.host).toEqual(lobby.teams[0].slots[0])
+  })
+
   test('should support finding players by user id', () => {
     const computer = createComputer('p')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
