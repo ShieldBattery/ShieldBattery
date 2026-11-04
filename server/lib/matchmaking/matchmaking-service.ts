@@ -435,6 +435,11 @@ interface QueueEntry {
    * isn't this search's.
    */
   sentToRust?: boolean
+  /**
+   * Whether the Rust matchmaker has matched this search, which shows that it had the search queued
+   * even if the queue request's response never arrived.
+   */
+  matchedByRust?: boolean
 }
 
 // Extra time that is added to the matchmaking accept time to account for latency in getting
@@ -817,7 +822,12 @@ export class MatchmakingService {
         return this.queuePlayerInRust(queueRequest)
       })
     }
-    if (result.isError()) {
+    if (this.queueEntries.get(userId) !== queueEntry) {
+      // The search was ended (canceled, disconnected, or removed) while it was being queued, and
+      // whatever ended it has already cleaned up after it and any search that followed
+      return
+    }
+    if (result.isError() && !queueEntry.matchedByRust) {
       this.playerQueueData.delete(userId)
       this.queueEntries.delete(userId)
       // The player may be in the Rust queue anyway (e.g. the queue request was handled but its
@@ -1923,7 +1933,10 @@ export class MatchmakingService {
 
     for (const p of matchInfo.players()) {
       const queueEntry = this.queueEntries.get(p.id)
-      if (queueEntry) queueEntry.matchId = matchInfo.id
+      if (queueEntry) {
+        queueEntry.matchId = matchInfo.id
+        queueEntry.matchedByRust = true
+      }
     }
 
     // Log matchmaking completion metrics. Only the matched mode (`event.mode`) gets a completion;

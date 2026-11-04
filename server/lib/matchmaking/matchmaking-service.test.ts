@@ -494,6 +494,118 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  describe('a search that changes while it is being queued', () => {
+    let finishQueue: (result: Result<void, RsMatchmakerError>) => void
+
+    /** Holds the next queue request's response until the test calls `finishQueue`. */
+    function holdNextQueueRequest() {
+      matchmakerClient.queue.mockImplementationOnce(
+        () => new Promise(resolve => (finishQueue = resolve)),
+      )
+    }
+
+    test("isn't shown to the player once they've canceled it", async () => {
+      holdNextQueueRequest()
+      const searching = queuePlayer(USER_A, CLIENT_A)
+      await drainMatchmakingTasks()
+      await service.cancel(USER_A)
+
+      finishQueue(Result.ok())
+      await searching
+
+      const clientA = clientSockets.get(USER_A)!
+      const searchSubscriptions = asMockedFunction(clientA.subscribe).mock.calls.filter(
+        ([path]) => path === getMatchmakingClientPath(clientA),
+      )
+      expect(searchSubscriptions).toEqual([])
+    })
+
+    test("doesn't tear down the player's next search when its queue request fails", async () => {
+      holdNextQueueRequest()
+      const searching = queuePlayer(USER_A, CLIENT_A)
+      await drainMatchmakingTasks()
+      await service.cancel(USER_A)
+      const nextSearch = queuePlayer(USER_A, CLIENT_A)
+      await drainMatchmakingTasks()
+
+      finishQueue(Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')))
+      await searching.catch(() => {})
+      await nextSearch
+
+      expect(errorPublishedFor(USER_A)).toBe(false)
+      await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+    })
+
+    test("keeps the player in a match found before its queue request's response was lost", async () => {
+      await queuePlayer(USER_B, CLIENT_B)
+      holdNextQueueRequest()
+      const searching = queuePlayer(USER_A, CLIENT_A)
+      await drainMatchmakingTasks()
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          quality: 1,
+          skillVariance: 0,
+          ratingVarianceMultiplier: 1,
+          winProbability: 0.5,
+          teamARating: 1500,
+          teamBRating: 1500,
+          maxLatency: 0,
+          rematchPenalty: 0,
+        },
+      })
+      await drainMatchmakingTasks()
+
+      // The matchmaker handled the request (it matched the player), but the response never arrived
+      finishQueue(Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')))
+      await searching.catch(() => {})
+
+      await expect(service.accept(USER_A)).resolves.toBeUndefined()
+      await expect(service.cancel(USER_A)).rejects.toThrow('cannot be canceled')
+    })
+
+    test('keeps searching once that match falls apart and the player is requeued', async () => {
+      await queuePlayer(USER_B, CLIENT_B)
+      holdNextQueueRequest()
+      const searching = queuePlayer(USER_A, CLIENT_A)
+      await drainMatchmakingTasks()
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          quality: 1,
+          skillVariance: 0,
+          ratingVarianceMultiplier: 1,
+          winProbability: 0.5,
+          teamARating: 1500,
+          teamBRating: 1500,
+          maxLatency: 0,
+          rematchPenalty: 0,
+        },
+      })
+      await drainMatchmakingTasks()
+      const clientB = clientSockets.get(USER_B)!
+      const onCloseB = asMockedFunction(clientB.subscribe)
+        .mock.calls.map(call => call[2])
+        .find(callback => typeof callback === 'function')!
+      onCloseB(clientB)
+      await drainMatchmakingTasks()
+
+      finishQueue(Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')))
+      await searching.catch(() => {})
+      await drainMatchmakingTasks()
+
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-a')
+      expect(errorPublishedFor(USER_A)).toBe(false)
+      await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+    })
+  })
+
   test("doesn't queue the player in Rust when the token fetch fails", async () => {
     // The queue starts idle, so the first queuer triggers a token fetch, which comes before queuing
     matchmakerClient.getProcessToken.mockResolvedValueOnce(
