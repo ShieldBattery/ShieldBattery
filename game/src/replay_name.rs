@@ -221,8 +221,36 @@ fn render_template(template: &str, context: &NameContext) -> String {
         };
         name.extend(text.chars().filter(|&c| is_allowed_char(c)));
     }
+    let name = finish_name(&name);
+    if is_reserved_device_name(&name) {
+        finish_name(&format!("_{name}"))
+    } else {
+        name
+    }
+}
+
+/// Cuts a name to the length cap and strips the trailing dots and spaces Windows ignores.
+fn finish_name(name: &str) -> String {
     let name = name.chars().take(MAX_NAME_LENGTH).collect::<String>();
     name.trim_end_matches(['.', ' ']).trim().to_string()
+}
+
+/// Whether Windows treats the name as a device (`CON`, `nul.rep`, `COM1 .rep`), whatever extension
+/// follows it.
+fn is_reserved_device_name(name: &str) -> bool {
+    let base = name
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end()
+        .to_ascii_lowercase();
+    matches!(base.as_str(), "con" | "prn" | "aux" | "nul")
+        || ["com", "lpt"].iter().any(|prefix| {
+            base.strip_prefix(prefix).is_some_and(|rest| {
+                let mut chars = rest.chars();
+                matches!(chars.next(), Some('0'..='9' | '¹' | '²' | '³')) && chars.next().is_none()
+            })
+        })
 }
 
 /// Renders `template` into a filename without its extension, falling back to the default template
@@ -422,6 +450,21 @@ mod test {
     #[test]
     fn drops_trailing_dots_and_spaces() {
         assert_eq!(render("{name}. . ", &one_v_one()), "Me");
+    }
+
+    #[test]
+    fn prefixes_windows_device_names() {
+        let mut ctx = one_v_one();
+        ctx.map = "CON".into();
+        assert_eq!(render("{map}", &ctx), "_CON");
+        ctx.map = "com1.txt".into();
+        assert_eq!(render("{map}", &ctx), "_com1.txt");
+        ctx.map = "aux .".into();
+        assert_eq!(render("{map}", &ctx), "_aux");
+        ctx.map = "COM10".into();
+        assert_eq!(render("{map}", &ctx), "COM10");
+        ctx.map = "CON".into();
+        assert_eq!(render("[{map}]", &ctx), "[CON]");
     }
 
     #[test]
