@@ -155,6 +155,8 @@ function makeState(
           loadingNewer: overrides.loadingNewer ?? false,
           hasNewer: overrides.hasNewer ?? false,
           detachedNewestTime: overrides.detachedNewestTime,
+          // The fixtures only ever hold other users' messages past a detached window.
+          detachedNewestFromOthersTime: overrides.detachedNewestTime,
           windowGen: overrides.windowGen ?? 0,
           historyError: overrides.historyError,
           newerError: overrides.newerError ?? false,
@@ -2389,6 +2391,46 @@ describe('client/chat/chat-reducer', () => {
       state = chatReducer(state, updateLastReadTimeAction(100))
 
       expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+  })
+
+  describe("the user's own messages past the read position", () => {
+    // Loaded by a page ahead of its announcement, which a reconnect can lose.
+    const ownMessage = (time: number): ChannelTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test('do not hold the flag up in a loaded window', () => {
+      const state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('do not hold the flag up past a detached window', () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(windowOf(state).detachedNewestTime).toBe(200)
+
+      state = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
     })
   })
 

@@ -288,6 +288,22 @@ export function newestKnownWhisperTime(session: Immutable<WhisperSession>): numb
 }
 
 /**
+ * The newest time (epoch ms) of a message from the session's target known to exist: everything
+ * `newestKnownWhisperTime` covers except the user's own messages, which are never unread. A read
+ * position covering this leaves nothing in the session unread, even if the user's own messages run
+ * past it.
+ */
+function newestFromTargetKnownTime(session: WhisperSession): number | undefined {
+  const knownTimes = [
+    newestFromTargetTime(session),
+    session.detachedNewestFromTargetTime,
+    session.latestUnreadTime,
+  ].filter(t => t !== undefined)
+
+  return knownTimes.length ? Math.max(...knownTimes) : undefined
+}
+
+/**
  * Returns whether any whisper conversation has unread messages that should draw the user's
  * attention. A blocked user's whispers are still stored and still unread, but they're silent: they
  * don't raise any unread indicator until the user is unblocked.
@@ -381,7 +397,8 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
 
 /**
  * Advances a session's read position to `time`, never backwards, and lowers the unread flag once the
- * position in effect covers everything the client knows exists. Returns that effective position.
+ * position in effect covers every message from the target that the client knows exists. Returns
+ * that effective position.
  *
  * A detached window's present has run ahead of what's loaded, so the newest loaded message isn't the
  * newest one known to exist; the helper covers that. Clearing the flag against the loaded window
@@ -393,8 +410,8 @@ function advanceReadPosition(session: WhisperSession, time: number): number {
   }
   const effective = session.lastReadTime!
 
-  const newestKnownTime = newestKnownWhisperTime(session)
-  if (newestKnownTime === undefined || newestKnownTime <= effective) {
+  const newestFromTarget = newestFromTargetKnownTime(session)
+  if (newestFromTarget === undefined || newestFromTarget <= effective) {
     session.hasUnread = false
   }
 

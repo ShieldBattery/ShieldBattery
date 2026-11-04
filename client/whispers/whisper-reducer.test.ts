@@ -97,6 +97,8 @@ function makeState(
     loadingNewer: overrides.loadingNewer ?? false,
     hasNewer: overrides.hasNewer ?? false,
     detachedNewestTime: overrides.detachedNewestTime,
+    // The fixtures only ever hold the target's messages past a detached window.
+    detachedNewestFromTargetTime: overrides.detachedNewestTime,
     windowGen: overrides.windowGen ?? 0,
     carriedClientMessages: overrides.carriedClientMessages ?? [],
     historyError: overrides.historyError,
@@ -1703,6 +1705,46 @@ describe('client/whispers/whisper-reducer', () => {
       state = whisperReducer(state, updateLastReadTimeAction(100))
 
       expect(sessionOf(state).hasUnread).toBe(true)
+    })
+  })
+
+  describe("the user's own messages past the read position", () => {
+    // Loaded by a page ahead of its announcement.
+    const ownMessage = (time: number): CommonTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test('do not hold the flag up in a loaded window', () => {
+      const state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
+
+    test('do not hold the flag up past a detached window', () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(sessionOf(state).detachedNewestTime).toBe(200)
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
     })
   })
 

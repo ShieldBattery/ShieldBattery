@@ -473,6 +473,24 @@ export function newestKnownChannelTime(
 }
 
 /**
+ * The newest time (epoch ms) of another user's message known to exist in a channel: everything
+ * `newestKnownChannelTime` covers except the user's own messages, which are never unread. A read
+ * position covering this leaves nothing in the channel unread, even if the user's own messages run
+ * past it.
+ */
+function newestFromOthersChannelTime(state: ChatState, channelId: SbChannelId): number | undefined {
+  const channelMessages = state.idToMessages.get(channelId)
+  const knownTimes = [
+    channelMessages ? newestFromOthersTime(channelMessages.messages, state.selfId) : undefined,
+    channelMessages?.detachedNewestFromOthersTime,
+    state.idToLatestMentionTime.get(channelId),
+    state.idToLatestUnreadTime.get(channelId),
+  ].filter(t => t !== undefined)
+
+  return knownTimes.length ? Math.max(...knownTimes) : undefined
+}
+
+/**
  * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
  * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why client-only
  * messages are excluded: a window can open with one at its head (the self-join banner, or all
@@ -573,7 +591,8 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
 
 /**
  * Advances a channel's read position to `time`, never backwards, and lowers the unread flag once the
- * position in effect covers everything the client knows exists. Returns that effective position.
+ * position in effect covers every message from another user that the client knows exists. Returns
+ * that effective position.
  *
  * A detached window's present has run ahead of what's loaded, so the newest loaded message isn't the
  * newest one known to exist; the helper covers that along with a mention newer than anything loaded.
@@ -587,8 +606,8 @@ function advanceReadPosition(state: ChatState, channelId: SbChannelId, time: num
   }
   const effective = state.idToLastReadTime.get(channelId)!
 
-  const newestKnownTime = newestKnownChannelTime(state, channelId)
-  if (newestKnownTime === undefined || newestKnownTime <= effective) {
+  const newestFromOthers = newestFromOthersChannelTime(state, channelId)
+  if (newestFromOthers === undefined || newestFromOthers <= effective) {
     state.unreadChannels.delete(channelId)
   }
 
