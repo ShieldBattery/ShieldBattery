@@ -662,6 +662,35 @@ describe('client/whispers/whisper-reducer', () => {
     })
   })
 
+  describe('a live message the loaded window already holds', () => {
+    test('keeps one copy of a message that a page delivered before its announcement', () => {
+      let state = makeState({ messages: [textMessage(100)] })
+
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([serverMessage(100), serverMessage(200)], {
+            hasMoreBefore: false,
+            hasMoreAfter: false,
+          }),
+          { aroundTime: 150 },
+        ),
+      )
+      state = whisperReducer(state, updateMessageAction(200))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+    })
+
+    test('still counts as an unread arrival while the read position is short of it', () => {
+      let state = makeState({ messages: [textMessage(100), textMessage(200)], lastReadTime: 100 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+  })
+
   describe('pages in flight for a window that no longer exists', () => {
     // A page requested for the first window of a session, still in flight while the session is
     // closed or the connection restarts and the session is opened again.

@@ -623,6 +623,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     recordLastMessage(state, target, newMessage)
 
     const session = state.byId.get(target)
+    if (session && !session.hasNewer && session.messages.some(m => m.id === newMessage.id)) {
+      // A page can carry a message the server stored before announcing it, so the announcement may
+      // reach a window that already holds the message. The list keeps one copy.
+      if (isSelfMessage) {
+        recordSelfMessage(session, newMessage.time)
+      } else {
+        recordLiveArrival(session, { windowFocused, time: newMessage.time })
+      }
+      return
+    }
+
     if (session?.hasNewer) {
       // The loaded window sits behind the present, so this message belongs past the gap at its far
       // end rather than at the end of what's loaded. Remembering how far the present has run ahead
