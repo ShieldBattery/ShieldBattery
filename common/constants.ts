@@ -9,7 +9,11 @@ export const LOBBY_NAME_MAXLENGTH = 50
 export const PASSWORD_MINLENGTH = 6
 
 export const USERNAME_ALLOWED_CHARACTERS = String.raw`[A-Za-z0-9\`~!$^&*()[\]\-_+=.{}]+`
-export const USERNAME_PATTERN = new RegExp(String.raw`^${USERNAME_ALLOWED_CHARACTERS}$`)
+/**
+ * Matches a full username. `.` and `..` are excluded because URL path normalization collapses them
+ * when they are used as a path segment, so they can't be addressed by name.
+ */
+export const USERNAME_PATTERN = new RegExp(String.raw`^(?!\.{1,2}$)${USERNAME_ALLOWED_CHARACTERS}$`)
 export const USERNAME_MINLENGTH = 1
 export const USERNAME_MAXLENGTH = 16
 
