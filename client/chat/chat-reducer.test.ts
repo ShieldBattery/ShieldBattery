@@ -196,6 +196,7 @@ function makeState(
           ]
         : [],
     ),
+    windowGenFloor: 0,
   }
 
   return state as Immutable<ChatState>
@@ -1639,6 +1640,64 @@ describe('client/chat/chat-reducer', () => {
     })
   })
 
+  describe('pages in flight for a window that no longer exists', () => {
+    // A page requested for the first window of a channel, still in flight while the channel is left
+    // or the connection restarts and the channel is initialized again.
+    const stalePage = () =>
+      loadMessageHistoryAction(historyResponse([textMessage(100)], { hasMoreBefore: false }), {
+        windowGen: 0,
+      })
+
+    test('is discarded after the channel is left and joined again', () => {
+      let state = chatReducer(makeState(), getJoinedChannelsAction(initialChannelData()))
+      state = chatReducer(state, updateLeaveSelfAction())
+      state = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+
+      const result = chatReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([expect.stringMatching(/./)])
+      expect(windowOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after a reconnect initializes the channel again', () => {
+      let state = chatReducer(makeState(), getJoinedChannelsAction(initialChannelData()))
+      state = chatReducer(state, { type: '@network/connect' } as unknown as ChatActions)
+      state = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+
+      const result = chatReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([expect.stringMatching(/./)])
+      expect(windowOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after the channel is initialized over its existing window', () => {
+      let state = chatReducer(makeState(), getJoinedChannelsAction(initialChannelData()))
+      state = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+
+      const result = chatReducer(state, stalePage())
+
+      expect(windowOf(result).hasHistory).toBe(true)
+      expect(messageIdsOf(result)).not.toContain('text-100')
+    })
+
+    test('does not match a window that was replaced several times before the channel returned', () => {
+      let state = chatReducer(makeState(), getJoinedChannelsAction(initialChannelData()))
+      state = chatReducer(state, resetMessageWindowAction())
+      state = chatReducer(state, resetMessageWindowAction())
+      const staleGen = windowOf(state).windowGen
+      state = chatReducer(state, updateLeaveSelfAction())
+      state = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+      expect(windowOf(state).windowGen).toBeGreaterThan(staleGen)
+
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(100)]), { windowGen: staleGen }),
+      )
+
+      expect(messageIdsOf(result)).not.toContain('text-100')
+    })
+  })
+
   describe('@chat/loadMessageHistory', () => {
     test('takes the older edge straight from the response instead of inferring it', () => {
       const state = makeState()
@@ -2848,7 +2907,7 @@ describe('client/chat/chat-reducer', () => {
         result,
         loadMessageHistoryAction(
           historyResponse([textMessage(100), textMessage(200), textMessage(300), textMessage(400)]),
-          { windowGen: 1 },
+          { windowGen: windowOf(result).windowGen },
         ),
       )
 

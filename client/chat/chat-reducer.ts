@@ -186,6 +186,14 @@ export interface ChatState {
    * from the bottom and come back to it with the read position past the divider.
    */
   idToUnreadLine: Map<SbChannelId, UnreadLine>
+  /**
+   * The lowest generation a message window created from now on may take. Window generations only
+   * mean something while no two windows a channel has ever had share one, since a page still in
+   * flight for a window that is gone (the channel was left, or the connection restarted, and the
+   * channel was initialized again) must not match its successor. This outlives the channels
+   * themselves so that a re-created window always starts past everything its predecessors used.
+   */
+  windowGenFloor: number
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
@@ -208,6 +216,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToLatestMentionTime: new Map(),
   idToLatestUnreadTime: new Map(),
   idToUnreadLine: new Map(),
+  windowGenFloor: 0,
 }
 
 /**
@@ -357,7 +366,15 @@ function setChannelOwner(
   })
 }
 
+/** Raises the floor for new windows' generations above everything `channelMessages` has used. */
+function retireWindowGen(state: ChatState, channelMessages: MessagesState | undefined) {
+  if (channelMessages) {
+    state.windowGenFloor = Math.max(state.windowGenFloor, channelMessages.windowGen + 1)
+  }
+}
+
 function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
+  retireWindowGen(state, state.idToMessages.get(channelId))
   state.joinedChannels.delete(channelId)
   state.idToJoinedInfo.delete(channelId)
   state.idToModeratorIds.delete(channelId)
@@ -835,6 +852,9 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     time,
   } = data
 
+  // Initializing a channel that already has a window replaces it, so that window is retired too.
+  retireWindowGen(state, state.idToMessages.get(channelId))
+
   const messagesState: MessagesState = {
     messages: [],
     loadingHistory: false,
@@ -842,7 +862,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     loadingNewer: false,
     hasNewer: false,
     detachedNewestTime: undefined,
-    windowGen: 0,
+    windowGen: state.windowGenFloor,
     carriedClientMessages: [],
     historyError: undefined,
     newerError: false,
@@ -1696,7 +1716,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateChannelInfos(state, channelMentions)
   },
 
-  ['@network/connect']() {
-    return DEFAULT_CHAT_STATE
+  ['@network/connect'](state) {
+    // Requests issued before the reconnect can still land after the channels are initialized again.
+    let windowGenFloor = state.windowGenFloor
+    for (const channelMessages of state.idToMessages.values()) {
+      windowGenFloor = Math.max(windowGenFloor, channelMessages.windowGen + 1)
+    }
+    return { ...DEFAULT_CHAT_STATE, windowGenFloor }
   },
 })
