@@ -1796,12 +1796,14 @@ export class MatchmakingService {
 
   private async handleMatchFound(event: MatchFoundMessage): Promise<void> {
     const allEntries = [...event.teamA, ...event.teamB]
-    // Only a search that Rust knows about can take this match
+    // Only a search that Rust knows about and that's still waiting for a match can take this one.
+    // The entry of a player who is already in a match outlives it if they're requeued, so they're
+    // left out here rather than compared by identity after the ban check.
     const expected = new Map(
       allEntries.map(p => {
         const userId = makeSbUserId(p.id)
         const entry = this.queueEntries.get(userId)
-        return [userId, entry?.sentToRust ? entry : undefined] as const
+        return [userId, entry?.sentToRust && !entry.matchId ? entry : undefined] as const
       }),
     )
     let banned: Set<SbUserId>

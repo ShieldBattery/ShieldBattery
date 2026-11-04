@@ -1558,6 +1558,54 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  test('a match proposed while a player was in another one stays dropped once they requeue', async () => {
+    const USER_C = makeSbUserId(3)
+    clientSockets.set(USER_C, createFakeClient(USER_C, 'CLIENT_C'))
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    await queuePlayer(USER_C, 'CLIENT_C')
+    const matchFound = (opponent: SbUserId) => ({
+      type: 'matchFound' as const,
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: opponent, ticket: `ticket-${opponent}` }],
+        quality: 1,
+        skillVariance: 0,
+        ratingVarianceMultiplier: 1,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+        rematchPenalty: 0,
+      },
+    })
+    redisHandler(matchFound(USER_B))
+    await drainMatchmakingTasks()
+
+    // A proposal that includes A, who is already in a match, is checked for bans
+    let finishBanCheck!: (banned: Set<SbUserId>) => void
+    checkUsers.mockReturnValueOnce(new Promise(resolve => (finishBanCheck = resolve)))
+    redisHandler(matchFound(USER_C))
+    await drainMatchmakingTasks()
+
+    // Meanwhile B leaves, so A's match falls apart and A is requeued
+    const clientB = clientSockets.get(USER_B)!
+    const onCloseB = asMockedFunction(clientB.subscribe)
+      .mock.calls.map(call => call[2])
+      .find(callback => typeof callback === 'function')!
+    onCloseB(clientB)
+    await drainMatchmakingTasks()
+    expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-a')
+
+    finishBanCheck(new Set())
+    await drainMatchmakingTasks()
+
+    expect(matchmakerClient.requeue).toHaveBeenCalledWith(`ticket-${USER_C}`)
+    await expect(service.accept(USER_C)).rejects.toThrow('No active match')
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
   test('keeps an active-banned player out of a match found concurrently', async () => {
     await queuePlayer(USER_A, CLIENT_A)
     await queuePlayer(USER_B, CLIENT_B)
