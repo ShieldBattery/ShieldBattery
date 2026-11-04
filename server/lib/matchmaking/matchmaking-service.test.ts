@@ -14,6 +14,7 @@ import {
 import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { MatchFoundMessage } from '../../../common/typeshare'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { BaseGameLoaderError, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -1862,6 +1863,66 @@ describe('matchmaking/matchmaking-service', () => {
     expect(gameLoader.cancelLoadingWithoutBlame).toHaveBeenCalledWith('started-game')
     expect(request.signal.aborted).toBe(false)
     expect(banUser).not.toHaveBeenCalled()
+  })
+
+  describe('a penalty that removes a search', () => {
+    let finishCancel: (result: Result<void, RsMatchmakerError>) => void
+
+    beforeEach(async () => {
+      await queuePlayer(USER_A, CLIENT_A)
+      checkUser.mockResolvedValue({})
+      matchmakerClient.cancel.mockImplementationOnce(
+        () => new Promise(resolve => (finishCancel = resolve)),
+      )
+    })
+
+    /** The player's client goes away, and they come back and join a lobby. */
+    async function leaveForLobby(): Promise<ClientSocketsGroup> {
+      const clientA = clientSockets.get(USER_A)!
+      const onClose = asMockedFunction(clientA.subscribe)
+        .mock.calls.map(call => call[2])
+        .find(callback => typeof callback === 'function')!
+      onClose(clientA)
+      const lobbyClient = createFakeClient(USER_A, 'CLIENT_A2')
+      expect(
+        activityRegistry.registerActiveClient(USER_A, lobbyClient, FriendActivityStatus.InLobby),
+      ).toBe(true)
+      return lobbyClient
+    }
+
+    test('leaves alone a lobby the player joins while it is being removed', async () => {
+      const enforcing = service.enforceLobbyViolationPenalty({
+        gameId: 'other-game',
+        userId: USER_A,
+        penalty: 'lossAndBan',
+      })
+      await drainMatchmakingTasks()
+      const lobbyClient = await leaveForLobby()
+
+      finishCancel(Result.ok())
+      await enforcing
+
+      expect(activityRegistry.getClientForUser(USER_A)).toBe(lobbyClient)
+    })
+
+    test("doesn't bring the search back for a player who has left, if removing it fails", async () => {
+      const enforcing = service.enforceLobbyViolationPenalty({
+        gameId: 'other-game',
+        userId: USER_A,
+        penalty: 'lossAndBan',
+      })
+      await drainMatchmakingTasks()
+      const lobbyClient = await leaveForLobby()
+
+      finishCancel(
+        Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')),
+      )
+      await expect(enforcing).rejects.toThrow('boom')
+
+      expect(activityRegistry.getClientForUser(USER_A)).toBe(lobbyClient)
+      await expect(service.accept(USER_A)).rejects.toThrow('No active match')
+      await expect(service.cancel(USER_A)).rejects.toThrow('does not have an active')
+    })
   })
 
   describe('simulated match pops', () => {

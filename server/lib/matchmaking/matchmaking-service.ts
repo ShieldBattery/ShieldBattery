@@ -1084,18 +1084,27 @@ export class MatchmakingService {
     const queued = this.queueEntries.get(userId)
     if (hasActiveBan && queued && !queued.matchId) {
       const data = this.playerQueueData.get(userId)
+      // The player can leave (and start something else) while the search is being removed, so the
+      // registration is only released, or the search restored, if it's still the one they searched
+      // with
+      const client = this.activityRegistry.getClientForUser(userId)
       this.queueEntries.delete(userId)
       this.playerQueueData.delete(userId)
       try {
         await this.cancelPlayerInRust(userId)
       } catch (err) {
-        if (!this.queueEntries.has(userId)) {
+        if (
+          !this.queueEntries.has(userId) &&
+          this.activityRegistry.getClientForUser(userId) === client
+        ) {
           this.queueEntries.set(userId, queued)
           if (data) this.playerQueueData.set(userId, data)
         }
         throw err
       }
-      this.unregisterActivity(userId)
+      if (this.activityRegistry.getClientForUser(userId) === client) {
+        this.unregisterActivity(userId)
+      }
       queueRemoved = true
     }
 
