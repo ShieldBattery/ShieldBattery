@@ -122,6 +122,7 @@ function makeState(
     byId: new Map([[TARGET_ID, session]]),
     lastMessages: new Map(),
     conversationsLoaded: false,
+    windowGenFloor: 0,
   }
 
   return state as Immutable<WhisperState>
@@ -658,6 +659,73 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
       expect(sessionOf(result).hasUnread).toBe(true)
+    })
+  })
+
+  describe('pages in flight for a window that no longer exists', () => {
+    // A page requested for the first window of a session, still in flight while the session is
+    // closed or the connection restarts and the session is opened again.
+    const stalePage = () =>
+      loadMessageHistoryAction(historyResponse([serverMessage(100)], { hasMoreBefore: false }), {
+        windowGen: 0,
+      })
+    const openAction = (): WhisperActions => ({
+      type: '@whispers/initSession',
+      payload: { target: TARGET_ID },
+    })
+
+    test('is discarded after the session is closed and opened again', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, {
+        type: '@whispers/closeSession',
+        payload: { target: TARGET_ID },
+      })
+      state = whisperReducer(state, openAction())
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+      expect(sessionOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after a reconnect opens the session again', () => {
+      let state = whisperReducer(makeState(), getWhisperSessionsAction(0))
+      state = whisperReducer(state, { type: '@network/connect' } as unknown as WhisperActions)
+      state = whisperReducer(state, getWhisperSessionsAction(0))
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+      expect(sessionOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after the session is opened over its existing window', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, openAction())
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+    })
+
+    test('does not match a window that was replaced several times before the session returned', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, resetMessageWindowAction())
+      state = whisperReducer(state, resetMessageWindowAction())
+      const staleGen = sessionOf(state).windowGen
+      state = whisperReducer(state, {
+        type: '@whispers/closeSession',
+        payload: { target: TARGET_ID },
+      })
+      state = whisperReducer(state, openAction())
+      expect(sessionOf(state).windowGen).toBeGreaterThan(staleGen)
+
+      const result = whisperReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([serverMessage(100)]), { windowGen: staleGen }),
+      )
+
+      expect(messageIdsOf(result)).toEqual([])
     })
   })
 

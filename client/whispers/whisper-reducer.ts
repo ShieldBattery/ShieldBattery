@@ -121,7 +121,7 @@ export interface WhisperSession {
   unreadLine?: UnreadLine
 }
 
-function defaultWhisperSession(target: SbUserId): WhisperSession {
+function defaultWhisperSession(target: SbUserId, windowGen: number): WhisperSession {
   return {
     target,
     messages: [],
@@ -130,7 +130,7 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     loadingNewer: false,
     hasNewer: false,
     detachedNewestTime: undefined,
-    windowGen: 0,
+    windowGen,
     carriedClientMessages: [],
     historyError: undefined,
     newerError: false,
@@ -154,6 +154,14 @@ export interface WhisperState {
   lastMessages: Map<SbUserId, CommonTextMessage>
   /** Whether a page of the conversation list has loaded since connecting. */
   conversationsLoaded: boolean
+  /**
+   * The lowest generation a message window created from now on may take. Window generations only
+   * mean something while no two windows a conversation has ever had share one, since a page still
+   * in flight for a window that is gone (the session was closed, or the connection restarted, and
+   * the session was opened again) must not match its successor. This outlives the sessions
+   * themselves so that a re-created window always starts past everything its predecessors used.
+   */
+  windowGenFloor: number
 }
 
 const DEFAULT_STATE: Immutable<WhisperState> = {
@@ -161,6 +169,14 @@ const DEFAULT_STATE: Immutable<WhisperState> = {
   byId: new Map(),
   lastMessages: new Map(),
   conversationsLoaded: false,
+  windowGenFloor: 0,
+}
+
+/** Raises the floor for new windows' generations above everything `session` has used. */
+function retireWindowGen(state: WhisperState, session: WhisperSession | undefined) {
+  if (session) {
+    state.windowGenFloor = Math.max(state.windowGenFloor, session.windowGen + 1)
+  }
 }
 
 /** Records `message` as the newest one in its conversation with `target`, unless it's older. */
@@ -530,7 +546,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         continue
       }
 
-      state.byId.set(session, defaultWhisperSession(session))
+      state.byId.set(session, defaultWhisperSession(session, state.windowGenFloor))
     }
 
     // Seeds each session's read position from the server, so the unread divider has somewhere to
@@ -569,7 +585,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@whispers/initSession'](state, action) {
     const { target } = action.payload
-    state.byId.set(target, defaultWhisperSession(target))
+    // Opening a session that already exists replaces its window, so that window is retired too.
+    retireWindowGen(state, state.byId.get(target))
+    state.byId.set(target, defaultWhisperSession(target, state.windowGenFloor))
     state.sessions = new Set([target, ...state.sessions])
   },
 
@@ -577,6 +595,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { target } = action.payload
 
     state.sessions.delete(target)
+    retireWindowGen(state, state.byId.get(target))
     state.byId.delete(target)
   },
 
@@ -1054,7 +1073,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // read position can only ever lower an unread flag, never raise one, so it cannot put a badge
     // on a conversation nobody has heard from.
     if (!state.byId.has(targetId)) {
-      state.byId.set(targetId, defaultWhisperSession(targetId))
+      state.byId.set(targetId, defaultWhisperSession(targetId, state.windowGenFloor))
     }
     const session = state.byId.get(targetId)!
 
@@ -1079,7 +1098,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@network/connect']() {
-    return DEFAULT_STATE
+  ['@network/connect'](state) {
+    // Requests issued before the reconnect can still land after the sessions are opened again.
+    let windowGenFloor = state.windowGenFloor
+    for (const session of state.byId.values()) {
+      windowGenFloor = Math.max(windowGenFloor, session.windowGen + 1)
+    }
+    return { ...DEFAULT_STATE, windowGenFloor }
   },
 })
