@@ -3,7 +3,7 @@ import { closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync } f
 import path from 'node:path'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { getErrorStack } from '../../../common/errors'
-import { hashMapBytes, hasUmsContent, readMapSummary } from '../map-summary'
+import { hashMapBytes, hasUmsContent, MAP_LIMIT_OPTIONS, readMapSummary } from '../map-summary'
 import { MapRendererWorkerData, RenderRequest, RenderResponse } from './messages'
 
 // Renders images of map files with broodmap, reading the game's art straight from the StarCraft
@@ -56,7 +56,7 @@ function render({ id, path: filePath, hash, size }: RenderRequest): RenderRespon
     startLocations: 'hidden',
     asPlaced: hasUmsContent(readMapSummary(bytes)),
   })
-  const map = new MapRenderer(bytes)
+  const map = new MapRenderer(bytes, MAP_LIMIT_OPTIONS)
   try {
     // Art the install lacks only leaves out the things drawn with it.
     map.loadAssets(getStorage(), options)
