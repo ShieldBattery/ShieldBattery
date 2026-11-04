@@ -1268,10 +1268,19 @@ export class MatchmakingService {
         })
       }
 
+      // The map is picked while the players accept. A match whose map can't be picked can't launch,
+      // so it falls apart as soon as that's known rather than once everyone has accepted it, and
+      // nobody is blamed for it.
       const mapPromise = match.isSimulated ? undefined : pickMap(match.type, match.teams.flat())
+      const mapFailure = mapPromise?.then(() => new Promise<never>(() => {}))
+      // A match that falls apart for another reason stops waiting on its map, so a failure that
+      // comes later has nothing left to fail
+      mapFailure?.catch(swallowNonBuiltins)
 
       while (match.numAccepted < match.totalPlayers) {
-        await match.acceptStateChanged
+        await (mapFailure
+          ? Promise.race([match.acceptStateChanged, mapFailure])
+          : match.acceptStateChanged)
 
         this.publishToMatch(match, {
           type: 'playerAccepted',

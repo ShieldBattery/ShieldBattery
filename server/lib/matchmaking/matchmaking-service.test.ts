@@ -2201,4 +2201,75 @@ describe('matchmaking/matchmaking-service', () => {
       expect(matchmakerClient.queue).not.toHaveBeenCalled()
     })
   })
+
+  describe('a match whose map fails to be picked', () => {
+    function findMatch() {
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
+          quality: 1,
+          skillVariance: 0,
+          ratingVarianceMultiplier: 1,
+          winProbability: 0.5,
+          teamARating: 1500,
+          teamBRating: 1500,
+          maxLatency: 0,
+          rematchPenalty: 0,
+        },
+      })
+    }
+
+    test('falls apart while players accept, without blaming anyone', async () => {
+      asMockedFunction(getCurrentMapPool).mockRejectedValueOnce(new Error('database unavailable'))
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+      findMatch()
+      await drainMatchmakingTasks()
+
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-a')
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
+      await expect(acceptFoundMatch(USER_A)).rejects.toThrow('No active match')
+
+      await vi.advanceTimersByTimeAsync(120_000)
+      expect(banUser).not.toHaveBeenCalled()
+      await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+      await expect(service.cancel(USER_B)).resolves.toBeUndefined()
+    })
+
+    test('is left unobserved once the match has fallen apart for another reason', async () => {
+      let failMapPool!: (err: Error) => void
+      asMockedFunction(getCurrentMapPool).mockReturnValueOnce(
+        new Promise((_resolve, reject) => (failMapPool = reject)),
+      )
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+      findMatch()
+      await drainMatchmakingTasks()
+
+      const clientB = clientSockets.get(USER_B)!
+      const onCloseB = asMockedFunction(clientB.subscribe)
+        .mock.calls.map(call => call[2])
+        .find(callback => typeof callback === 'function')!
+      onCloseB(clientB)
+      await drainMatchmakingTasks()
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-a')
+
+      const unhandled = vi.fn()
+      process.on('unhandledRejection', unhandled)
+      try {
+        failMapPool(new Error('database unavailable'))
+        await drainMatchmakingTasks()
+        for (let i = 0; i < 5; i++) {
+          await new Promise(resolve => process.nextTick(resolve))
+        }
+      } finally {
+        process.off('unhandledRejection', unhandled)
+      }
+
+      expect(unhandled).not.toHaveBeenCalled()
+    })
+  })
 })
