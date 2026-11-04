@@ -773,6 +773,16 @@ function addLiveServerMessage(
     return
   }
 
+  // A page can carry a message the server stored before announcing it, so the announcement may
+  // reach a window that already holds the message. It still counts as an arrival, but the list
+  // keeps one copy.
+  if (channelMessages.messages.some(m => m.id === message.id)) {
+    if (arrival) {
+      recordLiveArrival(state, channelId, arrival)
+    }
+    return
+  }
+
   updateMessages(state, channelId, arrival, messages => {
     messages.push(message)
     return messages

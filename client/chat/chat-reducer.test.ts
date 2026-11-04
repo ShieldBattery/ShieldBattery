@@ -1143,6 +1143,38 @@ describe('client/chat/chat-reducer', () => {
   })
 
   describe('@chat/updateMessage', () => {
+    test('keeps one copy of a message that a page already delivered before its announcement', () => {
+      let state = makeState({ messages: [textMessage(100)], activated: true, atBottom: true })
+
+      state = chatReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(100), textMessage(200)], {
+            hasMoreBefore: false,
+            hasMoreAfter: false,
+          }),
+          { aroundTime: 150 },
+        ),
+      )
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+
+      state = chatReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+    })
+
+    test('a message already in the window still counts as an unread arrival', () => {
+      let state = makeState({
+        messages: [textMessage(100), textMessage(200)],
+        lastReadTime: 100,
+      })
+
+      state = chatReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
     test('sets the mention time when the message mentions self', () => {
       const state = makeState()
 
