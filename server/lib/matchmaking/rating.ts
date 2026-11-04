@@ -480,6 +480,10 @@ function calcPointsChange({
     // For wins, bonus pool can up to double the point improvement, catch-up points included, so a
     // player who is far below their target spends their pool quickly. For losses, bonus pool can
     // offset up to the entire amount of the point loss.
+    //
+    // NOTE(tec27): A loss spends bonus even when the 0-point floor below would have absorbed it
+    // anyway. Otherwise a player could lose their way down to 0 points for free and keep their whole
+    // pool to double the wins that follow.
     bonusApplied = Math.min(bonusInfo.bonusAvailable, Math.abs(pointsChange))
     pointsChange = pointsChange + bonusApplied
   }
