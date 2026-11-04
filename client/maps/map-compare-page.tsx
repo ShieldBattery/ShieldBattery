@@ -26,7 +26,9 @@ import { SegmentedButtonGroup } from '../material/segmented-button'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
+import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
   bodyLarge,
@@ -389,6 +391,10 @@ const Names = styled.div`
   min-width: 0;
 `
 
+const HeaderActions = styled.div`
+  margin-left: auto;
+`
+
 const NameLink = styled(Link)`
   ${titleSmall};
   overflow: hidden;
@@ -544,6 +550,7 @@ function CompareBody({
   terrainChanges?: string
 }) {
   const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
   const a = useCompareSide(aRef)
   const b = useCompareSide(bRef)
   const [viewParam, setViewParam] = useLocationSearchParam('view')
@@ -566,6 +573,17 @@ function CompareBody({
     .map(c => describeChange(t, c, a, b, details))
 
   const swapLabel = t('maps.compare.swap', 'Swap sides')
+  const copyLinkLabel = t('maps.page.copyLink', 'Copy link')
+
+  const onCopyLink = () => {
+    const url = new URL(makeServerUrl(urlForMapCompare(a.id, b.id, view)), location.origin)
+    navigator.clipboard
+      .writeText(url.toString())
+      .then(() => snackbarController.showSnackbar(t('maps.page.linkCopied', 'Link copied')))
+      .catch(() =>
+        snackbarController.showSnackbar(t('maps.page.linkCopyError', "Couldn't copy the link")),
+      )
+  }
 
   return (
     <>
@@ -586,6 +604,15 @@ function CompareBody({
             {bName}
           </NameLink>
         </Names>
+        <HeaderActions>
+          <Tooltip text={copyLinkLabel} position='bottom' tabIndex={-1}>
+            <IconButton
+              icon={<MaterialIcon icon='link' />}
+              ariaLabel={copyLinkLabel}
+              onClick={onCopyLink}
+            />
+          </Tooltip>
+        </HeaderActions>
       </Header>
 
       <Controls>
