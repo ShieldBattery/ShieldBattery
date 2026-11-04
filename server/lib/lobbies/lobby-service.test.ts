@@ -1,6 +1,6 @@
 import { NydusServer } from 'nydus'
 import { Result } from 'typescript-result'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   GameServerRegion,
   GameServerRegionId,
@@ -353,12 +353,19 @@ describe('lobbies/lobby-service', () => {
    * march its members through a ready check first.
    */
   async function runCountdown(sockets: Sockets) {
-    vi.useFakeTimers()
     lobbyService.startCountdown({ client: sockets.client, force: true })
-    await vi.advanceTimersByTimeAsync(5000)
-    // `FakeClock` waits on a real timer between the tasks it runs, which never comes back while
-    // vitest is faking timers, so the countdown gives them back as soon as it's done with them.
-    vi.useRealTimers()
+    await advanceClockBy(5000)
+  }
+
+  /**
+   * Runs every timeout due within `ms`, leaving the clock exactly `ms` later. The extra timeout
+   * is what stops it there: the clock only moves by running a task, so with nothing scheduled at
+   * that moment it would run whatever comes next instead, however far off that is.
+   */
+  async function advanceClockBy(ms: number) {
+    const timeMillis = clock.now() + ms
+    clock.setTimeout(() => {}, ms)
+    await clock.runTimeoutsUntil({ criteria: StopCriteria.TimeReached, timeMillis })
   }
 
   /** Signals that one member's game is over, the way the games code does when a report lands. */
@@ -445,10 +452,6 @@ describe('lobbies/lobby-service', () => {
     clearTestLogs(nydus)
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   describe('visibility', () => {
     test('creating a listed lobby publishes it to the list and counts it', async () => {
       await createLobby(host, 'Listed lobby', 'listed')
@@ -490,9 +493,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       fakeNydus.publish.mockClear()
 
-      // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight. The
-      // service publishes everything we care about before it suspends on the timer.
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       // The occupants still see the countdown; only the public list is kept in the dark.
@@ -923,8 +923,6 @@ describe('lobbies/lobby-service', () => {
       // A countdown requires 2 opposing sides.
       await joinLobby(joiner, id)
 
-      // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight.
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       await joinLobby(otherHost, id)
@@ -934,6 +932,25 @@ describe('lobbies/lobby-service', () => {
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
       expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+    })
+
+    test("a joiner's init tells them how far along the lobby's game launch is", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      lobbyService.startCountdown({ client: host.client, force: true })
+      await advanceClockBy(2000)
+      await joinLobby(otherHost, id)
+      expect((await initPayload(otherHost, id)).launch).toEqual({
+        phase: 'countingDown',
+        countdown: { remainingMs: 3000 },
+      })
+
+      // The load the countdown leads into never finishes, so the lobby stays loading.
+      loadGameMock.mockReturnValueOnce(new Promise(() => {}))
+      await advanceClockBy(3000)
+      await joinLobby(otherJoiner, id)
+      expect((await initPayload(otherJoiner, id)).launch).toEqual({ phase: 'loading' })
     })
 
     test('joining a lobby the user was banned from rejects with a Banned code', async () => {
@@ -1221,7 +1238,6 @@ describe('lobbies/lobby-service', () => {
       // relay warm. Only a seated human belongs to the game about to start.
       expect(warmRegionsMock).not.toHaveBeenCalled()
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       expect(warmRegionsMock).toHaveBeenCalledExactlyOnceWith([makeGameServerRegionId('us-east')])
@@ -1284,7 +1300,6 @@ describe('lobbies/lobby-service', () => {
     test('a member leaving the bench does not cancel a countdown in progress', async () => {
       const id = await createLobbyWithBench()
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
       fakeNydus.publish.mockClear()
 
@@ -1307,10 +1322,7 @@ describe('lobbies/lobby-service', () => {
         })
       })
 
-      vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client, force: true })
-      await vi.advanceTimersByTimeAsync(5000)
-      vi.useRealTimers()
+      await runCountdown(host)
       expect(loadGameRequests).toHaveLength(1)
 
       // The stored lobby gets updated by this mid-load, and the load failure must still find it
@@ -1338,10 +1350,7 @@ describe('lobbies/lobby-service', () => {
         })
       })
 
-      vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client, force: true })
-      await vi.advanceTimersByTimeAsync(5000)
-      vi.useRealTimers()
+      await runCountdown(host)
       expect(loadGameRequests).toHaveLength(1)
 
       await joinLobby(otherHost, id)
@@ -1372,10 +1381,7 @@ describe('lobbies/lobby-service', () => {
         return Result.ok({ gameId: 'test-game-id' })
       })
 
-      vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client, force: true })
-      await vi.advanceTimersByTimeAsync(5000)
-      vi.useRealTimers()
+      await runCountdown(host)
 
       // The bench member moves on to a lobby of their own while the first one is loading
       lobbyService.leaveLobby({ client: otherHost.client })
@@ -1690,7 +1696,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       await expect(
@@ -1703,7 +1708,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       const [, , hostSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       // The countdown has already handed the races it found to the game's configuration.
@@ -2694,7 +2698,6 @@ describe('lobbies/lobby-service', () => {
 
       // Counting down is a few seconds of a lobby's life. Withholding the summary would tell every
       // reader that the lobby is gone, which outlives the countdown by the length of the game.
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       expect(getLobbySummary(id)).toEqual(
@@ -2710,7 +2713,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       // A launch is a few seconds of a lobby's life that a join waits out on the bench, so the
@@ -2768,9 +2770,7 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       const code = getLobbyJoinCode(id)!
 
-      vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client, force: true })
-      await vi.advanceTimersByTimeAsync(5000)
+      await runCountdown(host)
 
       // The lobby persists through its game, and so does the way in to it
       expect(getLobbyJoinCode(id)).toBe(code)
@@ -3050,17 +3050,6 @@ describe('lobbies/lobby-service', () => {
       return await call?.[2]
     }
 
-    /**
-     * Runs every timeout due within `ms`, leaving the clock exactly `ms` later. The extra timeout
-     * is what stops it there: the clock only moves by running a task, so with nothing scheduled at
-     * that moment it would run whatever comes next instead, however far off that is.
-     */
-    async function advanceClockBy(ms: number) {
-      const timeMillis = clock.now() + ms
-      clock.setTimeout(() => {}, ms)
-      await clock.runTimeoutsUntil({ criteria: StopCriteria.TimeReached, timeMillis })
-    }
-
     test('a started game keeps the lobby, with everyone in it and in their activity', async () => {
       const id = await createLobbyInGame()
 
@@ -3282,7 +3271,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
       await joinLobby(otherHost, id)
 
@@ -3578,7 +3566,6 @@ describe('lobbies/lobby-service', () => {
     test('ready marks cannot be changed once the lobby is counting down', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
       expect(() => setReady(joiner, id, true)).toThrow(
@@ -3685,7 +3672,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -3696,7 +3682,6 @@ describe('lobbies/lobby-service', () => {
       const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
       lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -3714,7 +3699,6 @@ describe('lobbies/lobby-service', () => {
         expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
       )
 
-      vi.useFakeTimers()
       lobbyService.setReady({ client: lister.client, lobbyId: id, isReady: true })
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
@@ -3725,11 +3709,13 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
-      expect(lobbyPublishes(id)).toContainEqual({ type: 'startCountdown' })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'startCountdown',
+        countdown: { remainingMs: 5000 },
+      })
     })
   })
 
@@ -3795,7 +3781,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
 
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -3818,7 +3803,6 @@ describe('lobbies/lobby-service', () => {
         expect(lobbyService.lobbyCountdowns.has(id)).toBe(false)
 
         setMapStatus(joiner, id, 'ready')
-        vi.useFakeTimers()
         lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
         expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -3851,7 +3835,6 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
 
       setMapStatus(otherHost, id, 'downloading')
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -4001,7 +3984,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
       fakeNydus.publish.mockClear()
 
@@ -4014,14 +3996,13 @@ describe('lobbies/lobby-service', () => {
       expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
 
       // The countdown must not go on to load a game after being called off
-      await vi.advanceTimersByTimeAsync(5000)
+      await advanceClockBy(5000)
       expect(loadGameRequests).toEqual([])
     })
 
     test('only the host can call off a countdown', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
 
       expect(() => lobbyService.cancelCountdown({ client: joiner.client, lobbyId: id })).toThrow(
@@ -4326,7 +4307,6 @@ describe('lobbies/lobby-service', () => {
       })
       await joinLobby(joiner, id)
       await runCountdown(host)
-      vi.useRealTimers()
       return id
     }
 
@@ -4365,7 +4345,6 @@ describe('lobbies/lobby-service', () => {
       lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
 
       await runCountdown(host)
-      vi.useRealTimers()
 
       const { teams } = lobbyService.runStates.get(id)!
       // Both sides, with only the seats someone is actually in: the observer is on nobody's side,
@@ -4396,7 +4375,6 @@ describe('lobbies/lobby-service', () => {
       lobbyService.setRace({ client: host.client, slotId: computerSlot.id, race: 't' })
 
       await runCountdown(host)
-      vi.useRealTimers()
 
       expect(lobbyService.runStates.get(id)!.teams).toEqual([
         {
@@ -4486,7 +4464,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       await runCountdown(host)
-      vi.useRealTimers()
       await endGame()
       asMockedFunction(getGameRecord).mockResolvedValue(
         reconciledRecord([

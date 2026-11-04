@@ -1,6 +1,6 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { LobbyEvent } from '../../common/lobbies/lobby-network'
+import { LobbyCountdownJson, LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
@@ -10,12 +10,12 @@ import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
 import { downloadLobbyMap } from './lobby-map-download'
-import { isInLobby } from './lobby-reducer'
+import { countdownTicksLeft, isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
 interface CountdownState {
-  timer: ReturnType<typeof setInterval> | undefined
+  timer: ReturnType<typeof setTimeout> | undefined
   sound: FadeableSound | undefined
 }
 
@@ -39,12 +39,45 @@ function selfIsBenched(state: RootState): boolean {
 function clearCountdownTimer() {
   const { timer, sound } = countdownState
   if (timer) {
-    clearInterval(timer)
+    clearTimeout(timer)
     countdownState.timer = undefined
   }
   if (sound) {
     sound.fadeOut(0.5)
     countdownState.sound = undefined
+  }
+}
+
+/**
+ * Follows the lobby's countdown locally from where `countdown` says it is: the number it shows
+ * drops as each second of it elapses, and the game starts loading once it runs out.
+ */
+function followCountdown(countdown: LobbyCountdownJson): ThunkAction {
+  return (dispatch, getState) => {
+    let tick = countdownTicksLeft(countdown.remainingMs)
+    const step = () => {
+      tick -= 1
+      dispatch({
+        type: '@lobbies/updateCountdownTick',
+        payload: tick,
+      })
+      if (tick > 0) {
+        countdownState.timer = setTimeout(step, 1000)
+        return
+      }
+
+      clearCountdownTimer()
+      dispatch({ type: '@lobbies/updateLoadingStart' })
+
+      // A benched member holds no slot in the game being loaded, so nothing launches locally for
+      // them and this dialog would have nothing to resolve it: they stay on the lobby instead.
+      if (!selfIsBenched(getState())) {
+        dispatch(openDialog({ type: DialogType.LaunchingGame }))
+      }
+    }
+    // The first tick comes when the second the countdown is in runs out, which keeps every tick
+    // after it on the same whole seconds of the countdown as everyone else's.
+    countdownState.timer = setTimeout(step, Math.max(countdown.remainingMs - (tick - 1) * 1000, 0))
   }
 }
 
@@ -103,6 +136,11 @@ const eventToAction: EventToActionMap = {
       type: '@lobbies/init',
       payload: event,
     })
+    if (event.launch?.phase === 'countingDown') {
+      // Arriving partway through the countdown picks it up where the lobby is, so that it runs out
+      // when everyone else's does.
+      dispatch(followCountdown(event.launch.countdown))
+    }
     dispatch(downloadLobbyMap(event.lobby))
   },
 
@@ -191,32 +229,14 @@ const eventToAction: EventToActionMap = {
   // The countdown belongs to the lobby, not to any one member's game: everyone in the lobby,
   // benched or seated, follows it (and sees it) the same way. Only the local game launch it leads
   // into is specific to the members holding a slot.
-  startCountdown: (lobbyId, event) => (dispatch, getState) => {
+  startCountdown: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
-    let tick = 5
     dispatch({
       type: '@lobbies/updateCountdownStart',
-      payload: tick,
+      payload: event.countdown,
     })
     countdownState.sound = audioManager.playFadeableSound(AvailableSound.Countdown)
-
-    countdownState.timer = setInterval(() => {
-      tick -= 1
-      dispatch({
-        type: '@lobbies/updateCountdownTick',
-        payload: tick,
-      })
-      if (!tick) {
-        clearCountdownTimer()
-        dispatch({ type: '@lobbies/updateLoadingStart' })
-
-        // A benched member holds no slot in the game being loaded, so nothing launches locally for
-        // them and this dialog would have nothing to resolve it: they stay on the lobby instead.
-        if (!selfIsBenched(getState())) {
-          dispatch(openDialog({ type: DialogType.LaunchingGame }))
-        }
-      }
-    }, 1000)
+    dispatch(followCountdown(event.countdown))
   },
 
   cancelCountdown: (lobbyId, event) => dispatch => {

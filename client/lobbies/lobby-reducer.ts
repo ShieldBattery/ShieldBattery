@@ -4,6 +4,7 @@ import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
 import {
   changesGameSettings,
+  LobbyLaunchJson,
   LobbyMemberMapStatusJson,
   LobbyRunStateJson,
   LobbySeriesGameJson,
@@ -27,6 +28,31 @@ const EMPTY_LOADING_STATE: LobbyLoadingState = Object.freeze({
   countdownTimer: -1,
   isLoading: false,
 })
+
+/**
+ * The loading state of a lobby we arrive in partway through launching its game, which matches what
+ * having followed the launch from its start would have left us with.
+ */
+function loadingStateFor(launch: LobbyLaunchJson | undefined): LobbyLoadingState {
+  if (launch?.phase === 'countingDown') {
+    return {
+      isCountingDown: true,
+      countdownTimer: countdownTicksLeft(launch.countdown.remainingMs),
+      isLoading: false,
+    }
+  } else if (launch?.phase === 'loading') {
+    return { ...EMPTY_LOADING_STATE, isLoading: true }
+  }
+  return EMPTY_LOADING_STATE
+}
+
+/**
+ * The number a countdown shows with `remainingMs` of it left. The number drops as each second of
+ * the countdown elapses, and it never drops below 1 before the countdown is over.
+ */
+export function countdownTicksLeft(remainingMs: number): number {
+  return Math.max(Math.ceil(remainingMs / 1000), 1)
+}
 
 const EMPTY_SLOT: Slot = Object.freeze({
   type: SlotType.Open,
@@ -274,7 +300,7 @@ const lobbyHandlers = {
           startedAt: performance.now() - action.payload.runState.elapsedMs,
         }
       : undefined
-    draft.loadingState = EMPTY_LOADING_STATE
+    draft.loadingState = loadingStateFor(action.payload.launch)
     draft.readyUserIds = action.payload.readyUsers.slice()
     draft.mapStatuses = action.payload.mapStatuses.slice()
     draft.series = castDraft(action.payload.series.slice())
@@ -623,7 +649,7 @@ const lobbyHandlers = {
 
   '@lobbies/updateCountdownStart'(draft, action) {
     draft.loadingState.isCountingDown = true
-    draft.loadingState.countdownTimer = action.payload
+    draft.loadingState.countdownTimer = countdownTicksLeft(action.payload.remainingMs)
 
     if (!draft.info.name) {
       return

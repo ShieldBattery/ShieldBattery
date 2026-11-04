@@ -35,7 +35,9 @@ import {
   isLobbySummaryFull,
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
+  LobbyCountdownJson,
   LobbyInitEvent,
+  LobbyLaunchJson,
   LobbyLifecycle,
   LobbyMapStatus,
   LobbyMemberMapStatusJson,
@@ -158,8 +160,16 @@ export function knownRegionOrUndefined(
   return region !== undefined && regions.some(r => r.id === region) ? region : undefined
 }
 
+/** How long a lobby counts down before its game starts loading. */
+const COUNTDOWN_MS = 5000
+
 interface Countdown {
-  timer?: Deferred<void>
+  /** Resolves when the countdown runs out, and rejects if it is called off first. */
+  timer: Deferred<void>
+  /** The clock timeout that resolves `timer`. */
+  timeout: TimeoutId
+  /** When the countdown runs out, in the service clock's monotonic time. */
+  endsAt: number
 }
 
 /**
@@ -627,6 +637,20 @@ export class LobbyService {
     return [...(this.series.get(lobbyId) ?? [])]
   }
 
+  /** Serializes the game launch a lobby has under way for the wire, or `undefined` if it has none. */
+  private _launchJson(lobbyId: SbLobbyId): LobbyLaunchJson | undefined {
+    const countdown = this.lobbyCountdowns.get(lobbyId)
+    if (countdown) {
+      return { phase: 'countingDown', countdown: this._countdownJson(countdown) }
+    }
+    return this.loadingLobbies.has(lobbyId) ? { phase: 'loading' } : undefined
+  }
+
+  /** Serializes how much of a countdown is left for the wire. */
+  private _countdownJson(countdown: Countdown): LobbyCountdownJson {
+    return { remainingMs: Math.max(countdown.endsAt - this.clock.monotonicNow(), 0) }
+  }
+
   /** Serializes a lobby's running game for the wire, or `undefined` if it has none. */
   private _runStateJson(lobbyId: SbLobbyId): LobbyRunStateJson | undefined {
     const runState = this.runStates.get(lobbyId)
@@ -1000,6 +1024,7 @@ export class LobbyService {
           type: 'init',
           lobby: current,
           runState: this._runStateJson(lobbyId),
+          launch: this._launchJson(lobbyId),
           userInfos,
           readyUsers: this._readyUsersJson(lobbyId),
           mapStatuses: this._mapStatusesJson(lobbyId),
@@ -2411,10 +2436,14 @@ export class LobbyService {
     const lobbyId = lobby.id
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
-    setTimeout(() => countdownTimer.resolve(), 5000)
-    this.lobbyCountdowns.set(lobbyId, { timer: countdownTimer })
+    const countdown: Countdown = {
+      timer: countdownTimer,
+      timeout: this.clock.setTimeout(() => countdownTimer.resolve(), COUNTDOWN_MS),
+      endsAt: this.clock.monotonicNow() + COUNTDOWN_MS,
+    }
+    this.lobbyCountdowns.set(lobbyId, countdown)
 
-    this._publishTo(lobby, { type: 'startCountdown' })
+    this._publishTo(lobby, { type: 'startCountdown', countdown: this._countdownJson(countdown) })
     this._publishListChange('delete', lobby)
 
     const gameConfig: GameConfig = {
@@ -2863,12 +2892,13 @@ export class LobbyService {
 
   /** Cancels the countdown if one was occurring, returning whether there was one to cancel. */
   _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false): boolean {
-    if (!this.lobbyCountdowns.has(lobby.id)) {
+    const countdown = this.lobbyCountdowns.get(lobby.id)
+    if (!countdown) {
       return false
     }
 
-    const countdown = this.lobbyCountdowns.get(lobby.id)
-    countdown?.timer?.reject(new CountdownCanceledError('Countdown cancelled'))
+    this.clock.clearTimeout(countdown.timeout)
+    countdown.timer.reject(new CountdownCanceledError('Countdown cancelled'))
     this.lobbyCountdowns.delete(lobby.id)
     this._publishTo(lobby, {
       type: 'cancelCountdown',

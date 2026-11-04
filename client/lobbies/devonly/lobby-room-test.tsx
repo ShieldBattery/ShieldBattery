@@ -474,7 +474,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
   sendMockChat(dispatch, PACHI, '"one game" — famous last words')
 
   if (scenario === 'countingDown') {
-    dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })
+    dispatch({ type: '@lobbies/updateCountdownStart', payload: { remainingMs: 5000 } })
   }
 
   if (scenario === 'inGame') {
@@ -645,8 +645,12 @@ function LobbyRoomTestInner() {
                 payload: { type: 'readyChange', userId: viewerId, isReady: !isViewerReady },
               })
             }}
-            onStartGame={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
-            onForceStart={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
+            onStartGame={() =>
+              dispatch({ type: '@lobbies/updateCountdownStart', payload: { remainingMs: 5000 } })
+            }
+            onForceStart={() =>
+              dispatch({ type: '@lobbies/updateCountdownStart', payload: { remainingMs: 5000 } })
+            }
             onCancelCountdown={() => dispatch({ type: '@lobbies/updateCountdownCanceled' })}
             onSlotAction={(action, slotId) => console.log('onSlotAction', action, slotId)}
             onRetryMapDownload={() => {

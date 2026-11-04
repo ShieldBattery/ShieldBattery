@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
 import {
+  LobbyLaunchJson,
   LobbyMapStatus,
   LobbyMemberMapStatusJson,
   LobbySeriesGameJson,
@@ -469,7 +470,10 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.chat).toHaveLength(200)
 
     // The countdown start pushes two messages (started + first tick) but still trims just one
-    state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateCountdownStart',
+      payload: { remainingMs: 5000 },
+    })
     expect(state.chat).toHaveLength(201)
   })
 
@@ -848,6 +852,48 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.runState?.gameId).toBe('game-2')
     expect(state.runState?.inGameUsers).toEqual([HOST_SLOT.userId])
+  })
+
+  test('init picks up a game launch already under way', () => {
+    const initDuring = (launch: LobbyLaunchJson) =>
+      lobbyReducer(undefined, {
+        type: '@lobbies/init',
+        payload: {
+          type: 'init',
+          lobby: LOBBY,
+          userInfos: [],
+          readyUsers: [],
+          mapStatuses: [],
+          series: [],
+          launch,
+        },
+      })
+
+    expect(
+      initDuring({ phase: 'countingDown', countdown: { remainingMs: 2500 } }).loadingState,
+    ).toEqual({
+      isCountingDown: true,
+      countdownTimer: 3,
+      isLoading: false,
+    })
+    expect(initDuring({ phase: 'loading' }).loadingState).toEqual({
+      isCountingDown: false,
+      countdownTimer: -1,
+      isLoading: true,
+    })
+  })
+
+  test('a countdown start shows the seconds the server says are left', () => {
+    const startWith = (remainingMs: number) =>
+      lobbyReducer(lobbyReducer(undefined, initAction()), {
+        type: '@lobbies/updateCountdownStart',
+        payload: { remainingMs },
+      }).loadingState
+
+    expect(startWith(5000)).toEqual({ isCountingDown: true, countdownTimer: 5, isLoading: false })
+    expect(startWith(3000)).toEqual({ isCountingDown: true, countdownTimer: 3, isLoading: false })
+    // A countdown that is nearly over still shows its last second rather than zero
+    expect(startWith(0)).toEqual({ isCountingDown: true, countdownTimer: 1, isLoading: false })
   })
 
   test('init seeds the ready members and the games played so far', () => {
