@@ -876,6 +876,21 @@ impl<T: QueueSelector> Matchmaker<T> {
         Ok(entry)
     }
 
+    /// Removes a player's queue entry only if it belongs to the search `search_id`. An entry from
+    /// any other search is left in place, so a removal that arrives late can't remove the search
+    /// that replaced the one it was meant for.
+    pub fn remove_search(&mut self, id: usize, search_id: &str) -> Option<Player> {
+        let is_queued = self
+            .queue
+            .iter()
+            .any(|e| e.player.id == id && e.player.search_id == search_id);
+        if is_queued {
+            self.remove_player(id)
+        } else {
+            None
+        }
+    }
+
     pub fn remove_player(&mut self, id: usize) -> Option<Player> {
         let index = self.queue.iter().position(|x| x.player.id == id);
         if let Some(index) = index {
@@ -2249,6 +2264,23 @@ mod tests {
             Instant::now(),
         );
         assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
+    }
+
+    #[test]
+    fn remove_search_leaves_a_later_search_queued() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        matchmaker
+            .insert_player(Player {
+                search_id: "later".to_string(),
+                ..make_player(0, 1000.0, MatchmakingType::Match1v1)
+            })
+            .unwrap();
+
+        assert!(matchmaker.remove_search(0, "earlier").is_none());
+        assert_eq!(matchmaker.queue.len(), 1);
+        assert!(matchmaker.remove_search(0, "later").is_some());
+        assert!(matchmaker.queue.is_empty());
     }
 
     #[test]

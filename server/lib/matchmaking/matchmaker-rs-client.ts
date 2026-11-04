@@ -133,15 +133,38 @@ function toRsError(err: unknown): RsMatchmakerError {
   )
 }
 
+/**
+ * How long a request to the Rust matchmaker gets before it fails as `serviceUnavailable`. The
+ * matchmaker is on the local network and normally answers in milliseconds, so a request that takes
+ * this long is hung. A player's requests are sent one at a time, so one hung request would otherwise
+ * hold up all of that player's later ones. This is shorter than the restart watchdog's poll interval,
+ * so the watchdog's polls never overlap.
+ *
+ * A request that times out may still reach the matchmaker and take effect afterwards. A queue or
+ * requeue request that lands late is either refused, because the player's next search is already
+ * queued, or adds an entry for a search that has ended: any match formed from it names that search
+ * and is dropped, and the player's next queue request replaces it. A removal that lands late would
+ * remove whatever entry the player has by then, so removals name the search they're for.
+ */
+export const RS_REQUEST_TIMEOUT_MS = 4000
+
+const REQUEST_OPTIONS = {
+  timeout: { request: RS_REQUEST_TIMEOUT_MS },
+  // Retries would let one call outlast the timeout, and whether retrying is safe depends on the call
+  retry: { limit: 0 },
+} as const
+
 async function rsRequest(
   method: 'POST' | 'DELETE',
   path: string,
-  body?: unknown,
+  { body, searchParams }: { body?: unknown; searchParams?: Record<string, string> } = {},
 ): Promise<Result<void, RsMatchmakerError>> {
   try {
     await got(serverRsUrl(path), {
+      ...REQUEST_OPTIONS,
       method,
       json: body,
+      searchParams,
       throwHttpErrors: true,
     })
     return Result.ok()
@@ -156,7 +179,9 @@ export class MatchmakerClient {
   /** Fetches the current process token, which changes whenever the matchmaker restarts. */
   async getProcessToken(): Promise<Result<string, RsMatchmakerError>> {
     try {
-      const response = await got(serverRsUrl('/matchmaker/token')).json<{ processToken: string }>()
+      const response = await got(serverRsUrl('/matchmaker/token'), REQUEST_OPTIONS).json<{
+        processToken: string
+      }>()
       return Result.ok(response.processToken)
     } catch (err) {
       return Result.error(toRsError(err))
@@ -165,15 +190,21 @@ export class MatchmakerClient {
 
   /** Adds a player to the queue. */
   queue(request: RsQueueRequest): Promise<Result<void, RsMatchmakerError>> {
-    return rsRequest('POST', '/matchmaker', request)
+    return rsRequest('POST', '/matchmaker', { body: request })
   }
 
   /**
    * Removes a player from the queue (cancel or disconnect). A `notFound` response is treated as
    * success, since it means the player is already out of the queue.
+   *
+   * @param searchId The search to remove. The player's entry is only removed if it belongs to that
+   *   search, so the removal can't take out a later search even if it lands after that search was
+   *   queued. Omitted, whatever entry the player has is removed.
    */
-  async cancel(id: SbUserId): Promise<Result<void, RsMatchmakerError>> {
-    const result = await rsRequest('DELETE', urlPath`/matchmaker/${id}`)
+  async cancel(id: SbUserId, searchId?: string): Promise<Result<void, RsMatchmakerError>> {
+    const result = await rsRequest('DELETE', urlPath`/matchmaker/${id}`, {
+      searchParams: searchId !== undefined ? { searchId } : undefined,
+    })
     return result.isError() && result.error.code === RsMatchmakerErrorCode.NotFound
       ? Result.ok()
       : result
@@ -185,6 +216,6 @@ export class MatchmakerClient {
    * was issued.
    */
   requeue(ticket: string): Promise<Result<void, RsMatchmakerError>> {
-    return rsRequest('POST', '/matchmaker/requeue', { ticket })
+    return rsRequest('POST', '/matchmaker/requeue', { body: { ticket } })
   }
 }

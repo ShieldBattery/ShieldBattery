@@ -549,7 +549,8 @@ export class MatchmakingService {
    * userId. Each new request for a player waits for the previous one to settle: the Rust matchmaker
    * handles concurrent requests in no particular order, so a cancel could otherwise land ahead of an
    * earlier requeue (leaving a ghost queue entry) or after a later search's queue request (dropping
-   * that search from Rust while it carries on here).
+   * that search from Rust while it carries on here). Every request settles within the matchmaker
+   * client's timeout, which bounds how long a hung one holds up the rest.
    */
   private rustQueueRequests = new Map<SbUserId, Promise<unknown>>()
 
@@ -833,7 +834,7 @@ export class MatchmakingService {
       this.queueEntries.delete(userId)
       // The player may be in the Rust queue anyway (e.g. the queue request was handled but its
       // response was lost); best-effort cancel it so we don't leave a ghost entry behind.
-      this.cancelPlayerInRust(userId).catch(err => {
+      this.cancelPlayerInRust(userId, searchId).catch(err => {
         logger.error({ err, userId }, 'error canceling player in Rust matchmaker')
       })
       throw result.error
@@ -909,6 +910,7 @@ export class MatchmakingService {
       { userId: request.id },
       'player already in Rust queue — canceling stale entry and retrying',
     )
+    // Whichever search the stale entry is from, it isn't one the player is still in
     const cancelResult = await this.matchmakerClient.cancel(request.id)
     if (cancelResult.isError()) {
       return cancelResult
@@ -976,7 +978,7 @@ export class MatchmakingService {
     }
     if (!isSearching()) return
 
-    await this.cancelPlayerInRust(userId)
+    await this.cancelPlayerInRust(userId, entry.searchId)
     // The search may have ended, or the matchmaker found a real match, while that was in flight
     if (!isSearching()) return
 
@@ -1092,7 +1094,7 @@ export class MatchmakingService {
       this.queueEntries.delete(userId)
       this.playerQueueData.delete(userId)
       try {
-        await this.cancelPlayerInRust(userId)
+        await this.cancelPlayerInRust(userId, queued.searchId)
       } catch (err) {
         if (
           !this.queueEntries.has(userId) &&
@@ -2011,6 +2013,7 @@ export class MatchmakingService {
     }
     logger.warn({ userIds }, 'Rust matchmaker restart detected — surfacing failure')
     for (const userId of userIds) {
+      const searchId = this.queueEntries.get(userId)?.searchId
       this.playerQueueData.delete(userId)
       this.requeueTickets.delete(userId)
       this.queueEntries.delete(userId)
@@ -2021,7 +2024,7 @@ export class MatchmakingService {
       // never knew the player), but if we reached here via a false positive — e.g. a stale token
       // baseline — the player really is still queued, and skipping this would leave a ghost entry
       // that fails all their future `find()`s with `alreadyInQueue`.
-      this.sequenceRustQueueRequest(userId, () => this.matchmakerClient.cancel(userId))
+      this.sequenceRustQueueRequest(userId, () => this.matchmakerClient.cancel(userId, searchId))
         .then(result => {
           if (result.isError()) {
             logger.error(
@@ -2102,10 +2105,14 @@ export class MatchmakingService {
     return result
   }
 
-  /** Removes a player from the Rust matchmaker queue, after any earlier request for them. */
-  private async cancelPlayerInRust(userId: SbUserId): Promise<void> {
+  /**
+   * Removes a player's search from the Rust matchmaker queue, after any earlier request for them.
+   * Only an entry for that search is removed, so even a removal that times out and lands later
+   * can't take out the player's next search.
+   */
+  private async cancelPlayerInRust(userId: SbUserId, searchId: string): Promise<void> {
     const result = await this.sequenceRustQueueRequest(userId, () =>
-      this.matchmakerClient.cancel(userId),
+      this.matchmakerClient.cancel(userId, searchId),
     )
     if (result.isError()) {
       throw result.error
@@ -2179,7 +2186,7 @@ export class MatchmakingService {
         const data = this.playerQueueData.get(client.userId)
         this.playerQueueData.delete(client.userId)
 
-        this.cancelPlayerInRust(client.userId).catch(err => {
+        this.cancelPlayerInRust(client.userId, entry.searchId).catch(err => {
           logger.error({ err, userId: client.userId }, 'error canceling player in Rust matchmaker')
         })
 

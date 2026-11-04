@@ -525,6 +525,22 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  test('removes only the canceled search from the matchmaker', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await service.cancel(USER_A)
+    await queuePlayer(USER_A, CLIENT_A)
+    await service.cancel(USER_A)
+    await drainMatchmakingTasks()
+
+    // A removal that lands late, after the player's next search was queued, leaves that search alone
+    const [first, second] = queuedSearchIds(USER_A)
+    expect(first).not.toBe(second)
+    expect(matchmakerClient.cancel.mock.calls).toEqual([
+      [USER_A, first],
+      [USER_A, second],
+    ])
+  })
+
   test("doesn't give a queued search a match formed from the player's previous search", async () => {
     await queuePlayer(USER_A, CLIENT_A)
     await queuePlayer(USER_B, CLIENT_B)
@@ -748,7 +764,7 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(5000)
     expect(errorPublishedFor(USER_A)).toBe(true)
     // Best-effort cleanup of the (possibly still-present) Rust queue entry.
-    expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A)
+    expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A, queuedSearchIds(USER_A).at(-1))
   })
 
   test('a single failure followed by a success resets the failure counter', async () => {
@@ -2053,19 +2069,21 @@ describe('matchmaking/matchmaking-service', () => {
       return (call?.[1] as any)?.(clientSockets.get(userId))
     }
 
-    async function startSearch() {
+    async function startSearch(): Promise<string> {
       const prefs = makePreferences()
       await service.find(USER_A, CLIENT_A, IDENTIFIERS, [prefs], DEFAULT_PUBKEY)
+      const searchId = queuedSearchIds(USER_A).at(-1)!
       matchmakerClient.queue.mockClear()
+      return searchId
     }
 
     test('shows the player a match with an unaccepted slot', async () => {
-      await startSearch()
+      const searchId = await startSearch()
 
       await service.simulateMatchPop(USER_A)
       await drainMatchmakingTasks()
 
-      expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A)
+      expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A, searchId)
       expect(foundMatchEvent(USER_A)).toMatchObject({
         type: 'matchFound',
         matchmakingType: MatchmakingType.Match1v1,

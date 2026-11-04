@@ -12,7 +12,7 @@ use crate::redis::RedisPool;
 use crate::state::AppState;
 use crate::users::SbUserId;
 use arc_swap::ArcSwap;
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get};
@@ -697,12 +697,25 @@ async fn requeue_player(
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CancelQuery {
+    /// The search to remove. When given, the player's entry is only removed if it's from this
+    /// search, so a removal that arrives after the player's next search was queued leaves it alone.
+    search_id: Option<String>,
+}
+
 async fn cancel(
     State(state): State<MatchmakingApiState>,
     Path(id): Path<usize>,
+    Query(query): Query<CancelQuery>,
 ) -> impl IntoResponse {
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
-    if matchmaker.remove_player(id).is_some() {
+    let removed = match query.search_id {
+        Some(search_id) => matchmaker.remove_search(id, &search_id),
+        None => matchmaker.remove_player(id),
+    };
+    if removed.is_some() {
         StatusCode::NO_CONTENT.into_response()
     } else {
         (
