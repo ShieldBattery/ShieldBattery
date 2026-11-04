@@ -624,6 +624,14 @@ impl UsersMutation {
             if let Some(new_login_name) = changes.login_name.clone()
                 && new_login_name != user.login_name
             {
+                // Login names share the display name format.
+                if validate_display_name_format(&new_login_name).is_err() {
+                    return Err(graphql_error(
+                        "INVALID_LOGIN_NAME",
+                        "Login name contains invalid characters",
+                    ));
+                }
+
                 // Check rate limit
                 if let Some(last_change) = user.last_login_name_change {
                     let time_since_change = Utc::now() - last_change;
