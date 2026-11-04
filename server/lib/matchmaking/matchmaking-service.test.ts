@@ -1518,6 +1518,46 @@ describe('matchmaking/matchmaking-service', () => {
     expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
   })
 
+  test("a failed requeue doesn't end the search the player started since", async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    // B is banned, so the match is dropped and A goes back into the queue
+    checkUsers.mockResolvedValueOnce(new Set([USER_B]))
+    let finishRequeue!: (result: Result<void, RsMatchmakerError>) => void
+    matchmakerClient.requeue.mockImplementationOnce(
+      () => new Promise(resolve => (finishRequeue = resolve)),
+    )
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        ratingVarianceMultiplier: 1,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+        rematchPenalty: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+    expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-a')
+
+    // A leaves the requeued search and starts another before the requeue is answered
+    await service.cancel(USER_A)
+    const nextSearch = queuePlayer(USER_A, CLIENT_A)
+    await drainMatchmakingTasks()
+    finishRequeue(Result.error(new RsMatchmakerError(RsMatchmakerErrorCode.StaleTicket, 'stale')))
+    await nextSearch
+    await drainMatchmakingTasks()
+
+    expect(errorPublishedFor(USER_A)).toBe(false)
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
   test('keeps an active-banned player out of a match found concurrently', async () => {
     await queuePlayer(USER_A, CLIENT_A)
     await queuePlayer(USER_B, CLIENT_B)

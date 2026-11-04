@@ -2103,10 +2103,11 @@ export class MatchmakingService {
   }
 
   /**
-   * Handles the result of a requeue. Any failure is treated as a server-rs restart and surfaces a
-   * matchmaking error to the player.
+   * Handles the result of a requeue. A failure is treated as a server-rs restart and surfaces a
+   * matchmaking error to the player, unless they've already left the search it was for.
    */
   private trackRequeue(userId: SbUserId, requeue: Promise<Result<void, RsMatchmakerError>>): void {
+    const entry = this.queueEntries.get(userId)
     requeue
       .then(result => {
         if (result.isError()) {
@@ -2118,7 +2119,11 @@ export class MatchmakingService {
               'failed to requeue player in Rust matchmaker',
             )
           }
-          this.handleRsRestart([userId])
+          // A player who has since canceled, been ejected, or been matched has no search to eject,
+          // and the search or match they've moved on to isn't this requeue's to end
+          if (entry && this.queueEntries.get(userId) === entry && !entry.matchId) {
+            this.handleRsRestart([userId])
+          }
         }
       })
       .catch(swallowNonBuiltins)
