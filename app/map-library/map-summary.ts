@@ -42,9 +42,10 @@ const MELEE_COMPATIBLE_ACTIONS: ReadonlySet<string> = new Set([
 const MIB = 1024 * 1024
 /**
  * The resource limits the server reads uploaded maps with (`parse_limits` in server-rs): broodmap's
- * defaults, with room for the largest CHK seen in a real map.
+ * defaults, with room for the largest CHK seen in a real map. Every broodmap call that parses a map
+ * file passes these, so a file that's readable in one place is readable in all of them.
  */
-const SUMMARY_OPTIONS = JSON.stringify({
+export const MAP_LIMIT_OPTIONS = JSON.stringify({
   maxMapBytes: MAX_MAP_FILE_SIZE_BYTES,
   maxMpqFileBytes: 256 * MIB,
   maxChkBytes: 256 * MIB,
@@ -64,7 +65,7 @@ export function hashMapBytes(filePath: string, bytes: Uint8Array): string {
 
 /** Reads a map file's facts. Throws if `bytes` isn't a readable map. */
 export function readMapSummary(bytes: Uint8Array): MapSummary {
-  return JSON.parse(summarizeMapJson(bytes, SUMMARY_OPTIONS)) as MapSummary
+  return JSON.parse(summarizeMapJson(bytes, MAP_LIMIT_OPTIONS)) as MapSummary
 }
 
 /** Drops control characters (StarCraft's color codes) other than line breaks. */
