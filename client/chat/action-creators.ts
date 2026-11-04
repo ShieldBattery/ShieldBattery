@@ -66,7 +66,7 @@ import {
 } from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
+  return abortableThunk(spec, async (dispatch, getState) => {
     const joinedChannels = await fetchJson<InitialChannelData[]>(apiUrl`chat/joined-channels`, {
       method: 'GET',
       signal: spec.signal,
@@ -75,6 +75,7 @@ export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction 
     dispatch({
       type: '@chat/getJoinedChannels',
       payload: joinedChannels,
+      meta: { selfId: getState().auth.self!.user.id },
     })
   })
 }

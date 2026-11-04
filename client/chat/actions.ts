@@ -23,6 +23,7 @@ import {
   SearchChannelsResponse,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type ChatActions =
@@ -80,6 +81,10 @@ export type ChatActions =
 export interface GetJoinedChannels {
   type: '@chat/getJoinedChannels'
   payload: InitialChannelData[]
+  meta: {
+    /** The current user, whose own messages never count toward a channel's unreadness. */
+    selfId: SbUserId
+  }
 }
 
 /**
@@ -461,7 +466,11 @@ export interface UpdateLastReadTime {
 export interface InitChannel {
   type: '@chat/initChannel'
   payload: ChatInitEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** The current user, whose own messages never count toward a channel's unreadness. */
+    selfId: SbUserId
+  }
 }
 
 /**

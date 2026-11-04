@@ -226,12 +226,12 @@ type EventToChatUserActionMap = {
 }
 
 const eventToChatUserAction: EventToChatUserActionMap = {
-  init3(channelId, event) {
-    return {
+  init3: (channelId, event) => (dispatch, getState) => {
+    dispatch({
       type: '@chat/initChannel',
       payload: event,
-      meta: { channelId },
-    }
+      meta: { channelId, selfId: getState().auth.self!.user.id },
+    })
   },
   preferencesChanged(channelId, event) {
     return {

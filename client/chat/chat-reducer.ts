@@ -13,6 +13,7 @@ import {
   JoinedChannelInfo,
   SbChannelId,
   ServerChatMessage,
+  ServerChatMessageType,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import type { HistoryLoadError } from '../messaging/message-load-error'
@@ -74,6 +75,12 @@ export interface MessagesState {
    * server running the last page's query and this client applying its response.
    */
   detachedNewestTime?: number
+  /**
+   * The newest server-recorded time (epoch ms) of another user's message known to lie past a
+   * detached window's far end: the part of `detachedNewestTime` that could be unread, since the
+   * user's own messages never are. This is what a dropped window adds to the unread extent.
+   */
+  detachedNewestFromOthersTime?: number
   /**
    * Counts how many times the loaded window has been replaced or dropped. Every history request
    * carries the generation it was issued for, and the reducer discards responses that no longer
@@ -164,11 +171,12 @@ export interface ChatState {
    */
   idToLatestMentionTime: Map<SbChannelId, number>
   /**
-   * A map of channel ID -> the server's word (epoch ms) on how far the channel's unread messages
-   * ran when this client last initialized it. Seeded at init, where the channel's history is empty
-   * and nothing else would say that anything past the read position exists; without it a read
-   * position arriving from another of the user's sessions would look like it covered a channel this
-   * client knows nothing about, and clear the badge over messages nobody has seen.
+   * A map of channel ID -> how far (epoch ms) the channel's unread messages are known to run: the
+   * server's word when this client last initialized it, extended by what an unread channel's window
+   * held when it was dropped. Seeded at init, where the channel's history is empty and nothing else
+   * would say that anything past the read position exists; without it a read position arriving from
+   * another of the user's sessions would look like it covered a channel this client knows nothing
+   * about, and clear the badge over messages nobody has seen.
    *
    * Never cleared: it is a message time like any other, and `newestKnownChannelTime` only ever
    * compares it against the read position, so it stops mattering the moment that position passes
@@ -194,6 +202,12 @@ export interface ChatState {
    * themselves so that a re-created window always starts past everything its predecessors used.
    */
   windowGenFloor: number
+  /**
+   * The current user's ID, as of the latest channel initialization. A channel's messages only exist
+   * once it has been initialized, so this is known wherever a message's author has to be told apart
+   * from the user.
+   */
+  selfId: SbUserId | undefined
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
@@ -217,6 +231,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToLatestUnreadTime: new Map(),
   idToUnreadLine: new Map(),
   windowGenFloor: 0,
+  selfId: undefined,
 }
 
 /**
@@ -402,6 +417,30 @@ export function newestServerOriginTime(messages: readonly ChannelMessage[]): num
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isServerOriginMessage(messages[i])) {
       return messages[i].time
+    }
+  }
+
+  return undefined
+}
+
+/** Returns the ID of the user who wrote or caused `message`. */
+function authorOf(message: ServerChatMessage): SbUserId {
+  return message.type === ServerChatMessageType.TextMessage ? message.from : message.userId
+}
+
+/**
+ * Returns the time (epoch ms) of the newest message in `messages` from someone other than
+ * `selfId`, or `undefined` if there is none. Only those can be unread: like the server's own unread
+ * extent, a channel's unreadness never counts the user's own messages.
+ */
+function newestFromOthersTime(
+  messages: readonly ChannelMessage[],
+  selfId: SbUserId | undefined,
+): number | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (isServerOriginMessage(message) && authorOf(message as ServerChatMessage) !== selfId) {
+      return message.time
     }
   }
 
@@ -656,12 +695,33 @@ function mergeCarriedMessages(channelMessages: MessagesState) {
  * nothing loaded, older history assumed to exist, attached to the present. Advancing the generation
  * makes the reducer discard any page still in flight for the window that was just dropped.
  */
-function dropMessageWindow(channelMessages: MessagesState) {
+function dropMessageWindow(
+  state: ChatState,
+  channelId: SbChannelId,
+  channelMessages: MessagesState,
+) {
+  // An unread channel's window can hold messages nobody has seen, which nothing else would
+  // remember once it is gone, and a read position that stops short of them must not call the
+  // channel read. The user's own messages in it are never unread, so they don't extend it.
+  if (state.unreadChannels.has(channelId)) {
+    const droppedNewest = Math.max(
+      newestFromOthersTime(channelMessages.messages, state.selfId) ?? -Infinity,
+      channelMessages.detachedNewestFromOthersTime ?? -Infinity,
+    )
+    if (droppedNewest > -Infinity) {
+      state.idToLatestUnreadTime.set(
+        channelId,
+        Math.max(state.idToLatestUnreadTime.get(channelId) ?? -Infinity, droppedNewest),
+      )
+    }
+  }
+
   carryClientMessages(channelMessages)
   channelMessages.messages = []
   channelMessages.hasHistory = true
   channelMessages.hasNewer = false
   channelMessages.detachedNewestTime = undefined
+  channelMessages.detachedNewestFromOthersTime = undefined
   // In-flight requests for the dropped window will be discarded by the generation check when they
   // land, so their loading flags have to be lowered here or they'd stay raised forever.
   channelMessages.loadingHistory = false
@@ -774,6 +834,12 @@ function addLiveServerMessage(
       channelMessages.detachedNewestTime ?? -Infinity,
       message.time,
     )
+    if (authorOf(message) !== state.selfId) {
+      channelMessages.detachedNewestFromOthersTime = Math.max(
+        channelMessages.detachedNewestFromOthersTime ?? -Infinity,
+        message.time,
+      )
+    }
     if (arrival) {
       recordLiveArrival(state, channelId, arrival)
     }
@@ -879,6 +945,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     loadingNewer: false,
     hasNewer: false,
     detachedNewestTime: undefined,
+    detachedNewestFromOthersTime: undefined,
     windowGen: state.windowGenFloor,
     carriedClientMessages: [],
     historyError: undefined,
@@ -938,6 +1005,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/getJoinedChannels'](state, action) {
+    state.selfId = action.meta.selfId
     for (const channel of action.payload) {
       initChannel(state, channel.channelInfo.id, channel)
     }
@@ -954,6 +1022,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/initChannel'](state, action) {
+    state.selfId = action.meta.selfId
     initChannel(state, action.meta.channelId, action.payload)
   },
 
@@ -1236,6 +1305,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       ) {
         channelMessages.hasNewer = false
         channelMessages.detachedNewestTime = undefined
+        channelMessages.detachedNewestFromOthersTime = undefined
       }
     }
 
@@ -1288,6 +1358,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       newestServerOriginTime(channelMessages.messages) ?? -Infinity,
       channelMessages.detachedNewestTime ?? -Infinity,
     )
+    const knownNewestFromOthers = Math.max(
+      newestFromOthersTime(channelMessages.messages, state.selfId) ?? -Infinity,
+      channelMessages.detachedNewestFromOthersTime ?? -Infinity,
+    )
 
     // The fetched range doesn't have to touch what was loaded, so there may be no seam to splice
     // them together at and the window is replaced outright. A client-only message can't be
@@ -1301,6 +1375,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     if (action.payload.hasMoreAfter) {
       channelMessages.hasNewer = true
       channelMessages.detachedNewestTime = knownNewest === -Infinity ? undefined : knownNewest
+      channelMessages.detachedNewestFromOthersTime =
+        knownNewestFromOthers === -Infinity ? undefined : knownNewestFromOthers
     } else {
       // The server saw nothing newer than the replacement window, but a message that arrived
       // between its query running and this response landing exists only past the window's newer
@@ -1313,9 +1389,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       if (newestLoadedTime < knownNewest && knownNewest > knownNewestAtDispatch) {
         channelMessages.hasNewer = true
         channelMessages.detachedNewestTime = knownNewest
+        channelMessages.detachedNewestFromOthersTime =
+          knownNewestFromOthers === -Infinity ? undefined : knownNewestFromOthers
       } else {
         channelMessages.hasNewer = false
         channelMessages.detachedNewestTime = undefined
+        channelMessages.detachedNewestFromOthersTime = undefined
       }
     }
 
@@ -1335,7 +1414,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    dropMessageWindow(channelMessages)
+    dropMessageWindow(state, channelId, channelMessages)
   },
 
   ['@chat/updateMessageDeleted'](state, action) {
@@ -1511,7 +1590,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       // Keeping a window that sits mid-history would put the user back where they were reading with
       // no indication that the channel has run on past it, so a detached window is dropped whole
       // and the next visit starts from the present like any other fresh open.
-      dropMessageWindow(channelMessages)
+      dropMessageWindow(state, channelId, channelMessages)
     } else {
       const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 

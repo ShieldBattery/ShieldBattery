@@ -48,6 +48,7 @@ const chatReducer = chatReducerImport as unknown as (
 
 const CHANNEL_ID: SbChannelId = makeSbChannelId(1)
 const USER_ID = makeSbUserId(2)
+const SELF_ID = makeSbUserId(1)
 
 function textMessage(time: number): ChannelTextMessage {
   return {
@@ -197,6 +198,7 @@ function makeState(
         : [],
     ),
     windowGenFloor: 0,
+    selfId: SELF_ID,
   }
 
   return state as Immutable<ChatState>
@@ -251,6 +253,7 @@ function getJoinedChannelsAction(data: InitialChannelData): ChatActions {
   return {
     type: '@chat/getJoinedChannels',
     payload: [data],
+    meta: { selfId: SELF_ID },
   }
 }
 
@@ -2295,6 +2298,100 @@ describe('client/chat/chat-reducer', () => {
     })
   })
 
+  describe('unread messages whose window was dropped', () => {
+    test('stay unread when a read position that stops short of them arrives', () => {
+      // An older window with a message past its far end that arrived live and unseen.
+      let state = makeState({
+        messages: [textMessage(100)],
+        hasNewer: true,
+        activated: true,
+        lastReadTime: 100,
+      })
+      state = chatReducer(state, updateMessageAction(500, false))
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      // Leaving the channel drops the detached window, and the unseen message with it.
+      state = chatReducer(state, deactivateChannelAction())
+      expect(windowOf(state).messages).toEqual([])
+
+      // Another of the user's sessions reads part of the way.
+      state = chatReducer(state, updateLastReadTimeAction(300))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('are read once a read position covers them', () => {
+      let state = makeState({ messages: [], hasNewer: true, lastReadTime: 100 })
+      state = chatReducer(state, updateMessageAction(500, false))
+      state = chatReducer(state, resetMessageWindowAction())
+
+      state = chatReducer(state, updateLastReadTimeAction(500))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    // The user's own message, loaded by a page ahead of its announcement (which a reconnect can
+    // lose), sitting past the read position of a channel that is unread for another reason.
+    const ownMessage = (time: number): ChannelTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test("don't include the user's own messages in a dropped window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = chatReducer(state, resetMessageWindowAction())
+
+      state = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test("don't include the user's own messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      // Replacing the window with an older one leaves the own message past its far end.
+      state = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(windowOf(state).hasNewer).toBe(true)
+      state = chatReducer(state, deactivateChannelAction())
+
+      state = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test("still count other users' messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), textMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      state = chatReducer(state, deactivateChannelAction())
+
+      state = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+  })
+
   describe('@chat/activateChannel', () => {
     test('freezes the divider at the read position when the channel has unread messages', () => {
       const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
@@ -3159,14 +3256,18 @@ describe('client/chat/chat-reducer', () => {
     }
 
     function joinedListAction(ids: number[]): ChatActions {
-      return { type: '@chat/getJoinedChannels', payload: ids.map(channelData) }
+      return {
+        type: '@chat/getJoinedChannels',
+        payload: ids.map(channelData),
+        meta: { selfId: SELF_ID },
+      }
     }
 
     function initChannelAction(id: number): ChatActions {
       return {
         type: '@chat/initChannel',
         payload: { action: 'init3', ...channelData(id) },
-        meta: { channelId: makeSbChannelId(id) },
+        meta: { channelId: makeSbChannelId(id), selfId: SELF_ID },
       }
     }
 
