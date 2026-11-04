@@ -912,6 +912,23 @@ describe('Lobbies - Team melee', () => {
     evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', 'r', babo.id)
   })
 
+  test('should keep the controller of a team when another of its players leaves', () => {
+    // The first player into the empty team controls it, even once players who have been in the
+    // lobby longer join them
+    const controller = humanAt(1, 'r', 3000)
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, controller)
+    l = addPlayer(l, 1, 1, humanAt(2, 'r', 1000))
+    l = addPlayer(l, 1, 2, humanAt(3, 'r', 2000))
+
+    const removed = removePlayer(l, 1, 2, l.teams[1].slots[2])!
+    evaluateControlledSlot(removed.teams[1].slots[2], 'controlledOpen', 'r', controller.id)
+    evaluateControlledSlot(removed.teams[1].slots[3], 'controlledOpen', 'r', controller.id)
+
+    const moved = movePlayerToSlot(l, 1, 2, 0, 1)
+    evaluateControlledSlot(moved.teams[1].slots[2], 'controlledOpen', 'r', controller.id)
+    evaluateControlledSlot(moved.teams[1].slots[3], 'controlledOpen', 'r', controller.id)
+  })
+
   test('should support moving players between slots in the same team', () => {
     let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
     l = addPlayer(l, 0, 1, humanAt(1, 'p', 1000))

@@ -520,18 +520,22 @@ function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerI
       draft.teams[teamIndex].slots = slots
     })
   } else {
-    // The team which the player is leaving has other human players in it; find the new oldest human
-    // player in the team and:
-    //  1) create a new controlled open with controlledBy set to their ID
-    //  2) update any controlled slots with controlledBy set to the leaver's ID to that ID
+    // The team which the player is leaving has other human players in it. It keeps its controller
+    // unless the leaver is the one controlling it (or the team was full, leaving no controlled slot
+    // to say who does), in which case control passes to the oldest remaining human player. The
+    // leaver's slot becomes a controlled open belonging to that controller, along with any slots
+    // the leaver controlled.
     const oldestInTeam = team.slots
       .filter(slot => slot.type === SlotType.Human && slot.id !== id)
       .sort((a, b) => a.joinedAt - b.joinedAt)[0]
+    const controllerId =
+      team.slots.find(slot => slot.controlledBy !== undefined && slot.controlledBy !== id)
+        ?.controlledBy ?? oldestInTeam.id
     const slots = team.slots.map(slot => {
       if (slot.id === id) {
-        return createControlledOpen(slot.race, oldestInTeam.id)
+        return createControlledOpen(slot.race, controllerId)
       } else if (slot.controlledBy === id) {
-        return { ...slot, controlledBy: oldestInTeam.id }
+        return { ...slot, controlledBy: controllerId }
       } else {
         return slot
       }
