@@ -12,9 +12,10 @@ import {
   NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import {
+  GameClientAllianceState,
   GameClientResult,
   GameResultErrorCode,
-  SubmitGameResultsRequest,
+  RawGameResultsReport,
 } from '../../../common/games/results'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -103,16 +104,32 @@ function makeDesyncNotification(
   }
 }
 
-/** base64-encodes a `SubmitGameResultsRequest` the way the DLL's opaque relay payload would be. */
-function encodeResultPayload(overrides: Partial<SubmitGameResultsRequest> = {}): string {
-  const body: SubmitGameResultsRequest = {
+/** The report `encodeResultPayload` encodes, before its overrides. */
+function makeRawReport(overrides: Partial<RawGameResultsReport> = {}): RawGameResultsReport {
+  return {
+    version: 2,
     userId: makeSbUserId(42),
     resultCode: 'abc123',
     time: 12345,
-    playerResults: [[makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }]],
+    players: [
+      {
+        userId: makeSbUserId(42),
+        bwPlayerId: 0,
+        stormId: 0,
+        race: 'z',
+        victoryState: GameClientResult.Victory,
+        alliances: Array.from({ length: 8 }, () => GameClientAllianceState.Unallied),
+      },
+    ],
+    netPlayers: [{ stormId: 0, wasDropped: false, hasQuit: false }],
+    localPlayerLoseType: null,
     ...overrides,
   }
-  return Buffer.from(JSON.stringify(body), 'utf8').toString('base64')
+}
+
+/** base64-encodes a `RawGameResultsReport` the way the DLL's opaque relay payload would be. */
+function encodeResultPayload(overrides: Partial<RawGameResultsReport> = {}): string {
+  return Buffer.from(JSON.stringify(makeRawReport(overrides)), 'utf8').toString('base64')
 }
 
 function makeResultNotification(
@@ -413,14 +430,7 @@ describe('netcode-v2/recordDepartureNotification', () => {
 
       expect(submitGameResults).toHaveBeenCalledWith({
         gameId: GAME_ID,
-        report: {
-          userId: makeSbUserId(42),
-          resultCode: 'abc123',
-          time: 12345,
-          playerResults: [
-            [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
-          ],
-        },
+        report: makeRawReport(),
         relayReportTime: new Date(12345),
         relayReportFrame: 200,
         logger: expect.anything(),
@@ -652,14 +662,7 @@ describe('netcode-v2/recordResultNotification', () => {
 
     expect(submitGameResults).toHaveBeenCalledWith({
       gameId: GAME_ID,
-      report: {
-        userId: makeSbUserId(42),
-        resultCode: 'abc123',
-        time: 12345,
-        playerResults: [
-          [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
-        ],
-      },
+      report: makeRawReport(),
       relayReportTime: new Date(notification.arrivalMs),
       relayReportFrame: 100,
       logger: expect.anything(),

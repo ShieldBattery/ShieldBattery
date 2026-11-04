@@ -9,7 +9,7 @@ import {
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
-import type { StoredResultReport } from '../models/games-users'
+import type { StoredRawResultReport } from '../models/games-users'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 import { reconcileResults, ResultSubmission } from './results'
 
@@ -90,7 +90,7 @@ function verdicts(
 function corroborated(
   reports: Array<[reporter: SbUserId, raw: StoredRawGameResults]>,
 ): Set<SbUserId> {
-  const stored: StoredResultReport[] = reports.map(([reporter, raw]) => ({
+  const stored: StoredRawResultReport[] = reports.map(([reporter, raw]) => ({
     kind: 'raw',
     reporter,
     raw,
@@ -1146,7 +1146,7 @@ describe('games/raw-results — eliminated player still watching when the other 
 })
 
 describe('games/raw-results/computeCorroboratedVictors', () => {
-  function rawSelf(reporter: number, victoryState: GameClientResult): StoredResultReport {
+  function rawSelf(reporter: number, victoryState: GameClientResult): StoredRawResultReport {
     return {
       kind: 'raw',
       reporter: makeSbUserId(reporter),
@@ -1181,30 +1181,6 @@ describe('games/raw-results/computeCorroboratedVictors', () => {
   test('excludes a raw report whose own row is not a victory', () => {
     // Reporter 1 claims Playing for itself even though it claims 99 (someone else) is a victor.
     expect(computeCorroboratedVictors([rawSelf(1, Playing)])).toEqual(new Set())
-  })
-
-  test('includes a legacy self-victory claim and excludes a legacy non-victory', () => {
-    const legacyVictor: StoredResultReport = {
-      kind: 'legacy',
-      reporter: makeSbUserId(2),
-      time: 1000,
-      playerResults: [
-        [makeSbUserId(2), R(Victory, 'z')],
-        [makeSbUserId(3), R(Defeat, 'p')],
-      ],
-    }
-    const legacyLoser: StoredResultReport = {
-      kind: 'legacy',
-      reporter: makeSbUserId(3),
-      time: 1000,
-      playerResults: [
-        [makeSbUserId(2), R(Victory, 'z')],
-        [makeSbUserId(3), R(Defeat, 'p')],
-      ],
-    }
-    expect(computeCorroboratedVictors([legacyVictor, legacyLoser, null])).toEqual(
-      new Set([makeSbUserId(2)]),
-    )
   })
 
   test('a player with no stored report is never corroborated', () => {

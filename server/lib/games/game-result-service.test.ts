@@ -12,8 +12,9 @@ import {
   GameClientAllianceState,
   GameClientResult,
   GameResultErrorCode,
+  RawGameResultsReport,
   ReconciledPlayerResult,
-  SubmitGameResultsRequest,
+  StoredRawGameResults,
 } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSbMapId } from '../../../common/maps'
@@ -210,6 +211,37 @@ const p1 = makeSbUserId(1)
 const p2 = makeSbUserId(2)
 const p3 = makeSbUserId(3)
 const humans = [p1, p2]
+
+/**
+ * Raw evidence where each listed player holds their own BW slot with the given victory state, no
+ * alliances, and everyone still connected. Every player's derived verdict is the state given.
+ */
+function rawEvidence(
+  players: ReadonlyArray<[SbUserId, AssignedRaceChar, GameClientResult]>,
+): StoredRawGameResults {
+  return {
+    version: 2,
+    time: 60_000,
+    players: players.map(([userId, race, victoryState], i) => ({
+      userId,
+      bwPlayerId: i,
+      stormId: i,
+      race,
+      victoryState,
+      alliances: Array.from({ length: 8 }, () => GameClientAllianceState.Unallied),
+    })),
+    netPlayers: players.map((_, i) => ({ stormId: i, wasDropped: false, hasQuit: false })),
+    localPlayerLoseType: null,
+  }
+}
+
+/** A stored raw report of `rawEvidence`. */
+function rawStoredReport(
+  reporter: SbUserId,
+  players: ReadonlyArray<[SbUserId, AssignedRaceChar, GameClientResult]>,
+): StoredResultReport {
+  return { kind: 'raw', reporter, raw: rawEvidence(players) }
+}
 
 function matchmakingConfig(
   teams: GameConfigPlayer[][],
@@ -641,15 +673,14 @@ describe('games/game-result-service/GameResultService#submitGameResults', () => 
     }
   }
 
-  function makeReport(): SubmitGameResultsRequest {
+  function makeReport(): RawGameResultsReport {
     return {
       userId: p1,
       resultCode: 'abc123abc123',
-      time: 60_000,
-      playerResults: [
-        [p1, { result: GameClientResult.Victory, race: 't', apm: 100 }],
-        [p2, { result: GameClientResult.Defeat, race: 'z', apm: 100 }],
-      ],
+      ...rawEvidence([
+        [p1, 't', GameClientResult.Victory],
+        [p2, 'z', GameClientResult.Defeat],
+      ]),
     }
   }
 
@@ -866,7 +897,7 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
   })
 })
 
-describe('SUBMIT_GAME_RESULTS_REQUEST_SCHEMA (raw v2 reports)', () => {
+describe('SUBMIT_GAME_RESULTS_REQUEST_SCHEMA', () => {
   const rawReport = (netPlayerCount: number) => ({
     version: 2,
     userId: makeSbUserId(1),
@@ -900,6 +931,16 @@ describe('SUBMIT_GAME_RESULTS_REQUEST_SCHEMA (raw v2 reports)', () => {
     const { error } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(rawReport(13))
     expect(error).toBeDefined()
   })
+
+  test('rejects a digested report of per-player verdicts', () => {
+    const { error } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate({
+      userId: makeSbUserId(1),
+      resultCode: 'abc123',
+      time: 60_000,
+      playerResults: [[makeSbUserId(1), { result: GameClientResult.Victory, race: 'z', apm: 100 }]],
+    })
+    expect(error).toBeDefined()
+  })
 })
 
 describe('games/game-result-service/GameResultService#maybeReconcileResults', () => {
@@ -925,16 +966,11 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
     }
   }
 
-  function legacyReport(reporter: SbUserId): StoredResultReport {
-    return {
-      kind: 'legacy',
-      reporter,
-      time: 60_000,
-      playerResults: [
-        [p1, { result: GameClientResult.Victory, race: 't', apm: 100 }],
-        [p2, { result: GameClientResult.Defeat, race: 'z', apm: 100 }],
-      ],
-    }
+  function report(reporter: SbUserId): StoredResultReport {
+    return rawStoredReport(reporter, [
+      [p1, 't', GameClientResult.Victory],
+      [p2, 'z', GameClientResult.Defeat],
+    ])
   }
 
   beforeEach(() => {
@@ -965,10 +1001,7 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
     asMockedFunction(setReconciledResult).mockImplementation(async () => {
       reconciledInDb = true
     })
-    asMockedFunction(getCurrentReportedResults).mockResolvedValue([
-      legacyReport(p1),
-      legacyReport(p2),
-    ])
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([report(p1), report(p2)])
     asMockedFunction(getDesyncEventsForGame).mockResolvedValue([])
     asMockedFunction(setUserReconciledResult).mockResolvedValue(undefined as any)
     asMockedFunction(incrementUserStatsCount).mockResolvedValue(undefined as any)
@@ -986,6 +1019,26 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
     const second = await (service as any).maybeReconcileResults(staleRecord)
     expect(second).toBe(false)
     expect(asMockedFunction(incrementUserStatsCount).mock.calls.length).toBe(statsCallsAfterFirst)
+  })
+
+  test('refuses to reconcile from a digested report', async () => {
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([
+      report(p1),
+      {
+        kind: 'legacy',
+        reporter: p2,
+        time: 60_000,
+        playerResults: [
+          [p1, { result: GameClientResult.Defeat, race: 't', apm: 100 }],
+          [p2, { result: GameClientResult.Victory, race: 'z', apm: 100 }],
+        ],
+      },
+    ])
+    asMockedFunction(getDesyncEventsForGame).mockResolvedValue([])
+    asMockedFunction(lockGameAndCheckUnavailableForReconciliation).mockResolvedValue(false)
+
+    await expect((service as any).maybeReconcileResults(makeLobbyGameRecord())).rejects.toThrow()
+    expect(setReconciledResult).not.toHaveBeenCalled()
   })
 })
 
@@ -2013,19 +2066,16 @@ describe('games/game-result-service replay violations', () => {
   function setReports(winners: ReadonlySet<SbUserId>) {
     const players = game.config.teams.flat()
     asMockedFunction(getCurrentReportedResults).mockResolvedValue(
-      players.map(player => ({
-        kind: 'legacy',
-        reporter: player.id,
-        time: 60_000,
-        playerResults: players.map(p => [
-          p.id,
-          {
-            result: winners.has(p.id) ? GameClientResult.Victory : GameClientResult.Defeat,
-            race: p.race === 'r' ? 'p' : p.race,
-            apm: 100,
-          },
-        ]),
-      })),
+      players.map(player =>
+        rawStoredReport(
+          player.id,
+          players.map(p => [
+            p.id,
+            p.race === 'r' ? 'p' : p.race,
+            winners.has(p.id) ? GameClientResult.Victory : GameClientResult.Defeat,
+          ]),
+        ),
+      ),
     )
     asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue(
       players.map((p, index) => ({

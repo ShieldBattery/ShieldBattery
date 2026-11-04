@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
+import { StoredRawGameResults } from '../../../common/games/results'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
@@ -10,6 +11,13 @@ vi.mock('../db', () => ({
 
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
 const USER_ID = makeSbUserId(7)
+const RAW_REPORT: StoredRawGameResults = {
+  version: 2,
+  time: 1000,
+  players: [],
+  netPlayers: [],
+  localPlayerLoseType: null,
+}
 
 /** Stubs `db()` to hand back a fake client whose `query` calls are captured for assertions. */
 function mockDbClient() {
@@ -69,7 +77,7 @@ describe('models/games-users/setReportedResults', () => {
     await setReportedResults({
       userId: USER_ID,
       gameId: GAME_ID,
-      reportedResults: { time: 1000, playerResults: [] },
+      reportedResults: RAW_REPORT,
       reportedAt: new Date('2026-07-04T00:00:01.000Z'),
       relayReportTime,
       relayReportFrame: 42,
@@ -87,7 +95,7 @@ describe('models/games-users/setReportedResults', () => {
     await setReportedResults({
       userId: USER_ID,
       gameId: GAME_ID,
-      reportedResults: { time: 1000, playerResults: [] },
+      reportedResults: RAW_REPORT,
       reportedAt: new Date('2026-07-04T00:00:01.000Z'),
     })
 

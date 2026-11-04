@@ -28,9 +28,19 @@ export interface ReportedResultsData {
 }
 
 /**
- * A user's stored report as returned for reconciliation, discriminated between the legacy digested
- * form (already a set of per-player verdicts) and the raw (v2) form (undigested BW evidence the
- * server derives verdicts from). Both carry the `reporter` (the user the row belongs to).
+ * A user's stored raw report (undigested BW evidence the server derives verdicts from), carrying the
+ * `reporter` (the user the row belongs to).
+ */
+export interface StoredRawResultReport {
+  kind: 'raw'
+  reporter: SbUserId
+  raw: StoredRawGameResults
+}
+
+/**
+ * A user's stored report, discriminated between the raw form every current client sends and the
+ * digested form (already a set of per-player verdicts) that only old games' rows hold (see
+ * `StoredLegacyGameResults`).
  */
 export type StoredResultReport =
   | {
@@ -39,11 +49,7 @@ export type StoredResultReport =
       time: number
       playerResults: Array<[SbUserId, GameClientPlayerResult]>
     }
-  | {
-      kind: 'raw'
-      reporter: SbUserId
-      raw: StoredRawGameResults
-    }
+  | StoredRawResultReport
 
 export interface GameUserRecord {
   userId: SbUserId
@@ -171,7 +177,8 @@ export async function setReportedResults({
   reportedAt,
   relayReportTime,
   relayReportFrame,
-}: ReadonlyDeep<ReportedResultsData> & {
+}: ReadonlyDeep<Omit<ReportedResultsData, 'reportedResults'>> & {
+  reportedResults: ReadonlyDeep<StoredRawGameResults>
   relayReportTime?: Date
   relayReportFrame?: number | null
 }): Promise<boolean> {
@@ -194,8 +201,8 @@ export async function setReportedResults({
 }
 
 /**
- * Gets the current reported results for all the users in a game, as stored (a legacy digested report
- * or a raw v2 report). Callers derive verdicts from raw reports before reconciling.
+ * Gets the current reported results for all the users in a game, as stored (a raw report, or a
+ * digested report for an old game). Callers derive verdicts from raw reports before reconciling.
  */
 export async function getCurrentReportedResults(
   gameId: string,

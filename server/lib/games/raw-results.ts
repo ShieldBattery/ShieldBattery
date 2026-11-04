@@ -6,7 +6,7 @@ import {
 } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
-import type { StoredResultReport } from '../models/games-users'
+import type { StoredRawResultReport } from '../models/games-users'
 import { ResultSubmission } from './results'
 
 /** Reused empty default so a caller that omits `corroboratedVictors` allocates nothing. */
@@ -14,10 +14,10 @@ const NO_CORROBORATED_VICTORS: ReadonlySet<SbUserId> = new Set()
 
 /**
  * Derives a per-player result submission from a single client's raw end-of-game report. This mirrors
- * the game client's `determine_game_results` (game/src/game_state.rs) and must stay semantically
- * aligned with it: the client used to run this digest itself, so an old digested report and a
- * freshly-derived one from the same evidence have to produce the same verdicts. The heavy lifting
- * of combining reports across players still happens later in `reconcileResults`.
+ * the game client's `determine_game_results` (game/src/game_state/results.rs) and should stay
+ * semantically aligned with it, so the client's local verdicts and the server's never disagree about
+ * the same evidence. The heavy lifting of combining reports across players still happens later in
+ * `reconcileResults`.
  *
  * The derivation keeps two views of the game that mutate at distinct points, exactly as the client
  * does: the raw per-BW-player table (`rawByBw`, including computers), whose victory states feed the
@@ -406,32 +406,25 @@ function toSubmission(
  * Collects the users whose OWN stored report claims a self-Victory, across every report submitted for
  * a game. This is the corroboration set Rule A (see `deriveResultSubmission`) uses to distinguish a
  * genuine winner-who-quit from the one-way-alliance quit artifact: a player who truly reached a
- * victory sent a result frame saying so before ever leaving, so their own report — raw or legacy —
- * records the self-Victory. A player with no stored report (e.g. a crash before reporting) is never
+ * victory sent a result frame saying so before ever leaving, so their own report records the
+ * self-Victory. A player with no stored report (e.g. a crash before reporting) is never
  * corroborated, which is intentional: an uncorroborated quit-victory in someone else's capture is
  * exactly what the veto is meant to strip.
  *
- * Only a report's claim about ITSELF counts. A raw report is inspected via the reporter's own
- * `players` row; a legacy digested report via its `playerResults` entry for the reporter.
+ * Only a report's claim about ITSELF counts: each report is inspected via the reporter's own
+ * `players` row.
  */
 export function computeCorroboratedVictors(
-  storedReports: ReadonlyArray<StoredResultReport | null>,
+  storedReports: ReadonlyArray<StoredRawResultReport | null>,
 ): Set<SbUserId> {
   const corroborated = new Set<SbUserId>()
   for (const stored of storedReports) {
     if (!stored) {
       continue
     }
-    if (stored.kind === 'raw') {
-      const ownRow = stored.raw.players.find(p => p.userId === stored.reporter)
-      if (ownRow?.victoryState === GameClientResult.Victory) {
-        corroborated.add(stored.reporter)
-      }
-    } else {
-      const ownEntry = stored.playerResults.find(([id]) => id === stored.reporter)
-      if (ownEntry?.[1].result === GameClientResult.Victory) {
-        corroborated.add(stored.reporter)
-      }
+    const ownRow = stored.raw.players.find(p => p.userId === stored.reporter)
+    if (ownRow?.victoryState === GameClientResult.Victory) {
+      corroborated.add(stored.reporter)
     }
   }
   return corroborated

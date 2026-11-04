@@ -26,8 +26,7 @@ import {
   ReconciledPlayerResult,
   ReconciledResult,
   ReconciledResults,
-  StoredGameResults,
-  SubmitGameResultsRequest,
+  StoredRawGameResults,
 } from '../../../common/games/results'
 import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
 import {
@@ -218,32 +217,49 @@ function validateMatchmakingResolution(
 }
 
 /**
- * Digests a game's stored reports into the uniform `ResultSubmission` shape a legacy report already
- * has, so everything downstream (reconcile, desync policy, departure tiebreak, persistence, matchup
- * derivation) is agnostic to which form a client submitted. The returned array stays aligned with
- * the input, `null` for a player who never reported.
+ * Derives the per-player verdicts of each of a game's stored reports, as the `ResultSubmission`s
+ * that reconciliation consumes. The returned array stays aligned with the input, `null` for a player
+ * who never reported.
  *
  * `isUms` comes from our own config, never the client. The raw-report veto (Rule A in
  * `deriveResultSubmission`) needs cross-report evidence: the set of users whose OWN report claims a
  * self-Victory is computed once over every stored report and fed to each derivation, so a leaver's
  * uncorroborated quit-victory in someone else's capture can be stripped while a genuine
  * winner-who-quit's victory is preserved.
+ *
+ * Throws on a digested report. Those are only stored for games that reconciled before clients sent
+ * raw reports, and a reconciled game never reconciles again, so one turning up here means the game's
+ * stored state is inconsistent.
  */
 function digestStoredReports(
   config: GameConfig,
   storedResults: ReadonlyArray<StoredResultReport | null>,
 ): Array<ResultSubmission | null> {
-  const isUms = config.gameType === GameType.UseMapSettings
-  const corroboratedVictors = computeCorroboratedVictors(storedResults)
-  return storedResults.map(stored => {
-    if (!stored) {
-      return null
+  const rawReports = storedResults.map(stored => {
+    if (stored?.kind === 'legacy') {
+      throw new Error(`cannot reconcile the digested result report from ${stored.reporter}`)
     }
-    if (stored.kind === 'raw') {
-      return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
-    }
-    return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
+    return stored
   })
+
+  const isUms = config.gameType === GameType.UseMapSettings
+  const corroboratedVictors = computeCorroboratedVictors(rawReports)
+  return rawReports.map(stored =>
+    stored
+      ? deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
+      : null,
+  )
+}
+
+/**
+ * Every (player, race) pair a stored report records. A report's derivation never changes a race, so
+ * this reads them straight from the stored evidence, which works for digested reports too.
+ */
+function reportedRaces(stored: StoredResultReport): Array<[SbUserId, AssignedRaceChar]> {
+  if (stored.kind === 'raw') {
+    return stored.raw.players.flatMap(p => (p.userId !== null ? [[p.userId, p.race]] : []))
+  }
+  return stored.playerResults.map(([id, result]) => [id, result.race])
 }
 
 /**
@@ -285,23 +301,19 @@ async function deriveManualResolutionRaces(gameRecord: GameRecord): Promise<{
 
   const randomPlayers = players.filter(p => p.race === 'r')
   if (randomPlayers.length) {
-    const submissions = digestStoredReports(
-      gameRecord.config,
-      await getCurrentReportedResults(gameRecord.id),
-    )
+    const storedReports = await getCurrentReportedResults(gameRecord.id)
+    const allReportedRaces = storedReports.flatMap(stored => (stored ? reportedRaces(stored) : []))
 
     for (const player of randomPlayers) {
-      const reportedRaces = new Set<AssignedRaceChar>()
-      for (const submission of submissions) {
-        for (const [id, result] of submission?.playerResults ?? []) {
-          if (id === player.id) {
-            reportedRaces.add(result.race)
-          }
+      const playerRaces = new Set<AssignedRaceChar>()
+      for (const [id, race] of allReportedRaces) {
+        if (id === player.id) {
+          playerRaces.add(race)
         }
       }
 
-      if (reportedRaces.size === 1) {
-        races.set(player.id, reportedRaces.values().next().value!)
+      if (playerRaces.size === 1) {
+        races.set(player.id, playerRaces.values().next().value!)
       }
     }
   }
@@ -334,29 +346,12 @@ export function isResultsExempt(config: GameConfig): boolean {
   return config.resultsExempt ?? false
 }
 
-/** The legacy digested submission shape (no `version`): a set of already-decided per-player verdicts. */
-const LEGACY_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<SubmitGameResultsRequest>({
-  userId: Joi.number().min(0).required(),
-  resultCode: Joi.string().required(),
-  time: Joi.number().min(0).required(),
-  playerResults: Joi.array()
-    .items(
-      Joi.array().ordered(
-        joiUserId().required(),
-        Joi.object({
-          result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
-          race: Joi.string().valid('p', 't', 'z').required(),
-          apm: Joi.number().min(0).required(),
-        }).required(),
-      ),
-    )
-    .min(0)
-    .max(8)
-    .required(),
-}).required()
-
-/** The raw (v2) submission shape: undigested BW evidence the server derives verdicts from. */
-const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
+/**
+ * Validates a game result submission body: undigested BW evidence the server derives verdicts from.
+ * Used by the netcode-v2 webhook, which decodes a relay-forwarded report and validates it against
+ * this schema before treating it as a submission.
+ */
+export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<RawGameResultsReport>({
   version: Joi.valid(2).required(),
   userId: joiUserId().required(),
   resultCode: Joi.string().required(),
@@ -395,20 +390,6 @@ const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
     .allow(null)
     .required(),
 }).required()
-
-/**
- * Validates a game result submission body — used by the netcode-v2 webhook, which decodes a
- * relay-forwarded report and validates it against this schema before treating it as a submission.
- *
- * A report is version-discriminated: a `version: 2` body is validated as the raw schema; a body with
- * no `version` is validated as the legacy digested schema (so pre-cutover clients keep working).
- */
-export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.alternatives()
-  .conditional(Joi.object({ version: Joi.exist() }).unknown(), {
-    then: RAW_GAME_RESULTS_REPORT_SCHEMA,
-    otherwise: LEGACY_GAME_RESULTS_REQUEST_SCHEMA,
-  })
-  .required()
 
 /**
  * Whether every required (non-diverged) human has actually submitted a result report, checked by
@@ -822,15 +803,15 @@ export default class GameResultService {
     logger,
   }: {
     gameId: string
-    /** The validated submission body: either a legacy digested report or a raw (v2) report. */
-    report: SubmitGameResultsRequest | RawGameResultsReport
+    /** The validated submission body. */
+    report: RawGameResultsReport
     /** When the netcode-v2 relay recorded this report arriving, for reports relayed via webhook. */
     relayReportTime?: Date
     /** The relay's local session frame at arrival, for reports relayed via webhook. */
     relayReportFrame?: number | null
     logger: Logger
   }): Promise<void> {
-    const { userId, resultCode, time } = report
+    const { userId, resultCode } = report
     const gameUserRecord = await getUserGameRecord(userId, gameId)
     if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
       // TODO(tec27): Should we be giving this info to clients? Should we be giving *more* info?
@@ -854,12 +835,9 @@ export default class GameResultService {
       gameRecord.config.teams.map(team => team.filter(p => !p.isComputer).map(p => p.id)).flat(),
     )
 
-    // Every reported user must be an actual (non-computer) participant of this game. For a raw
-    // report the participants are the non-null player user IDs; computers carry a null user id.
-    const reportedUserIds =
-      'version' in report
-        ? report.players.flatMap(p => (p.userId !== null ? [p.userId] : []))
-        : report.playerResults.map(([id]) => id)
+    // Every reported user must be an actual (non-computer) participant of this game. The
+    // participants are the non-null player user IDs; computers carry a null user id.
+    const reportedUserIds = report.players.flatMap(p => (p.userId !== null ? [p.userId] : []))
     for (const id of reportedUserIds) {
       if (!playerIdsInGame.has(id)) {
         throw new GameResultServiceError(
@@ -869,16 +847,13 @@ export default class GameResultService {
       }
     }
 
-    const reportedResults: StoredGameResults =
-      'version' in report
-        ? {
-            version: 2,
-            time: report.time,
-            players: report.players,
-            netPlayers: report.netPlayers,
-            localPlayerLoseType: report.localPlayerLoseType,
-          }
-        : { time, playerResults: report.playerResults }
+    const reportedResults: StoredRawGameResults = {
+      version: 2,
+      time: report.time,
+      players: report.players,
+      netPlayers: report.netPlayers,
+      localPlayerLoseType: report.localPlayerLoseType,
+    }
 
     const recorded = await setReportedResults({
       userId,
