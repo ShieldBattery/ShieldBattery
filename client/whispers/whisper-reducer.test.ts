@@ -1612,6 +1612,100 @@ describe('client/whispers/whisper-reducer', () => {
     })
   })
 
+  describe('unread messages whose window was dropped', () => {
+    test('stay unread when a read position that stops short of them arrives', () => {
+      // An older window with a message past its far end that arrived live and unseen.
+      let state = makeState({
+        messages: [textMessage(100)],
+        hasNewer: true,
+        activated: true,
+        lastReadTime: 100,
+      })
+      state = whisperReducer(state, updateMessageAction(500))
+      expect(sessionOf(state).hasUnread).toBe(true)
+
+      // Leaving the session drops the detached window, and the unseen message with it.
+      state = whisperReducer(state, deactivateSessionAction())
+      expect(sessionOf(state).messages).toEqual([])
+
+      // Another of the user's sessions reads part of the way.
+      state = whisperReducer(state, updateLastReadTimeAction(300))
+
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+
+    test('are read once a read position covers them', () => {
+      let state = makeState({ hasNewer: true, lastReadTime: 100 })
+      state = whisperReducer(state, updateMessageAction(500))
+      state = whisperReducer(state, resetMessageWindowAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(500))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    // The user's own message, loaded by a page ahead of its announcement, sitting past the read
+    // position of a session that is unread for another reason.
+    const ownMessage = (time: number): CommonTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test("don't include the user's own messages in a dropped window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(state, resetMessageWindowAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test("don't include the user's own messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      // Replacing the window with an older one leaves the own message past its far end.
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(sessionOf(state).hasNewer).toBe(true)
+      state = whisperReducer(state, deactivateSessionAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test("still count the target's messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), textMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      state = whisperReducer(state, deactivateSessionAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+  })
+
   describe('@whispers/activateWhisperSession', () => {
     test('freezes the divider at the read position when the session has unread messages', () => {
       const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
