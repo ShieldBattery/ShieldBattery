@@ -11,6 +11,7 @@ import {
   getDivisionContext,
   getMatchmakingModeInfo,
   MapSelectionStyle,
+  MATCHMAKING_BONUS_FREEZE_PERIOD_MS,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingPreferences,
@@ -675,6 +676,7 @@ export interface RowStats {
   division: MatchmakingDivision
   mmr: number | null
   bonus: number
+  bonusFrozen?: boolean
 }
 
 interface ModeStatsProps {
@@ -709,7 +711,18 @@ export function ModeStats({ stats, t }: ModeStatsProps) {
       <StatCell>
         <StatLabel>{t('matchmaking.findMatch.bonus', 'Bonus')}</StatLabel>
         <BonusValue $zero={stats.bonus === 0}>
-          <MaterialIcon icon='bolt' size={13} />+{stats.bonus}
+          {stats.bonusFrozen ? (
+            <Tooltip
+              text={t(
+                'matchmaking.findMatch.bonusFrozen',
+                'This is the last week of the season! Spend your remaining bonus points!',
+              )}>
+              <MaterialIcon icon='ac_unit' size={13} />
+            </Tooltip>
+          ) : (
+            <MaterialIcon icon='bolt' size={13} />
+          )}
+          +{stats.bonus}
         </BonusValue>
       </StatCell>
     </StatsBlock>
@@ -1332,6 +1345,9 @@ export function FindMatch() {
   // ─── Derived data ────────────────────────────────────────────────────────────
 
   const currentMinuteMs = useCurrentMinuteMs()
+  const bonusFrozen =
+    season?.endDate !== undefined &&
+    currentMinuteMs >= season.endDate - MATCHMAKING_BONUS_FREEZE_PERIOD_MS
   const divisionContext: DivisionContext = season
     ? getDivisionContext(new Date(currentMinuteMs), season)
     : { bonusPool: 0 }
@@ -1363,7 +1379,7 @@ export function FindMatch() {
   const getStatsForType = (type: MatchmakingType): RowStats => {
     const player = selfRankByType.get(type)
     if (!player || !season) {
-      return { division: MatchmakingDivision.Unrated, mmr: null, bonus: 0 }
+      return { division: MatchmakingDivision.Unrated, mmr: null, bonus: 0, bonusFrozen }
     }
     const division = ladderPlayerToMatchmakingDivision(player, divisionContext)
     // Ratings are hidden until placements complete (the server zeroes them until then), so show
@@ -1374,6 +1390,7 @@ export function FindMatch() {
       division,
       mmr: inPlacements ? null : Math.round(player.rating),
       bonus,
+      bonusFrozen,
     }
   }
 

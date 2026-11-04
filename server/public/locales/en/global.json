@@ -2328,6 +2328,7 @@
     "findMatch": {
       "alternateRace": "Alternate race",
       "bonus": "Bonus",
+      "bonusFrozen": "This is the last week of the season! Spend your remaining bonus points!",
       "cancelSearch": "Cancel search",
       "desc": {
         "1v1": "Solo · Standard maps",
