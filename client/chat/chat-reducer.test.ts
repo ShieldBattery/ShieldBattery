@@ -2436,7 +2436,12 @@ describe('client/chat/chat-reducer', () => {
 
   describe('@chat/activateChannel', () => {
     test('freezes the divider at the read position when the channel has unread messages', () => {
-      const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
+      const state = makeState({
+        messages: [textMessage(100), textMessage(150)],
+        unread: true,
+        lastReadTime: 100,
+        atBottom: true,
+      })
 
       const result = chatReducer(state, activateChannelAction())
 
@@ -2509,7 +2514,12 @@ describe('client/chat/chat-reducer', () => {
     })
 
     test('keeps a divider frozen by this activation', () => {
-      const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
+      const state = makeState({
+        messages: [textMessage(100), textMessage(150)],
+        unread: true,
+        lastReadTime: 100,
+        atBottom: true,
+      })
 
       const result = chatReducer(state, activateChannelAction())
 
@@ -2517,7 +2527,12 @@ describe('client/chat/chat-reducer', () => {
     })
 
     test('a divider frozen at the bottom has no trip away from it behind it', () => {
-      const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
+      const state = makeState({
+        messages: [textMessage(100), textMessage(150)],
+        unread: true,
+        lastReadTime: 100,
+        atBottom: true,
+      })
 
       const result = chatReducer(state, activateChannelAction())
 
@@ -2530,7 +2545,12 @@ describe('client/chat/chat-reducer', () => {
     })
 
     test('a divider frozen away from the bottom counts as one the view has left', () => {
-      const state = makeState({ unread: true, lastReadTime: 100, atBottom: false })
+      const state = makeState({
+        messages: [textMessage(100), textMessage(150)],
+        unread: true,
+        lastReadTime: 100,
+        atBottom: false,
+      })
 
       const result = chatReducer(state, activateChannelAction())
 
@@ -3111,6 +3131,79 @@ describe('client/chat/chat-reducer', () => {
       )
 
       expect(messageIdsOf(result)).toEqual(['text-100', 'text-200', kickId, 'text-300', 'text-400'])
+    })
+  })
+
+  describe('client-only banners and the unread divider', () => {
+    const OTHER_ID = makeSbUserId(20)
+
+    const leaveAction = (time: number): ChatActions => ({
+      type: '@chat/updateLeave',
+      payload: { action: 'leave2', userId: OTHER_ID, time },
+      meta: { channelId: CHANNEL_ID, windowFocused: false },
+    })
+
+    // A channel read through its newest stored message, at 200.
+    function readState(): Immutable<ChatState> {
+      let state = chatReducer(
+        makeState(),
+        getJoinedChannelsAction(initialChannelData({ lastReadTime: 200, time: 50 })),
+      )
+      state = chatReducer(state, updateMessageAction(200, false))
+      return state
+    }
+
+    test('a banner still marks the channel unread, and viewing it at the bottom clears that', () => {
+      let state = chatReducer(readState(), leaveAction(300))
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      state = chatReducer(state, updateChannelAtBottomAction(true))
+      state = chatReducer(state, activateChannelAction())
+      state = chatReducer(state, updateLastReadTimeAction(200))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a channel unread only for a banner opens without a divider', () => {
+      let state = chatReducer(readState(), leaveAction(300))
+      state = chatReducer(state, updateChannelAtBottomAction(true))
+      state = chatReducer(state, activateChannelAction())
+      state = chatReducer(state, updateLastReadTimeAction(200))
+
+      // The next message is read the moment it arrives, so nothing marks it as new.
+      state = chatReducer(state, updateMessageAction(400, false))
+      state = chatReducer(state, updateLastReadTimeAction(400))
+
+      expect(state.idToUnreadLine.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a banner arriving while the view is scrolled up places no divider', () => {
+      let state = chatReducer(readState(), updateChannelAtBottomAction(true))
+      state = chatReducer(state, activateChannelAction())
+      state = chatReducer(state, updateLastReadTimeAction(200))
+      state = chatReducer(state, updateChannelAtBottomAction(false))
+
+      state = chatReducer(state, leaveAction(300))
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(state.idToUnreadLine.has(CHANNEL_ID)).toBe(false)
+
+      state = chatReducer(state, updateChannelAtBottomAction(true))
+      state = chatReducer(state, updateLastReadTimeAction(200))
+      state = chatReducer(state, updateMessageAction(400, false))
+      state = chatReducer(state, updateLastReadTimeAction(400))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(state.idToUnreadLine.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a stored message arriving unseen with a banner still places the divider', () => {
+      let state = chatReducer(readState(), updateChannelAtBottomAction(false))
+      state = chatReducer(state, activateChannelAction())
+
+      state = chatReducer(state, leaveAction(300))
+      state = chatReducer(state, updateMessageAction(400, false))
+
+      expect(state.idToUnreadLine.get(CHANNEL_ID)?.time).toBe(200)
     })
   })
 

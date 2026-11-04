@@ -572,7 +572,10 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
 
   state.unreadChannels.add(channelId)
 
-  if (isChannelActivated) {
+  // The divider sits above the first stored message past the read position, so a banner, which
+  // isn't stored, has nowhere to put it: placed for one, it would wait out of sight and then show up
+  // above the next message even if that one was read the moment it arrived.
+  if (isChannelActivated && arrival.time !== undefined) {
     // A new run of unread messages starts where there is no divider yet, and where the user caught
     // up past the one that is there and then looked away, scrolled up, or paged into history: it no
     // longer marks anything they haven't seen, and this message is where what they haven't seen
@@ -1547,16 +1550,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // of where the read position ends up after the eager mark-read opening at the newest messages
     // triggers. Activation itself never lowers the unread flag: the flag follows the read position,
     // and `@chat/updateLastReadTime` lowers it once the view's read report covers every known
-    // message.
+    // message. The divider marks where stored messages from other users begin past the read
+    // position, so a channel that is unread only for banners gets none.
+    const lastReadTime = state.idToLastReadTime.get(channelId)
     if (
       state.unreadChannels.has(channelId) &&
       !state.idToUnreadLine.has(channelId) &&
-      state.idToLastReadTime.has(channelId)
+      lastReadTime !== undefined &&
+      (newestFromOthersChannelTime(state, channelId) ?? -Infinity) > lastReadTime
     ) {
-      state.idToUnreadLine.set(
-        channelId,
-        placeUnreadLine(state.idToLastReadTime.get(channelId)!, atBottom),
-      )
+      state.idToUnreadLine.set(channelId, placeUnreadLine(lastReadTime, atBottom))
     }
 
     // A divider the read position has already moved past outlives that only for as long as the
@@ -1564,7 +1567,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // they're caught up and the divider has served its purpose.
     if (atBottom) {
       const line = state.idToUnreadLine.get(channelId)
-      const lastReadTime = state.idToLastReadTime.get(channelId)
       if (line !== undefined && lastReadTime !== undefined && lastReadTime > line.time) {
         state.idToUnreadLine.delete(channelId)
       }
