@@ -71,6 +71,19 @@ describe('netcode-v2/BackboneRttTable', () => {
       const table = BackboneRttTable.fromEnv()
       expect(table.rtt('us-east', 'eu-west')).toBe(150)
     })
+
+    test.each([
+      ['a non-numeric value', '{"us-east|eu-west": "90", "us-east|ap-south": 40}'],
+      ['a null value', '{"us-east|eu-west": null, "us-east|ap-south": 40}'],
+      ['a number outside the double range', '{"us-east|eu-west": 1e999, "us-east|ap-south": 40}'],
+      ['a non-object document', '[["us-east|ap-south", 40]]'],
+    ])('falls back to an empty table for %s', (_name, json) => {
+      vi.stubEnv('SB_REGION_BACKBONE_RTT_JSON', json)
+      const table = BackboneRttTable.fromEnv()
+      // The whole document is rejected, including its valid entries, as the Rust matchmaker does.
+      expect(table.rtt('us-east', 'eu-west')).toBe(150)
+      expect(table.rtt('us-east', 'ap-south')).toBe(150)
+    })
   })
 
   describe('build', () => {
