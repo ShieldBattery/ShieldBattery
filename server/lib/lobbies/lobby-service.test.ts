@@ -855,6 +855,25 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.teams[1].slots[1]).toMatchObject({ type: 'controlledOpen', race: 't' })
     })
 
+    test("a joiner's initial lobby includes changes made while it was being prepared", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      // Holds the joiner's user info lookup open, so that someone else joins while the joiner's
+      // initial lobby is still on its way to them. The publish announcing that join reaches the
+      // joiner first, before they have a lobby to apply it to.
+      let resolveUserInfos: (users: SbUser[]) => void
+      asMockedFunction(findUsersById).mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveUserInfos = resolve
+        }),
+      )
+      await joinLobby(joiner, id)
+      await joinLobby(otherJoiner, id)
+      resolveUserInfos!([])
+
+      expect((await initPayload(joiner, id)).lobby).toEqual(lobbyService.lobbies.get(id))
+    })
+
     test('joining a full lobby puts the joiner on the bench', async () => {
       const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
       // 1v1 lobbies only have 2 slots, and the host already occupies one.

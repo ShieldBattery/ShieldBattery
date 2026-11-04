@@ -978,31 +978,32 @@ export class LobbyService {
           return undefined
         }
 
+        let userInfos: SbUser[]
         try {
-          const userInfos = await findUsersById(getLobbyMemberIds(lobby))
-
-          return {
-            type: 'init',
-            lobby,
-            runState: this._runStateJson(lobbyId),
-            userInfos,
-            readyUsers: this._readyUsersJson(lobbyId),
-            mapStatuses: this._mapStatusesJson(lobbyId),
-            series: this._seriesJson(lobbyId),
-          }
+          userInfos = await findUsersById(getLobbyMemberIds(lobby))
         } catch (err) {
           logger.error({ err }, 'error getting user infos for lobby init')
-          return {
-            type: 'init',
-            lobby,
-            runState: this._runStateJson(lobbyId),
-            // Generally this should be okay (the client can batch retrieve the user info later),
-            // just higher latency
-            userInfos: [],
-            readyUsers: this._readyUsersJson(lobbyId),
-            mapStatuses: this._mapStatusesJson(lobbyId),
-            series: this._seriesJson(lobbyId),
-          }
+          // Generally this should be okay (the client can batch retrieve the user info later),
+          // just higher latency
+          userInfos = []
+        }
+
+        // The subscriber already receives everything published to this channel while the lookup
+        // runs, ahead of this payload and so before it has a lobby to apply any of it to. The
+        // payload therefore describes the lobby as it is once the lookup is done, not as it was
+        // when the subscription started.
+        const current = this.lobbies.get(lobbyId)
+        if (!current) {
+          return undefined
+        }
+        return {
+          type: 'init',
+          lobby: current,
+          runState: this._runStateJson(lobbyId),
+          userInfos,
+          readyUsers: this._readyUsersJson(lobbyId),
+          mapStatuses: this._mapStatusesJson(lobbyId),
+          series: this._seriesJson(lobbyId),
         }
       },
       client => {
