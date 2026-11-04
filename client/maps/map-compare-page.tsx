@@ -39,7 +39,8 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { MapBackButton } from './map-back-button'
-import { isPixelView, MapCompareViewer } from './map-compare-viewer'
+import { CompareImage, isPixelView, MapCompareViewer } from './map-compare-viewer'
+import { MapTileSource, useMapTileSource } from './map-tile-source'
 
 const MapCompareQuery = graphql(/* GraphQL */ `
   query MapCompare($a: SbMapId!, $b: SbMapId!) {
@@ -553,6 +554,8 @@ function CompareBody({
   const snackbarController = useSnackbarController()
   const a = useCompareSide(aRef)
   const b = useCompareSide(bRef)
+  const aTiles = useMapTileSource(a.id)
+  const bTiles = useMapTileSource(b.id)
   const [viewParam, setViewParam] = useLocationSearchParam('view')
   const [showSpawns, setShowSpawns] = useState(true)
   const [showTerrainChanges, setShowTerrainChanges] = useState(false)
@@ -649,8 +652,8 @@ function CompareBody({
       <Columns>
         <MapCompareViewer
           view={view}
-          before={compareImage(a)}
-          after={compareImage(b)}
+          before={compareImage(a, aTiles)}
+          after={compareImage(b, bTiles)}
           terrainChanges={terrainChanges}
           showTerrainChanges={showTerrainChanges}
           showSpawns={showSpawns && !isPixelView(view)}
@@ -710,11 +713,12 @@ function ChangeItem({ entry }: { entry: ChangeEntry }) {
   )
 }
 
-function compareImage(side: CompareSide) {
+function compareImage(side: CompareSide, tiles: MapTileSource | undefined): CompareImage {
   const name = filterColorCodes(side.name)
   return {
     name,
     imageUrl: side.file.image2048Url,
+    tiles,
     width: side.file.width,
     height: side.file.height,
     imageInfo: {

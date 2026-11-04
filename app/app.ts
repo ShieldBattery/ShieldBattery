@@ -31,6 +31,7 @@ import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
 import { TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { LOCAL_MAP_IMAGE_PATH_PREFIX, LocalMapRoot } from '../common/map-library'
+import { MAP_TILE_PATH_PREFIX, parseMapTilePath } from '../common/map-tiles'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -56,7 +57,8 @@ import logger from './logger'
 import { LocalMapLibraryService, setupLocalMapLibrary } from './map-library'
 import { MapRootFolder } from './map-library/map-folders'
 import { LOCAL_MAP_JPEG_QUALITY, LocalMapImages } from './map-library/map-images'
-import { WorkerMapImageRenderer } from './map-library/worker/map-renderer-client'
+import { LocalMapTiles, MAP_TILE_JPEG_QUALITY } from './map-library/map-tiles'
+import { RenderedMapImage, WorkerMapImageRenderer } from './map-library/worker/map-renderer-client'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
@@ -205,6 +207,7 @@ let gameServer: GameServer
 let replayLibrary: ReplayLibraryService | undefined
 let localMapLibrary: LocalMapLibraryService | undefined
 let localMapImages: LocalMapImages | undefined
+let localMapTiles: LocalMapTiles | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
 let lastReplayFolders: string[] | undefined
@@ -1248,6 +1251,12 @@ function setupCspProtocol(curSession: Session) {
         return image
           ? new Response(new Uint8Array(image), { headers: { 'content-type': 'image/jpeg' } })
           : new Response('Not Found', { status: 404, statusText: 'Not Found' })
+      } else if (pathname.startsWith(MAP_TILE_PATH_PREFIX)) {
+        const tile = parseMapTilePath(pathname.slice(MAP_TILE_PATH_PREFIX.length))
+        const image = tile ? await localMapTiles?.getTile(tile) : undefined
+        return image
+          ? new Response(new Uint8Array(image), { headers: { 'content-type': 'image/jpeg' } })
+          : new Response('Not Found', { status: 404, statusText: 'Not Found' })
       } else if (pathname.match(/^\/(assets|dist)\/.+$/)) {
         const contents = await readFile(path.join(APP_ROOT, pathname))
         // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
@@ -1704,19 +1713,45 @@ app.on('ready', () => {
           getSender: () => TypedIpcSender.from(mainWindow?.webContents),
         })
         localMapLibrary = library
+        const getInstallPath = async () => (await localSettings.get()).starcraftPath
+        // One renderer for images and tiles, so their renders share its asset cache
+        const renderer = new WorkerMapImageRenderer()
+        const encodeJpeg = (quality: number) => (image: RenderedMapImage) =>
+          nativeImage
+            .createFromBitmap(
+              Buffer.from(image.bgra.buffer, image.bgra.byteOffset, image.bgra.byteLength),
+              { width: image.width, height: image.height },
+            )
+            .toJPEG(quality)
         localMapImages = new LocalMapImages({
           // Shared by dev instances: images are keyed by file hash and game build, not by session
           cacheDir: path.join(app.getPath('userData'), 'map-images'),
-          getInstallPath: async () => (await localSettings.get()).starcraftPath,
+          getInstallPath,
           findPathByHash: hash => library.findPathByHash(hash),
-          renderer: new WorkerMapImageRenderer(),
-          encodeJpeg: ({ width, height, bgra }) =>
-            nativeImage
-              .createFromBitmap(Buffer.from(bgra.buffer, bgra.byteOffset, bgra.byteLength), {
-                width,
-                height,
-              })
-              .toJPEG(LOCAL_MAP_JPEG_QUALITY),
+          renderer,
+          encodeJpeg: encodeJpeg(LOCAL_MAP_JPEG_QUALITY),
+          logger,
+        })
+        localMapTiles = new LocalMapTiles({
+          // Shared by dev instances, like the images
+          cacheDir: path.join(app.getPath('userData'), 'map-tiles'),
+          getInstallPath,
+          // Maps on this PC, or ones the client downloaded to the map store (as it does for games)
+          findPath: async (hash, format) => {
+            const localPath = await library.findPathByHash(hash)
+            if (localPath) {
+              return localPath
+            }
+            const storePath = mapStore.getPath(hash, format)
+            try {
+              await fsPromises.stat(storePath)
+              return storePath
+            } catch {
+              return undefined
+            }
+          },
+          renderer,
+          encodeJpeg: encodeJpeg(MAP_TILE_JPEG_QUALITY),
           logger,
         })
       } catch (err) {

@@ -13,11 +13,17 @@ export interface RenderedMapImage {
 
 /** Renders images of local map files from a StarCraft install's assets. */
 export interface MapImageRenderer {
+  /**
+   * Renders the file at `filePath`, which must still hash to `hash`, with its longest side `size`
+   * pixels, or at `density` pixels per map tile if that's given (failing if the image would be larger
+   * than `size`).
+   */
   render(
     installPath: string,
     filePath: string,
     hash: string,
     size: number,
+    density?: number,
   ): Promise<RenderedMapImage>
 }
 
@@ -26,6 +32,11 @@ export interface MapImageRenderer {
  * shrinks. After rendering a file larger than this, the renderer's worker is replaced.
  */
 const RESTART_AFTER_FILE_BYTES = 16 * 1024 * 1024
+/**
+ * The renderer's memory also grows to a few times the size of the image it renders. After rendering
+ * an image with more pixels than this, the renderer's worker is replaced.
+ */
+const RESTART_AFTER_IMAGE_PIXELS = 1024 * 1024
 /** How long a render may take before the renderer is ended and the render taken as failed. */
 const RENDER_TIMEOUT_MS = 60 * 1000
 /**
@@ -39,6 +50,7 @@ interface RenderJob {
   filePath: string
   hash: string
   size: number
+  density?: number
   deferred: Deferred<RenderedMapImage>
 }
 
@@ -61,9 +73,10 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     filePath: string,
     hash: string,
     size: number,
+    density?: number,
   ): Promise<RenderedMapImage> {
     const deferred = createDeferred<RenderedMapImage>()
-    this.queue.push({ installPath, filePath, hash, size, deferred })
+    this.queue.push({ installPath, filePath, hash, size, density, deferred })
     this.pump()
     return deferred
   }
@@ -88,7 +101,13 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     }, RENDER_TIMEOUT_MS)
     this.current = { id, job, worker, timer }
 
-    const request: RenderRequest = { id, path: job.filePath, hash: job.hash, size: job.size }
+    const request: RenderRequest = {
+      id,
+      path: job.filePath,
+      hash: job.hash,
+      size: job.size,
+      density: job.density,
+    }
     worker.postMessage(request)
   }
 
@@ -109,7 +128,10 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
       height: response.height,
       bgra: response.bgra,
     })
-    if (response.fileSize > RESTART_AFTER_FILE_BYTES) {
+    if (
+      response.fileSize > RESTART_AFTER_FILE_BYTES ||
+      response.width * response.height > RESTART_AFTER_IMAGE_PIXELS
+    ) {
       this.stopWorker()
     }
     this.pump()

@@ -42,19 +42,28 @@ function getStorage(): CascStorage {
   return storage
 }
 
-function render({ id, path: filePath, hash, size }: RenderRequest): RenderResponse {
+function render({ id, path: filePath, hash, size, density }: RenderRequest): RenderResponse {
   const bytes = readFileSync(filePath)
   if (hashMapBytes(filePath, bytes) !== hash) {
     throw new Error('the file changed since it was indexed')
+  }
+
+  const summary = readMapSummary(bytes)
+  let renderSize = size
+  if (density !== undefined) {
+    renderSize = Math.max(summary.width, summary.height) * density
+    if (renderSize > size) {
+      throw new Error(`rendering at ${density} px per tile would be ${renderSize} px, over ${size}`)
+    }
   }
 
   // The server's options for map images: start locations are drawn by clients, and maps with UMS
   // content show their units as placed rather than filtered for melee.
   const options = JSON.stringify({
     style: 'original',
-    size,
+    size: renderSize,
     startLocations: 'hidden',
-    asPlaced: hasUmsContent(readMapSummary(bytes)),
+    asPlaced: hasUmsContent(summary),
   })
   const map = new MapRenderer(bytes, MAP_LIMIT_OPTIONS)
   try {

@@ -3,6 +3,12 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 're
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import {
+  mapTileDensities,
+  mapTileSpan,
+  mapTileUrl,
+  serverImageDensity,
+} from '../../common/map-tiles'
 import { MapCompareView } from '../../common/map-url'
 import { MapImageInfo } from '../../common/maps'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -13,6 +19,7 @@ import { Slider } from '../material/slider'
 import { Tooltip } from '../material/tooltip'
 import { bodySmall, labelMedium } from '../styles/typography'
 import { MapSpawnMarkers } from './map-image'
+import { MapTileSource } from './map-tile-source'
 import { decodeTerrainChanges } from './terrain-changes'
 
 /** One side of a comparison, as the viewer draws it. */
@@ -24,6 +31,8 @@ export interface CompareImage {
   height: number
   /** For spawn markers. */
   imageInfo: ReadonlyDeep<MapImageInfo>
+  /** The file the app renders full-detail tiles from, when zoomed in past `imageUrl`'s detail. */
+  tiles?: MapTileSource
 }
 
 const MIN_ZOOM = 1
@@ -135,6 +144,12 @@ const ImageElement = styled.img`
   width: 100%;
   height: 100%;
   object-fit: fill;
+  -webkit-user-drag: none;
+`
+
+/** A full-detail piece of a map's image, drawn over the part of the whole image it covers. */
+const TileElement = styled.img`
+  position: absolute;
   -webkit-user-drag: none;
 `
 
@@ -309,6 +324,34 @@ interface Layout {
   tileScale: number
 }
 
+/** A layout as a viewport currently shows it. */
+interface Frame extends Layout {
+  /** The part of the stage on screen, in map tiles from its top-left. */
+  visible: { left: number; top: number; right: number; bottom: number }
+  /** Device pixels per map tile on screen, i.e. how much detail the images need. */
+  density: number
+}
+
+function computeFrame(
+  layout: Layout,
+  viewport: { width: number; height: number },
+  t: ViewTransform,
+): Frame {
+  const scale = layout.tileScale * t.zoom
+  const left = viewport.width / 2 + t.x - (layout.stage.width * t.zoom) / 2
+  const top = viewport.height / 2 + t.y - (layout.stage.height * t.zoom) / 2
+  return {
+    ...layout,
+    visible: {
+      left: -left / scale,
+      top: -top / scale,
+      right: (viewport.width - left) / scale,
+      bottom: (viewport.height - top) / scale,
+    },
+    density: scale * window.devicePixelRatio,
+  }
+}
+
 function computeLayout(
   viewport: { width: number; height: number } | undefined,
   tiles: { width: number; height: number },
@@ -320,22 +363,93 @@ function computeLayout(
   return { stage: { width: tiles.width * tileScale, height: tiles.height * tileScale }, tileScale }
 }
 
+/**
+ * The tile density to draw `image` at in `frame`: the least detailed one that has as much detail as
+ * the screen shows, or the most detailed one there is. `undefined` when the whole image has enough.
+ */
+function pickTileDensity(image: CompareImage, frame: Frame): number | undefined {
+  if (!image.tiles || frame.density <= serverImageDensity(image.width, image.height)) {
+    return undefined
+  }
+  const densities = mapTileDensities(image.width, image.height)
+  return densities.filter(d => d >= frame.density).at(-1) ?? densities[0]
+}
+
+function MapTiles({
+  image,
+  source,
+  frame,
+  density,
+}: {
+  image: CompareImage
+  source: MapTileSource
+  frame: Frame
+  density: number
+}) {
+  const span = mapTileSpan(density)
+  const { visible, tileScale } = frame
+  const firstX = Math.max(0, Math.floor(visible.left / span))
+  const firstY = Math.max(0, Math.floor(visible.top / span))
+  const endX = Math.min(Math.ceil(image.width / span), Math.ceil(visible.right / span))
+  const endY = Math.min(Math.ceil(image.height / span), Math.ceil(visible.bottom / span))
+
+  const tiles = []
+  for (let y = firstY; y < endY; y++) {
+    for (let x = firstX; x < endX; x++) {
+      tiles.push(
+        <TileElement
+          key={`${density}-${x}-${y}`}
+          src={mapTileUrl({ ...source, density, x, y })}
+          alt=''
+          draggable={false}
+          decoding='async'
+          style={{
+            left: x * span * tileScale,
+            top: y * span * tileScale,
+            width: Math.min(span, image.width - x * span) * tileScale,
+            height: Math.min(span, image.height - y * span) * tileScale,
+          }}
+        />,
+      )
+    }
+  }
+  return <>{tiles}</>
+}
+
+/**
+ * How much more an image may be magnified than its own detail before its pixels are drawn as sharp
+ * squares rather than smoothed into a blur.
+ */
+const PIXELATE_MAGNIFICATION = 2
+
 function MapImageBox({
   image,
-  tileScale,
+  frame,
   showSpawns,
   as: Box = ImageBox,
   children,
 }: {
   image: CompareImage
-  tileScale: number
+  frame: Frame
   showSpawns?: boolean
   as?: typeof ImageBox
   children?: React.ReactNode
 }) {
+  const tileDensity = pickTileDensity(image, frame)
+  const shownDensity = tileDensity ?? serverImageDensity(image.width, image.height)
+  const pixelated = frame.density >= shownDensity * PIXELATE_MAGNIFICATION
+
   return (
-    <Box style={{ width: image.width * tileScale, height: image.height * tileScale }}>
+    <Box
+      style={{
+        width: image.width * frame.tileScale,
+        height: image.height * frame.tileScale,
+        imageRendering: pixelated ? 'pixelated' : undefined,
+      }}>
       <ImageElement src={image.imageUrl} alt={image.name} draggable={false} />
+      {image.tiles && tileDensity ? (
+        <MapTiles image={image} source={image.tiles} frame={frame} density={tileDensity} />
+      ) : null}
       {showSpawns ? <MapSpawnMarkers map={image.imageInfo} /> : null}
       {children}
     </Box>
@@ -373,15 +487,16 @@ function Viewport({
   onTransform: (update: (t: ViewTransform) => ViewTransform) => void
   onSize: (size: ViewportSize) => void
   tiles: { width: number; height: number }
-  content: (layout: Layout) => React.ReactNode
+  content: (frame: Frame) => React.ReactNode
   /** Drawn over the stage, outside its transform. */
-  overlay?: (layout: Layout) => React.ReactNode
+  overlay?: (frame: Frame) => React.ReactNode
 }) {
   const [dimensionsRef, dimensions] = useObservedDimensions<HTMLDivElement>()
   const frameRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<{ pointerId: number; x: number; y: number } | undefined>(undefined)
   const [dragging, setDragging] = useState(false)
   const layout = computeLayout(dimensions, tiles)
+  const frame = layout && dimensions ? computeFrame(layout, dimensions, transform) : undefined
 
   const setRefs = (elem: HTMLDivElement | null) => {
     frameRef.current = elem
@@ -452,10 +567,10 @@ function Viewport({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onDoubleClick={() => onTransform(() => FIT)}>
-      {layout ? (
+      {frame ? (
         <>
-          <Stage style={stageStyle(layout, transform)}>{content(layout)}</Stage>
-          {overlay?.(layout)}
+          <Stage style={stageStyle(frame, transform)}>{content(frame)}</Stage>
+          {overlay?.(frame)}
         </>
       ) : null}
     </ViewportFrame>
@@ -590,8 +705,8 @@ export function MapCompareViewer({
   const isFit = transform.zoom === 1 && transform.x === 0 && transform.y === 0
 
   const renderViewport = (
-    content: (layout: Layout) => React.ReactNode,
-    overlay?: (layout: Layout) => React.ReactNode,
+    content: (frame: Frame) => React.ReactNode,
+    overlay?: (frame: Frame) => React.ReactNode,
   ) => (
     <Viewport
       transform={transform}
@@ -611,7 +726,7 @@ export function MapCompareViewer({
         <>
           {renderViewport(
             l => (
-              <MapImageBox image={before} tileScale={l.tileScale} showSpawns={showSpawns} />
+              <MapImageBox image={before} frame={l} showSpawns={showSpawns} />
             ),
             () => (
               <BeforeTag>{before.name}</BeforeTag>
@@ -619,7 +734,7 @@ export function MapCompareViewer({
           )}
           {renderViewport(
             l => (
-              <MapImageBox image={after} tileScale={l.tileScale} showSpawns={showSpawns}>
+              <MapImageBox image={after} frame={l} showSpawns={showSpawns}>
                 {terrainOverlay}
               </MapImageBox>
             ),
@@ -633,12 +748,12 @@ export function MapCompareViewer({
 
     case MapCompareView.Slider:
       viewports = renderViewport(
-        l => <MapImageBox image={before} tileScale={l.tileScale} showSpawns={showSpawns} />,
+        l => <MapImageBox image={before} frame={l} showSpawns={showSpawns} />,
         l => (
           <>
             <ClipLayer style={{ clipPath: `inset(0 0 0 ${dividerPosition * 100}%)` }}>
               <Stage style={stageStyle(l, transform)}>
-                <MapImageBox image={after} tileScale={l.tileScale} showSpawns={showSpawns}>
+                <MapImageBox image={after} frame={l} showSpawns={showSpawns}>
                   {terrainOverlay}
                 </MapImageBox>
               </Stage>
@@ -659,9 +774,9 @@ export function MapCompareViewer({
     case MapCompareView.Fade:
       viewports = renderViewport(l => (
         <>
-          <MapImageBox image={before} tileScale={l.tileScale} showSpawns={showSpawns} />
+          <MapImageBox image={before} frame={l} showSpawns={showSpawns} />
           <ClipLayer style={{ opacity: fade / 100 }}>
-            <MapImageBox image={after} tileScale={l.tileScale} showSpawns={showSpawns}>
+            <MapImageBox image={after} frame={l} showSpawns={showSpawns}>
               {terrainOverlay}
             </MapImageBox>
           </ClipLayer>
@@ -688,7 +803,7 @@ export function MapCompareViewer({
       const shown = flickerShowsAfter ? after : before
       viewports = renderViewport(
         l => (
-          <MapImageBox image={shown} tileScale={l.tileScale} showSpawns={showSpawns}>
+          <MapImageBox image={shown} frame={l} showSpawns={showSpawns}>
             {flickerShowsAfter ? terrainOverlay : null}
           </MapImageBox>
         ),
@@ -728,10 +843,10 @@ export function MapCompareViewer({
       const highlight = view === MapCompareView.Highlight
       viewports = renderViewport(l => (
         <>
-          {highlight ? <MapImageBox image={before} tileScale={l.tileScale} as={DimmedBox} /> : null}
+          {highlight ? <MapImageBox image={before} frame={l} as={DimmedBox} /> : null}
           <DifferenceGroup $highlight={highlight}>
-            <MapImageBox image={before} tileScale={l.tileScale} />
-            <MapImageBox image={after} tileScale={l.tileScale} />
+            <MapImageBox image={before} frame={l} />
+            <MapImageBox image={after} frame={l} />
           </DifferenceGroup>
           {terrainOverlay ? (
             <ImageBox

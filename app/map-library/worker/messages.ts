@@ -100,6 +100,11 @@ export interface RenderRequest {
   hash: string
   /** The longest side of the image, in pixels. */
   size: number
+  /**
+   * Renders at this many pixels per map tile instead, failing if that makes the image's longest side
+   * larger than `size`.
+   */
+  density?: number
 }
 
 export type RenderResponse = { id: number } & (
