@@ -37,6 +37,7 @@ const REQUESTS = [
 function startDraft() {
   resetDraftState(jotaiStore)
   jotaiStore.set(draftStateAtom, {
+    matchId: 'match-1',
     mapId: 'map' as ClientDraftState['mapId'],
     myTeamIndex: 0,
     currentPicker: { team: 0, slot: 0 },

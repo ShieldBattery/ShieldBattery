@@ -795,6 +795,8 @@ export type AnonymizedDraftPlayer = { index: number; nameIndex: AnonymizedNameIn
 )
 
 export interface ClientDraftState {
+  /** The match being drafted, which the player's draft requests name. */
+  matchId: string
   mapId: SbMapId
   currentPicker?: { team: number; slot: number }
   myTeamIndex: number
@@ -1057,6 +1059,11 @@ export interface StartSearchEvent {
 /** A match has been found and players must ready accept it within a timeout. */
 export interface MatchFoundEvent {
   type: 'matchFound'
+  /**
+   * Identifies the match, so an accept can name the one the player saw. A match that falls apart is
+   * never found again: the players' next match has a different id.
+   */
+  matchId: string
   matchmakingType: MatchmakingType
   numPlayers: number
   acceptedPlayers: number
@@ -1353,15 +1360,25 @@ export interface FindMatchRequest {
   clientPubkey?: string
 }
 
-export interface DraftProvisionalPickRequest {
+/**
+ * The match a request is for. A request that arrives after its match has fallen apart is rejected
+ * rather than applied to the player's next match.
+ */
+interface MatchScopedRequest {
+  matchId: string
+}
+
+export type AcceptMatchRequest = MatchScopedRequest
+
+export interface DraftProvisionalPickRequest extends MatchScopedRequest {
   race: RaceChar
 }
 
-export interface DraftLockPickRequest {
+export interface DraftLockPickRequest extends MatchScopedRequest {
   race: RaceChar
 }
 
-export interface DraftChatMessageRequest {
+export interface DraftChatMessageRequest extends MatchScopedRequest {
   message: string
 }
 

@@ -81,6 +81,7 @@ export function MatchDialogsTest() {
       startTime: window.performance.now(),
     })
     store.set(foundMatchAtom, {
+      matchId: 'dev-match',
       matchmakingType,
       numPlayers,
       acceptStart: window.performance.now(),

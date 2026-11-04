@@ -183,6 +183,21 @@ describe('matchmaking/matchmaking-service', () => {
     return { id: userId, ticket, searchId: queuedSearchIds(userId).at(-1) ?? 'never-queued' }
   }
 
+  /** The id of the match a player's client was most recently told it was found for. */
+  function foundMatchId(userId: SbUserId): string {
+    const client = clientSockets.get(userId)!
+    const found = asMockedFunction(client.subscribe)
+      .mock.calls.filter(([path]) => path.startsWith(getMatchPath('')))
+      .map(([, getInitialData]) => (getInitialData as (c: ClientSocketsGroup) => any)(client))
+      .filter(data => data?.type === 'matchFound')
+    return found.at(-1)?.matchId ?? 'never-found'
+  }
+
+  /** Accepts the match the player's client was most recently told about. */
+  function acceptFoundMatch(userId: SbUserId): Promise<void> {
+    return service.accept(userId, foundMatchId(userId))
+  }
+
   async function queuePlayer(
     userId: SbUserId,
     clientId: string,
@@ -502,7 +517,7 @@ describe('matchmaking/matchmaking-service', () => {
 
     expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
     expect(matchmakerClient.requeue).not.toHaveBeenCalledWith('ticket-a')
-    await expect(service.accept(USER_A)).rejects.toThrow('No active match')
+    await expect(acceptFoundMatch(USER_A)).rejects.toThrow('No active match')
 
     finishCancel()
     await searching
@@ -540,7 +555,7 @@ describe('matchmaking/matchmaking-service', () => {
 
     expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
     expect(matchmakerClient.requeue).not.toHaveBeenCalledWith('ticket-a')
-    await expect(service.accept(USER_A)).rejects.toThrow('No active match')
+    await expect(acceptFoundMatch(USER_A)).rejects.toThrow('No active match')
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
@@ -613,7 +628,7 @@ describe('matchmaking/matchmaking-service', () => {
       finishQueue(Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')))
       await searching.catch(() => {})
 
-      await expect(service.accept(USER_A)).resolves.toBeUndefined()
+      await expect(acceptFoundMatch(USER_A)).resolves.toBeUndefined()
       await expect(service.cancel(USER_A)).rejects.toThrow('cannot be canceled')
     })
 
@@ -846,8 +861,8 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // Both players accept, so the match runs through map selection and a successful game load.
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
     for (let i = 0; i < 20; i++) {
       await vi.advanceTimersByTimeAsync(0)
@@ -902,8 +917,8 @@ describe('matchmaking/matchmaking-service', () => {
     })
     await vi.advanceTimersByTimeAsync(0)
 
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
     for (let i = 0; i < 20; i++) {
       await vi.advanceTimersByTimeAsync(0)
@@ -976,8 +991,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await vi.advanceTimersByTimeAsync(0)
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     for (let i = 0; i < 20; i++) {
       await vi.advanceTimersByTimeAsync(0)
     }
@@ -1022,8 +1037,8 @@ describe('matchmaking/matchmaking-service', () => {
     })
     await vi.advanceTimersByTimeAsync(0)
 
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
     for (let i = 0; i < 20; i++) {
       await vi.advanceTimersByTimeAsync(0)
@@ -1071,8 +1086,8 @@ describe('matchmaking/matchmaking-service', () => {
       })
       await vi.advanceTimersByTimeAsync(0)
 
-      await service.accept(USER_A)
-      await service.accept(USER_B)
+      await acceptFoundMatch(USER_A)
+      await acceptFoundMatch(USER_B)
       // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
       for (let i = 0; i < 20; i++) {
         await vi.advanceTimersByTimeAsync(0)
@@ -1169,8 +1184,8 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // Both players accept; the match then runs through to the (failing) game load.
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     for (let i = 0; i < 20; i++) {
       await vi.advanceTimersByTimeAsync(0)
     }
@@ -1263,8 +1278,8 @@ describe('matchmaking/matchmaking-service', () => {
       })
       await vi.advanceTimersByTimeAsync(0)
 
-      await service.accept(USER_A)
-      await service.accept(USER_B)
+      await acceptFoundMatch(USER_A)
+      await acceptFoundMatch(USER_B)
       for (let i = 0; i < 20; i++) {
         await vi.advanceTimersByTimeAsync(0)
       }
@@ -1371,8 +1386,8 @@ describe('matchmaking/matchmaking-service', () => {
 
     // B is in the match, so accept() works rather than throwing NoActiveMatch (which would otherwise
     // lead to an accept-timeout ban for a player who did nothing wrong).
-    await expect(service.accept(USER_B)).resolves.toBeUndefined()
-    await expect(service.accept(USER_A)).resolves.toBeUndefined()
+    await expect(acceptFoundMatch(USER_B)).resolves.toBeUndefined()
+    await expect(acceptFoundMatch(USER_A)).resolves.toBeUndefined()
   })
 
   test('sends each queued mode its recent opponents with their game ages', async () => {
@@ -1538,8 +1553,8 @@ describe('matchmaking/matchmaking-service', () => {
     ).toBeUndefined()
 
     // Both players are in the match and can accept.
-    await expect(service.accept(USER_A)).resolves.toBeUndefined()
-    await expect(service.accept(USER_B)).resolves.toBeUndefined()
+    await expect(acceptFoundMatch(USER_A)).resolves.toBeUndefined()
+    await expect(acceptFoundMatch(USER_B)).resolves.toBeUndefined()
   })
 
   test('canceling a multiqueue search logs a completion for each queued mode', async () => {
@@ -1608,6 +1623,54 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  test("an accept for a match that fell apart doesn't accept the player's next match", async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    const USER_C = makeSbUserId(3)
+    clientSockets.set(USER_C, createFakeClient(USER_C, 'CLIENT_C'))
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    await queuePlayer(USER_C, 'CLIENT_C')
+    const matchFound = (opponent: SbUserId) => ({
+      type: 'matchFound' as const,
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [matched(USER_A, 'ticket-a')],
+        teamB: [matched(opponent, `ticket-${opponent}`)],
+        quality: 1,
+        skillVariance: 0,
+        ratingVarianceMultiplier: 1,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+        rematchPenalty: 0,
+      },
+    })
+    redisHandler(matchFound(USER_B))
+    await drainMatchmakingTasks()
+    const firstMatchId = foundMatchId(USER_A)
+
+    // B leaves, so the match falls apart and A is requeued and matched again with C
+    const clientB = clientSockets.get(USER_B)!
+    const onCloseB = asMockedFunction(clientB.subscribe)
+      .mock.calls.map(call => call[2])
+      .find(callback => typeof callback === 'function')!
+    onCloseB(clientB)
+    await drainMatchmakingTasks()
+    redisHandler(matchFound(USER_C))
+    await drainMatchmakingTasks()
+    expect(foundMatchId(USER_A)).not.toBe(firstMatchId)
+
+    // A readied up for the first match, but the request only arrives now
+    await expect(service.accept(USER_A, firstMatchId)).rejects.toThrow('No active match')
+    await acceptFoundMatch(USER_C)
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(banUser).toHaveBeenCalledWith(USER_A, expect.anything())
+    expect(banUser).not.toHaveBeenCalledWith(USER_C, expect.anything())
+  })
+
   test('a match proposed while a player was in another one stays dropped once they requeue', async () => {
     const USER_C = makeSbUserId(3)
     clientSockets.set(USER_C, createFakeClient(USER_C, 'CLIENT_C'))
@@ -1652,7 +1715,7 @@ describe('matchmaking/matchmaking-service', () => {
     await drainMatchmakingTasks()
 
     expect(matchmakerClient.requeue).toHaveBeenCalledWith(`ticket-${USER_C}`)
-    await expect(service.accept(USER_C)).rejects.toThrow('No active match')
+    await expect(acceptFoundMatch(USER_C)).rejects.toThrow('No active match')
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
@@ -1681,7 +1744,7 @@ describe('matchmaking/matchmaking-service', () => {
 
     expect(checkUsers).toHaveBeenCalledWith([USER_A, USER_B])
     expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
-    await expect(service.accept(USER_B)).rejects.toThrow()
+    await expect(acceptFoundMatch(USER_B)).rejects.toThrow()
   })
 
   test('evicts a banned player from an accepting replacement match without banning peers', async () => {
@@ -1755,8 +1818,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await drainMatchmakingTasks()
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     await drainMatchmakingTasks()
 
     const enforcing = service.enforceLobbyViolationPenalty({
@@ -1802,8 +1865,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await drainMatchmakingTasks()
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     await drainMatchmakingTasks()
     expect(request).toBeDefined()
 
@@ -1850,8 +1913,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await drainMatchmakingTasks()
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     await drainMatchmakingTasks()
 
     const clientA = clientSockets.get(USER_A)!
@@ -1899,8 +1962,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await drainMatchmakingTasks()
-    await service.accept(USER_A)
-    await service.accept(USER_B)
+    await acceptFoundMatch(USER_A)
+    await acceptFoundMatch(USER_B)
     await drainMatchmakingTasks()
 
     await service.enforceLobbyViolationPenalty({
@@ -1969,7 +2032,7 @@ describe('matchmaking/matchmaking-service', () => {
       await expect(enforcing).rejects.toThrow('boom')
 
       expect(activityRegistry.getClientForUser(USER_A)).toBe(lobbyClient)
-      await expect(service.accept(USER_A)).rejects.toThrow('No active match')
+      await expect(acceptFoundMatch(USER_A)).rejects.toThrow('No active match')
       await expect(service.cancel(USER_A)).rejects.toThrow('does not have an active')
     })
   })
@@ -2019,7 +2082,7 @@ describe('matchmaking/matchmaking-service', () => {
 
       await service.simulateMatchPop(USER_A)
       await drainMatchmakingTasks()
-      await service.accept(USER_A)
+      await acceptFoundMatch(USER_A)
       await drainMatchmakingTasks()
       expect(clientEvents(USER_A)).not.toContainEqual({ type: 'requeue' })
 
@@ -2076,7 +2139,7 @@ describe('matchmaking/matchmaking-service', () => {
 
       await service.simulateMatchPop(USER_A, { opponentLeavesAfterMs: 10_000 })
       await drainMatchmakingTasks()
-      if (accept) await service.accept(USER_A)
+      if (accept) await acceptFoundMatch(USER_A)
       await vi.advanceTimersByTimeAsync(9_000)
       expect(clientEvents(USER_A)).not.toContainEqual({ type: 'requeue' })
       await vi.advanceTimersByTimeAsync(1_000)
@@ -2093,7 +2156,7 @@ describe('matchmaking/matchmaking-service', () => {
 
       await service.simulateMatchPop(USER_A)
       await drainMatchmakingTasks()
-      await service.accept(USER_A)
+      await acceptFoundMatch(USER_A)
       await vi.advanceTimersByTimeAsync(120_000)
 
       expect(foundMatchEvent(USER_A)).toMatchObject({ numPlayers: 4 })

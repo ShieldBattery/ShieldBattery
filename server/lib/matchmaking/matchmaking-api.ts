@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  AcceptMatchRequest,
   AddMatchmakingSeasonResponse,
   ALL_MATCHMAKING_TYPES,
   DraftChatMessageRequest,
@@ -278,7 +279,12 @@ export class MatchmakingApi {
   @httpPost('/accept')
   @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async acceptMatch(ctx: RouterContext): Promise<void> {
-    await this.matchmakingService.accept(ctx.session!.user.id)
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<AcceptMatchRequest>({
+        matchId: Joi.string().required(),
+      }),
+    })
+    await this.matchmakingService.accept(ctx.session!.user.id, body.matchId)
   }
 
   @httpPost('/simulate-pop')
@@ -301,13 +307,18 @@ export class MatchmakingApi {
   async updateProvisionalRace(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftProvisionalPickRequest>({
+        matchId: Joi.string().required(),
         race: Joi.string()
           .valid(...ALL_RACE_CHARS)
           .required(),
       }),
     })
 
-    await this.matchmakingService.updateProvisionalRace(ctx.session!.user.id, body.race)
+    await this.matchmakingService.updateProvisionalRace(
+      ctx.session!.user.id,
+      body.matchId,
+      body.race,
+    )
   }
 
   @httpPost('/draft/lock-pick')
@@ -315,13 +326,14 @@ export class MatchmakingApi {
   async lockInPick(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftLockPickRequest>({
+        matchId: Joi.string().required(),
         race: Joi.string()
           .valid(...ALL_RACE_CHARS)
           .required(),
       }),
     })
 
-    await this.matchmakingService.lockInPick(ctx.session!.user.id, body.race)
+    await this.matchmakingService.lockInPick(ctx.session!.user.id, body.matchId, body.race)
   }
 
   @httpPost('/draft/chat')
@@ -329,11 +341,16 @@ export class MatchmakingApi {
   async sendDraftChatMessage(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftChatMessageRequest>({
+        matchId: Joi.string().required(),
         message: Joi.string().min(1).required(),
       }),
     })
 
-    await this.matchmakingService.sendDraftChatMessage(ctx.session!.user.id, body.message)
+    await this.matchmakingService.sendDraftChatMessage(
+      ctx.session!.user.id,
+      body.matchId,
+      body.message,
+    )
   }
 
   @httpGet('/ban-status')

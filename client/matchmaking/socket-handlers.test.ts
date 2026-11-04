@@ -75,6 +75,7 @@ const showSnackbarMock = asMockedFunction(externalShowSnackbar)
 
 function makeMatch(): FoundMatch {
   return {
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
     acceptStart: 0,
@@ -125,6 +126,7 @@ function runDraftStarted(dialogHistory: Array<{ type: DialogType }> = [], flashT
 function runMatchFound(flashTaskbar = true) {
   const event = {
     type: 'matchFound',
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
     acceptedPlayers: 0,

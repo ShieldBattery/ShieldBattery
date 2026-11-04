@@ -62,6 +62,7 @@ export const eventToAction: EventToActionMap = {
     audioManager.playSound(AvailableSound.MatchFound)
 
     jotaiStore.set(foundMatchAtom, {
+      matchId: event.matchId,
       matchmakingType: event.matchmakingType,
       numPlayers: event.numPlayers,
       acceptStart:

@@ -1112,98 +1112,24 @@ export class MatchmakingService {
     this.publishToUser(userId, { type: 'lobbyViolationPenalty', gameId, penalty, queueRemoved })
   }
 
-  async accept(userId: SbUserId): Promise<void> {
-    const queueEntry = this.queueEntries.get(userId)
-    if (!queueEntry?.matchId) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'No active match found',
-      )
-    }
-
-    this.matches.get(queueEntry.matchId)?.registerAccept(userId)
+  /**
+   * Accepts the match `matchId` for a player. Naming the match keeps an accept that arrives after
+   * its match fell apart from readying the player up for whatever match they're in by then.
+   */
+  async accept(userId: SbUserId, matchId: string): Promise<void> {
+    this.getPlayerMatch(userId, matchId).registerAccept(userId)
   }
 
-  async updateProvisionalRace(userId: SbUserId, race: RaceChar): Promise<void> {
-    const queueEntry = this.queueEntries.get(userId)
-    if (!queueEntry?.matchId) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'No active match found',
-      )
-    }
-
-    const match = this.matches.get(queueEntry.matchId)
-    if (!match) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'Match no longer exists',
-      )
-    }
-
-    const draftState = match.getDraftState()
-    if (!draftState) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveDraft,
-        'No active draft found',
-      )
-    }
-
-    draftState.updateProvisionalRace(userId, race)
+  async updateProvisionalRace(userId: SbUserId, matchId: string, race: RaceChar): Promise<void> {
+    this.getPlayerDraft(userId, matchId).updateProvisionalRace(userId, race)
   }
 
-  async lockInPick(userId: SbUserId, race: RaceChar): Promise<void> {
-    const queueEntry = this.queueEntries.get(userId)
-    if (!queueEntry?.matchId) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'No active match found',
-      )
-    }
-
-    const match = this.matches.get(queueEntry.matchId)
-    if (!match) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'Match no longer exists',
-      )
-    }
-
-    const draftState = match.getDraftState()
-    if (!draftState) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveDraft,
-        'No active draft found',
-      )
-    }
-
-    draftState.lockInPick(userId, race)
+  async lockInPick(userId: SbUserId, matchId: string, race: RaceChar): Promise<void> {
+    this.getPlayerDraft(userId, matchId).lockInPick(userId, race)
   }
 
-  async sendDraftChatMessage(userId: SbUserId, message: string): Promise<void> {
-    const queueEntry = this.queueEntries.get(userId)
-    if (!queueEntry?.matchId) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'No active match found',
-      )
-    }
-
-    const match = this.matches.get(queueEntry.matchId)
-    if (!match) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveMatch,
-        'Match no longer exists',
-      )
-    }
-
-    const draftState = match.getDraftState()
-    if (!draftState) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.NoActiveDraft,
-        'No active draft found',
-      )
-    }
+  async sendDraftChatMessage(userId: SbUserId, matchId: string, message: string): Promise<void> {
+    const draftState = this.getPlayerDraft(userId, matchId)
 
     const isChatRestricted = await this.restrictionService.isRestricted(
       userId,
@@ -1329,6 +1255,7 @@ export class MatchmakingService {
         client.subscribe<MatchmakingEvent>(getMatchPath(match.id), sockets => {
           return {
             type: 'matchFound',
+            matchId: match.id,
             matchmakingType: match.type,
             numPlayers: match.totalPlayers,
             acceptedPlayers: match.numAccepted,
@@ -2174,6 +2101,31 @@ export class MatchmakingService {
     if (result.isError()) {
       throw result.error
     }
+  }
+
+  /** The match `matchId`, if the player is in it. Any other match the player is in isn't returned. */
+  private getPlayerMatch(userId: SbUserId, matchId: string): Match {
+    const match =
+      this.queueEntries.get(userId)?.matchId === matchId ? this.matches.get(matchId) : undefined
+    if (!match) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'No active match found',
+      )
+    }
+    return match
+  }
+
+  /** The draft of the match `matchId`, if the player is in that match and it's being drafted. */
+  private getPlayerDraft(userId: SbUserId, matchId: string): DraftState {
+    const draftState = this.getPlayerMatch(userId, matchId).getDraftState()
+    if (!draftState) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveDraft,
+        'No active draft found',
+      )
+    }
+    return draftState
   }
 
   /** A player's queue entry, if it still belongs to `match` rather than to a later search. */
