@@ -433,6 +433,67 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  test("waits for a canceled search's removal before queuing the next search", async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    let finishCancel!: () => void
+    matchmakerClient.cancel.mockImplementationOnce(
+      () => new Promise(resolve => (finishCancel = () => resolve(Result.ok()))),
+    )
+    await service.cancel(USER_A)
+
+    const searching = queuePlayer(USER_A, CLIENT_A)
+    await drainMatchmakingTasks()
+    // The matchmaker handles requests in any order, so a removal still in flight could otherwise
+    // land after the new search's queue request and drop the new search
+    expect(matchmakerClient.queue).toHaveBeenCalledTimes(1)
+
+    finishCancel()
+    await searching
+    expect(matchmakerClient.queue).toHaveBeenCalledTimes(2)
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
+  test("doesn't give a search a match formed from the player's previous search", async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    let finishCancel!: () => void
+    matchmakerClient.cancel.mockImplementationOnce(
+      () => new Promise(resolve => (finishCancel = () => resolve(Result.ok()))),
+    )
+    await service.cancel(USER_A)
+    const searching = queuePlayer(USER_A, CLIENT_A)
+    await drainMatchmakingTasks()
+
+    // The matchmaker matched A's previous search before that search's removal reached it. A's new
+    // search hasn't been sent to the matchmaker yet, so the match can't be for it.
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        ratingVarianceMultiplier: 1,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+        rematchPenalty: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+
+    expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
+    expect(matchmakerClient.requeue).not.toHaveBeenCalledWith('ticket-a')
+    await expect(service.accept(USER_A)).rejects.toThrow('No active match')
+
+    finishCancel()
+    await searching
+    expect(matchmakerClient.queue).toHaveBeenLastCalledWith(expect.objectContaining({ id: USER_A }))
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
   test('cancels the Rust queue entry when the token fetch fails after a successful queue', async () => {
     // The queue starts idle, so the first queuer triggers a token fetch. If that fetch fails after
     // the player was already added to the Rust queue, we must cancel them rather than leave a ghost.

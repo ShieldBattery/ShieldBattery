@@ -429,6 +429,12 @@ interface QueueEntry {
   /** All matchmaking types this player is currently queued for. */
   types: Set<MatchmakingType>
   matchId?: string
+  /**
+   * Whether this search's queue request has been sent to the Rust matchmaker. Until it has, any Rust
+   * queue entry for the player is left over from an earlier search, so a match Rust forms from it
+   * isn't this search's.
+   */
+  sentToRust?: boolean
 }
 
 // Extra time that is added to the matchmaking accept time to account for latency in getting
@@ -535,11 +541,13 @@ export class MatchmakingService {
   /** Consecutive process-token fetch failures; reset to 0 on any success. */
   private consecutiveTokenFailures = 0
   /**
-   * In-flight requeue POSTs to the Rust matchmaker, keyed by userId. A concurrent cancel/disconnect
-   * waits on the pending requeue before issuing its DELETE, so the DELETE can't race ahead of the
-   * POST and resurrect the player as a ghost queue entry.
+   * The latest Rust queue request (queue, requeue or cancel) issued for each player, keyed by
+   * userId. Each new request for a player waits for the previous one to settle: the Rust matchmaker
+   * handles concurrent requests in no particular order, so a cancel could otherwise land ahead of an
+   * earlier requeue (leaving a ghost queue entry) or after a later search's queue request (dropping
+   * that search from Rust while it carries on here).
    */
-  private pendingRequeues = new Map<SbUserId, Promise<unknown>>()
+  private rustQueueRequests = new Map<SbUserId, Promise<unknown>>()
 
   private queueSizeMetric = new Gauge({
     name: 'shieldbattery_matchmaker_queue_size',
@@ -779,15 +787,22 @@ export class MatchmakingService {
       clientPubkey,
       queueRequest,
     })
-    this.queueEntries.set(userId, {
+    const queueEntry: QueueEntry = {
       types: new Set(typeDataEntries.map(d => d.type)),
       userId,
-    })
+    }
+    this.queueEntries.set(userId, queueEntry)
 
     // Queue the player in the Rust matchmaker with per-mode ratings, then (for the first queuer)
     // fetch the process token as a baseline for the watchdog. The two requests are sequential so the
     // token is guaranteed to be from the same server-rs instance that accepted the queue entry.
-    let result: Result<unknown, RsMatchmakerError> = await this.queuePlayerInRust(queueRequest)
+    let result: Result<unknown, RsMatchmakerError> = await this.sequenceRustQueueRequest(
+      userId,
+      () => {
+        queueEntry.sentToRust = true
+        return this.queuePlayerInRust(queueRequest)
+      },
+    )
     if (result.isOk() && this.lastKnownProcessToken === undefined) {
       const tokenResult = await this.matchmakerClient.getProcessToken()
       if (tokenResult.isOk()) {
@@ -1764,10 +1779,12 @@ export class MatchmakingService {
 
   private async handleMatchFound(event: MatchFoundMessage): Promise<void> {
     const allEntries = [...event.teamA, ...event.teamB]
+    // Only a search that Rust knows about can take this match
     const expected = new Map(
       allEntries.map(p => {
         const userId = makeSbUserId(p.id)
-        return [userId, this.queueEntries.get(userId)] as const
+        const entry = this.queueEntries.get(userId)
+        return [userId, entry?.sentToRust ? entry : undefined] as const
       }),
     )
     let banned: Set<SbUserId>
@@ -2033,8 +2050,7 @@ export class MatchmakingService {
       // never knew the player), but if we reached here via a false positive — e.g. a stale token
       // baseline — the player really is still queued, and skipping this would leave a ghost entry
       // that fails all their future `find()`s with `alreadyInQueue`.
-      this.matchmakerClient
-        .cancel(userId)
+      this.sequenceRustQueueRequest(userId, () => this.matchmakerClient.cancel(userId))
         .then(result => {
           if (result.isError()) {
             logger.error(
@@ -2052,48 +2068,69 @@ export class MatchmakingService {
    * using the ticket the matchmaker issued with that match.
    */
   private requeuePlayerInRust(userId: SbUserId, ticket: string): void {
-    this.trackRequeue(userId, this.matchmakerClient.requeue(ticket))
+    this.trackRequeue(
+      userId,
+      this.sequenceRustQueueRequest(userId, () => this.matchmakerClient.requeue(ticket)),
+    )
   }
 
   /** Puts a player back in the Rust queue after a simulated match, which issues no ticket. */
   private requeueSimulatedPlayer(userId: SbUserId, request: RsQueueRequest): void {
-    this.trackRequeue(userId, this.queuePlayerInRust(request))
+    this.trackRequeue(
+      userId,
+      this.sequenceRustQueueRequest(userId, () => this.queuePlayerInRust(request)),
+    )
   }
 
   /**
-   * Tracks an in-flight requeue POST in `pendingRequeues` so a concurrent cancel/disconnect DELETE
-   * is ordered after it (see `cancelPlayerInRust`). Any failure is treated as a server-rs restart
-   * and surfaces a matchmaking error to the player.
+   * Handles the result of a requeue. Any failure is treated as a server-rs restart and surfaces a
+   * matchmaking error to the player.
    */
   private trackRequeue(userId: SbUserId, requeue: Promise<Result<void, RsMatchmakerError>>): void {
-    const promise = requeue.then(result => {
-      if (result.isError()) {
-        // A stale ticket is the expected signal that server-rs restarted; anything else is a real
-        // failure worth logging. Either way the player can't be requeued, so surface a restart.
-        if (result.error.code !== RsMatchmakerErrorCode.StaleTicket) {
-          logger.error({ err: result.error, userId }, 'failed to requeue player in Rust matchmaker')
-        }
-        this.handleRsRestart([userId])
-      }
-    })
-    this.pendingRequeues.set(userId, promise)
-    promise
-      .finally(() => {
-        if (this.pendingRequeues.get(userId) === promise) {
-          this.pendingRequeues.delete(userId)
+    requeue
+      .then(result => {
+        if (result.isError()) {
+          // A stale ticket is the expected signal that server-rs restarted; anything else is a real
+          // failure worth logging. Either way the player can't be requeued, so surface a restart.
+          if (result.error.code !== RsMatchmakerErrorCode.StaleTicket) {
+            logger.error(
+              { err: result.error, userId },
+              'failed to requeue player in Rust matchmaker',
+            )
+          }
+          this.handleRsRestart([userId])
         }
       })
       .catch(swallowNonBuiltins)
   }
 
   /**
-   * Removes a player from the Rust matchmaker queue, ordering the DELETE after any in-flight requeue
-   * POST for that player (see `pendingRequeues`). Without this, a cancel issued immediately after a
-   * requeue could have its DELETE reach Rust before the POST, leaving the player as a ghost entry.
+   * Sends a Rust queue request for a player once every earlier one for them has settled (see
+   * `rustQueueRequests`).
    */
+  private sequenceRustQueueRequest<T>(userId: SbUserId, request: () => Promise<T>): Promise<T> {
+    const previous = this.rustQueueRequests.get(userId) ?? Promise.resolve()
+    const result = previous.then(request)
+    const settled = result.then(
+      () => {},
+      () => {},
+    )
+    this.rustQueueRequests.set(userId, settled)
+    settled
+      .finally(() => {
+        if (this.rustQueueRequests.get(userId) === settled) {
+          this.rustQueueRequests.delete(userId)
+        }
+      })
+      .catch(swallowNonBuiltins)
+    return result
+  }
+
+  /** Removes a player from the Rust matchmaker queue, after any earlier request for them. */
   private async cancelPlayerInRust(userId: SbUserId): Promise<void> {
-    const pendingRequeue = this.pendingRequeues.get(userId) ?? Promise.resolve()
-    const result = await pendingRequeue.then(() => this.matchmakerClient.cancel(userId))
+    const result = await this.sequenceRustQueueRequest(userId, () =>
+      this.matchmakerClient.cancel(userId),
+    )
     if (result.isError()) {
       throw result.error
     }
