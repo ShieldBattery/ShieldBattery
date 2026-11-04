@@ -7,9 +7,9 @@ describe('mapTileDensities', () => {
     expect(mapTileDensities(96, 128)).toEqual([32])
   })
 
-  test('caps 256-class maps below the native density', () => {
-    expect(mapTileDensities(256, 256)).toEqual([16])
-    expect(mapTileDensities(192, 192)).toEqual([16])
+  test('renders 256-class maps at the native density and half of it', () => {
+    expect(mapTileDensities(256, 256)).toEqual([32, 16])
+    expect(mapTileDensities(192, 192)).toEqual([32, 16])
   })
 
   test('has no tiles for maps the server image already shows at full detail', () => {

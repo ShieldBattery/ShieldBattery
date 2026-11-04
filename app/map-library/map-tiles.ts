@@ -1,13 +1,7 @@
 import { mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getErrorStack } from '../../common/errors'
-import {
-  MAP_TILE_MAX_RENDER_SIZE,
-  MAP_TILE_NATIVE_DENSITY,
-  MAP_TILE_SIZE,
-  mapTileDensities,
-  MapTileId,
-} from '../../common/map-tiles'
+import { MAP_TILE_NATIVE_DENSITY, MapTileId } from '../../common/map-tiles'
 import { MapExtension } from '../../common/maps'
 import { readInstallBuildKey } from './build-info'
 import { LocalMapImagesLogger } from './map-images'
@@ -21,8 +15,8 @@ const MAP_TILE_RENDER_VERSION = 1
 /** The quality of the tiles' JPEGs, matching the server's JPEG map images. */
 export const MAP_TILE_JPEG_QUALITY = 90
 /**
- * How many maps' tiles stay cached. A map's tiles take about 5-10 MB per density, and the least
- * recently rendered maps are deleted past this.
+ * How many maps' tiles stay cached. A tile takes about 100 KB, so a fully viewed 256x256 map takes
+ * about 30 MB, and the maps whose tiles were least recently rendered are deleted past this.
  */
 const MAX_CACHED_MAPS = 24
 
@@ -40,15 +34,15 @@ export interface LocalMapTilesOptions {
 }
 
 /**
- * Tiles of full-detail map images, rendered from the StarCraft install's assets. Rendering one tile
- * renders its map whole at the tile's density, then cuts every tile of that density from it and
- * caches them on disk, keyed by file hash and the install's build.
+ * Tiles of full-detail map images, rendered one at a time from the StarCraft install's assets as
+ * they're requested, and cached on disk keyed by file hash and the install's build.
  */
 export class LocalMapTiles {
-  /** Renders in progress, by the cache path of the density they render. */
-  private readonly inFlight = new Map<string, Promise<Map<string, Buffer> | undefined>>()
-  /** Cache paths of densities that failed to render, so they aren't retried for every tile. */
+  private readonly inFlight = new Map<string, Promise<Buffer | undefined>>()
+  /** Cache paths of tiles that failed to render, so they aren't retried for every request. */
   private readonly failed = new Set<string>()
+  /** The cache folders of the maps whose tiles were rendered since the cache was last trimmed. */
+  private readonly renderedMaps = new Set<string>()
   /** The cache key whose stale siblings have been cleared. */
   private prunedKey: string | undefined
 
@@ -75,89 +69,71 @@ export class LocalMapTiles {
     const key = `${buildKey}-r${MAP_TILE_RENDER_VERSION}`
     this.pruneStale(key)
     const mapDir = path.join(this.options.cacheDir, key, tile.hash)
-    const densityDir = path.join(mapDir, String(tile.density))
-    const tileName = `${tile.x}-${tile.y}.jpg`
-
-    try {
-      return await readFile(path.join(densityDir, tileName))
-    } catch {
-      // Either not rendered yet, or not a tile of this map
-    }
-    if (this.failed.has(densityDir) || (await exists(densityDir))) {
+    const tilePath = path.join(mapDir, String(tile.density), `${tile.x}-${tile.y}.jpg`)
+    if (this.failed.has(tilePath)) {
       return undefined
     }
 
-    let result = this.inFlight.get(densityDir)
+    let result = this.inFlight.get(tilePath)
     if (!result) {
-      result = this.render(installPath, tile, mapDir, densityDir).finally(() => {
-        this.inFlight.delete(densityDir)
+      result = this.readOrRender(installPath, tile, mapDir, tilePath).finally(() => {
+        this.inFlight.delete(tilePath)
       })
-      this.inFlight.set(densityDir, result)
+      this.inFlight.set(tilePath, result)
     }
-    return (await result)?.get(tileName)
+    return result
   }
 
-  /** Renders every tile of `tile`'s map at its density, caches them and returns them by file name. */
-  private async render(
+  private async readOrRender(
     installPath: string,
-    { hash, format, density }: MapTileId,
+    { hash, format, density, x, y }: MapTileId,
     mapDir: string,
-    densityDir: string,
-  ): Promise<Map<string, Buffer> | undefined> {
+    tilePath: string,
+  ): Promise<Buffer | undefined> {
+    try {
+      return await readFile(tilePath)
+    } catch {
+      // Not rendered yet
+    }
+
     const filePath = await this.options.findPath(hash, format)
     if (!filePath) {
       return undefined
     }
 
-    const tiles = new Map<string, Buffer>()
+    let jpeg: Buffer
     try {
-      const image = await this.options.renderer.render(
-        installPath,
-        filePath,
-        hash,
-        MAP_TILE_MAX_RENDER_SIZE,
+      const image = await this.options.renderer.renderTile(installPath, filePath, hash, {
         density,
-      )
-      const mapWidth = image.width / density
-      const mapHeight = image.height / density
-      if (!mapTileDensities(mapWidth, mapHeight).includes(density)) {
-        throw new Error(
-          `${density} px per tile isn't a tile density of a ${mapWidth}x${mapHeight} map`,
-        )
-      }
-
-      for (let y = 0; y * MAP_TILE_SIZE < image.height; y++) {
-        for (let x = 0; x * MAP_TILE_SIZE < image.width; x++) {
-          tiles.set(`${x}-${y}.jpg`, this.options.encodeJpeg(cropImage(image, x, y)))
-          // Encoding runs on the main process, so it gives other work a turn between tiles.
-          await new Promise(resolve => setImmediate(resolve))
-        }
-      }
+        x,
+        y,
+      })
+      jpeg = this.options.encodeJpeg(image)
     } catch (err) {
-      this.failed.add(densityDir)
+      this.failed.add(tilePath)
       this.options.logger.warning(
-        `Couldn't render ${density} px/tile tiles of ${filePath}: ${getErrorStack(err)}`,
+        `Couldn't render tile ${x}-${y} at ${density} px/tile of ${filePath}: ${getErrorStack(err)}`,
       )
       return undefined
     }
 
     try {
-      // Written to a temporary folder first, so a crash mid-write never leaves a partial set of
-      // tiles under the real one.
-      const tempDir = `${densityDir}.${process.pid}.tmp`
-      await rm(tempDir, { recursive: true, force: true })
-      await mkdir(tempDir, { recursive: true })
-      await Promise.all(
-        Array.from(tiles, ([name, jpeg]) => writeFile(path.join(tempDir, name), jpeg)),
-      )
-      await rename(tempDir, densityDir)
-      const now = new Date()
-      await utimes(mapDir, now, now)
-      await this.evictOldMaps(path.dirname(mapDir))
+      await mkdir(path.dirname(tilePath), { recursive: true })
+      // Written under a temporary name first, so a crash mid-write never leaves a broken tile under
+      // the real one.
+      const tempPath = `${tilePath}.${process.pid}.tmp`
+      await writeFile(tempPath, jpeg)
+      await rename(tempPath, tilePath)
+      if (!this.renderedMaps.has(mapDir)) {
+        this.renderedMaps.add(mapDir)
+        const now = new Date()
+        await utimes(mapDir, now, now)
+        await this.evictOldMaps(path.dirname(mapDir))
+      }
     } catch (err) {
-      this.options.logger.warning(`Couldn't cache the tiles of ${filePath}: ${getErrorStack(err)}`)
+      this.options.logger.warning(`Couldn't cache a tile of ${filePath}: ${getErrorStack(err)}`)
     }
-    return tiles
+    return jpeg
   }
 
   /** Deletes the tiles of the least recently rendered maps past `MAX_CACHED_MAPS`. */
@@ -173,10 +149,12 @@ export class LocalMapTiles {
       }),
     )
     withTimes.sort((a, b) => b.mtime - a.mtime)
+    const evicted = withTimes.slice(MAX_CACHED_MAPS)
+    for (const { entryPath } of evicted) {
+      this.renderedMaps.delete(entryPath)
+    }
     await Promise.all(
-      withTimes
-        .slice(MAX_CACHED_MAPS)
-        .map(({ entryPath }) => rm(entryPath, { recursive: true, force: true })),
+      evicted.map(({ entryPath }) => rm(entryPath, { recursive: true, force: true })),
     )
   }
 
@@ -201,27 +179,4 @@ export class LocalMapTiles {
         }
       })
   }
-}
-
-async function exists(p: string): Promise<boolean> {
-  try {
-    await stat(p)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Copies the tile at `x`, `y` (in tiles) out of `image`. Edge tiles are cut short. */
-function cropImage(image: RenderedMapImage, x: number, y: number): RenderedMapImage {
-  const left = x * MAP_TILE_SIZE
-  const top = y * MAP_TILE_SIZE
-  const width = Math.min(MAP_TILE_SIZE, image.width - left)
-  const height = Math.min(MAP_TILE_SIZE, image.height - top)
-  const bgra = new Uint8Array(width * height * 4)
-  for (let row = 0; row < height; row++) {
-    const start = ((top + row) * image.width + left) * 4
-    bgra.set(image.bgra.subarray(start, start + width * 4), row * width * 4)
-  }
-  return { width, height, bgra }
 }
