@@ -54,13 +54,10 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import {
-  rsCancelPlayer,
-  rsGetProcessToken,
+  MatchmakerClient,
   RsMatchmakerError,
   RsMatchmakerErrorCode,
-  rsQueuePlayer,
   RsQueueRequest,
-  rsRequeuePlayer,
 } from '../matchmaking/matchmaker-rs-client'
 import {
   MatchmakingPlayer,
@@ -148,6 +145,11 @@ interface PlayerQueueData {
    * reset). Kept off the wire-visible `Slot` (like rtt) since no peer needs it.
    */
   clientPubkey: string
+  /**
+   * The request that queued this player in the Rust matchmaker. A simulated match has no requeue
+   * ticket, so this is resent to put the player back in the queue afterwards.
+   */
+  queueRequest: RsQueueRequest
 }
 
 /**
@@ -184,12 +186,19 @@ class Match {
   private completed = createDeferred<void>()
   private draftState?: DraftState
 
+  /**
+   * @param formation The matchmaker's quality breakdown, or undefined for a simulated match, which
+   *   records no telemetry.
+   * @param simulatedPlayerIds Players who exist only to fill out a simulated match. They have no
+   *   client, never accept, and are never banned.
+   */
   constructor(
     readonly id: string,
     readonly type: MatchmakingType,
     readonly teams: Immutable<MatchmakingPlayer[][]>,
-    readonly formation: MatchFormationTelemetry,
+    readonly formation: MatchFormationTelemetry | undefined,
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
+    private simulatedPlayerIds: ReadonlySet<SbUserId> = new Set(),
   ) {
     for (const p of this.players()) {
       this.acceptPromises.set(p.id, createDeferred())
@@ -211,6 +220,14 @@ class Match {
         }
       })
       .catch(swallowNonBuiltins)
+  }
+
+  get isSimulated(): boolean {
+    return this.simulatedPlayerIds.size > 0
+  }
+
+  isSimulatedPlayer(userId: SbUserId): boolean {
+    return this.simulatedPlayerIds.has(userId)
   }
 
   setPhase(phase: MatchmakingMatchFailPhase): void {
@@ -587,6 +604,7 @@ export class MatchmakingService {
     private redisSubscriber: RedisSubscriber,
     private gameServerRegionsService: GameServerRegionsService,
     private netcodeV2Service: NetcodeV2Service,
+    private matchmakerClient: MatchmakerClient,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -701,30 +719,7 @@ export class MatchmakingService {
       return { type, race, mmr, playerData }
     })
 
-    // Store the full player data and queue entry for use when the match event arrives from Rust.
-    // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
-    // `matchFound` event can arrive as soon as the player is in the Rust queue — possibly while we're
-    // still awaiting below. handleMatchFound needs the queue entry to already exist so it can set
-    // `matchId`; otherwise the player ends up in a running match with no `matchId`, fails `accept()`
-    // with `NoActiveMatch`, and gets banned for the resulting accept timeout.
-    this.playerQueueData.set(userId, {
-      userId,
-      types: new Map(
-        typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }]),
-      ),
-      queuedAt: monotonicNow(),
-      region,
-      clientPubkey,
-    })
-    this.queueEntries.set(userId, {
-      types: new Set(typeDataEntries.map(d => d.type)),
-      userId,
-    })
-
-    // Queue the player in the Rust matchmaker with per-mode ratings, then (for the first queuer)
-    // fetch the process token as a baseline for the watchdog. The two requests are sequential so the
-    // token is guaranteed to be from the same server-rs instance that accepted the queue entry.
-    let result: Result<unknown, RsMatchmakerError> = await this.queuePlayerInRust({
+    const queueRequest: RsQueueRequest = {
       id: userId,
       modeRatings: typeDataEntries.map(d => ({
         mode: d.type,
@@ -743,9 +738,35 @@ export class MatchmakingService {
       // regions).
       region: region?.region,
       rttMs: region?.rttMs,
+    }
+
+    // Store the full player data and queue entry for use when the match event arrives from Rust.
+    // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
+    // `matchFound` event can arrive as soon as the player is in the Rust queue — possibly while we're
+    // still awaiting below. handleMatchFound needs the queue entry to already exist so it can set
+    // `matchId`; otherwise the player ends up in a running match with no `matchId`, fails `accept()`
+    // with `NoActiveMatch`, and gets banned for the resulting accept timeout.
+    this.playerQueueData.set(userId, {
+      userId,
+      types: new Map(
+        typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }]),
+      ),
+      queuedAt: monotonicNow(),
+      region,
+      clientPubkey,
+      queueRequest,
     })
+    this.queueEntries.set(userId, {
+      types: new Set(typeDataEntries.map(d => d.type)),
+      userId,
+    })
+
+    // Queue the player in the Rust matchmaker with per-mode ratings, then (for the first queuer)
+    // fetch the process token as a baseline for the watchdog. The two requests are sequential so the
+    // token is guaranteed to be from the same server-rs instance that accepted the queue entry.
+    let result: Result<unknown, RsMatchmakerError> = await this.queuePlayerInRust(queueRequest)
     if (result.isOk() && this.lastKnownProcessToken === undefined) {
-      const tokenResult = await rsGetProcessToken()
+      const tokenResult = await this.matchmakerClient.getProcessToken()
       if (tokenResult.isOk()) {
         this.lastKnownProcessToken = tokenResult.value
       }
@@ -781,7 +802,7 @@ export class MatchmakingService {
 
   /**
    * Queues a player in the Rust matchmaker, recovering from an orphaned queue entry left behind by
-   * a previous attempt (e.g. a Node restart that dropped local state, or a `rsCancelPlayer` that
+   * a previous attempt (e.g. a Node restart that dropped local state, or a cancel that
    * failed). If Rust reports the player is already queued, we cancel the stale entry and retry once
    * — otherwise the player could never re-enter matchmaking until their ghost entry happened to get
    * matched.
@@ -789,7 +810,7 @@ export class MatchmakingService {
   private async queuePlayerInRust(
     request: RsQueueRequest,
   ): Promise<Result<void, RsMatchmakerError>> {
-    const result = await rsQueuePlayer(request)
+    const result = await this.matchmakerClient.queue(request)
     if (!(result.isError() && result.error.code === RsMatchmakerErrorCode.AlreadyInQueue)) {
       return result
     }
@@ -798,11 +819,11 @@ export class MatchmakingService {
       { userId: request.id },
       'player already in Rust queue — canceling stale entry and retrying',
     )
-    const cancelResult = await rsCancelPlayer(request.id)
+    const cancelResult = await this.matchmakerClient.cancel(request.id)
     if (cancelResult.isError()) {
       return cancelResult
     }
-    return await rsQueuePlayer(request)
+    return await this.matchmakerClient.queue(request)
   }
 
   async cancel(userId: SbUserId): Promise<void> {
@@ -820,6 +841,89 @@ export class MatchmakingService {
     }
 
     this.removeClientFromMatchmaking(clientSockets, false)
+  }
+
+  /**
+   * Finds a searching player a match whose other players are simulated and never accept it. The
+   * player goes through the normal accept phase: if they accept, they're requeued once the match
+   * falls apart, and if they don't, they get the usual accept-timeout ban. Simulated players are
+   * never banned, and the match records no telemetry.
+   *
+   * @param matchmakingType The queued type to find the match in. Defaults to a random one.
+   * @param opponentLeavesAfterMs If set, a simulated player leaves this long after the match is
+   *   found, rather than letting the accept time run out.
+   */
+  async simulateMatchPop(
+    userId: SbUserId,
+    {
+      matchmakingType,
+      opponentLeavesAfterMs,
+    }: { matchmakingType?: MatchmakingType; opponentLeavesAfterMs?: number } = {},
+  ): Promise<void> {
+    const entry = this.queueEntries.get(userId)
+    const isSearching = () => this.queueEntries.get(userId) === entry && !entry?.matchId
+    if (!entry || !isSearching()) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NotInQueue,
+        'User does not have an active matchmaking search',
+      )
+    }
+    const type = matchmakingType ?? randomItem([...entry.types])
+    const typeData = this.playerQueueData.get(userId)?.types.get(type)
+    if (!typeData) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NotInQueue,
+        'User is not searching in that matchmaking type',
+      )
+    }
+
+    // Admitting a real match drops a banned player, so a simulated one isn't found for them either
+    if (await this.matchmakingBanService.checkUser(userId)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UserBanned,
+        'This account is currently banned from matchmaking',
+      )
+    }
+    if (!isSearching()) return
+
+    await this.cancelPlayerInRust(userId)
+    // The search may have ended, or the matchmaker found a real match, while that was in flight
+    if (!isSearching()) return
+
+    const player: MatchmakingPlayer = {
+      ...typeData.playerData,
+      interval: { low: typeData.playerData.rating, high: typeData.playerData.rating },
+      searchIterations: 0,
+    }
+    const simulatedIds: SbUserId[] = []
+    const simulatedPlayer = (): MatchmakingPlayer => {
+      // Negative ids can't belong to a real user
+      const id = makeSbUserId(-(simulatedIds.length + 1))
+      simulatedIds.push(id)
+      return { ...player, id, identifiers: [] }
+    }
+    const teamSize = TEAM_SIZES[type]
+    const teamA = [player, ...Array.from({ length: teamSize - 1 }, simulatedPlayer)]
+    const teamB = Array.from({ length: teamSize }, simulatedPlayer)
+
+    const match = new Match(
+      nanoid(),
+      type,
+      [teamA, teamB],
+      undefined,
+      this.publisher,
+      new Set(simulatedIds),
+    )
+    this.matches.set(match.id, match)
+    entry.matchId = match.id
+
+    if (opponentLeavesAfterMs !== undefined) {
+      const leaver = teamB[0].id
+      const timer = setTimeout(() => match.registerDecline(leaver), opponentLeavesAfterMs)
+      match.completion.then(() => clearTimeout(timer)).catch(swallowNonBuiltins)
+    }
+
+    this.runMatch(match.id).catch(swallowNonBuiltins)
   }
 
   /**
@@ -1114,6 +1218,7 @@ export class MatchmakingService {
 
     try {
       for (const p of match.players()) {
+        if (match.isSimulatedPlayer(p.id)) continue
         const client = this.activityRegistry.getClientForUser(p.id)
         if (!client) {
           // Client disconnected before we got here
@@ -1137,7 +1242,7 @@ export class MatchmakingService {
         })
       }
 
-      const mapPromise = pickMap(match.type, match.teams.flat())
+      const mapPromise = match.isSimulated ? undefined : pickMap(match.type, match.teams.flat())
 
       while (match.numAccepted < match.totalPlayers) {
         await match.acceptStateChanged
@@ -1148,6 +1253,11 @@ export class MatchmakingService {
         })
       }
 
+      if (!mapPromise) {
+        // Simulated players never accept, so a simulated match can only leave the loop above by
+        // falling apart
+        throw new Error('A simulated match cannot launch')
+      }
       const mapInfo = await mapPromise
       match.signal.throwIfAborted()
       phase = 'drafting'
@@ -1166,11 +1276,13 @@ export class MatchmakingService {
       // recorded in the catch below). Done here, only once `doGameLoad` has fully succeeded, so the
       // launch and failure inserts stay mutually exclusive by construction. Best-effort: a failure
       // here must not affect game flow.
-      insertMatchmakingMatchFormation({
-        gameId,
-        matchmakingType: match.type,
-        ...match.formation,
-      }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+      if (match.formation) {
+        insertMatchmakingMatchFormation({
+          gameId,
+          matchmakingType: match.type,
+          ...match.formation,
+        }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+      }
 
       // Draft chat can't be sent once the game has launched, so the log is complete here.
       // Best-effort: a failure here must not affect game flow.
@@ -1184,16 +1296,19 @@ export class MatchmakingService {
 
       // `phase` is the stage the match was in when it threw, so this records *where* formed matches
       // fall apart — `accepting` failures are the ready-up funnel dropouts.
-      this.matchFailedMetric.labels(match.type, phase).inc()
+      if (match.formation) {
+        this.matchFailedMetric.labels(match.type, phase).inc()
 
-      // Persist the formation decision for this failed-to-start match, mirroring the launch path below
-      // so failed cohorts carry the same quality/win-prob/rating/latency inputs (keyed by the phase it
-      // fell apart in, since there's no game id). Best-effort: a failure here must not affect flow.
-      insertMatchmakingMatchFormation({
-        failPhase: phase,
-        matchmakingType: match.type,
-        ...match.formation,
-      }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+        // Persist the formation decision for this failed-to-start match, mirroring the launch path
+        // below so failed cohorts carry the same quality/win-prob/rating/latency inputs (keyed by the
+        // phase it fell apart in, since there's no game id). Best-effort: a failure here must not
+        // affect flow.
+        insertMatchmakingMatchFormation({
+          failPhase: phase,
+          matchmakingType: match.type,
+          ...match.formation,
+        }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+      }
 
       // Players whose client went away during the load leave matchmaking with the match. With no
       // queue entry, the requeue below treats them like any other player who left.
@@ -1237,6 +1352,7 @@ export class MatchmakingService {
       const matchPlayers = Array.from(match.players())
 
       for (const id of toBan) {
+        if (match.isSimulatedPlayer(id)) continue
         // Someone who has already moved on to another search is left to it
         if (this.matchQueueEntry(id, match)) {
           this.queueEntries.delete(id)
@@ -1308,18 +1424,26 @@ export class MatchmakingService {
           type: 'requeue',
         })
 
+        // Update queuedAt to current time (player is re-entering the queue)
+        const existingData = this.playerQueueData.get(id)
+        if (existingData) {
+          existingData.queuedAt = monotonicNow()
+        }
+
+        if (match.isSimulated) {
+          // The simulated match took the player out of the Rust queue itself, so there's no ticket
+          if (existingData) {
+            this.requeueSimulatedPlayer(id, existingData.queueRequest)
+          }
+          continue
+        }
+
         const ticket = this.requeueTickets.get(id)
         this.requeueTickets.delete(id)
 
         if (!ticket) {
           logger.error({ userId: id }, 'no requeue ticket found for player — cannot requeue')
           continue
-        }
-
-        // Update queuedAt to current time (player is re-entering the queue)
-        const existingData = this.playerQueueData.get(id)
-        if (existingData) {
-          existingData.queuedAt = monotonicNow()
         }
 
         this.requeuePlayerInRust(id, ticket)
@@ -1783,7 +1907,7 @@ export class MatchmakingService {
       return
     }
 
-    const tokenResult = await rsGetProcessToken()
+    const tokenResult = await this.matchmakerClient.getProcessToken()
     if (tokenResult.isError()) {
       this.consecutiveTokenFailures += 1
       if (this.consecutiveTokenFailures < MAX_TOKEN_FETCH_FAILURES) {
@@ -1850,7 +1974,8 @@ export class MatchmakingService {
       // never knew the player), but if we reached here via a false positive — e.g. a stale token
       // baseline — the player really is still queued, and skipping this would leave a ghost entry
       // that fails all their future `find()`s with `alreadyInQueue`.
-      rsCancelPlayer(userId)
+      this.matchmakerClient
+        .cancel(userId)
         .then(result => {
           if (result.isError()) {
             logger.error(
@@ -1864,13 +1989,25 @@ export class MatchmakingService {
   }
 
   /**
-   * Re-queues a player in the Rust matchmaker after a match they were placed in failed to start.
-   * The in-flight POST is tracked in `pendingRequeues` so a concurrent cancel/disconnect DELETE is
-   * ordered after it (see `cancelPlayerInRust`). Any failure is treated as a server-rs restart and
-   * surfaces a matchmaking error to the player.
+   * Re-queues a player in the Rust matchmaker after a match they were placed in failed to start,
+   * using the ticket the matchmaker issued with that match.
    */
   private requeuePlayerInRust(userId: SbUserId, ticket: string): void {
-    const promise = rsRequeuePlayer(ticket).then(result => {
+    this.trackRequeue(userId, this.matchmakerClient.requeue(ticket))
+  }
+
+  /** Puts a player back in the Rust queue after a simulated match, which issues no ticket. */
+  private requeueSimulatedPlayer(userId: SbUserId, request: RsQueueRequest): void {
+    this.trackRequeue(userId, this.queuePlayerInRust(request))
+  }
+
+  /**
+   * Tracks an in-flight requeue POST in `pendingRequeues` so a concurrent cancel/disconnect DELETE
+   * is ordered after it (see `cancelPlayerInRust`). Any failure is treated as a server-rs restart
+   * and surfaces a matchmaking error to the player.
+   */
+  private trackRequeue(userId: SbUserId, requeue: Promise<Result<void, RsMatchmakerError>>): void {
+    const promise = requeue.then(result => {
       if (result.isError()) {
         // A stale ticket is the expected signal that server-rs restarted; anything else is a real
         // failure worth logging. Either way the player can't be requeued, so surface a restart.
@@ -1897,7 +2034,7 @@ export class MatchmakingService {
    */
   private async cancelPlayerInRust(userId: SbUserId): Promise<void> {
     const pendingRequeue = this.pendingRequeues.get(userId) ?? Promise.resolve()
-    const result = await pendingRequeue.then(() => rsCancelPlayer(userId))
+    const result = await pendingRequeue.then(() => this.matchmakerClient.cancel(userId))
     if (result.isError()) {
       throw result.error
     }

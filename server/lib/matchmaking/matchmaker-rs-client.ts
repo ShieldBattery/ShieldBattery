@@ -1,4 +1,5 @@
 import got, { HTTPError } from 'got'
+import { singleton } from 'tsyringe'
 import { Result } from 'typescript-result'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { SbMapId } from '../../../common/maps'
@@ -132,37 +133,41 @@ async function rsRequest(
   }
 }
 
-/** Fetches the current process token from the Rust matchmaker. */
-export async function rsGetProcessToken(): Promise<Result<string, RsMatchmakerError>> {
-  try {
-    const response = await got(serverRsUrl('/matchmaker/token')).json<{ processToken: string }>()
-    return Result.ok(response.processToken)
-  } catch (err) {
-    return Result.error(toRsError(err))
+/** The HTTP API of the Rust matchmaker, which holds the queue and forms matches from it. */
+@singleton()
+export class MatchmakerClient {
+  /** Fetches the current process token, which changes whenever the matchmaker restarts. */
+  async getProcessToken(): Promise<Result<string, RsMatchmakerError>> {
+    try {
+      const response = await got(serverRsUrl('/matchmaker/token')).json<{ processToken: string }>()
+      return Result.ok(response.processToken)
+    } catch (err) {
+      return Result.error(toRsError(err))
+    }
   }
-}
 
-/** Adds a player to the Rust matchmaker queue. */
-export function rsQueuePlayer(request: RsQueueRequest): Promise<Result<void, RsMatchmakerError>> {
-  return rsRequest('POST', '/matchmaker', request)
-}
+  /** Adds a player to the queue. */
+  queue(request: RsQueueRequest): Promise<Result<void, RsMatchmakerError>> {
+    return rsRequest('POST', '/matchmaker', request)
+  }
 
-/**
- * Removes a player from the Rust matchmaker queue (cancel or disconnect). A `notFound` response is
- * treated as success, since it means the player is already out of the queue.
- */
-export async function rsCancelPlayer(id: SbUserId): Promise<Result<void, RsMatchmakerError>> {
-  const result = await rsRequest('DELETE', urlPath`/matchmaker/${id}`)
-  return result.isError() && result.error.code === RsMatchmakerErrorCode.NotFound
-    ? Result.ok()
-    : result
-}
+  /**
+   * Removes a player from the queue (cancel or disconnect). A `notFound` response is treated as
+   * success, since it means the player is already out of the queue.
+   */
+  async cancel(id: SbUserId): Promise<Result<void, RsMatchmakerError>> {
+    const result = await rsRequest('DELETE', urlPath`/matchmaker/${id}`)
+    return result.isError() && result.error.code === RsMatchmakerErrorCode.NotFound
+      ? Result.ok()
+      : result
+  }
 
-/**
- * Re-queues a player using a ticket from a previously-formed (but failed) match. Fails with
- * `code === RsMatchmakerErrorCode.StaleTicket` if the Rust service has restarted since the ticket
- * was issued.
- */
-export function rsRequeuePlayer(ticket: string): Promise<Result<void, RsMatchmakerError>> {
-  return rsRequest('POST', '/matchmaker/requeue', { ticket })
+  /**
+   * Re-queues a player using a ticket from a previously-formed (but failed) match. Fails with
+   * `code === RsMatchmakerErrorCode.StaleTicket` if the matchmaker has restarted since the ticket
+   * was issued.
+   */
+  requeue(ticket: string): Promise<Result<void, RsMatchmakerError>> {
+    return rsRequest('POST', '/matchmaker/requeue', { ticket })
+  }
 }

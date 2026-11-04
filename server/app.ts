@@ -10,6 +10,7 @@ import koaJwt from 'koa-jwt'
 import { setTimeout as sleep } from 'timers/promises'
 import { container } from 'tsyringe'
 import { internalRoutesMiddleware } from './internal-routes'
+import { initialize as initializeCompanion } from './lib/companion'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
 import isDev from './lib/env/is-dev'
 import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
@@ -80,6 +81,8 @@ if (fileStoreSettings.filesystem) {
 } else {
   throw new Error('no valid key could be found in SB_FILE_STORE')
 }
+
+initializeCompanion(container)
 
 container.register(DISCORD_WEBHOOK_URL_TOKEN, {
   useValue: process.env.SB_DISCORD_WEBHOOK_URL ?? '',

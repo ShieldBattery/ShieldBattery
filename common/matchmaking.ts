@@ -1308,6 +1308,12 @@ export enum MatchmakingServiceErrorCode {
   UserChatRestricted = 'userChatRestricted',
 }
 
+/** Development-only request to find the searching player a match nobody else accepts. */
+export interface SimulateMatchPopRequest {
+  /** If set, an opponent leaves this long after the match is found. */
+  opponentLeavesAfterMs?: number
+}
+
 export interface FindMatchRequest {
   clientId: string
   /** Array with one entry per queued type. Order is not significant. */

@@ -17,6 +17,7 @@ import {
   MatchmakingServiceErrorCode,
   MatchmakingType,
   PartialMatchmakingPreferences,
+  SimulateMatchPopRequest,
 } from '../../common/matchmaking'
 import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
@@ -232,6 +233,20 @@ export function acceptMatch(spec: RequestHandlingSpec<void>): ThunkAction {
     })
 
     jotaiStore.set(hasAcceptedAtom, true)
+  })
+}
+
+/** Development tool: finds the current search a match that nobody else accepts. */
+export function simulateMatchPop(
+  request: SimulateMatchPopRequest,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`matchmaking/simulate-pop`, {
+      method: 'POST',
+      body: encodeBodyAsParams<SimulateMatchPopRequest>(request),
+      signal: spec.signal,
+    })
   })
 }
 

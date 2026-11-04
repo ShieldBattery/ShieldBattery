@@ -11,7 +11,11 @@ import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { isInLobby } from '../lobbies/lobby-reducer'
-import { cancelFindMatch, openAcceptMatchDialog } from '../matchmaking/action-creators'
+import {
+  cancelFindMatch,
+  openAcceptMatchDialog,
+  simulateMatchPop,
+} from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
 import {
@@ -23,7 +27,7 @@ import {
 } from '../matchmaking/matchmaking-atoms'
 import { useAcceptCountdown } from '../matchmaking/use-accept-countdown'
 import { useAcceptMatch } from '../matchmaking/use-accept-match'
-import { FilledButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -405,6 +409,29 @@ const AcceptProgressText = styled(BodyMedium)`
   color: var(--theme-on-surface-variant);
 `
 
+const DevButtonRow = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+`
+
+/** Development tools for exercising the accept flow without a second client. */
+function SimulateMatchPopButtons() {
+  const dispatch = useAppDispatch()
+  const simulate = (opponentLeavesAfterMs?: number) => {
+    dispatch(
+      simulateMatchPop({ opponentLeavesAfterMs }, { onSuccess: () => {}, onError: () => {} }),
+    )
+  }
+
+  return (
+    <DevButtonRow>
+      <TextButton label='Pop' onClick={() => simulate()} />
+      <TextButton label='Pop (leaver)' onClick={() => simulate(10_000)} />
+    </DevButtonRow>
+  )
+}
+
 export function MatchmakingWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -499,6 +526,7 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
           }}
         />
       ) : null}
+      {import.meta.env.DEV && !isMatched ? <SimulateMatchPopButtons /> : null}
     </Widget>
   )
 }
