@@ -29,4 +29,10 @@ describe('common/range', () => {
       `[Error: range was passed parameters that do not make progress: [start: 5, end: 0, step: 1]]`,
     )
   })
+
+  test('does not yield the end value when rounding error makes the iteration count too high', () => {
+    expect(Array.from(range(0.4, 1.1, 0.7))).toEqual([0.4])
+    expect(Array.from(range(1.7, 1.8, 0.1))).toEqual([1.7])
+    expect(Array.from(range(1.8, 1.7, -0.1))).toEqual([1.8])
+  })
 })
