@@ -821,6 +821,11 @@ export class MatchmakingService {
           // issued its cancel first
           return Promise.resolve(Result.ok())
         }
+        if (queueEntry.matchId) {
+          // A simulated match took the search before it was queued. The player isn't to be matched
+          // while they're in it, and it puts them in the queue itself if they're requeued afterwards.
+          return Promise.resolve(Result.ok())
+        }
         return this.queuePlayerInRust(queueRequest)
       })
     }

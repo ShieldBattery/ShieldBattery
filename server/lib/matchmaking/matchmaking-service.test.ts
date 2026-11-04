@@ -2119,6 +2119,36 @@ describe('matchmaking/matchmaking-service', () => {
       await expect(service.cancel(USER_A)).resolves.toBeUndefined()
     })
 
+    test("doesn't queue a search that a simulated match took while it was being queued", async () => {
+      // The first player to queue waits on the restart watchdog's token before being queued
+      let finishTokenFetch!: (result: Result<string, RsMatchmakerError>) => void
+      matchmakerClient.getProcessToken.mockImplementationOnce(
+        () => new Promise(resolve => (finishTokenFetch = resolve)),
+      )
+      const searching = service.find(
+        USER_A,
+        CLIENT_A,
+        IDENTIFIERS,
+        [makePreferences()],
+        DEFAULT_PUBKEY,
+      )
+      await drainMatchmakingTasks()
+      await service.simulateMatchPop(USER_A)
+      await drainMatchmakingTasks()
+
+      finishTokenFetch(Result.ok('token-1'))
+      await searching
+      await drainMatchmakingTasks()
+
+      // A player in the queue could be matched for real while they're in the simulated match
+      expect(matchmakerClient.queue).not.toHaveBeenCalled()
+      await acceptFoundMatch(USER_A)
+      await vi.advanceTimersByTimeAsync(120_000)
+      expect(clientEvents(USER_A)).toContainEqual({ type: 'requeue' })
+      expect(matchmakerClient.queue).toHaveBeenCalledTimes(1)
+      await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+    })
+
     test('bans a player who never accepts, and nobody else', async () => {
       await startSearch()
 
