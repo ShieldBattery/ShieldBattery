@@ -840,12 +840,13 @@ describe('games/raw-results/deriveResultSubmission — evidence-based veto/synth
   test('ally-quit inversion: survivor report synthesizes the win, leaver report stays a loss', () => {
     const surv = survivorReport()
     const leaver = leaverReport()
-    // L never claims self-Victory (its own row is Playing), so it isn't corroborated.
+    // L's own report never credits L with a victory, so L isn't corroborated. S's report credits S
+    // with the last-standing victory, which corroborates S.
     const corroboratedVictors = corroborated([
       [makeSbUserId(S), surv],
       [makeSbUserId(L), leaver],
     ])
-    expect(corroboratedVictors.size).toBe(0)
+    expect(corroboratedVictors).toEqual(new Set([makeSbUserId(S)]))
 
     // Deriving the survivor's report: L's phantom quit-victory is vetoed (Rule A), leaving no victor,
     // so Rule B synthesizes S's last-standing victory and the victory branch defeats L.
@@ -997,6 +998,107 @@ describe('games/raw-results/deriveResultSubmission — evidence-based veto/synth
     expect(verdicts(raw, REPORTER, { corroboratedVictors: new Set([makeSbUserId(77)]) })).toEqual({
       1: R(Defeat, 'z'),
       77: R(Victory, 'p'),
+    })
+  })
+
+  test("a winner's own last-standing verdict corroborates its quit-victory for its team", () => {
+    // Winners 10 and 11 are a team, 20 is alone. 11 left mid-game, then 20 was eliminated; 10 won
+    // and left, but its report was captured with nobody else still connected, so the win in it is
+    // the one derived for the last player standing rather than one BW recorded.
+    const W1 = makeSbUserId(10)
+    const W2 = makeSbUserId(11)
+    const L = makeSbUserId(20)
+    const teamAlliances = alliances({ 0: AlliedVictory, 1: AlliedVictory })
+    const winnerReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+      ],
+      netPlayers: netPlayers(1),
+    })
+    const departedTeammateReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 11,
+          bwPlayerId: 1,
+          stormId: 1,
+          race: 't',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 20,
+          bwPlayerId: 2,
+          stormId: 2,
+          race: 'p',
+          victoryState: Playing,
+          alliances: alliances({ 2: AlliedVictory }),
+        }),
+      ],
+      netPlayers: netPlayers(3),
+    })
+    const loserReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Victory,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 11,
+          bwPlayerId: 1,
+          stormId: 1,
+          race: 't',
+          victoryState: Defeat,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 20,
+          bwPlayerId: 2,
+          stormId: 2,
+          race: 'p',
+          victoryState: Defeat,
+          alliances: alliances({ 2: AlliedVictory }),
+        }),
+      ],
+      netPlayers: netPlayers(3, { 0: { hasQuit: true }, 1: { hasQuit: true } }),
+    })
+
+    const captures: Array<[SbUserId, StoredRawGameResults]> = [
+      [W1, winnerReport],
+      [W2, departedTeammateReport],
+      [L, loserReport],
+    ]
+    const corroboratedVictors = corroborated(captures)
+    expect(corroboratedVictors).toEqual(new Set([W1]))
+
+    const submissions = captures.map(([reporter, raw]) =>
+      deriveResultSubmission(raw, reporter, { isUms: false, corroboratedVictors }),
+    )
+    const reconciled = reconcileResults([W1, W2, L], submissions, [[W1, W2], [L]])
+
+    expect(reconciled.disputed).toBe(false)
+    expect(Object.fromEntries([...reconciled.results].map(([id, r]) => [id, r.result]))).toEqual({
+      [W1]: 'win',
+      [W2]: 'win',
+      [L]: 'loss',
     })
   })
 

@@ -411,8 +411,11 @@ function toSubmission(
  * corroborated, which is intentional: an uncorroborated quit-victory in someone else's capture is
  * exactly what the veto is meant to strip.
  *
- * Only a report's claim about ITSELF counts: each report is inspected via the reporter's own
- * `players` row.
+ * Only a report's claim about ITSELF counts: each report is inspected via the verdict its own
+ * derivation reaches for the reporter (corroborating nobody else), which covers a self-Victory BW
+ * recorded as well as one the derivation awards: Rule B's last-standing victory, or being brought
+ * along to an allied victory. That keeps corroboration in step with what each report contributes to
+ * reconciliation: a report that credits its reporter with a victory also corroborates that victory.
  */
 export function computeCorroboratedVictors(
   storedReports: ReadonlyArray<StoredRawResultReport | null>,
@@ -422,8 +425,9 @@ export function computeCorroboratedVictors(
     if (!stored) {
       continue
     }
-    const ownRow = stored.raw.players.find(p => p.userId === stored.reporter)
-    if (ownRow?.victoryState === GameClientResult.Victory) {
+    const derived = deriveResultSubmission(stored.raw, stored.reporter, { isUms: false })
+    const ownEntry = derived.playerResults.find(([id]) => id === stored.reporter)
+    if (ownEntry?.[1].result === GameClientResult.Victory) {
       corroborated.add(stored.reporter)
     }
   }
