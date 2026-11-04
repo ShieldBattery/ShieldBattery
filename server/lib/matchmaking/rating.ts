@@ -150,14 +150,17 @@ export function adjustMatchmakingRatingForInactivity(
     return mmr
   }
 
-  let newUncertainty = mmr.uncertainty / 173.7178
+  const startUncertainty = mmr.uncertainty / 173.7178
+  // Inactivity only ever adds uncertainty, so a player who is already above the cap keeps theirs.
+  const maxUncertainty = Math.max(MAX_INCREASED_UNCERTAINTY, startUncertainty)
+  let newUncertainty = startUncertainty
   const periodsInactive = Math.floor(
     (Number(targetDate) - Number(mmr.lastPlayedDate)) / MATCHMAKING_INACTIVE_TIME_MS,
   )
   for (let i = 0; i < periodsInactive; i++) {
     const next = Math.sqrt(Math.pow(newUncertainty, 2) + Math.pow(mmr.volatility, 2))
-    if (next > MAX_INCREASED_UNCERTAINTY) {
-      newUncertainty = MAX_INCREASED_UNCERTAINTY
+    if (next > maxUncertainty) {
+      newUncertainty = maxUncertainty
       break
     }
 
