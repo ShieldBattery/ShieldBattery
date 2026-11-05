@@ -3,7 +3,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
-import { mapPageMetadata } from '../maps/map-page-meta'
+import { mapComparePageMetadata, mapPageMetadata } from '../maps/map-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import { PageMetadata, PageMetadataContext, resolvePageMetadata } from './page-metadata'
@@ -30,6 +30,7 @@ vi.mock('../lobbies/lobby-page-meta', () => ({
 
 vi.mock('../maps/map-page-meta', () => ({
   mapPageMetadata: vi.fn(),
+  mapComparePageMetadata: vi.fn(),
 }))
 
 const newsPostPageMetadataMock = asMockedFunction(newsPostPageMetadata)
@@ -38,6 +39,7 @@ const userPageMetadataMock = asMockedFunction(userPageMetadata)
 const gamePageMetadataMock = asMockedFunction(gamePageMetadata)
 const lobbyPageMetadataMock = asMockedFunction(lobbyPageMetadata)
 const mapPageMetadataMock = asMockedFunction(mapPageMetadata)
+const mapComparePageMetadataMock = asMockedFunction(mapComparePageMetadata)
 
 const CONTEXT: PageMetadataContext = {
   canonicalHost: 'https://shieldbattery.net',
@@ -60,6 +62,7 @@ describe('page-metadata/page-metadata', () => {
     gamePageMetadataMock.mockReset()
     lobbyPageMetadataMock.mockReset()
     mapPageMetadataMock.mockReset()
+    mapComparePageMetadataMock.mockReset()
   })
 
   test('matches a news post route and calls the resolver with the id param (no wildcard)', async () => {
@@ -201,6 +204,22 @@ describe('page-metadata/page-metadata', () => {
       { id: 'abc123', '*': 'polypoid-1-75/games' },
       CONTEXT,
     )
+  })
+
+  test('matches the map compare route ahead of the map route', async () => {
+    mapComparePageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/compare/abc123/def456',
+      type: 'website',
+      title: 'Polypoid vs. Fighting Spirit',
+      description: 'Compare them',
+      image: 'https://cdn.example.com/b.jpg',
+    })
+
+    const result = await resolvePageMetadata('/maps/compare/abc123/def456', CONTEXT)
+
+    expect(mapComparePageMetadataMock).toHaveBeenCalledWith({ a: 'abc123', b: 'def456' }, CONTEXT)
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toContain('Polypoid vs. Fighting Spirit')
   })
 
   test('resolves the maps catalog to its static metadata without the map resolver', async () => {

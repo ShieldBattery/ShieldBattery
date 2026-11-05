@@ -2,7 +2,7 @@ import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { getErrorStack } from '../../../common/errors'
-import { MapRendererWorkerData, RenderRequest, RenderResponse } from './messages'
+import { MapRendererWorkerData, RenderRequest, RenderResponse, RenderTile } from './messages'
 
 /** A rendered map image, 4 bytes per pixel in BGRA order. */
 export interface RenderedMapImage {
@@ -13,11 +13,19 @@ export interface RenderedMapImage {
 
 /** Renders images of local map files from a StarCraft install's assets. */
 export interface MapImageRenderer {
+  /** Renders the file at `filePath`, which must still hash to `hash`, with its longest side `size`. */
   render(
     installPath: string,
     filePath: string,
     hash: string,
     size: number,
+  ): Promise<RenderedMapImage>
+  /** Renders one tile of the full-detail image of the file at `filePath` (see `render`). */
+  renderTile(
+    installPath: string,
+    filePath: string,
+    hash: string,
+    tile: RenderTile,
   ): Promise<RenderedMapImage>
 }
 
@@ -36,11 +44,11 @@ const IDLE_TIMEOUT_MS = 60 * 1000
 
 interface RenderJob {
   installPath: string
-  filePath: string
-  hash: string
-  size: number
+  request: DistributiveOmit<RenderRequest, 'id'>
   deferred: Deferred<RenderedMapImage>
 }
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 /**
  * A `MapImageRenderer` backed by a `map-renderer` worker, rendering one map at a time, in the order
@@ -62,8 +70,24 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     hash: string,
     size: number,
   ): Promise<RenderedMapImage> {
+    return this.enqueue(installPath, { path: filePath, hash, size })
+  }
+
+  renderTile(
+    installPath: string,
+    filePath: string,
+    hash: string,
+    tile: RenderTile,
+  ): Promise<RenderedMapImage> {
+    return this.enqueue(installPath, { path: filePath, hash, tile })
+  }
+
+  private enqueue(
+    installPath: string,
+    request: DistributiveOmit<RenderRequest, 'id'>,
+  ): Promise<RenderedMapImage> {
     const deferred = createDeferred<RenderedMapImage>()
-    this.queue.push({ installPath, filePath, hash, size, deferred })
+    this.queue.push({ installPath, request, deferred })
     this.pump()
     return deferred
   }
@@ -88,7 +112,7 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     }, RENDER_TIMEOUT_MS)
     this.current = { id, job, worker, timer }
 
-    const request: RenderRequest = { id, path: job.filePath, hash: job.hash, size: job.size }
+    const request: RenderRequest = { ...job.request, id }
     worker.postMessage(request)
   }
 
