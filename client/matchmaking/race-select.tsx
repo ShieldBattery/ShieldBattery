@@ -18,5 +18,5 @@ export function RaceSelect<AllowRandom extends boolean | undefined>(
 ) {
   const { value, onChange, ...restProps } = props
 
-  return <RacePicker {...restProps} race={value!} onSetRace={onChange} />
+  return <RacePicker {...restProps} race={value} onSetRace={onChange} />
 }

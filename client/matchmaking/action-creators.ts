@@ -21,7 +21,7 @@ import {
 } from '../../common/matchmaking'
 import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
-import { apiUrl } from '../../common/urls'
+import { apiUrl, urlPath } from '../../common/urls'
 import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
@@ -29,6 +29,7 @@ import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
+import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
@@ -42,8 +43,14 @@ import {
   updateProvisionalPickAtom,
 } from './draft-atoms'
 import { clearMatchmakingState, findMatchSelectionAtom, hasAcceptedAtom } from './matchmaking-atoms'
+import { getMatchmakingPreferencesError } from './preference-validation'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+// A draft can contain an unset race. Keep saves for each user/mode in edit order so a map-only
+// save cannot clear a race selected while that save is still in flight.
+const pendingPreferenceSaves = new Map<string, Promise<GetPreferencesResponse>>()
+let nextPreferenceRequestId = 0
 
 export function findMatch(
   preferences: Immutable<MatchmakingPreferences[]>,
@@ -160,6 +167,7 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       auth,
       matchmakingPreferences: { byType },
       matchmakingStatus,
+      mapPools,
     } = getState()
 
     // The same derivation the find-match screen uses for its mode checkboxes: the modes toggled
@@ -182,16 +190,15 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     const allPrefs: Immutable<MatchmakingPreferences>[] = []
     for (const type of types) {
       const prefs = byType.get(type)?.preferences
-      if (!prefs) {
-        // The preferences subscription seeds defaults for every type on connect, so this only
-        // happens if we haven't received that event yet.
+      if (getMatchmakingPreferencesError(prefs, mapPools.byType.get(type))) {
         externalShowSnackbar(
           i18n.t(
-            'matchmaking.findMatch.errors.searchAgainError',
-            'There was a problem searching for a match',
+            'matchmaking.findMatch.errors.reviewSettings',
+            'Choose a race and review the maps for each selected mode before searching.',
           ),
           DURATION_LONG,
         )
+        push(urlPath`/play/matchmaking`)
         return
       }
       // TS can't infer the mutable element type through the Immutable store union, so we cast
@@ -291,22 +298,36 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
   prefs: Immutable<PartialMatchmakingPreferences & { matchmakingType: M }>,
 ): ThunkAction {
   return (dispatch, getState) => {
-    const promise = fetchJson<GetPreferencesResponse>(
-      apiUrl`matchmaking-preferences/${matchmakingType}`,
-      {
+    const key = `${prefs.userId}:${matchmakingType}`
+    const requestId = ++nextPreferenceRequestId
+    dispatch({
+      type: '@matchmaking/updatePreferencesBegin',
+      payload: prefs,
+      meta: { type: matchmakingType, requestId },
+    })
+    const body = JSON.stringify(prefs)
+    const save = () =>
+      fetchJson<GetPreferencesResponse>(apiUrl`matchmaking-preferences/${matchmakingType}`, {
         method: 'POST',
-        body: JSON.stringify(prefs),
-      },
-    )
+        body,
+      })
+    const previous = pendingPreferenceSaves.get(key)
+    const promise = previous ? previous.catch(() => {}).then(save) : save()
+    pendingPreferenceSaves.set(key, promise)
+
+    const clearPendingSave = () => {
+      if (pendingPreferenceSaves.get(key) === promise) pendingPreferenceSaves.delete(key)
+    }
 
     dispatch({
       type: '@matchmaking/updatePreferences',
       payload: promise,
-      meta: { type: matchmakingType },
+      meta: { type: matchmakingType, requestId },
     })
 
     promise
       .then(payload => {
+        clearPendingSave()
         const {
           mapPools: { byType },
         } = getState()
@@ -318,7 +339,10 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
           dispatch(getCurrentMapPool(matchmakingType))
         }
       })
-      .catch(swallowNonBuiltins)
+      .catch(err => {
+        clearPendingSave()
+        swallowNonBuiltins(err)
+      })
   }
 }
 

@@ -2329,6 +2329,7 @@
       "alternateRace": "Alternate race",
       "bonus": "Bonus",
       "cancelSearch": "Cancel search",
+      "chooseRace": "Choose race",
       "desc": {
         "1v1": "Solo · Standard maps",
         "1v1fastest": "Solo · Fastest Map",
@@ -2343,10 +2344,14 @@
       "description": "Select a race to be used whenever your opponent has selected the same primary race.",
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
+        "chooseMaps": "Select at least one map",
+        "chooseRace": "Choose a race to continue",
+        "completeSettings": "Complete the highlighted settings to find a match.",
         "dialogTitle": "Error searching for a match",
         "invalidMaps": "You must select at least one map in the settings for each chosen matchmaking type.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
-        "searchAgainError": "There was a problem searching for a match",
+        "reviewSettings": "Choose a race and review the maps for each selected mode before searching.",
+        "settingsLoading": "Settings are still loading",
         "somethingWentWrong": "Something went wrong :(",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
@@ -2367,6 +2372,7 @@
       "rank": "Rank",
       "rating": "Rating",
       "readyToQueue": "Ready to queue",
+      "reviewSettings": "Choose your race before searching",
       "searchingMessage": "Searching for a match…",
       "selectAtLeastOne": "Select at least one matchmaking type to start searching.",
       "selectedCount": "{{selected}} / {{total}} selected",
