@@ -93,14 +93,21 @@ export interface MapRendererWorkerData {
   installPath: string
 }
 
-/** Asks a map renderer to render the file at `path`, which must still hash to `hash`. */
-export interface RenderRequest {
-  id: number
-  path: string
-  hash: string
-  /** The longest side of the image, in pixels. */
-  size: number
+/** One tile of a map's full-detail image (see `mapTileDensities`). */
+export interface RenderTile {
+  density: number
+  x: number
+  y: number
 }
+
+/**
+ * Asks a map renderer to render the file at `path`, which must still hash to `hash`: either the
+ * whole map, its longest side `size` pixels, or one `tile` of it.
+ */
+export type RenderRequest = { id: number; path: string; hash: string } & (
+  | { size: number }
+  | { tile: RenderTile }
+)
 
 export type RenderResponse = { id: number } & (
   | {
