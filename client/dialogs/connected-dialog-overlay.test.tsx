@@ -7,7 +7,9 @@ import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
+import { asMockedFunction } from '../../common/testing/mocks'
 import createStore from '../create-store'
+import { isActivatingClick } from '../dom/activating-click'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { foundMatchAtom } from '../matchmaking/matchmaking-atoms'
 import { Popover, PopoverOpenState } from '../material/popover'
@@ -31,6 +33,10 @@ vi.hoisted(() => {
   globalThis.requestAnimationFrame = () => 0
   globalThis.cancelAnimationFrame = () => {}
 })
+
+vi.mock('../dom/activating-click', () => ({ isActivatingClick: vi.fn(() => false) }))
+
+const isActivatingClickMock = asMockedFunction(isActivatingClick)
 
 beforeAll(async () => {
   await i18next
@@ -59,6 +65,7 @@ function setVisibility(state: DocumentVisibilityState) {
 
 afterEach(() => {
   visibilityState = 'visible'
+  isActivatingClickMock.mockReturnValue(false)
   vi.useRealTimers()
 })
 
@@ -126,12 +133,32 @@ describe('ConnectedDialogOverlay', () => {
     expect(store.getState().dialog.history).toHaveLength(0)
   })
 
-  test('a scrim click leaves the accept-match dialog open', async () => {
+  test('the click that brings the window forward closes a dialog', async () => {
+    const store = renderOverlay()
+    openDialog(store)
+    await screen.findByRole('dialog')
+    isActivatingClickMock.mockReturnValue(true)
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('the click that brings the window forward leaves the accept-match dialog open', async () => {
     const store = await renderAcceptMatchDialog()
+    isActivatingClickMock.mockReturnValue(true)
 
     fireEvent.click(screen.getByTestId('dialog-scrim'))
 
     expect(store.getState().dialog.history).toHaveLength(1)
+  })
+
+  test('a scrim click closes the accept-match dialog once the window has focus', async () => {
+    const store = await renderAcceptMatchDialog()
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
   })
 
   test('the close button closes the accept-match dialog', async () => {
