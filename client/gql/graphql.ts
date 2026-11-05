@@ -1312,6 +1312,7 @@ export type AdminMapFamilyHistoryQueryVariables = Exact<{
   mapIds?: Array<Types.SbMapId> | Types.SbMapId | null | undefined
   familyIds?: Array<string> | string | null | undefined
   actorId?: Types.SbUserId | null | undefined
+  undoableOnly?: boolean | null | undefined
   limit: number
   offset: number
 }>
@@ -7733,6 +7734,11 @@ export const AdminMapFamilyHistoryDocument = {
         },
         {
           kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'undoableOnly' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+        },
+        {
+          kind: 'VariableDefinition',
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
           type: {
             kind: 'NonNullType',
@@ -7769,6 +7775,11 @@ export const AdminMapFamilyHistoryDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'actorId' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'actorId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'undoableOnly' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'undoableOnly' } },
               },
               {
                 kind: 'Argument',

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, kind, actor as \"actor: SbUserId\", source as \"source: MapLinkSource\",\n                map_id as \"map_id: SbMapId\", other_map_id as \"other_map_id: SbMapId\", family_id,\n                details as \"details: Json<HistoryDetails>\", created_at\n            FROM map_family_history\n            WHERE (NOT $1 OR map_id = ANY($2) OR other_map_id = ANY($2) OR family_id = ANY($3))\n                AND ($4::integer IS NULL OR actor = $4)\n            ORDER BY created_at DESC, id\n            LIMIT $5 OFFSET $6\n        ",
+  "query": "\n            SELECT h.id, h.kind, h.actor as \"actor: SbUserId\", h.source as \"source: MapLinkSource\",\n                h.map_id as \"map_id: SbMapId\", h.other_map_id as \"other_map_id: SbMapId\",\n                h.family_id, h.details as \"details: Json<HistoryDetails>\", h.created_at\n            FROM map_family_history h\n            WHERE (NOT $1 OR h.map_id = ANY($2) OR h.other_map_id = ANY($2)\n                    OR h.family_id = ANY($3))\n                AND ($4::integer IS NULL OR h.actor = $4)\n                AND (NOT $5 OR (\n                    h.kind NOT IN ('undo', 'report_status')\n                    AND NOT EXISTS (\n                        SELECT 1\n                        FROM map_family_history u\n                        INNER JOIN map_family_history undone\n                            ON undone.id = (u.details->>'undoneEntryId')::uuid\n                        WHERE u.kind = 'undo'\n                            AND (undone.id = h.id OR undone.batch_id = h.batch_id)\n                    )\n                ))\n            ORDER BY h.created_at DESC, h.id\n            LIMIT $6 OFFSET $7\n        ",
   "describe": {
     "columns": [
       {
@@ -121,6 +121,7 @@
         "UuidArray",
         "UuidArray",
         "Int4",
+        "Bool",
         "Int8",
         "Int8"
       ]
@@ -137,5 +138,5 @@
       false
     ]
   },
-  "hash": "6320196084837c0d28b80072fe2b87d3ed071b4389ba0345e10227a593c35931"
+  "hash": "a4d50de8e1bca2875ab78dec9ad894c172ac2594189d9732eb74ff8060838d51"
 }

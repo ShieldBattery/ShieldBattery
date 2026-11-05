@@ -518,6 +518,7 @@ pub async fn load_history(
     map_ids: Option<&[SbMapId]>,
     family_ids: Option<&[Uuid]>,
     actor: Option<SbUserId>,
+    undoable_only: bool,
     limit: i64,
     offset: i64,
 ) -> eyre::Result<Vec<MapFamilyHistory>> {
@@ -526,19 +527,32 @@ pub async fn load_history(
     sqlx::query_as!(
         MapFamilyHistory,
         r#"
-            SELECT id, kind, actor as "actor: SbUserId", source as "source: MapLinkSource",
-                map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId", family_id,
-                details as "details: Json<HistoryDetails>", created_at
-            FROM map_family_history
-            WHERE (NOT $1 OR map_id = ANY($2) OR other_map_id = ANY($2) OR family_id = ANY($3))
-                AND ($4::integer IS NULL OR actor = $4)
-            ORDER BY created_at DESC, id
-            LIMIT $5 OFFSET $6
+            SELECT h.id, h.kind, h.actor as "actor: SbUserId", h.source as "source: MapLinkSource",
+                h.map_id as "map_id: SbMapId", h.other_map_id as "other_map_id: SbMapId",
+                h.family_id, h.details as "details: Json<HistoryDetails>", h.created_at
+            FROM map_family_history h
+            WHERE (NOT $1 OR h.map_id = ANY($2) OR h.other_map_id = ANY($2)
+                    OR h.family_id = ANY($3))
+                AND ($4::integer IS NULL OR h.actor = $4)
+                AND (NOT $5 OR (
+                    h.kind NOT IN ('undo', 'report_status')
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM map_family_history u
+                        INNER JOIN map_family_history undone
+                            ON undone.id = (u.details->>'undoneEntryId')::uuid
+                        WHERE u.kind = 'undo'
+                            AND (undone.id = h.id OR undone.batch_id = h.batch_id)
+                    )
+                ))
+            ORDER BY h.created_at DESC, h.id
+            LIMIT $6 OFFSET $7
         "#,
         about_filter,
         &map_ids.unwrap_or_default(),
         family_ids.unwrap_or_default(),
         actor as _,
+        undoable_only,
         limit,
         offset,
     )

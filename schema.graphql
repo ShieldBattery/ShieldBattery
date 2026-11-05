@@ -2148,10 +2148,11 @@ type Query {
 	"""
 	Changes people made to families, suggestions and family reports, newest first. Filtered to
 	changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
-	made. Available to users who can manage maps, and to reviewers for their own changes (with
-	`actorId` set to themselves).
+	made. With `undoableOnly`, only saves that can still be undone: no undos or report changes,
+	and nothing from a save that was already undone. Available to users who can manage maps,
+	and to reviewers for their own changes (with `actorId` set to themselves).
 	"""
-	mapFamilyHistory(mapIds: [SbMapId!], familyIds: [UUID!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
+	mapFamilyHistory(mapIds: [SbMapId!], familyIds: [UUID!], actorId: SbUserId, undoableOnly: Boolean! = false, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or

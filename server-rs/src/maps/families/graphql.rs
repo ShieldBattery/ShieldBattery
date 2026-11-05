@@ -1101,14 +1101,17 @@ impl MapFamiliesQuery {
 
     /// Changes people made to families, suggestions and family reports, newest first. Filtered to
     /// changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
-    /// made. Available to users who can manage maps, and to reviewers for their own changes (with
-    /// `actorId` set to themselves).
+    /// made. With `undoableOnly`, only saves that can still be undone: no undos or report changes,
+    /// and nothing from a save that was already undone. Available to users who can manage maps,
+    /// and to reviewers for their own changes (with `actorId` set to themselves).
+    #[allow(clippy::too_many_arguments)]
     async fn map_family_history(
         &self,
         ctx: &Context<'_>,
         map_ids: Option<Vec<SbMapId>>,
         family_ids: Option<Vec<Uuid>>,
         actor_id: Option<SbUserId>,
+        #[graphql(default = false)] undoable_only: bool,
         #[graphql(default = 50)] limit: i32,
         #[graphql(default = 0)] offset: i32,
     ) -> Result<Vec<MapFamilyHistory>> {
@@ -1126,6 +1129,7 @@ impl MapFamiliesQuery {
             map_ids.as_deref(),
             family_ids.as_deref(),
             actor_id,
+            undoable_only,
             i64::from(limit.clamp(1, MAX_QUEUE_PAGE)),
             i64::from(offset.max(0)),
         )

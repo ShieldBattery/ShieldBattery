@@ -1,6 +1,6 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
 import { atom, useAtom, useAtomValue } from 'jotai'
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useClient, useMutation, useQuery } from 'urql'
@@ -27,6 +27,7 @@ import { NarrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { jotaiStore } from '../jotai-store'
+import { useKeyListener } from '../keyboard/key-listener'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
@@ -375,6 +376,7 @@ const MapFamilyHistoryQuery = graphql(/* GraphQL */ `
     $mapIds: [SbMapId!]
     $familyIds: [UUID!]
     $actorId: SbUserId
+    $undoableOnly: Boolean
     $limit: Int!
     $offset: Int!
   ) {
@@ -382,6 +384,7 @@ const MapFamilyHistoryQuery = graphql(/* GraphQL */ `
       mapIds: $mapIds
       familyIds: $familyIds
       actorId: $actorId
+      undoableOnly: $undoableOnly
       limit: $limit
       offset: $offset
     ) {
@@ -1281,7 +1284,25 @@ type GroupData = ResultOf<typeof MapFamilyGroupQuery>['mapFamilyGroup']
 function isTypingTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLElement &&
+    !isRadio(target) &&
     (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  )
+}
+
+/** Radio buttons don't act on Enter or letters, so the shortcuts work right after answering. */
+function isRadio(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.type === 'radio'
+}
+
+/**
+ * Whether a key press lands on a control that acts on keys itself (a button, link, select or radio
+ * button), so the editor's single-key shortcuts shouldn't take it over.
+ */
+function isControlTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    !isRadio(target) &&
+    !!target.closest('button, a, input, textarea, select, [role], [tabindex], [contenteditable]')
   )
 }
 
@@ -1447,7 +1468,9 @@ function FamilyEditor({
       throw result.error
     }
     snackbarController.showSnackbar('Save undone')
-    if (mapId && mapId !== draftKey) {
+    // Compared with the current page rather than this editor's group, since this can run after
+    // the editor moved on to the next group
+    if (mapId && window.location.pathname !== editorUrl(mapId)) {
       push(editorUrl(mapId))
     } else {
       refetch()
@@ -1461,7 +1484,7 @@ function FamilyEditor({
     const result = await client
       .query(
         MapFamilyHistoryQuery,
-        { actorId: selfUser.id, limit: 1, offset: 0 },
+        { actorId: selfUser.id, undoableOnly: true, limit: 1, offset: 0 },
         { requestPolicy: 'network-only' },
       )
       .toPromise()
@@ -1552,28 +1575,26 @@ function FamilyEditor({
       goToNext(true).catch(err => showError("Couldn't load the next group", err))
     }
   }
-  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    if (applying || isTypingTarget(event.target) || event.altKey || event.metaKey) {
-      return
-    }
-    if (event.ctrlKey && event.key.toLowerCase() === 'z') {
-      event.preventDefault()
-      onUndoLast().catch(err => showError("Couldn't undo", err))
-    } else if (event.ctrlKey || event.shiftKey) {
-      return
-    } else if (event.key.toLowerCase() === 's') {
-      event.preventDefault()
-      onSkip()
-    } else if (event.key === 'Enter') {
-      event.preventDefault()
-      onPrimary()
-    }
+  useKeyListener({
+    onKeyDown: event => {
+      if (applying || isTypingTarget(event.target) || event.altKey || event.metaKey) {
+        return false
+      }
+      if (event.ctrlKey && event.key.toLowerCase() === 'z') {
+        onUndoLast().catch(err => showError("Couldn't undo", err))
+        return true
+      } else if (event.ctrlKey || event.shiftKey || isControlTarget(event.target)) {
+        return false
+      } else if (event.key.toLowerCase() === 's') {
+        onSkip()
+        return true
+      } else if (event.key === 'Enter') {
+        onPrimary()
+        return true
+      }
+      return false
+    },
   })
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => onKeyDown(event)
-    window.addEventListener('keydown', listener)
-    return () => window.removeEventListener('keydown', listener)
-  }, [])
 
   // What players will see once this is saved
   const treeFiles = files.filter(f => placements.get(f.id)?.kind === 'tree')
