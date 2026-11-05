@@ -66,6 +66,16 @@ pub enum FamilyEditError {
     ReportingRestricted,
     #[error("you've filed too many reports recently, please try again later")]
     TooManyReports,
+    #[error("only staff can change family labels")]
+    StaffOnly,
+    #[error("history entry not found")]
+    HistoryEntryNotFound,
+    #[error("only staff can undo changes someone else made")]
+    NotYourChange,
+    #[error("changes to family reports can't be undone")]
+    UndoReport,
+    #[error("these maps changed after that save")]
+    Conflict,
     #[error(transparent)]
     Other(#[from] eyre::Report),
 }
@@ -195,7 +205,7 @@ async fn load_map_row(
 }
 
 /// Checks that a reviewer only touches listed maps. Other sources may touch any map.
-async fn check_reviewer_listed(
+pub(crate) async fn check_reviewer_listed(
     tx: &mut Transaction<'_, Postgres>,
     source: MapLinkSource,
     map_ids: &[SbMapId],
@@ -436,7 +446,7 @@ pub async fn link(
     Ok(())
 }
 
-fn ordered(x: SbMapId, y: SbMapId) -> (SbMapId, SbMapId) {
+pub(crate) fn ordered(x: SbMapId, y: SbMapId) -> (SbMapId, SbMapId) {
     if x.0 < y.0 { (x, y) } else { (y, x) }
 }
 

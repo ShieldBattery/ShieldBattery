@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_members (map_id, family_id, parent_map_id, relation,\n                version_label, pinned_current, source, linked_by, linked_at, line_root_id,\n                line_current_id)\n            SELECT v.map_id, v.family_id, NULL, v.relation, v.version_label, false, v.source, $6,\n                now(), v.map_id, v.map_id\n            FROM unnest($1::uuid[], $2::uuid[], $3::map_family_relation[], $4::text[],\n                $5::map_link_source[]) AS v(map_id, family_id, relation, version_label, source)\n            ON CONFLICT (map_id) DO UPDATE\n            SET family_id = EXCLUDED.family_id, parent_map_id = NULL,\n                relation = EXCLUDED.relation, version_label = EXCLUDED.version_label,\n                pinned_current = false, source = EXCLUDED.source, linked_by = EXCLUDED.linked_by,\n                linked_at = EXCLUDED.linked_at, line_root_id = EXCLUDED.map_id,\n                line_current_id = EXCLUDED.map_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        {
+          "Custom": {
+            "name": "map_family_relation[]",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "map_family_relation",
+                  "kind": {
+                    "Enum": [
+                      "root",
+                      "version",
+                      "variant",
+                      "translation",
+                      "fork"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "TextArray",
+        {
+          "Custom": {
+            "name": "map_link_source[]",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "map_link_source",
+                  "kind": {
+                    "Enum": [
+                      "rule",
+                      "publisher",
+                      "reviewer",
+                      "moderator"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8b4045aae9ee23d4b5ab145370e549e7431c389f88d3b838d5274df8d416b500"
+}

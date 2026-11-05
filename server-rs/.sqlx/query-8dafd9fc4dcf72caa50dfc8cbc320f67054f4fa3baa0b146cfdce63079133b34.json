@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT map_id as \"map_id: SbMapId\" FROM map_family_members\n                WHERE family_id = $1 AND relation <> 'root'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "map_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8dafd9fc4dcf72caa50dfc8cbc320f67054f4fa3baa0b146cfdce63079133b34"
+}

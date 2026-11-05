@@ -1,15 +1,17 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
 import { atom, useAtom, useAtomValue } from 'jotai'
-import { useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useClient, useMutation, useQuery } from 'urql'
 import { Link, Route, Switch } from 'wouter'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { mapIdFromRouteSegment, urlForMap, urlForMapCompare } from '../../common/map-url'
 import { makeSbMapId, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
   MapFamilyHistoryKind,
@@ -27,10 +29,12 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { jotaiStore } from '../jotai-store'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
+import { Card } from '../material/card'
 import { LinkButton } from '../material/link-button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { RadioButton, RadioGroup } from '../material/radio'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TabItem, Tabs } from '../material/tabs'
@@ -39,6 +43,8 @@ import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
+import { useUserLocalStorageValue } from '../react/state-hooks'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import {
   bodyLarge,
@@ -51,6 +57,7 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
+  copyRelation,
   FamilyEditorFile,
   FamilyPlacement,
   FamilyPlacements,
@@ -59,8 +66,11 @@ import {
   parentOptions,
   placeFile,
   planFamilyEdits,
+  unansweredFiles,
 } from './family-editor'
+import { previewFamily, PreviewMember } from './family-preview'
 import { MapFileImage } from './map-image'
+import { FamilyVersionsList } from './map-page-family'
 
 const BASE_URL = '/admin/map-families'
 const PAGE_SIZE = 50
@@ -97,20 +107,20 @@ const NO_EDITS: ReadonlyMap<SbMapId, FamilyPlacement> = new Map()
 const NO_LABEL_EDITS: ReadonlyMap<string, string> = new Map()
 
 const RELATION_LABELS: Record<MapFamilyRelation, string> = {
-  [MapFamilyRelation.Root]: 'Top of a tree',
+  [MapFamilyRelation.Root]: 'First version',
   [MapFamilyRelation.Version]: 'Version',
-  [MapFamilyRelation.Variant]: 'Variant',
+  [MapFamilyRelation.Variant]: 'Copy',
   [MapFamilyRelation.Translation]: 'Translation',
-  [MapFamilyRelation.Fork]: 'Fork',
+  [MapFamilyRelation.Fork]: 'Based on',
 }
 
 const PROPOSED_RELATION_LABELS: Record<MapProposedRelation, string> = {
   [MapProposedRelation.Version]: 'version',
-  [MapProposedRelation.Variant]: 'variant',
+  [MapProposedRelation.Variant]: 'copy',
   [MapProposedRelation.Translation]: 'translation',
-  [MapProposedRelation.Fork]: 'fork',
-  [MapProposedRelation.TerrainOnly]: 'terrain only',
-  [MapProposedRelation.Unrelated]: 'unrelated',
+  [MapProposedRelation.Fork]: 'based on',
+  [MapProposedRelation.TerrainOnly]: 'UMS on the same terrain',
+  [MapProposedRelation.Unrelated]: 'not related',
 }
 
 const SOURCE_LABELS: Record<MapLinkSource, string> = {
@@ -216,6 +226,11 @@ const MapFamilyGroupQuery = graphql(/* GraphQL */ `
         id
         name
         firstSeenAt
+        listed
+        stats {
+          id
+          gamesTotal
+        }
         ...AdminMapFamilies_FileFragment
       }
       families {
@@ -236,6 +251,10 @@ const MapFamilyGroupQuery = graphql(/* GraphQL */ `
             name
             firstSeenAt
             listed
+            stats {
+              id
+              gamesTotal
+            }
             ...AdminMapFamilies_FileFragment
           }
         }
@@ -276,10 +295,18 @@ const NextProposalsQuery = graphql(/* GraphQL */ `
   }
 `)
 
-const FamilyLinkMutation = graphql(/* GraphQL */ `
-  mutation AdminMapFamilyLink($links: [MapFamilyLinkInput!]!) {
-    mapFamilyLink(links: $links) {
-      id
+const FamilyApplyMutation = graphql(/* GraphQL */ `
+  mutation AdminMapFamilyApply($input: MapFamilyApplyInput!) {
+    mapFamilyApply(input: $input) {
+      historyEntryId
+    }
+  }
+`)
+
+const FamilyUndoMutation = graphql(/* GraphQL */ `
+  mutation AdminMapFamilyUndo($historyEntryId: UUID!) {
+    mapFamilyUndo(historyEntryId: $historyEntryId) {
+      historyEntryId
     }
   }
 `)
@@ -304,15 +331,6 @@ const FamilyUpdateMemberMutation = graphql(/* GraphQL */ `
       pinnedCurrent: $pinnedCurrent
     ) {
       id
-    }
-  }
-`)
-
-const FamilySetLabelMutation = graphql(/* GraphQL */ `
-  mutation AdminMapFamilySetLabel($familyId: UUID!, $label: String) {
-    mapFamilySetLabel(familyId: $familyId, label: $label) {
-      id
-      label
     }
   }
 `)
@@ -368,6 +386,7 @@ const MapFamilyHistoryQuery = graphql(/* GraphQL */ `
       offset: $offset
     ) {
       id
+      entryId
       kind
       source
       createdAt
@@ -569,7 +588,12 @@ function FamilyQueue({ tab, isStaff }: { tab: QueueTab; isStaff: boolean }) {
         />
         {isStaff ? <TabItem value='history' text='History' /> : null}
       </StyledTabs>
-      {tab === 'proposals' ? <ProposalsTable key={refreshToken} isStaff={isStaff} /> : null}
+      {tab === 'proposals' ? (
+        <>
+          <ReviewedRecently key={`recent-${refreshToken}`} />
+          <ProposalsTable key={refreshToken} isStaff={isStaff} />
+        </>
+      ) : null}
       {tab === 'reports' ? (
         <ReportsTable
           key={refreshToken}
@@ -579,6 +603,53 @@ function FamilyQueue({ tab, isStaff }: { tab: QueueTab; isStaff: boolean }) {
       ) : null}
       {tab === 'history' ? <HistoryTab key={refreshToken} /> : null}
     </Content>
+  )
+}
+
+/** How many of the viewer's recently saved groups the queue links back to. */
+const RECENT_GROUPS = 10
+
+const RecentRow = styled.div`
+  ${bodyMedium};
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+  color: var(--theme-on-surface-variant);
+`
+
+/** Links to the groups the viewer saved most recently, so a decision is easy to revisit. */
+function ReviewedRecently() {
+  const selfUser = useSelfUser()
+  const [{ data }] = useQuery({
+    query: MapFamilyHistoryQuery,
+    variables: { actorId: selfUser?.id, limit: RECENT_GROUPS * 4, offset: 0 },
+    pause: !selfUser,
+    requestPolicy: 'cache-and-network',
+  })
+
+  const seen = new Set<SbMapId>()
+  const recent: HistoryMapRef[] = []
+  for (const entry of data?.mapFamilyHistory ?? []) {
+    if (entry.map && !seen.has(entry.map.id) && recent.length < RECENT_GROUPS) {
+      seen.add(entry.map.id)
+      recent.push(entry.map)
+    }
+  }
+  if (!recent.length) {
+    return null
+  }
+
+  return (
+    <RecentRow>
+      <span>Reviewed recently:</span>
+      {recent.map(map => (
+        <Link key={map.id} href={editorUrl(map.id)}>
+          {map.name}
+        </Link>
+      ))}
+    </RecentRow>
   )
 }
 
@@ -839,6 +910,8 @@ function OverflowMenu({
 
 interface FileData {
   name: string
+  listed: boolean
+  games: number
   ref: FragmentType<typeof AdminMapFamilies_FileFragment>
 }
 
@@ -850,53 +923,157 @@ interface MemberInfo {
   listed: boolean
 }
 
-const EditorHeader = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 16px 0;
+/** The answer a file's question has in the editor. */
+type FileAnswer = 'first' | 'version' | 'copy' | 'fork' | 'rejected' | 'terrainOnly'
+
+function answerOf(placement: FamilyPlacement): FileAnswer {
+  if (placement.kind === 'decided') {
+    return placement.decision === MapLinkSuggestionDecision.TerrainOnly ? 'terrainOnly' : 'rejected'
+  }
+  switch (placement.relation) {
+    case MapFamilyRelation.Root:
+      return 'first'
+    case MapFamilyRelation.Version:
+      return 'version'
+    case MapFamilyRelation.Variant:
+    case MapFamilyRelation.Translation:
+      return 'copy'
+    case MapFamilyRelation.Fork:
+      return 'fork'
+    default:
+      return assertUnreachable(placement.relation)
+  }
+}
+
+/** How a file relates to the file it's placed under, as the start of a sentence. */
+const ANSWER_PHRASES: Record<'version' | 'copy' | 'fork', string> = {
+  version: 'a newer version of',
+  copy: 'a copy of',
+  fork: 'a different map based on',
+}
+
+/** Why the detection rules suggested a pair, by rule name. */
+const RULE_REASONS: ReadonlyMap<string, string> = new Map([
+  ['same_scenario', 'the same scenario data'],
+  ['same_maker', 'the same name and maker'],
+  ['same_name', 'the same name'],
+  ['credits_original', 'its description credits the other map'],
+  ['makers_differ', 'similar terrain by a different maker'],
+  ['similar_terrain', 'similar terrain'],
+  ['melee_and_ums', 'a UMS map on the same terrain'],
+  ['ums_names_differ', 'UMS maps with different names'],
+  ['review', 'a reviewer proposed it'],
+])
+
+const EditorContent = styled.div`
+  max-width: 1280px;
+  margin: 0 16px;
+  padding-bottom: 32px;
 `
 
-const BackButton = styled(TextButton)`
-  align-self: flex-start;
+const StickyHeader = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 -16px;
+  padding: 12px 16px;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  background-color: var(--theme-container-lowest);
+  border-bottom: 1px solid var(--theme-outline-variant);
 `
 
 const EditorTitle = styled.div`
   ${titleLarge};
+  ${singleLine};
+  min-width: 0;
+  flex: 1 1 auto;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
 `
 
-const FamilyLabels = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 8px 0 16px;
+const TitleField = styled(TextField)`
+  flex: 1 1 auto;
+  max-width: 480px;
+`
 
-  & > * {
-    width: 320px;
+const LeftCount = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const UnansweredText = styled.div`
+  ${bodyMedium};
+  width: 100%;
+  text-align: right;
+  color: var(--theme-amber);
+`
+
+const Columns = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 24px;
+  margin-top: 16px;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: minmax(0, 1fr);
   }
 `
 
-const SectionTitle = styled.div`
-  ${titleMedium};
-  margin: 24px 0 8px;
-`
-
-const Rows = styled.div`
+const Questions = styled.div`
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 4px;
+  gap: 12px;
 `
 
-const Row = styled.div<{ $depth: number }>`
+const QuestionIntro = styled.div`
+  ${titleMedium};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const HowToDecide = styled.div`
+  ${bodyMedium};
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--theme-container-low);
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  & > p {
+    margin: 0;
+  }
+`
+
+const HowToDecideHeader = styled.div`
+  ${labelLarge};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`
+
+const FileCard = styled.div<{ $latest: boolean; $unanswered: boolean }>`
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--theme-outline-variant);
+  ${props => (props.$latest ? 'border-color: var(--theme-positive);' : '')}
+  ${props => (props.$unanswered ? 'border-color: var(--theme-amber);' : '')}
+  background-color: ${props =>
+    props.$latest ? 'rgb(from var(--theme-positive) r g b / 0.06)' : 'transparent'};
+
   display: flex;
   gap: 16px;
-  padding: 12px 16px;
-  padding-left: ${props => 16 + props.$depth * 40}px;
-
-  & + & {
-    border-top: 1px solid var(--theme-outline-variant);
-  }
 `
 
 const Thumb = styled.div`
@@ -907,7 +1084,7 @@ const Thumb = styled.div`
   overflow: hidden;
 `
 
-const RowBody = styled.div`
+const FileBody = styled.div`
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
@@ -915,51 +1092,79 @@ const RowBody = styled.div`
   gap: 4px;
 `
 
-const RowTitle = styled.div`
+const FileTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 `
 
-const RowName = styled(Link)`
+const FileName = styled(Link)`
   ${titleMedium};
   ${singleLine};
   min-width: 0;
   color: var(--theme-on-surface);
 `
 
-const RowMeta = styled.div`
+const LatestChip = styled(RoomChip)`
+  flex-shrink: 0;
+  background-color: rgb(from var(--theme-positive) r g b / 0.16);
+  color: var(--theme-positive);
+`
+
+const FileMeta = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
   overflow-wrap: anywhere;
 `
 
-const RowControls = styled.div`
+const DetailsIcon = styled(MaterialIcon).attrs({ icon: 'info', size: 16 })`
+  display: block;
+  color: var(--theme-on-surface-variant);
+`
+
+const AnswerControls = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
-`
-
-const RelationSelect = styled(Select)`
-  width: 180px;
+  margin-left: 32px;
 `
 
 const ParentSelect = styled(Select)`
-  width: 260px;
+  width: 320px;
 `
 
 const LabelField = styled(TextField)`
   width: 120px;
 `
 
-const RowActions = styled.div`
+const SuggestedText = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const FileActions = styled.div`
   flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   gap: 4px;
+`
+
+const MoreButton = styled(TextButton)`
+  align-self: flex-start;
+`
+
+const SectionTitle = styled.div`
+  ${titleMedium};
+  margin: 16px 0 8px;
+`
+
+const Rows = styled.div`
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
 `
 
 const PairRow = styled.div`
@@ -977,6 +1182,16 @@ const PairRow = styled.div`
 const PairText = styled.div`
   flex: 1 1 auto;
   min-width: 0;
+`
+
+const FamilyLabels = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  & > * {
+    width: 320px;
+  }
 `
 
 const AddFileField = styled(TextField)`
@@ -997,15 +1212,31 @@ const SearchResult = styled.div`
   padding: 0 8px 0 16px;
 `
 
-const Footer = styled.div`
+const PreviewPane = styled.div`
+  position: sticky;
+  top: 88px;
+
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 24px;
+  flex-direction: column;
+  gap: 12px;
 `
 
-const ResetButton = styled(TextButton)`
-  margin-right: auto;
+const PreviewLabel = styled.div`
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+`
+
+const PreviewCard = styled(Card)`
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const PreviewNote = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
 `
 
 function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
@@ -1027,10 +1258,7 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
   })
 
   return (
-    <Content>
-      <EditorHeader>
-        <BackButton label='Map families' iconStart='arrow_back' onClick={() => push(BASE_URL)} />
-      </EditorHeader>
+    <EditorContent>
       {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       {!data && fetching ? <LoadingDotsArea /> : null}
       {data ? (
@@ -1043,11 +1271,19 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
           refetch={() => refetch({ requestPolicy: 'network-only' })}
         />
       ) : null}
-    </Content>
+    </EditorContent>
   )
 }
 
 type GroupData = ResultOf<typeof MapFamilyGroupQuery>['mapFamilyGroup']
+
+/** Whether a key press belongs to a text field, so the editor's shortcuts should leave it alone. */
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  )
+}
 
 function FamilyEditor({
   group,
@@ -1064,6 +1300,7 @@ function FamilyEditor({
 }) {
   const client = useClient()
   const snackbarController = useSnackbarController()
+  const selfUser = useSelfUser()
   const skippedMapIds = useAtomValue(skippedMapIdsAtom)
   const draftKey = mapIds[0]
   const [draft, setDraft] = useAtom(editorDraftAtom)
@@ -1082,11 +1319,22 @@ function FamilyEditor({
       familyLabels: newLabels,
     }))
   const [applying, setApplying] = useState(false)
+  const [showMore, setShowMore] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [howToDecideSeen, setHowToDecideSeen] = useUserLocalStorageValue(
+    'mapFamilies.howToDecideSeen',
+    false,
+  )
+  const [showHowToDecide, setShowHowToDecide] = useState(!howToDecideSeen)
 
-  const [, link] = useMutation(FamilyLinkMutation)
+  const [{ data: counts }] = useQuery({
+    query: MapFamilyProposalCountsQuery,
+    requestPolicy: 'cache-and-network',
+  })
+  const [, apply] = useMutation(FamilyApplyMutation)
+  const [, undo] = useMutation(FamilyUndoMutation)
   const [, removeMember] = useMutation(FamilyRemoveMutation)
   const [, updateMember] = useMutation(FamilyUpdateMemberMutation)
-  const [, setFamilyLabel] = useMutation(FamilySetLabelMutation)
   const [, decide] = useMutation(SuggestionDecideMutation)
 
   const fileData = new Map<SbMapId, FileData>()
@@ -1094,7 +1342,12 @@ function FamilyEditor({
   const files: FamilyEditorFile[] = []
   for (const family of group.families) {
     for (const member of family.members) {
-      fileData.set(member.mapId, { name: member.map.name, ref: member.map })
+      fileData.set(member.mapId, {
+        name: member.map.name,
+        listed: member.map.listed,
+        games: member.map.stats?.gamesTotal ?? 0,
+        ref: member.map,
+      })
       members.set(member.mapId, {
         familyId: family.familyId,
         isCurrent: member.isCurrent,
@@ -1120,7 +1373,12 @@ function FamilyEditor({
     if (members.has(map.id)) {
       continue
     }
-    fileData.set(map.id, { name: map.name, ref: map })
+    fileData.set(map.id, {
+      name: map.name,
+      listed: map.listed,
+      games: map.stats?.gamesTotal ?? 0,
+      ref: map,
+    })
     const proposal = proposed.get(map.id)
     files.push({
       id: map.id,
@@ -1138,19 +1396,24 @@ function FamilyEditor({
   const placements: FamilyPlacements = new Map(files.map(f => [f.id, edits.get(f.id) ?? f.initial]))
   const openPairs = group.suggestions.map(s => ({ mapA: s.mapA.id, mapB: s.mapB.id }))
   const plan = planFamilyEdits(files, placements, openPairs)
+  const unanswered = unansweredFiles(placements, openPairs)
   const labelEdits = Array.from(familyLabels.entries()).filter(
     ([familyId, label]) =>
       label.trim() !== (group.families.find(f => f.familyId === familyId)?.label ?? ''),
   )
-  /** Whether applying would change anything (accepting the proposed tree as it is counts). */
+  /** Whether saving would change anything (accepting the proposed tree as it is counts). */
   const dirty = hasFamilyEdits(plan) || labelEdits.length > 0
-  /** Whether staff changed anything the queue proposed. */
+  /** Whether anything the queue proposed was changed. */
   const edited = edits.size > 0 || labelEdits.length > 0
   const nameOf = (id: SbMapId) => fileData.get(id)?.name ?? 'Unknown map'
 
-  const setPlacement = (id: SbMapId, placement: FamilyPlacement) => {
-    setEdits(placeFile(placements, id, placement))
-  }
+  const rows = orderRows(files, placements)
+  const firstFamily = group.families.length === 1 ? group.families[0] : undefined
+  const savedTitle =
+    group.families.find(f => f.label)?.label ?? (rows.length ? nameOf(rows[0].id) : 'Map family')
+  const title = firstFamily
+    ? (familyLabels.get(firstFamily.familyId) ?? firstFamily.label ?? '') || savedTitle
+    : savedTitle
 
   const showError = (action: string, err: unknown) => {
     snackbarController.showSnackbar(
@@ -1177,54 +1440,83 @@ function FamilyEditor({
     push(next ? editorUrl(next.maps[0].id) : BASE_URL)
   }
 
-  const runMutation = async <T,>(
-    promise: Promise<{ error?: Error | undefined; data?: T }>,
-  ): Promise<T | undefined> => {
-    const result = await promise
+  /** Reverts the save that recorded `historyEntryId` and reopens its files in the editor. */
+  const undoSave = async (historyEntryId: string, mapId: SbMapId | undefined) => {
+    const result = await undo({ historyEntryId })
     if (result.error) {
       throw result.error
     }
-    return result.data
+    snackbarController.showSnackbar('Save undone')
+    if (mapId && mapId !== draftKey) {
+      push(editorUrl(mapId))
+    } else {
+      refetch()
+    }
   }
 
-  const onApply = async () => {
+  const onUndoLast = async () => {
+    if (!selfUser) {
+      return
+    }
+    const result = await client
+      .query(
+        MapFamilyHistoryQuery,
+        { actorId: selfUser.id, limit: 1, offset: 0 },
+        { requestPolicy: 'network-only' },
+      )
+      .toPromise()
+    if (result.error) {
+      throw result.error
+    }
+    const last = result.data?.mapFamilyHistory[0]
+    if (!last) {
+      snackbarController.showSnackbar('Nothing to undo')
+      return
+    }
+    await undoSave(last.entryId, last.map?.id)
+  }
+
+  const onSave = async () => {
     setApplying(true)
+    let historyEntryId: string | null | undefined
     try {
-      if (plan.links.length) {
-        await runMutation(link({ links: plan.links }))
+      const result = await apply({
+        input: {
+          links: plan.links,
+          versionLabels: plan.labels,
+          decisions: plan.decisions,
+          familyLabels: labelEdits.map(([familyId, label]) => ({
+            familyId,
+            label: label.trim() || null,
+          })),
+        },
+      })
+      if (result.error) {
+        throw result.error
       }
-      for (const { mapId, versionLabel } of plan.labels) {
-        await runMutation(updateMember({ mapId, versionLabel }))
-      }
-      for (const { mapA, mapB, decision } of plan.decisions) {
-        await runMutation(decide({ mapA, mapB, decision }))
-      }
-      for (const [familyId, label] of labelEdits) {
-        await runMutation(setFamilyLabel({ familyId, label: label.trim() || null }))
-      }
+      historyEntryId = result.data?.mapFamilyApply.historyEntryId
     } catch (err) {
-      showError("Couldn't apply every change", err)
+      showError("Couldn't save", err)
       setApplying(false)
-      setEdits(new Map())
-      refetch()
       return
     }
 
+    setEdits(new Map())
+    setFamilyLabels(new Map())
+    setEditingTitle(false)
+    snackbarController.showSnackbar(`Saved ${title}`, DURATION_LONG, {
+      action: historyEntryId
+        ? {
+            label: 'Undo',
+            onClick: () => {
+              undoSave(historyEntryId!, draftKey).catch(err => showError("Couldn't undo", err))
+            },
+          }
+        : undefined,
+    })
     try {
-      const result = await client
-        .query(
-          MapFamilyGroupQuery,
-          { mapIds: [...mapIds], isStaff },
-          { requestPolicy: 'network-only' },
-        )
-        .toPromise()
-      const stillOpen = result.data?.mapFamilyGroup.suggestions.length ?? 0
-      setEdits(new Map())
-      setFamilyLabels(new Map())
-      if (stillOpen > 0) {
-        snackbarController.showSnackbar(
-          `Applied. ${stillOpen} ${stillOpen === 1 ? 'pair is' : 'pairs are'} still open.`,
-        )
+      if (unanswered.size > 0) {
+        refetch()
       } else {
         await goToNext(false)
       }
@@ -1246,151 +1538,115 @@ function FamilyEditor({
       .catch(err => showError(action, err))
   }
 
-  const rows = orderRows(files, placements)
-  const title =
-    group.families.find(f => f.label)?.label ?? (rows.length ? nameOf(rows[0].id) : 'Map family')
+  const onSkip = () => {
+    goToNext(true).catch(err => showError("Couldn't load the next group", err))
+  }
+  let primaryLabel = 'Next'
+  if (dirty) {
+    primaryLabel = unanswered.size ? 'Save' : 'Save & next'
+  }
+  const onPrimary = () => {
+    if (dirty) {
+      onSave().catch(err => showError("Couldn't save", err))
+    } else {
+      goToNext(true).catch(err => showError("Couldn't load the next group", err))
+    }
+  }
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (applying || isTypingTarget(event.target) || event.altKey || event.metaKey) {
+      return
+    }
+    if (event.ctrlKey && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      onUndoLast().catch(err => showError("Couldn't undo", err))
+    } else if (event.ctrlKey || event.shiftKey) {
+      return
+    } else if (event.key.toLowerCase() === 's') {
+      event.preventDefault()
+      onSkip()
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      onPrimary()
+    }
+  })
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKeyDown(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
+
+  // What players will see once this is saved
+  const treeFiles = files.filter(f => placements.get(f.id)?.kind === 'tree')
+  const previewMembers: PreviewMember[] = treeFiles.map(f => {
+    const placement = placements.get(f.id) as Extract<FamilyPlacement, { kind: 'tree' }>
+    const member = members.get(f.id)
+    return {
+      mapId: f.id,
+      parentId: placement.parentId,
+      relation: placement.relation,
+      versionLabel: placement.versionLabel.trim() || undefined,
+      pinnedCurrent: !!member?.pinnedCurrent,
+      listed: fileData.get(f.id)!.listed,
+      firstSeenAt: f.firstSeenAt,
+    }
+  })
+  const previewPlaces = previewFamily(previewMembers)
+  const trees = new Map<SbMapId, PreviewMember[]>()
+  for (const m of previewMembers) {
+    let top = m
+    for (let steps = 0; top.parentId && steps <= previewMembers.length; steps++) {
+      top = previewMembers.find(p => p.mapId === top.parentId) ?? top
+    }
+    trees.set(top.mapId, [...(trees.get(top.mapId) ?? []), m])
+  }
+  const families = Array.from(trees.values()).filter(t => t.length >= 2)
+  const alone = files.filter(f => {
+    const placement = placements.get(f.id)!
+    return placement.kind !== 'tree' || trees.get(f.id)?.length === 1
+  })
+  const catalogTiles = previewMembers
+    .filter(m => previewPlaces.get(m.mapId)?.isCurrent && m.listed)
+    .map(m => m.mapId)
+    .concat(alone.map(f => f.id).filter(id => fileData.get(id)!.listed))
+
+  const parentPicks = (id: SbMapId) => parentOptions(placements, id)
 
   return (
     <>
-      <EditorTitle>{title}</EditorTitle>
-      <MutedText>
-        {files.length} {files.length === 1 ? 'file' : 'files'} · {group.games} games
-      </MutedText>
-      {isStaff && group.families.length ? (
-        <FamilyLabels>
-          {group.families.map(family => {
-            const top = family.members.find(m => !m.parentId)
-            return (
-              <TextField
-                key={family.familyId}
-                label={
-                  group.families.length > 1 && top
-                    ? `Label (family of ${top.map.name})`
-                    : 'Family label'
-                }
-                dense={true}
-                allowErrors={false}
-                value={familyLabels.get(family.familyId) ?? family.label ?? ''}
-                onChange={e =>
-                  setFamilyLabels(new Map(familyLabels).set(family.familyId, e.target.value))
-                }
-              />
-            )
-          })}
-        </FamilyLabels>
-      ) : null}
-
-      <SectionTitle>Files</SectionTitle>
-      <Rows>
-        {rows.map(row => (
-          <FamilyFileRow
-            key={row.id}
-            depth={row.depth}
-            file={files.find(f => f.id === row.id)!}
-            data={fileData.get(row.id)!.ref}
-            member={members.get(row.id)}
-            placement={placements.get(row.id)!}
-            parentOptions={parentOptions(placements, row.id)}
-            nameOf={nameOf}
-            actionsDisabled={edited || applying}
-            onChange={placement => setPlacement(row.id, placement)}
-            onPin={pinned =>
-              onImmediate(
-                "Couldn't change the current version",
-                updateMember({ mapId: row.id, pinnedCurrent: pinned }),
-              )
-            }
-            onRemove={() => onImmediate("Couldn't remove the map", removeMember({ mapId: row.id }))}
-          />
-        ))}
-      </Rows>
-
-      {group.suggestions.length ? (
-        <>
-          <SectionTitle>Open pairs ({group.suggestions.length})</SectionTitle>
-          <Rows>
-            {group.suggestions.map(s => {
-              const older = s.olderMapId ?? s.mapA.id
-              const newer = older === s.mapA.id ? s.mapB.id : s.mapA.id
-              const facts = [
-                s.proposedRelation ? PROPOSED_RELATION_LABELS[s.proposedRelation] : 'no proposal',
-                s.rule ? ruleLabel(s.rule) : undefined,
-                s.terrainSimilarity !== null && s.terrainSimilarity !== undefined
-                  ? `${Math.round(s.terrainSimilarity * 100)}% terrain`
-                  : undefined,
-                s.nameMatch ? 'same name' : undefined,
-              ].filter(Boolean)
-              return (
-                <PairRow key={s.id}>
-                  <PairText>
-                    {nameOf(older)} → {nameOf(newer)} <MutedText>· {facts.join(' · ')}</MutedText>
-                  </PairText>
-                  <Tooltip text='Compare' position='bottom' tabIndex={-1}>
-                    <LinkButton href={urlForMapCompare(older, newer)}>
-                      <IconButton
-                        styledAs='div'
-                        icon={<MaterialIcon icon='compare' />}
-                        ariaLabel='Compare'
-                      />
-                    </LinkButton>
-                  </Tooltip>
-                  <OverflowMenu
-                    label='Pair actions'
-                    disabled={applying}
-                    items={[
-                      [
-                        'Not related',
-                        () =>
-                          onImmediate(
-                            "Couldn't close the pair",
-                            decide({
-                              mapA: s.mapA.id,
-                              mapB: s.mapB.id,
-                              decision: MapLinkSuggestionDecision.Rejected,
-                            }),
-                          ),
-                      ],
-                      [
-                        'Terrain only',
-                        () =>
-                          onImmediate(
-                            "Couldn't close the pair",
-                            decide({
-                              mapA: s.mapA.id,
-                              mapB: s.mapB.id,
-                              decision: MapLinkSuggestionDecision.TerrainOnly,
-                            }),
-                          ),
-                      ],
-                    ]}
+      <StickyHeader>
+        <TextButton label='Queue' iconStart='arrow_back' onClick={() => push(BASE_URL)} />
+        <EditorTitle>
+          {editingTitle && firstFamily ? (
+            <TitleField
+              label='Family label (staff only)'
+              dense={true}
+              allowErrors={false}
+              inputProps={{ autoFocus: true }}
+              value={familyLabels.get(firstFamily.familyId) ?? firstFamily.label ?? ''}
+              onChange={e =>
+                setFamilyLabels(new Map(familyLabels).set(firstFamily.familyId, e.target.value))
+              }
+              onBlur={() => setEditingTitle(false)}
+            />
+          ) : (
+            <>
+              <span title={title}>{title}</span>
+              {isStaff && firstFamily ? (
+                <Tooltip text='Edit label' position='bottom' tabIndex={-1}>
+                  <IconButton
+                    icon={<MaterialIcon icon='edit' size={20} />}
+                    ariaLabel='Edit label'
+                    onClick={() => setEditingTitle(true)}
                   />
-                </PairRow>
-              )
-            })}
-          </Rows>
-        </>
-      ) : null}
-
-      <SectionTitle>Add a file</SectionTitle>
-      <AddFile present={new Set(files.map(f => f.id))} onAdd={onAddFile} />
-
-      {isStaff ? (
-        <>
-          <SectionTitle>History</SectionTitle>
-          <HistoryList
-            mapIds={files.map(f => f.id)}
-            familyIds={group.families.map(f => f.familyId)}
-            actorId={undefined}
-            pageSize={EDITOR_HISTORY_PAGE_SIZE}
-            onActor={undefined}
-          />
-        </>
-      ) : null}
-
-      <Footer>
+                </Tooltip>
+              ) : null}
+            </>
+          )}
+        </EditorTitle>
+        {counts ? <LeftCount>{counts.mapFamilyProposalCount} left</LeftCount> : null}
         {edited ? (
-          <ResetButton
-            label='Reset to proposal'
+          <TextButton
+            label='Reset'
             disabled={applying}
             onClick={() => {
               setEdits(new Map())
@@ -1398,65 +1654,295 @@ function FamilyEditor({
             }}
           />
         ) : null}
-        {dirty ? (
-          <>
-            <TextButton
-              label='Skip'
-              disabled={applying}
-              onClick={() => {
-                goToNext(true).catch(err => showError("Couldn't load the next group", err))
-              }}
-            />
-            <FilledButton
-              label='Apply and next'
-              disabled={applying}
-              onClick={() => {
-                onApply().catch(err => showError("Couldn't apply every change", err))
-              }}
-            />
-          </>
-        ) : (
-          <FilledButton
-            label='Next'
+        <Tooltip text='Skip (S)' position='bottom' tabIndex={-1}>
+          <TextButton label='Skip' disabled={applying} onClick={onSkip} />
+        </Tooltip>
+        <Tooltip text='Undo your last save (Ctrl+Z)' position='bottom' tabIndex={-1}>
+          <OutlinedButton
+            label='Undo last'
+            iconStart='undo'
+            disabled={applying}
             onClick={() => {
-              goToNext(true).catch(err => showError("Couldn't load the next group", err))
+              onUndoLast().catch(err => showError("Couldn't undo", err))
             }}
           />
-        )}
-      </Footer>
+        </Tooltip>
+        <Tooltip text='Enter' position='bottom' tabIndex={-1}>
+          <FilledButton label={primaryLabel} disabled={applying} onClick={onPrimary} />
+        </Tooltip>
+        {unanswered.size ? (
+          <UnansweredText>
+            {unanswered.size} {unanswered.size === 1 ? 'file still needs' : 'files still need'} an
+            answer
+          </UnansweredText>
+        ) : null}
+      </StickyHeader>
+
+      <Columns>
+        <Questions>
+          <QuestionIntro>
+            Is each file a version, a copy, or a different map?
+            {showHowToDecide ? null : (
+              <TextButton label='How to decide' onClick={() => setShowHowToDecide(true)} />
+            )}
+          </QuestionIntro>
+          {showHowToDecide ? (
+            <HowToDecide>
+              <HowToDecideHeader>
+                How to decide
+                <IconButton
+                  icon={<MaterialIcon icon='close' size={20} />}
+                  ariaLabel='Close'
+                  onClick={() => {
+                    setShowHowToDecide(false)
+                    setHowToDecideSeen(true)
+                  }}
+                />
+              </HowToDecideHeader>
+              <p>
+                <strong>Version:</strong> the same map, released again with a newer number (Fighting
+                Spirit 1.1 → 1.3).
+              </p>
+              <p>
+                <strong>Copy:</strong> the same version with small changes: an observer or
+                tournament edit, a re-save, a translation (Fighting Spirit 1.3 obs).
+              </p>
+              <p>
+                <strong>Based on:</strong> a different map made from it, usually by someone else
+                (Neo Fighting Spirit).
+              </p>
+              <p>
+                <strong>Not related:</strong> not the same map, including a UMS map built on its
+                terrain.
+              </p>
+            </HowToDecide>
+          ) : null}
+
+          {rows.map(row => {
+            const file = files.find(f => f.id === row.id)!
+            return (
+              <FamilyFileCard
+                key={row.id}
+                file={file}
+                data={fileData.get(row.id)!.ref}
+                member={members.get(row.id)}
+                placement={placements.get(row.id)!}
+                isLatest={!!previewPlaces.get(row.id)?.isCurrent}
+                unanswered={unanswered.has(row.id)}
+                suggestion={group.suggestions.find(s => {
+                  const initialParent =
+                    file.initial.kind === 'tree' ? file.initial.parentId : undefined
+                  return (
+                    !file.inFamily &&
+                    initialParent &&
+                    ((s.mapA.id === file.id && s.mapB.id === initialParent) ||
+                      (s.mapB.id === file.id && s.mapA.id === initialParent))
+                  )
+                })}
+                parentOptions={parentPicks(row.id)}
+                nameOf={nameOf}
+                isStaff={isStaff}
+                actionsDisabled={edited || applying}
+                onChange={placement => setEdits(placeFile(placements, row.id, placement))}
+                onPin={pinned =>
+                  onImmediate(
+                    "Couldn't change the latest version",
+                    updateMember({ mapId: row.id, pinnedCurrent: pinned }),
+                  )
+                }
+                onRemove={() =>
+                  onImmediate("Couldn't remove the map", removeMember({ mapId: row.id }))
+                }
+              />
+            )
+          })}
+
+          <MoreButton
+            label={showMore ? 'Less' : 'More: add a file, open pairs, history'}
+            iconEnd={<MaterialIcon icon={showMore ? 'expand_less' : 'expand_more'} />}
+            onClick={() => setShowMore(!showMore)}
+          />
+          {showMore ? (
+            <div>
+              <SectionTitle>Add a file</SectionTitle>
+              <AddFile present={new Set(files.map(f => f.id))} onAdd={onAddFile} />
+
+              {isStaff && group.families.length > 1 ? (
+                <>
+                  <SectionTitle>Family labels</SectionTitle>
+                  <FamilyLabels>
+                    {group.families.map(family => {
+                      const top = family.members.find(m => !m.parentId)
+                      return (
+                        <TextField
+                          key={family.familyId}
+                          label={top ? `Label (family of ${top.map.name})` : 'Family label'}
+                          dense={true}
+                          allowErrors={false}
+                          value={familyLabels.get(family.familyId) ?? family.label ?? ''}
+                          onChange={e =>
+                            setFamilyLabels(
+                              new Map(familyLabels).set(family.familyId, e.target.value),
+                            )
+                          }
+                        />
+                      )
+                    })}
+                  </FamilyLabels>
+                </>
+              ) : null}
+
+              {isStaff && group.suggestions.length ? (
+                <>
+                  <SectionTitle>Open pairs ({group.suggestions.length})</SectionTitle>
+                  <Rows>
+                    {group.suggestions.map(s => {
+                      const older = s.olderMapId ?? s.mapA.id
+                      const newer = older === s.mapA.id ? s.mapB.id : s.mapA.id
+                      const facts = [
+                        s.proposedRelation
+                          ? PROPOSED_RELATION_LABELS[s.proposedRelation]
+                          : 'no proposal',
+                        s.rule ? ruleLabel(s.rule) : undefined,
+                        s.terrainSimilarity !== null && s.terrainSimilarity !== undefined
+                          ? `${Math.round(s.terrainSimilarity * 100)}% terrain`
+                          : undefined,
+                        s.nameMatch ? 'same name' : undefined,
+                      ].filter(Boolean)
+                      return (
+                        <PairRow key={s.id}>
+                          <PairText>
+                            {nameOf(older)} → {nameOf(newer)}{' '}
+                            <MutedText>· {facts.join(' · ')}</MutedText>
+                          </PairText>
+                          <Tooltip text='Compare' position='bottom' tabIndex={-1}>
+                            <LinkButton href={urlForMapCompare(older, newer)}>
+                              <IconButton
+                                styledAs='div'
+                                icon={<MaterialIcon icon='compare' />}
+                                ariaLabel='Compare'
+                              />
+                            </LinkButton>
+                          </Tooltip>
+                          <OverflowMenu
+                            label='Pair actions'
+                            disabled={applying}
+                            items={[
+                              [
+                                'Not related',
+                                () =>
+                                  onImmediate(
+                                    "Couldn't close the pair",
+                                    decide({
+                                      mapA: s.mapA.id,
+                                      mapB: s.mapB.id,
+                                      decision: MapLinkSuggestionDecision.Rejected,
+                                    }),
+                                  ),
+                              ],
+                              [
+                                'UMS map on the same terrain',
+                                () =>
+                                  onImmediate(
+                                    "Couldn't close the pair",
+                                    decide({
+                                      mapA: s.mapA.id,
+                                      mapB: s.mapB.id,
+                                      decision: MapLinkSuggestionDecision.TerrainOnly,
+                                    }),
+                                  ),
+                              ],
+                            ]}
+                          />
+                        </PairRow>
+                      )
+                    })}
+                  </Rows>
+                </>
+              ) : null}
+
+              {isStaff ? (
+                <>
+                  <SectionTitle>History</SectionTitle>
+                  <HistoryList
+                    mapIds={files.map(f => f.id)}
+                    familyIds={group.families.map(f => f.familyId)}
+                    actorId={undefined}
+                    pageSize={EDITOR_HISTORY_PAGE_SIZE}
+                    onActor={undefined}
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </Questions>
+
+        <PreviewPane>
+          <PreviewLabel>Players will see</PreviewLabel>
+          {families.length ? (
+            families.map(tree => (
+              <PreviewCard key={tree[0].mapId}>
+                <FamilyVersionsList
+                  linkMaps={false}
+                  members={tree.map(m => {
+                    const place = previewPlaces.get(m.mapId)!
+                    return {
+                      mapId: m.mapId,
+                      parentId: m.parentId,
+                      relation: m.relation,
+                      versionLabel: m.versionLabel,
+                      isCurrent: place.isCurrent,
+                      status: place.status,
+                      name: nameOf(m.mapId),
+                      games: fileData.get(m.mapId)!.games,
+                      firstSeenAt: new Date(m.firstSeenAt).toISOString(),
+                    }
+                  })}
+                />
+              </PreviewCard>
+            ))
+          ) : (
+            <PreviewNote>No versions: every file stands on its own.</PreviewNote>
+          )}
+          <PreviewNote>
+            Catalog: {catalogTiles.length} {catalogTiles.length === 1 ? 'tile' : 'tiles'}
+            {catalogTiles.length ? ` (${catalogTiles.map(nameOf).join(', ')})` : ''}
+          </PreviewNote>
+          {alone.length ? (
+            <PreviewNote>On their own: {alone.map(f => nameOf(f.id)).join(', ')}</PreviewNote>
+          ) : null}
+        </PreviewPane>
+      </Columns>
     </>
   )
 }
 
-/** Values of the relation select: a family relation, or a way to leave the file out. */
-type RelationChoice = MapFamilyRelation | 'rejected' | 'terrainOnly'
-
-const CHOICE_LABELS: Record<RelationChoice, string> = {
-  ...RELATION_LABELS,
-  rejected: 'Not related',
-  terrainOnly: 'Terrain only',
-}
-
-function FamilyFileRow({
-  depth,
+function FamilyFileCard({
   file,
   data: dataRef,
   member,
   placement,
+  isLatest,
+  unanswered,
+  suggestion,
   parentOptions,
   nameOf,
+  isStaff,
   actionsDisabled,
   onChange,
   onPin,
   onRemove,
 }: {
-  depth: number
   file: FamilyEditorFile
   data: FragmentType<typeof AdminMapFamilies_FileFragment>
   member: MemberInfo | undefined
   placement: FamilyPlacement
+  isLatest: boolean
+  unanswered: boolean
+  suggestion: GroupData['suggestions'][number] | undefined
   parentOptions: SbMapId[]
   nameOf: (id: SbMapId) => string
+  isStaff: boolean
   actionsDisabled: boolean
   onChange: (placement: FamilyPlacement) => void
   onPin: (pinned: boolean) => void
@@ -1467,24 +1953,28 @@ function FamilyFileRow({
   const data = useFragment(AdminMapFamilies_FileFragment, dataRef)
 
   const isInitialTop = file.initial.kind === 'tree' && !file.initial.parentId
-  const relationChoices: RelationChoice[] = [
-    ...(!file.inFamily || isInitialTop ? [MapFamilyRelation.Root] : []),
-    MapFamilyRelation.Version,
-    MapFamilyRelation.Variant,
-    MapFamilyRelation.Translation,
-    MapFamilyRelation.Fork,
-    ...(!file.inFamily ? (['rejected', 'terrainOnly'] as const) : []),
-  ]
-  let choice: RelationChoice
-  if (placement.kind === 'tree') {
-    choice = placement.relation
-  } else {
-    choice =
-      placement.decision === MapLinkSuggestionDecision.TerrainOnly ? 'terrainOnly' : 'rejected'
-  }
+  const canBeFirst = !file.inFamily || isInitialTop
+  const answer = answerOf(placement)
   const versionLabel = placement.kind === 'tree' ? placement.versionLabel : ''
+  const parentId = placement.kind === 'tree' ? placement.parentId : undefined
 
-  const onRelation = (value: RelationChoice) => {
+  const relationFor = (value: 'version' | 'copy' | 'fork', parent: SbMapId) => {
+    switch (value) {
+      case 'version':
+        return MapFamilyRelation.Version
+      case 'copy':
+        // A copy staff already marked as a translation stays one
+        return placement.kind === 'tree' && placement.relation === MapFamilyRelation.Translation
+          ? MapFamilyRelation.Translation
+          : copyRelation(data.name, nameOf(parent))
+      case 'fork':
+        return MapFamilyRelation.Fork
+      default:
+        return assertUnreachable(value)
+    }
+  }
+
+  const onAnswer = (value: FileAnswer) => {
     if (value === 'rejected' || value === 'terrainOnly') {
       onChange({
         kind: 'decided',
@@ -1493,78 +1983,124 @@ function FamilyFileRow({
             ? MapLinkSuggestionDecision.Rejected
             : MapLinkSuggestionDecision.TerrainOnly,
       })
-    } else if (value === MapFamilyRelation.Root) {
-      onChange({ kind: 'tree', parentId: undefined, relation: value, versionLabel })
+    } else if (value === 'first') {
+      onChange({
+        kind: 'tree',
+        parentId: undefined,
+        relation: MapFamilyRelation.Root,
+        versionLabel,
+      })
     } else {
-      const currentParent = placement.kind === 'tree' ? placement.parentId : undefined
-      const parentId = currentParent ?? parentOptions[0]
-      if (!parentId) {
+      const parent = parentId ?? parentOptions[0]
+      if (!parent) {
         return
       }
-      onChange({ kind: 'tree', parentId, relation: value, versionLabel })
+      onChange({
+        kind: 'tree',
+        parentId: parent,
+        relation: relationFor(value, parent),
+        versionLabel,
+      })
     }
   }
-
   const games = data.stats?.gamesTotal ?? 0
   const makers = data.file.analysis?.makers ?? []
   const credited = data.file.analysis?.credited ?? []
   const meta = [
     `${games} ${games === 1 ? 'game' : 'games'}`,
-    `first seen ${format.format(new Date(data.firstSeenAt))}`,
-    `${data.file.width}×${data.file.height} ${tilesetToName(data.file.tileset as Tileset, t)}`,
-    makers.length ? `makers: ${makers.join(', ')}` : undefined,
-    credited.length ? `credits: ${credited.join(', ')}` : undefined,
+    makers.length ? `by ${makers.join(', ')}` : undefined,
   ].filter(Boolean)
+  const details = [
+    `${data.file.width}×${data.file.height} ${tilesetToName(data.file.tileset as Tileset, t)}`,
+    `First seen ${format.format(new Date(data.firstSeenAt))}`,
+    credited.length ? `Credits: ${credited.join(', ')}` : undefined,
+    member ? SOURCE_LABELS[member.source] : 'Not in a family yet',
+  ].filter(Boolean)
+
+  let suggestedText: string | undefined
+  if (suggestion && file.initial.kind === 'tree' && file.initial.parentId) {
+    const initialAnswer = answerOf(file.initial)
+    const phrase =
+      initialAnswer === 'version' || initialAnswer === 'copy' || initialAnswer === 'fork'
+        ? ANSWER_PHRASES[initialAnswer]
+        : undefined
+    const reason = suggestion.rule ? RULE_REASONS.get(suggestion.rule) : undefined
+    if (phrase) {
+      suggestedText =
+        `Suggested: ${phrase} ${nameOf(file.initial.parentId)}` + (reason ? `, ${reason}.` : '.')
+    }
+  }
 
   const menuItems: Array<[string, () => void]> = []
   if (member) {
     if (member.listed && !member.pinnedCurrent) {
-      menuItems.push(['Pin as current', () => onPin(true)])
+      menuItems.push(['Pin as Latest', () => onPin(true)])
     } else if (member.pinnedCurrent) {
-      menuItems.push(['Unpin as current', () => onPin(false)])
+      menuItems.push(['Unpin as Latest', () => onPin(false)])
     }
     menuItems.push(['Remove from family', onRemove])
   }
 
   return (
-    <Row $depth={depth}>
+    <FileCard $latest={isLatest} $unanswered={unanswered}>
       <Thumb>
         <MapFileImage file={data.file} name={data.name} size={64} />
       </Thumb>
-      <RowBody>
-        <RowTitle>
-          <RowName href={urlForMap(data.id, data.name)}>{data.name}</RowName>
-          {member?.isCurrent ? <RoomChip>Current</RoomChip> : null}
+      <FileBody>
+        <FileTitle>
+          <FileName href={urlForMap(data.id, data.name)}>{data.name}</FileName>
+          {isLatest ? <LatestChip>Latest</LatestChip> : null}
           {!data.listed ? <RoomChip>Unlisted</RoomChip> : null}
           {data.official ? <RoomChip>Official</RoomChip> : null}
-        </RowTitle>
-        <RowMeta>
-          {member ? SOURCE_LABELS[member.source] : 'Not in a family'} · {meta.join(' · ')}
-        </RowMeta>
-        <RowControls>
-          <RelationSelect
-            value={choice}
-            dense={true}
-            allowErrors={false}
-            ariaLabel='Relation'
-            onChange={onRelation}>
-            {relationChoices.map(c => (
-              <SelectOption key={c} value={c} text={CHOICE_LABELS[c]} />
-            ))}
-          </RelationSelect>
-          {placement.kind === 'tree' && placement.parentId ? (
-            <ParentSelect
-              value={placement.parentId}
-              dense={true}
-              allowErrors={false}
-              ariaLabel='Parent'
-              onChange={(parentId: SbMapId) => onChange({ ...placement, parentId })}>
-              {parentOptions.map(id => (
-                <SelectOption key={id} value={id} text={`of ${nameOf(id)}`} />
-              ))}
-            </ParentSelect>
+          <Tooltip text={details.join(' · ')} position='bottom'>
+            <DetailsIcon />
+          </Tooltip>
+        </FileTitle>
+        <FileMeta>{meta.join(' · ')}</FileMeta>
+        <RadioGroup
+          value={answer}
+          dense={true}
+          onChange={e => onAnswer(e.target.value as FileAnswer)}>
+          {canBeFirst ? <RadioButton label='The first version' value='first' /> : null}
+          <RadioButton
+            label='A newer version of…'
+            value='version'
+            disabled={!parentOptions.length}
+          />
+          <RadioButton label='A copy of…' value='copy' disabled={!parentOptions.length} />
+          <RadioButton
+            label='A different map based on…'
+            value='fork'
+            disabled={!parentOptions.length}
+          />
+          {!file.inFamily ? <RadioButton label='Not related' value='rejected' /> : null}
+          {!file.inFamily && isStaff ? (
+            <RadioButton label='Not related: a UMS map on the same terrain' value='terrainOnly' />
           ) : null}
-          {placement.kind === 'tree' ? (
+        </RadioGroup>
+        {placement.kind === 'tree' ? (
+          <AnswerControls>
+            {parentId ? (
+              <ParentSelect
+                value={parentId}
+                dense={true}
+                allowErrors={false}
+                ariaLabel='Of which file'
+                onChange={(parent: SbMapId) =>
+                  onChange({
+                    ...placement,
+                    parentId: parent,
+                    relation:
+                      answer === 'version' || answer === 'copy' || answer === 'fork'
+                        ? relationFor(answer, parent)
+                        : placement.relation,
+                  })
+                }>
+                {parentOptions.map(id => (
+                  <SelectOption key={id} value={id} text={nameOf(id)} />
+                ))}
+              </ParentSelect>
+            ) : null}
             <LabelField
               label='Version'
               dense={true}
@@ -1572,17 +2108,18 @@ function FamilyFileRow({
               value={placement.versionLabel}
               onChange={e => onChange({ ...placement, versionLabel: e.target.value })}
             />
-          ) : null}
-        </RowControls>
-      </RowBody>
-      <RowActions>
-        {placement.kind === 'tree' && placement.parentId ? (
-          <Tooltip text='Compare with parent' position='bottom' tabIndex={-1}>
-            <LinkButton href={urlForMapCompare(placement.parentId, file.id)}>
+          </AnswerControls>
+        ) : null}
+        {suggestedText ? <SuggestedText>{suggestedText}</SuggestedText> : null}
+      </FileBody>
+      <FileActions>
+        {parentId ? (
+          <Tooltip text='Compare with the file it’s placed under' position='bottom' tabIndex={-1}>
+            <LinkButton href={urlForMapCompare(parentId, file.id)}>
               <IconButton
                 styledAs='div'
                 icon={<MaterialIcon icon='compare' />}
-                ariaLabel='Compare with parent'
+                ariaLabel='Compare with the file it’s placed under'
               />
             </LinkButton>
           </Tooltip>
@@ -1590,8 +2127,8 @@ function FamilyFileRow({
         {menuItems.length ? (
           <OverflowMenu label='File actions' items={menuItems} disabled={actionsDisabled} />
         ) : null}
-      </RowActions>
-    </Row>
+      </FileActions>
+    </FileCard>
   )
 }
 
@@ -1699,7 +2236,7 @@ const HistorySummary = styled.div`
   overflow-wrap: anywhere;
 `
 
-const HistoryDetails = styled(RowMeta)`
+const HistoryDetails = styled(FileMeta)`
   margin: 4px 0 4px 132px;
   display: flex;
   flex-direction: column;
@@ -1842,6 +2379,15 @@ function MapLink({ map }: { map: HistoryMapRef | null | undefined }) {
   return map ? <Link href={editorUrl(map.id)}>{map.name}</Link> : <MutedText>a map</MutedText>
 }
 
+/** How a history entry says what a file was placed as. */
+const HISTORY_RELATION_PHRASES: Record<MapFamilyRelation, string> = {
+  [MapFamilyRelation.Root]: '',
+  [MapFamilyRelation.Version]: ' as a newer version',
+  [MapFamilyRelation.Variant]: ' as a copy',
+  [MapFamilyRelation.Translation]: ' as a translation',
+  [MapFamilyRelation.Fork]: ' as a map based on it',
+}
+
 function describeMemberState(state: HistoryMemberState | null): string {
   if (!state) {
     return 'not in a family'
@@ -1941,7 +2487,7 @@ function HistorySummaryText({ entry }: { entry: HistoryEntry }) {
       return (
         <>
           placed <MapLink map={map} /> under <MapLink map={otherMap} />
-          {after ? ` as ${RELATION_LABELS[after.relation].toLowerCase()}` : ''}
+          {after ? HISTORY_RELATION_PHRASES[after.relation] : ''}
           <MutedText>{counts('accepted', accepted)}</MutedText>
         </>
       )
@@ -2015,6 +2561,19 @@ function HistorySummaryText({ entry }: { entry: HistoryEntry }) {
         </>
       )
     }
+    case MapFamilyHistoryKind.Undo:
+      return (
+        <>
+          undid a save
+          {map ? (
+            <>
+              {' '}
+              about <MapLink map={map} />
+            </>
+          ) : null}
+          <MutedText>{counts('changed', entry.memberChanges.length)}</MutedText>
+        </>
+      )
     default:
       return <MutedText>Unknown change</MutedText>
   }

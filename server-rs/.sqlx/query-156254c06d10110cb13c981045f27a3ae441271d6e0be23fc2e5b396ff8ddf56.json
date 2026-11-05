@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_families (id, label)\n            SELECT f.id, (\n                SELECT h.details -> 'label' ->> 'after'\n                FROM map_family_history h\n                WHERE h.family_id = f.id AND h.details ? 'label'\n                ORDER BY h.created_at DESC, h.id DESC\n                LIMIT 1\n            )\n            FROM unnest($1::uuid[]) AS f(id)\n            ON CONFLICT (id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "156254c06d10110cb13c981045f27a3ae441271d6e0be23fc2e5b396ff8ddf56"
+}

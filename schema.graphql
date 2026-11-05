@@ -698,10 +698,42 @@ type MapFamily {
 }
 
 """
+Family changes to save together, in this order.
+"""
+input MapFamilyApplyInput {
+	"""
+	Placed in order, as `mapFamilyLink` places them.
+	"""
+	links: [MapFamilyLinkInput!]! = []
+	versionLabels: [MapFamilyVersionLabelInput!]! = []
+	decisions: [MapLinkSuggestionDecisionInput!]! = []
+	"""
+	Only users who can manage maps can set family labels.
+	"""
+	familyLabels: [MapFamilyLabelInput!]! = []
+}
+
+"""
+The outcome of a batch of family changes.
+"""
+type MapFamilyApplyResult {
+	"""
+	The first history entry the batch recorded, which `mapFamilyUndo` takes to revert the
+	whole batch. Null when nothing changed.
+	"""
+	historyEntryId: UUID
+	id: String!
+}
+
+"""
 A change a person made to families, suggestions or family reports.
 """
 type MapFamilyHistory {
 	id: String!
+	"""
+	The entry's own id, which `mapFamilyUndo` takes.
+	"""
+	entryId: UUID!
 	kind: MapFamilyHistoryKind!
 	actor: SbUser
 	"""
@@ -734,6 +766,10 @@ type MapFamilyHistory {
 	reportId: UUID
 	reportStatusBefore: MapFamilyReportStatus
 	reportStatusAfter: MapFamilyReportStatus
+	"""
+	For an undo, the entry whose batch it reverted.
+	"""
+	undoneEntryId: UUID
 	createdAt: DateTime!
 }
 
@@ -765,6 +801,22 @@ enum MapFamilyHistoryKind {
 	A family report was resolved, dismissed or reopened.
 	"""
 	REPORT_STATUS
+	"""
+	A batch of changes was reverted. Its member, suggestion and label changes are the
+	reversal, so an undo can itself be undone.
+	"""
+	UNDO
+}
+
+"""
+A family's new staff-only working label.
+"""
+input MapFamilyLabelInput {
+	familyId: UUID!
+	"""
+	Null clears it.
+	"""
+	label: String
 }
 
 """
@@ -1020,6 +1072,17 @@ type MapFamilySuggestionChange {
 	mapB: SbMapId!
 	before: MapLinkSuggestionStatus!
 	after: MapLinkSuggestionStatus!
+}
+
+"""
+A member's new version label.
+"""
+input MapFamilyVersionLabelInput {
+	mapId: SbMapId!
+	"""
+	Null clears it.
+	"""
+	versionLabel: String
 }
 
 type MapFile {
@@ -1283,6 +1346,15 @@ enum MapLinkSuggestionDecision {
 	A UMS map built on the other map's terrain: related, but never in its family.
 	"""
 	TERRAIN_ONLY
+}
+
+"""
+A decision on a suggestion, as `mapLinkSuggestionDecide` takes it.
+"""
+input MapLinkSuggestionDecisionInput {
+	mapA: SbMapId!
+	mapB: SbMapId!
+	decision: MapLinkSuggestionDecision!
 }
 
 """
@@ -1767,6 +1839,23 @@ type Mutation {
 	"""
 	mapFamilyLink(links: [MapFamilyLinkInput!]!): [SbMap!]!
 	"""
+	Saves a set of family changes in one transaction, so they're all saved or none are, and are
+	undone together: links (as `mapFamilyLink`, in order), then version labels, then suggestion
+	decisions (as `mapLinkSuggestionDecide`), then family labels. Only available to users who
+	can manage maps or review map families; reviewers can only change listed maps, and only
+	users who can manage maps can set family labels.
+	"""
+	mapFamilyApply(input: MapFamilyApplyInput!): MapFamilyApplyResult!
+	"""
+	Reverts the batch of changes holding a history entry (e.g. everything one
+	`mapFamilyApply` saved): each member, suggestion and family label it changed goes back to
+	how it was before, unless something changed it since (a `CONFLICT` error). Changes to
+	family reports can't be undone. Users who can review map families can undo their own
+	changes to listed maps; users who can manage maps can undo anyone's. Returns the undo's
+	own first history entry, so the undo can be undone too.
+	"""
+	mapFamilyUndo(historyEntryId: UUID!): MapFamilyApplyResult!
+	"""
 	Takes a map out of its family. When it starts a line, its oldest version takes its place.
 	Only available to users who can manage maps or review map families; reviewers can only
 	remove listed maps.
@@ -2059,7 +2148,8 @@ type Query {
 	"""
 	Changes people made to families, suggestions and family reports, newest first. Filtered to
 	changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
-	made. Only available to users who can manage maps.
+	made. Available to users who can manage maps, and to reviewers for their own changes (with
+	`actorId` set to themselves).
 	"""
 	mapFamilyHistory(mapIds: [SbMapId!], familyIds: [UUID!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!

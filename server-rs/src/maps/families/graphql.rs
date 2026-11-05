@@ -26,14 +26,17 @@ use crate::maps::families::edit::{
 use crate::maps::families::history::{self, MapFamilyHistory};
 use crate::maps::families::proposals::{self, MapFamilyProposal};
 use crate::maps::families::rules::{Older, ProposedRelation};
+use crate::maps::families::undo;
 use crate::maps::families::{MapFamilyRelation, MapLinkSource, REVIEW_RULE};
 use crate::maps::search::MapSearchRepo;
 use crate::maps::{SbMapId, compare};
 use crate::users::permissions::RequiredPermission;
 use crate::users::{SbUser, SbUserId, UsersLoader};
 
-/// The most links one `mapFamilyLink` call may carry.
+/// The most links one `mapFamilyLink` or `mapFamilyApply` call may carry.
 const MAX_LINKS_PER_CALL: usize = 100;
+/// The most version labels, decisions or family labels one `mapFamilyApply` call may carry, each.
+const MAX_CHANGES_PER_CALL: usize = 500;
 /// The most proposals or reports one page of the staff queue may hold.
 const MAX_QUEUE_PAGE: i32 = 100;
 
@@ -676,6 +679,15 @@ pub enum MapLinkSuggestionStatus {
 }
 
 impl MapLinkSuggestionStatus {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Accepted => "accepted",
+            Self::Rejected => "rejected",
+            Self::TerrainOnly => "terrain_only",
+        }
+    }
+
     pub(crate) fn from_db(status: &str) -> Self {
         match status {
             "accepted" => Self::Accepted,
@@ -929,11 +941,15 @@ fn edit_error(error: FamilyEditError) -> async_graphql::Error {
         | FamilyEditError::NotInFamily
         | FamilyEditError::FamilyNotFound
         | FamilyEditError::SuggestionNotFound
-        | FamilyEditError::ReportNotFound => "NOT_FOUND",
+        | FamilyEditError::ReportNotFound
+        | FamilyEditError::HistoryEntryNotFound => "NOT_FOUND",
         FamilyEditError::Locked
         | FamilyEditError::NotPublisher
         | FamilyEditError::ReviewerUnlisted
-        | FamilyEditError::ReviewerDecided => "FORBIDDEN",
+        | FamilyEditError::ReviewerDecided
+        | FamilyEditError::StaffOnly
+        | FamilyEditError::NotYourChange => "FORBIDDEN",
+        FamilyEditError::Conflict => "CONFLICT",
         FamilyEditError::ReportingRestricted => "RESTRICTED",
         FamilyEditError::TooManyReports => "RATE_LIMITED",
         FamilyEditError::Other(e) => return async_graphql::Error::new(format!("{e:?}")),
@@ -1085,8 +1101,8 @@ impl MapFamiliesQuery {
 
     /// Changes people made to families, suggestions and family reports, newest first. Filtered to
     /// changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
-    /// made. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// made. Available to users who can manage maps, and to reviewers for their own changes (with
+    /// `actorId` set to themselves).
     async fn map_family_history(
         &self,
         ctx: &Context<'_>,
@@ -1096,6 +1112,14 @@ impl MapFamiliesQuery {
         #[graphql(default = 50)] limit: i32,
         #[graphql(default = 0)] offset: i32,
     ) -> Result<Vec<MapFamilyHistory>> {
+        let access = QueueAccess::of(ctx).await?;
+        let user = require_current_user(ctx)?;
+        if access.source() != MapLinkSource::Moderator && actor_id != Some(user.id) {
+            return Err(graphql_error(
+                "FORBIDDEN",
+                "Reviewers can only see their own changes",
+            ));
+        }
         let db = ctx.data::<MapSearchRepo>()?.db();
         Ok(history::load_history(
             db,
@@ -1125,9 +1149,73 @@ fn maybe_label(label: MaybeUndefined<String>) -> Option<Option<String>> {
     match label {
         MaybeUndefined::Undefined => None,
         MaybeUndefined::Null => Some(None),
-        MaybeUndefined::Value(label) => {
-            let label = label.trim();
-            Some((!label.is_empty()).then(|| label.to_string()))
+        MaybeUndefined::Value(label) => Some(clean_label(Some(label))),
+    }
+}
+
+/// A label without surrounding whitespace, or none when it's blank.
+fn clean_label(label: Option<String>) -> Option<String> {
+    label
+        .as_deref()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_string)
+}
+
+/// A member's new version label.
+#[derive(InputObject, Clone, Debug)]
+pub struct MapFamilyVersionLabelInput {
+    pub map_id: SbMapId,
+    /// Null clears it.
+    pub version_label: Option<String>,
+}
+
+/// A decision on a suggestion, as `mapLinkSuggestionDecide` takes it.
+#[derive(InputObject, Clone, Debug)]
+pub struct MapLinkSuggestionDecisionInput {
+    pub map_a: SbMapId,
+    pub map_b: SbMapId,
+    pub decision: MapLinkSuggestionDecision,
+}
+
+/// A family's new staff-only working label.
+#[derive(InputObject, Clone, Debug)]
+pub struct MapFamilyLabelInput {
+    pub family_id: Uuid,
+    /// Null clears it.
+    pub label: Option<String>,
+}
+
+/// Family changes to save together, in this order.
+#[derive(InputObject, Clone, Debug)]
+pub struct MapFamilyApplyInput {
+    /// Placed in order, as `mapFamilyLink` places them.
+    #[graphql(default)]
+    pub links: Vec<MapFamilyLinkInput>,
+    #[graphql(default)]
+    pub version_labels: Vec<MapFamilyVersionLabelInput>,
+    #[graphql(default)]
+    pub decisions: Vec<MapLinkSuggestionDecisionInput>,
+    /// Only users who can manage maps can set family labels.
+    #[graphql(default)]
+    pub family_labels: Vec<MapFamilyLabelInput>,
+}
+
+/// The outcome of a batch of family changes.
+#[derive(SimpleObject, Clone, Debug)]
+#[graphql(complex)]
+pub struct MapFamilyApplyResult {
+    /// The first history entry the batch recorded, which `mapFamilyUndo` takes to revert the
+    /// whole batch. Null when nothing changed.
+    pub history_entry_id: Option<Uuid>,
+}
+
+#[async_graphql::ComplexObject]
+impl MapFamilyApplyResult {
+    async fn id(&self) -> String {
+        match self.history_entry_id {
+            Some(id) => format!("map-family-apply-result:{id}"),
+            None => "map-family-apply-result:none".to_string(),
         }
     }
 }
@@ -1194,6 +1282,109 @@ impl MapFamiliesMutation {
             .collect())
     }
 
+    /// Saves a set of family changes in one transaction, so they're all saved or none are, and are
+    /// undone together: links (as `mapFamilyLink`, in order), then version labels, then suggestion
+    /// decisions (as `mapLinkSuggestionDecide`), then family labels. Only available to users who
+    /// can manage maps or review map families; reviewers can only change listed maps, and only
+    /// users who can manage maps can set family labels.
+    async fn map_family_apply(
+        &self,
+        ctx: &Context<'_>,
+        input: MapFamilyApplyInput,
+    ) -> Result<MapFamilyApplyResult> {
+        let MapFamilyApplyInput {
+            links,
+            version_labels,
+            decisions,
+            family_labels,
+        } = input;
+        let access = QueueAccess::of(ctx).await?;
+        let user = require_current_user(ctx)?;
+        if links.len() > MAX_LINKS_PER_CALL {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!("at most {MAX_LINKS_PER_CALL} maps can be linked at once"),
+            ));
+        }
+        if [version_labels.len(), decisions.len(), family_labels.len()]
+            .into_iter()
+            .any(|len| len > MAX_CHANGES_PER_CALL)
+        {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!("at most {MAX_CHANGES_PER_CALL} changes of each kind can be saved at once"),
+            ));
+        }
+        if !family_labels.is_empty() && access != QueueAccess::Staff {
+            return Err(edit_error(FamilyEditError::StaffOnly));
+        }
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let mut requests = Vec::with_capacity(links.len());
+        for link in links {
+            requests.push(LinkRequest {
+                map_id: resolve_existing_map_id(db, link.map_id).await?,
+                parent_id: resolve_existing_map_id(db, link.parent_id).await?,
+                relation: link.relation,
+                version_label: maybe_label(link.version_label),
+            });
+        }
+        let mut labels = Vec::with_capacity(version_labels.len());
+        for label in version_labels {
+            labels.push((
+                resolve_existing_map_id(db, label.map_id).await?,
+                clean_label(label.version_label),
+            ));
+        }
+
+        let source = access.source();
+        let mut tx = db.begin().await?;
+        for request in &requests {
+            edit::link(&mut tx, request, source, user.id)
+                .await
+                .map_err(edit_error)?;
+        }
+        for (map_id, label) in labels {
+            edit::update_member(&mut tx, map_id, Some(label), None, source, user.id)
+                .await
+                .map_err(edit_error)?;
+        }
+        for d in decisions {
+            edit::decide_suggestion(&mut tx, d.map_a, d.map_b, d.decision, source, user.id)
+                .await
+                .map_err(edit_error)?;
+        }
+        for label in family_labels {
+            edit::set_label(&mut tx, label.family_id, clean_label(label.label), user.id)
+                .await
+                .map_err(edit_error)?;
+        }
+        let history_entry_id = history::first_entry_of_transaction(&mut tx).await?;
+        tx.commit().await?;
+        Ok(MapFamilyApplyResult { history_entry_id })
+    }
+
+    /// Reverts the batch of changes holding a history entry (e.g. everything one
+    /// `mapFamilyApply` saved): each member, suggestion and family label it changed goes back to
+    /// how it was before, unless something changed it since (a `CONFLICT` error). Changes to
+    /// family reports can't be undone. Users who can review map families can undo their own
+    /// changes to listed maps; users who can manage maps can undo anyone's. Returns the undo's
+    /// own first history entry, so the undo can be undone too.
+    async fn map_family_undo(
+        &self,
+        ctx: &Context<'_>,
+        history_entry_id: Uuid,
+    ) -> Result<MapFamilyApplyResult> {
+        let access = QueueAccess::of(ctx).await?;
+        let user = require_current_user(ctx)?;
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let mut tx = db.begin().await?;
+        let history_entry_id = undo::undo(&mut tx, history_entry_id, access.source(), user.id)
+            .await
+            .map_err(edit_error)?;
+        tx.commit().await?;
+        Ok(MapFamilyApplyResult { history_entry_id })
+    }
+
     /// Takes a map out of its family. When it starts a line, its oldest version takes its place.
     /// Only available to users who can manage maps or review map families; reviewers can only
     /// remove listed maps.
@@ -1250,11 +1441,7 @@ impl MapFamiliesMutation {
     ) -> Result<MapFamily> {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let label = label
-            .as_deref()
-            .map(str::trim)
-            .filter(|l| !l.is_empty())
-            .map(str::to_string);
+        let label = clean_label(label);
         let mut tx = db.begin().await?;
         edit::set_label(&mut tx, family_id, label, user.id)
             .await

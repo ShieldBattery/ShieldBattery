@@ -216,3 +216,54 @@ export function planFamilyEdits(
 export function hasFamilyEdits(plan: FamilyEditorPlan): boolean {
   return plan.links.length > 0 || plan.labels.length > 0 || plan.decisions.length > 0
 }
+
+const HANGUL = /[ᄀ-ᇿ㄰-㆏가-힣]/
+
+/**
+ * How a copy of `parentName` called `name` is stored: a translation when only one of the two names
+ * is in Hangul, otherwise a variant.
+ */
+export function copyRelation(
+  name: string,
+  parentName: string,
+): MapFamilyRelation.Variant | MapFamilyRelation.Translation {
+  return HANGUL.test(name) !== HANGUL.test(parentName)
+    ? MapFamilyRelation.Translation
+    : MapFamilyRelation.Variant
+}
+
+/** The top of the tree `id` ends up in, or undefined when it's left out of the trees. */
+function topOf(placements: FamilyPlacements, id: SbMapId): SbMapId | undefined {
+  if (placements.get(id)?.kind !== 'tree') {
+    return undefined
+  }
+  let current = id
+  for (let steps = 0; steps <= placements.size; steps++) {
+    const parent = parentOf(placements, current)
+    if (!parent) {
+      return current
+    }
+    current = parent
+  }
+  return current
+}
+
+/**
+ * The files of open pairs that saving `placements` would leave open: pairs whose files end up in
+ * different trees, with neither file left out of them.
+ */
+export function unansweredFiles(
+  placements: FamilyPlacements,
+  openPairs: ReadonlyArray<FamilyEditorPair>,
+): Set<SbMapId> {
+  const result = new Set<SbMapId>()
+  for (const { mapA, mapB } of openPairs) {
+    const topA = topOf(placements, mapA)
+    const topB = topOf(placements, mapB)
+    if (topA && topB && topA !== topB) {
+      result.add(mapA)
+      result.add(mapB)
+    }
+  }
+  return result
+}

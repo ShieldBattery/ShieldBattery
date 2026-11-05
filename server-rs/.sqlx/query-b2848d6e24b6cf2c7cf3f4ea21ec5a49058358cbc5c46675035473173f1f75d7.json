@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE map_family_members SET pinned_current = true WHERE map_id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b2848d6e24b6cf2c7cf3f4ea21ec5a49058358cbc5c46675035473173f1f75d7"
+}

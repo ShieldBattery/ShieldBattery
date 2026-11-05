@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_link_suggestions AS s\n            SET status = v.status,\n                decided_by = CASE WHEN v.status = 'open' THEN NULL ELSE $4::integer END,\n                decided_at = CASE WHEN v.status = 'open' THEN NULL ELSE now() END\n            FROM unnest($1::uuid[], $2::uuid[], $3::text[]) AS v(map_a, map_b, status)\n            WHERE s.map_a = v.map_a AND s.map_b = v.map_b\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        "TextArray",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e30c32f09c8793e7327c629922630e96bb734023ad7bb0d10999f9376a5bc1a"
+}

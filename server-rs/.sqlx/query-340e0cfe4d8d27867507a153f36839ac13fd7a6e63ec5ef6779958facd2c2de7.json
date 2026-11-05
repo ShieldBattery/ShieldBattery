@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO map_link_suggestions (map_a, map_b, name_match, verdict,\n                    verdict_rules_version, status, created_at)\n                VALUES ($1, $2, false, '{}', 1, 'open', now())\n                ON CONFLICT (map_a, map_b) DO UPDATE SET status = 'open', decided_by = NULL,\n                    decided_at = NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "340e0cfe4d8d27867507a153f36839ac13fd7a6e63ec5ef6779958facd2c2de7"
+}
