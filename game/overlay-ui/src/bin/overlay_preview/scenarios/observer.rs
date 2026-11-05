@@ -395,6 +395,7 @@ pub struct State {
     /// Whose vision the watcher is on, by player id. The game answers a vision toggle by changing
     /// what it shows; here there is nothing to show, so the panels' own state is the answer.
     vision: [bool; MAX_PLAYERS],
+    pub show_entire_map: bool,
     /// The last production entry a click asked to be selected, which the knob panel reads back: the
     /// preview has no units to select, so the ask is all there is to see.
     pub last_selection: Option<(u8, usize)>,
@@ -407,6 +408,7 @@ impl State {
     pub fn new() -> State {
         State {
             vision: [true; MAX_PLAYERS],
+            show_entire_map: false,
             last_selection: None,
             vision_picker_opened: false,
         }
@@ -449,6 +451,7 @@ pub fn build_view(
         is_replay,
     };
     ObserverView {
+        show_entire_map: state.show_entire_map,
         // The corner cards carry the players the bar gave up, so they are built for exactly the
         // games the bar has no halves for.
         team_cards: (matchup.form() == MatchupForm::ClockOnly)
@@ -1776,6 +1779,17 @@ impl Preset {
         }
     }
 
+    /// The vision menu over a team game, including the entire-map setting.
+    pub const fn vision_picker() -> Preset {
+        Preset {
+            players: 4,
+            team_size: 2,
+            panels: Screen::Analyst,
+            showcase: Showcase::VisionPicker,
+            hover: Hover::None,
+        }
+    }
+
     pub const ALL: [Preset; 39] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
@@ -1819,13 +1833,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Status),
         Preset::selection_showcase(Showcase::Spells),
         // The vision list is shown over a team game, which is the one with a list worth reading.
-        Preset {
-            players: 4,
-            team_size: 2,
-            panels: Screen::Analyst,
-            showcase: Showcase::VisionPicker,
-            hover: Hover::None,
-        },
+        Preset::vision_picker(),
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),

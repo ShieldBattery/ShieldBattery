@@ -9,9 +9,9 @@
 //!
 //! SC:R puts two buttons above the minimap in a replay, one for whose vision the game is shown
 //! through and one for its menu. The host hides those for a watcher, and the header carries the
-//! same two in the overlay's own controls: a vision button opening a list of the players with a
-//! switch each, which asks exactly what a click on a half of the matchup bar asks, and a menu
-//! button, which asks the host to open the game's menu the way its own key does.
+//! same two in the overlay's own controls: a vision button opening an entire-map switch and a list
+//! of players with a switch each, which asks exactly what a click on a half of the matchup bar asks,
+//! and a menu button, which asks the host to open the game's menu the way its own key does.
 //!
 //! The frame follows the minimap wherever the game puts it, being drawn from the square the host
 //! reports, and comes and goes with it.
@@ -30,7 +30,8 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    MatchupPlayerView, PLAYER_SWATCH, paint_player_swatch_in, paint_text, teams_worth_dividing,
+    MatchupPlayerView, ObserverView, PLAYER_SWATCH, paint_player_swatch_in, paint_text,
+    teams_worth_dividing,
 };
 use crate::tr;
 
@@ -95,6 +96,8 @@ pub struct MinimapFrameOutcome {
     pub rects: Vec<Rect>,
     /// The player whose vision was asked to change, if one was switched.
     pub toggled_vision: Option<u8>,
+    /// The entire-map setting requested by the watcher, if its switch changed.
+    pub show_entire_map: Option<bool>,
     /// Whether the menu button was pressed.
     pub open_menu: bool,
     /// Whether the list of players is to be open next frame.
@@ -102,13 +105,13 @@ pub struct MinimapFrameOutcome {
 }
 
 /// Draws the frame around a minimap at `square`, fading it in and out with the minimap, with the
-/// list of `players` open under the vision button while `picker_open`, and a card naming the
+/// vision settings open under the vision button while `picker_open`, and a card naming the
 /// button under the pointer and its key from `keys`. Returns nothing at all once it is gone.
 pub fn render_minimap_frame(
     ctx: &Context,
     square: Rect,
     shown: bool,
-    players: &[MatchupPlayerView],
+    view: &ObserverView,
     picker_open: bool,
     keys: MinimapKeys,
 ) -> Option<MinimapFrameOutcome> {
@@ -146,11 +149,12 @@ pub fn render_minimap_frame(
     let mut outcome = MinimapFrameOutcome {
         rects: vec![header],
         toggled_vision: None,
+        show_entire_map: None,
         open_menu: menu.clicked(),
         picker_open: picker_open != vision.clicked(),
     };
     if picker_open && shown {
-        let picker = draw_picker(ctx, vision.rect, players, &mut outcome);
+        let picker = draw_picker(ctx, vision.rect, view, &mut outcome);
         // A press anywhere but on the list and the button that opened it closes the list, the way
         // any popover closes: the watcher has moved on to something else.
         let pressed_elsewhere = ctx.input(|input| {
@@ -300,7 +304,7 @@ fn draw_hint(ctx: &Context, button: &egui::Response, title: &str, keycaps: &[&st
 fn draw_picker(
     ctx: &Context,
     button: Rect,
-    players: &[MatchupPlayerView],
+    view: &ObserverView,
     outcome: &mut MinimapFrameOutcome,
 ) -> Rect {
     let id = Id::new("sb_minimap_vision_picker");
@@ -325,6 +329,26 @@ fn draw_picker(
                 Align::LEFT,
             );
             ui.add_space(theme::SPACE_XS);
+            let (row, _) = ui.allocate_exact_size(vec2(width, PICKER_ROW), Sense::hover());
+            let mut show = view.show_entire_map;
+            let switched = draw_picker_switch(ui, row, Id::new("sb_entire_map_switch"), &mut show);
+            paint_text(
+                ui,
+                Rect::from_min_max(
+                    row.left_top(),
+                    pos2(switched.rect.left() - theme::SPACE_SM, row.bottom()),
+                ),
+                &text::player_name(PICKER_NAME_SIZE),
+                &tr!("observer.entireMap", "Entire Map"),
+                Align::LEFT,
+            );
+            if switched.changed() {
+                outcome.show_entire_map = Some(show);
+            }
+            ui.add_space(theme::SPACE_SM);
+            widgets::divider(ui);
+            ui.add_space(theme::SPACE_SM);
+            let players = &view.matchup.players;
             let divided = teams_worth_dividing(players.iter().map(|player| player.team));
             let mut team = players.first().map(|player| player.team);
             for player in players {
@@ -354,19 +378,12 @@ fn draw_picker_row(ui: &mut Ui, width: f32, player: &MatchupPlayerView) -> Optio
         1.0,
     );
     let mut on = player.vision;
-    let switched = ui
-        .scope_builder(
-            egui::UiBuilder::new()
-                .max_rect(row)
-                .layout(egui::Layout::right_to_left(Align::Center)),
-            |ui| {
-                ui.push_id(("sb_vision_switch", player.player_id), |ui| {
-                    widgets::switch(ui, &mut on)
-                })
-                .inner
-            },
-        )
-        .inner;
+    let switched = draw_picker_switch(
+        ui,
+        row,
+        Id::new(("sb_vision_switch", player.player_id)),
+        &mut on,
+    );
     let name = Rect::from_min_max(
         pos2(row.left() + PICKER_BAR + PICKER_BAR_GAP, row.top()),
         pos2(switched.rect.left() - theme::SPACE_SM, row.bottom()),
@@ -383,6 +400,16 @@ fn draw_picker_row(ui: &mut Ui, width: f32, player: &MatchupPlayerView) -> Optio
         Align::LEFT,
     );
     switched.changed().then_some(player.player_id)
+}
+
+fn draw_picker_switch(ui: &mut Ui, row: Rect, id: Id, on: &mut bool) -> egui::Response {
+    ui.scope_builder(
+        egui::UiBuilder::new()
+            .max_rect(row)
+            .layout(egui::Layout::right_to_left(Align::Center)),
+        |ui| ui.push_id(id, |ui| widgets::switch(ui, on)).inner,
+    )
+    .inner
 }
 
 #[cfg(test)]
