@@ -1792,6 +1792,7 @@ export type MapPage_NewerVersionFragmentFragment = {
 
 export type MapPage_FamilyFragmentFragment = {
   id: Types.SbMapId
+  listed: boolean
   firstSeenAt: string
   family: {
     id: string
@@ -1802,7 +1803,6 @@ export type MapPage_FamilyFragmentFragment = {
       relation: MapFamilyRelation
       versionLabel: string | null
       isCurrent: boolean
-      lineCurrentId: Types.SbMapId | null
       map: {
         id: Types.SbMapId
         name: string
@@ -3520,6 +3520,7 @@ export const MapPage_FamilyFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -3540,7 +3541,6 @@ export const MapPage_FamilyFragmentFragmentDoc = {
                       { kind: 'Field', name: { kind: 'Name', value: 'relation' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'versionLabel' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'isCurrent' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'lineCurrentId' } },
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'map' },
@@ -11498,6 +11498,7 @@ export const MapPageDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -11518,7 +11519,6 @@ export const MapPageDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'relation' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'versionLabel' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'isCurrent' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'lineCurrentId' } },
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'map' },

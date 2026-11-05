@@ -121,49 +121,6 @@ function childrenByAge(
   return children
 }
 
-export interface FamilyTreeRow extends FamilyEditorRow {
-  /** Whether the file branches off its parent rather than being its next version. */
-  branch: boolean
-}
-
-/**
- * Orders the files in the trees for reading. A version sits level with the file before it, so a
- * line reads top to bottom from oldest to newest however long it is; variants, translations and
- * forks are indented under the file they come from, ahead of that file's next version so they stay
- * next to it. Siblings and trees go oldest first. Files left out of the trees aren't included.
- */
-export function orderTreeRows(
-  files: ReadonlyArray<Pick<FamilyEditorFile, 'id' | 'firstSeenAt'>>,
-  placements: FamilyPlacements,
-): FamilyTreeRow[] {
-  const byAge = [...files].sort((a, b) => a.firstSeenAt - b.firstSeenAt)
-  const children = childrenByAge(byAge, placements)
-  const isVersion = (id: SbMapId) => {
-    const placement = placements.get(id)
-    return placement?.kind === 'tree' && placement.relation === MapFamilyRelation.Version
-  }
-
-  const rows: FamilyTreeRow[] = []
-  const visit = (id: SbMapId, depth: number, branch: boolean) => {
-    rows.push({ id, depth, branch })
-    const kids = children.get(id) ?? []
-    for (const child of kids) {
-      if (!isVersion(child)) {
-        visit(child, depth + 1, true)
-      }
-    }
-    for (const child of kids) {
-      if (isVersion(child)) {
-        visit(child, depth, false)
-      }
-    }
-  }
-  for (const top of children.get(undefined) ?? []) {
-    visit(top, 0, false)
-  }
-  return rows
-}
-
 /**
  * Orders the files for display: each tree depth-first under its top, siblings and trees oldest
  * first, then the files left out of the trees.

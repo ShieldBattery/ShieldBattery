@@ -125,12 +125,12 @@ function pickedRelationLabel(relation: PickedRelation, t: TFunction): string {
     case PickedRelation.Variant:
       return t(
         'maps.familyLink.variant',
-        'The same version with small changes (e.g. an observer or tournament edit)',
+        'A copy of it with small changes, like an observer or tournament edit',
       )
     case PickedRelation.Translation:
-      return t('maps.familyLink.translation', 'It in another language')
+      return t('maps.familyLink.translation', 'A copy of it in another language')
     case PickedRelation.Fork:
-      return t('maps.familyLink.fork', 'Someone else’s map based on it')
+      return t('maps.familyLink.fork', 'A different map based on it')
     default:
       return assertUnreachable(relation)
   }
@@ -612,7 +612,7 @@ function WrongFamilyDialog({ mapId, onCancel, close }: FormDialogProps & { mapId
 
   return (
     <StyledDialog
-      title={t('maps.familyLink.wrongFamilyTitle', 'Report a wrong family')}
+      title={t('maps.familyLink.wrongFamilyTitle', 'Report a problem with versions')}
       buttons={buttons}
       onCancel={onCancel}
       showCloseButton={true}>
@@ -621,7 +621,7 @@ function WrongFamilyDialog({ mapId, onCancel, close }: FormDialogProps & { mapId
         <Intro>
           {t(
             'maps.familyLink.wrongFamilyIntro',
-            'Tell staff this map is shown with the versions of a different map. They’ll check it.',
+            'Tell staff this map is shown with the versions of a different map, or with the wrong label. They’ll check it.',
           )}
         </Intro>
         <NoteField
