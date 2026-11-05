@@ -4,10 +4,10 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { deriveActivityEntries } from './channel-activity'
 
-const [flash, bisu, jaedong, stork, outsider, self] = [1, 2, 3, 4, 5, 6].map(makeSbUserId)
+const [flash, bisu, jaedong, stork, outsider, self, snow] = [1, 2, 3, 4, 5, 6, 7].map(makeSbUserId)
 
 const members = {
-  active: new Set([flash, self]),
+  active: new Set([flash, self, snow]),
   offline: new Set([bisu, jaedong, stork]),
 }
 
@@ -55,11 +55,11 @@ function game(id: string, minutesAgo: number, teams: number[][], type = Matchmak
 }
 
 describe('client/chat/channel-activity', () => {
-  test('keeps only members streams, most watched first, and never the viewer own', () => {
+  test('keeps only online members streams, most watched first, and never the viewer own', () => {
     const { streams, games } = deriveActivityEntries(
       {
         liveStreams: [
-          stream(bisu, 200),
+          stream(snow, 200),
           stream(outsider, 9000),
           stream(flash, 1200),
           stream(self, 5000),
@@ -71,8 +71,21 @@ describe('client/chat/channel-activity', () => {
       self,
     )
 
-    expect(streams.map(s => s.user?.id)).toEqual([flash, bisu])
+    expect(streams.map(s => s.user?.id)).toEqual([flash, snow])
     expect(games).toEqual([])
+  })
+
+  test('leaves out streams whose linked account is offline', () => {
+    const { streams } = deriveActivityEntries(
+      {
+        liveStreams: [stream(bisu, 9000), stream(stork, 500), stream(flash, 10)],
+        liveGames: [],
+      },
+      members,
+      self,
+    )
+
+    expect(streams.map(s => s.user?.id)).toEqual([flash])
   })
 
   test('keeps games with at least one member, newest first, listing the members and every player', () => {
@@ -118,7 +131,7 @@ describe('client/chat/channel-activity', () => {
   test('lists streams and games as separate groups', () => {
     const { streams, games } = deriveActivityEntries(
       {
-        liveStreams: [stream(bisu, 1)],
+        liveStreams: [stream(snow, 1)],
         liveGames: [game('g', 5, [[flash], [outsider]])],
       },
       members,
