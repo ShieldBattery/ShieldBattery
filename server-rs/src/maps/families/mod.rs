@@ -12,6 +12,7 @@ pub mod graphql;
 pub mod history;
 pub mod proposals;
 pub mod rules;
+pub mod undo;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 

@@ -3,7 +3,7 @@
 //! proposals for staff to accept or edit. Reviewers outside staff get the same queue restricted to
 //! listed maps.
 
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use async_graphql::dataloader::DataLoader;
@@ -129,6 +129,25 @@ struct TreeFile {
     first_seen_at: DateTime<Utc>,
     family: Option<Uuid>,
     version: Option<String>,
+    official: bool,
+    /// All-time games on the file.
+    games: i64,
+}
+
+/// How strongly a file stands for a group of copies (variants and translations of one version):
+/// files already in a family first (the proposal can't move them under another file), then
+/// official files, then the most played.
+fn copy_rank(file: Option<&TreeFile>) -> (bool, bool, i64) {
+    file.map_or((false, false, 0), |f| {
+        (f.family.is_some(), f.official, f.games)
+    })
+}
+
+fn is_copy(relation: MapFamilyRelation) -> bool {
+    matches!(
+        relation,
+        MapFamilyRelation::Variant | MapFamilyRelation::Translation
+    )
 }
 
 /// An edge of a proposed tree: `child` goes under `parent`.
@@ -162,21 +181,33 @@ fn tree_edge(
             b
         }
     });
-    let newer = if older == a { b } else { a };
+    // Copies go under the file that best stands for them, so a group of copies forms a star under
+    // its main file rather than a chain from the oldest. Versions and forks go under the older file.
+    let parent = if is_copy(relation) {
+        match copy_rank(files.get(&a)).cmp(&copy_rank(files.get(&b))) {
+            Ordering::Greater => a,
+            Ordering::Less => b,
+            Ordering::Equal => older,
+        }
+    } else {
+        older
+    };
+    let child = if parent == a { b } else { a };
     Some(TreeEdge {
-        parent: older,
-        child: newer,
+        parent,
+        child,
         relation,
         similarity: suggestion.terrain_similarity.unwrap_or(0.0),
         review: suggestion.is_review(),
     })
 }
 
-/// Builds a proposed tree over one group: each file not yet in a family goes under the older side
-/// of its best edge (edges a person proposed first, then versions, variants and translations
-/// before forks, then the newest version older than it, so a chain of versions links each to the
-/// one before, then the most similar terrain), skipping edges that would close a cycle. Files in
-/// families keep their place.
+/// Builds a proposed tree over one group: each file not yet in a family goes under the parent side
+/// of its best edge, skipping edges that would close a cycle. Edges a person proposed come first,
+/// then versions, then variants and translations (under the highest-ranked parent first, so copies
+/// gather under one main file), then forks; then the newest parent version, so a chain of versions
+/// links each to the one before; then the most similar terrain. Files in families keep their
+/// place.
 fn propose_tree(
     map_ids: &[SbMapId],
     suggestions: &[&MapLinkSuggestion],
@@ -192,13 +223,24 @@ fn propose_tree(
             .and_then(|f| f.version.as_deref())
             .and_then(VersionKey::parse)
     };
+    // Only copies are ordered by their parent's rank (oldest first among equals); versions and
+    // forks all share `None`.
+    let parent_rank = |edge: &TreeEdge| {
+        is_copy(edge.relation).then(|| {
+            let file = files.get(&edge.parent);
+            (copy_rank(file), Reverse(file.map(|f| f.first_seen_at)))
+        })
+    };
+    let group = |relation: MapFamilyRelation| match relation {
+        MapFamilyRelation::Fork => 2,
+        r if is_copy(r) => 1,
+        _ => 0,
+    };
     edges.sort_by(|x, y| {
         y.review
             .cmp(&x.review)
-            .then(
-                (x.relation == MapFamilyRelation::Fork)
-                    .cmp(&(y.relation == MapFamilyRelation::Fork)),
-            )
+            .then(group(x.relation).cmp(&group(y.relation)))
+            .then(parent_rank(y).cmp(&parent_rank(x)))
             .then(
                 version(&y.parent)
                     .partial_cmp(&version(&x.parent))
@@ -280,6 +322,7 @@ struct FileRow {
     first_seen_at: DateTime<Utc>,
     family_id: Option<Uuid>,
     games_total: Option<i32>,
+    official: bool,
 }
 
 /// Loads every proposal, the most played first. With `listed_only`, only suggestions between two
@@ -331,7 +374,8 @@ pub async fn load_proposals(
             SELECT m.id as "id: SbMapId", m.title, m.description, m.public_name, m.first_seen_at,
                 (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)
                     as "family_id?",
-                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as "games_total?"
+                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as "games_total?",
+                m.official
             FROM maps m
             WHERE m.id = ANY($1)
         "#,
@@ -355,18 +399,18 @@ pub async fn load_proposals(
             }
         }
         let display_name = row.public_name.as_deref().unwrap_or(&row.title);
+        let game_count = i64::from(row.games_total.unwrap_or(0));
         files.insert(
             row.id,
             TreeFile {
                 first_seen_at: row.first_seen_at,
                 family: row.family_id,
                 version: file_version(&row.title, &row.description, display_name),
+                official: row.official,
+                games: game_count,
             },
         );
-        games.insert(
-            row.id,
-            (i64::from(row.games_total.unwrap_or(0)), row.family_id),
-        );
+        games.insert(row.id, (game_count, row.family_id));
     }
     for s in &suggestions {
         groups.union(s.map_a, s.map_b);
@@ -492,6 +536,16 @@ mod tests {
             first_seen_at: DateTime::from_timestamp(seen, 0).unwrap(),
             family: in_family.then(Uuid::nil),
             version: None,
+            official: false,
+            games: 0,
+        }
+    }
+
+    fn played(seen: i64, games: i64, official: bool) -> TreeFile {
+        TreeFile {
+            games,
+            official,
+            ..file(seen, false)
         }
     }
 
@@ -624,6 +678,92 @@ mod tests {
         assert_eq!(
             placed(&links),
             [(1, None, Root), (2, None, Root), (3, Some(1), Fork)]
+        );
+    }
+
+    #[test]
+    fn copies_go_under_the_official_then_most_played_file() {
+        let files = HashMap::from([
+            (id(1), played(1, 10, false)),
+            (id(2), played(2, 500, false)),
+            (id(3), played(3, 5, true)),
+        ]);
+        // The rules call 1 older, but 2 is played more.
+        let edge = tree_edge(&suggestion(1, 2, "variant", Some("a"), 1.0), &files).unwrap();
+        assert_eq!((edge.parent, edge.child), (id(2), id(1)));
+        // Official beats played.
+        let edge = tree_edge(&suggestion(2, 3, "translation", Some("a"), 1.0), &files).unwrap();
+        assert_eq!((edge.parent, edge.child), (id(3), id(2)));
+        // Versions still go under the older file.
+        let edge = tree_edge(&suggestion(1, 2, "version", Some("a"), 1.0), &files).unwrap();
+        assert_eq!((edge.parent, edge.child), (id(1), id(2)));
+        // Equal rank falls back to the older file.
+        let even = HashMap::from([(id(1), played(5, 7, false)), (id(2), played(1, 7, false))]);
+        let edge = tree_edge(&suggestion(1, 2, "variant", None, 1.0), &even).unwrap();
+        assert_eq!((edge.parent, edge.child), (id(2), id(1)));
+    }
+
+    #[test]
+    fn copies_go_under_a_file_already_in_a_family() {
+        let files = HashMap::from([(id(1), file(1, true)), (id(2), played(2, 500, true))]);
+        let edge = tree_edge(&suggestion(1, 2, "variant", Some("b"), 1.0), &files).unwrap();
+        assert_eq!((edge.parent, edge.child), (id(1), id(2)));
+    }
+
+    #[test]
+    fn copies_form_a_star_under_the_main_file() {
+        use MapFamilyRelation::*;
+        // 4 is the most played; the others are older and each similar to the next one.
+        let files = HashMap::from([
+            (id(1), played(1, 3, false)),
+            (id(2), played(2, 2, false)),
+            (id(3), played(3, 1, false)),
+            (id(4), played(4, 90, false)),
+        ]);
+        let suggestions: Vec<_> = [
+            (1, 2, 0.99),
+            (2, 3, 0.99),
+            (1, 4, 0.9),
+            (2, 4, 0.9),
+            (3, 4, 0.9),
+        ]
+        .into_iter()
+        .map(|(a, b, sim)| suggestion(a, b, "variant", Some("a"), sim))
+        .collect();
+        let refs: Vec<_> = suggestions.iter().collect();
+        let links = propose_tree(&[id(1), id(2), id(3), id(4)], &refs, &files);
+        assert_eq!(
+            placed(&links),
+            [
+                (4, None, Root),
+                (1, Some(4), Variant),
+                (2, Some(4), Variant),
+                (3, Some(4), Variant),
+            ]
+        );
+    }
+
+    #[test]
+    fn copies_without_an_edge_to_the_main_file_go_under_the_next_best() {
+        use MapFamilyRelation::*;
+        let files = HashMap::from([
+            (id(1), played(1, 50, false)),
+            (id(2), played(2, 20, false)),
+            (id(3), played(3, 1, false)),
+        ]);
+        let suggestions = [
+            suggestion(1, 2, "variant", Some("a"), 0.9),
+            suggestion(2, 3, "variant", Some("a"), 0.9),
+        ];
+        let refs: Vec<_> = suggestions.iter().collect();
+        let links = propose_tree(&[id(1), id(2), id(3)], &refs, &files);
+        assert_eq!(
+            placed(&links),
+            [
+                (1, None, Root),
+                (2, Some(1), Variant),
+                (3, Some(2), Variant)
+            ]
         );
     }
 

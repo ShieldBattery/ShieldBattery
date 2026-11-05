@@ -1,5 +1,9 @@
 //! The record of every change a person makes to families, suggestions and family reports, so staff
-//! can check a reviewer's decisions and undo the wrong ones with the family editor.
+//! can check a reviewer's decisions and undo the wrong ones.
+//!
+//! Every entry one transaction records is one batch (e.g. one save of the family editor), and
+//! batches are undone as a whole. Entries recorded before batches existed are each a batch of
+//! their own.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -33,6 +37,9 @@ pub enum MapFamilyHistoryKind {
     DecideSuggestion,
     /// A family report was resolved, dismissed or reopened.
     ReportStatus,
+    /// A batch of changes was reverted. Its member, suggestion and label changes are the
+    /// reversal, so an undo can itself be undone.
+    Undo,
 }
 
 impl MapFamilyHistoryKind {
@@ -44,16 +51,18 @@ impl MapFamilyHistoryKind {
             Self::SetLabel => "set_label",
             Self::DecideSuggestion => "decide_suggestion",
             Self::ReportStatus => "report_status",
+            Self::Undo => "undo",
         }
     }
 
-    fn from_db(kind: &str) -> Self {
+    pub(crate) fn from_db(kind: &str) -> Self {
         match kind {
             "remove" => Self::Remove,
             "update_member" => Self::UpdateMember,
             "set_label" => Self::SetLabel,
             "decide_suggestion" => Self::DecideSuggestion,
             "report_status" => Self::ReportStatus,
+            "undo" => Self::Undo,
             _ => Self::Link,
         }
     }
@@ -106,6 +115,9 @@ pub struct HistoryDetails {
     pub report_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_status: Option<Change<MapFamilyReportStatus>>,
+    /// For an undo, the entry whose batch it reverted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub undone_entry_id: Option<Uuid>,
 }
 
 /// One change to record.
@@ -138,6 +150,68 @@ pub async fn record(tx: &mut Transaction<'_, Postgres>, entry: HistoryEntry) -> 
     .await
     .wrap_err("Failed to record family history")?;
     Ok(())
+}
+
+/// The first entry the current transaction recorded, which identifies its batch.
+pub async fn first_entry_of_transaction(
+    tx: &mut Transaction<'_, Postgres>,
+) -> eyre::Result<Option<Uuid>> {
+    sqlx::query_scalar!(
+        r#"
+            SELECT id
+            FROM map_family_history
+            WHERE batch_id = map_family_history_batch()
+            ORDER BY created_at, id
+            LIMIT 1
+        "#
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .wrap_err("Failed to load the transaction's first history entry")
+}
+
+/// An entry of a batch, as undoing it reads it.
+pub struct BatchEntry {
+    pub kind: MapFamilyHistoryKind,
+    pub actor: SbUserId,
+    pub map_id: Option<SbMapId>,
+    pub other_map_id: Option<SbMapId>,
+    pub family_id: Option<Uuid>,
+    pub details: HistoryDetails,
+}
+
+/// Every entry of the batch holding `entry_id`, in the order they were recorded. Empty when there
+/// is no such entry.
+pub async fn load_batch(
+    tx: &mut Transaction<'_, Postgres>,
+    entry_id: Uuid,
+) -> eyre::Result<Vec<BatchEntry>> {
+    let rows = sqlx::query!(
+        r#"
+            SELECT kind, actor as "actor: SbUserId", map_id as "map_id: SbMapId",
+                other_map_id as "other_map_id: SbMapId", family_id,
+                details as "details: Json<HistoryDetails>"
+            FROM map_family_history
+            WHERE id = $1
+                OR batch_id = (SELECT batch_id FROM map_family_history WHERE id = $1)
+            ORDER BY created_at, id
+        "#,
+        entry_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .wrap_err("Failed to load the history batch")?;
+    Ok(rows
+        .into_iter()
+        .map(|row| BatchEntry {
+            kind: MapFamilyHistoryKind::from_db(&row.kind),
+            actor: row.actor,
+            map_id: row.map_id,
+            other_map_id: row.other_map_id,
+            family_id: row.family_id,
+            details: row.details.0,
+        })
+        .collect())
 }
 
 /// The places of every member of `family_ids`, plus `map_ids` wherever they are.
@@ -341,6 +415,11 @@ impl MapFamilyHistory {
         format!("map-family-history:{}", self.id)
     }
 
+    /// The entry's own id, which `mapFamilyUndo` takes.
+    async fn entry_id(&self) -> Uuid {
+        self.id
+    }
+
     async fn kind(&self) -> MapFamilyHistoryKind {
         MapFamilyHistoryKind::from_db(&self.kind)
     }
@@ -422,6 +501,11 @@ impl MapFamilyHistory {
         self.details.0.report_status.as_ref().map(|c| c.after)
     }
 
+    /// For an undo, the entry whose batch it reverted.
+    async fn undone_entry_id(&self) -> Option<Uuid> {
+        self.details.0.undone_entry_id
+    }
+
     async fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
@@ -434,6 +518,7 @@ pub async fn load_history(
     map_ids: Option<&[SbMapId]>,
     family_ids: Option<&[Uuid]>,
     actor: Option<SbUserId>,
+    undoable_only: bool,
     limit: i64,
     offset: i64,
 ) -> eyre::Result<Vec<MapFamilyHistory>> {
@@ -442,19 +527,32 @@ pub async fn load_history(
     sqlx::query_as!(
         MapFamilyHistory,
         r#"
-            SELECT id, kind, actor as "actor: SbUserId", source as "source: MapLinkSource",
-                map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId", family_id,
-                details as "details: Json<HistoryDetails>", created_at
-            FROM map_family_history
-            WHERE (NOT $1 OR map_id = ANY($2) OR other_map_id = ANY($2) OR family_id = ANY($3))
-                AND ($4::integer IS NULL OR actor = $4)
-            ORDER BY created_at DESC, id
-            LIMIT $5 OFFSET $6
+            SELECT h.id, h.kind, h.actor as "actor: SbUserId", h.source as "source: MapLinkSource",
+                h.map_id as "map_id: SbMapId", h.other_map_id as "other_map_id: SbMapId",
+                h.family_id, h.details as "details: Json<HistoryDetails>", h.created_at
+            FROM map_family_history h
+            WHERE (NOT $1 OR h.map_id = ANY($2) OR h.other_map_id = ANY($2)
+                    OR h.family_id = ANY($3))
+                AND ($4::integer IS NULL OR h.actor = $4)
+                AND (NOT $5 OR (
+                    h.kind NOT IN ('undo', 'report_status')
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM map_family_history u
+                        INNER JOIN map_family_history undone
+                            ON undone.id = (u.details->>'undoneEntryId')::uuid
+                        WHERE u.kind = 'undo'
+                            AND (undone.id = h.id OR undone.batch_id = h.batch_id)
+                    )
+                ))
+            ORDER BY h.created_at DESC, h.id
+            LIMIT $6 OFFSET $7
         "#,
         about_filter,
         &map_ids.unwrap_or_default(),
         family_ids.unwrap_or_default(),
         actor as _,
+        undoable_only,
         limit,
         offset,
     )

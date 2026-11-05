@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.id as \"id: SbMapId\", m.title, m.description, m.public_name, m.first_seen_at,\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\"\n            FROM maps m\n            WHERE m.id = ANY($1)\n        ",
+  "query": "\n            SELECT m.id as \"id: SbMapId\", m.title, m.description, m.public_name, m.first_seen_at,\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\",\n                m.official\n            FROM maps m\n            WHERE m.id = ANY($1)\n        ",
   "describe": {
     "columns": [
       {
@@ -69,6 +69,17 @@
         "name": "games_total?",
         "type_info": "Int4",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "official",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "official"
+          }
+        }
       }
     ],
     "parameters": {
@@ -83,8 +94,9 @@
       true,
       false,
       null,
-      null
+      null,
+      false
     ]
   },
-  "hash": "dcc461daa8f5562c5a99362e47ecfc43d2f256282762b358f2db0062f9946ea0"
+  "hash": "961f6af3b2e4a10f0e749cc6a2e07afb49ecd156ed1beeae9684c459419e6f4a"
 }

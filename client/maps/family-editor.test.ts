@@ -2,12 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { makeSbMapId, SbMapId } from '../../common/maps'
 import { MapFamilyRelation, MapLinkSuggestionDecision } from '../gql/graphql'
 import {
+  copyRelation,
   FamilyEditorFile,
   FamilyPlacement,
   orderRows,
   parentOptions,
   placeFile,
   planFamilyEdits,
+  unansweredFiles,
 } from './family-editor'
 
 const A = makeSbMapId('00000000-0000-0000-0000-00000000000a')
@@ -128,5 +130,29 @@ describe('client/maps/family-editor', () => {
     expect(plan.decisions).toEqual([
       { mapA: A, mapB: C, decision: MapLinkSuggestionDecision.TerrainOnly },
     ])
+  })
+
+  test('stores a copy as a translation only when one of the names is in Hangul', () => {
+    expect(copyRelation('투혼 1.3', 'Fighting Spirit 1.3')).toBe(MapFamilyRelation.Translation)
+    expect(copyRelation('Fighting Spirit 1.3', '투혼 1.3')).toBe(MapFamilyRelation.Translation)
+    expect(copyRelation('Fighting Spirit obs', 'Fighting Spirit 1.3')).toBe(
+      MapFamilyRelation.Variant,
+    )
+    expect(copyRelation('투혼 obs', '투혼')).toBe(MapFamilyRelation.Variant)
+  })
+
+  test('finds the files of pairs that would be left in different trees', () => {
+    const placements = new Map<SbMapId, FamilyPlacement>([
+      [A, tree(undefined)],
+      [B, tree(A)],
+      [C, tree(undefined)],
+      [D, { kind: 'decided', decision: MapLinkSuggestionDecision.Rejected }],
+    ])
+    const pairs = [
+      { mapA: A, mapB: B },
+      { mapA: B, mapB: C },
+      { mapA: C, mapB: D },
+    ]
+    expect(unansweredFiles(placements, pairs)).toEqual(new Set([B, C]))
   })
 })

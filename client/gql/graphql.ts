@@ -90,6 +90,16 @@ export enum MapChange {
   UmsActions = 'UMS_ACTIONS',
 }
 
+/** Family changes to save together, in this order. */
+export type MapFamilyApplyInput = {
+  decisions?: Array<MapLinkSuggestionDecisionInput>
+  /** Only users who can manage maps can set family labels. */
+  familyLabels?: Array<MapFamilyLabelInput>
+  /** Placed in order, as `mapFamilyLink` places them. */
+  links?: Array<MapFamilyLinkInput>
+  versionLabels?: Array<MapFamilyVersionLabelInput>
+}
+
 /** What kind of change a history entry records. */
 export enum MapFamilyHistoryKind {
   /** A suggestion was rejected, marked terrain only, or reopened. */
@@ -102,8 +112,20 @@ export enum MapFamilyHistoryKind {
   ReportStatus = 'REPORT_STATUS',
   /** A family's staff label changed. */
   SetLabel = 'SET_LABEL',
+  /**
+   * A batch of changes was reverted. Its member, suggestion and label changes are the
+   * reversal, so an undo can itself be undone.
+   */
+  Undo = 'UNDO',
   /** A member's version label or pinned current version changed. */
   UpdateMember = 'UPDATE_MEMBER',
+}
+
+/** A family's new staff-only working label. */
+export type MapFamilyLabelInput = {
+  familyId: string
+  /** Null clears it. */
+  label?: string | null | undefined
 }
 
 /** Places a map under another map in a family. */
@@ -166,6 +188,13 @@ export enum MapFamilyReportStatus {
   Open = 'OPEN',
   /** Staff acted on it. */
   Resolved = 'RESOLVED',
+}
+
+/** A member's new version label. */
+export type MapFamilyVersionLabelInput = {
+  mapId: Types.SbMapId
+  /** Null clears it. */
+  versionLabel?: string | null | undefined
 }
 
 /** Filters for map listings. Every filter that is set must match. */
@@ -234,6 +263,13 @@ export enum MapLinkSuggestionDecision {
   Rejected = 'REJECTED',
   /** A UMS map built on the other map's terrain: related, but never in its family. */
   TerrainOnly = 'TERRAIN_ONLY',
+}
+
+/** A decision on a suggestion, as `mapLinkSuggestionDecide` takes it. */
+export type MapLinkSuggestionDecisionInput = {
+  decision: MapLinkSuggestionDecision
+  mapA: Types.SbMapId
+  mapB: Types.SbMapId
 }
 
 /** The status of a detected pair of possibly related files. */
@@ -1154,7 +1190,13 @@ export type AdminMapFamilyGroupQuery = {
     id: string
     games: number
     maps: Array<
-      { id: Types.SbMapId; name: string; firstSeenAt: string } & {
+      {
+        id: Types.SbMapId
+        name: string
+        firstSeenAt: string
+        listed: boolean
+        stats: { id: string; gamesTotal: number } | null
+      } & {
         ' $fragmentRefs'?: {
           AdminMapFamilies_FileFragmentFragment: AdminMapFamilies_FileFragmentFragment
         }
@@ -1173,7 +1215,13 @@ export type AdminMapFamilyGroupQuery = {
         isCurrent: boolean
         pinnedCurrent: boolean
         source: MapLinkSource
-        map: { id: Types.SbMapId; name: string; firstSeenAt: string; listed: boolean } & {
+        map: {
+          id: Types.SbMapId
+          name: string
+          firstSeenAt: string
+          listed: boolean
+          stats: { id: string; gamesTotal: number } | null
+        } & {
           ' $fragmentRefs'?: {
             AdminMapFamilies_FileFragmentFragment: AdminMapFamilies_FileFragmentFragment
           }
@@ -1208,11 +1256,17 @@ export type AdminMapFamilyNextProposalsQuery = {
   mapFamilyProposals: Array<{ id: string; maps: Array<{ id: Types.SbMapId }> }>
 }
 
-export type AdminMapFamilyLinkMutationVariables = Exact<{
-  links: Array<MapFamilyLinkInput> | MapFamilyLinkInput
+export type AdminMapFamilyApplyMutationVariables = Exact<{
+  input: MapFamilyApplyInput
 }>
 
-export type AdminMapFamilyLinkMutation = { mapFamilyLink: Array<{ id: Types.SbMapId }> }
+export type AdminMapFamilyApplyMutation = { mapFamilyApply: { historyEntryId: string | null } }
+
+export type AdminMapFamilyUndoMutationVariables = Exact<{
+  historyEntryId: string
+}>
+
+export type AdminMapFamilyUndoMutation = { mapFamilyUndo: { historyEntryId: string | null } }
 
 export type AdminMapFamilyRemoveMutationVariables = Exact<{
   mapId: Types.SbMapId
@@ -1227,15 +1281,6 @@ export type AdminMapFamilyUpdateMemberMutationVariables = Exact<{
 }>
 
 export type AdminMapFamilyUpdateMemberMutation = { mapFamilyUpdateMember: { id: Types.SbMapId } }
-
-export type AdminMapFamilySetLabelMutationVariables = Exact<{
-  familyId: string
-  label?: string | null | undefined
-}>
-
-export type AdminMapFamilySetLabelMutation = {
-  mapFamilySetLabel: { id: string; label: string | null }
-}
 
 export type AdminMapLinkSuggestionDecideMutationVariables = Exact<{
   mapA: Types.SbMapId
@@ -1267,6 +1312,7 @@ export type AdminMapFamilyHistoryQueryVariables = Exact<{
   mapIds?: Array<Types.SbMapId> | Types.SbMapId | null | undefined
   familyIds?: Array<string> | string | null | undefined
   actorId?: Types.SbUserId | null | undefined
+  undoableOnly?: boolean | null | undefined
   limit: number
   offset: number
 }>
@@ -1274,6 +1320,7 @@ export type AdminMapFamilyHistoryQueryVariables = Exact<{
 export type AdminMapFamilyHistoryQuery = {
   mapFamilyHistory: Array<{
     id: string
+    entryId: string
     kind: MapFamilyHistoryKind
     source: MapLinkSource
     createdAt: string
@@ -6982,6 +7029,18 @@ export const AdminMapFamilyGroupDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'stats' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
+                          ],
+                        },
+                      },
                       {
                         kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'AdminMapFamilies_FileFragment' },
@@ -7041,6 +7100,20 @@ export const AdminMapFamilyGroupDocument = {
                                   { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'stats' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'gamesTotal' },
+                                        },
+                                      ],
+                                    },
+                                  },
                                   {
                                     kind: 'FragmentSpread',
                                     name: { kind: 'Name', value: 'AdminMapFamilies_FileFragment' },
@@ -7247,26 +7320,20 @@ export const AdminMapFamilyNextProposalsDocument = {
   AdminMapFamilyNextProposalsQuery,
   AdminMapFamilyNextProposalsQueryVariables
 >
-export const AdminMapFamilyLinkDocument = {
+export const AdminMapFamilyApplyDocument = {
   kind: 'Document',
   definitions: [
     {
       kind: 'OperationDefinition',
       operation: 'mutation',
-      name: { kind: 'Name', value: 'AdminMapFamilyLink' },
+      name: { kind: 'Name', value: 'AdminMapFamilyApply' },
       variableDefinitions: [
         {
           kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'links' } },
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
           type: {
             kind: 'NonNullType',
-            type: {
-              kind: 'ListType',
-              type: {
-                kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamilyLinkInput' } },
-              },
-            },
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamilyApplyInput' } },
           },
         },
       ],
@@ -7275,24 +7342,64 @@ export const AdminMapFamilyLinkDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilyLink' },
+            name: { kind: 'Name', value: 'mapFamilyApply' },
             arguments: [
               {
                 kind: 'Argument',
-                name: { kind: 'Name', value: 'links' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'links' } },
+                name: { kind: 'Name', value: 'input' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
               },
             ],
             selectionSet: {
               kind: 'SelectionSet',
-              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'historyEntryId' } }],
             },
           },
         ],
       },
     },
   ],
-} as unknown as DocumentNode<AdminMapFamilyLinkMutation, AdminMapFamilyLinkMutationVariables>
+} as unknown as DocumentNode<AdminMapFamilyApplyMutation, AdminMapFamilyApplyMutationVariables>
+export const AdminMapFamilyUndoDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminMapFamilyUndo' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'historyEntryId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamilyUndo' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'historyEntryId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'historyEntryId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'historyEntryId' } }],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapFamilyUndoMutation, AdminMapFamilyUndoMutationVariables>
 export const AdminMapFamilyRemoveDocument = {
   kind: 'Document',
   definitions: [
@@ -7395,62 +7502,6 @@ export const AdminMapFamilyUpdateMemberDocument = {
 } as unknown as DocumentNode<
   AdminMapFamilyUpdateMemberMutation,
   AdminMapFamilyUpdateMemberMutationVariables
->
-export const AdminMapFamilySetLabelDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'AdminMapFamilySetLabel' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'label' } },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilySetLabel' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'familyId' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-              },
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'label' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'label' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'label' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<
-  AdminMapFamilySetLabelMutation,
-  AdminMapFamilySetLabelMutationVariables
 >
 export const AdminMapLinkSuggestionDecideDocument = {
   kind: 'Document',
@@ -7683,6 +7734,11 @@ export const AdminMapFamilyHistoryDocument = {
         },
         {
           kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'undoableOnly' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+        },
+        {
+          kind: 'VariableDefinition',
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
           type: {
             kind: 'NonNullType',
@@ -7722,6 +7778,11 @@ export const AdminMapFamilyHistoryDocument = {
               },
               {
                 kind: 'Argument',
+                name: { kind: 'Name', value: 'undoableOnly' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'undoableOnly' } },
+              },
+              {
+                kind: 'Argument',
                 name: { kind: 'Name', value: 'limit' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
               },
@@ -7735,6 +7796,7 @@ export const AdminMapFamilyHistoryDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'entryId' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'source' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },

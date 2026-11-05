@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_families AS f\n            SET label = v.label, updated_at = now()\n            FROM unnest($1::uuid[], $2::text[]) AS v(id, label)\n            WHERE f.id = v.id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "954b73e8fd82749ec22a84c65f78377faf9a31de35e8be57b639887b3d492c6f"
+}

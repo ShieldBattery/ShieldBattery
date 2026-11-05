@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT kind, actor as \"actor: SbUserId\", map_id as \"map_id: SbMapId\",\n                other_map_id as \"other_map_id: SbMapId\", family_id,\n                details as \"details: Json<HistoryDetails>\"\n            FROM map_family_history\n            WHERE id = $1\n                OR batch_id = (SELECT batch_id FROM map_family_history WHERE id = $1)\n            ORDER BY created_at, id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "actor: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "actor"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "other_map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "other_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "details: Json<HistoryDetails>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "details"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "c1b1c0a6ece17eca7f53850e25119d61a030f435c0c4bce8a599e817985ab880"
+}
