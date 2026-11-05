@@ -4,7 +4,7 @@ import { encodePrettyId } from '../../../common/pretty-id'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { PageMetadataContext } from '../page-metadata/types'
 import { getMapInfos, resolveMapId } from './map-models'
-import { mapPageMetadata } from './map-page-meta'
+import { mapComparePageMetadata, mapPageMetadata } from './map-page-meta'
 
 vi.mock('./map-models', () => ({
   getMapInfos: vi.fn(),
@@ -115,5 +115,45 @@ describe('maps/map-page-meta', () => {
     const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
 
     expect(result).toBeUndefined()
+  })
+
+  describe('compare page', () => {
+    const OTHER_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000cccc')
+
+    test('names both maps, links the canonical ids and stays out of search engines', async () => {
+      resolveMapIdMock.mockImplementation(async id => (id === ALIAS_ID ? MAP_ID : id))
+      getMapInfosMock.mockResolvedValueOnce([
+        makeMap({ id: OTHER_ID, name: 'Polypoid 1.76', jpegImageUrl: undefined }),
+        makeMap(),
+      ])
+
+      const result = await mapComparePageMetadata(
+        { a: encodePrettyId(ALIAS_ID), b: encodePrettyId(OTHER_ID) },
+        CONTEXT,
+      )
+
+      expect(result).toEqual({
+        url: `https://shieldbattery.net/maps/compare/${encodePrettyId(MAP_ID)}/${encodePrettyId(
+          OTHER_ID,
+        )}`,
+        type: 'website',
+        title: 'Polypoid 1.75 vs. Polypoid 1.76',
+        description:
+          'Compare the terrain, bases and start locations of Polypoid 1.75 and Polypoid 1.76.',
+        image: 'https://cdn.example.com/maps/polypoid-1024.jpg',
+        noindex: true,
+      })
+    })
+
+    test('returns undefined when either map is missing', async () => {
+      getMapInfosMock.mockResolvedValueOnce([makeMap()])
+
+      const result = await mapComparePageMetadata(
+        { a: encodePrettyId(MAP_ID), b: encodePrettyId(OTHER_ID) },
+        CONTEXT,
+      )
+
+      expect(result).toBeUndefined()
+    })
   })
 })

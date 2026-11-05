@@ -1642,9 +1642,11 @@ export type MapCompare_SideFragment = {
     width: number
     height: number
     isEud: boolean
+    image2048Url: string
+    imageSpawnsBaked: boolean
+    umsContent: boolean | null
+    startLocations: Array<{ id: string; slot: number; x: number; y: number }>
     analysis: { id: string; triggerCount: number; umsActionKinds: Array<string> } | null
-  } & {
-    ' $fragmentRefs'?: { MapFileImage_FileFragmentFragment: MapFileImage_FileFragmentFragment }
   }
 } & { ' $fragmentName'?: 'MapCompare_SideFragment' }
 
@@ -3369,6 +3371,22 @@ export const MapCompare_SideFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'isEud' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'startLocations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+                    ],
+                  },
+                },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'analysis' },
@@ -3381,45 +3399,9 @@ export const MapCompare_SideFragmentDoc = {
                     ],
                   },
                 },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
-                },
               ],
             },
           },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'startLocations' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-              ],
-            },
-          },
-          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
         ],
       },
     },
@@ -9998,38 +9980,6 @@ export const MapCompareDocument = {
     },
     {
       kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'startLocations' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-              ],
-            },
-          },
-          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
       name: { kind: 'Name', value: 'MapCompare_Side' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMap' } },
       selectionSet: {
@@ -10049,6 +9999,22 @@ export const MapCompareDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'isEud' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'startLocations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+                    ],
+                  },
+                },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'analysis' },
@@ -10060,10 +10026,6 @@ export const MapCompareDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'umsActionKinds' } },
                     ],
                   },
-                },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
                 },
               ],
             },

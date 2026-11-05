@@ -34,6 +34,39 @@ export function urlForMapCatalog(tab: MapCatalogTab, search?: string): string {
 }
 
 /**
+ * The path segment after `/maps` for the page comparing two maps. Like the catalog tabs, it can't
+ * be read as a map id, so it shares the `/maps/:segment` namespace with map pages.
+ */
+export const MAP_COMPARE_SEGMENT = 'compare'
+
+/** The ways the compare page can show two maps' images, as its `view` query param. */
+export enum MapCompareView {
+  /** The two images next to each other. */
+  Split = 'split',
+  /** One image over the other, with a draggable divider revealing the second. */
+  Slider = 'slider',
+  /** One image over the other, with the second's opacity controlled by a slider. */
+  Fade = 'fade',
+  /** The two images shown in turn. */
+  Flicker = 'flicker',
+  /** The pixels that differ, highlighted over a dimmed copy of the first image. */
+  Highlight = 'highlight',
+  /** The per-pixel difference of the two images. */
+  Subtract = 'subtract',
+}
+
+export const ALL_MAP_COMPARE_VIEWS: ReadonlyArray<MapCompareView> = Object.values(MapCompareView)
+
+/**
+ * Returns the URL of the page comparing map `a` (the before side) with map `b` (the after side).
+ * The default view is left out of the URL.
+ */
+export function urlForMapCompare(a: SbMapId, b: SbMapId, view?: MapCompareView): string {
+  const base = urlPath`/maps/${MAP_COMPARE_SEGMENT}/${encodePrettyId(a)}/${encodePrettyId(b)}`
+  return view && view !== MapCompareView.Split ? base + urlPath`?view=${view}` : base
+}
+
+/**
  * Returns the URL slug for a map's name. The slug is decorative: map pages look maps up by the id
  * segment only, then replace a slug that doesn't match this one. The server's page metadata and the
  * client must agree on it, or a map page would keep redirecting to itself.

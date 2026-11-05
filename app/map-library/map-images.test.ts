@@ -38,7 +38,7 @@ describe('app/map-library/map-images/LocalMapImages', () => {
       cacheDir,
       getInstallPath,
       findPathByHash,
-      renderer: { render },
+      renderer: { render, renderTile: vi.fn() },
       encodeJpeg: image => Buffer.from(`jpeg ${image.width}x${image.height}`),
       logger: { warning: () => {}, verbose: () => {} },
     })

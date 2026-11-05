@@ -1,7 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { urlForMap } from '../../common/map-url'
+import { urlForMap, urlForMapCompare } from '../../common/map-url'
 import { filterColorCodes, SbMapId } from '../../common/maps'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
@@ -14,11 +14,12 @@ import { IconButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Callout } from '../material/callout'
 import { Card } from '../material/card'
+import { LinkButton } from '../material/link-button'
 import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { openMapCompareDialog, openMapFamilyLinkDialog } from './action-creators'
+import { openMapFamilyLinkDialog } from './action-creators'
 import { FamilyPlacement, orderTreeRows } from './family-editor'
 
 const MapPage_NewerVersionFragment = graphql(/* GraphQL */ `
@@ -337,13 +338,13 @@ export function MapFamilyCard({
                 </RowText>
                 {isHere ? null : (
                   <Tooltip text={compareLabel} position='left' tabIndex={-1}>
-                    <IconButton
-                      icon={<MaterialIcon icon='compare' />}
-                      ariaLabel={compareLabel}
-                      onClick={() =>
-                        dispatch(openMapCompareDialog(...compareOrder(member.map, map)))
-                      }
-                    />
+                    <LinkButton href={urlForMapCompare(...compareOrder(member.map, map))}>
+                      <IconButton
+                        styledAs='div'
+                        icon={<MaterialIcon icon='compare' />}
+                        ariaLabel={compareLabel}
+                      />
+                    </LinkButton>
                   </Tooltip>
                 )}
               </Row>

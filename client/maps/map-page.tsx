@@ -31,7 +31,7 @@ import { isInLobby } from '../lobbies/lobby-reducer'
 import { navigateToLobby } from '../lobbies/lobby-url'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
-import { FilledButton, IconButton, TextButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
@@ -65,6 +65,7 @@ import {
   removeFromMyMaps,
   updateMap,
 } from './action-creators'
+import { MapBackButton } from './map-back-button'
 import { DescriptionForm, NameForm } from './map-edit-forms'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
@@ -228,7 +229,7 @@ export function MapPage({ mapId, idSegment, slugSegment, subPageSegment, subPage
   } else {
     content = (
       <PageContent>
-        <BackButton />
+        <MapBackButton />
         <Columns>
           <LeftColumn>
             <MapHero mapId={map.id} name={filterColorCodes(map.name)} file={map.file} />
@@ -302,29 +303,6 @@ const RightColumn = styled.div`
   flex-direction: column;
   gap: 20px;
 `
-
-/** Whether the app has an earlier entry in its own history to go back to. */
-function canGoBackInApp(): boolean {
-  const navigation = (window as { navigation?: { canGoBack?: boolean } }).navigation
-  return !!navigation?.canGoBack
-}
-
-function BackButton() {
-  const { t } = useTranslation()
-  return (
-    <TextButton
-      label={t('common.actions.back', 'Back')}
-      iconStart='arrow_back'
-      onClick={() => {
-        if (canGoBackInApp()) {
-          history.back()
-        } else {
-          push('/maps')
-        }
-      }}
-    />
-  )
-}
 
 const HeroFrame = styled.div`
   ${elevationPlus1};
