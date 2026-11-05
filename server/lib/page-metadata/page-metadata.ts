@@ -4,7 +4,7 @@ import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
 import logger from '../logging/logger'
-import { mapPageMetadata } from '../maps/map-page-meta'
+import { mapComparePageMetadata, mapPageMetadata } from '../maps/map-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import {
@@ -47,7 +47,8 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/users/:id/*?', resolver: userPageMetadata },
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
   { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
-  // Before the map page pattern, which would otherwise read the tab as a map id
+  // Before the map page pattern, which would otherwise read these segments as a map id
+  { pattern: '/maps/compare/:a/:b', resolver: mapComparePageMetadata },
   staticRoute(
     '/maps/all',
     'ShieldBattery Maps',
