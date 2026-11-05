@@ -204,10 +204,14 @@ const noop = () => {}
 function getDialog(dialogType: DialogType): {
   component: React.ComponentType<any>
   modal?: boolean
+  /** Stops scrim clicks closing the dialog, which can still be closed in every other way. */
+  ignoreScrimClicks?: boolean
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
-      return { component: AcceptMatchDialog }
+      // This dialog often opens while the window is unfocused, and the click that brings the window
+      // forward also reaches the page, so a scrim click may not be a request to close it.
+      return { component: AcceptMatchDialog, ignoreScrimClicks: true }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
     case DialogType.AdminCloseChannel:
@@ -480,7 +484,7 @@ function DialogDisplay({
   onScrimClick: (id: string, event: React.MouseEvent) => void
 }) {
   const { type: dialogType, id } = dialogState
-  const { component: DialogComponent, modal } = getDialog(dialogType)
+  const { component: DialogComponent, modal, ignoreScrimClicks } = getDialog(dialogType)
 
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
   const isDocVisible = useIsDocumentVisible()
@@ -496,12 +500,13 @@ function DialogDisplay({
         {isTopDialog && (
           <Scrim
             key='scrim'
+            data-testid='dialog-scrim'
             variants={scrimVariants}
             initial={isDocVisible ? 'initial' : false}
             animate='animate'
             exit='exit'
             transition={scrimTransition}
-            onClick={modal ? noop : event => onScrimClick(id, event)}
+            onClick={modal || ignoreScrimClicks ? noop : event => onScrimClick(id, event)}
           />
         )}
       </AnimatePresence>
