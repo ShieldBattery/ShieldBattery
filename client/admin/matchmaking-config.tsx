@@ -113,6 +113,11 @@ const MODE_KNOBS: KnobField[] = [
     hint: 'Rating gap that gives 10:1 win odds (100…1000)',
   },
   {
+    key: 'maxRatingSpread',
+    label: 'Max rating spread',
+    hint: 'Largest rating gap within a match, never relaxed; 0 is off (100…2000)',
+  },
+  {
     key: 'adaptiveComfortableMultiplier',
     label: 'Comfortable multiplier',
     hint: '× mode size = comfortable population (1…10)',
@@ -157,6 +162,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightLatency
         uncertaintyK
         winProbScale
+        maxRatingSpread
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
@@ -170,6 +176,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
           weightLatency
           uncertaintyK
           winProbScale
+          maxRatingSpread
           minQuality
           adaptiveComfortableMultiplier
           adaptiveDecayPerMissing
@@ -184,6 +191,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightLatency
         uncertaintyK
         winProbScale
+        maxRatingSpread
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
@@ -197,6 +205,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
           weightLatency
           uncertaintyK
           winProbScale
+          maxRatingSpread
           minQuality
           adaptiveComfortableMultiplier
           adaptiveDecayPerMissing
@@ -264,6 +273,7 @@ function fromInputs(inputs: KnobInputs): MatchmakerModeConfigOverridesInput {
     weightLatency: num('weightLatency'),
     uncertaintyK: num('uncertaintyK'),
     winProbScale: num('winProbScale'),
+    maxRatingSpread: num('maxRatingSpread'),
     minQuality: num('minQuality'),
     adaptiveComfortableMultiplier: num('adaptiveComfortableMultiplier', true),
     adaptiveDecayPerMissing: num('adaptiveDecayPerMissing'),
