@@ -468,6 +468,7 @@ const PROGRESS_TRACK: f32 = 5.0;
 /// no queue sits beside its one slot.
 const _: () = assert!(HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_HEIGHT <= BODY_HEIGHT);
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
+const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
 /// A shuttle's upgrades fit beside the cargo grid.
 const _: () = assert!(
@@ -477,7 +478,6 @@ const _: () = assert!(
         + UPGRADE_GAP * (MAX_CARGO_UPGRADES as f32 - 1.0)
         <= TEXT_WIDTH
 );
-const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
 /// Text size of a unit's code on the subject's tile, on a small tile, and on a queue slot.
 const SUBJECT_CODE_SIZE: f32 = 16.0;
@@ -1330,9 +1330,10 @@ impl CargoPlace {
 /// taking the next cells going column by column.
 ///
 /// The game holds units in the order they were picked up, a new one taking the lowest slot left free
-/// by anything since dropped. So a unit keeps its place while others of its size or smaller come and
-/// go, and only moves over for something bigger coming on board. Biggest first also means every
-/// column is whole before a smaller unit starts one, so whatever fits in the room left has a place.
+/// by anything since dropped. So a unit only moves when what goes ahead of it changes: something
+/// bigger coming on board, something ahead of it leaving, or a new unit taking a slot freed ahead of
+/// it. Biggest first also means every column is whole before a smaller unit starts one, so whatever
+/// fits in the room left has a place.
 ///
 /// The console only draws units of exactly these sizes, which are the only ones the game has.
 fn place_cargo(rooms: &[u32]) -> Vec<(usize, CargoPlace)> {
