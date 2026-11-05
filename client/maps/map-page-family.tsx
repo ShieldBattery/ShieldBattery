@@ -1,26 +1,24 @@
+import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { urlForMap, urlForMapCompare } from '../../common/map-url'
 import { filterColorCodes, SbMapId } from '../../common/maps'
-import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
+import { urlPath } from '../../common/urls'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapFamilyRelation, MapVersionStatus } from '../gql/graphql'
+import { MapVersionStatus } from '../gql/graphql'
 import { TransInterpolation } from '../i18n/i18next'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
-import { IconButton } from '../material/button'
-import { buttonReset } from '../material/button-reset'
+import { IconButton, TextButton } from '../material/button'
 import { Callout } from '../material/callout'
 import { Card } from '../material/card'
 import { LinkButton } from '../material/link-button'
 import { Tooltip } from '../material/tooltip'
-import { push } from '../navigation/routing'
-import { useAppDispatch } from '../redux-hooks'
-import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { openMapFamilyLinkDialog } from './action-creators'
-import { FamilyPlacement, orderTreeRows } from './family-editor'
+import { bodyMedium, bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { collapseFamilyLines, familyLines } from './map-family-lines'
 
 const MapPage_NewerVersionFragment = graphql(/* GraphQL */ `
   fragment MapPage_NewerVersionFragment on SbMap {
@@ -37,7 +35,7 @@ const OlderVersionLink = styled(Link)`
   overflow-wrap: anywhere;
 `
 
-/** Points from an older version of a map to the current one. */
+/** Points from an older version of a map to the latest one. */
 export function MapNewerVersionBanner({
   map: mapRef,
 }: {
@@ -58,7 +56,7 @@ export function MapNewerVersionBanner({
         <OlderVersionLink href={urlForMap(newer.id, newer.name)}>
           {{ name } as TransInterpolation}
         </OlderVersionLink>{' '}
-        is the current one.
+        is the latest one.
       </Trans>
     </Callout>
   )
@@ -67,6 +65,7 @@ export function MapNewerVersionBanner({
 const MapPage_FamilyFragment = graphql(/* GraphQL */ `
   fragment MapPage_FamilyFragment on SbMap {
     id
+    listed
     firstSeenAt
     family {
       id
@@ -77,7 +76,6 @@ const MapPage_FamilyFragment = graphql(/* GraphQL */ `
         relation
         versionLabel
         isCurrent
-        lineCurrentId
         map {
           id
           name
@@ -106,32 +104,43 @@ const FamilyCard = styled(Card)`
   gap: 8px;
 `
 
-const Rows = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
-const Row = styled.div<{ $depth: number }>`
-  min-height: 40px;
-  padding-left: ${props => props.$depth * 20}px;
-
+const CardHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
 `
 
-const BranchIcon = styled(MaterialIcon).attrs({ icon: 'subdirectory_arrow_right', size: 16 })`
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 4px;
+const InfoIcon = styled(MaterialIcon).attrs({ icon: 'info', size: 16 })`
+  display: block;
   color: var(--theme-on-surface-variant);
 `
 
-/** Lines a version up with the file it follows, which has a branch icon in front of it. */
-const BranchSpacer = styled.div`
-  width: 16px;
-  flex-shrink: 0;
+const Lines = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const Line = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`
+
+const LineHeader = styled.div`
+  ${labelMedium};
+  ${singleLine};
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-outline-variant);
+  color: var(--theme-on-surface-variant);
+`
+
+const Row = styled.div`
+  min-height: 40px;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
 `
 
 const RowText = styled.div`
@@ -163,19 +172,11 @@ const MemberLink = styled(Link)`
   min-width: 0;
 `
 
-const SmallChip = styled(RoomChip)`
+const LatestChip = styled(RoomChip)`
   flex-shrink: 0;
   padding: 2px 8px;
-`
-
-const CurrentChip = styled(SmallChip)`
   background-color: rgb(from var(--theme-positive) r g b / 0.16);
   color: var(--theme-positive);
-`
-
-const ForkChip = styled(SmallChip)`
-  background-color: var(--theme-primary-container);
-  color: var(--theme-on-primary-container);
 `
 
 const RowSubtitle = styled.div`
@@ -184,36 +185,17 @@ const RowSubtitle = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const SimilarMaps = styled.div<{ $belowTree: boolean }>`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
-
-  ${props =>
-    props.$belowTree
-      ? `
-        padding-top: 8px;
-        border-top: 1px solid var(--theme-outline-variant);
-      `
-      : ''}
+const ShowAllButton = styled(TextButton)`
+  align-self: flex-start;
+  /** Lines the label up with the rows, past the button's own padding. */
+  margin-left: -16px;
 `
 
-const InlineAction = styled.button.attrs({ type: 'button' })`
-  ${buttonReset};
+const ReviewPrompt = styled.div`
   ${bodyMedium};
-  display: inline;
-  margin: 0;
-  padding: 0;
-  color: var(--theme-primary);
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-primary);
-    outline-offset: 2px;
-  }
+  padding-top: 8px;
+  border-top: 1px solid var(--theme-outline-variant);
+  color: var(--theme-on-surface-variant);
 `
 
 /** A member's name with its version, when the name doesn't already say it. */
@@ -231,8 +213,8 @@ function compareOrder(
 }
 
 /**
- * The versions, variants, translations and forks of the map as a tree, and an invitation to sort
- * the maps detection found similar to it.
+ * The map's versions, their copies and the maps based on it, one group per map, and for reviewers
+ * a way to the maps detection found related to it that nobody has sorted yet.
  */
 export function MapFamilyCard({
   map: mapRef,
@@ -240,140 +222,168 @@ export function MapFamilyCard({
   map: FragmentType<typeof MapPage_FamilyFragment>
 }) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const isLoggedIn = useIsLoggedIn()
   const map = useFragment(MapPage_FamilyFragment, mapRef)
   const numbers = useFormat(compactNumber)
+  const canManageMaps = useHasAnyPermission('manageMaps')
+  const canReviewFamilies = useHasAnyPermission('reviewMapFamilies')
+  const [expanded, setExpanded] = useState(false)
 
   const members = map.family?.members ?? []
-  const showTree = members.length >= 2
-  const similarCount = map.similarMaps.length
-  if (!showTree && !similarCount) {
+  const showLines = members.length >= 2
+  const canReview = canManageMaps || (canReviewFamilies && map.listed)
+  const reviewCount = canReview ? map.similarMaps.length : 0
+  if (!showLines && !reviewCount) {
     return null
   }
 
   const byId = new Map(members.map(m => [m.mapId, m]))
-  const placements = new Map<SbMapId, FamilyPlacement>(
-    members.map(m => [
-      m.mapId,
-      {
-        kind: 'tree',
-        parentId: m.parentId ?? undefined,
-        relation: m.relation,
-        versionLabel: m.versionLabel ?? '',
-      },
-    ]),
-  )
-  const rows = showTree
-    ? orderTreeRows(
-        members.map(m => ({ id: m.mapId, firstSeenAt: Date.parse(m.map.firstSeenAt) })),
-        placements,
+  const allLines = showLines
+    ? familyLines(
+        members.map(m => ({
+          mapId: m.mapId,
+          parentId: m.parentId ?? undefined,
+          relation: m.relation,
+          isCurrent: m.isCurrent,
+          firstSeenAt: Date.parse(m.map.firstSeenAt),
+        })),
       )
     : []
-  const lineSizes = new Map<SbMapId, number>()
-  for (const m of members) {
-    if (m.lineCurrentId) {
-      lineSizes.set(m.lineCurrentId, (lineSizes.get(m.lineCurrentId) ?? 0) + 1)
-    }
-  }
+  const collapsed = collapseFamilyLines(allLines, map.id, id => !!byId.get(id)?.isCurrent)
+  const lines = expanded ? allLines : collapsed.lines
 
-  const statusText = (status: MapVersionStatus): string | undefined => {
-    switch (status) {
+  /** How a file that isn't its line's latest relates to it. */
+  const statusText = (member: (typeof members)[number]): string => {
+    const parentVersion = member.parentId ? byId.get(member.parentId)?.versionLabel : undefined
+    switch (member.map.versionStatus) {
       case MapVersionStatus.Superseded:
-        return t('maps.family.statusSuperseded', 'older version')
+        return t('maps.family.olderVersion', 'Older version')
       case MapVersionStatus.Variant:
-        return t('maps.family.statusVariant', 'variant')
+        return parentVersion
+          ? t('maps.family.copyOf', { defaultValue: 'Copy of {{version}}', version: parentVersion })
+          : t('maps.family.copy', 'Copy')
       case MapVersionStatus.Translation:
-        return t('maps.family.statusTranslation', 'translation')
+        return parentVersion
+          ? t('maps.family.translationOf', {
+              defaultValue: 'Translation of {{version}}',
+              version: parentVersion,
+            })
+          : t('maps.family.translation', 'Translation')
       default:
-        return undefined
+        return t('maps.family.otherVersion', 'Other version')
     }
   }
 
   const compareLabel = t('maps.family.compareWithThis', 'Compare with this map')
+  const explanation = t(
+    'maps.family.explanation',
+    'Latest is the version most people play. Copies are the same version with small changes, ' +
+      'like an observer, tournament or translated edit. Maps based on another one are different ' +
+      'maps made from it.',
+  )
 
   return (
     <FamilyCard>
-      <SectionLabel>{t('maps.family.title', 'Versions & forks')}</SectionLabel>
-      {rows.length ? (
-        <Rows>
-          {rows.map(({ id, depth, branch }) => {
-            const member = byId.get(id)!
-            const isHere = member.mapId === map.id
-            const name = memberName(member.map.name, member.versionLabel)
-            const games = member.map.stats?.gamesTotal ?? 0
-            const subtitle = [
-              t('maps.family.games', {
-                defaultValue: '{{formattedCount}} games',
-                defaultValue_one: '{{formattedCount}} game',
-                count: games,
-                formattedCount: numbers.format(games),
-              }),
-              statusText(member.map.versionStatus),
-            ]
-              .filter(Boolean)
-              .join(' · ')
+      <CardHeader>
+        <SectionLabel>{t('maps.family.title', 'Versions')}</SectionLabel>
+        {showLines ? (
+          <Tooltip text={explanation} position='right'>
+            <InfoIcon />
+          </Tooltip>
+        ) : null}
+      </CardHeader>
+      {lines.length ? (
+        <Lines>
+          {lines.map(line => (
+            <Line key={line.topId}>
+              {line.basedOnId ? (
+                <LineHeader>
+                  {t('maps.family.basedOn', {
+                    defaultValue: 'Based on {{name}}',
+                    name: memberName(
+                      byId.get(line.basedOnId)?.map.name ?? '',
+                      byId.get(line.basedOnId)?.versionLabel,
+                    ),
+                  })}
+                </LineHeader>
+              ) : null}
+              {line.rows.map(id => {
+                const member = byId.get(id)!
+                const isHere = member.mapId === map.id
+                const name = memberName(member.map.name, member.versionLabel)
+                const games = member.map.stats?.gamesTotal ?? 0
 
-            return (
-              <Row key={id} $depth={depth}>
-                {branch ? <BranchIcon /> : null}
-                {depth > 0 && !branch ? <BranchSpacer /> : null}
-                <RowText>
-                  <RowTitle>
-                    {isHere ? (
-                      <MemberName title={name}>{name}</MemberName>
-                    ) : (
-                      <MemberLink href={urlForMap(member.mapId, member.map.name)} title={name}>
-                        {name}
-                      </MemberLink>
+                return (
+                  <Row key={id}>
+                    <RowText>
+                      <RowTitle>
+                        {isHere ? (
+                          <MemberName title={name}>{name}</MemberName>
+                        ) : (
+                          <MemberLink href={urlForMap(member.mapId, member.map.name)} title={name}>
+                            {name}
+                          </MemberLink>
+                        )}
+                        {member.isCurrent ? (
+                          <LatestChip>{t('maps.family.latest', 'Latest')}</LatestChip>
+                        ) : null}
+                      </RowTitle>
+                      <RowSubtitle>
+                        {[
+                          member.isCurrent ? undefined : statusText(member),
+                          t('maps.family.games', {
+                            defaultValue: '{{formattedCount}} games',
+                            defaultValue_one: '{{formattedCount}} game',
+                            count: games,
+                            formattedCount: numbers.format(games),
+                          }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </RowSubtitle>
+                    </RowText>
+                    {isHere ? null : (
+                      <Tooltip text={compareLabel} position='left' tabIndex={-1}>
+                        <LinkButton href={urlForMapCompare(...compareOrder(member.map, map))}>
+                          <IconButton
+                            styledAs='div'
+                            icon={<MaterialIcon icon='compare' />}
+                            ariaLabel={compareLabel}
+                          />
+                        </LinkButton>
+                      </Tooltip>
                     )}
-                    {member.isCurrent && (lineSizes.get(member.mapId) ?? 0) > 1 ? (
-                      <CurrentChip>{t('maps.family.current', 'Current')}</CurrentChip>
-                    ) : null}
-                    {member.relation === MapFamilyRelation.Fork ? (
-                      <ForkChip>{t('maps.family.fork', 'Fork')}</ForkChip>
-                    ) : null}
-                  </RowTitle>
-                  <RowSubtitle>{subtitle}</RowSubtitle>
-                </RowText>
-                {isHere ? null : (
-                  <Tooltip text={compareLabel} position='left' tabIndex={-1}>
-                    <LinkButton href={urlForMapCompare(...compareOrder(member.map, map))}>
-                      <IconButton
-                        styledAs='div'
-                        icon={<MaterialIcon icon='compare' />}
-                        ariaLabel={compareLabel}
-                      />
-                    </LinkButton>
-                  </Tooltip>
-                )}
-              </Row>
-            )
-          })}
-        </Rows>
+                  </Row>
+                )
+              })}
+            </Line>
+          ))}
+        </Lines>
       ) : null}
-      {similarCount ? (
-        <SimilarMaps $belowTree={rows.length > 0}>
-          {t('maps.family.similarMaps', {
-            defaultValue: '{{count}} similar maps found. Know how they’re related?',
-            defaultValue_one: '{{count}} similar map found. Know how it’s related?',
-            count: similarCount,
+      {collapsed.hiddenCount ? (
+        <ShowAllButton
+          label={
+            expanded
+              ? t('maps.family.showFewer', 'Show fewer')
+              : t('maps.family.showAll', {
+                  defaultValue: 'Show all {{count}}',
+                  count: members.length,
+                })
+          }
+          iconEnd={<MaterialIcon icon={expanded ? 'expand_less' : 'expand_more'} />}
+          onClick={() => setExpanded(!expanded)}
+        />
+      ) : null}
+      {reviewCount ? (
+        <ReviewPrompt>
+          {t('maps.family.waitingForReview', {
+            defaultValue: '{{count}} possibly related maps are waiting for review.',
+            defaultValue_one: '{{count}} possibly related map is waiting for review.',
+            count: reviewCount,
           })}{' '}
-          <InlineAction
-            onClick={() => {
-              if (isLoggedIn) {
-                dispatch(openMapFamilyLinkDialog(map.id, 'related'))
-              } else {
-                redirectToLogin(push)
-              }
-            }}>
-            {t('maps.family.helpSort', {
-              defaultValue: 'Help sort them',
-              defaultValue_one: 'Help sort it',
-              count: similarCount,
-            })}
-          </InlineAction>
-        </SimilarMaps>
+          <Link href={urlPath`/admin/map-families/maps/${map.id}`}>
+            {t('maps.family.review', 'Review')}
+          </Link>
+        </ReviewPrompt>
       ) : null}
     </FamilyCard>
   )
