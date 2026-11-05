@@ -903,7 +903,7 @@ function MapActions({
     ])
     if (map.familyMember && map.familyMember.source !== MapLinkSource.Moderator) {
       menuItems.push([
-        t('maps.page.unlinkFromFamily', 'Unlink from versions & forks'),
+        t('maps.page.unlinkFromFamily', 'Unlink from its versions'),
         () => {
           publisherUnlink({ mapId: map.id })
             .then(result => {
@@ -911,7 +911,7 @@ function MapActions({
                 throw result.error
               }
               snackbarController.showSnackbar(
-                t('maps.page.unlinkedFromFamily', 'Unlinked from versions & forks'),
+                t('maps.page.unlinkedFromFamily', 'Unlinked from its versions'),
               )
               onChanged()
             })
@@ -926,7 +926,7 @@ function MapActions({
     ])
     if (map.familyMember) {
       menuItems.push([
-        t('maps.page.reportWrongFamily', 'Report a wrong family…'),
+        t('maps.page.reportWrongFamily', 'Report a problem with versions…'),
         () => dispatch(openMapFamilyLinkDialog(map.id, 'wrongFamily')),
       ])
     }
@@ -940,7 +940,7 @@ function MapActions({
   if (canManageMaps) {
     if (map.listed && map.familyMember && !map.familyMember.isCurrent) {
       menuItems.push([
-        t('maps.page.pinAsCurrent', 'Pin as current version'),
+        t('maps.page.pinAsCurrent', 'Pin as the latest version'),
         () => {
           pinCurrent({ mapId: map.id })
             .then(result => {
@@ -948,12 +948,12 @@ function MapActions({
                 throw result.error
               }
               snackbarController.showSnackbar(
-                t('maps.page.pinnedAsCurrent', 'Pinned as the current version'),
+                t('maps.page.pinnedAsCurrent', 'Pinned as the latest version'),
               )
               onChanged()
             })
             .catch(() =>
-              showError(t('maps.page.pinAsCurrentError', "Couldn't pin the current version")),
+              showError(t('maps.page.pinAsCurrentError', "Couldn't pin the latest version")),
             )
         },
       ])
