@@ -199,8 +199,8 @@ importers:
         specifier: ^6.3.0
         version: 6.3.0(@node-rs/xxhash@1.7.8)(@opentelemetry/api@1.9.1)
       '@shieldbattery/broodmap':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz
+        version: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz
       '@shieldbattery/broodrep':
         specifier: ^0.6.0
         version: 0.6.0
@@ -3010,8 +3010,9 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
-  '@shieldbattery/broodmap@0.2.0':
-    resolution: {integrity: sha512-eBhXNr7jlcrLHIV5YqW5kfoUg/vZxwq8Bygc4biDGKoiJUZ7H6xOYQIv4oVA+9Git99ob8yzHXi9afWxeNjmkQ==}
+  '@shieldbattery/broodmap@file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz':
+    resolution: {integrity: sha512-tiYdTLPs8LlmMlgFntqvcmkp88xNR0TmqJEwt63kumiN7nXUOrZfjvP8dpQvPdUvM4Q0SDtSD6605HOvjqhyCA==, tarball: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz}
+    version: 0.2.0
     engines: {node: '>=22.13.1'}
 
   '@shieldbattery/broodrep@0.6.0':
@@ -10462,7 +10463,7 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
-  '@shieldbattery/broodmap@0.2.0': {}
+  '@shieldbattery/broodmap@file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz': {}
 
   '@shieldbattery/broodrep@0.6.0': {}
 

@@ -1,17 +1,21 @@
 import { describe, expect, test } from 'vitest'
 import {
   ALL_MAP_CATALOG_TABS,
+  MAP_COMPARE_SEGMENT,
   MapCatalogTab,
+  MapCompareView,
   mapIdFromRouteSegment,
   MapPageSubPage,
   mapSlug,
   urlForMap,
   urlForMapCatalog,
+  urlForMapCompare,
 } from './map-url'
 import { makeSbMapId } from './maps'
 import { encodePrettyId } from './pretty-id'
 
 const MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
+const OTHER_MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000bbbb')
 
 describe('common/map-url', () => {
   test('slugs names, keeping version numbers readable', () => {
@@ -55,10 +59,20 @@ describe('common/map-url', () => {
     expect(mapIdFromRouteSegment('5eed0000-0000-0000-0000')).toBeUndefined()
   })
 
-  test('never reads a catalog tab as a map id', () => {
+  test('never reads a catalog tab or the compare segment as a map id', () => {
     for (const tab of ALL_MAP_CATALOG_TABS) {
       expect(mapIdFromRouteSegment(tab)).toBeUndefined()
     }
+    expect(mapIdFromRouteSegment(MAP_COMPARE_SEGMENT)).toBeUndefined()
+  })
+
+  test('builds compare URLs, leaving the default view out', () => {
+    const base = `/maps/compare/${encodePrettyId(MAP_ID)}/${encodePrettyId(OTHER_MAP_ID)}`
+    expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID)).toBe(base)
+    expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, MapCompareView.Split)).toBe(base)
+    expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, MapCompareView.Slider)).toBe(
+      `${base}?view=slider`,
+    )
   })
 
   test('builds catalog URLs', () => {

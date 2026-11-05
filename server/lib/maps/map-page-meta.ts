@@ -1,4 +1,4 @@
-import { mapIdFromRouteSegment, urlForMap } from '../../../common/map-url'
+import { mapIdFromRouteSegment, urlForMap, urlForMapCompare } from '../../../common/map-url'
 import { filterColorCodes, MapVisibility, tilesetToName } from '../../../common/maps'
 import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
 import { getMapInfos, resolveMapId } from './map-models'
@@ -49,5 +49,37 @@ export const mapPageMetadata: PageMetadataResolver = async (params, context) => 
     // Crawlers don't all decode AVIF
     image: map.jpegImageUrl ?? defaultPageImage(context),
     noindex: map.visibility === MapVisibility.Unlisted,
+  }
+}
+
+/**
+ * Resolves the metadata for the page comparing two maps (registered for the `/maps/compare/:a/:b`
+ * route in `page-metadata.ts`). Comparisons are for sharing, not for search engines, so they're
+ * never indexed. A malformed ID or a missing map returns `undefined`.
+ */
+export const mapComparePageMetadata: PageMetadataResolver = async (params, context) => {
+  const requestedA = params.a ? mapIdFromRouteSegment(params.a) : undefined
+  const requestedB = params.b ? mapIdFromRouteSegment(params.b) : undefined
+  if (!requestedA || !requestedB) {
+    return undefined
+  }
+
+  const [a, b] = await Promise.all([resolveMapId(requestedA), resolveMapId(requestedB)])
+  const maps = await getMapInfos([a, b])
+  const mapA = maps.find(m => m.id === a)
+  const mapB = maps.find(m => m.id === b)
+  if (!mapA || !mapB) {
+    return undefined
+  }
+
+  const nameA = cleanText(mapA.name) || 'Untitled map'
+  const nameB = cleanText(mapB.name) || 'Untitled map'
+  return {
+    url: context.canonicalHost + urlForMapCompare(mapA.id, mapB.id),
+    type: 'website',
+    title: `${nameA} vs. ${nameB}`,
+    description: `Compare the terrain, bases and start locations of ${nameA} and ${nameB}.`,
+    image: mapB.jpegImageUrl ?? mapA.jpegImageUrl ?? defaultPageImage(context),
+    noindex: true,
   }
 }
