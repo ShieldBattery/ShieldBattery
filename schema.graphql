@@ -524,6 +524,7 @@ type MatchmakerConfigDefaults {
 	weightLatency: Float!
 	uncertaintyK: Float!
 	winProbScale: Float!
+	maxRatingSpread: Float!
 	minQuality: Float!
 	adaptiveComfortableMultiplier: Int!
 	adaptiveDecayPerMissing: Float!
@@ -565,6 +566,7 @@ type MatchmakerModeConfigOverrides {
 	weightLatency: Float
 	uncertaintyK: Float
 	winProbScale: Float
+	maxRatingSpread: Float
 	minQuality: Float
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
@@ -582,6 +584,7 @@ input MatchmakerModeConfigOverridesInput {
 	weightLatency: Float
 	uncertaintyK: Float
 	winProbScale: Float
+	maxRatingSpread: Float
 	minQuality: Float
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
