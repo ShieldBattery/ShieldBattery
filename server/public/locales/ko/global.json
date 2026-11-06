@@ -124,10 +124,10 @@
       "password": {
         "alreadyHaveCodeLink": "이미 코드가 있으신가요?",
         "emailAddress": "이메일 주소",
-        "explanationText": "계정과 연결된 이메일 주소와 사용자 이름을 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드릴게요.",
+        "explanationText": "계정과 연결된 이메일 주소와 아이디를 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드릴게요.",
         "sendResetEmail": "재설정 이메일 보내기",
         "title": "비밀번호 재설정 요청",
-        "username": "사용자 이름"
+        "username": "아이디"
       },
       "reset": {
         "confirmPassword": "새 비밀번호 확인",
@@ -141,10 +141,10 @@
       },
       "user": {
         "emailAddress": "이메일 주소",
-        "enterEmail": "계정에 연결된 이메일 주소를 입력하세요. 해당 이메일 주소와 연결된 모든 사용자 이름이 포함된 이메일을 보내드릴게요(있다면).",
+        "enterEmail": "계정에 연결된 이메일 주소를 입력하세요. 해당 이메일 주소와 연결된 모든 아이디가 포함된 이메일을 보내드릴게요(있다면).",
         "recoverUsername": "아이디 복구하기",
-        "successMessage": "잠시 후 해당 이메일 주소와 연결된 모든 사용자 이름이 담긴 이메일을 받게 됩니다(있는 경우).",
-        "title": "사용자 이름 복구하기"
+        "successMessage": "잠시 후 해당 이메일 주소와 연결된 모든 아이디가 담긴 이메일을 받게 됩니다(있는 경우).",
+        "title": "아이디 복구하기"
       }
     },
     "language": {
@@ -154,12 +154,12 @@
     "login": {
       "createAccountLinkText": "계정이 없으신가요? <1>계정 만들기</1>",
       "forgotPassword": "비밀번호 재설정",
-      "forgotUsername": "사용자 이름 복구하기",
+      "forgotUsername": "아이디 복구하기",
       "logIn": "로그인",
       "password": "비밀번호",
       "rememberMe": "자동 로그인",
       "title": "ShieldBattery에 로그인해",
-      "username": "사용자 이름"
+      "username": "아이디"
     },
     "noPermissionsPage": {
       "body": "이 페이지에 접근할 수 있는 권한이 없습니다."
@@ -200,7 +200,7 @@
       "readAndAgree": "나는 <2>서비스 약관</2>, <5>사용 정책</5>, 그리고 <8>개인정보 보호 정책</8>에 동의하고 읽었습니다",
       "signupCode": "가입 코드 (선택 사항)",
       "title": "계정 만들기",
-      "username": "사용자 이름"
+      "username": "아이디"
     },
     "userErrorDisplay": {
       "accountBanned": "이 계정은 정지되었습니다.<1><0>사유:</0><1>{{banReason}}</1></1><2>정지는 {{expireTime}}에 만료됩니다.</2>",
@@ -211,20 +211,20 @@
       "defaultError": "오류 발생: {{status}} {{statusText}}",
       "genericError": "오류 발생: {{errorMessage}}",
       "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",
-      "invalidCredentials": "사용자 이름이나 비밀번호가 올바르지 않습니다",
+      "invalidCredentials": "아이디나 비밀번호가 올바르지 않습니다",
       "machineBanned": "이 기기에서는 새로운 계정을 만드는 것이 금지되어 있습니다.",
       "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.",
       "openStarcraftSettings": "스타크래프트 설정 열기",
       "sessionExpired": "세션이 만료되었습니다",
       "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다.",
-      "usernameTaken": "해당 사용자 이름은 사용할 수 없습니다."
+      "usernameTaken": "해당 아이디는 사용할 수 없습니다."
     },
     "usernameValidator": {
-      "availabilityError": "사용자 이름 사용 가능 여부를 확인하는 중 문제가 발생했습니다",
-      "notAvailable": "사용자 이름을 사용할 수 없습니다",
-      "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
-      "required": "사용자 이름을 입력하세요",
-      "unavailable": "사용자 이름을 사용할 수 없습니다"
+      "availabilityError": "아이디 사용 가능 여부를 확인하는 중 문제가 발생했습니다",
+      "notAvailable": "아이디를 사용할 수 없습니다",
+      "pattern": "아이디에 잘못된 문자가 포함되어 있습니다",
+      "required": "아이디를 입력하세요",
+      "unavailable": "아이디를 사용할 수 없습니다"
     }
   },
   "bugReport": {
@@ -3159,8 +3159,8 @@
           "success": "이메일이 성공적으로 변경되었습니다."
         },
         "changeLoginName": {
-          "dialogTitle": "로그인 이름 변경",
-          "success": "로그인 이름이 성공적으로 변경되었습니다."
+          "dialogTitle": "아이디 변경",
+          "success": "아이디가 성공적으로 변경되었습니다."
         },
         "changePassword": {
           "dialogTitle": "비밀번호 변경",
@@ -3179,10 +3179,10 @@
         "error": "사용자 정보를 가져오는 데 문제가 발생했습니다.",
         "invalidCurrentPassword": "현재 비밀번호가 올바르지 않습니다",
         "label": "계정",
-        "loginName": "로그인 이름",
-        "loginNameChangeInfo": "로그인 이름은 30일에 한 번 변경할 수 있습니다.",
-        "loginNameCooldown_other": "이름을 너무 최근에 변경했습니다. 로그인 이름은 {{count}}일 후에 다시 변경할 수 있습니다.",
-        "loginNameUnavailable": "로그인 이름을 사용할 수 없습니다.",
+        "loginName": "아이디",
+        "loginNameChangeInfo": "아이디는 30일에 한 번 변경할 수 있습니다.",
+        "loginNameCooldown_other": "아이디를 너무 최근에 변경했습니다. {{count}}일 후에 다시 변경할 수 있습니다.",
+        "loginNameUnavailable": "아이디를 사용할 수 없습니다.",
         "networkError": "네트워크 오류: {{errorMessage}}",
         "newPassword": "새 비밀번호",
         "passwordValidator": {
@@ -3190,7 +3190,7 @@
           "current": "현재 비밀번호를 입력하세요",
           "new": "새 비밀번호를 입력하세요"
         },
-        "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다.",
+        "rateLimited": "아이디는 30일에 한 번만 변경할 수 있습니다.",
         "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
       },
       "chat": {
@@ -3409,9 +3409,9 @@
           "title": "표시 이름 변경"
         },
         "displayNameChanges": "표시 이름 변경 내역",
-        "loginNameChanges": "로그인 이름 변경 내역",
+        "loginNameChanges": "아이디 변경 내역",
         "noDisplayNameHistory": "표시 이름 변경 내역이 없습니다.",
-        "noLoginNameHistory": "로그인 이름 변경 내역이 없습니다.",
+        "noLoginNameHistory": "아이디 변경 내역이 없습니다.",
         "title": "이름 변경 기록",
         "usedToken": "이름 변경 토큰 사용됨",
         "userHistory": "이름 변경 기록"
