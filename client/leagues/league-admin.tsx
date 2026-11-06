@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Route, RouteComponentProps, Switch } from 'wouter'
+import { TranslationLanguage } from '../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
 import {
   AdminEditLeagueRequest,
@@ -12,6 +13,7 @@ import {
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
   LeagueJson,
+  LeagueTranslation,
   makeLeagueId,
 } from '../../common/leagues/leagues'
 import {
@@ -45,6 +47,7 @@ import {
 import { LeagueCard } from './league-card'
 import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
 import { LeagueSectionType } from './league-section-type'
+import { LeagueTranslationFields } from './league-translation-fields'
 import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
@@ -230,6 +233,7 @@ interface LeagueModel {
   name: string
   matchmakingType: MatchmakingType
   description: string
+  translations: LeagueTranslation[]
   signupsAfter: string
   startAt: string
   endAt: string
@@ -250,6 +254,7 @@ function CreateLeague() {
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
+  const [previewLanguage, setPreviewLanguage] = useState<TranslationLanguage | ''>('')
 
   const {
     submit: onSubmit,
@@ -262,6 +267,7 @@ function CreateLeague() {
       name: '',
       matchmakingType: MatchmakingType.Match1v1,
       description: '',
+      translations: [],
       signupsAfter: '',
       startAt: '',
       endAt: '',
@@ -309,6 +315,7 @@ function CreateLeague() {
             name: model.name,
             matchmakingType: model.matchmakingType,
             description: model.description,
+            translations: [...model.translations],
             signupsAfter: Date.parse(model.signupsAfter),
             startAt: Date.parse(model.startAt),
             endAt: Date.parse(model.endAt),
@@ -336,6 +343,7 @@ function CreateLeague() {
         name: model.name,
         matchmakingType: model.matchmakingType,
         description: model.description,
+        translations: [...model.translations],
         signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
         startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
         endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
@@ -434,13 +442,26 @@ function CreateLeague() {
             inputProps={{ tabIndex: 0 }}
           />
 
+          <LeagueTranslationFields
+            {...bindCustom('translations')}
+            language={previewLanguage}
+            onLanguageChange={setPreviewLanguage}
+          />
           <FilledButton type='submit' label='Create league' onClick={onSubmit} />
         </LeagueForm>
         <LeaguePreview>
           {previewLeague ? (
             <>
-              <LeagueDetailsHeader league={previewLeague} previewBadgeUrl={badgeUrl} />
-              <LeagueDetailsInfo league={previewLeague} previewImageUrl={imageUrl} />
+              <LeagueDetailsHeader
+                league={previewLeague}
+                language={previewLanguage}
+                previewBadgeUrl={badgeUrl}
+              />
+              <LeagueDetailsInfo
+                league={previewLeague}
+                language={previewLanguage}
+                previewImageUrl={imageUrl}
+              />
             </>
           ) : undefined}
         </LeaguePreview>
@@ -455,6 +476,7 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
   const dispatch = useAppDispatch()
   const [originalLeague, setOriginalLeague] = useState<LeagueJson>()
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
+  const [previewLanguage, setPreviewLanguage] = useState<TranslationLanguage | ''>('')
   const [previewImage, setPreviewImage] = useState<File>()
   const [previewBadge, setPreviewBadge] = useState<File>()
   const [error, setError] = useState<Error>()
@@ -492,6 +514,8 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
         {originalLeague ? (
           <EditLeagueForm
             originalLeague={originalLeague}
+            previewLanguage={previewLanguage}
+            onPreviewLanguageChange={setPreviewLanguage}
             onSubmit={model => {
               const originalSignupsAfter = originalLeague
                 ? asDatetimeLocalValue(originalLeague.signupsAfter)
@@ -502,6 +526,7 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
               const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
 
               const patch: AdminEditLeagueRequest = {
+                translations: [...model.translations],
                 name: model.name !== originalLeague?.name ? model.name : undefined,
                 matchmakingType:
                   model.matchmakingType !== originalLeague?.matchmakingType
@@ -549,6 +574,7 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                 name: model.name,
                 matchmakingType: model.matchmakingType,
                 description: model.description,
+                translations: [...model.translations],
                 signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
                 startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
                 endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
@@ -567,8 +593,16 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
         <LeaguePreview>
           {previewLeague ? (
             <>
-              <LeagueDetailsHeader league={previewLeague} previewBadgeUrl={badgeUrl} />
-              <LeagueDetailsInfo league={previewLeague} previewImageUrl={imageUrl} />
+              <LeagueDetailsHeader
+                league={previewLeague}
+                language={previewLanguage}
+                previewBadgeUrl={badgeUrl}
+              />
+              <LeagueDetailsInfo
+                league={previewLeague}
+                language={previewLanguage}
+                previewImageUrl={imageUrl}
+              />
             </>
           ) : undefined}
         </LeaguePreview>
@@ -599,10 +633,14 @@ interface EditLeagueModel extends LeagueModel {
 
 function EditLeagueForm({
   originalLeague,
+  previewLanguage,
+  onPreviewLanguageChange,
   onSubmit,
   onValidatedChange,
 }: {
   originalLeague: LeagueJson
+  previewLanguage: TranslationLanguage | ''
+  onPreviewLanguageChange: (language: TranslationLanguage | '') => void
   onSubmit?: (model: ReadonlyDeep<EditLeagueModel>) => void
   onValidatedChange?: (model: ReadonlyDeep<EditLeagueModel>) => void
 }) {
@@ -619,6 +657,7 @@ function EditLeagueForm({
       name: originalLeague.name,
       matchmakingType: originalLeague.matchmakingType,
       description: originalLeague.description,
+      translations: originalLeague.translations ?? [],
       signupsAfter: asDatetimeLocalValue(originalLeague.signupsAfter),
       startAt: asDatetimeLocalValue(originalLeague.startAt),
       endAt: asDatetimeLocalValue(originalLeague.endAt),
@@ -769,6 +808,11 @@ function EditLeagueForm({
         inputProps={{ tabIndex: 0 }}
       />
 
+      <LeagueTranslationFields
+        {...bindCustom('translations')}
+        language={previewLanguage}
+        onLanguageChange={onPreviewLanguageChange}
+      />
       <FilledButton type='submit' label='Save league' onClick={submit} />
     </LeagueForm>
   )

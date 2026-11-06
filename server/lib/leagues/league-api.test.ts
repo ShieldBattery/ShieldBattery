@@ -11,7 +11,13 @@ import { Redis } from '../redis/redis'
 import { ReplayService } from '../replays/replay-service'
 import { updateLeaderboards } from './leaderboard'
 import { LeagueAdminApi, LeagueApi } from './league-api'
-import { adminGetLeague, getLeague, leaveLeagueForUser } from './league-models'
+import {
+  adminGetLeague,
+  createLeague,
+  getLeague,
+  leaveLeagueForUser,
+  updateLeague,
+} from './league-models'
 import { LeagueStartNotifier } from './league-start-notifier'
 
 vi.mock('../db/transaction', () => ({ default: vi.fn() }))
@@ -20,6 +26,8 @@ vi.mock('./league-models', async importOriginal => ({
   ...(await importOriginal<typeof import('./league-models')>()),
   getLeague: vi.fn(),
   adminGetLeague: vi.fn(),
+  createLeague: vi.fn(),
+  updateLeague: vi.fn(),
   leaveLeagueForUser: vi.fn(),
 }))
 
@@ -127,5 +135,68 @@ describe('league membership removal deadlines', () => {
       [{ leagueId: LEAGUE_ID, userId: USER_ID }],
       client,
     )
+  })
+})
+
+describe('league translation validation', () => {
+  const notifier = { scheduleLeague: vi.fn() } as unknown as LeagueStartNotifier
+  const api = new LeagueAdminApi({} as NotificationService, notifier, redis)
+  const translations = [{ language: 'es', name: '', description: 'Descripción' }]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    asMockedFunction(adminGetLeague).mockResolvedValue(makeLeague())
+    asMockedFunction(createLeague).mockResolvedValue(makeLeague())
+    asMockedFunction(updateLeague).mockResolvedValue(makeLeague())
+  })
+
+  function contextFor(field: string, value: unknown): RouterContext {
+    const context = makeContext()
+    const leagueData =
+      field === 'leagueData'
+        ? {
+            name: 'League',
+            description: 'Description',
+            matchmakingType: MatchmakingType.Match1v1,
+            signupsAfter: Date.now() + 100000,
+            startAt: Date.now() + 200000,
+            endAt: Date.now() + 300000,
+            translations: value,
+          }
+        : { translations: value }
+    context.request = { body: { [field]: JSON.stringify(leagueData) } } as RouterContext['request']
+    return context
+  }
+
+  test('accepts translations on creation', async () => {
+    await api.addLeague(contextFor('leagueData', translations))
+    expect(createLeague).toHaveBeenCalledWith(expect.objectContaining({ translations }))
+  })
+
+  test.each([{ value: translations }, { value: [] }])(
+    'replaces translations on edit: %j',
+    async ({ value }) => {
+      await api.editLeague(contextFor('leagueChanges', value))
+      expect(updateLeague).toHaveBeenCalledWith(LEAGUE_ID, { translations: value })
+    },
+  )
+
+  test.each([
+    { value: null },
+    { value: {} },
+    { value: [{ language: 'fr', name: 'Nom' }] },
+    { value: [{ language: 'es' }, { language: 'es' }] },
+    { value: [{ language: 'es', name: 123 }] },
+    { value: [{ language: 'es', extra: 'unexpected' }] },
+    { value: [null] },
+  ])('rejects invalid translations on create and edit: %j', async ({ value }) => {
+    await expect(api.addLeague(contextFor('leagueData', value))).rejects.toMatchObject({
+      status: 400,
+    })
+    await expect(api.editLeague(contextFor('leagueChanges', value))).rejects.toMatchObject({
+      status: 400,
+    })
+    expect(createLeague).not.toHaveBeenCalled()
+    expect(updateLeague).not.toHaveBeenCalled()
   })
 })

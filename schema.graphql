@@ -398,8 +398,16 @@ type League {
 	endAt: DateTime!
 	rulesAndInfo: String
 	link: String
+	translations: [LeagueTranslation!]!
 	imageUrl: String
 	badgeUrl: String
+}
+
+type LeagueTranslation {
+	language: String!
+	name: String
+	description: String
+	rulesAndInfo: String
 }
 
 """

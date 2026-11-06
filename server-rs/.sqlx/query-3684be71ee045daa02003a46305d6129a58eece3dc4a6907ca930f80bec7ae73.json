@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link\n                FROM leagues\n                WHERE end_at > NOW() AND start_at > NOW() and signups_after <= NOW()\n                ORDER BY start_at DESC\n            ",
+  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link, translations as \"translations: Json<Vec<LeagueTranslation>>\"\n                FROM leagues\n                WHERE end_at > NOW() AND start_at > NOW() and signups_after <= NOW()\n                ORDER BY start_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -140,6 +140,17 @@
             "name": "link"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "translations: Json<Vec<LeagueTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "leagues",
+            "name": "translations"
+          }
+        }
       }
     ],
     "parameters": {
@@ -156,8 +167,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "fd32d24a126aec1057fb9c97f8334a6698652e15db1d3fd77864f5cc81461c3d"
+  "hash": "3684be71ee045daa02003a46305d6129a58eece3dc4a6907ca930f80bec7ae73"
 }

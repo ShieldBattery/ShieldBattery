@@ -37,6 +37,8 @@ import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { recentReplayPathsAtom } from '../games/game-atoms'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
 import { LeagueBadge } from '../leagues/league-badge'
+import { localizeLeague } from '../leagues/league-translations'
+import { useLocalizedLeague } from '../leagues/use-localized-league'
 import logger from '../logging/logger'
 import { FilledButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
@@ -258,7 +260,7 @@ function RatedUserContent({
   mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
   leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const pageInView = usePageInView()
   const [shownAt] = useState(() => new Date())
   const divisionTransitions = useMemo(() => {
@@ -509,7 +511,10 @@ function RatedUserContent({
               onAnimationComplete={maybeBeginPointsAnimation}>
               {topElem}
               {leagueValues.map(item => (
-                <LeagueTooltip key={item.league.id} text={item.league.name} position={'left'}>
+                <LeagueTooltip
+                  key={item.league.id}
+                  text={localizeLeague(item.league, i18n.resolvedLanguage ?? i18n.language).name}
+                  position={'left'}>
                   <LeagueDelta {...item} playSound={playPointRevealSound} />
                 </LeagueTooltip>
               ))}
@@ -604,6 +609,7 @@ function LeagueDelta({
   value: number
   playSound: () => void
 }) {
+  const localized = useLocalizedLeague(league)
   const roundedValue = Math.round(value)
   const hasPlayedSound = useRef(false)
 
@@ -619,7 +625,7 @@ function LeagueDelta({
           hasPlayedSound.current = true
         }
       }}>
-      <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} />
+      <LeagueBadge leagueName={localized.name} badgeUrl={league.badgePath} />
       {roundedValue < 0 ? '' : '+'}
       {roundedValue}
     </LeagueDeltaRoot>

@@ -772,9 +772,11 @@ export type UrgentMessage_HomeDisplayFragmentFragment = {
   translations: Array<{ language: string; title: string; message: string }>
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
-export type Leagues_LeagueBadgeFragmentFragment = { name: string; badgeUrl: string | null } & {
-  ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment'
-}
+export type Leagues_LeagueBadgeFragmentFragment = {
+  name: string
+  badgeUrl: string | null
+  translations: Array<{ language: string; name: string | null }>
+} & { ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment' }
 
 export type Leagues_HomeFeedFragmentFragment = {
   activeLeagues: Array<
@@ -799,6 +801,7 @@ export type Leagues_HomeFeedEntryFragmentFragment = ({
   matchmakingType: Types.MatchmakingType
   startAt: string
   endAt: string
+  translations: Array<{ language: string; name: string | null }>
 } & {
   ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
 }) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
@@ -1762,6 +1765,17 @@ export const Leagues_LeagueBadgeFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1780,6 +1794,17 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
@@ -1795,6 +1820,17 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1850,6 +1886,17 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1863,6 +1910,17 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
@@ -4176,6 +4234,17 @@ export const HomePageContentDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -4189,6 +4258,17 @@ export const HomePageContentDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
