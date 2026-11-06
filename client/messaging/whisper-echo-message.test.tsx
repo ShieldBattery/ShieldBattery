@@ -1,12 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeAll, describe, expect, test, vi } from 'vitest'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { shortTimestamp } from '../i18n/date-formats'
-import { navigateToWhisper } from '../whispers/action-creators'
 import { CommonMessageType, CommonWhisperEchoMessage } from './message-records'
 import { WhisperEchoMessage } from './whisper-echo-message'
 
@@ -19,23 +18,13 @@ beforeAll(async () => {
     .init({ lng: 'en', resources: {}, interpolation: { escapeValue: false } })
 })
 
-// Only the navigation the line performs is stubbed; the rest of the module stays real, since the
-// component imports it for that one function.
-vi.mock('../whispers/action-creators', async importOriginal => ({
-  ...(await importOriginal<typeof import('../whispers/action-creators')>()),
-  navigateToWhisper: vi.fn(),
-}))
-
 // The real `ConnectedUsername` reaches for user info and opens overlays of its own, neither of
-// which these tests are about. The stand-in keeps the one thing the line's click handling depends
-// on: a focusable element, which is how the line tells a click on the name from a click on itself.
+// which these tests are about.
 const { userNames } = vi.hoisted(() => ({ userNames: new Map<number, string>() }))
 
 vi.mock('../users/connected-username', () => ({
   ConnectedUsername: ({ userId, className }: { userId: number; className?: string }) => (
-    <span className={className} tabIndex={0}>
-      {userNames.get(userId)}
-    </span>
+    <span className={className}>{userNames.get(userId)}</span>
   ),
 }))
 
@@ -65,14 +54,9 @@ function seedUsers(store: ReturnType<typeof createStore>, users: Array<{ id: SbU
   })
 }
 
-function doRender(
-  message: CommonWhisperEchoMessage,
-  { withUser = true }: { withUser?: boolean } = {},
-): HTMLElement {
+function doRender(message: CommonWhisperEchoMessage): HTMLElement {
   const store = createStore()
-  if (withUser) {
-    seedUsers(store, [{ id: message.counterpartId }])
-  }
+  seedUsers(store, [{ id: message.counterpartId }])
 
   render(
     <ReduxProvider store={store}>
@@ -84,27 +68,19 @@ function doRender(
 }
 
 describe('client/messaging/whisper-echo-message', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  test('an incoming whisper reads as an arrow towards the user', () => {
+  test('an incoming whisper is labelled with who it is from', () => {
     const line = doRender(makeEcho({ direction: 'incoming' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.current().format(SENT_TIME)}] ← ${COUNTERPART_NAME}: how goes it`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] From: ${COUNTERPART_NAME}: how goes it`,
     )
   })
 
-  test('an outgoing whisper reads as an arrow away from the user', () => {
+  test('an outgoing whisper is labelled with who it is to', () => {
     const line = doRender(makeEcho({ direction: 'outgoing' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.current().format(SENT_TIME)}] → ${COUNTERPART_NAME}: how goes it`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] To: ${COUNTERPART_NAME}: how goes it`,
     )
   })
 
@@ -112,9 +88,9 @@ describe('client/messaging/whisper-echo-message', () => {
     const line = doRender(makeEcho({ direction: 'incoming', emote: true, text: 'waves' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.current().format(SENT_TIME)}] ← * ${COUNTERPART_NAME} waves`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] From: * ${COUNTERPART_NAME} waves`,
     )
-    expect(line.textContent).not.toContain(': ')
+    expect(line.textContent).not.toContain(`${COUNTERPART_NAME}:`)
   })
 
   test('an echoed roll outcome reads as an action line with the settled value in a chip', () => {
@@ -128,41 +104,8 @@ describe('client/messaging/whisper-echo-message', () => {
     )
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.current().format(SENT_TIME)}] ← * ${COUNTERPART_NAME} rolls 42 (1-100)`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] From: * ${COUNTERPART_NAME} rolls 42 (1-100)`,
     )
     expect(screen.getByTestId('outcome-chip').textContent).toBe('42')
-  })
-
-  test('clicking the line opens the conversation it came from', () => {
-    const line = doRender(makeEcho({ direction: 'incoming' }))
-
-    fireEvent.click(line)
-
-    expect(navigateToWhisper).toHaveBeenCalledWith(COUNTERPART_ID, COUNTERPART_NAME)
-  })
-
-  test('clicking the name leaves the navigation to the name itself', () => {
-    doRender(makeEcho({ direction: 'incoming' }))
-
-    fireEvent.click(screen.getByText(COUNTERPART_NAME))
-
-    expect(navigateToWhisper).not.toHaveBeenCalled()
-  })
-
-  test('a click that ends a selection does not navigate', () => {
-    const line = doRender(makeEcho({ direction: 'incoming' }))
-    vi.spyOn(window, 'getSelection').mockReturnValue({ isCollapsed: false } as Selection)
-
-    fireEvent.click(line)
-
-    expect(navigateToWhisper).not.toHaveBeenCalled()
-  })
-
-  test('a counterpart the client has no name for yet has nowhere to navigate to', () => {
-    const line = doRender(makeEcho({ direction: 'incoming' }), { withUser: false })
-
-    fireEvent.click(line)
-
-    expect(navigateToWhisper).not.toHaveBeenCalled()
   })
 })

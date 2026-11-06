@@ -982,6 +982,10 @@
       "showMoreGames_other": "再显示 {{count}} 场游戏",
       "showMoreStreams_other": "再显示 {{count}} 个直播"
     },
+    "whisperEcho": {
+      "from": "来自：",
+      "to": "发给："
+    },
     "whispers": {
       "startWhisperButton": "开始私聊"
     }

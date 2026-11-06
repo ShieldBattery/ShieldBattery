@@ -995,6 +995,10 @@
       "showMoreStreams_one": "Show {{count}} more stream",
       "showMoreStreams_other": "Show {{count}} more streams"
     },
+    "whisperEcho": {
+      "from": "From:",
+      "to": "To:"
+    },
     "whispers": {
       "startWhisperButton": "Start a whisper"
     }
