@@ -353,6 +353,10 @@ consistent. (Seed — extend over time.)
 - **veto → 거부** (래더 "맵 거부"), **matchup → 종족전**, **ladder → 래더**, **queue → 대기열**,
   **map pool → 맵 풀**, **MMR → MMR** (kept).
 - Rank → 순위; tier/grade → 등급 (both already used in-file).
+- **Username (login, signup, account recovery) and login name → 아이디**, never 사용자 이름 or
+  로그인 이름: players read 이름 as their real name and entered it. 아이디 ends in a vowel, so it
+  takes 를/가/는/나. Strings about another player's displayed name (`common.loading.username`) stay
+  사용자 이름.
 - **news → 소식** (matches home's 최신 소식), **publish → 게시** (게시됨/지금 게시/게시 취소),
   **cover image → 대표 이미지** (Korean CMS convention), **draft → 초안**, **schedule(d) →
   예약(됨)**. Required-field validation follows the in-file "…을 입력하세요" style.
