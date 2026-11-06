@@ -1,4 +1,5 @@
 import { Tagged } from 'type-fest'
+import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { RaceStats } from '../races'
@@ -22,11 +23,19 @@ export function makeLeagueId(id: string): LeagueId {
   return id as LeagueId
 }
 
+export interface LeagueTranslation {
+  language: TranslationLanguage
+  name?: string
+  description?: string
+  rulesAndInfo?: string
+}
+
 export interface League {
   id: LeagueId
   name: string
   matchmakingType: MatchmakingType
   description: string
+  translations?: LeagueTranslation[]
   signupsAfter: Date
   startAt: Date
   endAt: Date
@@ -44,6 +53,7 @@ export function toLeagueJson(league: League): LeagueJson {
     name: league.name,
     matchmakingType: league.matchmakingType,
     description: league.description,
+    translations: league.translations,
     signupsAfter: Number(league.signupsAfter),
     startAt: Number(league.startAt),
     endAt: Number(league.endAt),
@@ -131,6 +141,7 @@ export interface ServerAdminAddLeagueRequest {
   name: string
   matchmakingType: MatchmakingType
   description: string
+  translations?: LeagueTranslation[]
   signupsAfter: Date
   startAt: Date
   endAt: Date
@@ -148,6 +159,8 @@ export interface ServerAdminEditLeagueRequest {
   name?: string
   matchmakingType?: MatchmakingType
   description?: string
+  /** Replaces all translations. An empty array removes them. */
+  translations?: LeagueTranslation[]
   signupsAfter?: Date
   startAt?: Date
   endAt?: Date

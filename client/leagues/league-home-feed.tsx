@@ -16,6 +16,7 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
 import { urlForLeague } from './action-creators'
 import { GqlLeagueBadge } from './league-badge'
+import { useLocalizedLeague } from './use-localized-league'
 
 export const Leagues_HomeFeedFragment = graphql(/* GraphQL */ `
   fragment Leagues_HomeFeedFragment on Query {
@@ -85,6 +86,10 @@ export const Leagues_HomeFeedEntryFragment = graphql(/* GraphQL */ `
   fragment Leagues_HomeFeedEntryFragment on League {
     id
     name
+    translations {
+      language
+      name
+    }
     matchmakingType
     startAt
     endAt
@@ -146,6 +151,7 @@ const NoWrapSpan = styled.span`
 function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEntryFragment> }) {
   const { t } = useTranslation()
   const league = useFragment(Leagues_HomeFeedEntryFragment, query)
+  const localized = useLocalizedLeague(league)
   const url = urlForLeague(makeLeagueId(league.id), league)
   const [buttonProps, rippleRef] = useButtonState({})
 
@@ -157,7 +163,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
     <LeagueEntryRoot {...buttonProps} href={url}>
       <StyledLeagueBadge query={league} />
       <Info>
-        <LeagueName>{league.name}</LeagueName>
+        <LeagueName>{localized.name}</LeagueName>
         <LeagueTypeAndDates>
           <LeagueType>{matchmakingTypeToLabel(league.matchmakingType, t)}</LeagueType>
           <NoWrapSpan>·</NoWrapSpan>

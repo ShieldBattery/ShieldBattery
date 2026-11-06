@@ -1,6 +1,11 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
-import { NotificationType } from '../../../common/notifications'
+import {
+  LeagueBanNotification,
+  LeagueStartNotification,
+  LeagueUnbanNotification,
+  NotificationType,
+} from '../../../common/notifications'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db/index'
@@ -67,6 +72,7 @@ type UserRestrictedSearchNotificationData = MakeSearchable<UserRestrictedNotific
 export interface LeagueBanNotificationData extends BaseNotificationData {
   type: NotificationType.LeagueBan
   leagueName: string
+  leagueNameTranslations?: LeagueBanNotification['leagueNameTranslations']
 }
 
 type LeagueBanSearchNotificationData = MakeSearchable<LeagueBanNotificationData>
@@ -74,6 +80,7 @@ type LeagueBanSearchNotificationData = MakeSearchable<LeagueBanNotificationData>
 export interface LeagueUnbanNotificationData extends BaseNotificationData {
   type: NotificationType.LeagueUnban
   leagueName: string
+  leagueNameTranslations?: LeagueUnbanNotification['leagueNameTranslations']
 }
 
 type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationData>
@@ -81,6 +88,7 @@ type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationD
 export interface LeagueStartNotificationData extends BaseNotificationData {
   type: NotificationType.LeagueStart
   leagueName: string
+  leagueNameTranslations?: LeagueStartNotification['leagueNameTranslations']
 }
 
 type LeagueStartSearchNotificationData = MakeSearchable<LeagueStartNotificationData>

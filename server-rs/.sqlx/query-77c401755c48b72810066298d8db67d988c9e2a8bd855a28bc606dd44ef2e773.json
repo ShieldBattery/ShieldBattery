@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link\n                FROM leagues\n                WHERE start_at <= NOW() AND end_at > NOW()\n                ORDER BY start_at DESC\n            ",
+  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link, translations as \"translations: Json<Vec<LeagueTranslation>>\"\n                FROM leagues\n                WHERE end_at <= NOW()\n                ORDER BY end_at DESC\n                -- Protective bound: leagues only accumulate over time and this table isn't\n                -- paginated yet, so cap the result set rather than returning it unbounded.\n                LIMIT 100\n            ",
   "describe": {
     "columns": [
       {
@@ -140,6 +140,17 @@
             "name": "link"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "translations: Json<Vec<LeagueTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "leagues",
+            "name": "translations"
+          }
+        }
       }
     ],
     "parameters": {
@@ -156,8 +167,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "1e53f20b34db61a12de11fcee1f2e00cce2c828b3222e13598574b02727e98fc"
+  "hash": "77c401755c48b72810066298d8db67d988c9e2a8bd855a28bc606dd44ef2e773"
 }

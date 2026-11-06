@@ -1,4 +1,5 @@
 import { SbChannelId } from './chat'
+import { TranslationLanguage } from './i18n'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
@@ -113,16 +114,19 @@ export interface UserRestrictedNotification extends BaseNotification {
 export interface LeagueBanNotification extends BaseNotification {
   type: NotificationType.LeagueBan
   leagueName: string
+  leagueNameTranslations?: Partial<Record<TranslationLanguage, string>>
 }
 
 export interface LeagueUnbanNotification extends BaseNotification {
   type: NotificationType.LeagueUnban
   leagueName: string
+  leagueNameTranslations?: Partial<Record<TranslationLanguage, string>>
 }
 
 export interface LeagueStartNotification extends BaseNotification {
   type: NotificationType.LeagueStart
   leagueName: string
+  leagueNameTranslations?: Partial<Record<TranslationLanguage, string>>
 }
 
 export interface ChannelKickNotification extends BaseNotification {

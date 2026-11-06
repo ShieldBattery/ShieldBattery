@@ -5,6 +5,7 @@ import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
+import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
@@ -72,6 +73,17 @@ import {
   updateLeague,
 } from './league-models'
 import { LeagueStartNotifier } from './league-start-notifier'
+
+const leagueTranslationsSchema = Joi.array()
+  .items(
+    Joi.object({
+      language: Joi.valid(...ALL_TRANSLATION_LANGUAGES).required(),
+      name: Joi.string().allow(''),
+      description: Joi.string().allow(''),
+      rulesAndInfo: Joi.string().allow(''),
+    }).unknown(false),
+  )
+  .unique('language')
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 
@@ -334,6 +346,7 @@ export class LeagueAdminApi {
           name: Joi.string().required(),
           matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
           description: Joi.string().required(),
+          translations: leagueTranslationsSchema,
           signupsAfter: Joi.date().timestamp().min(Date.now()).required(),
           startAt: Joi.date().timestamp().min(Date.now()).required(),
           endAt: Joi.date().timestamp().min(Date.now()).required(),
@@ -427,6 +440,7 @@ export class LeagueAdminApi {
           name: Joi.string(),
           matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES),
           description: Joi.string(),
+          translations: leagueTranslationsSchema,
           signupsAfter: Joi.date().timestamp(),
           startAt: Joi.date().timestamp(),
           endAt: Joi.date().timestamp(),
@@ -569,6 +583,9 @@ export class LeagueAdminApi {
       data: {
         type: NotificationType.LeagueBan,
         leagueName: league.name,
+        leagueNameTranslations: league.translations
+          ? Object.fromEntries(league.translations.map(({ language, name }) => [language, name]))
+          : undefined,
       },
     })
   }
@@ -623,6 +640,9 @@ export class LeagueAdminApi {
       data: {
         type: NotificationType.LeagueUnban,
         leagueName: league.name,
+        leagueNameTranslations: league.translations
+          ? Object.fromEntries(league.translations.map(({ language, name }) => [language, name]))
+          : undefined,
       },
     })
   }

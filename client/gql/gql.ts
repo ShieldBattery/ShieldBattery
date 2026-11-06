@@ -46,9 +46,9 @@ type Documents = {
   '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
   '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n': typeof types.HomePageLiveContentDocument
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
-  '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
+  '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    translations {\n      language\n      name\n    }\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
-  '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
+  '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.NewsArchiveDocument
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n': typeof types.News_HomeFeedFragmentFragmentDoc
   '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n': typeof types.NewsUpdatePostDocument
@@ -145,11 +145,11 @@ const documents: Documents = {
     types.HomePageLiveContentDocument,
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n':
     types.UrgentMessage_HomeDisplayFragmentFragmentDoc,
-  '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n':
+  '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    translations {\n      language\n      name\n    }\n    badgeUrl\n  }\n':
     types.Leagues_LeagueBadgeFragmentFragmentDoc,
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n':
     types.Leagues_HomeFeedFragmentFragmentDoc,
-  '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
+  '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
     types.Leagues_HomeFeedEntryFragmentFragmentDoc,
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
     types.NewsArchiveDocument,
@@ -422,8 +422,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n',
-): (typeof documents)['\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n']
+  source: '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    translations {\n      language\n      name\n    }\n    badgeUrl\n  }\n',
+): (typeof documents)['\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    translations {\n      language\n      name\n    }\n    badgeUrl\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -434,8 +434,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n',
-): (typeof documents)['\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n']
+  source: '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n',
+): (typeof documents)['\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
