@@ -982,6 +982,10 @@
       "showMoreGames_other": "게임 {{count}}개 더 보기",
       "showMoreStreams_other": "방송 {{count}}개 더 보기"
     },
+    "whisperEcho": {
+      "from": "보낸 사람:",
+      "to": "받는 사람:"
+    },
     "whispers": {
       "startWhisperButton": "귓속말 시작하기"
     }

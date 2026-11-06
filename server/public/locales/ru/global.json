@@ -1021,6 +1021,10 @@
       "showMoreStreams_many": "Показать ещё {{count}} трансляций",
       "showMoreStreams_other": "Показать ещё {{count}} трансляции"
     },
+    "whisperEcho": {
+      "from": "От:",
+      "to": "Кому:"
+    },
     "whispers": {
       "startWhisperButton": "Отправить личное сообщение"
     }

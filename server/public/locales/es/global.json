@@ -1008,6 +1008,10 @@
       "showMoreStreams_many": "Mostrar {{count}} de transmisiones más",
       "showMoreStreams_other": "Mostrar {{count}} transmisiones más"
     },
+    "whisperEcho": {
+      "from": "De:",
+      "to": "Para:"
+    },
     "whispers": {
       "startWhisperButton": "Iniciar un susurro"
     }
