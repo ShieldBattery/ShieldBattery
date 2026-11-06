@@ -20,7 +20,8 @@
 //!   building with others of its kind stacked on it says how many there are.
 //! - One thing making something shows the console's queue, or a single slot for anything working
 //!   through one thing alone; a building going up shows only its progress.
-//! - One transport or bunker with units inside shows them in the console's cargo slots.
+//! - One transport or bunker with units inside shows them in the console's cargo grid, each as big
+//!   as the room it takes up, with the upgrades it fights with beside them.
 //!
 //! The body is the same height whichever of those is drawn, so the panels stacked on it stay where
 //! they are as the watcher clicks from one unit to the next.
@@ -83,12 +84,20 @@ pub struct SelectedUnitView {
     pub production: Option<ProductionProgressView>,
     /// The units inside it, for a transport or a bunker. Empty for anything else, and for a
     /// transport that is empty.
-    pub cargo: Vec<SelectedUnitView>,
+    pub cargo: Vec<CarriedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
     /// a unit that has any, then whatever improves its weapons and its inventory counts. Only read
-    /// out for a unit selected alone, and not under a queue or cargo, which leave no room for them,
-    /// so a host may leave it empty for any other.
+    /// out for a unit selected alone, and not under a queue, which leaves no room for them, so a
+    /// host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+}
+
+/// One unit inside a transport or a bunker.
+pub struct CarriedUnitView {
+    pub unit: SelectedUnitView,
+    /// How much of the room in there it takes up, by the game's own count: 1, 2 or 4 of a
+    /// transport's 8. It is what decides how big the unit is drawn.
+    pub room: u32,
 }
 
 /// The line the console writes under a unit selected alone, in the game's language: what has been
@@ -383,17 +392,32 @@ const fn tile_row(side: f32) -> f32 {
     side + HEALTH_GAP + HEALTH_BAR + SHIELD_GAP + SHIELD_BAR
 }
 
-/// The cargo slots, which are the console's own: two rows of four.
+/// The shape of the cargo grid, which is the console's own: two rows of four cells, of which a unit
+/// takes one, a whole column or two whole columns by how much room it takes up.
 const CARGO_COLUMNS: usize = 4;
 const CARGO_ROWS: usize = 2;
-const CARGO_SLOT: f32 = 31.0;
+
+/// Size of one cell of the cargo grid, and the gap between two columns of them. Wider than the
+/// console's cells, because an icon keeps its proportions and so can only be as large as its column
+/// is wide: any narrower, and a goliath would be drawn no bigger than a marine.
+const CARGO_CELL_WIDTH: f32 = 50.0;
+const CARGO_CELL_HEIGHT: f32 = 35.0;
 const CARGO_GAP: f32 = 6.0;
 
-/// How tall the cargo slots are, both rows of them.
-const CARGO_HEIGHT: f32 = tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
+/// How wide and how tall the cargo grid is, the bars under its second row included.
+const CARGO_WIDTH: f32 =
+    CARGO_CELL_WIDTH * CARGO_COLUMNS as f32 + CARGO_GAP * (CARGO_COLUMNS as f32 - 1.0);
+const CARGO_HEIGHT: f32 = tile_row(CARGO_CELL_HEIGHT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
+
+/// Gap between the cargo grid and the upgrades beside it.
+const CARGO_UPGRADES_GAP: f32 = 12.0;
+
+/// The most upgrades anything carrying units fights with: a shuttle's armor and its shields. Nothing
+/// that carries units has a weapon of its own.
+const MAX_CARGO_UPGRADES: usize = 2;
 
 /// How tall the panel's body is: its tallest reading, which is the subject's column, a full head of
-/// text over the cargo slots, or a unit's head of text over its pools and its row of upgrades.
+/// text over the cargo grid, or a unit's head of text over its pools and its row of upgrades.
 /// Every other reading is laid out in the same height, so that the panels stacked on this one stay
 /// put.
 const BODY_HEIGHT: f32 = max(
@@ -446,8 +470,14 @@ const _: () = assert!(HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_HEIG
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
 const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
-/// The most carried units the panel draws, which is the most the game puts inside anything.
-const MAX_CARGO: usize = CARGO_COLUMNS * CARGO_ROWS;
+/// A shuttle's upgrades fit beside the cargo grid.
+const _: () = assert!(
+    CARGO_WIDTH
+        + CARGO_UPGRADES_GAP
+        + UPGRADE_CHIP * MAX_CARGO_UPGRADES as f32
+        + UPGRADE_GAP * (MAX_CARGO_UPGRADES as f32 - 1.0)
+        <= TEXT_WIDTH
+);
 
 /// Text size of a unit's code on the subject's tile, on a small tile, and on a queue slot.
 const SUBJECT_CODE_SIZE: f32 = 16.0;
@@ -723,7 +753,20 @@ fn draw_subject(
     let below = draw_header(ui, text, unit);
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
-        (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
+        (SelectionCase::Loaded, _) => {
+            draw_cargo(ui, below, &unit.cargo);
+            // Along the floor of the body like every other reading's, but beside the grid, which
+            // takes up the height of the row they would otherwise have.
+            let beside = Rect::from_min_max(
+                pos2(
+                    below.left() + CARGO_WIDTH + CARGO_UPGRADES_GAP,
+                    text.bottom() - UPGRADE_CHIP,
+                ),
+                text.max,
+            );
+            let shown = unit.upgrades.len().min(MAX_CARGO_UPGRADES);
+            draw_upgrades(ui, beside, &unit.upgrades[..shown]);
+        }
         (SelectionCase::Building, _) => {
             if let Some(resources) = &unit.resources {
                 draw_resources_left(ui, below, resources);
@@ -767,9 +810,10 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
 /// Whether the reading of a building, or of anything making or carrying something, leaves the
 /// bottom of its text column free for the row of its upgrades.
 ///
-/// A queue's progress line runs down to the floor of the body, and cargo slots fill it, so those
-/// two readings have no row; the console gives up its own icons for both. Everything else here is
-/// a header and at most one slot's line beside it, which leaves the row free: an egg's carapace
+/// A queue's progress line runs down to the floor of the body, so it has no row, and the console
+/// gives up its own icons for it. The cargo grid takes up the row's height too, but not its width,
+/// so its upgrades are drawn beside it instead (see [`draw_subject`]). Everything else here is a
+/// header and at most one slot's line beside it, which leaves the row free: an egg's carapace
 /// under what it is turning into, a cannon's shields and guns under the cannon going up.
 fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
     match case {
@@ -1240,24 +1284,76 @@ fn draw_progress(ui: &Ui, block: Rect, name: Option<&str>, progress: f32) {
     );
 }
 
-/// Draws the units a transport or a bunker is carrying in the console's cargo slots, each with how
-/// much of it is left.
+/// Draws the units a transport or a bunker is carrying in the cargo grid, each as big as the room it
+/// takes up, with how much of it is left.
 ///
-/// Only the units that are actually in there: the game tells the panel what is loaded and not what
-/// the room for it was, and slots padded out to eight would say a full bunker was half empty.
-fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
-    for (index, unit) in cargo.iter().take(MAX_CARGO).enumerate() {
-        let column = (index % CARGO_COLUMNS) as f32;
-        let row = (index / CARGO_COLUMNS) as f32;
-        let tile = Rect::from_min_size(
-            pos2(
-                rect.left() + column * (CARGO_SLOT + CARGO_GAP),
-                rect.top() + row * (tile_row(CARGO_SLOT) + GRID_ROW_GAP),
-            ),
-            vec2(CARGO_SLOT, CARGO_SLOT),
-        );
-        paint_small_tile(ui, tile, unit, QUEUE_CODE_SIZE);
+/// Only the units that are actually in there: cells padded out to eight would say a full bunker was
+/// half empty.
+fn draw_cargo(ui: &Ui, grid: Rect, cargo: &[CarriedUnitView]) {
+    let rooms: Vec<u32> = cargo.iter().map(|carried| carried.room).collect();
+    for (index, place) in place_cargo(&rooms) {
+        paint_small_tile(ui, place.tile(grid), &cargo[index].unit, QUEUE_CODE_SIZE);
     }
+}
+
+/// Where a carried unit goes in the cargo grid: the cell it starts in, and how many columns and rows
+/// it takes.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct CargoPlace {
+    column: usize,
+    row: usize,
+    columns: usize,
+    rows: usize,
+}
+
+impl CargoPlace {
+    /// Its tile in `grid`. A tile of two rows also takes the bars of the first row and the gap under
+    /// them, which leaves its own bars level with the second row's.
+    fn tile(self, grid: Rect) -> Rect {
+        let row_step = tile_row(CARGO_CELL_HEIGHT) + GRID_ROW_GAP;
+        let (columns, rows) = (self.columns as f32, self.rows as f32);
+        Rect::from_min_size(
+            pos2(
+                grid.left() + self.column as f32 * (CARGO_CELL_WIDTH + CARGO_GAP),
+                grid.top() + self.row as f32 * row_step,
+            ),
+            vec2(
+                CARGO_CELL_WIDTH * columns + CARGO_GAP * (columns - 1.0),
+                CARGO_CELL_HEIGHT + row_step * (rows - 1.0),
+            ),
+        )
+    }
+}
+
+/// Places units taking up `rooms` in the cargo grid the way the console does, as each unit's index
+/// in `rooms` and its place: biggest first, in the order the game holds them within a size, each
+/// taking the next cells going column by column.
+///
+/// The game holds units in the order they were picked up, a new one taking the lowest slot left free
+/// by anything since dropped. So a unit only moves when what goes ahead of it changes: something
+/// bigger coming on board, something ahead of it leaving, or a new unit taking a slot freed ahead of
+/// it. Biggest first also means every column is whole before a smaller unit starts one, so whatever
+/// fits in the room left has a place.
+///
+/// The console only draws units of exactly these sizes, which are the only ones the game has.
+fn place_cargo(rooms: &[u32]) -> Vec<(usize, CargoPlace)> {
+    let mut places = Vec::with_capacity(rooms.len());
+    let mut next_cell = 0;
+    for size in [4, 2, 1] {
+        for (index, _) in rooms.iter().enumerate().filter(|&(_, &room)| room == size) {
+            places.push((
+                index,
+                CargoPlace {
+                    column: next_cell / CARGO_ROWS,
+                    row: next_cell % CARGO_ROWS,
+                    columns: if size == 4 { 2 } else { 1 },
+                    rows: if size == 1 { 1 } else { CARGO_ROWS },
+                },
+            ));
+            next_cell += size as usize;
+        }
+    }
+    places
 }
 
 /// Paints one unit as a small tile with the bar of its health under it, which is how the console
@@ -1499,6 +1595,18 @@ mod tests {
 
     use super::*;
 
+    fn carried(
+        hit_points: (u32, u32),
+        shields: Option<(u32, u32)>,
+        index: u16,
+        room: u32,
+    ) -> CarriedUnitView {
+        CarriedUnitView {
+            unit: unit(hit_points, shields, index),
+            room,
+        }
+    }
+
     fn unit(hit_points: (u32, u32), shields: Option<(u32, u32)>, index: u16) -> SelectedUnitView {
         SelectedUnitView {
             icon: ProductionIcon {
@@ -1586,7 +1694,7 @@ mod tests {
         );
 
         let mut transport = unit((150, 150), None, 0x7D);
-        transport.cargo = vec![unit((40, 40), None, 0x00)];
+        transport.cargo = vec![carried((40, 40), None, 0x00, 1)];
         assert_eq!(selection(vec![transport]).case(), SelectionCase::Loaded);
 
         let mut factory = unit((1250, 1250), None, 0x6B);
@@ -1605,7 +1713,7 @@ mod tests {
             subject: None,
         });
         // What is being made is read before what is being carried, for the thing doing both.
-        factory.cargo = vec![unit((40, 40), None, 0x00)];
+        factory.cargo = vec![carried((40, 40), None, 0x00, 1)];
         assert_eq!(selection(vec![factory]).case(), SelectionCase::Producing);
     }
 
@@ -1646,8 +1754,140 @@ mod tests {
         assert!(!has_upgrade_row(&gateway, SelectionCase::Producing));
 
         let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
-        shuttle.cargo = vec![unit((100, 100), Some((60, 60)), 0x41)];
+        shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
         assert!(!has_upgrade_row(&shuttle, SelectionCase::Loaded));
+    }
+
+    fn place(
+        index: usize,
+        column: usize,
+        row: usize,
+        columns: usize,
+        rows: usize,
+    ) -> (usize, CargoPlace) {
+        (
+            index,
+            CargoPlace {
+                column,
+                row,
+                columns,
+                rows,
+            },
+        )
+    }
+
+    #[test]
+    fn a_carried_unit_takes_a_cell_a_column_or_two_columns_by_its_room() {
+        // Eight marines fill the grid a column at a time.
+        assert_eq!(
+            place_cargo(&[1; 8]),
+            [
+                place(0, 0, 0, 1, 1),
+                place(1, 0, 1, 1, 1),
+                place(2, 1, 0, 1, 1),
+                place(3, 1, 1, 1, 1),
+                place(4, 2, 0, 1, 1),
+                place(5, 2, 1, 1, 1),
+                place(6, 3, 0, 1, 1),
+                place(7, 3, 1, 1, 1),
+            ],
+        );
+        // Four goliaths, and two tanks.
+        assert_eq!(
+            place_cargo(&[2; 4]),
+            [
+                place(0, 0, 0, 1, 2),
+                place(1, 1, 0, 1, 2),
+                place(2, 2, 0, 1, 2),
+                place(3, 3, 0, 1, 2),
+            ],
+        );
+        assert_eq!(
+            place_cargo(&[4, 4]),
+            [place(0, 0, 0, 2, 2), place(1, 2, 0, 2, 2)],
+        );
+    }
+
+    #[test]
+    fn carried_units_go_biggest_first_and_in_the_games_order_within_a_size() {
+        // A tank picked up between two goliaths still goes first.
+        assert_eq!(
+            place_cargo(&[2, 4, 2]),
+            [
+                place(1, 0, 0, 2, 2),
+                place(0, 2, 0, 1, 2),
+                place(2, 3, 0, 1, 2),
+            ],
+        );
+        assert_eq!(
+            place_cargo(&[1, 2, 1, 4]),
+            [
+                place(3, 0, 0, 2, 2),
+                place(1, 2, 0, 1, 2),
+                place(0, 3, 0, 1, 1),
+                place(2, 3, 1, 1, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn a_carried_unit_keeps_its_place_when_something_smaller_comes_on_board() {
+        assert_eq!(
+            place_cargo(&[4, 2]),
+            [place(0, 0, 0, 2, 2), place(1, 2, 0, 1, 2)],
+        );
+        assert_eq!(
+            place_cargo(&[4, 2, 1]),
+            [
+                place(0, 0, 0, 2, 2),
+                place(1, 2, 0, 1, 2),
+                place(2, 3, 0, 1, 1),
+            ],
+        );
+    }
+
+    /// Every order of carried units whose rooms come to no more than a transport holds.
+    fn each_load(room_left: u32, load: &mut Vec<u32>, check: &mut impl FnMut(&[u32])) {
+        check(load);
+        for room in [1, 2, 4] {
+            if room <= room_left {
+                load.push(room);
+                each_load(room_left - room, load, check);
+                load.pop();
+            }
+        }
+    }
+
+    #[test]
+    fn every_load_a_transport_can_hold_has_a_place_inside_the_grid() {
+        let grid = Rect::from_min_size(Pos2::ZERO, vec2(CARGO_WIDTH, CARGO_HEIGHT));
+        let bars = tile_row(CARGO_CELL_HEIGHT) - CARGO_CELL_HEIGHT;
+        each_load(8, &mut Vec::new(), &mut |load| {
+            let places = place_cargo(load);
+            assert_eq!(places.len(), load.len(), "{load:?} lost a unit");
+            let tiles: Vec<Rect> = places.iter().map(|(_, place)| place.tile(grid)).collect();
+            for (index, tile) in tiles.iter().enumerate() {
+                let with_bars = Rect::from_min_max(tile.min, tile.max + vec2(0.0, bars));
+                assert!(grid.contains_rect(with_bars), "{load:?}: {with_bars:?}");
+                assert!(
+                    tiles[index + 1..]
+                        .iter()
+                        .all(|other| !tile.intersects(*other)),
+                    "{load:?} overlaps",
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn a_full_height_tile_leaves_its_bars_level_with_the_second_rows() {
+        let grid = Rect::from_min_size(Pos2::ZERO, vec2(CARGO_WIDTH, CARGO_HEIGHT));
+        let column = place(0, 0, 0, 1, 2).1.tile(grid);
+        let second_row = place(0, 1, 1, 1, 1).1.tile(grid);
+        let two_columns = place(0, 2, 0, 2, 2).1.tile(grid);
+        assert_eq!(column.bottom(), second_row.bottom());
+        assert_eq!(two_columns.bottom(), second_row.bottom());
+        assert_eq!(two_columns.right(), grid.right());
     }
 
     #[test]
