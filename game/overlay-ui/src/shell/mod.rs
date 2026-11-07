@@ -146,6 +146,11 @@ pub enum Intent {
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
     /// only right behind a `Seek`, for a jump to something that happened somewhere in particular.
     LookAt(observer::MapPoint),
+    /// Center the game's view on the part of the map the minimap shows at this point, given in the
+    /// overlay's points, as a press there does in the game. The host asks it of the minimap's own
+    /// drawing rather than the shell working it out, because only the host knows where in the
+    /// minimap's square the game drew a map that is not square.
+    LookAtMinimapPoint(egui::Pos2),
     /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
     /// it runs at all. One intent rather than three, because the game carries all three in one
     /// command and sending a partial one would reset the other two.
@@ -313,6 +318,9 @@ pub struct Shell {
     alliances_draft: AlliancesDraft,
     /// The notice of a setting the game changed on its own keys, while one is on screen.
     setting_toast: Option<SettingToast>,
+    /// Whether the on-screen count is up, which takes Alt pressed on its own to bring up but stays
+    /// while Alt is held, so Ctrl can then be added to pick with.
+    counting_on_screen: bool,
     intents: Vec<Intent>,
 }
 
@@ -339,6 +347,7 @@ impl Shell {
             alliances_menu: None,
             alliances_draft: AlliancesDraft::default(),
             setting_toast: None,
+            counting_on_screen: false,
             intents: Vec::new(),
         }
     }
@@ -626,6 +635,12 @@ impl Shell {
         // way: they decide only whether the dock stands on its top edge, which without them it
         // never does.
         let observing = views.observer.is_some() && self.host.mode.is_spectating();
+        // Ctrl with Alt from the start is AltGr on many keyboards, not a request to see anything
+        // counted.
+        let (alt, ctrl) = ctx.input(|input| (input.modifiers.alt, input.modifiers.ctrl));
+        self.counting_on_screen =
+            self.hotkeys_active() && alt && (self.counting_on_screen || !ctrl);
+        let counting_on_screen = self.counting_on_screen;
         let placement = match views.observer {
             Some(view) if observing => self.observer.frame(
                 ctx,
@@ -665,6 +680,29 @@ impl Shell {
                 plate,
                 &mut hit_rects,
             );
+        }
+        // Drawn once every panel is, so its labels can be moved out from under them, and under
+        // them all. While it is up it takes the whole screen's presses, so a drag made with Alt
+        // held draws its counting box instead of selecting what is under it, and a press on the
+        // minimap moves the view without the game taking it for a ping; the wheel stays the
+        // game's, which zooms with it.
+        if let Some(view) = views.observer.filter(|_| observing) {
+            let screen = ctx.viewport_rect();
+            let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
+            let look = crate::observer::render_on_screen_view(
+                &view.on_screen,
+                ctx,
+                counting_on_screen,
+                screen,
+                &panels,
+                self.host.minimap_rect,
+            );
+            if let Some(point) = look {
+                self.intents.push(Intent::LookAtMinimapPoint(point));
+            }
+            if counting_on_screen {
+                hit_rects.push(HitRect::new(screen));
+            }
         }
 
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since

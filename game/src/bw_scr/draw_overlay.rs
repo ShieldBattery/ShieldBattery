@@ -99,6 +99,10 @@ pub struct OverlayState {
     /// If (and only if) a mouse button down event was captured,
     /// capture the up event as well.
     captured_mouse_down: [bool; 2],
+    /// Whether the overlay took a click made with Alt and Shift held since Alt last went down. Such
+    /// a click picks with the on-screen count, and Windows would otherwise take the Alt+Shift let go
+    /// after it for a request to switch keyboard layouts.
+    vetoes_layout_switch: bool,
     /// Per mouse button, whether the last press was delivered to BW (neither captured by the
     /// overlay nor swallowed by the disconnect block), so its release is delivered too. BW must
     /// see every release of a press it saw — otherwise it is left mid-drag-select with no way to
@@ -339,6 +343,56 @@ pub struct BwVars {
     pub alliance_rules: AllianceRules,
     /// What the game offers the local player for pausing.
     pub pause_control: Option<PauseControl>,
+    /// The part of the map the main view shows.
+    pub map_view: MapView,
+    /// Where the minimap last drew the map, for a host that has seen it drawn.
+    pub minimap_map: Option<MinimapMap>,
+}
+
+/// A part of the map, in map pixels: where its top-left corner is and how much of the map it spans.
+#[derive(Copy, Clone, Debug)]
+pub struct MapView {
+    pub left: u32,
+    pub top: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl MapView {
+    /// Whether `point` is inside this part of the map.
+    pub fn contains(&self, point: &bw::Point) -> bool {
+        let (Ok(x), Ok(y)) = (u32::try_from(point.x), u32::try_from(point.y)) else {
+            return false;
+        };
+        (self.left..self.left + self.width).contains(&x)
+            && (self.top..self.top + self.height).contains(&y)
+    }
+}
+
+/// Where in the window the minimap drew the map, and how big the map is.
+#[derive(Copy, Clone, Debug)]
+pub struct MinimapMap {
+    /// `[left, top, right, bottom]` in shares of the window, 0.0 to 1.0 across and down it.
+    pub area: [f32; 4],
+    /// The map's size in map pixels.
+    pub map_width: u32,
+    pub map_height: u32,
+}
+
+impl MinimapMap {
+    /// The place on the map the minimap shows at `share` of the window, kept to the map.
+    fn map_point(&self, share: Pos2) -> bw::Point {
+        let [left, top, right, bottom] = self.area;
+        let across = |at: f32, from: f32, to: f32, span: u32| {
+            let along = ((at - from) / (to - from)).clamp(0.0, 1.0);
+            let max = span.saturating_sub(1).min(i16::MAX as u32) as f32;
+            (along * span as f32).min(max) as i16
+        };
+        bw::Point {
+            x: across(share.x, left, right, self.map_width),
+            y: across(share.y, top, bottom, self.map_height),
+        }
+    }
 }
 
 /// What the playback controls need of the game: the replay's length and recorded speed, from its
@@ -462,6 +516,7 @@ impl OverlayState {
                 follow_unit: None,
             },
             captured_mouse_down: [false; 2],
+            vetoes_layout_switch: false,
             bw_mouse_down: [false; 2],
             bw_keys_down: [false; 256],
             mouse_down: [false; 2],
@@ -1249,6 +1304,18 @@ impl OverlayState {
                     asked: Instant::now(),
                 });
             }
+            Intent::LookAtMinimapPoint(point) => {
+                let share = pos2(
+                    point.x / self.screen_size.0 as f32,
+                    point.y / self.screen_size.1 as f32,
+                );
+                if let Some(minimap) = bw.minimap_map
+                    && minimap.area[2] > minimap.area[0]
+                    && minimap.area[3] > minimap.area[1]
+                {
+                    self.out_state.look_at = Some(minimap.map_point(share));
+                }
+            }
             Intent::SetSpeed {
                 speed_index,
                 multiplier,
@@ -1478,7 +1545,21 @@ impl OverlayState {
             {
                 self.capture = self.shell.capture();
             }
+            // A fresh Alt press, not a repeat of a held one, starts a new chord.
+            let fresh_alt = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN)
+                && wparam as i32 == VK_MENU
+                && lparam & (1 << 30) == 0;
+            if fresh_alt {
+                self.vetoes_layout_switch = false;
+            }
             match msg {
+                // Windows asks the focused window before switching layouts, and turning it down
+                // leaves the layout as it was.
+                WM_INPUTLANGCHANGEREQUEST if self.vetoes_layout_switch => {
+                    debug!("Kept the keyboard layout through an Alt+Shift click the overlay took");
+                    self.vetoes_layout_switch = false;
+                    Some(0)
+                }
                 // The window's close button and Alt+F4 ask to close the window, which SC:R answers
                 // with its own exit question. The shell asks with its own instead, once the game
                 // runs. Either can arrive as the system command or as the close it turns into.
@@ -1539,6 +1620,10 @@ impl OverlayState {
                     }
                     self.bw_mouse_down[button_idx] = false;
                     self.captured_mouse_down[button_idx] = pressed;
+                    if pressed {
+                        let held = |key| GetKeyState(key) as u16 & 0x8000 != 0;
+                        self.vetoes_layout_switch |= held(VK_MENU) && held(VK_SHIFT);
+                    }
                     self.events.push(Event::PointerButton {
                         pos,
                         button,
@@ -2204,9 +2289,25 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use super::{numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit};
+    use super::{
+        MinimapMap, numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit,
+    };
 
     use egui::pos2;
+
+    #[test]
+    fn a_place_on_the_minimap_is_the_same_share_of_the_map_it_drew() {
+        let minimap = MinimapMap {
+            area: [0.0, 0.5, 0.5, 1.0],
+            map_width: 4096,
+            map_height: 2048,
+        };
+        let point = minimap.map_point(pos2(0.25, 0.625));
+        assert_eq!((point.x, point.y), (2048, 512));
+        // Off the map's edge, it is kept to the map.
+        let point = minimap.map_point(pos2(0.9, 0.2));
+        assert_eq!((point.x, point.y), (4095, 0));
+    }
 
     #[test]
     fn scaled_mouse_positions_are_read_from_the_box_in_the_middle_of_the_window() {

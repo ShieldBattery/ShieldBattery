@@ -113,13 +113,31 @@ const SHADER_ID_MASK: u32 = 0x1c;
 /// `x, y, u, v`, with positions in 0.0 ..= 1.0 window coordinates.
 unsafe fn is_minimap_mask_draw(cmd: &scr::DrawCommand, vertex_buf: *mut scr::VertexBuffer) -> bool {
     unsafe {
+        let [left, _, right, _] = mask_draw_area(cmd, vertex_buf);
+        right - left < 0.5
+    }
+}
+
+/// The part of the window a fog mask draw covers, as `[left, low, right, high]` in the same
+/// 0.0 ..= 1.0 window coordinates its vertices are in, which count up from the window's bottom. A
+/// mask covers the whole map wherever it is drawn, so the minimap's is where in its square the game
+/// drew the map.
+unsafe fn mask_draw_area(cmd: &scr::DrawCommand, vertex_buf: *mut scr::VertexBuffer) -> [f32; 4] {
+    unsafe {
         let verts = ((*vertex_buf).buffer.data as *const u8).add(cmd.vertex_buffer_offset_bytes)
             as *const [f32; 4];
         let verts = std::slice::from_raw_parts(verts, 4);
-        let (min_x, max_x) = verts.iter().fold((f32::MAX, f32::MIN), |(min, max), v| {
-            (min.min(v[0]), max.max(v[0]))
-        });
-        max_x - min_x < 0.5
+        verts.iter().fold(
+            [f32::MAX, f32::MAX, f32::MIN, f32::MIN],
+            |[left, low, right, high], v| {
+                [
+                    left.min(v[0]),
+                    low.min(v[1]),
+                    right.max(v[0]),
+                    high.max(v[1]),
+                ]
+            },
+        )
     }
 }
 
@@ -548,6 +566,10 @@ pub struct BwScr {
     /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
     /// is its own surface and observers keep it while hiding the rest of the console.
     minimap_hidden_state: AtomicBool,
+    /// Where in the window the minimap last drew the map, as `[left, top, right, bottom]` in shares
+    /// of it counted down from its top, for a place on the minimap to be turned into one on the
+    /// map.
+    minimap_map_area: Mutex<Option<[f32; 4]>>,
     /// If the console's command panel was hidden because the overlay's playback controls are standing
     /// in for the replay controls it carries.
     command_panel_hidden_state: AtomicBool,

@@ -424,6 +424,7 @@ pub fn render(
             Intent::Seek(frame) => state.playback.seek_to(frame),
             // The emulated game has no map to look at, and no units to select.
             Intent::LookAt(_)
+            | Intent::LookAtMinimapPoint(_)
             | Intent::SelectControlGroup { .. }
             | Intent::PickSelectedUnit(_)
             | Intent::DeselectSelectedUnit(_)
