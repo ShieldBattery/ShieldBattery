@@ -313,6 +313,8 @@ pub struct Shell {
     alliances_draft: AlliancesDraft,
     /// The notice of a setting the game changed on its own keys, while one is on screen.
     setting_toast: Option<SettingToast>,
+    /// A spectator hotkey activated a control between frames.
+    hotkey_activation: bool,
     intents: Vec<Intent>,
 }
 
@@ -339,6 +341,7 @@ impl Shell {
             alliances_menu: None,
             alliances_draft: AlliancesDraft::default(),
             setting_toast: None,
+            hotkey_activation: false,
             intents: Vec::new(),
         }
     }
@@ -570,7 +573,10 @@ impl Shell {
         if let Some(digit) = number_key_digit(key)
             && modifiers.is_none()
         {
-            return self.observer.recall_control_group(digit, &mut self.intents);
+            let intent_count = self.intents.len();
+            let handled = self.observer.recall_control_group(digit, &mut self.intents);
+            self.hotkey_activation |= self.intents.len() != intent_count;
+            return handled;
         }
         match self.hotkeys.action_for(key, modifiers) {
             Some(action) => self.apply_action(action, modifiers),
@@ -701,12 +707,13 @@ impl Shell {
             self.setting_toast = None;
         }
 
+        let hotkey_activation = std::mem::take(&mut self.hotkey_activation);
         FrameOutput {
             intents: std::mem::take(&mut self.intents),
             hit_rects,
             capture: self.capture(),
             playback_controls_shown,
-            button_click: widgets::take_activation(ctx),
+            button_click: widgets::take_activation(ctx) || hotkey_activation,
         }
     }
 
@@ -925,7 +932,7 @@ impl Shell {
     }
 
     fn apply_action(&mut self, action: Action, modifiers: Modifiers) -> bool {
-        match action {
+        let handled = match action {
             Action::ToggleAllPanels => {
                 self.prefs.toggle_all();
                 true
@@ -975,7 +982,9 @@ impl Shell {
                 }
                 None => false,
             },
-        }
+        };
+        self.hotkey_activation |= handled;
+        handled
     }
 
     /// Sends the alliance changes made on the alliances screen to the game.
@@ -1032,6 +1041,81 @@ impl Shell {
 mod tests {
     use super::test_support::*;
     use super::*;
+
+    #[test]
+    fn spectator_hotkeys_click_once_per_frame() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        let game = game_with_right_wings();
+        run_watched_frame_at(
+            &mut shell,
+            &ctx,
+            &view,
+            &game,
+            egui::vec2(1280.0, 720.0),
+            0.0,
+        );
+        for action in Action::ALL {
+            if action == Action::CycleVision {
+                continue;
+            }
+            let chord = shell.hotkeys().chord_for(action).unwrap();
+            let modifiers = match chord.held {
+                hotkeys::Held::Bare => Modifiers::NONE,
+                hotkeys::Held::Ctrl => Modifiers::CTRL,
+                hotkeys::Held::Alt => Modifiers::ALT,
+            };
+            assert!(shell.key_pressed(chord.key, modifiers), "{action:?}");
+            assert!(
+                run_frame_at(&mut shell, &ctx, Some(&view), 1.0).button_click,
+                "{action:?}"
+            );
+            assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 2.0).button_click);
+        }
+        assert!(shell.key_pressed(Key::H, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::M, Modifiers::NONE));
+        widgets::note_activation(&ctx);
+        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 3.0).button_click);
+        assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 4.0).button_click);
+    }
+
+    #[test]
+    fn repeated_playback_steps_click_but_repeated_toggles_do_not() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        run_frame_at(&mut shell, &ctx, Some(&view), 0.0);
+        for action in [
+            Action::SpeedUp,
+            Action::SpeedDown,
+            Action::SeekBackward,
+            Action::SeekForward,
+        ] {
+            let chord = shell.hotkeys().chord_for(action).unwrap();
+            shell.key_repeated(chord.key, Modifiers::NONE);
+            assert!(run_frame_at(&mut shell, &ctx, Some(&view), 1.0).button_click);
+        }
+        shell.key_repeated(Key::H, Modifiers::NONE);
+        assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 2.0).button_click);
+    }
+
+    #[test]
+    fn unavailable_or_blocked_spectator_hotkeys_make_no_click() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        for key in [Key::P, Key::V, Key::N] {
+            assert!(!shell.key_pressed(key, Modifiers::NONE));
+        }
+        assert!(!run_frame_at(&mut shell, &ctx, None, 0.0).button_click);
+        shell.host.native_textbox_open = true;
+        assert!(!shell.key_pressed(Key::H, Modifiers::NONE));
+        shell.key_repeated(Key::Period, Modifiers::NONE);
+        assert!(!run_frame_at(&mut shell, &ctx, None, 1.0).button_click);
+        shell.host.mode = Mode::Playing;
+        assert!(!shell.key_pressed(Key::H, Modifiers::NONE));
+        assert!(!run_frame_at(&mut shell, &ctx, None, 2.0).button_click);
+    }
 
     /// SC:R quits on `Q` and `X` with either Ctrl or Alt, and every one of them asks the same
     /// question here.
