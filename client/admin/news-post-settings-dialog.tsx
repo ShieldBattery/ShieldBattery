@@ -2,6 +2,7 @@ import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
+import { TranslationLanguage, translationLanguageToLabel } from '../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
 import { NewsImageUploadResponse } from '../../common/news'
 import { apiUrl } from '../../common/urls'
@@ -141,6 +142,11 @@ const ScheduleHint = styled.div`
 export interface NewsPostSettingsDialogProps extends CommonDialogProps {
   /** The post's status as of when the editor was opened, fixed for the dialog's lifetime. */
   savedStatus: PostStatus
+  /**
+   * The language `settings.summary` is written in. Only the default English summary is required,
+   * since a blank translated summary falls back to it.
+   */
+  summaryLanguage: TranslationLanguage
   settings: NewsPostSettings
   /**
    * Shows validation errors for the summary and schedule fields as soon as the dialog opens,
@@ -154,6 +160,7 @@ export interface NewsPostSettingsDialogProps extends CommonDialogProps {
 
 export function NewsPostSettingsDialog({
   savedStatus,
+  summaryLanguage,
   settings,
   showErrorsOnOpen = false,
   onApply,
@@ -224,7 +231,9 @@ export function NewsPostSettingsDialog({
     // opens this dialog, so accepting them would let Done close the dialog with no visible error
     // only for save to immediately reopen it.
     summary: value =>
-      value.trim() ? undefined : t('admin.news.form.summaryRequired', 'Summary is required'),
+      value.trim() || summaryLanguage !== TranslationLanguage.English
+        ? undefined
+        : t('admin.news.form.summaryRequired', 'Summary is required'),
     scheduledAt: (value, model) => {
       if (model.publishMode !== PUBLISH_MODE_SCHEDULE) {
         return undefined
@@ -282,7 +291,13 @@ export function NewsPostSettingsDialog({
       <Form noValidate={true} onSubmit={submit}>
         <SummaryField
           {...bindInput('summary')}
-          label={t('admin.news.form.summary', 'Summary')}
+          label={
+            summaryLanguage === TranslationLanguage.English
+              ? t('admin.news.form.summary', 'Summary')
+              : t('admin.news.form.translatedSummary', 'Summary ({{language}})', {
+                  language: translationLanguageToLabel(summaryLanguage),
+                })
+          }
           multiline={true}
           rows={2}
           maxRows={4}

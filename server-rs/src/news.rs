@@ -14,7 +14,7 @@ use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use deadpool_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::{PgPool, QueryBuilder, types::Json};
 use typeshare::typeshare;
 use uuid::Uuid;
 
@@ -130,12 +130,14 @@ impl NewsQuery {
 
 fn news_posts_content_is_selected(ctx: &Context<'_>) -> bool {
     let lookahead = ctx.look_ahead();
-    lookahead
-        .field("edges")
-        .field("node")
-        .field("content")
-        .exists()
-        || lookahead.field("nodes").field("content").exists()
+    [
+        lookahead.field("edges").field("node"),
+        lookahead.field("nodes"),
+    ]
+    .iter()
+    .any(|post| {
+        post.field("content").exists() || post.field("translations").field("content").exists()
+    })
 }
 
 #[derive(Default)]
@@ -148,7 +150,7 @@ impl NewsMutation {
     async fn news_create_post(
         &self,
         ctx: &Context<'_>,
-        post: NewsPostCreation,
+        mut post: NewsPostCreation,
     ) -> Result<NewsPost> {
         let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
@@ -164,9 +166,11 @@ impl NewsMutation {
         if let Some(path) = post.cover_image_path.as_deref() {
             validate_cover_image_path(path)?;
         }
+        let translations =
+            validate_news_post_translations(post.translations.take().unwrap_or_default())?;
 
         let repo = ctx.data::<NewsPostRepo>()?;
-        let created = repo.create_post(post, user.id).await?;
+        let created = repo.create_post(post, translations, user.id).await?;
 
         ctx.data::<RedisPool>()?
             .publish(PublishedNewsMessage::NewsPostsChanged(()))
@@ -180,7 +184,7 @@ impl NewsMutation {
         &self,
         ctx: &Context<'_>,
         id: Uuid,
-        updates: NewsPostUpdates,
+        mut updates: NewsPostUpdates,
     ) -> Result<NewsPost> {
         let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
@@ -188,9 +192,14 @@ impl NewsMutation {
         if let MaybeUndefined::Value(path) = &updates.cover_image_path {
             validate_cover_image_path(path)?;
         }
+        let translations = updates
+            .translations
+            .take()
+            .map(validate_news_post_translations)
+            .transpose()?;
 
         let repo = ctx.data::<NewsPostRepo>()?;
-        let updated = repo.update_post(id, updates, user.id).await?;
+        let updated = repo.update_post(id, updates, translations, user.id).await?;
 
         ctx.data::<RedisPool>()?
             .publish(PublishedNewsMessage::NewsPostsChanged(()))
@@ -259,12 +268,31 @@ pub struct NewsPost {
     pub title: String,
     pub summary: String,
     pub content: String,
+    #[graphql(skip)]
+    pub translations: Json<Vec<NewsPostTranslation>>,
     pub published_at: Option<DateTime<Utc>>,
     pub updated_at: DateTime<Utc>,
 }
 
+/// A translation of a news post into a single language. Null fields use the post's default text.
+#[derive(SimpleObject, Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewsPostTranslation {
+    pub language: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+}
+
 #[ComplexObject]
 impl NewsPost {
+    async fn translations(&self) -> &[NewsPostTranslation] {
+        &self.translations.0
+    }
+
     async fn author(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
         let Some(author_id) = self.author_id else {
             return Ok(None);
@@ -335,18 +363,28 @@ pub struct NewsPostCreation {
     pub title: String,
     pub summary: String,
     pub content: String,
+    pub translations: Option<Vec<NewsPostTranslationInput>>,
     pub published_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, InputObject)]
+pub struct NewsPostTranslationInput {
+    pub language: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub content: Option<String>,
 }
 
 /// Partial updates for an existing news post. Fields omitted from the input are left unchanged.
 /// For `publishedAt` and `coverImagePath`, an explicit null clears the current value (e.g.
 /// unpublishing a post), so a single mutation covers editing, publishing now, scheduling, and
-/// unpublishing.
+/// unpublishing. `translations` replaces every translation, so an empty list removes them all.
 #[derive(InputObject)]
 pub struct NewsPostUpdates {
     pub title: Option<String>,
     pub summary: Option<String>,
     pub content: Option<String>,
+    pub translations: Option<Vec<NewsPostTranslationInput>>,
     pub published_at: MaybeUndefined<DateTime<Utc>>,
     pub cover_image_path: MaybeUndefined<String>,
 }
@@ -363,12 +401,18 @@ pub struct NewsPostEdit {
     pub title: String,
     pub summary: String,
     pub content: String,
+    #[graphql(skip)]
+    pub translations: Json<Vec<NewsPostTranslation>>,
     pub published_at: Option<DateTime<Utc>>,
     pub edited_at: DateTime<Utc>,
 }
 
 #[ComplexObject]
 impl NewsPostEdit {
+    async fn translations(&self) -> &[NewsPostTranslation] {
+        &self.translations.0
+    }
+
     async fn editor(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
         let Some(editor_id) = self.editor_id else {
             return Ok(None);
@@ -403,7 +447,8 @@ impl NewsPostRepo {
         sqlx::query_as!(
             NewsPost,
             r#"
-                SELECT id, author_id as "author_id: _", cover_image_path, title, summary, content, published_at,
+                SELECT id, author_id as "author_id: _", cover_image_path, title, summary, content,
+                    translations as "translations: Json<Vec<NewsPostTranslation>>", published_at,
                     updated_at
                 FROM news_posts
                 WHERE id = $1
@@ -459,11 +504,23 @@ impl NewsPostRepo {
             "#,
         );
         if include_content {
-            query.push(" content");
+            query.push(" content, translations");
         } else {
             // NewsPost.content is non-null in GraphQL, so keep the row shape identical while
-            // avoiding transfer of the potentially large stored value when it cannot be resolved.
-            query.push(" ''::text AS content");
+            // avoiding transfer of the potentially large stored values when they cannot be
+            // resolved.
+            query.push(
+                r#"
+                    ''::text AS content,
+                    COALESCE(
+                        (
+                            SELECT jsonb_agg(translation - 'content')
+                            FROM jsonb_array_elements(translations) AS translation
+                        ),
+                        '[]'::jsonb
+                    ) AS translations
+                "#,
+            );
         }
         query.push(
             r#",
@@ -554,6 +611,7 @@ impl NewsPostRepo {
     async fn create_post(
         &self,
         post: NewsPostCreation,
+        translations: Vec<NewsPostTranslation>,
         creator_id: SbUserId,
     ) -> eyre::Result<NewsPost> {
         let mut tx = self
@@ -566,16 +624,18 @@ impl NewsPostRepo {
             NewsPost,
             r#"
                 INSERT INTO news_posts (author_id, cover_image_path, title, summary, content,
-                    published_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    translations, published_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING id, author_id as "author_id: _", cover_image_path, title, summary,
-                    content, published_at, updated_at
+                    content, translations as "translations: Json<Vec<NewsPostTranslation>>",
+                    published_at, updated_at
             "#,
             post.author_id as _,
             post.cover_image_path,
             post.title,
             post.summary,
             post.content,
+            Json(translations) as _,
             post.published_at,
             Utc::now(),
         )
@@ -587,8 +647,8 @@ impl NewsPostRepo {
             r#"
                 INSERT INTO news_post_edits
                     (post_id, editor_id, author_id, cover_image_path, title, summary, content,
-                        published_at, edited_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        translations, published_at, edited_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             post.id,
             creator_id as _,
@@ -597,6 +657,7 @@ impl NewsPostRepo {
             post.title,
             post.summary,
             post.content,
+            &post.translations as _,
             post.published_at,
             post.updated_at,
         )
@@ -613,6 +674,7 @@ impl NewsPostRepo {
         &self,
         id: Uuid,
         updates: NewsPostUpdates,
+        translations: Option<Vec<NewsPostTranslation>>,
         editor_id: SbUserId,
     ) -> Result<NewsPost> {
         // The MaybeUndefined fields become a "should set" flag plus a nullable value: undefined
@@ -644,10 +706,12 @@ impl NewsPostRepo {
                     content = COALESCE($4, content),
                     published_at = CASE WHEN $5 THEN $6 ELSE published_at END,
                     cover_image_path = CASE WHEN $7 THEN $8 ELSE cover_image_path END,
+                    translations = COALESCE($9, translations),
                     updated_at = NOW()
                 WHERE id = $1
                 RETURNING id, author_id as "author_id: _", cover_image_path, title, summary,
-                    content, published_at, updated_at
+                    content, translations as "translations: Json<Vec<NewsPostTranslation>>",
+                    published_at, updated_at
             "#,
             id,
             updates.title,
@@ -657,6 +721,7 @@ impl NewsPostRepo {
             published_at,
             set_cover_image,
             cover_image_path,
+            translations.map(Json) as _,
         )
         .fetch_one(&mut *tx)
         .await
@@ -671,8 +736,8 @@ impl NewsPostRepo {
             r#"
                 INSERT INTO news_post_edits
                     (post_id, editor_id, author_id, cover_image_path, title, summary, content,
-                        published_at, edited_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        translations, published_at, edited_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
             post.id,
             editor_id as _,
@@ -681,6 +746,7 @@ impl NewsPostRepo {
             post.title,
             post.summary,
             post.content,
+            &post.translations as _,
             post.published_at,
             post.updated_at,
         )
@@ -711,7 +777,9 @@ impl NewsPostRepo {
             NewsPostEdit,
             r#"
                 SELECT id, editor_id as "editor_id: _", author_id as "author_id: _",
-                    cover_image_path, title, summary, content, published_at, edited_at
+                    cover_image_path, title, summary, content,
+                    translations as "translations: Json<Vec<NewsPostTranslation>>", published_at,
+                    edited_at
                 FROM news_post_edits
                 WHERE post_id = $1
                 ORDER BY edited_at DESC
@@ -794,7 +862,7 @@ fn validate_urgent_message_translations(
         .unwrap_or_default()
         .into_iter()
         .map(|translation| {
-            if !is_supported_urgent_message_translation_language(&translation.language) {
+            if !is_supported_translation_language(&translation.language) {
                 return Err(graphql_error(
                     "BAD_REQUEST",
                     format!(
@@ -830,7 +898,7 @@ fn validate_urgent_message_translations(
         })
 }
 
-fn is_supported_urgent_message_translation_language(language: &str) -> bool {
+fn is_supported_translation_language(language: &str) -> bool {
     matches!(language, "zh-Hans" | "ko" | "ru" | "es")
 }
 
@@ -840,6 +908,55 @@ fn normalize_urgent_message_translation_field(value: String) -> String {
     } else {
         value
     }
+}
+
+/// Validates translations for storage, dropping blank fields and any translation left empty.
+/// Results are ordered by language, so that equal sets of translations are stored identically.
+fn validate_news_post_translations(
+    translations: Vec<NewsPostTranslationInput>,
+) -> Result<Vec<NewsPostTranslation>> {
+    let mut languages = HashSet::new();
+    let mut validated = Vec::with_capacity(translations.len());
+
+    for translation in translations {
+        if !is_supported_translation_language(&translation.language) {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!(
+                    "unsupported news post translation language: {}",
+                    translation.language
+                ),
+            ));
+        }
+        if !languages.insert(translation.language.clone()) {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!(
+                    "duplicate news post translation language: {}",
+                    translation.language
+                ),
+            ));
+        }
+
+        let title = non_blank(translation.title);
+        let summary = non_blank(translation.summary);
+        let content = non_blank(translation.content);
+        if title.is_some() || summary.is_some() || content.is_some() {
+            validated.push(NewsPostTranslation {
+                language: translation.language,
+                title,
+                summary,
+                content,
+            });
+        }
+    }
+
+    validated.sort_by(|a, b| a.language.cmp(&b.language));
+    Ok(validated)
+}
+
+fn non_blank(value: Option<String>) -> Option<String> {
+    value.filter(|v| !v.trim().is_empty())
 }
 
 #[typeshare]
@@ -885,9 +1002,16 @@ mod tests {
     }
 
     #[derive(SimpleObject)]
+    struct LookaheadTranslation {
+        title: String,
+        content: String,
+    }
+
+    #[derive(SimpleObject)]
     struct LookaheadPost {
         title: String,
         content: String,
+        translations: Vec<LookaheadTranslation>,
     }
 
     #[derive(SimpleObject)]
@@ -913,11 +1037,13 @@ mod tests {
                     node: LookaheadPost {
                         title: "title".into(),
                         content: "content".into(),
+                        translations: vec![],
                     },
                 }],
                 nodes: vec![LookaheadPost {
                     title: "title".into(),
                     content: "content".into(),
+                    translations: vec![],
                 }],
             }
         }
@@ -937,8 +1063,29 @@ mod tests {
             "#,
             r#"
                 {
+                    newsPosts(expectContent: false) {
+                        edges { node { translations { title } } }
+                    }
+                }
+            "#,
+            r#"
+                {
                     newsPosts(expectContent: true) {
                         edges { node { content } }
+                    }
+                }
+            "#,
+            r#"
+                {
+                    newsPosts(expectContent: true) {
+                        edges { node { translations { content } } }
+                    }
+                }
+            "#,
+            r#"
+                {
+                    newsPosts(expectContent: true) {
+                        nodes { translations { content } }
                     }
                 }
             "#,
@@ -1010,6 +1157,81 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(small_variant_path(input), expected, "input: {input}");
         }
+    }
+
+    fn news_translation(
+        language: &str,
+        title: Option<&str>,
+        summary: Option<&str>,
+        content: Option<&str>,
+    ) -> NewsPostTranslationInput {
+        NewsPostTranslationInput {
+            language: language.into(),
+            title: title.map(Into::into),
+            summary: summary.map(Into::into),
+            content: content.map(Into::into),
+        }
+    }
+
+    #[test]
+    fn news_post_translations_reject_unsupported_and_duplicate_languages() {
+        for language in ["en", "fr"] {
+            let error = validate_news_post_translations(vec![news_translation(
+                language,
+                Some("Title"),
+                None,
+                None,
+            )])
+            .unwrap_err();
+            assert_eq!(
+                error.message,
+                format!("unsupported news post translation language: {language}")
+            );
+        }
+
+        let error = validate_news_post_translations(vec![
+            news_translation("es", Some("Título"), None, None),
+            news_translation("es", Some("Otro título"), None, None),
+        ])
+        .unwrap_err();
+        assert_eq!(
+            error.message,
+            "duplicate news post translation language: es"
+        );
+    }
+
+    #[test]
+    fn news_post_translations_drop_blank_fields_and_sort_by_language() {
+        let translations = validate_news_post_translations(vec![
+            news_translation("zh-Hans", Some(" \t"), Some(""), Some("\n  ")),
+            news_translation("ru", None, Some("Сводка"), Some("  \n")),
+            news_translation("es", Some("Título"), None, Some("    código\n")),
+        ])
+        .unwrap();
+
+        assert_eq!(translations.len(), 2);
+
+        assert_eq!(translations[0].language, "es");
+        assert_eq!(translations[0].title.as_deref(), Some("Título"));
+        assert_eq!(translations[0].summary, None);
+        assert_eq!(translations[0].content.as_deref(), Some("    código\n"));
+
+        assert_eq!(translations[1].language, "ru");
+        assert_eq!(translations[1].title, None);
+        assert_eq!(translations[1].summary.as_deref(), Some("Сводка"));
+        assert_eq!(translations[1].content, None);
+    }
+
+    #[test]
+    fn news_post_translations_with_content_removed_deserialize_without_it() {
+        let translation: NewsPostTranslation = serde_json::from_value(serde_json::json!({
+            "language": "ko",
+            "title": "제목",
+        }))
+        .unwrap();
+
+        assert_eq!(translation.title.as_deref(), Some("제목"));
+        assert_eq!(translation.content, None);
     }
 
     #[test]

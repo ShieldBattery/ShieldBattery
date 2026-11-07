@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { toTranslationFields } from '../news/news-post-translations'
 import {
   altTextFromFilename,
   changedFieldLabels,
@@ -41,6 +42,7 @@ describe('createPublishedAt', () => {
     title: 'Title',
     summary: 'Summary',
     content: 'Content',
+    ...toTranslationFields(),
     publishMode: PUBLISH_MODE_DRAFT,
     scheduledAt: '',
   }
@@ -77,6 +79,7 @@ describe('publishedAtUpdate', () => {
     title: 'Title',
     summary: 'Summary',
     content: 'Content',
+    ...toTranslationFields(),
     publishMode: PUBLISH_MODE_DRAFT,
     scheduledAt: '',
   }
@@ -159,6 +162,7 @@ describe('changedFieldLabels', () => {
     title: 'Title',
     summary: 'Summary',
     content: 'Content',
+    translations: [],
     publishedAt: null,
     coverImagePath: null,
     editedAt: new Date(2026, 0, 1).toISOString(),
@@ -189,6 +193,20 @@ describe('changedFieldLabels', () => {
     const edit = { ...baseEdit, content: 'New content' }
 
     expect(changedFieldLabels(edit, baseEdit, t)).toEqual(['Content'])
+  })
+
+  test('reports changed translations', () => {
+    const translation = { language: 'es', title: 'Título', summary: null, content: null }
+    const older = { ...baseEdit, translations: [translation] }
+
+    expect(changedFieldLabels(older, baseEdit, t)).toEqual(['Translations'])
+    expect(
+      changedFieldLabels(
+        { ...baseEdit, translations: [{ ...translation, title: 'Otro título' }] },
+        older,
+        t,
+      ),
+    ).toEqual(['Translations'])
   })
 
   test('reports a changed publish date', () => {

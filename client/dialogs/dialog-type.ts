@@ -1,5 +1,6 @@
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
+import { TranslationLanguage } from '../../common/i18n'
 import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
@@ -381,6 +382,8 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
   typeof DialogType.NewsPostSettings,
   {
     savedStatus: NewsPostStatus
+    /** The language `settings.summary` is written in. */
+    summaryLanguage: TranslationLanguage
     settings: NewsPostSettingsValues
     /**
      * Shows validation errors for the dialog's fields as soon as it opens, rather than waiting for

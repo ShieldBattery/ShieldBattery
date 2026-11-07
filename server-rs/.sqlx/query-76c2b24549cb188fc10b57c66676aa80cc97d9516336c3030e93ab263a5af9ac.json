@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, author_id as \"author_id: _\", cover_image_path, title, summary, content, published_at,\n                    updated_at\n                FROM news_posts\n                WHERE id = $1\n            ",
+  "query": "\n                INSERT INTO news_posts (author_id, cover_image_path, title, summary, content,\n                    translations, published_at, updated_at)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, translations as \"translations: Json<Vec<NewsPostTranslation>>\",\n                    published_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "translations: Json<Vec<NewsPostTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "news_posts",
+            "name": "translations"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -94,7 +105,14 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int4",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -104,9 +122,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "8d4c58d0a8c49ba0dd580c22d27e72b737181faa3da99d40a9f241845b84a3f4"
+  "hash": "76c2b24549cb188fc10b57c66676aa80cc97d9516336c3030e93ab263a5af9ac"
 }
