@@ -160,6 +160,7 @@ interface PlayerQueueData {
 interface MatchFormationTelemetry {
   quality: number
   skillVariance: number
+  ratingVarianceMultiplier: number
   winProbability: number
   teamARating: number
   teamBRating: number
@@ -1825,6 +1826,7 @@ export class MatchmakingService {
       {
         quality: event.quality,
         skillVariance: event.skillVariance,
+        ratingVarianceMultiplier: event.ratingVarianceMultiplier ?? 1,
         winProbability: event.winProbability,
         teamARating: event.teamARating,
         teamBRating: event.teamBRating,
