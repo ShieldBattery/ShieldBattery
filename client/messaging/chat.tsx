@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { useWindowFocus } from '../dom/window-focus'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { jotaiStore } from '../jotai-store'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -350,8 +351,8 @@ export interface ChatProps {
    */
   onAtBottomChange?: (atBottom: boolean) => void
   /**
-   * Called the first time the unread divider is inside the viewport, once for each divider the list
-   * is given. Owners are expected to record it, so that a later return to the bottom can retire a
+   * Called the first time the unread divider is inside the viewport while the window is focused,
+   * once for each divider the list is given. Owners are expected to record it, so that a later return to the bottom can retire a
    * divider the user has actually laid eyes on.
    */
   onUnreadLineSeen?: (unreadLineTime: number) => void
@@ -417,6 +418,7 @@ export function Chat({
 }: ChatProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const isWindowFocused = useWindowFocus()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
@@ -437,8 +439,9 @@ export function Chat({
   const lastScrollTopRef = useRef<number | undefined>(undefined)
   // The divider the user has already had in view. The banner is a one-shot prompt for a divider
   // they haven't laid eyes on yet — once it's been on screen, scrolling back down doesn't
-  // resurface the banner. Carries what it was recorded for, so a conversation switch or a newly
-  // frozen divider starts fresh.
+  // resurface the banner. Only a focused window counts as looking: a divider that scrolls into
+  // view while the window is hidden hasn't been seen by anyone. Carries what it was recorded for,
+  // so a conversation switch or a newly frozen divider starts fresh.
   const seenLineRef = useRef<{ refreshToken: unknown; unreadLineTime: number } | undefined>(
     undefined,
   )
@@ -874,7 +877,11 @@ export function Chat({
       if (unreadLine) {
         const scrollerRect = scroller.getBoundingClientRect()
         const lineRect = unreadLine.getBoundingClientRect()
-        if (lineRect.bottom > scrollerRect.top && lineRect.top < scrollerRect.bottom) {
+        if (
+          isWindowFocused &&
+          lineRect.bottom > scrollerRect.top &&
+          lineRect.top < scrollerRect.bottom
+        ) {
           const alreadySeen = seenLineRef.current
           if (
             alreadySeen === undefined ||
@@ -956,6 +963,22 @@ export function Chat({
   useLayoutEffect(() => {
     driveLinkedMessageJump()
   }, [messages])
+
+  // The divider only counts as seen while the window is focused, so regaining focus is when the one
+  // that is on screen gets recorded, and the one that was pushed out of view while the window was
+  // hidden gets its banner. Where the divider sits is all that changed, so this measures again
+  // without moving the list.
+  const remeasureOnFocus = useEffectEvent(() => {
+    const scroller = scrollerRef.current
+    if (scroller) {
+      onScrollUpdate(scroller, 'resize')
+    }
+  })
+  useEffect(() => {
+    if (isWindowFocused) {
+      remeasureOnFocus()
+    }
+  }, [isWindowFocused])
 
   /**
    * Moves the list to the newest message. Returns whether anything had to move: false means the
