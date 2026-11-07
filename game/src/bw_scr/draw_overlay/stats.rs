@@ -11,12 +11,12 @@ use egui::Color32;
 use overlay_ui::kit::theme;
 use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, StatusColor,
-    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
-    TimelineView, UnitStatusView,
+    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
+    MapControlSideView, MapControlView, MatchupPlayerView, MatchupView, MilitaryPlayerView,
+    MilitaryView, ObserverView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView,
+    TeamCardView, TeamCardsView, TimelineEventView, TimelineView, UnitStatusView,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
@@ -588,9 +588,9 @@ fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying, and its status, the upgrades it fights with and how many of
-/// it are stacked where it is selected `alone`: those are only read out for a unit selected alone,
-/// so they are only read for one.
+/// is making, and what it is carrying, its status, the upgrades it fights with and how many of it
+/// are stacked where it is selected `alone`: those are only read out for a unit selected alone, so
+/// they are only read for one.
 fn selected_unit_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -599,8 +599,8 @@ fn selected_unit_view(
 ) -> SelectedUnitView {
     let mut view = carried_unit_view(bw, players, unit);
     view.production = production::selected_production(unit, bw);
-    view.cargo = cargo_views(bw, players, unit);
     if alone {
+        view.cargo = cargo_views(bw, players, unit);
         let producing = view.production.is_some();
         // The overlay is built in the game's draw, on its main thread.
         view.status = bw.stat_txt.and_then(|stat_txt| unsafe {
@@ -696,7 +696,7 @@ unsafe fn rank(stat_txt: &StatTxt, unit: Unit) -> Option<UnitStatus> {
 
 /// The units inside a transport or a bunker, in the order the game holds them, and nothing at all
 /// for anything else.
-fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<SelectedUnitView> {
+fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<CarriedUnitView> {
     let Some(units) = bw.units.as_ref() else {
         return Vec::new();
     };
@@ -704,7 +704,10 @@ fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<Selected
         return Vec::new();
     }
     unit.loaded_units(units)
-        .map(|loaded| carried_unit_view(bw, players, loaded))
+        .map(|loaded| CarriedUnitView {
+            unit: carried_unit_view(bw, players, loaded),
+            room: loaded.id().cargo_space_used(),
+        })
         .collect()
 }
 

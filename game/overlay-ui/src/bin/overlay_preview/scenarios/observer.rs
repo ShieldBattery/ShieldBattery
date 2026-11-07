@@ -18,14 +18,15 @@
 
 use egui::{Color32, Rect, vec2};
 use overlay_ui::observer::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
-    MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
-    ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView,
-    UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    EconomyPlayerView, EconomyView, FightDegree, GraphGrouping, GraphLineView, GraphSeries,
+    GraphsView, MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
+    MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionItemView,
+    ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, Significance, StatusColor, SubjectProgress,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView, UpgradeEffect,
+    WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -204,9 +205,13 @@ fn event_subject(kind: TimelineEventKind, race: RaceView, index: usize) -> (u16,
     }
 }
 
-/// How many units the loaded transport is carrying, which is short of the eight one holds: a row
-/// drawn to its last slot would not say whether the panel draws the room or only what is in it.
-const CARGO_UNITS: usize = 4;
+/// What the loaded transport is carrying, as each unit and the room it takes up: one of each size,
+/// and short of the eight one holds, since a grid drawn to its last cell would not say whether the
+/// panel draws the room or only what is in it.
+const CARGO_UNITS: usize = 3;
+const ZERG_CARGO: [(u16, u32); CARGO_UNITS] = [(103, 4), (38, 2), (37, 1)];
+const TERRAN_CARGO: [(u16, u32); CARGO_UNITS] = [(5, 4), (2, 2), (0, 1)];
+const PROTOSS_CARGO: [(u16, u32); CARGO_UNITS] = [(66, 4), (65, 2), (64, 1)];
 
 /// How many more units the producing building has waiting behind the one on the way.
 const QUEUED_UNITS: usize = 2;
@@ -1385,10 +1390,18 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
 /// of the fake game runs on, because what the row is here to prove is the tints: one of them is
 /// whole, one is hurt, one is nearly dead, and the panel has to draw three different colors.
 fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
-    const CARGO_HEALTH: [f32; CARGO_UNITS] = [1.0, 0.6, 0.25, 0.85];
+    const CARGO_HEALTH: [f32; CARGO_UNITS] = [1.0, 0.6, 0.25];
 
     let race = knobs.race(owner);
-    let units = race_units(race);
+    let cargo = match race {
+        RaceView::Zerg => ZERG_CARGO,
+        RaceView::Terran => TERRAN_CARGO,
+        RaceView::Protoss | RaceView::Random => PROTOSS_CARGO,
+    };
+    let shielded = has_shields(race);
+    let mut upgrades = unit_upgrades(race, shielded);
+    // Its armor and any shields: a transport has no weapon, which is what would come next.
+    upgrades.truncate(if shielded { 2 } else { 1 });
     let full_health = 150;
     SelectedUnitView {
         icon: unit_icon(race_transport(race)),
@@ -1410,33 +1423,37 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         production: None,
         cargo: CARGO_HEALTH
             .iter()
+            .zip(cargo)
             .enumerate()
-            .map(|(slot, left)| {
+            .map(|(slot, (left, (unit, room)))| {
                 let full_health = 80 + 20 * slot as u32;
-                SelectedUnitView {
-                    icon: unit_icon(units[slot % units.len()]),
-                    name: unit_name(units[slot % units.len()]),
-                    owner_color: overlay_ui::kit::theme::player_color(owner),
-                    owner_name: player_name(knobs, owner),
-                    owner: Some(owner as u8),
-                    hit_points: Some(((full_health as f32 * left) as u32, full_health)),
-                    shields: None,
-                    energy: None,
-                    kills: 0,
-                    status: None,
-                    hallucination: spells(knobs, slot).hallucination,
-                    parasited: spells(knobs, slot).parasited,
-                    blind: spells(knobs, slot).blind,
-                    building: false,
-                    resources: None,
-                    stacked: None,
-                    production: None,
-                    cargo: Vec::new(),
-                    upgrades: Vec::new(),
+                CarriedUnitView {
+                    unit: SelectedUnitView {
+                        icon: unit_icon(unit),
+                        name: unit_name(unit),
+                        owner_color: overlay_ui::kit::theme::player_color(owner),
+                        owner_name: player_name(knobs, owner),
+                        owner: Some(owner as u8),
+                        hit_points: Some(((full_health as f32 * left) as u32, full_health)),
+                        shields: shielded.then(|| ((60.0 * (1.0 - left)) as u32, 60)),
+                        energy: None,
+                        kills: 0,
+                        status: None,
+                        hallucination: spells(knobs, slot).hallucination,
+                        parasited: spells(knobs, slot).parasited,
+                        blind: spells(knobs, slot).blind,
+                        building: false,
+                        resources: None,
+                        stacked: None,
+                        production: None,
+                        cargo: Vec::new(),
+                        upgrades: Vec::new(),
+                    },
+                    room,
                 }
             })
             .collect(),
-        upgrades: Vec::new(),
+        upgrades,
     }
 }
 

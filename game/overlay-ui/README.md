@@ -219,7 +219,8 @@ for a selection of one — a bar each for its health, shields and energy, as man
 upgrades it fights with (armor, shields, weapons, each a chip with its owner's level in the corner
 and a card under the pointer putting the armor or damage it comes to into numbers) and what it has
 killed; one building, or a transport or bunker with units inside, is drawn smaller with those
-numbers under it, and with the units it is carrying beside them; anything making something, a
+numbers under it, and with the units it is carrying beside them, each as big as the room it takes
+up in there, and the upgrades it fights with beside those; anything making something, a
 building training or researching and an egg mid-morph alike, puts what is on the way, how far along
 it is and what is queued behind it where those carried units would be, except a building that is
 itself going up, which is named once and gets only its progress; and a selection of none leaves the
