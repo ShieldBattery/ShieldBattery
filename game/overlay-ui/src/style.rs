@@ -65,6 +65,11 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
         fonts::CONDENSED_400,
         embedded(&SOFIA_SANS_CONDENSED_AUTOHINTED, 400.0),
     );
+    insert(
+        &mut fonts,
+        fonts::CONDENSED_600,
+        embedded(&SOFIA_SANS_CONDENSED_AUTOHINTED, 600.0),
+    );
     insert(&mut fonts, fonts::DO_HYEON, FontData::from_static(DO_HYEON));
 
     // The CJK fallbacks are registered at one weight for every family: they are megabytes each, and
@@ -123,6 +128,10 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
         (
             fonts::condensed(),
             chain(&[fonts::CONDENSED_400, fonts::INTER_400], &korean_body),
+        ),
+        (
+            fonts::condensed_semibold(),
+            chain(&[fonts::CONDENSED_600, fonts::INTER_600], &korean_body),
         ),
     ];
     fonts.families.extend(families);
