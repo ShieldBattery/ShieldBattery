@@ -79,6 +79,8 @@ export interface LobbyExtra {
   host?: SbUserId
   turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
+  /** Whether observers could chat with players in-game. Missing values default to false. */
+  allowObserverChat?: boolean
   /**
    * Whether the game was played without the ShieldBattery game logic fixes that make replays play
    * back differently in StarCraft: Remastered without ShieldBattery. Records created before this

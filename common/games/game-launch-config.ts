@@ -118,6 +118,8 @@ export interface GameSetup {
   resultCode?: string
   /** True if the local user is currently restricted from sending messages. */
   isChatRestricted?: boolean
+  /** Whether observers can send chat messages to players. Defaults to false. */
+  allowObserverChat?: boolean
 }
 
 /** Configuration info for launching a local game client to play a specific game. */

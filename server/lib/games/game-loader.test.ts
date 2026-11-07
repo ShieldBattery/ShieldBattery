@@ -1714,7 +1714,10 @@ describe('games/game-loader/GameLoader', () => {
       players: [player1.player],
       playerInfos: [player1.playerInfo],
       mapId,
-      gameConfig: lobbyConfig([[{ id: p1, race: 't', isComputer: false }]]),
+      gameConfig: {
+        ...lobbyConfig([[{ id: p1, race: 't', isComputer: false }]]),
+        gameSourceExtra: { allowObserverChat: true },
+      },
     }
 
     const resultPromise = gameLoader.loadGame(request)
@@ -1742,7 +1745,11 @@ describe('games/game-loader/GameLoader', () => {
     const setupPublish = publisher.publish.mock.calls.find(
       (call: any[]) => call[1].type === 'setGameConfig',
     )
-    expect(setupPublish?.[1].setup).toMatchObject({ turnRate: 24, userLatency: BwUserLatency.Low })
+    expect(setupPublish?.[1].setup).toMatchObject({
+      turnRate: 24,
+      userLatency: BwUserLatency.Low,
+      allowObserverChat: true,
+    })
   })
 
   test('loads a multi-human game and persists useNetcodeV2 when netcode v2 is enabled', async () => {

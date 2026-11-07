@@ -526,6 +526,8 @@ pub struct GameSetupInfo {
     pub game_id: String,
     pub result_code: Option<String>,
     pub is_chat_restricted: Option<bool>,
+    #[serde(default)]
+    pub allow_observer_chat: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

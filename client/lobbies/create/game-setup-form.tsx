@@ -254,6 +254,7 @@ export interface GameSetupModel {
   starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
   allowObservers: boolean
+  allowObserverChat: boolean
 }
 
 export interface GameSetupFormHandle {
@@ -381,6 +382,7 @@ export function GameSetupForm({
   const mapId = getInputValue('mapId')
   const mapIdError = bindCustom('mapId').errorText
   const gameType = getInputValue('gameType')
+  const allowObservers = getInputValue('allowObservers')
   const selectedMapInfo = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
 
   const changeMap = (newMapId: SbMapId) => {
@@ -518,6 +520,15 @@ export function GameSetupForm({
                   maxObservers: MAX_OBSERVERS,
                 })}
                 disabled={disabled}
+                inputProps={{ tabIndex: 0 }}
+              />
+              <CheckBox
+                {...bindCheckable('allowObserverChat')}
+                label={t(
+                  'lobbies.createLobby.allowObserverChat',
+                  'Allow observers to chat with players',
+                )}
+                disabled={disabled || !allowObservers}
                 inputProps={{ tabIndex: 0 }}
               />
               <CheckBox

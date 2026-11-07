@@ -10,6 +10,7 @@ import {
   getLobbySlots,
   hasControlledOpens,
   hasLockedAlliances,
+  hasObservers,
   isUms,
   Lobby,
   slotCount,
@@ -835,6 +836,12 @@ export function RoomMapBanner({
     mapStats.push([
       t('lobbies.room.banner.statAlliances', 'Alliances'),
       t('lobbies.room.banner.alliancesLocked', 'Locked'),
+    ])
+  }
+  if (hasObservers(lobby) && lobby.allowObserverChat) {
+    mapStats.push([
+      t('lobbies.room.banner.statObserverChat', 'Observer chat'),
+      t('lobbies.room.banner.observerChatAllowed', 'Allowed'),
     ])
   }
   if (!lobby.starcraftCompatibleReplays) {

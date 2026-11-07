@@ -389,6 +389,8 @@ function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): strin
       return t('lobbies.messageLayout.settingsChangeLockedAlliances', 'alliance lock')
     case 'allowObservers':
       return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
+    case 'allowObserverChat':
+      return t('lobbies.messageLayout.settingsChangeObserverChat', 'observer chat')
     case 'mapQueue':
       return t('lobbies.messageLayout.settingsChangeMapQueue', 'map queue')
     default:

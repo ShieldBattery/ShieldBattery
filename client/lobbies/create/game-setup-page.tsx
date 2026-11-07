@@ -263,6 +263,9 @@ export function formatGameSetupSummary(
     setup.allowObservers
       ? t('lobbies.hostGame.summaryObserversOn', 'Observers on')
       : t('lobbies.hostGame.summaryObserversOff', 'No observers'),
+    setup.allowObservers && setup.allowObserverChat
+      ? t('lobbies.hostGame.summaryObserverChatOn', 'Observer chat on')
+      : undefined,
   ]
     .filter(Boolean)
     .join(' · ')
