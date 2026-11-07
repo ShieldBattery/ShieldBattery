@@ -169,6 +169,7 @@ pub fn record_search_stats(stats: &[ModeSearchStats]) {
 
         for (reason, count) in [
             ("map", mode_stats.map_rejections),
+            ("spread", mode_stats.spread_rejections),
             ("upper_bound", mode_stats.upper_bound_rejections),
             ("quality", mode_stats.quality_rejections),
         ] {

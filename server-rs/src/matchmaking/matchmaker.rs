@@ -209,6 +209,7 @@ pub struct ModeSearchStats {
     pub players_examined: usize,
     pub rosters_evaluated: u64,
     pub map_rejections: u64,
+    pub spread_rejections: u64,
     pub upper_bound_rejections: u64,
     pub team_partitions_evaluated: u64,
     pub quality_rejections: u64,
@@ -224,6 +225,7 @@ impl ModeSearchStats {
             players_examined: 0,
             rosters_evaluated: 0,
             map_rejections: 0,
+            spread_rejections: 0,
             upper_bound_rejections: 0,
             team_partitions_evaluated: 0,
             quality_rejections: 0,
@@ -962,6 +964,8 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let mut count = 0;
                     let mut mean = 0.0;
                     let mut m2 = 0.0;
+                    let mut lowest_rating = f32::INFINITY;
+                    let mut highest_rating = f32::NEG_INFINITY;
 
                     for q in &queue_entries {
                         if q.entry.queue_time < oldest_queue_time {
@@ -973,7 +977,17 @@ impl<T: QueueSelector> Matchmaker<T> {
                         let delta = r - mean;
                         mean += delta / count as f32;
                         m2 += delta * (r - mean);
+                        lowest_rating = lowest_rating.min(r);
+                        highest_rating = highest_rating.max(r);
                     }
+
+                    if mode_cfg.max_rating_spread > 0.0
+                        && highest_rating - lowest_rating > mode_cfg.max_rating_spread
+                    {
+                        mode_stats.spread_rejections += 1;
+                        return None;
+                    }
+
                     let variance = m2 / (count as f32 - 1.0);
                     let wait_time = now - oldest_queue_time;
                     let wait_seconds = wait_time.as_secs_f32();
@@ -1536,6 +1550,69 @@ mod tests {
         );
         assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1), 1);
         assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1Fastest), 1);
+    }
+
+    /// A permissive config with the given rating spread cap, so only the cap can reject a match.
+    fn spread_cap_config(max_rating_spread: f32) -> Arc<MatchmakerConfig> {
+        Arc::new(MatchmakerConfig::from_global(ModeConfig {
+            min_quality: f32::NEG_INFINITY,
+            max_rating_spread,
+            ..Default::default()
+        }))
+    }
+
+    fn matchmaker_with_2v2_ratings(
+        config: Arc<MatchmakerConfig>,
+        ratings: [f32; 4],
+    ) -> Matchmaker<TestQueueSelector> {
+        let mut matchmaker = Matchmaker::with_queue_selector(config, TestQueueSelector);
+        for (id, rating) in ratings.into_iter().enumerate() {
+            matchmaker
+                .insert_player(make_player(id, rating, MatchmakingType::Match2v2))
+                .unwrap();
+        }
+        matchmaker
+    }
+
+    #[test]
+    fn rating_spread_cap_allows_a_match_exactly_at_the_cap() {
+        let matchmaker =
+            matchmaker_with_2v2_ratings(spread_cap_config(300.0), [1300.0, 1500.0, 1500.0, 1600.0]);
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn rating_spread_cap_rejects_a_wider_match_however_long_the_wait() {
+        let config = spread_cap_config(300.0);
+        let mut matchmaker =
+            matchmaker_with_2v2_ratings(config.clone(), [1300.0, 1500.0, 1500.0, 1601.0]);
+
+        let result = matchmaker.run_tick_for_modes(
+            &[MatchmakingType::Match2v2],
+            Instant::now() + Duration::from_secs(60 * 60),
+            config,
+            Arc::new(BackboneRttTable::default()),
+        );
+
+        assert!(result.matches.is_empty());
+        let stats = &result.search_stats[0];
+        assert_eq!(stats.rosters_evaluated, 1);
+        assert_eq!(stats.spread_rejections, 1);
+        assert_eq!(stats.team_partitions_evaluated, 0);
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match2v2), 4);
+    }
+
+    #[test]
+    fn rating_spread_cap_of_zero_allows_any_spread() {
+        let matchmaker =
+            matchmaker_with_2v2_ratings(spread_cap_config(0.0), [500.0, 1500.0, 1500.0, 2500.0]);
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
