@@ -32,6 +32,11 @@ describe('league translations', () => {
     expect(localizeLeague(defaults, 'es')).toEqual(defaults)
   })
 
+  test.each(['en', 'en-US', 'fr'])('ignores stored English overrides for %s', language => {
+    const league = { ...defaults, translations: [{ language: 'en', name: 'Stale English name' }] }
+    expect(localizeLeague(league, language)).toEqual(defaults)
+  })
+
   test('falls back independently for missing, empty, and whitespace-only fields', () => {
     expect(
       localizeLeague({ ...defaults, translations: [{ language: 'es', name: spanish.name }] }, 'es'),

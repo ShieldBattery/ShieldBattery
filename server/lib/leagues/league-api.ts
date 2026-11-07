@@ -5,7 +5,6 @@ import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
-import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
@@ -21,8 +20,10 @@ import {
   LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
+  LEAGUE_TRANSLATION_LANGUAGES,
   LeagueErrorCode,
   LeagueId,
+  LeagueTranslation,
   ServerAdminAddLeagueRequest,
   ServerAdminEditLeagueRequest,
   toClientLeagueUserJson,
@@ -74,16 +75,22 @@ import {
 } from './league-models'
 import { LeagueStartNotifier } from './league-start-notifier'
 
-const leagueTranslationsSchema = Joi.array()
+const translatedText = Joi.string().empty(Joi.string().allow('').pattern(/^\s*$/))
+const leagueTranslationsSchema = Joi.array<LeagueTranslation[]>()
   .items(
     Joi.object({
-      language: Joi.valid(...ALL_TRANSLATION_LANGUAGES).required(),
-      name: Joi.string().allow(''),
-      description: Joi.string().allow(''),
-      rulesAndInfo: Joi.string().allow(''),
+      language: Joi.valid(...LEAGUE_TRANSLATION_LANGUAGES).required(),
+      name: translatedText,
+      description: translatedText,
+      rulesAndInfo: translatedText,
     }).unknown(false),
   )
   .unique('language')
+  .custom((translations: LeagueTranslation[]) =>
+    translations.filter(
+      ({ name, description, rulesAndInfo }) => name || description || rulesAndInfo,
+    ),
+  )
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 

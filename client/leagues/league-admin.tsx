@@ -657,7 +657,8 @@ function EditLeagueForm({
       name: originalLeague.name,
       matchmakingType: originalLeague.matchmakingType,
       description: originalLeague.description,
-      translations: originalLeague.translations ?? [],
+      translations:
+        originalLeague.translations?.filter(t => t.language !== TranslationLanguage.English) ?? [],
       signupsAfter: asDatetimeLocalValue(originalLeague.signupsAfter),
       startAt: asDatetimeLocalValue(originalLeague.startAt),
       endAt: asDatetimeLocalValue(originalLeague.endAt),

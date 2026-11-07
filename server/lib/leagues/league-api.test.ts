@@ -170,20 +170,33 @@ describe('league translation validation', () => {
 
   test('accepts translations on creation', async () => {
     await api.addLeague(contextFor('leagueData', translations))
-    expect(createLeague).toHaveBeenCalledWith(expect.objectContaining({ translations }))
+    expect(createLeague).toHaveBeenCalledWith(
+      expect.objectContaining({ translations: [{ language: 'es', description: 'Descripción' }] }),
+    )
   })
 
-  test.each([{ value: translations }, { value: [] }])(
-    'replaces translations on edit: %j',
-    async ({ value }) => {
-      await api.editLeague(contextFor('leagueChanges', value))
-      expect(updateLeague).toHaveBeenCalledWith(LEAGUE_ID, { translations: value })
-    },
-  )
+  test('removes blank translations and preserves nonblank Markdown on edit', async () => {
+    const rulesAndInfo = '    código\n'
+    await api.editLeague(
+      contextFor('leagueChanges', [
+        { language: 'ko', name: ' \n', description: '' },
+        { language: 'es', name: '', rulesAndInfo },
+      ]),
+    )
+    expect(updateLeague).toHaveBeenCalledWith(LEAGUE_ID, {
+      translations: [{ language: 'es', rulesAndInfo }],
+    })
+  })
+
+  test('clears translations when given an empty array', async () => {
+    await api.editLeague(contextFor('leagueChanges', []))
+    expect(updateLeague).toHaveBeenCalledWith(LEAGUE_ID, { translations: [] })
+  })
 
   test.each([
     { value: null },
     { value: {} },
+    { value: [{ language: 'en', name: 'English override' }] },
     { value: [{ language: 'fr', name: 'Nom' }] },
     { value: [{ language: 'es' }, { language: 'es' }] },
     { value: [{ language: 'es', name: 123 }] },

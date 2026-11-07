@@ -1,11 +1,7 @@
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import {
-  ALL_TRANSLATION_LANGUAGES,
-  TranslationLanguage,
-  translationLanguageToLabel,
-} from '../../common/i18n'
-import { LeagueTranslation } from '../../common/leagues/leagues'
+import { TranslationLanguage, translationLanguageToLabel } from '../../common/i18n'
+import { LEAGUE_TRANSLATION_LANGUAGES, LeagueTranslation } from '../../common/leagues/leagues'
 import { TextButton } from '../material/button'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -54,7 +50,7 @@ export function LeagueTranslationFields({
         dense={true}
         tabIndex={0}>
         <SelectOption text='Default text (fallback)' value='' />
-        {ALL_TRANSLATION_LANGUAGES.map(l => (
+        {LEAGUE_TRANSLATION_LANGUAGES.map(l => (
           <SelectOption key={l} text={translationLanguageToLabel(l)} value={l} />
         ))}
       </Select>

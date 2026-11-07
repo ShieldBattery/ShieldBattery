@@ -1,5 +1,5 @@
 import { Tagged } from 'type-fest'
-import { TranslationLanguage } from '../i18n'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { RaceStats } from '../races'
@@ -10,6 +10,10 @@ export const LEAGUE_IMAGE_WIDTH = 704 * 2
 export const LEAGUE_IMAGE_HEIGHT = 288 * 2
 export const LEAGUE_BADGE_WIDTH = 80 * 4
 export const LEAGUE_BADGE_HEIGHT = 80 * 4
+
+export const LEAGUE_TRANSLATION_LANGUAGES = ALL_TRANSLATION_LANGUAGES.filter(
+  language => language !== TranslationLanguage.English,
+)
 
 /** The ID of a league as stored in the database. */
 export type LeagueId = Tagged<string, 'LeagueId'>
