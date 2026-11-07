@@ -217,8 +217,10 @@ slots in two rows of six and nothing besides, since twelve sets of numbers at on
 nobody reads; one unit is drawn large with whose it is and the numbers the console only ever shows
 for a selection of one — a bar each for its health, shields and energy, as many as it has, then the
 upgrades it fights with (armor, shields, weapons, each a chip with its owner's level in the corner
-and a card under the pointer putting the armor or damage it comes to into numbers) and what it has
-killed; one building, or a transport or bunker with units inside, is drawn smaller with those
+and a card under the pointer putting the armor or damage it comes to into numbers), then what its
+owner has researched for it (its spells, and the upgrades to its speed, range, sight, energy or
+capacity, each a chip of its own past a wider gap, named by a card under the pointer), with what it
+has killed at the end of its name's line; one building, or a transport or bunker with units inside, is drawn smaller with those
 numbers under it, and with the units it is carrying beside them; anything making something, a
 building training or researching and an egg mid-morph alike, puts what is on the way, how far along
 it is and what is queued behind it where those carried units would be, except a building that is
