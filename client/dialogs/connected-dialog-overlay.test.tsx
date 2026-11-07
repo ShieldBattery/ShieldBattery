@@ -1,11 +1,17 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import i18next from 'i18next'
+import { createStore as createJotaiStore, Provider as JotaiProvider } from 'jotai'
+import keycode from 'keycode'
 import { LazyMotion } from 'motion/react'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
+import { MatchmakingType } from '../../common/matchmaking'
+import { asMockedFunction } from '../../common/testing/mocks'
 import createStore from '../create-store'
+import { isActivatingClick } from '../dom/activating-click'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
+import { foundMatchAtom } from '../matchmaking/matchmaking-atoms'
 import { Popover, PopoverOpenState } from '../material/popover'
 import { domMax } from '../motion-features'
 import {
@@ -28,11 +34,21 @@ vi.hoisted(() => {
   globalThis.cancelAnimationFrame = () => {}
 })
 
+vi.mock('../dom/activating-click', () => ({ isActivatingClick: vi.fn(() => false) }))
+
+const isActivatingClickMock = asMockedFunction(isActivatingClick)
+
 beforeAll(async () => {
   await i18next
     .use(initReactI18next)
     .init({ lng: 'en', resources: {}, interpolation: { escapeValue: false } })
 })
+
+// The dialog registry lazy-loads this. Importing it cold takes longer than a query's timeout on a
+// busy machine, so it's loaded ahead of the tests that render it.
+beforeAll(async () => {
+  await import('../matchmaking/accept-match-dialog')
+}, 30000)
 
 let visibilityState: DocumentVisibilityState = 'visible'
 Object.defineProperty(document, 'visibilityState', {
@@ -49,6 +65,7 @@ function setVisibility(state: DocumentVisibilityState) {
 
 afterEach(() => {
   visibilityState = 'visible'
+  isActivatingClickMock.mockReturnValue(false)
   vi.useRealTimers()
 })
 
@@ -62,16 +79,18 @@ function passExitDeadline() {
   })
 }
 
-function renderOverlay(extra?: React.ReactNode) {
+function renderOverlay(extra?: React.ReactNode, jotaiStore = createJotaiStore()) {
   const store = createStore()
   render(
     <ReduxProvider store={store}>
-      <KeyListenerBoundary>
-        <LazyMotion features={domMax}>
-          {extra}
-          <ConnectedDialogOverlay />
-        </LazyMotion>
-      </KeyListenerBoundary>
+      <JotaiProvider store={jotaiStore}>
+        <KeyListenerBoundary>
+          <LazyMotion features={domMax}>
+            {extra}
+            <ConnectedDialogOverlay />
+          </LazyMotion>
+        </KeyListenerBoundary>
+      </JotaiProvider>
     </ReduxProvider>,
   )
   return store
@@ -84,7 +103,80 @@ function openDialog(store: ReturnType<typeof createStore>) {
   return store.getState().dialog.history.at(-1)!.id
 }
 
+/** Opens the accept-match dialog for a found match, waiting for its lazy content to load. */
+async function renderAcceptMatchDialog() {
+  const jotaiStore = createJotaiStore()
+  jotaiStore.set(foundMatchAtom, {
+    matchmakingType: MatchmakingType.Match1v1,
+    numPlayers: 2,
+    acceptStart: performance.now(),
+    acceptTimeTotalMillis: 60000,
+    acceptedPlayers: 0,
+    hasAccepted: false,
+  })
+  const store = renderOverlay(undefined, jotaiStore)
+  act(() => {
+    store.dispatch(openDialogAction({ type: DialogType.AcceptMatch }))
+  })
+  await screen.findByText('Ready up', undefined, { timeout: 4000 })
+  return store
+}
+
 describe('ConnectedDialogOverlay', () => {
+  test('a scrim click closes a dialog', async () => {
+    const store = renderOverlay()
+    openDialog(store)
+    await screen.findByRole('dialog')
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('the click that brings the window forward closes a dialog', async () => {
+    const store = renderOverlay()
+    openDialog(store)
+    await screen.findByRole('dialog')
+    isActivatingClickMock.mockReturnValue(true)
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('the click that brings the window forward leaves the accept-match dialog open', async () => {
+    const store = await renderAcceptMatchDialog()
+    isActivatingClickMock.mockReturnValue(true)
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(1)
+  })
+
+  test('a scrim click closes the accept-match dialog once the window has focus', async () => {
+    const store = await renderAcceptMatchDialog()
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('the close button closes the accept-match dialog', async () => {
+    const store = await renderAcceptMatchDialog()
+
+    fireEvent.click(screen.getByTitle('Close dialog'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('Escape closes the accept-match dialog', async () => {
+    const store = await renderAcceptMatchDialog()
+
+    fireEvent.keyDown(document, { keyCode: keycode('esc') })
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
   test('the close button closes the dialog while a popover is open elsewhere', async () => {
     const onDismiss = vi.fn()
     const store = renderOverlay(

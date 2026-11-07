@@ -4,6 +4,7 @@ import * as m from 'motion/react-m'
 import React, { useEffect, useEffectEvent, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
+import { isActivatingClick } from '../dom/activating-click'
 import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
@@ -204,10 +205,14 @@ const noop = () => {}
 function getDialog(dialogType: DialogType): {
   component: React.ComponentType<any>
   modal?: boolean
+  /** Keeps the dialog open when the click that brings the window forward lands on its scrim. */
+  ignoreActivatingScrimClick?: boolean
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
-      return { component: AcceptMatchDialog }
+      // This dialog often opens while the window is unfocused, and a player returning to it
+      // shouldn't lose it to the click they came back with.
+      return { component: AcceptMatchDialog, ignoreActivatingScrimClick: true }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
     case DialogType.AdminCloseChannel:
@@ -480,7 +485,7 @@ function DialogDisplay({
   onScrimClick: (id: string, event: React.MouseEvent) => void
 }) {
   const { type: dialogType, id } = dialogState
-  const { component: DialogComponent, modal } = getDialog(dialogType)
+  const { component: DialogComponent, modal, ignoreActivatingScrimClick } = getDialog(dialogType)
 
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
   const isDocVisible = useIsDocumentVisible()
@@ -496,12 +501,21 @@ function DialogDisplay({
         {isTopDialog && (
           <Scrim
             key='scrim'
+            data-testid='dialog-scrim'
             variants={scrimVariants}
             initial={isDocVisible ? 'initial' : false}
             animate='animate'
             exit='exit'
             transition={scrimTransition}
-            onClick={modal ? noop : event => onScrimClick(id, event)}
+            onClick={
+              modal
+                ? noop
+                : event => {
+                    if (!ignoreActivatingScrimClick || !isActivatingClick()) {
+                      onScrimClick(id, event)
+                    }
+                  }
+            }
           />
         )}
       </AnimatePresence>
