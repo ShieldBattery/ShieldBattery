@@ -104,6 +104,7 @@ const cacheKeys: KeyingConfig = {
   GamePlayer: NON_KEYED_EMBEDDED,
   GameReportReplay: NON_KEYED_EMBEDDED,
   GameReportUserStats: NON_KEYED_EMBEDDED,
+  LeagueTranslation: NON_KEYED_EMBEDDED,
   MapForce: NON_KEYED_EMBEDDED,
   MapForcePlayer: NON_KEYED_EMBEDDED,
   MatchmakerConfigDefaults: NON_KEYED_EMBEDDED,

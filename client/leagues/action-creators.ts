@@ -198,7 +198,11 @@ export function adminAddLeague({
     const formData = new FormData()
     formData.append(
       'leagueData',
-      JSON.stringify(leagueData, (_, value) => (value === '' ? null : value)),
+      JSON.stringify({
+        ...leagueData,
+        rulesAndInfo: leagueData.rulesAndInfo || undefined,
+        link: leagueData.link || undefined,
+      }),
     )
 
     if (leagueImage) {
@@ -241,7 +245,11 @@ export function adminUpdateLeague({
     const formData = new FormData()
     formData.append(
       'leagueChanges',
-      JSON.stringify(leagueChanges, (_, value) => (value === '' ? null : value)),
+      JSON.stringify({
+        ...leagueChanges,
+        rulesAndInfo: leagueChanges.rulesAndInfo === '' ? null : leagueChanges.rulesAndInfo,
+        link: leagueChanges.link === '' ? null : leagueChanges.link,
+      }),
     )
 
     if (leagueImage) {
