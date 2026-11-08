@@ -1269,6 +1269,13 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   }
 
   const onSaveClick = () => {
+    // Implicit submission from the keyboard bypasses the disabled save button, so this needs the
+    // same guard. Saving can switch the editor's language, and an upload in flight writes into
+    // the content textarea when it finishes, which would then hold another language's text.
+    if (fetching || imageUploading || videoUploading) {
+      return
+    }
+
     // The summary and schedule fields are edited in the post settings dialog now, so a validation
     // failure on either needs to open that dialog rather than failing silently against inputs that
     // no longer appear on this page. Opening it this way shows the failure immediately, since a
