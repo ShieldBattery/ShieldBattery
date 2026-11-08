@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
+import { MatchmakingDivision } from '../../common/matchmaking'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
@@ -18,12 +19,15 @@ export interface UserState {
   idToMatchHistory: Map<SbUserId, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
   idToProfile: Map<SbUserId, UserProfileJson>
+  /** Cached current-season chat ranks, including users without a rank. */
+  chatRanks: Map<SbUserId, UserRequestInfo & { division?: MatchmakingDivision }>
 }
 
 const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
   idToMatchHistory: new Map(),
   idToProfile: new Map(),
+  chatRanks: new Map(),
 }
 
 function updateUsers(state: UserState, users: SbUser[]) {
@@ -185,6 +189,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@users/getBatchUserInfo'](state, action) {
     if (!action.error) {
       updateUsers(state, action.payload.userInfos)
+    }
+  },
+
+  ['@users/getBatchUserRanks'](state, { payload: { ranks }, meta: { userIds, time } }) {
+    const byId = new Map(ranks.map(({ userId, division }) => [userId, division]))
+    for (const id of userIds) {
+      state.chatRanks.set(id, { division: byId.get(id), time })
     }
   },
 

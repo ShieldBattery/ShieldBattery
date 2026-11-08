@@ -26,9 +26,12 @@ import {
 } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
-import { LadderPlayer } from '../../../common/ladder/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../../common/ladder/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import {
+  ALL_MATCHMAKING_DIVISIONS,
+  getDivisionContext,
+  MatchmakingDivision,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   toMatchmakingSeasonJson,
@@ -78,8 +81,10 @@ import {
   BanSource,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
+  GET_BATCH_USER_RANKS_LIMIT,
   GET_MATCH_HISTORY_LIMIT,
   GetBatchUserInfoResponse,
+  GetBatchUserRanksResponse,
   GetMatchHistoryQueryParams,
   GetMatchHistoryResponse,
   GetUserByNameResponse,
@@ -119,6 +124,7 @@ import {
   getMatchmakingFinalizedRanksForUser,
   getMatchmakingRatingsForUser,
   getMatchmakingSeasonsByIds,
+  getPlayedMatchmakingRatingsForUsers,
 } from '../matchmaking/models'
 import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/electron-clients'
@@ -207,6 +213,12 @@ const avatarUpdateThrottle = createThrottle('avatarupdate', {
 const accountRetrievalThrottle = createThrottle('accountretrieval', {
   rate: 40,
   burst: 80,
+  window: 60000,
+})
+
+const batchRanksThrottle = createThrottle('batchuserranks', {
+  rate: 60,
+  burst: 120,
   window: 60000,
 })
 
@@ -669,6 +681,39 @@ export class UserApi {
     return {
       userInfos: users,
     }
+  }
+
+  @httpGet('/batch-ranks')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(batchRanksThrottle, throttleByUser))
+  async batchGetRanks(ctx: RouterContext): Promise<GetBatchUserRanksResponse> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<{ u: SbUserId[] }>({
+        u: Joi.array()
+          .items(joiUserId().integer().required())
+          .single()
+          .min(1)
+          .max(GET_BATCH_USER_RANKS_LIMIT)
+          .required(),
+      }).required(),
+    })
+
+    const season = await this.matchmakingSeasonsService.getCurrentSeason()
+    const ratings = await getPlayedMatchmakingRatingsForUsers(query.u, season.id)
+    const divisionContext = getDivisionContext(new Date(this.clock.now()), season)
+    const ranks = new Map<SbUserId, MatchmakingDivision>()
+    for (const rating of ratings) {
+      const division = ladderPlayerToMatchmakingDivision(rating, divisionContext)
+      if (division === MatchmakingDivision.Unrated) continue
+      const current = ranks.get(rating.userId)
+      if (
+        !current ||
+        ALL_MATCHMAKING_DIVISIONS.indexOf(division) > ALL_MATCHMAKING_DIVISIONS.indexOf(current)
+      ) {
+        ranks.set(rating.userId, division)
+      }
+    }
+
+    return { ranks: Array.from(ranks, ([userId, division]) => ({ userId, division })) }
   }
 
   /**

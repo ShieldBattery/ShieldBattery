@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { USERNAME_MAXLENGTH } from '../../../common/constants'
+import { MatchmakingDivision, MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { SEARCH_USERS_LIMIT, UserErrorCode } from '../../../common/users/user-network'
+import { getPlayedMatchmakingRatingsForUsers } from '../matchmaking/models'
 import { UserApi } from './user-api'
 import { convertUserApiErrors } from './user-api-errors'
 import { findUserByName, findUsersByNamePrefix } from './user-model'
@@ -10,6 +12,10 @@ import { findUserByName, findUsersByNamePrefix } from './user-model'
 // The real module hashes `SB_CANONICAL_HOST` at import time, which isn't set outside a running
 // server process and would otherwise crash merely importing `UserApi`.
 vi.mock('../mail/mailer', () => ({ sendMailTemplate: vi.fn() }))
+vi.mock('../matchmaking/models', async importOriginal => ({
+  ...(await importOriginal<typeof import('../matchmaking/models')>()),
+  getPlayedMatchmakingRatingsForUsers: vi.fn(),
+}))
 
 // UserApi's constructor resolves these jobs from the DI container, and the real ones reach for a
 // database to schedule their periodic cleanup work, which isn't available in a unit test.
@@ -27,15 +33,15 @@ vi.mock('./user-model', async importOriginal => ({
 const findUserByNameMock = asMockedFunction(findUserByName)
 const findUsersByNamePrefixMock = asMockedFunction(findUsersByNamePrefix)
 
-function makeApi(): UserApi {
+function makeApi(clock: any = {}, seasons: any = {}): UserApi {
   return new UserApi(
     {} as any,
     {} as any,
     {} as any,
     {} as any,
+    clock,
     {} as any,
-    {} as any,
-    {} as any,
+    seasons,
     {} as any,
     {} as any,
     {} as any,
@@ -43,6 +49,37 @@ function makeApi(): UserApi {
     {} as any,
   )
 }
+
+describe('users/user-api/UserApi#batchGetRanks', () => {
+  test('chooses the highest division across queues and omits users without a rank', async () => {
+    const season = { id: 4, startDate: new Date(0), divisionTableVersion: 2 }
+    const api = makeApi({ now: () => 0 }, { getCurrentSeason: async () => season })
+    const userId = makeSbUserId(7)
+    asMockedFunction(getPlayedMatchmakingRatingsForUsers).mockResolvedValue([
+      { userId, matchmakingType: MatchmakingType.Match1v1, points: 6000, wins: 1, losses: 0 },
+      { userId, matchmakingType: MatchmakingType.Match2v2, points: 6100, wins: 1, losses: 0 },
+      {
+        userId: makeSbUserId(9),
+        matchmakingType: MatchmakingType.Match1v1,
+        points: 0,
+        wins: 0,
+        losses: 0,
+      },
+    ])
+
+    const result = await api.batchGetRanks({ request: { query: { u: ['7', '8', '9'] } } } as any)
+    expect(result.ranks).toEqual([{ userId, division: MatchmakingDivision.Gold2 }])
+    expect(getPlayedMatchmakingRatingsForUsers).toHaveBeenCalledWith([7, 8, 9], season.id)
+  })
+
+  test('rejects missing and oversized batches', async () => {
+    const api = makeApi()
+    await expect(api.batchGetRanks({ request: { query: {} } } as any)).rejects.toThrow()
+    await expect(
+      api.batchGetRanks({ request: { query: { u: Array(51).fill('1') } } } as any),
+    ).rejects.toThrow()
+  })
+})
 
 describe('users/user-api/UserApi#getUserByName', () => {
   beforeEach(() => {

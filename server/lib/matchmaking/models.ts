@@ -207,6 +207,34 @@ export async function getMatchmakingRatings(
   }
 }
 
+/** Retrieves played ratings across all queues for a set of users in one season. */
+export async function getPlayedMatchmakingRatingsForUsers(
+  userIds: SbUserId[],
+  seasonId: SeasonId,
+): Promise<
+  Array<Pick<MatchmakingRating, 'userId' | 'matchmakingType' | 'points' | 'wins' | 'losses'>>
+> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<
+      Pick<DbMatchmakingRating, 'user_id' | 'matchmaking_type' | 'points' | 'wins' | 'losses'>
+    >(sql`
+      SELECT user_id, matchmaking_type, points, wins, losses
+      FROM matchmaking_ratings
+      WHERE user_id = ANY(${userIds}) AND season_id = ${seasonId} AND num_games_played > 0
+    `)
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      matchmakingType: row.matchmaking_type,
+      points: row.points,
+      wins: row.wins,
+      losses: row.losses,
+    }))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Retrieves the matchmaking ratings for every user for a given matchmaking type and season. This is
  * intended to be used for refreshing the rankings and should be used sparingly.

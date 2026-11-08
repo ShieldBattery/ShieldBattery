@@ -9,7 +9,12 @@ import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder/ladder'
 import { MapInfoJson } from '../maps'
-import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
+import {
+  MatchmakingDivision,
+  MatchmakingSeasonJson,
+  MatchmakingType,
+  SeasonId,
+} from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
 import type { SbPermissions } from '../typeshare'
 import { RestrictionKind, RestrictionReason } from './restrictions'
@@ -120,6 +125,12 @@ export interface GetUserRankingHistoryResponse {
 
 export interface GetBatchUserInfoResponse {
   userInfos: SbUser[]
+}
+
+export const GET_BATCH_USER_RANKS_LIMIT = 50
+
+export interface GetBatchUserRanksResponse {
+  ranks: Array<{ userId: SbUserId; division: MatchmakingDivision }>
 }
 
 /** The user that a display name resolves to (`GET /users/by-name/:name`). */

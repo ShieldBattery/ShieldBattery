@@ -3341,6 +3341,7 @@
           "description": "How messages are laid out in channels, whispers and lobby chat. Saved to your account and applies on every device you log in from.",
           "title": "Display mode"
         },
+        "showRankIcons": "Show player rank icons",
         "title": "Chat"
       },
       "connections": {
