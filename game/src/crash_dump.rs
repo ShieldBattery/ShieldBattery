@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
@@ -28,7 +28,7 @@ use winapi::shared::minwindef::FARPROC;
 use winapi::um::errhandlingapi::{
     AddVectoredExceptionHandler, GetLastError, SetUnhandledExceptionFilter,
 };
-use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, WriteFile};
+use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, DeleteFileW, WriteFile};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::memoryapi::VirtualQuery;
@@ -39,7 +39,7 @@ use winapi::um::processthreadsapi::{
 };
 use winapi::um::synchapi::{CreateEventW, SetEvent, WaitForSingleObject};
 use winapi::um::tlhelp32::MODULEENTRY32W;
-use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
+use winapi::um::winbase::{INFINITE, MOVEFILE_REPLACE_EXISTING, MoveFileExW, WAIT_OBJECT_0};
 use winapi::um::winnt::{
     EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
     IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE, MEMORY_BASIC_INFORMATION,
@@ -101,7 +101,31 @@ type MiniDumpWriteDumpFn = unsafe extern "system" fn(
 /// or path building.
 struct Prepared {
     minidump_write_dump: MiniDumpWriteDumpFn,
-    dump_path: Vec<u16>,
+    dump_paths: DumpPaths,
+}
+
+/// Where a dump goes, as nul-terminated UTF-16. It's written to `temp` and only renamed over
+/// `dump` once complete, so a write that fails partway (a full disk, a paging file too small for
+/// MiniDumpWriteDump) leaves the previous crash's dump intact instead of a truncated file.
+struct DumpPaths {
+    dump: Vec<u16>,
+    temp: Vec<u16>,
+    /// A stack dump older builds wrote next to the minidump, removed once a new dump is in place.
+    old_crash_stack: Vec<u16>,
+}
+
+impl DumpPaths {
+    fn new() -> DumpPaths {
+        DumpPaths::in_dir(&logs_dir())
+    }
+
+    fn in_dir(dir: &Path) -> DumpPaths {
+        DumpPaths {
+            dump: windows::winapi_str(dir.join("latest_crash.dmp")),
+            temp: windows::winapi_str(dir.join("latest_crash.dmp.tmp")),
+            old_crash_stack: windows::winapi_str(dir.join("crash_stack.bin")),
+        }
+    }
 }
 
 static PREPARED: OnceLock<Prepared> = OnceLock::new();
@@ -192,7 +216,7 @@ pub fn start_dump_thread() {
 fn prepare() -> Result<Prepared, io::Error> {
     unsafe {
         let minidump_write_dump = load_minidump_write_dump()?;
-        let dump_path = windows::winapi_str(logs_dir().join("latest_crash.dmp"));
+        let dump_paths = DumpPaths::new();
         let request = CreateEventW(null_mut(), 0, 0, null_mut());
         if request.is_null() {
             return Err(io::Error::last_os_error());
@@ -207,7 +231,7 @@ fn prepare() -> Result<Prepared, io::Error> {
         DUMP_DONE.store(done as usize, Ordering::Release);
         Ok(Prepared {
             minidump_write_dump,
-            dump_path,
+            dump_paths,
         })
     }
 }
@@ -764,7 +788,7 @@ unsafe fn dump_thread_main() {
             .expect("dump thread started without preparation");
         let result = write_minidump(
             prepared.minidump_write_dump,
-            &prepared.dump_path,
+            &prepared.dump_paths,
             exception,
             crashing_thread,
         );
@@ -841,14 +865,13 @@ pub unsafe fn write_minidump_to_default_path(
         match PREPARED.get() {
             Some(prepared) => write_minidump(
                 prepared.minidump_write_dump,
-                &prepared.dump_path,
+                &prepared.dump_paths,
                 exception,
                 thread_id,
             ),
             None => {
                 let minidump_write_dump = load_minidump_write_dump()?;
-                let path = windows::winapi_str(logs_dir().join("latest_crash.dmp"));
-                write_minidump(minidump_write_dump, &path, exception, thread_id)
+                write_minidump(minidump_write_dump, &DumpPaths::new(), exception, thread_id)
             }
         }
     }
@@ -859,9 +882,37 @@ fn logs_dir() -> PathBuf {
     args.user_data_path.join("logs")
 }
 
-/// Writes a minidump to `path` (nul-terminated UTF-16). `exception` may be null; otherwise it
+/// Writes a minidump to `paths.dump` by way of `paths.temp`. `exception` may be null; otherwise it
 /// must belong to `thread_id`, which is the thread the dump's exception stream will point at.
 unsafe fn write_minidump(
+    minidump_write_dump: MiniDumpWriteDumpFn,
+    paths: &DumpPaths,
+    exception: *mut EXCEPTION_POINTERS,
+    thread_id: u32,
+) -> Result<(), io::Error> {
+    unsafe {
+        let result = write_minidump_file(minidump_write_dump, &paths.temp, exception, thread_id)
+            .and_then(|()| {
+                let moved = MoveFileExW(
+                    paths.temp.as_ptr(),
+                    paths.dump.as_ptr(),
+                    MOVEFILE_REPLACE_EXISTING,
+                );
+                match moved {
+                    0 => Err(io::Error::last_os_error()),
+                    _ => Ok(()),
+                }
+            });
+        match result {
+            Ok(()) => DeleteFileW(paths.old_crash_stack.as_ptr()),
+            Err(_) => DeleteFileW(paths.temp.as_ptr()),
+        };
+        result
+    }
+}
+
+/// Writes a minidump to `path` (nul-terminated UTF-16), closing the file before returning.
+unsafe fn write_minidump_file(
     minidump_write_dump: MiniDumpWriteDumpFn,
     path: &[u16],
     exception: *mut EXCEPTION_POINTERS,
@@ -909,13 +960,9 @@ unsafe fn write_minidump(
             null_mut(),
             callback,
         );
-        if ok == 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            // Remove old crash_stack.bin if such exists from older crash
-            let path = logs_dir().join("crash_stack.bin");
-            let _ = std::fs::remove_file(path);
-            Ok(())
+        match ok {
+            0 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
         }
     }
 }
@@ -1036,6 +1083,60 @@ mod tests {
         // mov rax, [rip+0x10]
         let not_call = [0x48, 0x8b, 0x05, 0x10, 0x00, 0x00];
         assert_eq!(indirect_call_slot(not_call, 0x1000), None);
+    }
+
+    /// A uniquely named directory under the system temp directory, removed on drop.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> TempDir {
+            static COUNTER: AtomicU32 = AtomicU32::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "sb-crash-dump-{}-{}",
+                std::process::id(),
+                COUNTER.fetch_add(1, Ordering::Relaxed),
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            TempDir(path)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn minidump_replaces_previous_dump_once_complete() {
+        let dir = TempDir::new();
+        std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
+        std::fs::write(dir.0.join("crash_stack.bin"), b"stale").unwrap();
+        unsafe {
+            let write_dump = load_minidump_write_dump().unwrap();
+            let paths = DumpPaths::in_dir(&dir.0);
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId()).unwrap();
+        }
+        let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
+        assert_eq!(&dump[..4], b"MDMP");
+        assert!(!dir.0.join("latest_crash.dmp.tmp").exists());
+        assert!(!dir.0.join("crash_stack.bin").exists());
+    }
+
+    #[test]
+    fn failed_minidump_keeps_previous_dump() {
+        let dir = TempDir::new();
+        std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
+        // A directory in the temp file's place makes creating it fail.
+        std::fs::create_dir(dir.0.join("latest_crash.dmp.tmp")).unwrap();
+        let result = unsafe {
+            let write_dump = load_minidump_write_dump().unwrap();
+            let paths = DumpPaths::in_dir(&dir.0);
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId())
+        };
+        assert!(result.is_err());
+        let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
+        assert_eq!(dump, b"previous");
     }
 
     #[test]
