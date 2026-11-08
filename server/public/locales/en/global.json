@@ -2242,6 +2242,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "Open in browser",
+      "title": "Image"
+    },
     "toolbar": {
       "bold": "Bold",
       "boldTooltip": "Bold (Ctrl+B)",
