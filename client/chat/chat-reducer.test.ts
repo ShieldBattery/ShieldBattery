@@ -112,6 +112,7 @@ function makeState(
     unreadLineTime?: number
     unreadLineSeen?: boolean
     unreadLineLeftBottom?: boolean
+    unreadLineCaughtUp?: boolean
     muted?: boolean
     hasHistory?: boolean
     loadingHistory?: boolean
@@ -189,6 +190,7 @@ function makeState(
                 time: overrides.unreadLineTime,
                 seen: overrides.unreadLineSeen ?? false,
                 leftBottom: overrides.unreadLineLeftBottom ?? false,
+                caughtUp: overrides.unreadLineCaughtUp ?? false,
               },
             ],
           ]
@@ -1350,11 +1352,12 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
     })
 
-    test('a message arriving in an unfocused window re-freezes a divider the read position has passed', () => {
+    test('a message arriving in an unfocused window re-freezes a divider the user caught up past', () => {
       const state = makeState({
         activated: true,
         atBottom: true,
         unreadLineTime: 100,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
         messages: [textMessage(150), textMessage(200)],
       })
@@ -1366,11 +1369,12 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
     })
 
-    test('a message arriving while scrolled up re-freezes a divider the read position has passed', () => {
+    test('a message arriving while scrolled up re-freezes a divider the user caught up past', () => {
       const state = makeState({
         activated: true,
         atBottom: false,
         unreadLineTime: 100,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
         messages: [textMessage(150), textMessage(200)],
       })
@@ -1387,6 +1391,7 @@ describe('client/chat/chat-reducer', () => {
         unreadLineTime: 100,
         unreadLineSeen: true,
         unreadLineLeftBottom: true,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
         messages: [textMessage(150), textMessage(200)],
       })
@@ -1397,7 +1402,40 @@ describe('client/chat/chat-reducer', () => {
         time: 200,
         seen: false,
         leftBottom: true,
+        caughtUp: false,
       })
+    })
+
+    test('a message arriving while scrolled up keeps a divider the user has not caught up past', () => {
+      // The banner flow: the view opened at the bottom, which moved the read position past the
+      // divider, and the user then jumped up to it and is reading down from there.
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, true))
+
+      expect(result.idToUnreadLine.get(CHANNEL_ID)?.time).toBe(100)
+    })
+
+    test('a message arriving in an unfocused window keeps a divider the user has not caught up past', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, false))
+
+      expect(result.idToUnreadLine.get(CHANNEL_ID)?.time).toBe(100)
     })
 
     test('a message arriving while scrolled up keeps a divider the read position has not passed', () => {
@@ -1878,12 +1916,13 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
     })
 
-    test('a live message past a detached window re-freezes a divider the read position has passed', () => {
+    test('a live message past a detached window re-freezes a divider the user caught up past', () => {
       const state = makeState({
         hasNewer: true,
         activated: true,
         atBottom: true,
         unreadLineTime: 100,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
       })
 
@@ -2228,6 +2267,7 @@ describe('client/chat/chat-reducer', () => {
         time: 100,
         seen: false,
         leftBottom: false,
+        caughtUp: false,
       })
     })
 
@@ -2240,6 +2280,7 @@ describe('client/chat/chat-reducer', () => {
         time: 100,
         seen: false,
         leftBottom: true,
+        caughtUp: false,
       })
     })
   })
@@ -2463,6 +2504,7 @@ describe('client/chat/chat-reducer', () => {
         unreadLineTime: 100,
         unreadLineSeen: true,
         unreadLineLeftBottom: true,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
       })
 
@@ -2522,6 +2564,7 @@ describe('client/chat/chat-reducer', () => {
         unreadLineTime: 100,
         unreadLineSeen: true,
         unreadLineLeftBottom: true,
+        unreadLineCaughtUp: true,
         lastReadTime: 200,
       })
 
@@ -2560,6 +2603,35 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, unreadLineSeenAction(100))
 
       expect(result.idToUnreadLine.get(CHANNEL_ID)?.seen).toBe(true)
+    })
+
+    test('marks a divider seen at the present bottom as one the user caught up to', () => {
+      const state = makeState({ activated: true, atBottom: true, unreadLineTime: 100 })
+
+      const result = chatReducer(state, unreadLineSeenAction(100))
+
+      expect(result.idToUnreadLine.get(CHANNEL_ID)?.caughtUp).toBe(true)
+    })
+
+    test('does not mark a divider seen away from the bottom as one the user caught up to', () => {
+      const state = makeState({ activated: true, atBottom: false, unreadLineTime: 100 })
+
+      const result = chatReducer(state, unreadLineSeenAction(100))
+
+      expect(result.idToUnreadLine.get(CHANNEL_ID)?.caughtUp).toBe(false)
+    })
+
+    test('does not mark a divider seen at the bottom of a detached window as one the user caught up to', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        hasNewer: true,
+        unreadLineTime: 100,
+      })
+
+      const result = chatReducer(state, unreadLineSeenAction(100))
+
+      expect(result.idToUnreadLine.get(CHANNEL_ID)?.caughtUp).toBe(false)
     })
 
     test('ignores a report for a time the divider no longer sits at', () => {

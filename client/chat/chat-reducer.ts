@@ -17,7 +17,12 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import type { HistoryLoadError } from '../messaging/message-load-error'
 import { isServerOriginMessage, LocalMessage } from '../messaging/message-records'
-import { isUnreadLineSpent, placeUnreadLine, UnreadLine } from '../messaging/unread-line'
+import {
+  isUnreadLineSpent,
+  placeUnreadLine,
+  shouldReplaceUnreadLine,
+  UnreadLine,
+} from '../messaging/unread-line'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -487,14 +492,14 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
   state.unreadChannels.add(channelId)
 
   if (isChannelActivated) {
-    // A new run of unread messages starts both where there is no divider yet and where the read
-    // position has moved past the one that is there: the user read through that divider and then
-    // looked away, scrolled up, or paged into history, so it no longer marks anything they haven't
-    // seen and this message is where what they haven't seen begins. A divider the read position has
-    // not passed marks a run that is still growing, and stays where it is.
+    // A new run of unread messages starts where there is no divider yet, and where the user caught
+    // up past the one that is there and then looked away, scrolled up, or paged into history: it no
+    // longer marks anything they haven't seen, and this message is where what they haven't seen
+    // begins. A divider they haven't caught up past stays where it is, since they may be reading
+    // down to it from above.
     const lastReadTime = state.idToLastReadTime.get(channelId)
     const line = state.idToUnreadLine.get(channelId)
-    if (lastReadTime !== undefined && (line === undefined || lastReadTime > line.time)) {
+    if (lastReadTime !== undefined && shouldReplaceUnreadLine(line, lastReadTime)) {
       state.idToUnreadLine.set(
         channelId,
         placeUnreadLine(lastReadTime, isAtPresentBottom(state, channelId)),
@@ -1595,6 +1600,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     line.seen = true
+    if (isAtPresentBottom(state, channelId)) {
+      line.caughtUp = true
+    }
 
     // A move straight to the bottom from above the divider can land with the divider still on
     // screen, and the view reports where it ended up before it reports what's in the viewport, so

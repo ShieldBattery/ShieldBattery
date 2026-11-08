@@ -266,7 +266,9 @@ function makeReadPositionState({
     unreadChannels: new Set(unread ? [CHANNEL_ID] : []),
     idToLastReadTime: new Map(lastReadTime !== undefined ? [[CHANNEL_ID, lastReadTime]] : []),
     idToUnreadLine: new Map(
-      hasUnreadLine ? [[CHANNEL_ID, { time: NOW - 1000, seen: false, leftBottom: false }]] : [],
+      hasUnreadLine
+        ? [[CHANNEL_ID, { time: NOW - 1000, seen: false, leftBottom: false, caughtUp: false }]]
+        : [],
     ),
   }
   return { chat } as unknown as RootState

@@ -20,6 +20,12 @@ export interface UnreadLine {
   seen: boolean
   /** Whether the view has been away from the bottom at some point since the divider was placed. */
   leftBottom: boolean
+  /**
+   * Whether the divider was in the viewport while the view sat at the present bottom. That is the
+   * user having caught up to the present with the divider on screen, as opposed to jumping or
+   * scrolling up to it from a view that opened at the bottom and reading down from there.
+   */
+  caughtUp: boolean
 }
 
 /**
@@ -28,7 +34,24 @@ export interface UnreadLine {
  * away the divider needs before it can be consumed.
  */
 export function placeUnreadLine(time: number, atBottom: boolean): UnreadLine {
-  return { time, seen: false, leftBottom: !atBottom }
+  return { time, seen: false, leftBottom: !atBottom, caughtUp: false }
+}
+
+/**
+ * Returns whether a live message that went unseen starts a new run of unread messages at
+ * `lastReadTime`, re-placing the divider there: where there is no divider yet, and where the user
+ * caught up past the one that is there and then looked away or scrolled up. A divider the user has
+ * not caught up past marks a run they are still reading through, even when a read report on
+ * opening the conversation moved the read position beyond it, so it stays where it is.
+ */
+export function shouldReplaceUnreadLine(
+  line: UnreadLine | undefined,
+  lastReadTime: number | undefined,
+): boolean {
+  return (
+    lastReadTime !== undefined &&
+    (line === undefined || (line.caughtUp && lastReadTime > line.time))
+  )
 }
 
 /**
