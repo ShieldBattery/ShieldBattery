@@ -971,6 +971,10 @@
       }
     },
     "privateChannelTitle": "Private channel",
+    "sendFailed": {
+      "chatRestricted": "You're currently restricted from sending chat messages.",
+      "error": "Your message was not sent: {{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
       "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
@@ -3708,7 +3712,6 @@
       "noSelfMessaging": "Cannot send messages to yourself",
       "openSession": "Error opening whisper to user: {{errorMessage}}",
       "resolveMessageLink": "Error opening message link: {{errorMessage}}",
-      "sendingMessage": "Error sending message: {{errorMessage}}",
       "unknownError": "Unknown error",
       "userChatRestricted": "You are currently restricted from sending chat messages",
       "userNotFound": "User not found"

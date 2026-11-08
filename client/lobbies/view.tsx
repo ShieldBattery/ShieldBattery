@@ -238,12 +238,13 @@ function ConnectedLobby() {
   return (
     <LobbyRoom
       viewerId={selfUser.id}
-      onSendChatMessage={message => {
+      onSendChatMessage={(message, onError) => {
         dispatch(
           sendChat(message, {
             onSuccess: () => {},
             onError: err => {
               logger.error(`Error while sending a lobby chat message: ${getErrorStack(err)}`)
+              onError(err)
             },
           }),
         )
