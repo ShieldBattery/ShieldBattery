@@ -10,10 +10,14 @@
 //! under each small tile: green, yellow and red as the unit's health falls through two thirds and a
 //! third.
 //!
+//! A watcher often reads this panel off a stream, in a video scaled down and with its color blurred,
+//! so what a unit has left is written and drawn at sizes that survive that.
+//!
 //! The panel reads a selection as one [`SelectionCase`] at a time:
 //!
 //! - Nothing selected is nothing drawn. A box that only says it is empty is a box in the way.
-//! - Several units are the console's grid: two rows of six, in the game's order.
+//! - Several units are the console's grid: two rows of six, in the game's order, with a bar under
+//!   each for every pool it has.
 //! - One unit is drawn large beside its name, owner, a bar per pool, its upgrades and its kills.
 //! - One building is drawn smaller with its readouts under it, and its upgrades where it has any.
 //!   A mineral field, a geyser, or a geyser built on reads out what is left to mine in it, and a
@@ -31,12 +35,12 @@ use egui::{
     Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE10, BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
+use crate::colors::{BLUE10, BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, PURPLE70, PURPLE80};
 use crate::kit::text;
 use crate::kit::widgets::{ResourceGlyph, ResourceRace};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    ProductionIcon, StackSlot, centred, paint_player_swatch, paint_text, unit_codes,
+    ProductionIcon, StackSlot, centred, paint_player_swatch, paint_text, paint_track, unit_codes,
 };
 use crate::tr;
 
@@ -293,7 +297,7 @@ const SUBJECT_TILE: f32 = 64.0;
 const SUBJECT_COLUMN: f32 = 92.0;
 
 /// Height of one readout under the subject, and the gap between the tile and the first of them.
-const READOUT_ROW: f32 = 15.0;
+const READOUT_ROW: f32 = 20.0;
 const READOUT_LEAD: f32 = 4.0;
 
 /// The most readouts there are: shields, hit points and energy.
@@ -359,8 +363,7 @@ const TALLY_ROW: f32 = 16.0;
 const TALLY_LABEL_GAP: f32 = theme::SPACE_SM;
 
 /// Height of the line saying what is left to mine in a resource, the side of its glyph, and the
-/// gap between the two. The amount is the whole of what a resource is selected for, so it is
-/// written at the size of the name above it rather than of a readout.
+/// gap between the two. The amount is a resource's one readout, so it is written like any other.
 const RESOURCES_ROW: f32 = 22.0;
 const RESOURCES_GLYPH: f32 = 18.0;
 const RESOURCES_GAP: f32 = theme::SPACE_SM;
@@ -369,27 +372,36 @@ const RESOURCES_GAP: f32 = theme::SPACE_SM;
 const GRID_COLUMNS: usize = 6;
 const GRID_ROWS: usize = 2;
 
-/// Side of one slot of the grid, and the gap between two of them.
-const GRID_SLOT: f32 = 48.0;
+/// Side of one slot of the grid, the largest at which two rows of slots and the bars under them fit
+/// the body, and the gap between two slots.
+const GRID_SLOT: f32 = 47.0;
 const GRID_GAP: f32 = 8.0;
 
-/// The bar under a small tile saying how much of its unit is left, and its gap from the tile.
-const HEALTH_BAR: f32 = 3.0;
-const HEALTH_GAP: f32 = 2.0;
+/// The bars under a slot of the grid: one for each of a unit's pools.
+const GRID_BARS: TileBars = TileBars {
+    thickness: 5.0,
+    gap: 2.0,
+    energy: true,
+};
 
-/// The bar above the health bar for a unit with shields, and its gap from the tile. As thick as the
-/// health bar and held apart from it by a clear gap: a stream's video keeps color at half the
-/// resolution of brightness, and two bars a pixel apart blur into one striped bar there.
-const SHIELD_BAR: f32 = 3.0;
-const SHIELD_GAP: f32 = 2.0;
+/// How tall one row of the grid is, its bars included: room for all three of a unit's pools, so the
+/// rows stand in the same place whatever is selected.
+const GRID_ROW: f32 = GRID_SLOT + (GRID_BARS.gap + GRID_BARS.thickness) * READOUTS as f32;
+
+/// The bars under a unit in the cargo grid, which has no room for one for energy.
+const CARGO_BARS: TileBars = TileBars {
+    thickness: 3.0,
+    gap: 2.0,
+    energy: false,
+};
 
 /// Gap between the two rows of a grid of small tiles.
 const GRID_ROW_GAP: f32 = 6.0;
 
-/// How tall one row of a grid of small tiles of `side` is, its bars included. Every row has room
-/// for a shield bar, so a row's bars line up whichever of its units have shields.
+/// How tall one row of the cargo grid is for cells `side` tall, their bars included. Every row has
+/// room for a shield bar, so a row's bars line up whichever of its units have shields.
 const fn tile_row(side: f32) -> f32 {
-    side + HEALTH_GAP + HEALTH_BAR + SHIELD_GAP + SHIELD_BAR
+    side + (CARGO_BARS.gap + CARGO_BARS.thickness) * 2.0
 }
 
 /// The shape of the cargo grid, which is the console's own: two rows of four cells, of which a unit
@@ -422,7 +434,7 @@ const MAX_CARGO_UPGRADES: usize = 2;
 /// put.
 const BODY_HEIGHT: f32 = max(
     max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT),
-    HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS + UPGRADE_CHIP,
+    HEADER_HEIGHT - POOL_RISE + POOL_ROW * READOUTS as f32 + POOL_TAIL + UPGRADE_CHIP,
 );
 
 const fn max(a: f32, b: f32) -> f32 {
@@ -432,7 +444,7 @@ const fn max(a: f32, b: f32) -> f32 {
 /// The grid is the selection: a slot fewer than the game hands out would drop units off the end of
 /// a full selection with nothing to say it had. And it is drawn inside the body.
 const _: () = assert!(GRID_COLUMNS * GRID_ROWS == SelectionView::MAX_UNITS);
-const _: () = assert!(tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT);
+const _: () = assert!(GRID_ROW * GRID_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT);
 const _: () = assert!(
     GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0) <= CONTENT_WIDTH
 );
@@ -484,10 +496,10 @@ const SUBJECT_CODE_SIZE: f32 = 16.0;
 const SLOT_CODE_SIZE: f32 = 12.0;
 const QUEUE_CODE_SIZE: f32 = 11.0;
 
-/// Text size of the subject's name, of the readouts under the subject, of the owner's name, of a
-/// tally's count, and of the name and the percentage on a progress line.
+/// Text size of the subject's name, of its pools' numbers, of the owner's name, of a tally's count,
+/// and of the name and the percentage on a progress line.
 const NAME_SIZE: f32 = 17.0;
-const READOUT_SIZE: f32 = 14.0;
+const READOUT_SIZE: f32 = 18.0;
 const OWNER_NAME_SIZE: f32 = 15.0;
 const TALLY_SIZE: f32 = 15.0;
 const PROGRESS_NAME_SIZE: f32 = 13.0;
@@ -508,12 +520,18 @@ const UNIT_CODE_SIZE: f32 = 22.0;
 const UNIT_TEXT_LEFT: f32 = UNIT_TILE + COLUMN_GAP;
 const UNIT_TEXT_WIDTH: f32 = CONTENT_WIDTH - UNIT_TEXT_LEFT;
 
-/// Height of one pool's line under the owner's, how thick its bar is, and the width of the numbers
-/// after the bar with the gap before them: wide enough for a unit's largest pool written out.
-const POOL_ROW: f32 = 16.0;
-const POOL_TRACK: f32 = 6.0;
-const POOL_VALUE_WIDTH: f32 = 64.0;
-const POOL_VALUE_GAP: f32 = 8.0;
+/// Height of one pool's line under the owner's, how thick its bar is, and the gap between the bar
+/// and the numbers after it.
+///
+/// The rows are what a unit's three pools leave of the body between its head and its upgrades, which
+/// is as much as their numbers can have without the panel growing. A row is taller than its bar and
+/// its digits by enough that the first can start [`POOL_RISE`] up into the lead under the owner's
+/// line and the last can end [`POOL_TAIL`] short of the upgrades, and still have them read as apart.
+const POOL_ROW: f32 = 18.0;
+const POOL_TRACK: f32 = 8.0;
+const POOL_VALUE_GAP: f32 = 10.0;
+const POOL_RISE: f32 = 4.0;
+const POOL_TAIL: f32 = 2.0;
 
 /// Size of one upgrade chip, and the gap between two of them. Large, as the game's console draws
 /// them: how far a unit has been upgraded decides a fight, and a watcher reads it off a stream.
@@ -546,10 +564,10 @@ const TALLY_ROOM: f32 = 104.0;
 /// upgrades along the bottom; and the upgrades leave the row's end room for the kills.
 const _: () = assert!(UNIT_TILE <= BODY_HEIGHT);
 const _: () = assert!(
-    HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS <= BODY_HEIGHT - UPGRADE_CHIP
+    HEADER_HEIGHT - POOL_RISE + POOL_ROW * READOUTS as f32 + POOL_TAIL
+        <= BODY_HEIGHT - UPGRADE_CHIP
 );
 const _: () = assert!(UPGRADE_ROW_WIDTH + TALLY_ROOM <= UNIT_TEXT_WIDTH);
-const _: () = assert!(POOL_VALUE_WIDTH + POOL_VALUE_GAP < UNIT_TEXT_WIDTH * 0.5);
 
 /// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
 /// line beside it, of the progress line a building going up has in their place, and of what is left
@@ -703,7 +721,7 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
     let mut clicked = None;
     let size = vec2(
         GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0),
-        tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP,
+        GRID_ROW * GRID_ROWS as f32 + GRID_ROW_GAP,
     );
     let grid = Rect::from_center_size(body.center(), size);
     for (index, unit) in units.iter().take(SelectionView::MAX_UNITS).enumerate() {
@@ -712,11 +730,11 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
         let tile = Rect::from_min_size(
             pos2(
                 grid.left() + column * (GRID_SLOT + GRID_GAP),
-                grid.top() + row * (tile_row(GRID_SLOT) + GRID_ROW_GAP),
+                grid.top() + row * (GRID_ROW + GRID_ROW_GAP),
             ),
             vec2(GRID_SLOT, GRID_SLOT),
         );
-        paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE);
+        paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE, GRID_BARS);
         clicked = clicked.or(unit_target(ui, tile, index));
     }
     clicked
@@ -741,10 +759,9 @@ fn draw_subject(
         pos2(column.center().x - SUBJECT_TILE * 0.5, column.top()),
         vec2(SUBJECT_TILE, SUBJECT_TILE),
     );
-    let tint = health_tint(unit.health_fraction());
     paint_unit_tile(ui, tile, unit, unit.health_edge(), SUBJECT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
-    draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
+    draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit);
 
     let text = Rect::from_min_size(
         pos2(body.left() + TEXT_LEFT, body.top()),
@@ -801,7 +818,7 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
     paint_text(
         ui,
         Rect::from_min_max(pos2(glyph.right() + RESOURCES_GAP, line.top()), line.max),
-        &text::numeral(NAME_SIZE).with_color(resources.glyph.color()),
+        &pool_number_spec().with_color(resources.glyph.color()),
         &resources.amount.to_string(),
         Align::LEFT,
     );
@@ -849,37 +866,29 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         vec2(UNIT_TEXT_WIDTH, BODY_HEIGHT),
     );
     let below = draw_header(ui, text, unit);
-    for (index, ((current, full), color)) in pools(unit, health_tint(hit_point_fraction(unit)))
-        .into_iter()
-        .enumerate()
-    {
+    let pools = pools(unit);
+    let columns = PoolColumns::of(ui, &pools);
+    let slash = below.right() - columns.width() + columns.current;
+    for (index, &(pool, color)) in pools.iter().enumerate() {
         let line = Rect::from_min_size(
-            pos2(below.left(), below.top() + index as f32 * POOL_ROW),
+            pos2(
+                below.left(),
+                below.top() - POOL_RISE + index as f32 * POOL_ROW,
+            ),
             vec2(below.width(), POOL_ROW),
         );
         let track = centred(
             Rect::from_min_max(
                 line.left_top(),
                 pos2(
-                    line.right() - POOL_VALUE_WIDTH - POOL_VALUE_GAP,
+                    line.right() - columns.width() - POOL_VALUE_GAP,
                     line.bottom(),
                 ),
             ),
             POOL_TRACK,
         );
-        let fraction = if full == 0 {
-            1.0
-        } else {
-            current as f32 / full as f32
-        };
-        paint_track(ui, track, fraction, color);
-        paint_text(
-            ui,
-            Rect::from_min_max(pos2(line.right() - POOL_VALUE_WIDTH, line.top()), line.max),
-            &text::numeral(READOUT_SIZE).with_color(theme::TEXT_SECONDARY),
-            &format!("{current}/{full}"),
-            Align::RIGHT,
-        );
+        paint_track(ui, track, pool_fraction(pool), color);
+        paint_pool_numbers(ui, line, slash, pool, color);
     }
 
     let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
@@ -949,52 +958,122 @@ fn draw_status(ui: &Ui, line: Rect, status: &UnitStatusView) -> f32 {
     width
 }
 
-/// The subject's pools as the console lists them: shields for a unit that has them, then hit points
-/// in `hit_point_color` for a unit that has them, then energy for a unit that has it, each in the
-/// game's color for that pool.
-fn pools(unit: &SelectedUnitView, hit_point_color: Color32) -> Vec<((u32, u32), Color32)> {
+/// The color a subject's energy is drawn and written in, which is as bright as its shields' blue
+/// rather than the grid's deeper purple: its number has to read as well as theirs does.
+const ENERGY_COLOR: Color32 = PURPLE80;
+
+/// The subject's pools as the console lists them, each in the color it is written in: shields for a
+/// unit that has them, then hit points for a unit that has them, then energy for a unit that has it.
+///
+/// Hit points are written in the color of how many of them are left, shields aside, so a building
+/// whose shields are down still reads as whole where its hit points are. The tile's edge is what
+/// counts shields in.
+fn pools(unit: &SelectedUnitView) -> Vec<((u32, u32), Color32)> {
     let mut pools = Vec::with_capacity(READOUTS);
     if let Some(shields) = unit.shields {
         pools.push((shields, BLUE80));
     }
     if let Some(hit_points) = unit.hit_points {
-        pools.push((hit_points, hit_point_color));
+        pools.push((hit_points, health_tint(pool_fraction(hit_points))));
     }
     if let Some(energy) = unit.energy {
-        pools.push((energy, PURPLE70));
+        pools.push((energy, ENERGY_COLOR));
     }
     pools
+}
+
+/// How full a pool is, from 0 to 1. A pool with no room in it at all reads as full.
+fn pool_fraction((current, full): (u32, u32)) -> f32 {
+    if full == 0 {
+        1.0
+    } else {
+        (current as f32 / full as f32).clamp(0.0, 1.0)
+    }
 }
 
 /// How much of its hit points a unit has left, from 0 to 1, shields aside: the hit point bar's own
 /// reading, where the tile's tint is of everything keeping the unit alive.
 fn hit_point_fraction(unit: &SelectedUnitView) -> f32 {
-    let Some((current, full)) = unit.hit_points else {
-        return 1.0;
-    };
-    if full == 0 {
-        return 1.0;
-    }
-    (current as f32 / full as f32).clamp(0.0, 1.0)
+    unit.hit_points.map_or(1.0, pool_fraction)
 }
 
 /// Draws what the subject has left, one line each, the way the console writes them under its
-/// wireframe: shields for a unit that has them, then hit points in the color of its health, then
-/// energy for a unit that has it, each in the color the game gives that pool.
-fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView, tint: Color32) {
-    for (index, ((current, full), color)) in pools(unit, tint).into_iter().enumerate() {
-        let rect = Rect::from_min_size(
+/// wireframe, as [`pools`] lists and colors them.
+///
+/// Centered in the column as one block, with the slashes of its lines in one column.
+fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView) {
+    let pools = pools(unit);
+    let columns = PoolColumns::of(ui, &pools);
+    let slash = column.center().x - columns.width() * 0.5 + columns.current;
+    for (index, &(pool, color)) in pools.iter().enumerate() {
+        let line = Rect::from_min_size(
             pos2(column.left(), top + index as f32 * READOUT_ROW),
             vec2(column.width(), READOUT_ROW),
         );
-        paint_text(
-            ui,
-            rect,
-            &text::numeral(READOUT_SIZE).with_color(color),
-            &format!("{current}/{full}"),
-            Align::Center,
-        );
+        paint_pool_numbers(ui, line, slash, pool, color);
     }
+}
+
+/// How wide the two sides of a subject's pool numbers are at their largest: the current value, and
+/// the slash with the full one. Taken from the largest full value, so a value ticking down leaves
+/// the columns where they are, or from a current value past it, which only a map that writes its
+/// own pools has. Digits are all as wide as each other, so the largest value is also the widest.
+struct PoolColumns {
+    current: f32,
+    full: f32,
+}
+
+impl PoolColumns {
+    fn of(ui: &Ui, pools: &[((u32, u32), Color32)]) -> PoolColumns {
+        let spec = pool_number_spec();
+        let largest = pools
+            .iter()
+            .map(|&((current, full), _)| current.max(full))
+            .max()
+            .unwrap_or(0);
+        PoolColumns {
+            current: spec.galley(ui, &largest.to_string()).size().x,
+            full: spec.galley(ui, &format!("/{largest}")).size().x,
+        }
+    }
+
+    fn width(&self) -> f32 {
+        self.current + self.full
+    }
+}
+
+/// The style a pool's numbers are written in.
+fn pool_number_spec() -> text::TextSpec {
+    text::numeral_strong(READOUT_SIZE)
+}
+
+/// Writes a pool's numbers in `line` around the slash at `slash`: the current value in `color`,
+/// which is the number being read, and the full one dim behind it.
+fn paint_pool_numbers(
+    ui: &Ui,
+    line: Rect,
+    slash: f32,
+    (current, full): (u32, u32),
+    color: Color32,
+) {
+    let spec = pool_number_spec();
+    // Each side is given the line's whole width to lay out in: `PoolColumns` has already placed the
+    // two of them, so a side measuring exactly what its column holds must not be cut short for it.
+    let room = line.width();
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(slash - room, line.top()), pos2(slash, line.bottom())),
+        &spec.clone().with_color(color),
+        &current.to_string(),
+        Align::RIGHT,
+    );
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(slash, line.top()), pos2(slash + room, line.bottom())),
+        &spec.with_color(theme::TEXT_DIM),
+        &format!("/{full}"),
+        Align::LEFT,
+    );
 }
 
 /// Draws whose the selection is: a square of their color, then their name.
@@ -1292,7 +1371,13 @@ fn draw_progress(ui: &Ui, block: Rect, name: Option<&str>, progress: f32) {
 fn draw_cargo(ui: &Ui, grid: Rect, cargo: &[CarriedUnitView]) {
     let rooms: Vec<u32> = cargo.iter().map(|carried| carried.room).collect();
     for (index, place) in place_cargo(&rooms) {
-        paint_small_tile(ui, place.tile(grid), &cargo[index].unit, QUEUE_CODE_SIZE);
+        paint_small_tile(
+            ui,
+            place.tile(grid),
+            &cargo[index].unit,
+            QUEUE_CODE_SIZE,
+            CARGO_BARS,
+        );
     }
 }
 
@@ -1356,36 +1441,49 @@ fn place_cargo(rooms: &[u32]) -> Vec<(usize, CargoPlace)> {
     places
 }
 
-/// Paints one unit as a small tile with the bar of its health under it, which is how the console
+/// The bars under a small tile: how thick they are, whether a unit's energy has one, and how far
+/// apart they stand, which is a clear gap: a stream's video keeps color at half the resolution of
+/// brightness, and two bars a pixel apart blur into one striped bar there.
+#[derive(Copy, Clone)]
+struct TileBars {
+    thickness: f32,
+    gap: f32,
+    energy: bool,
+}
+
+/// What `bars` read out of `unit`, top to bottom, each as how full it is and its color: its shields,
+/// then its hit points alone, the shields having a bar of their own, then its energy.
+fn tile_bars(unit: &SelectedUnitView, bars: TileBars) -> Vec<(f32, Color32)> {
+    // A deeper blue than the shields' number: the health bar's greens are as bright as that
+    // number's blue, and a stream that blurs color is left only brightness to tell them by.
+    let shields = unit.shields.map(|pool| (pool_fraction(pool), BLUE60));
+    let hit_points = unit.hit_points.map(|_| {
+        let health = hit_point_fraction(unit);
+        (health, health_tint(health))
+    });
+    let energy = unit
+        .energy
+        .filter(|_| bars.energy)
+        .map(|pool| (pool_fraction(pool), PURPLE70));
+    [shields, hit_points, energy]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// Paints one unit as a small tile with bars of what it has left under it, which is how the console
 /// draws every unit that is one of several.
-fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
+fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32, bars: TileBars) {
     paint_unit_tile(ui, tile, unit, None, code_size);
     let mut top = tile.bottom();
-    if let Some((shields, full)) = unit.shields {
-        let fraction = if full == 0 {
-            1.0
-        } else {
-            shields as f32 / full as f32
-        };
-        let shield_bar = Rect::from_min_size(
-            pos2(tile.left(), top + SHIELD_GAP),
-            vec2(tile.width(), SHIELD_BAR),
+    for (fill, color) in tile_bars(unit, bars) {
+        let bar = Rect::from_min_size(
+            pos2(tile.left(), top + bars.gap),
+            vec2(tile.width(), bars.thickness),
         );
-        // A deeper blue than the shields' number: the health bar's greens are as bright as that
-        // number's blue, and a stream that blurs color is left only brightness to tell them by.
-        paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE60);
-        top = shield_bar.bottom();
+        paint_track(ui, bar, fill, color);
+        top = bar.bottom();
     }
-    if unit.hit_points.is_none() {
-        return;
-    }
-    // Hit points alone where the shields have a bar of their own above it.
-    let health = hit_point_fraction(unit);
-    let bar = Rect::from_min_size(
-        pos2(tile.left(), top + HEALTH_GAP),
-        vec2(tile.width(), HEALTH_BAR),
-    );
-    paint_track(ui, bar, health, health_tint(health));
 }
 
 /// Paints a tile's chrome, outlined in `edge` where the tile has something to say through its edge
@@ -1573,22 +1671,6 @@ fn health_tint(fraction: f32) -> Color32 {
     }
 }
 
-/// Paints a bar: its track, and however much of it is filled.
-///
-/// The track is drawn light enough to read against the panel, as the production panel's is: a bar
-/// is read as a share of its whole, and with no whole to see, a third of a bar reads as a short
-/// full one.
-fn paint_track(ui: &Ui, rect: Rect, fraction: f32, color: Color32) {
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
-    ui.painter()
-        .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
-    let mut filled = rect;
-    filled.set_right(rect.left() + rect.width() * fraction.clamp(0.0, 1.0));
-    if filled.width() > 0.0 {
-        ui.painter().rect_filled(filled, corner_radius, color);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use egui::{Event, Modifiers, PointerButton, RawInput};
@@ -1648,6 +1730,94 @@ mod tests {
             CONTENT_WIDTH
         );
         assert_eq!(TEXT_LEFT + TEXT_WIDTH, CONTENT_WIDTH);
+    }
+
+    #[test]
+    fn a_grid_bar_is_read_for_every_pool_and_a_cargo_bar_for_all_but_energy() {
+        let mut templar = unit((20, 40), Some((10, 40)), 0x43);
+        templar.energy = Some((50, 200));
+        let colors = |bars| {
+            tile_bars(&templar, bars)
+                .into_iter()
+                .map(|(_, color)| color)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            colors(GRID_BARS),
+            vec![BLUE60, health_tint(0.5), PURPLE70],
+            "shields, then hit points, then energy"
+        );
+        assert_eq!(colors(CARGO_BARS), vec![BLUE60, health_tint(0.5)]);
+
+        let fills = tile_bars(&templar, GRID_BARS)
+            .into_iter()
+            .map(|(fill, _)| fill)
+            .collect::<Vec<_>>();
+        assert_eq!(fills, vec![0.25, 0.5, 0.25]);
+
+        // A pool the game keeps nothing in reads as whole, and a marine has only the one bar.
+        let mut empty = unit((40, 40), None, 0x00);
+        empty.energy = Some((0, 0));
+        assert_eq!(tile_bars(&empty, GRID_BARS)[1].0, 1.0);
+        assert_eq!(tile_bars(&unit((40, 40), None, 0x00), GRID_BARS).len(), 1);
+    }
+
+    /// A context with the overlay's faces installed, handed to `read` inside a frame.
+    fn with_fonts(read: impl FnOnce(&Ui)) {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut read = Some(read);
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            if let Some(read) = read.take() {
+                read(ui);
+            }
+        })
+        .textures_delta
+        .clear();
+    }
+
+    #[test]
+    fn pool_columns_come_from_the_full_values_so_a_ticking_value_leaves_them_alone() {
+        with_fonts(|ui| {
+            let pools = |hit_points| {
+                [
+                    ((hit_points, 200), theme::TEXT_POSITIVE),
+                    ((40, 40), BLUE80),
+                ]
+            };
+            let whole = PoolColumns::of(ui, &pools(200));
+            let hurt = PoolColumns::of(ui, &pools(7));
+            assert_eq!(whole.current, hurt.current);
+            assert_eq!(whole.full, hurt.full);
+        });
+    }
+
+    #[test]
+    fn a_buildings_numbers_fit_the_column_under_it() {
+        with_fonts(|ui| {
+            // Five digits: a building in a melee game has four at most, and a map that sets its own
+            // units' pools can give one more.
+            let columns = PoolColumns::of(ui, &[((99999, 99999), theme::TEXT_POSITIVE)]);
+            assert!(columns.width() <= SUBJECT_COLUMN, "{}", columns.width());
+        });
+    }
+
+    #[test]
+    fn a_current_value_past_its_full_one_keeps_to_its_column() {
+        with_fonts(|ui| {
+            let color = theme::TEXT_POSITIVE;
+            let past = PoolColumns::of(ui, &[((6553, 135), color)]);
+            let thousands = PoolColumns::of(ui, &[((6553, 6553), color)]);
+            assert_eq!(past.current, thousands.current);
+        });
+    }
+
+    #[test]
+    fn a_pool_with_no_room_reads_as_full_and_none_reads_past_full() {
+        assert_eq!(pool_fraction((0, 0)), 1.0);
+        assert_eq!(pool_fraction((5, 0)), 1.0);
+        assert_eq!(pool_fraction((1, 4)), 0.25);
+        assert_eq!(pool_fraction((6553, 135)), 1.0);
     }
 
     #[test]
@@ -2079,7 +2249,7 @@ mod tests {
             race: None,
             amount: 1500,
         });
-        assert!(pools(&minerals, theme::TEXT_POSITIVE).is_empty());
+        assert!(pools(&minerals).is_empty());
         assert_eq!(minerals.health_edge(), None);
         // Read out like a building whether or not the host calls it one.
         assert_eq!(selection(vec![minerals]).case(), SelectionCase::Building);
@@ -2088,7 +2258,23 @@ mod tests {
         let mut assimilator = unit((225, 450), Some((450, 450)), 0x9D);
         assimilator.building = true;
         assert_eq!(assimilator.health_edge(), Some(theme::TEXT_POSITIVE));
-        assert_eq!(pools(&assimilator, theme::TEXT_POSITIVE).len(), 2);
+        assert_eq!(pools(&assimilator).len(), 2);
+    }
+
+    #[test]
+    fn hit_points_are_written_in_the_color_of_hit_points_alone() {
+        // A nexus with its shields down has lost none of its hit points, though its tile edge
+        // reads it as half gone.
+        let mut nexus = unit((750, 750), Some((0, 750)), 0x9A);
+        nexus.building = true;
+        assert_eq!(
+            pools(&nexus),
+            vec![((0, 750), BLUE80), ((750, 750), theme::TEXT_POSITIVE)]
+        );
+        assert_eq!(nexus.health_edge(), Some(theme::TEXT_WARNING));
+
+        let hurt = unit((200, 750), Some((750, 750)), 0x9A);
+        assert_eq!(pools(&hurt)[1], ((200, 750), theme::TEXT_NEGATIVE));
     }
 
     #[test]

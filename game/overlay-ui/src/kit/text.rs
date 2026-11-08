@@ -293,6 +293,12 @@ pub fn numeral(size: f32) -> TextSpec {
     TextSpec::new(size, fonts::condensed(), theme::TEXT_PRIMARY).tabular()
 }
 
+/// A number that is the point of what it is in, set heavy enough to survive a glance at a stream.
+/// Tabular, like [`numeral`].
+pub fn numeral_strong(size: f32) -> TextSpec {
+    TextSpec::new(size, fonts::condensed_semibold(), theme::TEXT_PRIMARY).tabular()
+}
+
 /// A player's name, which the design sets in the display face at a size that survives a glance.
 pub fn player_name(size: f32) -> TextSpec {
     TextSpec::new(size, fonts::display(), theme::TEXT_PRIMARY)

@@ -68,7 +68,7 @@ use egui::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::colors::{PROTOSS, RANDOM, TERRAN, ZERG};
+use crate::colors::{GREY_BLUE60, PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, text, theme, tiers};
@@ -246,6 +246,26 @@ pub(crate) fn fit_count(ctx: &Context, spec: &TextSpec, value: u32, width: f32) 
 pub(crate) fn paint_count(ui: &Ui, rect: Rect, spec: &TextSpec, value: u32, align: Align) {
     let text = fit_count(ui.ctx(), spec, value, rect.width());
     paint_text(ui, rect, spec, &text, align);
+}
+
+/// Corner radius of a bar and of the fill inside it. The panels' bars are only a few points thick,
+/// so anything rounder turns their ends into a pill's.
+const TRACK_RADIUS: u8 = 1;
+
+/// Paints a bar that reads as a share of a whole, such as a unit's hit points or how far along a
+/// job is: its track, and however much of it is filled.
+///
+/// The track is drawn light enough to read against the panel, because a bar is read against its
+/// whole, and with no whole to see, a third of a bar reads as a short full one.
+pub(crate) fn paint_track(ui: &Ui, rect: Rect, fraction: f32, color: Color32) {
+    let corner_radius = theme::radius(TRACK_RADIUS);
+    ui.painter()
+        .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE60, 0.50));
+    let mut filled = rect;
+    filled.set_right(rect.left() + rect.width() * fraction.clamp(0.0, 1.0));
+    if filled.width() > 0.0 {
+        ui.painter().rect_filled(filled, corner_radius, color);
+    }
 }
 
 /// Paints a player's race icon in the race's color, centered within its allocated slot.

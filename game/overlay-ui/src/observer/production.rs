@@ -21,12 +21,11 @@ use egui::{
     pos2, vec2,
 };
 
-use crate::colors::GREY_BLUE60;
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     StackSlot, fit_icon, owner_tint, paint_icon_glow, paint_owner_wash, paint_player_swatch_in,
-    paint_text, paint_tile_chrome, unit_codes,
+    paint_text, paint_tile_chrome, paint_track, unit_codes,
 };
 
 /// How wide the panel is, in overlay points.
@@ -623,15 +622,7 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
         pos2(rect.left(), rect.bottom() + PROGRESS_GAP),
         vec2(rect.width(), PROGRESS_HEIGHT),
     );
-    let corner_radius = theme::radius(2);
-    ui.painter()
-        .rect_filled(track, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
-    let mut filled = track;
-    filled.set_right(track.left() + track.width() * item.progress.clamp(0.0, 1.0));
-    if filled.width() > 0.0 {
-        ui.painter()
-            .rect_filled(filled, corner_radius, theme::ACCENT);
-    }
+    paint_track(ui, track, item.progress, theme::ACCENT);
 }
 
 #[cfg(test)]

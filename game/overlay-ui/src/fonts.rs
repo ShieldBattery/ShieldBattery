@@ -27,11 +27,13 @@ pub(crate) const INTER_550: &str = "inter-550";
 pub(crate) const INTER_600: &str = "inter-600";
 pub(crate) const SOFIA_600: &str = "sofia-600";
 pub(crate) const CONDENSED_400: &str = "condensed-400";
+pub(crate) const CONDENSED_600: &str = "condensed-600";
 pub(crate) const DO_HYEON: &str = "do-hyeon";
 pub(crate) const NOTO_KR: &str = "noto-kr";
 pub(crate) const NOTO_SC: &str = "noto-sc";
 pub(crate) const DISPLAY_FAMILY: &str = "display";
 pub(crate) const CONDENSED_FAMILY: &str = "condensed";
+pub(crate) const CONDENSED_SEMIBOLD_FAMILY: &str = "condensed-semibold";
 
 /// The faces that are too large to embed and are read from disk at startup instead.
 ///
@@ -91,4 +93,10 @@ pub fn display() -> FontFamily {
 /// Sofia Sans Condensed 400: every numeral, so columns of numbers stay narrow and aligned.
 pub fn condensed() -> FontFamily {
     FontFamily::Name(CONDENSED_FAMILY.into())
+}
+
+/// Sofia Sans Condensed 600: the numerals that are the point of what they are in, read at a glance
+/// off a stream, where the regular weight's thin strokes wash out.
+pub fn condensed_semibold() -> FontFamily {
+    FontFamily::Name(CONDENSED_SEMIBOLD_FAMILY.into())
 }
