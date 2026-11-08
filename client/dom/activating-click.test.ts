@@ -30,7 +30,7 @@ describe('isActivatingClick', () => {
 
   test('is false for a press long after the window gained focus', () => {
     dispatchAt('focus', 4000)
-    dispatchAt('mousedown', 4500)
+    dispatchAt('mousedown', 4050)
 
     expect(isActivatingClick()).toBe(false)
   })

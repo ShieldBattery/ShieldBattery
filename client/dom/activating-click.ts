@@ -1,9 +1,10 @@
 /**
- * How close a mouse press has to be to the window gaining focus to count as what caused it. The two
- * land a few milliseconds apart, while a person can't focus the window another way and then click
- * in it anywhere near this quickly.
+ * How close a mouse press has to be to the window gaining focus to count as what caused it. The
+ * press lands within a couple of milliseconds of the focus (or before it, while the page is busy),
+ * while a person can't focus the window another way and then click in it anywhere near this
+ * quickly.
  */
-const ACTIVATING_PRESS_WINDOW_MS = 100
+const ACTIVATING_PRESS_WINDOW_MS = 20
 
 let focusGainedAt = Number.NEGATIVE_INFINITY
 let lastPressAt = Number.NEGATIVE_INFINITY
