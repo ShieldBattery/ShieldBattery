@@ -44,6 +44,7 @@ export enum DialogType {
   BattleNetSettingsCopy = 'battleNetSettingsCopy',
   GameDefaultsApply = 'gameDefaultsApply',
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
+  ImageViewer = 'imageViewer',
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
@@ -285,6 +286,16 @@ type GameDefaultsApplyDialogPayload = BaseDialogPayload<
   }
 >
 type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.GameDefaultsFirstRun>
+type ImageViewerDialogPayload = BaseDialogPayload<
+  typeof DialogType.ImageViewer,
+  {
+    src: string
+    alt?: string
+    caption?: string
+    /** The id of the element to put back in focus when the viewer closes. */
+    returnFocusId?: string
+  }
+>
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
@@ -506,6 +517,7 @@ export type DialogPayload =
   | BattleNetSettingsCopyDialogPayload
   | GameDefaultsApplyDialogPayload
   | GameDefaultsFirstRunDialogPayload
+  | ImageViewerDialogPayload
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
