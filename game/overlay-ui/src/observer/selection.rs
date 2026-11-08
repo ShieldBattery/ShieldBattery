@@ -372,8 +372,8 @@ const RESOURCES_GAP: f32 = theme::SPACE_SM;
 const GRID_COLUMNS: usize = 6;
 const GRID_ROWS: usize = 2;
 
-/// Side of one slot of the grid, which is as tall as two rows of them with their bars leave, and the
-/// gap between two of them.
+/// Side of one slot of the grid, the largest at which two rows of slots and the bars under them fit
+/// the body, and the gap between two slots.
 const GRID_SLOT: f32 = 47.0;
 const GRID_GAP: f32 = 8.0;
 
@@ -2263,7 +2263,8 @@ mod tests {
 
     #[test]
     fn hit_points_are_written_in_the_color_of_hit_points_alone() {
-        // A nexus with its shields down has lost none of its hit points, and a tile that has.
+        // A nexus with its shields down has lost none of its hit points, though its tile edge
+        // reads it as half gone.
         let mut nexus = unit((750, 750), Some((0, 750)), 0x9A);
         nexus.building = true;
         assert_eq!(

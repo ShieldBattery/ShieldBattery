@@ -33,8 +33,8 @@ Hyeon (embedded, a display face that sits beside Sofia Sans) first in `display`,
 Sans KR first everywhere else, since Do Hyeon's dense strokes smudge at body and label sizes. Each
 chain ends in the other face, so Korean still renders when the dynamic face is missing. Ask
 for a family through `fonts::body()`, `body_medium()`, `body_strong()`, `body_semibold()`,
-`display()`, `condensed()` and `condensed_semibold()` rather than naming one, and prefer a `kit::text` style over building a
-`FontId` by hand.
+`display()`, `condensed()` and `condensed_semibold()` rather than naming one, and prefer a
+`kit::text` style over building a `FontId` by hand.
 
 **Dynamic fonts.** The full Korean syllabary and the GB 2312 hanzi are megabytes each, so they are
 not embedded: `load_dynamic_fonts(dir)` reads `NotoSansKR-Hangul.ttf` and `NotoSansSC-GB2312.ttf`
