@@ -80,7 +80,7 @@ const CoverLabel = styled.div`
 const CoverPreview = styled.div`
   width: 100%;
   max-width: 480px;
-  aspect-ratio: 2 / 1;
+  aspect-ratio: 3 / 2;
 
   display: flex;
   align-items: center;
