@@ -219,6 +219,10 @@ pub struct BwScr {
     /// tile. `None` when the analysis could not place them, which costs the observer panels their
     /// map-vision reading and nothing else.
     map_tile_flags: Option<Value<*mut u32>>,
+    /// The map's tiles as tileset tile ids, `width * height` of them, which the map's chk is read
+    /// into. `None` when the analysis could not place them, which leaves the buffer uncleared before
+    /// map load (see `clear_map_tiles_before_map_load`).
+    tileset_indexed_map_tiles: Option<Value<*mut u16>>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
     draw_commands: Value<*mut scr::DrawCommands>,
@@ -3210,6 +3214,30 @@ impl BwScr {
             }
             let count = usize::from(game.map_width_tiles()) * usize::from(game.map_height_tiles());
             Some(std::slice::from_raw_parts(flags, count))
+        }
+    }
+
+    /// Zeroes the map tile buffer, which `init_terrain` allocates without clearing, before the
+    /// map's chk is read into it.
+    ///
+    /// SC:R converts and builds pathing for the whole map after each MTXM section it reads, not
+    /// just the part the section covered. Protected maps can carry a short MTXM section ahead of
+    /// the full one, so a stale buffer gets pathed as terrain, and some leftover heap contents make
+    /// the pathing build's region merging loop forever, hanging the game start. Zeroed tiles path
+    /// trivially, and the full section that follows replaces them as usual.
+    unsafe fn clear_map_tiles_before_map_load(&self) {
+        unsafe {
+            let Some(tiles) = self.tileset_indexed_map_tiles.as_ref() else {
+                return;
+            };
+            let tiles = tiles.resolve();
+            if tiles.is_null() {
+                return;
+            }
+            let game = self.game();
+            let count =
+                usize::from((*game).map_width_tiles) * usize::from((*game).map_height_tiles);
+            std::ptr::write_bytes(tiles, 0, count);
         }
     }
 

@@ -312,6 +312,7 @@ impl BwScr {
         // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
         let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
         let map_tile_flags = analysis.map_tile_flags();
+        let tileset_indexed_map_tiles = analysis.tileset_indexed_map_tiles();
         // Non-fatal: without the registry the in-game options screen still saves what the player
         // changes, and SC:R picks it up next game.
         let game_settings = match (
@@ -746,6 +747,8 @@ impl BwScr {
             selection_hotkey_last_used_frames: selection_hotkey_last_used_frames
                 .map(|frames| Value::new(ctx, frames)),
             map_tile_flags: map_tile_flags.map(|flags| Value::new(ctx, flags)),
+            tileset_indexed_map_tiles: tileset_indexed_map_tiles
+                .map(|tiles| Value::new(ctx, tiles)),
             vertex_buffer: Value::new(ctx, vertex_buffer),
             renderer: Value::new(ctx, renderer),
             draw_commands: Value::new(ctx, draw_commands),

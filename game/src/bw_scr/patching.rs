@@ -774,6 +774,7 @@ impl BwScr {
             exe.hook_closure_address(
                 InitUnitData,
                 move |orig| {
+                    self.clear_map_tiles_before_map_load();
                     game_thread::before_init_unit_data(self);
                     log_time("init_unit_data", || orig());
                 },
