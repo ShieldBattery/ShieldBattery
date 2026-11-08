@@ -404,21 +404,13 @@ export function ConnectedWhisper({
     dispatch(markUnreadLineSeen(targetId, time))
   }
 
-  const onSendChatMessage = useStableCallback((msg: string) => {
+  const onSendChatMessage = useStableCallback((msg: string, onError: (err: Error) => void) => {
     dispatch(
       sendMessage(targetId, msg, {
         onSuccess: () => {},
         onError: err => {
-          // TODO(tec27): Offer a retry for the same message content? Display it in the message list
-          // ala Discord?
           logger.error(`Error sending a whisper to ${targetId}: ${describeFetchError(err)}`)
-          snackbarController.showSnackbar(
-            t('whispers.errors.sendingMessage', {
-              defaultValue: 'Error sending message: {{errorMessage}}',
-              errorMessage: err.message,
-            }),
-            DURATION_LONG,
-          )
+          onError(err)
         },
       }),
     )

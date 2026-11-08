@@ -548,12 +548,13 @@ export function ConnectedChatChannel({
     dispatch(markUnreadLineSeen(channelId, time))
   }
 
-  const onSendChatMessage = useStableCallback((msg: string) =>
+  const onSendChatMessage = useStableCallback((msg: string, onError: (err: Error) => void) =>
     dispatch(
       sendMessage(channelId, msg, {
         onSuccess: () => {},
         onError: err => {
           logger.error(`Error sending a chat message: ${describeFetchError(err)}`)
+          onError(err)
         },
       }),
     ),

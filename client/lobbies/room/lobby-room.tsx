@@ -30,7 +30,7 @@ const RoomBody = styled.div`
 export interface LobbyRoomProps {
   /** The member whose point of view the room is rendered from. */
   viewerId: SbUserId
-  onSendChatMessage: (msg: string) => void
+  onSendChatMessage: (msg: string, onError: (err: Error) => void) => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
   onMoveSlot: (fromSlotId: string, toSlotId: string) => void

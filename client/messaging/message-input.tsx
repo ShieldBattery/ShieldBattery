@@ -46,6 +46,7 @@ import { EmotePickerButton } from './emote-picker'
 import { emoteProvider } from './emote-provider'
 import { createMentionProvider, MentionableUser } from './mention-provider'
 import { ReplyChip } from './reply-chip'
+import { sendFailedLine } from './send-failed-line'
 import {
   matchTypeahead,
   TypeaheadProvider,
@@ -234,7 +235,11 @@ export interface MessageInputProps {
   className?: string
   showDivider?: boolean
   maxRows?: number
-  onSendChatMessage: (msg: string) => void
+  /**
+   * Sends plain chat text. `onError` must be called if the send fails, so the input can answer in
+   * the conversation and give the text back; owners that cannot fail visibly may ignore it.
+   */
+  onSendChatMessage: (msg: string, onError: (err: Error) => void) => void
   /**
    * Called after any submission the input acts on — a sent message, a run command, or a whisper
    * reply — whatever branch handled it. Owners use it to treat submitting as reading the surface:
@@ -336,6 +341,15 @@ export function MessageInput({
     setTypeahead(undefined)
     resetPalette()
     setMessage('')
+  }
+
+  // The input clears as soon as a message is submitted, so a failed send is answered afterwards:
+  // a line in the conversation, and the text back in the input unless something was typed since.
+  const sendText = (text: string) => {
+    onSendChatMessage(text, err => {
+      commands?.emit({ kind: 'error', content: sendFailedLine(err, t) })
+      setMessage(current => (current === '' ? text : current))
+    })
   }
 
   /**
@@ -614,14 +628,14 @@ export function MessageInput({
           enterReplyMode,
         })
         if (result.kind === 'text') {
-          onSendChatMessage(result.text)
+          sendText(result.text)
         }
         clearInput()
         onSubmitted?.()
         return
       }
 
-      onSendChatMessage(toSend)
+      sendText(toSend)
       clearInput()
       onSubmitted?.()
     }
