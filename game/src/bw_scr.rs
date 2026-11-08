@@ -6102,10 +6102,14 @@ unsafe fn replay_name_context() -> crate::replay_name::NameContext {
         }
         participants.sort_by_key(|&(id, _)| id);
 
-        let now = chrono::Local::now();
+        // Not chrono::Local: it panics when GetTimeZoneInformationForYear fails or describes the
+        // zone with rules chrono rejects, which Wine does for host zones missing from its tables.
+        // GetLocalTime can't fail.
+        let mut now: winapi::um::minwinbase::SYSTEMTIME = mem::zeroed();
+        winapi::um::sysinfoapi::GetLocalTime(&mut now);
         crate::replay_name::NameContext {
-            date: now.format("%Y-%m-%d").to_string(),
-            time: now.format("%H%M%S").to_string(),
+            date: format!("{:04}-{:02}-{:02}", now.wYear, now.wMonth, now.wDay),
+            time: format!("{:02}{:02}{:02}", now.wHour, now.wMinute, now.wSecond),
             map: game_thread::map_name_for_filename(),
             is_ums: game_thread::is_ums(),
             local_name: local_user_id.and_then(user_name),
