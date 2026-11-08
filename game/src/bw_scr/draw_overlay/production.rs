@@ -5,8 +5,8 @@ use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, SubjectProgress, UnitUpgradeView, UpgradeEffect, WIREFRAME_LAYERS,
-    WeaponDamageView, Wireframe,
+    ProductionView, SubjectProgress, UnitResearchView, UnitUpgradeView, UpgradeEffect,
+    WIREFRAME_LAYERS, WeaponDamageView, Wireframe,
 };
 
 use crate::bw;
@@ -503,6 +503,149 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     chips
 }
 
+/// What `unit`'s owner has finished researching that this unit makes use of, in the order
+/// [`unit_research`] lists it.
+///
+/// A hallucination has none, as it has no upgrades: the console reads it out as nothing but its
+/// health, and it can cast nothing whatever its owner has researched.
+pub(super) fn selected_research(unit: Unit, bw: &BwVars) -> Vec<UnitResearchView> {
+    researched_for(unit, bw.game)
+        .into_iter()
+        .map(|production| UnitResearchView {
+            icon: production_icon(production, bw),
+            name: production_name(production, bw),
+        })
+        .collect()
+}
+
+/// The entries of [`unit_research`] for `unit` that its owner has finished.
+fn researched_for(unit: Unit, game: Game) -> Vec<Production> {
+    // The research tables are indexed by player slot and assert on anything past the twelfth.
+    const PLAYER_SLOTS: u8 = 0xc;
+    let player = unit.player();
+    if player >= PLAYER_SLOTS || unit.is_hallucination() {
+        return Vec::new();
+    }
+    unit_research(unit.id())
+        .iter()
+        .filter_map(|&research| match research {
+            Research::Tech(tech) => game
+                .tech_researched(player, tech)
+                .then_some(Production::Tech(tech)),
+            Research::Upgrade(upgrade) => {
+                (game.upgrade_level(player, upgrade) > 0).then_some(Production::Upgrade(upgrade))
+            }
+        })
+        .collect()
+}
+
+/// A technology or an upgrade that a player researches once for every unit of a kind.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Research {
+    Tech(TechId),
+    Upgrade(UpgradeId),
+}
+
+/// What a kind of unit can be given by research beyond the upgrades it fights with: the spells and
+/// abilities it has to have researched, then the upgrades to its speed, range, sight, energy or
+/// capacity, each run in the order the research buildings offer them.
+///
+/// Left out is everything the selection panel's upgrade chips already show: armor (Chitinous
+/// Plating among it, which the armor chip counts), shields, weapon damage (Scarab Damage among it,
+/// which the scarab chip's card counts), and Spider Mines, whose count chip only appears once they
+/// are researched. So is every technology a melee game hands out from the start, which would read
+/// as research on every unit that has it. Heroes come with their technologies and are left out too:
+/// what their owner has researched says nothing about them.
+fn unit_research(id: UnitId) -> &'static [Research] {
+    use Research::{Tech, Upgrade};
+    use bw_dat::{tech, unit, upgrade};
+    match id {
+        unit::MARINE => &[Tech(tech::STIM_PACKS), Upgrade(upgrade::U_268_SHELLS)],
+        unit::FIREBAT => &[Tech(tech::STIM_PACKS)],
+        unit::MEDIC => &[
+            Tech(tech::RESTORATION),
+            Tech(tech::OPTICAL_FLARE),
+            Upgrade(upgrade::CADUCEUS_REACTOR),
+        ],
+        unit::GHOST => &[
+            Tech(tech::LOCKDOWN),
+            Tech(tech::PERSONNEL_CLOAKING),
+            Upgrade(upgrade::OCULAR_IMPLANTS),
+            Upgrade(upgrade::MOEBIUS_REACTOR),
+        ],
+        unit::VULTURE => &[Upgrade(upgrade::ION_THRUSTERS)],
+        unit::SIEGE_TANK_TANK | unit::SIEGE_TANK_SIEGE => &[Tech(tech::SIEGE_MODE)],
+        unit::GOLIATH => &[Upgrade(upgrade::CHARON_BOOSTER)],
+        unit::WRAITH => &[Tech(tech::CLOAKING_FIELD), Upgrade(upgrade::APOLLO_REACTOR)],
+        unit::SCIENCE_VESSEL => &[
+            Tech(tech::EMP_SHOCKWAVE),
+            Tech(tech::IRRADIATE),
+            Upgrade(upgrade::TITAN_REACTOR),
+        ],
+        unit::BATTLECRUISER => &[Tech(tech::YAMATO_GUN), Upgrade(upgrade::COLOSSUS_REACTOR)],
+        unit::DRONE | unit::INFESTED_TERRAN => &[Tech(tech::BURROWING)],
+        unit::ZERGLING => &[
+            Tech(tech::BURROWING),
+            Upgrade(upgrade::METABOLIC_BOOST),
+            Upgrade(upgrade::ADRENAL_GLANDS),
+        ],
+        unit::HYDRALISK => &[
+            Tech(tech::BURROWING),
+            Tech(tech::LURKER_ASPECT),
+            Upgrade(upgrade::MUSCULAR_AUGMENTS),
+            Upgrade(upgrade::GROOVED_SPINES),
+        ],
+        unit::OVERLORD => &[
+            Upgrade(upgrade::VENTRAL_SACS),
+            Upgrade(upgrade::ANTENNAE),
+            Upgrade(upgrade::PNEUMATIZED_CARAPACE),
+        ],
+        unit::QUEEN => &[
+            Tech(tech::SPAWN_BROODLINGS),
+            Tech(tech::ENSNARE),
+            Upgrade(upgrade::GAMETE_MEIOSIS),
+        ],
+        unit::DEFILER => &[
+            Tech(tech::BURROWING),
+            Tech(tech::PLAGUE),
+            Tech(tech::CONSUME),
+            Upgrade(upgrade::METASYNAPTIC_NODE),
+        ],
+        unit::ULTRALISK => &[Upgrade(upgrade::ANABOLIC_SYNTHESIS)],
+        unit::ZEALOT => &[Upgrade(upgrade::LEG_ENHANCEMENTS)],
+        unit::DRAGOON => &[Upgrade(upgrade::SINGULARITY_CHARGE)],
+        unit::HIGH_TEMPLAR => &[
+            Tech(tech::PSIONIC_STORM),
+            Tech(tech::HALLUCINATION),
+            Upgrade(upgrade::KHAYDARIN_AMULET),
+        ],
+        unit::DARK_TEMPLAR => &[Tech(tech::DARK_ARCHON_MELD)],
+        unit::DARK_ARCHON => &[
+            Tech(tech::MIND_CONTROL),
+            Tech(tech::MAELSTROM),
+            Upgrade(upgrade::ARGUS_TALISMAN),
+        ],
+        unit::REAVER => &[Upgrade(upgrade::REAVER_CAPACITY)],
+        unit::SHUTTLE => &[Upgrade(upgrade::GRAVITIC_DRIVE)],
+        unit::OBSERVER => &[
+            Upgrade(upgrade::SENSOR_ARRAY),
+            Upgrade(upgrade::GRAVITIC_BOOSTERS),
+        ],
+        unit::SCOUT => &[
+            Upgrade(upgrade::APIAL_SENSORS),
+            Upgrade(upgrade::GRAVITIC_THRUSTERS),
+        ],
+        unit::CORSAIR => &[Tech(tech::DISRUPTION_WEB), Upgrade(upgrade::ARGUS_JEWEL)],
+        unit::CARRIER => &[Upgrade(upgrade::CARRIER_CAPACITY)],
+        unit::ARBITER => &[
+            Tech(tech::RECALL),
+            Tech(tech::STASIS_FIELD),
+            Upgrade(upgrade::KHAYDARIN_CORE),
+        ],
+        _ => &[],
+    }
+}
+
 /// Carriers count interceptors both in the hangar and deployed; reavers count loaded scarabs.
 /// Both counters remain visible at zero, and hero variants follow the same rules.
 fn selected_fighters(unit: Unit) -> Option<(UnitId, u8)> {
@@ -866,6 +1009,96 @@ mod tests {
             assert_eq!(queued_units(parent, production).unwrap().count(), 0);
             unsafe { (**parent).build_queue = [unit::NONE.0; 5] };
             assert!(fighter_production(parent).is_none());
+        }
+    }
+
+    #[test]
+    fn research_shows_only_what_the_units_own_player_has_finished() {
+        use bw_dat::upgrade;
+
+        let mut game: Box<bw::Game> = unsafe { Box::new(std::mem::zeroed()) };
+        let game = unsafe { Game::from_ptr(&raw mut *game) };
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.unit_id = unit::SCIENCE_VESSEL.0;
+        raw.player = 2;
+        let vessel = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        assert_eq!(researched_for(vessel, game), []);
+
+        // Another player's research is not this vessel's.
+        game.set_tech_level(1, tech::IRRADIATE, 1);
+        assert_eq!(researched_for(vessel, game), []);
+
+        // Listed in the table's order, not the order it was finished in.
+        game.set_upgrade_level(2, upgrade::TITAN_REACTOR, 1);
+        game.set_tech_level(2, tech::IRRADIATE, 1);
+        game.set_tech_level(2, tech::EMP_SHOCKWAVE, 1);
+        assert_eq!(
+            researched_for(vessel, game),
+            [
+                Production::Tech(tech::EMP_SHOCKWAVE),
+                Production::Tech(tech::IRRADIATE),
+                Production::Upgrade(upgrade::TITAN_REACTOR),
+            ]
+        );
+
+        // A hallucination casts nothing, and nobody's slot past the twelfth is read.
+        unsafe { (**vessel).flags = 0x4000_0000 };
+        assert_eq!(researched_for(vessel, game), []);
+        unsafe {
+            (**vessel).flags = 0;
+            (**vessel).player = 0x80;
+        }
+        assert_eq!(researched_for(vessel, game), []);
+    }
+
+    #[test]
+    fn research_leaves_out_what_the_upgrade_chips_already_show() {
+        use bw_dat::upgrade;
+
+        // Armor, shields and weapons are upgrade chips of their own, and the spider mine count is
+        // the mines' chip; neither run belongs among a unit's research.
+        let shown_by_chips = [
+            upgrade::INFANTRY_ARMOR,
+            upgrade::VEHICLE_PLATING,
+            upgrade::SHIP_PLATING,
+            upgrade::CARAPACE,
+            upgrade::FLYER_CARAPACE,
+            upgrade::PROTOSS_ARMOR,
+            upgrade::PROTOSS_PLATING,
+            upgrade::INFANTRY_WEAPONS,
+            upgrade::VEHICLE_WEAPONS,
+            upgrade::SHIP_WEAPONS,
+            upgrade::ZERG_MELEE_ATTACKS,
+            upgrade::ZERG_MISSILE_ATTACKS,
+            upgrade::ZERG_FLYER_ATTACKS,
+            upgrade::PROTOSS_GROUND_WEAPONS,
+            upgrade::PROTOSS_AIR_WEAPONS,
+            upgrade::PLASMA_SHIELDS,
+            upgrade::SCARAB_DAMAGE,
+            upgrade::CHITINOUS_PLATING,
+        ];
+        // What a melee game starts every player with.
+        let given = [
+            tech::SCANNER_SWEEP,
+            tech::DEFENSIVE_MATRIX,
+            tech::INFESTATION,
+            tech::DARK_SWARM,
+            tech::PARASITE,
+            tech::ARCHON_WARP,
+            tech::FEEDBACK,
+            tech::HEALING,
+        ];
+        for id in (0..unit::NONE.0).map(UnitId) {
+            for research in unit_research(id) {
+                match *research {
+                    Research::Upgrade(upgrade) => assert!(!shown_by_chips.contains(&upgrade)),
+                    Research::Tech(tech) => {
+                        assert!(tech != tech::SPIDER_MINES && !given.contains(&tech))
+                    }
+                }
+            }
+            // The panel's row has room for this many beside the upgrades a unit fights with.
+            assert!(unit_research(id).len() <= 4);
         }
     }
 

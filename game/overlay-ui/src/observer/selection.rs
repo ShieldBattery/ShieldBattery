@@ -18,7 +18,8 @@
 //! - Nothing selected is nothing drawn. A box that only says it is empty is a box in the way.
 //! - Several units are the console's grid: two rows of six, in the game's order, with a bar under
 //!   each for every pool it has.
-//! - One unit is drawn large beside its name, owner, a bar per pool, its upgrades and its kills.
+//! - One unit is drawn large beside its name and kills, owner, a bar per pool, the upgrades it
+//!   fights with, and what its owner has researched for it.
 //! - One building is drawn smaller with its readouts under it, and its upgrades where it has any.
 //!   A mineral field, a geyser, or a geyser built on reads out what is left to mine in it, and a
 //!   building with others of its kind stacked on it says how many there are.
@@ -94,6 +95,19 @@ pub struct SelectedUnitView {
     /// out for a unit selected alone, and not under a queue, which leaves no room for them, so a
     /// host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+    /// What its owner has finished researching that changes what it can do, beyond the upgrades it
+    /// fights with: the spells it can cast and the upgrades to its speed, range, sight, energy or
+    /// capacity. Only read out for a unit selected alone, so a host may leave it empty for any other.
+    pub research: Vec<UnitResearchView>,
+}
+
+/// One technology or upgrade a unit's owner has finished that this unit makes use of.
+pub struct UnitResearchView {
+    /// The game's own icon for it.
+    pub icon: ProductionIcon,
+    /// What the game calls it, for the card that names it under the pointer; `None` where the host
+    /// cannot say.
+    pub name: Option<String>,
 }
 
 /// One unit inside a transport or a bunker.
@@ -542,6 +556,15 @@ const UPGRADE_GAP: f32 = 6.0;
 /// weapons.
 const MAX_UPGRADES: usize = 4;
 
+/// Gap between the upgrades a unit fights with and what has been researched for it, wider than the
+/// gap inside either run so the row reads as the two of them.
+const RESEARCH_LEAD: f32 = 14.0;
+
+/// The most chips a lone unit's row holds, its upgrades and its research together: a scout's four
+/// upgrades and two pieces of research, an arbiter's three and three, a ghost's or a hydralisk's
+/// two and four.
+const MAX_ROW_CHIPS: usize = 6;
+
 /// Text size of an upgrade's level, which sits on a dark plate of its own in the chip's corner, the
 /// way the game's console sets it, so the number reads clearly over any icon.
 const LEVEL_SIZE: f32 = 16.0;
@@ -556,18 +579,25 @@ const UPGRADE_CODE_SIZE: f32 = 13.0;
 const UPGRADE_ROW_WIDTH: f32 =
     UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0);
 
-/// The room the tally at the row's end needs beside the upgrades: its label in the longest of our
-/// languages, a three-digit count, and a gap from the last chip.
+/// The room a tally needs: its label in the longest of our languages, a three-digit count, and a
+/// gap from whatever it stands beside.
 const TALLY_ROOM: f32 = 104.0;
 
-/// The unit's tile fits the body; its pools all fit between the owner's line and the row of
-/// upgrades along the bottom; and the upgrades leave the row's end room for the kills.
+/// The unit's tile fits the body; its pools all fit between the owner's line and the row along the
+/// bottom; that row holds the most chips a unit has; and the kills leave most of the name's line to
+/// the name.
 const _: () = assert!(UNIT_TILE <= BODY_HEIGHT);
 const _: () = assert!(
     HEADER_HEIGHT - POOL_RISE + POOL_ROW * READOUTS as f32 + POOL_TAIL
         <= BODY_HEIGHT - UPGRADE_CHIP
 );
-const _: () = assert!(UPGRADE_ROW_WIDTH + TALLY_ROOM <= UNIT_TEXT_WIDTH);
+const _: () = assert!(
+    UPGRADE_CHIP * MAX_ROW_CHIPS as f32
+        + UPGRADE_GAP * (MAX_ROW_CHIPS as f32 - 2.0)
+        + RESEARCH_LEAD
+        <= UNIT_TEXT_WIDTH
+);
+const _: () = assert!(TALLY_ROOM < UNIT_TEXT_WIDTH * 0.5);
 
 /// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
 /// line beside it, of the progress line a building going up has in their place, and of what is left
@@ -767,7 +797,7 @@ fn draw_subject(
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
-    let below = draw_header(ui, text, unit);
+    let below = draw_header(ui, text, unit, None);
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
         (SelectionCase::Loaded, _) => {
@@ -782,7 +812,7 @@ fn draw_subject(
                 text.max,
             );
             let shown = unit.upgrades.len().min(MAX_CARGO_UPGRADES);
-            draw_upgrades(ui, beside, &unit.upgrades[..shown]);
+            draw_chips(ui, beside, &unit.upgrades[..shown], &[]);
         }
         (SelectionCase::Building, _) => {
             if let Some(resources) = &unit.resources {
@@ -793,7 +823,7 @@ fn draw_subject(
     }
     if has_upgrade_row(unit, case) {
         let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
-        draw_upgrades(ui, row, &unit.upgrades);
+        draw_chips(ui, row, &unit.upgrades, &[]);
         if let Some(stacked) = unit.stacked {
             draw_tally(
                 ui,
@@ -846,13 +876,13 @@ fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
     }
 }
 
-/// Draws a unit selected alone: the unit drawn large, and beside it its name and whose it is, a bar
-/// for each pool it has, and the row of its upgrades with what it has killed at that row's other
-/// end.
+/// Draws a unit selected alone: the unit drawn large, and beside it its name with what it has killed
+/// at that line's other end, whose it is, a bar for each pool it has, and the row of the upgrades it
+/// fights with followed by what its owner has researched for it.
 ///
-/// The bars are packed from the top, as many as the unit has pools, while the row of upgrades
-/// keeps to the bottom of the body, so the chips stay where the eye left them as the watcher clicks
-/// from a marine to a medic.
+/// The bars are packed from the top, as many as the unit has pools, while the row of chips keeps to
+/// the bottom of the body, so the chips stay where the eye left them as the watcher clicks from a
+/// marine to a medic.
 fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUnitClick> {
     let tile = Rect::from_center_size(
         pos2(body.left() + UNIT_TILE * 0.5, body.center().y),
@@ -865,7 +895,8 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         pos2(body.left() + UNIT_TEXT_LEFT, body.top()),
         vec2(UNIT_TEXT_WIDTH, BODY_HEIGHT),
     );
-    let below = draw_header(ui, text, unit);
+    let kills = tr!("observer.selectionKills", "Kills");
+    let below = draw_header(ui, text, unit, Some((&kills, unit.kills)));
     let pools = pools(unit);
     let columns = PoolColumns::of(ui, &pools);
     let slash = below.right() - columns.width() + columns.current;
@@ -892,32 +923,32 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
     }
 
     let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
-    draw_upgrades(ui, row, &unit.upgrades);
-    draw_tally(
-        ui,
-        row,
-        &tr!("observer.selectionKills", "Kills"),
-        unit.kills,
-    );
+    draw_chips(ui, row, &unit.upgrades, &unit.research);
     clicked
 }
 
-/// Draws the head of the text column: the subject's name, then whose it is, with its status at
-/// that line's right end. Returns the room left under them.
+/// Draws the head of the text column: the subject's name with `tally` at that line's right end,
+/// then whose it is, with its status at that line's right end. Returns the room left under them.
 ///
-/// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
-/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar,
-/// unless it has a status to say.
-fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
+/// A unit the host has no name for leaves no gap for one, unless it has a tally to put there: the
+/// owner's line heads the column instead. Nor does a unit nobody owns, a mineral field or a critter,
+/// whose line would be an empty bar, unless it has a status to say.
+fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView, tally: Option<(&str, u32)>) -> Rect {
     let mut top = text.top();
-    if let Some(name) = &unit.name {
-        paint_text(
-            ui,
-            Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), NAME_ROW)),
-            &text::body(NAME_SIZE, text::BodyWeight::Semibold),
-            name,
-            Align::LEFT,
-        );
+    if unit.name.is_some() || tally.is_some() {
+        let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), NAME_ROW));
+        if let Some((label, count)) = tally {
+            line.max.x -= draw_tally(ui, line, label, count) + OWNER_GAP;
+        }
+        if let Some(name) = &unit.name {
+            paint_text(
+                ui,
+                line,
+                &text::body(NAME_SIZE, text::BodyWeight::Semibold),
+                name,
+                Align::LEFT,
+            );
+        }
         top += NAME_ROW;
     }
     if unit.owner.is_some() || unit.status.is_some() {
@@ -1095,8 +1126,8 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
 }
 
 /// Draws a count of the subject's, under `label`, against the right end of `row`, level with its
-/// middle.
-fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) {
+/// middle. Returns how wide the two are together.
+fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) -> f32 {
     let line = centred(row, TALLY_ROW);
     // The label is set against its number at the number's own width rather than in a column of its
     // own: a column wide enough for any count would leave a short one stranded from its label.
@@ -1113,34 +1144,65 @@ fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) {
         label,
         Align::RIGHT,
     );
+    let label_width = text::column_label().galley(ui, label).size().x;
+    count_width + TALLY_LABEL_GAP + label_width
 }
 
-/// Draws the row of upgrades a unit fights with from the left end of `row`, and the card naming
-/// the one under the pointer.
-fn draw_upgrades(ui: &Ui, row: Rect, upgrades: &[UnitUpgradeView]) {
+/// Where each chip of a row stands, from the left end of `row`: the `upgrades` a unit fights with
+/// and then, after a wider gap, its `research`. Returns the two runs' rects, each run cut short at
+/// the most of it the row has room for, so a selection the game could not have made still keeps its
+/// chips inside the panel.
+fn chip_row(row: Rect, upgrades: usize, research: usize) -> (Vec<Rect>, Vec<Rect>) {
+    let chip = |left: f32| Rect::from_min_size(pos2(left, row.top()), Vec2::splat(UPGRADE_CHIP));
+    let fits = |rect: &Rect| rect.right() <= row.right();
+    let upgrades: Vec<Rect> = (0..upgrades.min(MAX_UPGRADES))
+        .map(|index| chip(row.left() + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP)))
+        .take_while(fits)
+        .collect();
+    let start = upgrades
+        .last()
+        .map_or(row.left(), |last| last.right() + RESEARCH_LEAD);
+    let research = (0..research)
+        .map(|index| chip(start + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP)))
+        .take_while(fits)
+        .collect();
+    (upgrades, research)
+}
+
+/// Draws the row of upgrades a unit fights with from the left end of `row`, then what its owner has
+/// researched for it, and the card naming the chip under the pointer.
+fn draw_chips(ui: &Ui, row: Rect, upgrades: &[UnitUpgradeView], research: &[UnitResearchView]) {
+    let (upgrade_rects, research_rects) = chip_row(row, upgrades.len(), research.len());
     let mut hovered = None;
-    for (index, upgrade) in upgrades.iter().take(MAX_UPGRADES).enumerate() {
-        let rect = Rect::from_min_size(
-            pos2(
-                row.left() + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP),
-                row.top(),
-            ),
-            Vec2::splat(UPGRADE_CHIP),
-        );
+    for (index, (rect, upgrade)) in upgrade_rects.into_iter().zip(upgrades).enumerate() {
         let response = ui.interact(rect, ui.id().with(("upgrade_chip", index)), Sense::hover());
         draw_upgrade_chip(ui, rect, upgrade, response.hovered());
         if let Some(pointer) = response.hover_pos() {
-            hovered = Some((pointer, upgrade));
+            hovered = Some((pointer, Chip::Upgrade(upgrade)));
         }
     }
-    if let Some((pointer, upgrade)) = hovered {
-        draw_upgrade_hint(ui, pointer, upgrade);
+    for (index, (rect, research)) in research_rects.into_iter().zip(research).enumerate() {
+        let response = ui.interact(rect, ui.id().with(("research_chip", index)), Sense::hover());
+        paint_chip(ui, rect, research.icon, response.hovered());
+        if let Some(pointer) = response.hover_pos() {
+            hovered = Some((pointer, Chip::Research(research)));
+        }
+    }
+    match hovered {
+        Some((pointer, Chip::Upgrade(upgrade))) => draw_upgrade_hint(ui, pointer, upgrade),
+        Some((pointer, Chip::Research(research))) => draw_research_hint(ui, pointer, research),
+        None => {}
     }
 }
 
-/// Draws one upgrade chip: the upgrade's icon, and the level it has reached on a plate in the
-/// corner.
-fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bool) {
+/// One chip of a unit's row, for the card under the pointer to name.
+enum Chip<'a> {
+    Upgrade(&'a UnitUpgradeView),
+    Research(&'a UnitResearchView),
+}
+
+/// Paints a chip's plate and its icon, the plate's edge brought up while the pointer is over it.
+fn paint_chip(ui: &Ui, rect: Rect, icon: ProductionIcon, hovered: bool) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter()
         .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE20, 0.70));
@@ -1154,20 +1216,24 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
         StrokeKind::Inside,
     ));
     let icon_rect = rect.shrink(theme::HAIRLINE);
-    match upgrade.icon.texture {
+    match icon.texture {
         Some(texture) => {
-            upgrade
-                .icon
-                .paint(ui.painter(), texture, icon_rect, Color32::WHITE);
+            icon.paint(ui.painter(), texture, icon_rect, Color32::WHITE);
         }
         None => paint_text(
             ui,
             icon_rect,
             &text::body(UPGRADE_CODE_SIZE, text::BodyWeight::Semibold).with_color(theme::TEXT_DIM),
-            &unit_codes::code_or_index(upgrade.icon.index),
+            &unit_codes::code_or_index(icon.index),
             Align::Center,
         ),
     }
+}
+
+/// Draws one upgrade chip: the upgrade's icon, and the level it has reached on a plate in the
+/// corner.
+fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bool) {
+    paint_chip(ui, rect, upgrade.icon, hovered);
 
     let galley =
         text::body(LEVEL_SIZE, text::BodyWeight::Semibold).galley(ui, &upgrade.level.to_string());
@@ -1255,6 +1321,17 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                 }
             }
         }
+    });
+}
+
+/// Names the research chip under the pointer. A host that cannot name it gets no card, since a card
+/// with nothing in it says nothing the icon did not.
+fn draw_research_hint(ui: &Ui, pointer: Pos2, research: &UnitResearchView) {
+    let Some(name) = &research.name else {
+        return;
+    };
+    widgets::tooltip(ui.ctx(), Id::new("sb_research_chip_hint"), pointer, |ui| {
+        ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
     });
 }
 
@@ -1716,6 +1793,7 @@ mod tests {
             production: None,
             cargo: Vec::new(),
             upgrades: Vec::new(),
+            research: Vec::new(),
         }
     }
 
@@ -2058,6 +2136,31 @@ mod tests {
         assert_eq!(column.bottom(), second_row.bottom());
         assert_eq!(two_columns.bottom(), second_row.bottom());
         assert_eq!(two_columns.right(), grid.right());
+    }
+
+    #[test]
+    fn research_follows_the_upgrades_in_the_row_set_apart_from_them() {
+        let row = Rect::from_min_size(pos2(100.0, 50.0), vec2(UNIT_TEXT_WIDTH, UPGRADE_CHIP));
+        // A scout's four upgrades and two pieces of research, an arbiter's three and three, and a
+        // hydralisk's two and four are each the whole of their row.
+        for (upgrades, research) in [(4, 2), (3, 3), (2, 4)] {
+            let (upgrade_rects, research_rects) = chip_row(row, upgrades, research);
+            assert_eq!(
+                (upgrade_rects.len(), research_rects.len()),
+                (upgrades, research)
+            );
+            assert_eq!(
+                research_rects[0].left() - upgrade_rects.last().unwrap().right(),
+                RESEARCH_LEAD
+            );
+            assert!(research_rects.last().unwrap().right() <= row.right());
+        }
+        // A unit with nothing to upgrade starts its row with its research.
+        let (_, research_rects) = chip_row(row, 0, 3);
+        assert_eq!(research_rects[0].left(), row.left());
+        // Research past the row's end is left off rather than drawn outside the panel.
+        let (_, research_rects) = chip_row(row, 4, 4);
+        assert_eq!(research_rects.len(), 2);
     }
 
     #[test]

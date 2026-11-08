@@ -139,6 +139,7 @@ pub(super) fn with_a_selection(mut game: ObserverView) -> ObserverView {
         production: None,
         cargo: Vec::new(),
         upgrades: Vec::new(),
+        research: Vec::new(),
     });
     game
 }

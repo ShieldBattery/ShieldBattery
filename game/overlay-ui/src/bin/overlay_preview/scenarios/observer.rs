@@ -25,8 +25,8 @@ use overlay_ui::observer::{
     ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, ResourcesLeftView,
     SelectedUnitView, SelectionView, Significance, StatusColor, SubjectProgress,
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
-    TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView, UpgradeEffect,
-    WeaponDamageView, team_name,
+    TimelineEventView, TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -134,6 +134,7 @@ fn unit_name(id: u16) -> Option<String> {
         5 => "Terran Siege Tank",
         7 => "Terran SCV",
         8 => "Terran Wraith",
+        SCIENCE_VESSEL => "Terran Science Vessel",
         TERRAN_TRANSPORT => "Terran Dropship",
         ZERG_EGG => "Zerg Egg",
         37 => "Zerg Zergling",
@@ -993,6 +994,8 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                 };
                 let id = if building {
                     buildings[0]
+                } else if count == 1 {
+                    lone_unit(knobs.race(owner))
                 } else {
                     units[index % units.len()]
                 };
@@ -1026,10 +1029,58 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     } else {
                         Vec::new()
                     },
+                    research: if count == 1 && !building {
+                        lone_unit_research(knobs.race(owner))
+                    } else {
+                        Vec::new()
+                    },
                 }
             })
             .collect(),
     }
+}
+
+/// The unit a selection of one is, for each race: one its owner has researched as much for as any
+/// unit gets, so the row under it is as full as a game ever fills it.
+fn lone_unit(race: RaceView) -> u16 {
+    match race {
+        RaceView::Zerg => 38,
+        RaceView::Terran => SCIENCE_VESSEL,
+        RaceView::Protoss | RaceView::Random => 71,
+    }
+}
+
+const SCIENCE_VESSEL: u16 = 9;
+
+/// What the lone unit of `race` has had researched for it: the frame its icon would be drawn from
+/// and the name the game's English stat_txt gives it. The frames are stand-ins, as the upgrades'
+/// are.
+fn lone_unit_research(race: RaceView) -> Vec<UnitResearchView> {
+    let research: &[(u16, &str)] = match race {
+        RaceView::Zerg => &[
+            (0x10b, "Burrowing"),
+            (0x13a, "Lurker Aspect"),
+            (0x119, "Muscular Augments"),
+            (0x11a, "Grooved Spines"),
+        ],
+        RaceView::Terran => &[
+            (0x0f6, "EMP Shockwave"),
+            (0x0f9, "Irradiate"),
+            (0x10f, "Titan Reactor"),
+        ],
+        RaceView::Protoss | RaceView::Random => &[
+            (0x108, "Recall"),
+            (0x109, "Stasis Field"),
+            (0x128, "Khaydarin Core"),
+        ],
+    };
+    research
+        .iter()
+        .map(|&(frame, name)| UnitResearchView {
+            icon: unit_icon(frame),
+            name: Some(name.to_string()),
+        })
+        .collect()
 }
 
 /// One upgrade of the fake game's: the frame its icon would be drawn from, the level it has
@@ -1172,6 +1223,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         }),
         cargo: Vec::new(),
         // Dealt as the game DLL deals them, which is what proves a queue leaves no row for them.
+        research: Vec::new(),
         upgrades: building_upgrades(race, &[]),
     }
 }
@@ -1211,6 +1263,7 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             subject: Some(SubjectProgress::Construction),
         }),
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: building_upgrades(race, &[]),
     }
 }
@@ -1250,6 +1303,7 @@ fn summoning_archon(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             subject: Some(SubjectProgress::Summoning),
         }),
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: vec![
             upgrade(
                 armor,
@@ -1304,6 +1358,7 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             subject: None,
         }),
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: vec![UnitUpgradeView {
             icon: unit_icon(frame),
             level,
@@ -1351,6 +1406,7 @@ fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         stacked: None,
         production: None,
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: building_upgrades(race, weapons),
     }
 }
@@ -1380,6 +1436,7 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
         stacked: Some(3),
         production: None,
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: Vec::new(),
     }
 }
@@ -1447,12 +1504,14 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                         stacked: None,
                         production: None,
                         cargo: Vec::new(),
+                        research: Vec::new(),
                         upgrades: Vec::new(),
                     },
                     room,
                 }
             })
             .collect(),
+        research: Vec::new(),
         upgrades,
     }
 }
