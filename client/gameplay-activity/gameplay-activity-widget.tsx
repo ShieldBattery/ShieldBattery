@@ -184,6 +184,9 @@ const WidgetRoot = styled(m.div)`
     var(--widget-top, calc(100% - var(--_height, 0px) - var(--widget-bottom, 0px))),
     calc(100% - var(--_height, 0px))
   );
+  /* An absolutely positioned box with left set and width auto shrinks to the space beside it, so
+     its width would depend on where it is placed. */
+  width: max-content;
   max-width: 280px;
 
   padding-block: 8px;
