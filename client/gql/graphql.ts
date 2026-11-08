@@ -97,13 +97,21 @@ export type NewsPostCreation = {
   publishedAt?: string | null | undefined
   summary: string
   title: string
+  translations?: Array<NewsPostTranslationInput> | null | undefined
+}
+
+export type NewsPostTranslationInput = {
+  content?: string | null | undefined
+  language: string
+  summary?: string | null | undefined
+  title?: string | null | undefined
 }
 
 /**
  * Partial updates for an existing news post. Fields omitted from the input are left unchanged.
  * For `publishedAt` and `coverImagePath`, an explicit null clears the current value (e.g.
  * unpublishing a post), so a single mutation covers editing, publishing now, scheduling, and
- * unpublishing.
+ * unpublishing. `translations` replaces every translation, so an empty list removes them all.
  */
 export type NewsPostUpdates = {
   content?: string | null | undefined
@@ -111,6 +119,7 @@ export type NewsPostUpdates = {
   publishedAt?: string | null | undefined
   summary?: string | null | undefined
   title?: string | null | undefined
+  translations?: Array<NewsPostTranslationInput> | null | undefined
 }
 
 export type ReportGameInput = {
@@ -207,6 +216,12 @@ export type AdminNewsPostQuery = {
     publishedAt: string | null
     coverImagePath: string | null
     coverImageUrl: string | null
+    translations: Array<{
+      language: string
+      title: string | null
+      summary: string | null
+      content: string | null
+    }>
     author: { id: Types.SbUserId; name: string } | null
   } | null
 }
@@ -226,6 +241,12 @@ export type AdminNewsHistoryQuery = {
       publishedAt: string | null
       coverImagePath: string | null
       editedAt: string
+      translations: Array<{
+        language: string
+        title: string | null
+        summary: string | null
+        content: string | null
+      }>
       editor: { id: Types.SbUserId; name: string } | null
     }>
   } | null
@@ -814,7 +835,13 @@ export type NewsArchiveQueryVariables = Exact<{
 export type NewsArchiveQuery = {
   newsPosts: {
     edges: Array<{
-      node: { id: string; title: string; summary: string; publishedAt: string | null }
+      node: {
+        id: string
+        title: string
+        summary: string
+        publishedAt: string | null
+        translations: Array<{ language: string; title: string | null; summary: string | null }>
+      }
     }>
     pageInfo: { hasNextPage: boolean; endCursor: string | null }
   }
@@ -830,6 +857,7 @@ export type News_HomeFeedFragmentFragment = {
         publishedAt: string | null
         coverImageUrl: string | null
         coverImageSmallUrl: string | null
+        translations: Array<{ language: string; title: string | null; summary: string | null }>
       }
     }>
   }
@@ -851,6 +879,12 @@ export type NewsUpdatePostMutation = {
     coverImagePath: string | null
     coverImageUrl: string | null
     coverImageSmallUrl: string | null
+    translations: Array<{
+      language: string
+      title: string | null
+      summary: string | null
+      content: string | null
+    }>
   }
 }
 
@@ -872,6 +906,7 @@ export type NewsPostQuery = {
     publishedAt: string | null
     coverImageUrl: string | null
     coverImageSmallUrl: string | null
+    translations: Array<{ language: string; title: string | null; content: string | null }>
     author: { id: Types.SbUserId; name: string } | null
   } | null
 }
@@ -1968,6 +2003,18 @@ export const News_HomeFeedFragmentFragmentDoc = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
@@ -2280,6 +2327,19 @@ export const AdminNewsPostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
@@ -2346,6 +2406,19 @@ export const AdminNewsHistoryDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'translations' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                          ],
+                        },
+                      },
                       { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
@@ -4374,6 +4447,18 @@ export const HomePageContentDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
@@ -4745,6 +4830,18 @@ export const NewsArchiveDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                           ],
                         },
@@ -4821,6 +4918,19 @@ export const NewsUpdatePostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
@@ -4906,6 +5016,18 @@ export const NewsPostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },

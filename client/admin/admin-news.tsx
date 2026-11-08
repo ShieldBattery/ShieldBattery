@@ -6,6 +6,7 @@ import { useMutation, useQuery } from 'urql'
 import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
+import { TranslationLanguage, translationLanguageToLabel } from '../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
 import {
   MAX_VIDEO_SIZE_BYTES,
@@ -35,6 +36,8 @@ import { FilledButton, IconButton, OutlinedButton, TextButton } from '../materia
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { SelectOption } from '../material/select/option'
+import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
@@ -42,6 +45,13 @@ import { fetchJson } from '../network/fetch'
 import { NewsMarkdown } from '../news/news-markdown'
 import { NewsDeletePostMutation, NewsUpdatePostMutation } from '../news/news-post-mutations'
 import { getPostStatus, PostStatus } from '../news/news-post-status'
+import {
+  fromTranslationFields,
+  NEWS_POST_TRANSLATION_LANGUAGES,
+  newsPostFormField,
+  NewsPostTranslationFields,
+  toTranslationFields,
+} from '../news/news-post-translations'
 import { EDITOR_RETURN_TO_PARAM, EDITOR_RETURN_TO_POST, urlForNewsPost } from '../news/news-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
@@ -98,6 +108,12 @@ const AdminNewsPostQuery = graphql(/* GraphQL */ `
       title
       summary
       content
+      translations {
+        language
+        title
+        summary
+        content
+      }
       publishedAt
       coverImagePath
       coverImageUrl
@@ -118,6 +134,12 @@ const AdminNewsHistoryQuery = graphql(/* GraphQL */ `
         title
         summary
         content
+        translations {
+          language
+          title
+          summary
+          content
+        }
         publishedAt
         coverImagePath
         editedAt
@@ -716,7 +738,7 @@ export function AdminNewsEdit({ params: { id } }: { params: { id: string } }) {
 
 type EditablePost = NonNullable<ResultOf<typeof AdminNewsPostQuery>['newsPost']>
 
-export interface NewsEditorModel {
+export interface NewsEditorModel extends NewsPostTranslationFields {
   title: string
   summary: string
   content: string
@@ -803,6 +825,26 @@ const Form = styled.form`
 const TitleField = styled(TextField)`
   grid-area: title;
   width: 100%;
+`
+
+const LanguageRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const LanguageSelect = styled(Select)`
+  flex: 0 0 240px;
+`
+
+const LanguageHint = styled.div`
+  ${bodyMedium};
+  flex: 1 1 auto;
+  color: var(--theme-on-surface-variant);
+`
+
+const RemoveTranslationButton = styled(TextButton)`
+  flex-shrink: 0;
 `
 
 const HiddenFileInput = styled.input`
@@ -924,6 +966,11 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const [coverImagePath, setCoverImagePath] = useState<string | null>(post?.coverImagePath ?? null)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(post?.coverImageUrl ?? null)
 
+  const [editLanguage, setEditLanguage] = useState(TranslationLanguage.English)
+  const titleField = newsPostFormField(editLanguage, 'title')
+  const summaryField = newsPostFormField(editLanguage, 'summary')
+  const contentField = newsPostFormField(editLanguage, 'content')
+
   const imageFileInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   // Tracks whether the content field has ever been focused: a textarea's selectionStart/End
@@ -944,7 +991,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     // Read the content from the DOM element rather than the form state this closure captured
     // when the upload started, so text typed while the upload was in flight isn't lost.
     const textarea = contentInputRef.current
-    const currentContent = textarea?.value ?? getInputValue('content')
+    const currentContent = textarea?.value ?? getInputValue(contentField)
     const selection =
       textarea &&
       contentEverFocusedRef.current &&
@@ -958,7 +1005,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
       altTextFromFilename(filename),
       selection,
     )
-    setInputValue('content', content)
+    setInputValue(contentField, content)
     requestAnimationFrame(() => {
       if (textarea) {
         textarea.focus()
@@ -1046,7 +1093,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   const onFormat = (kind: MarkdownFormatKind) => {
     const textarea = contentInputRef.current
-    const currentContent = textarea?.value ?? getInputValue('content')
+    const currentContent = textarea?.value ?? getInputValue(contentField)
     const selection =
       textarea &&
       contentEverFocusedRef.current &&
@@ -1055,7 +1102,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
         ? { start: textarea.selectionStart, end: textarea.selectionEnd }
         : undefined
     const result = applyMarkdownFormat(kind, currentContent, selection)
-    setInputValue('content', result.content)
+    setInputValue(contentField, result.content)
     requestAnimationFrame(() => {
       if (textarea) {
         textarea.focus()
@@ -1086,6 +1133,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     title: post?.title ?? '',
     summary: post?.summary ?? '',
     content: post?.content ?? '',
+    ...toTranslationFields(post?.translations),
     publishMode,
     scheduledAt,
   }
@@ -1122,6 +1170,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
       // before comparing against the saved post and before sending to the server.
       const title = model.title.trim()
       const summary = model.summary.trim()
+      const translations = fromTranslationFields(model)
 
       if (post) {
         const updates: NewsPostUpdates = {}
@@ -1133,6 +1182,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
         }
         if (model.content !== post.content) {
           updates.content = model.content
+        }
+        const savedTranslations = fromTranslationFields(toTranslationFields(post.translations))
+        if (JSON.stringify(translations) !== JSON.stringify(savedTranslations)) {
+          updates.translations = translations
         }
         const publishedChange = publishedAtUpdate(model, post.publishedAt ?? null)
         if (publishedChange) {
@@ -1170,6 +1223,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           title,
           summary,
           content: model.content,
+          translations,
           ...(publishedAt !== undefined ? { publishedAt } : {}),
           ...(coverImagePath !== null ? { coverImagePath } : {}),
         }
@@ -1186,14 +1240,16 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     },
   })
 
-  const openSettings = (showErrorsOnOpen: boolean = false) => {
+  const openSettings = (showErrorsOnOpen: boolean = false, summaryLanguage = editLanguage) => {
+    const settingsSummaryField = newsPostFormField(summaryLanguage, 'summary')
     dispatch(
       openDialog({
         type: DialogType.NewsPostSettings,
         initData: {
           savedStatus: initialStatus,
+          summaryLanguage,
           settings: {
-            summary: getInputValue('summary'),
+            summary: getInputValue(settingsSummaryField),
             publishMode: getInputValue('publishMode'),
             scheduledAt: getInputValue('scheduledAt'),
             coverImagePath,
@@ -1201,7 +1257,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           },
           showErrorsOnOpen,
           onApply: (s: NewsPostSettings) => {
-            setInputValue('summary', s.summary)
+            setInputValue(settingsSummaryField, s.summary)
             setInputValue('publishMode', s.publishMode)
             setInputValue('scheduledAt', s.scheduledAt)
             setCoverImagePath(s.coverImagePath)
@@ -1213,6 +1269,13 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   }
 
   const onSaveClick = () => {
+    // Implicit submission from the keyboard bypasses the disabled save button, so this needs the
+    // same guard. Saving can switch the editor's language, and an upload in flight writes into
+    // the content textarea when it finishes, which would then hold another language's text.
+    if (fetching || imageUploading || videoUploading) {
+      return
+    }
+
     // The summary and schedule fields are edited in the post settings dialog now, so a validation
     // failure on either needs to open that dialog rather than failing silently against inputs that
     // no longer appear on this page. Opening it this way shows the failure immediately, since a
@@ -1220,16 +1283,34 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     const scheduleInvalid =
       getInputValue('publishMode') === PUBLISH_MODE_SCHEDULE &&
       Number.isNaN(new Date(getInputValue('scheduledAt')).getTime())
-    if (!getInputValue('summary').trim() || scheduleInvalid) {
-      openSettings(true)
+    const summaryMissing = !getInputValue('summary').trim()
+    // Only the default text is required, so any failure on it has to be shown in that language
+    // rather than against the translation that happens to be open.
+    const defaultTextMissing =
+      summaryMissing || !getInputValue('title').trim() || !getInputValue('content')
+    const language = defaultTextMissing ? TranslationLanguage.English : editLanguage
+    setEditLanguage(language)
+
+    if (summaryMissing || scheduleInvalid) {
+      openSettings(true, language)
     } else {
       submit()
     }
   }
 
+  const removeTranslation = () => {
+    setInputValue(titleField, '')
+    setInputValue(summaryField, '')
+    setInputValue(contentField, '')
+  }
+
   // The save button doubles as a summary of the publish state chosen in the post settings
   // dialog, so what saving will do is visible without opening it.
   const publishModeValue = getInputValue('publishMode')
+  const isTranslation = editLanguage !== TranslationLanguage.English
+  const hasTranslationText =
+    isTranslation &&
+    [titleField, summaryField, contentField].some(field => getInputValue(field).trim())
   let saveLabel: string
   switch (publishModeValue) {
     case PUBLISH_MODE_DRAFT:
@@ -1290,8 +1371,48 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             event.preventDefault()
             onSaveClick()
           }}>
+          <LanguageRow>
+            <LanguageSelect
+              label={t('admin.news.form.language', 'Language')}
+              value={editLanguage}
+              onChange={setEditLanguage}
+              dense={true}
+              // An upload in flight splices its result into the content of the language it was
+              // started in, which has to still be the one on screen.
+              disabled={imageUploading || videoUploading}>
+              <SelectOption
+                text={t('admin.news.form.defaultLanguage', '{{language}} (default)', {
+                  language: translationLanguageToLabel(TranslationLanguage.English),
+                })}
+                value={TranslationLanguage.English}
+              />
+              {NEWS_POST_TRANSLATION_LANGUAGES.map(language => (
+                <SelectOption
+                  key={language}
+                  text={translationLanguageToLabel(language)}
+                  value={language}
+                />
+              ))}
+            </LanguageSelect>
+            {isTranslation ? (
+              <>
+                <LanguageHint>
+                  {t(
+                    'admin.news.form.translationHint',
+                    'Readers see this translation when using this language. Blank fields, ' +
+                      'including the summary in post settings, use the English text.',
+                  )}
+                </LanguageHint>
+                <RemoveTranslationButton
+                  label={t('admin.news.form.removeTranslation', 'Remove translation')}
+                  onClick={removeTranslation}
+                  disabled={!hasTranslationText}
+                />
+              </>
+            ) : null}
+          </LanguageRow>
           <FormArea>
-            <TitleField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
+            <TitleField {...bindInput(titleField)} label={t('admin.news.form.title', 'Title')} />
             <EditorToolbar onFormat={onFormat}>
               <HiddenFileInput
                 ref={imageFileInputRef}
@@ -1330,7 +1451,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             </EditorToolbar>
             <EditorColumn>
               <ContentField
-                {...bindInput('content')}
+                {...bindInput(contentField)}
                 ref={contentInputRef}
                 onFocus={() => {
                   contentEverFocusedRef.current = true
@@ -1350,7 +1471,14 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               {videoError ? <ErrorText>{videoError}</ErrorText> : null}
             </EditorColumn>
             <PreviewContainer>
-              <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
+              <MarkdownPreview
+                source={
+                  getInputValue(contentField).trim()
+                    ? getInputValue(contentField)
+                    : getInputValue('content')
+                }
+                allowMedia={true}
+              />
             </PreviewContainer>
           </FormArea>
         </Form>
@@ -1429,6 +1557,9 @@ export function changedFieldLabels(
   }
   if (edit.content !== older.content) {
     labels.push(t('admin.news.field.content', 'Content'))
+  }
+  if (JSON.stringify(edit.translations) !== JSON.stringify(older.translations)) {
+    labels.push(t('admin.news.field.translations', 'Translations'))
   }
   if ((edit.publishedAt ?? null) !== (older.publishedAt ?? null)) {
     labels.push(t('admin.news.field.publish', 'Publish date'))

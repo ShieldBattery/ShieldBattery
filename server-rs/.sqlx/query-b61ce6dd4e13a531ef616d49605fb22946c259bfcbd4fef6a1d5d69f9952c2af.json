@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO news_posts (author_id, cover_image_path, title, summary, content,\n                    published_at, updated_at)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, published_at, updated_at\n            ",
+  "query": "\n                UPDATE news_posts\n                SET\n                    title = COALESCE($2, title),\n                    summary = COALESCE($3, summary),\n                    content = COALESCE($4, content),\n                    published_at = CASE WHEN $5 THEN $6 ELSE published_at END,\n                    cover_image_path = CASE WHEN $7 THEN $8 ELSE cover_image_path END,\n                    translations = COALESCE($9, translations),\n                    updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, translations as \"translations: Json<Vec<NewsPostTranslation>>\",\n                    published_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "translations: Json<Vec<NewsPostTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "news_posts",
+            "name": "translations"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -94,13 +105,15 @@
     ],
     "parameters": {
       "Left": [
-        "Int4",
+        "Uuid",
         "Text",
         "Text",
         "Text",
-        "Text",
+        "Bool",
         "Timestamptz",
-        "Timestamptz"
+        "Bool",
+        "Text",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -110,9 +123,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "9c96fd8735fcb788439bf29a45b67abdb09bc6f2b01590e841c7b3739d3c81b5"
+  "hash": "b61ce6dd4e13a531ef616d49605fb22946c259bfcbd4fef6a1d5d69f9952c2af"
 }

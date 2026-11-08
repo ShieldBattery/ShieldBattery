@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, editor_id as \"editor_id: _\", author_id as \"author_id: _\",\n                    cover_image_path, title, summary, content, published_at, edited_at\n                FROM news_post_edits\n                WHERE post_id = $1\n                ORDER BY edited_at DESC\n            ",
+  "query": "\n                SELECT id, editor_id as \"editor_id: _\", author_id as \"author_id: _\",\n                    cover_image_path, title, summary, content,\n                    translations as \"translations: Json<Vec<NewsPostTranslation>>\", published_at,\n                    edited_at\n                FROM news_post_edits\n                WHERE post_id = $1\n                ORDER BY edited_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "translations: Json<Vec<NewsPostTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "translations"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "edited_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -116,9 +127,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "25f451c72a6e35d9cc8464873c8b217f8bb1eaed6e17153fe73f4390d5b51bbe"
+  "hash": "b1bb0d76616385583ae82348961112c9a62d215ca0964857422febf63d9e526f"
 }

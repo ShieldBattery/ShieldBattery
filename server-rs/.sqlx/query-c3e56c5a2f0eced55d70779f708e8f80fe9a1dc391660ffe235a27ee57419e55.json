@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                UPDATE news_posts\n                SET\n                    title = COALESCE($2, title),\n                    summary = COALESCE($3, summary),\n                    content = COALESCE($4, content),\n                    published_at = CASE WHEN $5 THEN $6 ELSE published_at END,\n                    cover_image_path = CASE WHEN $7 THEN $8 ELSE cover_image_path END,\n                    updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, published_at, updated_at\n            ",
+  "query": "\n                SELECT id, author_id as \"author_id: _\", cover_image_path, title, summary, content,\n                    translations as \"translations: Json<Vec<NewsPostTranslation>>\", published_at,\n                    updated_at\n                FROM news_posts\n                WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "translations: Json<Vec<NewsPostTranslation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "news_posts",
+            "name": "translations"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -94,14 +105,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Bool",
-        "Timestamptz",
-        "Bool",
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -111,9 +115,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "15ab5ba3bb45fa2bb7fd3c8c05aaed20e3bc6a2e06f9e71f4c90dc9989879ac9"
+  "hash": "c3e56c5a2f0eced55d70779f708e8f80fe9a1dc391660ffe235a27ee57419e55"
 }

@@ -756,6 +756,7 @@ type NewsPost {
 	content: String!
 	publishedAt: DateTime
 	updatedAt: DateTime!
+	translations: [NewsPostTranslation!]!
 	author: SbUser
 	"""
 	A fully-qualified URL to this post's cover image, or null if it has none.
@@ -790,6 +791,7 @@ input NewsPostCreation {
 	title: String!
 	summary: String!
 	content: String!
+	translations: [NewsPostTranslationInput!]
 	publishedAt: DateTime
 }
 
@@ -815,20 +817,39 @@ type NewsPostEdit {
 	content: String!
 	publishedAt: DateTime
 	editedAt: DateTime!
+	translations: [NewsPostTranslation!]!
 	editor: SbUser
 	author: SbUser
+}
+
+"""
+A translation of a news post into a single language. Null fields use the post's default text.
+"""
+type NewsPostTranslation {
+	language: String!
+	title: String
+	summary: String
+	content: String
+}
+
+input NewsPostTranslationInput {
+	language: String!
+	title: String
+	summary: String
+	content: String
 }
 
 """
 Partial updates for an existing news post. Fields omitted from the input are left unchanged.
 For `publishedAt` and `coverImagePath`, an explicit null clears the current value (e.g.
 unpublishing a post), so a single mutation covers editing, publishing now, scheduling, and
-unpublishing.
+unpublishing. `translations` replaces every translation, so an empty list removes them all.
 """
 input NewsPostUpdates {
 	title: String
 	summary: String
 	content: String
+	translations: [NewsPostTranslationInput!]
 	publishedAt: DateTime
 	coverImagePath: String
 }

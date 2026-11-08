@@ -108,6 +108,7 @@ const cacheKeys: KeyingConfig = {
   MapForce: NON_KEYED_EMBEDDED,
   MapForcePlayer: NON_KEYED_EMBEDDED,
   MatchmakerConfigDefaults: NON_KEYED_EMBEDDED,
+  NewsPostTranslation: NON_KEYED_EMBEDDED,
   MatchmakerConfigView: NON_KEYED_EMBEDDED,
   MatchmakerModeConfigOverrides: NON_KEYED_EMBEDDED,
   MatchmakerPerModeOverride: NON_KEYED_EMBEDDED,
