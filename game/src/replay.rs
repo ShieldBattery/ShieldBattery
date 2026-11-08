@@ -355,6 +355,26 @@ fn test_parse_random_picks() {
 }
 
 #[test]
+fn test_parse_invalid_team_game_main_players() {
+    let mut data = vec![0u8; 0x5d];
+    (&mut data[0x0..]).write_u16::<LE>(3).unwrap(); // format_version
+    data[0x16..0x1a].copy_from_slice(&[0, 4, 0xff, 0xff]);
+    assert_eq!(
+        parse_shieldbattery_data(&data)
+            .unwrap()
+            .team_game_main_players,
+        [0, 4, 0xff, 0xff]
+    );
+    data[0x16..0x1a].copy_from_slice(&[0, 193, 0xff, 0xff]);
+    assert_eq!(
+        parse_shieldbattery_data(&data)
+            .unwrap()
+            .team_game_main_players,
+        [0, 0, 0, 0]
+    );
+}
+
+#[test]
 fn test_parse_newer_format() {
     let mut data = vec![0u8; 0x80];
     (&mut data[0x0..]).write_u16::<LE>(u16::MAX).unwrap(); // format_version
@@ -419,8 +439,16 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
         0
     };
     let random_picks = if format >= 3 { *data.get(0x5c)? } else { 0 };
+    let mut team_game_main_players: [u8; 4] = team_game_main_players.try_into().ok()?;
+    // Main players are player ids (0xff for a team that doesn't exist), which BW and the overlay
+    // index player arrays with. Out-of-range ones mean the section isn't one we wrote, so play the
+    // replay as a non-team game rather than let them index past those arrays.
+    if team_game_main_players.iter().any(|&p| p >= 8 && p != 0xff) {
+        warn!("Ignoring invalid team game main players {team_game_main_players:?} in replay");
+        team_game_main_players = [0; 4];
+    }
     Some(SbatReplayData {
-        team_game_main_players: team_game_main_players.try_into().ok()?,
+        team_game_main_players,
         starting_races: starting_races.try_into().ok()?,
         user_ids,
         game_logic_version,
