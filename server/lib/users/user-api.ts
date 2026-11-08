@@ -702,6 +702,8 @@ export class UserApi {
     const divisionContext = getDivisionContext(new Date(this.clock.now()), season)
     const ranks = new Map<SbUserId, MatchmakingDivision>()
     for (const rating of ratings) {
+      if (rating.lifetimeGames < NUM_PLACEMENT_MATCHES) continue
+
       const division = ladderPlayerToMatchmakingDivision(rating, divisionContext)
       if (division === MatchmakingDivision.Unrated) continue
       const current = ranks.get(rating.userId)

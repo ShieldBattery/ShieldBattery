@@ -212,14 +212,22 @@ export async function getPlayedMatchmakingRatingsForUsers(
   userIds: SbUserId[],
   seasonId: SeasonId,
 ): Promise<
-  Array<Pick<MatchmakingRating, 'userId' | 'matchmakingType' | 'points' | 'wins' | 'losses'>>
+  Array<
+    Pick<
+      MatchmakingRating,
+      'userId' | 'matchmakingType' | 'points' | 'wins' | 'losses' | 'lifetimeGames'
+    >
+  >
 > {
   const { client, done } = await db()
   try {
     const result = await client.query<
-      Pick<DbMatchmakingRating, 'user_id' | 'matchmaking_type' | 'points' | 'wins' | 'losses'>
+      Pick<
+        DbMatchmakingRating,
+        'user_id' | 'matchmaking_type' | 'points' | 'wins' | 'losses' | 'lifetime_games'
+      >
     >(sql`
-      SELECT user_id, matchmaking_type, points, wins, losses
+      SELECT user_id, matchmaking_type, points, wins, losses, lifetime_games
       FROM matchmaking_ratings
       WHERE user_id = ANY(${userIds}) AND season_id = ${seasonId} AND num_games_played > 0
     `)
@@ -229,6 +237,7 @@ export async function getPlayedMatchmakingRatingsForUsers(
       points: row.points,
       wins: row.wins,
       losses: row.losses,
+      lifetimeGames: row.lifetime_games,
     }))
   } finally {
     done()

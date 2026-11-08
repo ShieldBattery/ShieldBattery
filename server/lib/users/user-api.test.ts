@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { USERNAME_MAXLENGTH } from '../../../common/constants'
-import { MatchmakingDivision, MatchmakingType } from '../../../common/matchmaking'
+import {
+  MatchmakingDivision,
+  MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
+} from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { SEARCH_USERS_LIMIT, UserErrorCode } from '../../../common/users/user-network'
@@ -56,20 +60,64 @@ describe('users/user-api/UserApi#batchGetRanks', () => {
     const api = makeApi({ now: () => 0 }, { getCurrentSeason: async () => season })
     const userId = makeSbUserId(7)
     asMockedFunction(getPlayedMatchmakingRatingsForUsers).mockResolvedValue([
-      { userId, matchmakingType: MatchmakingType.Match1v1, points: 6000, wins: 1, losses: 0 },
-      { userId, matchmakingType: MatchmakingType.Match2v2, points: 6100, wins: 1, losses: 0 },
+      {
+        userId,
+        matchmakingType: MatchmakingType.Match1v1,
+        points: 6000,
+        wins: 1,
+        losses: 0,
+        lifetimeGames: NUM_PLACEMENT_MATCHES,
+      },
+      {
+        userId,
+        matchmakingType: MatchmakingType.Match2v2,
+        points: 6100,
+        wins: 1,
+        losses: 0,
+        lifetimeGames: NUM_PLACEMENT_MATCHES,
+      },
       {
         userId: makeSbUserId(9),
         matchmakingType: MatchmakingType.Match1v1,
         points: 0,
         wins: 0,
         losses: 0,
+        lifetimeGames: NUM_PLACEMENT_MATCHES,
       },
     ])
 
     const result = await api.batchGetRanks({ request: { query: { u: ['7', '8', '9'] } } } as any)
     expect(result.ranks).toEqual([{ userId, division: MatchmakingDivision.Gold2 }])
     expect(getPlayedMatchmakingRatingsForUsers).toHaveBeenCalledWith([7, 8, 9], season.id)
+  })
+
+  test('excludes queues still in placements before choosing a rank', async () => {
+    const season = { id: 4, startDate: new Date(0), divisionTableVersion: 2 }
+    const api = makeApi({ now: () => 0 }, { getCurrentSeason: async () => season })
+    const rankedUser = makeSbUserId(7)
+    const placementUser = makeSbUserId(8)
+    const placementRating = {
+      matchmakingType: MatchmakingType.Match1v1,
+      points: 6000,
+      wins: 1,
+      losses: 0,
+      lifetimeGames: NUM_PLACEMENT_MATCHES - 1,
+    }
+    asMockedFunction(getPlayedMatchmakingRatingsForUsers).mockResolvedValue([
+      { ...placementRating, userId: rankedUser },
+      { ...placementRating, userId: placementUser },
+      {
+        userId: rankedUser,
+        matchmakingType: MatchmakingType.Match2v2,
+        points: 0,
+        wins: 0,
+        losses: 1,
+        lifetimeGames: NUM_PLACEMENT_MATCHES,
+      },
+    ])
+
+    const result = await api.batchGetRanks({ request: { query: { u: ['7', '8'] } } } as any)
+    expect(result.ranks).toEqual([{ userId: rankedUser, division: MatchmakingDivision.Bronze1 }])
   })
 
   test('rejects missing and oversized batches', async () => {
