@@ -25,8 +25,16 @@ import {
   unblockUser,
 } from '../social/action-creators'
 import { userRelationshipErrorToString } from '../social/relationship-errors'
-import { navigateToWhisper } from '../whispers/action-creators'
+import { navigateToWhisper, sendMessage } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
+import { isInLobby } from '../lobbies/lobby-reducer'
+import { useCurrentActivity } from '../activity/current-activity'
+import { useCorrectLobbySlug } from '../lobbies/lobby-url'
+import { urlForLobby } from '../../common/lobbies/lobby-url'
+import { describeFetchError } from '../network/fetch-errors'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { resolveDeepLinkScheme } from '../lobbies/lobby-landing'
+import { getServerOrigin } from '../network/server-url'
 
 const LoadingItem = styled(MenuItem)`
   color: var(--theme-on-surface-variant);
@@ -182,6 +190,7 @@ function ConnectedUserContextMenuContents({
   const snackbarController = useSnackbarController()
   const { onNavigation } = useNavigationTracker()
   const isNavigationAvailable = useIsNavigationAvailable()
+  const currentActivity = useCurrentActivity()
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -231,6 +240,38 @@ function ConnectedUserContextMenuContents({
             navigateToUserProfile(user!.id, user!.name)
             onNavigation()
             onDismiss()
+          }}
+        />,
+      )
+    }
+    if (currentActivity?.kind=="lobby") {
+
+      const url = urlForLobby(currentActivity.id, currentActivity.name)
+      const message = getServerOrigin() + url
+
+      appendToMultimap(
+        items,
+        MenuItemCategory.General,
+        <MenuItem
+          key='invite'
+          text={t('users.contextMenu.inviteToLobby', 'Invite to Lobby')}
+          onClick={() => {
+              const ret = dispatch(sendMessage(user!.id,  message, {
+                      onSuccess: () => {
+                        console.log("success")
+                      },
+                      onError: err => {
+                        console.log("err")
+                        logger.error(`Error sending inviting ${user!.id} to lobby: ${describeFetchError(err)}`)
+                        snackbarController.showSnackbar(
+                          t('whispers.errors.sendingMessage', {
+                            defaultValue: 'Error sending message: {{errorMessage}}',
+                            errorMessage: err.message,
+                          }),
+                          DURATION_LONG,
+                        )
+                      },
+                    }))
           }}
         />,
       )
