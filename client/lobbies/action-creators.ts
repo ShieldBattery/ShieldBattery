@@ -7,6 +7,7 @@ import {
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
+  InviteToLobbyRequest,
   JoinLobbyRequest,
   LobbyClientRequest,
   LobbyNetworkParams,
@@ -26,6 +27,7 @@ import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import logger from '../logging/logger'
@@ -151,6 +153,17 @@ export function joinLobby(
       signal: spec.signal,
     })
   })
+}
+
+/** Invites a user to the lobby the current client is in. */
+export function inviteToLobby(targetId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/invite`, {
+      method: 'POST',
+      body: encodeBodyAsParams<InviteToLobbyRequest>({ clientId, targetId }),
+      signal: spec.signal,
+    }),
+  )
 }
 
 /**

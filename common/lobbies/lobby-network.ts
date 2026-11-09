@@ -135,6 +135,11 @@ export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams
   leaveCurrentLobby?: boolean
 }
 
+/** The body of a request to invite another user to the lobby the acting client is in. */
+export interface InviteToLobbyRequest extends LobbyClientRequest {
+  targetId: SbUserId
+}
+
 /** The body of a request to send a chat message to a lobby. */
 export interface SendLobbyChatRequest extends LobbyClientRequest {
   text: string

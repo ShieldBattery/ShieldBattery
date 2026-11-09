@@ -1879,6 +1879,9 @@
       "title": "Lobby",
       "view": "View lobby"
     },
+    "inviteNotification": {
+      "received": "<0>{{user}}</0> invited you to a lobby."
+    },
     "joinCode": {
       "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
       "genericError": "Something went wrong. Please try again.",
@@ -3586,6 +3589,7 @@
       "friendRequestRemoved": "Friend request removed",
       "friendRequestSent": "Friend request sent",
       "inviteToLobby": "Invite to Lobby",
+      "inviteToLobbyError": "Error inviting user to lobby",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
