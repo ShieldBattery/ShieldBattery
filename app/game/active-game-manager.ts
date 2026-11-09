@@ -181,6 +181,12 @@ export type ActiveGameManagerEvents = {
    * whether or not the game is still tracked.
    */
   gameProcessEnded: [gameId: string]
+  /**
+   * A game process announced by `gameProcessLaunching` showed its window. This can be well after
+   * launch: the window doesn't appear until the game has its setup, which can wait on a game
+   * server being started.
+   */
+  gameWindowShown: [gameId: string]
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   replayDiagnosticsRequested: [request: ReplayDiagnosticsRequest]
@@ -617,6 +623,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (game) {
       this.setStatus(game, info.state, info.extra)
     }
+  }
+
+  handleGameWindowShown(gameId: string) {
+    this.emit('gameWindowShown', gameId)
   }
 
   handleGameStart(gameId: string) {

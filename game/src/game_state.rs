@@ -1186,7 +1186,7 @@ impl GameState {
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         use crate::game_thread::GameThreadMessage::*;
         match message {
-            WindowMove(..) => (),
+            WindowMove(..) | WindowShown => (),
             ReplaySaved(..) => (),
             SetUserBlocked { .. } | ReportPlayer(..) => (),
             MinimapSettings {

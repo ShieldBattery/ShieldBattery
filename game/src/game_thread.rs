@@ -151,6 +151,8 @@ pub enum GameThreadRequestType {
 // Game thread sends something to async tasks
 pub enum GameThreadMessage {
     WindowMove(i32, i32, i32, i32),
+    /// The game window was shown for the first time.
+    WindowShown,
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.

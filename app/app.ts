@@ -930,6 +930,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   activeGameManager
     .on('gameProcessLaunching', gameId => {
       gameWindowMinimizer.gameLaunching(gameId)
+    })
+    .on('gameWindowShown', () => {
+      // Waiting for the game's window keeps the app on screen (and in the foreground, so the game
+      // can take the foreground from it) for as long as the game is waiting on a game server.
       // A background test instance is already behind the user's windows, and bringing it back
       // after the game would take their focus.
       if (process.env.SB_APP_BACKGROUND === '1') {

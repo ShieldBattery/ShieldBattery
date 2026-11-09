@@ -119,6 +119,9 @@ export class GameServer {
       case '/game/setupProgress':
         this.activeGameManager.handleSetupProgress(gameId, payload.status)
         break
+      case '/game/windowShown':
+        this.activeGameManager.handleGameWindowShown(gameId)
+        break
       case '/game/start':
         this.activeGameManager.handleGameStart(gameId)
         break

@@ -504,6 +504,12 @@ async fn handle_messages_from_game_thread(
                         *lock = Some(WindowMove { x, y, w, h });
                         debouncer.trigger();
                     }
+                    GameThreadMessage::WindowShown => {
+                        let msg = app_socket::encode_message("/game/windowShown", ());
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
                     GameThreadMessage::ReplaySaved(path) => {
                         let Ok(path) = path.into_os_string().into_string() else {
                             warn!("Replay path was not valid UTF-8");

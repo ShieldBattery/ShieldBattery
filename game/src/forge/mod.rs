@@ -696,6 +696,10 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
             let menu = GetSystemMenu(window, FALSE);
             EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
             DrawMenuBar(window);
+            // The app waits for this to get out of the way: going away any earlier would leave
+            // nothing on screen, and would hand the foreground to some other program that the
+            // game's window then can't take it back from.
+            send_game_msg_to_async(GameThreadMessage::WindowShown);
         }
         if is_forge_window(window)
             && stay_in_background()
