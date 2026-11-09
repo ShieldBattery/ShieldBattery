@@ -6,9 +6,14 @@
 //! the stream every command passes through, whoever sent it — is what keeps our plate and the
 //! game's own from ever disagreeing, and needs no per-architecture address for either global.
 //!
-//! The one change no command carries is SC:R stopping playback when the replay reaches its end.
-//! Starting the replay over for a seek keeps it stopped, so a seek made after the end is followed
-//! by a speed command that puts back the playback last seen here.
+//! The one change no command carries is SC:R pausing playback when the replay reaches its end: it
+//! sets its pause flag directly, so the state read back here still says playing. SC:R's own plate
+//! sends that flag with every speed change, so a speed change after the end applies and playback
+//! stays stopped. A speed command sent from here after the end goes out paused for the same reason;
+//! sent unpaused, it would have the game simulate on past the end with no orders left to give.
+//!
+//! Starting the replay over for a seek keeps that pause, so a seek made after the end is followed
+//! by a speed command that plays on, at the speed last seen here.
 
 use std::time::{Duration, Instant};
 
@@ -119,13 +124,16 @@ impl ReplayPlayback {
         }
     }
 
-    /// The speed command a replay that started over from past its end still needs: the playback
-    /// last seen here, which is what the plate shows.
+    /// The speed command a replay that started over from past its end still needs: playing, at the
+    /// speed last seen here, which is what the plate shows.
+    ///
+    /// Always unpaused: past the end, the only pause is the one SC:R put there itself, since
+    /// pausing a finished replay starts it over instead.
     fn take_restore(&mut self) -> Option<ReplayCommand> {
         std::mem::take(&mut self.restore_after_restart).then_some(ReplayCommand::Speed {
             speed_index: self.speed_index,
             multiplier: self.multiplier,
-            paused: self.paused,
+            paused: false,
         })
     }
 
@@ -218,6 +226,9 @@ impl BwScr {
                     multiplier,
                     paused,
                 } => {
+                    // SC:R paused playback at the end without a command saying so; see the
+                    // module docs.
+                    let paused = paused || crate::replay_seek::replay_ended(self);
                     let mut data = [0u8; SPEED_COMMAND_LEN];
                     data[0] = commands::id::REPLAY_SPEED;
                     data[1] = u8::from(paused);
@@ -303,8 +314,9 @@ mod tests {
     }
 
     #[test]
-    fn a_restart_from_past_the_end_puts_back_the_playback_last_seen_once() {
+    fn a_restart_from_past_the_end_plays_on_at_the_speed_last_seen_once() {
         let mut playback = ReplayPlayback::new();
+        // A speed change made after the end, which goes out paused.
         let mut data = [0u8; SPEED_COMMAND_LEN];
         data[0] = commands::id::REPLAY_SPEED;
         data[1] = 1;
@@ -317,7 +329,7 @@ mod tests {
             Some(ReplayCommand::Speed {
                 speed_index: 6,
                 multiplier: 4,
-                paused: true,
+                paused: false,
             })
         );
         assert_eq!(playback.take_restore(), None);
