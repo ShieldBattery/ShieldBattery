@@ -350,6 +350,38 @@ mod tests {
     }
 
     #[test]
+    fn a_speed_key_past_the_end_of_the_ladder_steps_back_onto_it_or_not_at_all() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let top = playback_controls::SPEED_LADDER[playback_controls::SPEED_LADDER.len() - 1];
+        // Twice the top: off the ladder, where the game's own plate could leave playback.
+        let past_the_top = PlaybackView {
+            speed_index: top.speed_index,
+            multiplier: top.multiplier * 2,
+            ..replay()
+        };
+        let mut press = |key| {
+            run_frame(&mut shell, &ctx, Some(&past_the_top));
+            assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
+            let time = ctx.input(|input| input.time) + 1.0;
+            run_frame_at(&mut shell, &ctx, Some(&past_the_top), time)
+        };
+        let up = press(Key::U);
+        assert_eq!(up.intents, []);
+        assert!(!up.button_click);
+        let down = press(Key::D);
+        assert_eq!(
+            down.intents,
+            [Intent::SetSpeed {
+                speed_index: top.speed_index,
+                multiplier: top.multiplier,
+                paused: false,
+            }]
+        );
+        assert!(down.button_click);
+    }
+
+    #[test]
     fn seek_keys_add_up_into_one_jump_and_shift_lengthens_the_step() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();

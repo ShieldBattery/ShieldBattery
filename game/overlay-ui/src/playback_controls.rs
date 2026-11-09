@@ -1317,8 +1317,9 @@ mod tests {
     }
 
     /// Clicks the middle of a stepper end drawn at the top left corner, one that `steps` or not,
-    /// and reports whether it took the click and whether it asked the host for the click sound.
-    fn click_stepper(steps: bool) -> (bool, bool) {
+    /// and reports whether it took the click, whether it asked the host for the click sound, and
+    /// whether it sensed the pointer resting on it, which is what its hover card is shown from.
+    fn click_stepper(steps: bool) -> (bool, bool, bool) {
         let ctx = Context::default();
         let pos = pos2(BOX_SIZE / 2.0, BOX_SIZE / 2.0);
         let button = |pressed| egui::Event::PointerButton {
@@ -1332,7 +1333,7 @@ mod tests {
             vec![button(true)],
             vec![button(false)],
         ];
-        let mut clicked = false;
+        let (mut clicked, mut hovered) = (false, false);
         for (frame, events) in events.into_iter().enumerate() {
             let raw = egui::RawInput {
                 screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
@@ -1342,18 +1343,20 @@ mod tests {
             };
             let mut output = ctx.run_ui(raw, |ui| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
-                clicked |= stepper_button(ui, SpeedArrow::Faster, steps).clicked();
+                let response = stepper_button(ui, SpeedArrow::Faster, steps);
+                clicked |= response.clicked();
+                hovered |= response.hover_pos().is_some();
             });
             output.textures_delta.clear();
         }
-        (clicked, widgets::take_activation(&ctx))
+        (clicked, widgets::take_activation(&ctx), hovered)
     }
 
     #[test]
-    fn a_stepper_end_with_no_rung_past_it_takes_no_click_and_makes_no_sound() {
+    fn a_stepper_end_with_no_rung_past_it_takes_no_click_and_makes_no_sound_but_keeps_its_card() {
         // The same click on an end that steps is taken and heard, so the one below is not a miss.
-        assert_eq!(click_stepper(true), (true, true));
-        assert_eq!(click_stepper(false), (false, false));
+        assert_eq!(click_stepper(true), (true, true, true));
+        assert_eq!(click_stepper(false), (false, false, true));
     }
 
     #[test]
