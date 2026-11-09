@@ -27,7 +27,9 @@ import {
   AdminUnbanUserRequest,
   AdminUnbanUserResponse,
   AdminUpdatePermissionsRequest,
+  GET_BATCH_USER_RANKS_LIMIT,
   GetBatchUserInfoResponse,
+  GetBatchUserRanksResponse,
   GetMatchHistoryQueryParams,
   GetMatchHistoryResponse,
   GetUserByNameResponse,
@@ -166,6 +168,44 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
 
     if (!byId.has(userId)) {
       infoBatchRequester.request(dispatch, userId)
+    }
+  }
+}
+
+const CHAT_RANK_REFRESH_MS = 5 * 60 * 1000
+
+const ranksBatchRequester = new MicrotaskBatchRequester<SbUserId>(
+  GET_BATCH_USER_RANKS_LIMIT,
+  async (dispatch, userIds) => {
+    const params = userIds.map(u => urlPath`u=${u}`).join('&')
+    try {
+      const payload = await fetchJson<GetBatchUserRanksResponse>(
+        apiUrl`users/batch-ranks` + '?' + params,
+      )
+      dispatch({
+        type: '@users/getBatchUserRanks',
+        payload,
+        meta: { userIds, time: performance.now() },
+      })
+    } catch (err) {
+      logger.error('error while batch requesting user ranks: ' + getErrorStack(err))
+    }
+  },
+  err => {
+    logger.error('error while queueing user ranks: ' + getErrorStack(err))
+  },
+)
+
+export function getBatchUserRanks(userIds: ReadonlySet<SbUserId>): ThunkAction {
+  return (dispatch, getState) => {
+    const { chatRanks } = getState().users
+    const cutoff = performance.now() - CHAT_RANK_REFRESH_MS
+
+    for (const id of userIds) {
+      const cached = chatRanks.get(id)
+      if (!cached || cached.time <= cutoff) {
+        ranksBatchRequester.request(dispatch, id)
+      }
     }
   }
 }

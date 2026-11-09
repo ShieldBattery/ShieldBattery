@@ -52,6 +52,8 @@ export interface AccountSettings {
   availability: UserAvailability
   /** How text messages are laid out in every chat surface that shares the message list. */
   chatDisplayMode: ChatDisplayMode
+  /** Whether player rank icons are shown alongside names in chat. */
+  showChatRankIcons: boolean
   /**
    * Whether text messages from blocked users are left out of every chat surface that shares the
    * message list entirely, rather than shown as a collapsed placeholder that can be expanded.
@@ -107,6 +109,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
   chatDisplayMode: 'classic',
+  showChatRankIcons: true,
   hideBlockedMessages: false,
   replayNameTemplate: DEFAULT_REPLAY_NAME_TEMPLATE,
   shareDiscordActivity: 'notAsked',
