@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
@@ -18,7 +18,7 @@ import {
   matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
+import { AssignedRaceChar, RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
@@ -58,6 +58,10 @@ import {
   foundMatchAtom,
   isMatchmakingAtom,
 } from './matchmaking-atoms'
+import {
+  getMatchmakingPreferencesError,
+  MatchmakingPreferencesError,
+} from './preference-validation'
 import { DivisionIcon } from './rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from './season-end-date'
 
@@ -245,6 +249,7 @@ const TypeRowRoot = styled.div<{
   $faded: boolean
   $searching: boolean
   $disabled: boolean
+  $invalid: boolean
 }>`
   display: grid;
   /* Each row is its own grid, so the zone column is fixed (not minmax) to keep the settings-zone
@@ -264,10 +269,12 @@ const TypeRowRoot = styled.div<{
   border-radius: 8px;
   box-shadow: var(--shadow-1dp);
   border: 1px solid
-    ${props =>
-      props.$selected
+    ${props => {
+      if (props.$invalid) return 'var(--theme-error)'
+      return props.$selected
         ? 'color-mix(in srgb, var(--theme-primary) 60%, transparent)'
-        : 'transparent'};
+        : 'transparent'
+    }};
   cursor: ${props => (props.$searching || props.$disabled ? 'default' : 'pointer')};
   user-select: none;
   transition:
@@ -382,9 +389,9 @@ const RowDesc = styled.span`
 // by the settings zone's own left edge, so it exists at every layout size.
 const StatsBlock = styled.div`
   display: grid;
-  grid-template-columns: 100px 60px 72px;
+  grid-template-columns: 108px 60px 72px;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 12px 0 4px;
   border-left: 1px solid color-mix(in srgb, var(--theme-on-surface) 8%, transparent);
 
   @container find-match-panel (max-width: 862px) {
@@ -401,6 +408,7 @@ const StatsBlock = styled.div`
 `
 
 const StatCell = styled.div`
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -456,6 +464,7 @@ const StatRankRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   min-height: 28px;
 `
 
@@ -474,6 +483,7 @@ const SmallDivisionIcon = styled(DivisionIcon)`
 const StatRankLabel = styled.span`
   ${labelMedium};
   ${singleLine};
+  min-width: 0;
   color: var(--color-grey-blue95);
 `
 
@@ -523,7 +533,7 @@ const UnavailableCountdown = styled.span`
 
 // Summary content inside the settings zone. Pointer events stay off so hovering/clicking the
 // race and map info reads as interacting with the zone itself.
-const SummaryBlock = styled.div`
+const SummaryBlock = styled.span`
   ${bodySmall};
   flex: 1;
   display: flex;
@@ -614,7 +624,6 @@ const SettingsZone = styled.div<{ $disabled: boolean }>`
   cursor: ${props => (props.$disabled ? 'default' : 'pointer')};
   transition: border-color 150ms ease;
 
-  /* The hover wash comes from the Ripple inside; this just tints it (and the press ripple). */
   --sb-ripple-color: var(--theme-amber);
 
   ${props =>
@@ -633,29 +642,26 @@ const SettingsZone = styled.div<{ $disabled: boolean }>`
   }
 `
 
-const GearButton = styled.button`
+const GearButton = styled.button<{ $invalid: boolean }>`
   position: relative;
   width: 40px;
   height: 40px;
   flex-shrink: 0;
   border-radius: 8px;
-  border: 1px solid var(--theme-outline);
-  background: transparent;
-  color: var(--theme-on-surface-variant);
+  border: none;
+  background: ${props => (props.$invalid ? 'var(--theme-error)' : 'var(--theme-primary)')};
+  color: ${props => (props.$invalid ? 'var(--color-grey10)' : 'var(--theme-on-primary)')};
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition:
     background 150ms ease,
-    border-color 150ms ease,
     color 150ms ease;
 
-  /* Highlight when hovering anywhere in the settings zone, not just the button itself. */
-  ${SettingsZone}:hover &:not(:disabled) {
-    color: var(--theme-amber);
-    border-color: color-mix(in srgb, var(--theme-amber) 50%, transparent);
-    background: color-mix(in srgb, var(--theme-amber) 8%, transparent);
+  &:focus-visible {
+    outline: 2px solid var(--theme-amber);
+    outline-offset: 2px;
   }
 
   &:disabled {
@@ -667,6 +673,16 @@ const GearButton = styled.button`
     width: 36px;
     height: 36px;
   }
+`
+
+const SettingsError = styled.span`
+  ${bodySmall};
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--theme-error);
 `
 
 // ─── Stats block sub-component ────────────────────────────────────────────────
@@ -702,7 +718,7 @@ export function ModeStats({ stats, t }: ModeStatsProps) {
             —
           </StatUnrankedValue>
         ) : (
-          <StatValue>{stats.mmr!.toLocaleString(locale)}</StatValue>
+          <StatValue>{stats.mmr!.toLocaleString(locale, { useGrouping: false })}</StatValue>
         )}
       </StatCell>
 
@@ -788,7 +804,7 @@ function UnavailableInfo({ nextStartDate, nextEndDate }: UnavailableInfoProps) {
 // ─── Summary block sub-component ─────────────────────────────────────────────
 
 export interface RowSummaryState {
-  race: RaceChar
+  race: RaceChar | null
   useAlternateRace: boolean
   alternateRace: AssignedRaceChar
   mapSelectionCount: number
@@ -807,7 +823,15 @@ export function ModeSummary({ summaryState }: ModeSummaryProps) {
   return (
     <SummaryBlock>
       <SummaryRaceRow>
-        <StyledRaceIcon race={summaryState.race} applyRaceColor={true} />
+        {summaryState.race ? (
+          <StyledRaceIcon
+            race={summaryState.race}
+            applyRaceColor={true}
+            ariaLabel={raceCharToLabel(summaryState.race, t)}
+          />
+        ) : (
+          <span>{t('matchmaking.findMatch.chooseRace', 'Choose race')}</span>
+        )}
         {summaryState.useAlternateRace && summaryState.race !== 'r' ? (
           <>
             <MirrorArrow>→</MirrorArrow>
@@ -879,6 +903,8 @@ interface TypeRowProps {
   nextEndDate?: Date
   stats: RowStats
   summaryState: RowSummaryState
+  error?: MatchmakingPreferencesError
+  settingsButtonRef?: React.Ref<HTMLButtonElement>
   t: ReturnType<typeof useTranslation>['t']
   onToggle: () => void
   onOpenSettings: () => void
@@ -894,6 +920,8 @@ export function TypeRow({
   nextEndDate,
   stats,
   summaryState,
+  error,
+  settingsButtonRef,
   t,
   onToggle,
   onOpenSettings,
@@ -901,7 +929,20 @@ export function TypeRow({
   const faded = isSearching && !selected
   const pulsing = isSearching && selected
   const isDisabled = !isEnabled
+  const errorId = useId()
   const settingsLabel = t('matchmaking.findMatch.settingsTitle', 'Settings — {{label}}', { label })
+  let errorText: string | undefined
+  switch (error) {
+    case 'race':
+      errorText = t('matchmaking.findMatch.errors.chooseRace', 'Choose a race to continue')
+      break
+    case 'maps':
+      errorText = t('matchmaking.findMatch.errors.chooseMaps', 'Select at least one map')
+      break
+    case 'loading':
+      errorText = t('matchmaking.findMatch.errors.settingsLoading', 'Settings are still loading')
+      break
+  }
 
   const [zoneProps, zoneRippleRef] = useButtonState({
     disabled: isSearching,
@@ -917,13 +958,19 @@ export function TypeRow({
       $faded={faded}
       $searching={isSearching}
       $disabled={isDisabled}
+      $invalid={!!error}
       onClick={isDisabled || isSearching ? undefined : onToggle}>
       {isDisabled ? (
         <DisabledCheckPlaceholder>
           <MaterialIcon icon='block' size={24} />
         </DisabledCheckPlaceholder>
       ) : (
-        <RowCheckBox checked={selected} onChange={() => {}} $pulsing={pulsing} />
+        <RowCheckBox
+          checked={selected}
+          onChange={() => {}}
+          inputProps={{ 'aria-label': label }}
+          $pulsing={pulsing}
+        />
       )}
 
       <RowTitle>
@@ -937,10 +984,22 @@ export function TypeRow({
         <>
           <ModeStats stats={stats} t={t} />
           <SettingsZone $disabled={isSearching} {...zoneProps}>
-            <ModeSummary summaryState={summaryState} />
+            {errorText ? (
+              <SettingsError id={errorId}>
+                <MaterialIcon icon='error' size={16} />
+                {errorText}
+              </SettingsError>
+            ) : (
+              <ModeSummary summaryState={summaryState} />
+            )}
             <Tooltip text={settingsLabel} position='top' tabIndex={-1}>
               <GearButton
+                ref={settingsButtonRef}
+                type='button'
+                $invalid={!!error}
                 aria-label={settingsLabel}
+                aria-invalid={!!error}
+                aria-describedby={error ? errorId : undefined}
                 disabled={isSearching}
                 onClick={e => {
                   e.stopPropagation()
@@ -1156,7 +1215,7 @@ const QueueActions = styled.div`
 export interface QueueChipData {
   type: string
   label: string
-  race: RaceChar
+  race: RaceChar | null
 }
 
 interface QueueBarProps {
@@ -1166,6 +1225,7 @@ interface QueueBarProps {
   elapsedSecs: number
   isSubmitting: boolean
   disabled: boolean
+  validationError?: string
   onFindMatch: () => void
   onCancel: () => void
 }
@@ -1177,12 +1237,19 @@ export function QueueBar({
   elapsedSecs,
   isSubmitting,
   disabled,
+  validationError,
   onFindMatch,
   onCancel,
 }: QueueBarProps) {
   const { t } = useTranslation()
   const mm = String(Math.floor(elapsedSecs / 60)).padStart(2, '0')
   const ss = String(elapsedSecs % 60).padStart(2, '0')
+  let idleSummary = t('matchmaking.findMatch.readyToQueue', 'Ready to queue')
+  if (isSubmitting) {
+    idleSummary = t('matchmaking.findMatch.joiningQueue', 'Joining the queue…')
+  } else if (selectedChips.some(chip => !chip.race)) {
+    idleSummary = t('matchmaking.findMatch.reviewSettings', 'Choose your race before searching')
+  }
 
   let summaryContent: React.ReactNode
   if (isSearching) {
@@ -1211,15 +1278,18 @@ export function QueueBar({
   } else {
     summaryContent = (
       <>
-        <QueueSummaryHead>
-          {isSubmitting
-            ? t('matchmaking.findMatch.joiningQueue', 'Joining the queue…')
-            : t('matchmaking.findMatch.readyToQueue', 'Ready to queue')}
-        </QueueSummaryHead>
+        {validationError ? (
+          <SettingsError role='alert'>
+            <MaterialIcon icon='error' size={18} />
+            {validationError}
+          </SettingsError>
+        ) : (
+          <QueueSummaryHead>{idleSummary}</QueueSummaryHead>
+        )}
         <QueueChips>
           {selectedChips.map(({ type, label, race }) => (
             <QueueChip key={type}>
-              <ChipRaceIcon race={race} />
+              {race ? <ChipRaceIcon race={race} /> : null}
               {label}
             </QueueChip>
           ))}
@@ -1291,6 +1361,8 @@ export function FindMatch() {
   const setSessionSelection = useSetAtom(findMatchSelectionAtom)
   const [drawerType, setDrawerType] = useState<MatchmakingType | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasAttemptedQueue, setHasAttemptedQueue] = useState(false)
+  const settingsButtons = useRef(new Map<MatchmakingType, HTMLButtonElement>())
   const [elapsedSecs, setElapsedSecs] = useState(0)
 
   // ─── Effects ────────────────────────────────────────────────────────────────
@@ -1384,13 +1456,13 @@ export function FindMatch() {
     // whenever the page (re)fetches the pool — e.g. each time the user opens the Play screen.
     const poolChanged = !!prefs && !!mapPool && prefs.mapPoolId !== mapPool.id
 
-    let race: RaceChar = 'r'
+    let race: RaceChar | null = null
     let useAlternateRace = false
     let alternateRace: AssignedRaceChar = 'z'
     let mapSelectionCount = 0
 
     if (prefs) {
-      race = prefs.race ?? 'r'
+      race = prefs.race
       // Only count selections that are still in the current pool, so stale preferences (from a
       // previous pool) can't produce counts that exceed the limit shown next to them.
       const mapSelections = prefs.mapSelections ?? []
@@ -1399,6 +1471,7 @@ export function FindMatch() {
         : mapSelections.length
       if (
         (type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
+        race &&
         race !== 'r'
       ) {
         const data1v1 = prefs.data as {
@@ -1422,8 +1495,19 @@ export function FindMatch() {
     }
   }
 
-  const getRaceForType = (type: MatchmakingType): RaceChar =>
-    matchmakingPreferences.get(type)?.preferences?.race ?? 'r'
+  const getRaceForType = (type: MatchmakingType): RaceChar | null =>
+    matchmakingPreferences.get(type)?.preferences?.race ?? null
+
+  const validationErrors = new Map<MatchmakingType, MatchmakingPreferencesError>()
+  if (!isSearching) {
+    for (const type of effectiveSelectedTypes) {
+      const error = getMatchmakingPreferencesError(
+        matchmakingPreferences.get(type)?.preferences,
+        mapPools.get(type),
+      )
+      if (error) validationErrors.set(type, error)
+    }
+  }
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -1440,33 +1524,50 @@ export function FindMatch() {
     setDrawerType(type)
   }
 
-  const handleFindMatch = healthChecked(() => {
-    if (inLobby || isSubmitting || effectiveSelectedTypes.size === 0) return
+  const handleFindMatch = () => {
+    if (
+      isSearching ||
+      drawerType !== null ||
+      inLobby ||
+      isSubmitting ||
+      !effectiveSelectedTypes.size
+    ) {
+      return
+    }
+
+    setHasAttemptedQueue(true)
+    if (validationErrors.size) {
+      const firstInvalidType = REAL_MODES.find(mode => validationErrors.has(mode.type))?.type
+      const button = firstInvalidType ? settingsButtons.current.get(firstInvalidType) : undefined
+      button?.focus({ preventScroll: true })
+      button?.scrollIntoView({ block: 'nearest' })
+      return
+    }
 
     const allPrefs: MatchmakingPreferences[] = []
     for (const type of effectiveSelectedTypes) {
       const prefs = matchmakingPreferences.get(type)?.preferences
-      if (!prefs) {
-        // The preferences subscription seeds defaults for every type on connect, so this is
-        // effectively unreachable past app startup; bail rather than silently queueing a subset.
+      if (!prefs?.race) {
         return
       }
       allPrefs.push(prefs as MatchmakingPreferences)
     }
     if (allPrefs.length === 0) return
 
-    setIsSubmitting(true)
-    dispatch(
-      findMatch(allPrefs, {
-        onSuccess: () => {
-          setIsSubmitting(false)
-        },
-        onError: () => {
-          setIsSubmitting(false)
-        },
-      }),
-    )
-  })
+    healthChecked(() => {
+      setIsSubmitting(true)
+      dispatch(
+        findMatch(allPrefs, {
+          onSuccess: () => {
+            setIsSubmitting(false)
+          },
+          onError: () => {
+            setIsSubmitting(false)
+          },
+        }),
+      )
+    })()
+  }
 
   const handleCancel = () => {
     dispatch(
@@ -1479,6 +1580,13 @@ export function FindMatch() {
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
+      if (
+        drawerType !== null ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest('button, input, select, textarea, a, [contenteditable="true"]'))
+      ) {
+        return false
+      }
       if (event.code === ENTER || event.code === ENTER_NUMPAD) {
         if (!isSearching && effectiveSelectedTypes.size > 0 && !inLobby) {
           handleFindMatch()
@@ -1611,6 +1719,11 @@ export function FindMatch() {
                         nextEndDate={status?.nextEndDate}
                         stats={getStatsForType(mode.type)}
                         summaryState={getSummaryStateForType(mode.type)}
+                        error={hasAttemptedQueue ? validationErrors.get(mode.type) : undefined}
+                        settingsButtonRef={button => {
+                          if (button) settingsButtons.current.set(mode.type, button)
+                          else settingsButtons.current.delete(mode.type)
+                        }}
                         t={t}
                         onToggle={() => handleToggle(mode.type)}
                         onOpenSettings={() => handleOpenSettings(mode.type)}
@@ -1630,6 +1743,14 @@ export function FindMatch() {
           elapsedSecs={elapsedSecs}
           isSubmitting={isSubmitting}
           disabled={findMatchDisabled}
+          validationError={
+            hasAttemptedQueue && validationErrors.size
+              ? t(
+                  'matchmaking.findMatch.errors.completeSettings',
+                  'Complete the highlighted settings to find a match.',
+                )
+              : undefined
+          }
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
         />

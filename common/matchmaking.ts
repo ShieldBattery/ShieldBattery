@@ -990,8 +990,14 @@ export type MatchmakingPreferences =
   | MatchmakingPreferences3v3Hunters
   | MatchmakingPreferences3v3Fastest
 
+/** Saved or synthesized preferences may not have a race until the player selects one. */
+type DraftPreference<T> = T extends MatchmakingPreferences
+  ? Omit<T, 'race'> & { race: T['race'] | null }
+  : never
+export type MatchmakingPreferencesDraft = DraftPreference<MatchmakingPreferences>
+
 export type PartialMatchmakingPreferences = SetRequired<
-  Partial<MatchmakingPreferences>,
+  Partial<MatchmakingPreferencesDraft>,
   'matchmakingType' | 'userId'
 >
 
@@ -1027,7 +1033,7 @@ export function defaultPreferences<M extends MatchmakingType>(
 }
 
 export interface GetPreferencesResponse {
-  preferences: MatchmakingPreferences
+  preferences: MatchmakingPreferencesDraft
   currentMapPoolId: number
   mapInfos: MapInfoJson[]
   /**

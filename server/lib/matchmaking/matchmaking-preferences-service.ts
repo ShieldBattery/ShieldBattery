@@ -6,6 +6,7 @@ import {
   getMatchmakingModeInfo,
   GetPreferencesResponse,
   MatchmakingPreferences,
+  MatchmakingPreferencesDraft,
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
@@ -41,8 +42,11 @@ function buildDefaultPreferences(
   matchmakingType: MatchmakingType,
   userId: SbUserId,
   currentMapPool: MatchmakingMapPool | null,
-): MatchmakingPreferences {
-  const prefs = defaultPreferences(matchmakingType, userId, currentMapPool?.id ?? 1)
+): MatchmakingPreferencesDraft {
+  const prefs: MatchmakingPreferencesDraft = {
+    ...defaultPreferences(matchmakingType, userId, currentMapPool?.id ?? 1),
+    race: null,
+  }
   if (currentMapPool && getMatchmakingModeInfo(matchmakingType).mapSelectionStyle === 'pick') {
     prefs.mapSelections = [...currentMapPool.maps]
   }
@@ -67,7 +71,7 @@ function buildFallbackResponse(
 
 /** A type's preferences, resolved against its map pool but not yet joined with map info. */
 interface ResolvedPreferences {
-  preferences: MatchmakingPreferences
+  preferences: MatchmakingPreferencesDraft
   selected: boolean
   currentMapPoolId: number
   /** The selected maps that are in the current pool, in the order they'll be sent to the client. */

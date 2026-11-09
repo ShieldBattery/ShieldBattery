@@ -1,9 +1,11 @@
+import { Immutable } from 'immer'
 import {
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingSeasonJson,
   MatchmakingStatusJson,
   MatchmakingType,
+  PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
 import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -13,6 +15,7 @@ export type MatchmakingActions =
   | GetCurrentMapPoolSuccess
   | GetCurrentMapPoolFailure
   | InitPreferences
+  | UpdatePreferencesBegin
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
   | MatchmakingStatusUpdate
@@ -56,11 +59,17 @@ export interface UpdatePreferencesSuccess {
   type: '@matchmaking/updatePreferences'
   payload: GetPreferencesResponse
   error?: false
-  meta: { type: MatchmakingType }
+  meta: { type: MatchmakingType; requestId: number }
 }
 
 export interface UpdatePreferencesFailure extends BaseFetchFailure<'@matchmaking/updatePreferences'> {
-  meta: { type: MatchmakingType }
+  meta: { type: MatchmakingType; requestId: number }
+}
+
+export interface UpdatePreferencesBegin {
+  type: '@matchmaking/updatePreferencesBegin'
+  payload: Immutable<PartialMatchmakingPreferences>
+  meta: { type: MatchmakingType; requestId: number }
 }
 
 /** The status (enabled/disabled) of one or more types of matchmaking has changed. */
