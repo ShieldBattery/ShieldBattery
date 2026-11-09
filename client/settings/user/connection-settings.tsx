@@ -26,6 +26,7 @@ import {
   TwitchOAuthResult,
 } from '../../twitch/twitch-oauth'
 import { mergeAccountSettings } from '../action-creators'
+import { SettingsSectionHeader } from '../settings-content'
 
 // graphcache skips its "no cache key" warning for any type whose name ends in `Connection`,
 // treating it as Relay pagination plumbing. `TwitchConnection` is a real entity that trips that
@@ -298,6 +299,9 @@ export function ConnectionSettings() {
   return (
     <Root>
       <Section>
+        <SettingsSectionHeader>
+          {t('settings.user.connections.linkedAccounts', 'Linked accounts')}
+        </SettingsSectionHeader>
         <SectionDescription>
           {t(
             'settings.user.connections.description',
@@ -326,16 +330,24 @@ export function ConnectionSettings() {
   )
 }
 
+const DiscordHeader = styled(SettingsSectionHeader)`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
 const StyledDiscordIcon = styled(DiscordIcon)`
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  color: #5865f2;
 `
 
 const ServiceNote = styled.div`
   ${bodyMedium};
+  /* Lines up with the checkbox label rather than the box. */
+  padding-left: 30px;
   color: var(--theme-on-surface-variant);
+  text-wrap: pretty;
 `
 
 /**
@@ -349,42 +361,31 @@ function DiscordActivitySection() {
 
   return (
     <Section>
-      <SectionDescription>
-        {t(
-          'settings.user.connections.discord.description',
-          'Show what you’re doing on ShieldBattery on your Discord profile.',
-        )}
-      </SectionDescription>
-
-      <ServiceCard>
+      <DiscordHeader>
         <StyledDiscordIcon />
-        <ServiceInfo>
-          <ServiceName>{t('settings.user.connections.discord.name', 'Discord')}</ServiceName>
-          <CheckBox
-            checked={sharing === 'on'}
-            onChange={event =>
-              dispatch(
-                mergeAccountSettings(
-                  { shareDiscordActivity: event.target.checked ? 'on' : 'off' },
-                  { onSuccess: () => {}, onError: () => {} },
-                ),
-              )
-            }
-            name='shareDiscordActivity'
-            label={t(
-              'settings.user.connections.discord.showActivity',
-              'Show my activity on Discord',
-            )}
-          />
-          <ServiceNote>
-            {t(
-              'settings.user.connections.discord.note',
-              'Shows your lobby, game or replay on the Discord account signed in to the Discord ' +
-                'app on the same computer as the ShieldBattery app.',
-            )}
-          </ServiceNote>
-        </ServiceInfo>
-      </ServiceCard>
+        {t('settings.user.connections.discord.name', 'Discord')}
+      </DiscordHeader>
+
+      <CheckBox
+        checked={sharing === 'on'}
+        onChange={event =>
+          dispatch(
+            mergeAccountSettings(
+              { shareDiscordActivity: event.target.checked ? 'on' : 'off' },
+              { onSuccess: () => {}, onError: () => {} },
+            ),
+          )
+        }
+        name='shareDiscordActivity'
+        label={t('settings.user.connections.discord.showActivity', 'Show my activity on Discord')}
+      />
+      <ServiceNote>
+        {t(
+          'settings.user.connections.discord.note',
+          'Shows your current lobby, game or replay. Needs the Discord app running on the same ' +
+            'computer as ShieldBattery.',
+        )}
+      </ServiceNote>
     </Section>
   )
 }

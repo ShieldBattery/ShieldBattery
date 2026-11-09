@@ -3353,11 +3353,11 @@
       "connections": {
         "description": "Link external accounts to your ShieldBattery profile.",
         "discord": {
-          "description": "Show what you’re doing on ShieldBattery on your Discord profile.",
           "name": "Discord",
-          "note": "Shows your lobby, game or replay on the Discord account signed in to the Discord app on the same computer as the ShieldBattery app.",
+          "note": "Shows your current lobby, game or replay. Needs the Discord app running on the same computer as ShieldBattery.",
           "showActivity": "Show my activity on Discord"
         },
+        "linkedAccounts": "Linked accounts",
         "title": "Connections",
         "twitch": {
           "connect": "Connect",

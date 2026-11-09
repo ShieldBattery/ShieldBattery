@@ -3404,11 +3404,11 @@
       "connections": {
         "description": "Vincula cuentas externas a tu perfil de ShieldBattery.",
         "discord": {
-          "description": "Muestra lo que haces en ShieldBattery en tu perfil de Discord.",
           "name": "Discord",
-          "note": "Muestra tu lobby, partida o replay en la cuenta de Discord con la que iniciaste sesión en la app de Discord del mismo equipo que la app de ShieldBattery.",
+          "note": "Muestra tu lobby, partida o replay actual. Necesitas la app de Discord abierta en el mismo equipo que ShieldBattery.",
           "showActivity": "Mostrar mi actividad en Discord"
         },
+        "linkedAccounts": "Cuentas vinculadas",
         "title": "Conexiones",
         "twitch": {
           "connect": "Conectar",

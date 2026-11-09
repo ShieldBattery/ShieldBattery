@@ -3302,11 +3302,11 @@
       "connections": {
         "description": "외부 계정을 ShieldBattery 프로필에 연동합니다.",
         "discord": {
-          "description": "ShieldBattery에서 하고 있는 활동을 Discord 프로필에 표시합니다.",
           "name": "Discord",
-          "note": "ShieldBattery 앱과 같은 컴퓨터의 Discord 앱에 로그인된 Discord 계정에 로비, 게임, 리플레이를 표시합니다.",
+          "note": "현재 로비, 게임 또는 리플레이를 표시합니다. ShieldBattery와 같은 컴퓨터에서 Discord 앱이 실행 중이어야 합니다.",
           "showActivity": "Discord에 내 활동 표시"
         },
+        "linkedAccounts": "연동된 계정",
         "title": "연동",
         "twitch": {
           "connect": "연동하기",

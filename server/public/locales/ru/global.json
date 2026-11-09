@@ -3455,11 +3455,11 @@
       "connections": {
         "description": "Привяжите внешние аккаунты к своему профилю ShieldBattery.",
         "discord": {
-          "description": "Показывайте в профиле Discord, чем Вы заняты в ShieldBattery.",
           "name": "Discord",
-          "note": "Показывает Ваше лобби, игру или реплей в аккаунте Discord, в который выполнен вход в приложении Discord на том же компьютере, что и приложение ShieldBattery.",
+          "note": "Показывает Ваше текущее лобби, игру или реплей. Нужно запущенное приложение Discord на том же компьютере, что и ShieldBattery.",
           "showActivity": "Показывать мою активность в Discord"
         },
+        "linkedAccounts": "Привязанные аккаунты",
         "title": "Подключения",
         "twitch": {
           "connect": "Подключить",

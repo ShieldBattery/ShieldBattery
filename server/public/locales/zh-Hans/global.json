@@ -3302,11 +3302,11 @@
       "connections": {
         "description": "将外部账号关联到您的 ShieldBattery 个人资料。",
         "discord": {
-          "description": "在您的 Discord 个人资料上显示您在 ShieldBattery 中的活动。",
           "name": "Discord",
-          "note": "在与 ShieldBattery 客户端同一台电脑上的 Discord 应用所登录的 Discord 账号上，显示您的房间、游戏或录像。",
+          "note": "显示您当前的房间、游戏或录像。需要 Discord 应用在与 ShieldBattery 同一台电脑上运行。",
           "showActivity": "在 Discord 上显示我的活动"
         },
+        "linkedAccounts": "已关联账号",
         "title": "关联账号",
         "twitch": {
           "connect": "关联",
