@@ -1,4 +1,4 @@
-//! Comparing two maps, e.g. two versions of one map: what changed in their size, slots, triggers,
+//! Comparing two maps, e.g. two files of one map: what changed in their size, slots, triggers,
 //! start locations, bases and terrain. Computed from the stored analysis, without reading files.
 
 use std::collections::BTreeSet;
@@ -11,10 +11,9 @@ use sqlx::PgPool;
 use sqlx::types::Json;
 
 use crate::maps::SbMapId;
-use crate::maps::catalog::SbMap;
-use crate::maps::families::graphql::load_sb_map;
-use crate::maps::families::terrain_similarity;
+use crate::maps::catalog::{SbMap, load_sb_map};
 use crate::maps::parse::{MapBase, MapStartLocation};
+use crate::maps::similarity::terrain_similarity;
 
 /// How far apart (in pixels) two bases' town hall positions may be to count as the same base.
 const BASE_MATCH_DISTANCE: f64 = 2.0 * 32.0;

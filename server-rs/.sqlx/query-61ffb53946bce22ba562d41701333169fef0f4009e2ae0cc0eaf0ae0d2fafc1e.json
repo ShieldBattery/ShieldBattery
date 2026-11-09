@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT family_id, games_7d, games_28d, games_90d, games_total, players_90d,\n                    median_length_90d, last_played_at, trending_score\n                FROM map_family_stats\n                WHERE family_id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "games_7d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "games_7d"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "games_28d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "games_28d"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "games_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "games_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "games_total",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "games_total"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "players_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "players_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "median_length_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "median_length_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "last_played_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "last_played_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "trending_score",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "trending_score"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "61ffb53946bce22ba562d41701333169fef0f4009e2ae0cc0eaf0ae0d2fafc1e"
+}

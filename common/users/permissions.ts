@@ -26,5 +26,4 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   manageRestrictedNames: false,
   manageSignupCodes: false,
   manageLiveStreams: false,
-  reviewMapFamilies: false,
 }

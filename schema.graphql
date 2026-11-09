@@ -553,17 +553,6 @@ type MapAnalysis {
 	"""
 	umsActionKinds: [String!]!
 	"""
-	Who the map's description says made it, normalized for comparison (lowercase, letters and
-	digits only). A hint for sorting families, never shown as a credit. Only available to users
-	who can manage maps or review map families.
-	"""
-	makers: [String!]!
-	"""
-	Who the map's description credits as the original, normalized like `makers`. Only
-	available to users who can manage maps or review map families.
-	"""
-	credited: [String!]!
-	"""
 	The resource bases. Null if they couldn't be found.
 	"""
 	bases: [MapBase!]
@@ -677,60 +666,139 @@ type MapComparison {
 }
 
 """
-A map's family: the versions, variants, translations and forks of one map.
+A map as players know it ("Fighting Spirit"), made of one or more map files. Every file is in
+exactly one family. Any family can be viewed by anyone who has its id.
 """
 type MapFamily {
-	id: String!
+	id: UUID!
 	"""
-	The family's id, for staff edits.
+	The map's name: its current file's name.
 	"""
-	familyId: UUID!
+	name: String!
 	"""
-	The family's files: the listed ones, or every one for users who can manage maps. Each
-	member's parent is its nearest ancestor in this list.
+	Whether any of the map's files is listed.
 	"""
-	members: [MapFamilyMember!]!
+	listed: Boolean!
 	"""
-	A staff-only working label for the families queue. Only available to users who can manage
-	maps.
+	The file players get when they pick this map: staff's pick while it's eligible, otherwise
+	the most played (listed files before unlisted ones), then the newest. A listed map's
+	current file is always listed.
 	"""
-	label: String
+	current: SbMap!
+	"""
+	The file staff picked as the map's default, even while it isn't eligible (it's unlisted
+	while another file is listed). Null when the default is derived, or when the viewer can't
+	see the picked file (see `files`).
+	"""
+	defaultMap: SbMap
+	"""
+	When staff picked the default. Null when the default is derived.
+	"""
+	defaultSetAt: DateTime
+	"""
+	The user who picked the default. Only available to users who can manage maps.
+	"""
+	defaultSetBy: SbUser
+	"""
+	The map's files that the viewer can see, the current file first, then the most played, then
+	the newest. Users who can manage maps see every file; everyone else sees the listed files,
+	the current file, and the unlisted files in their own library.
+	"""
+	files: [SbMap!]!
+	"""
+	Play statistics summed over every file of the map, or null if none has been played.
+	Recomputed hourly; until then a map's stats are its current file's.
+	"""
+	stats: MapStats
+	"""
+	The games played on any of the map's files in each of the last `weeks` weeks (at most 104),
+	oldest first. Weeks start on Monday (UTC) and end with the current week, which is still in
+	progress. Weeks without games are included.
+	"""
+	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
 }
 
 """
-A change a person made to families, suggestions or family reports.
+A family's default pick before and after a change.
+"""
+type MapFamilyDefaultChange {
+	id: String!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	familyId: UUID!
+	"""
+	Null when the default was derived.
+	"""
+	before: SbMap
+	"""
+	Null when the default is derived.
+	"""
+	after: SbMap
+}
+
+"""
+The family a file was in before and after a change.
+"""
+type MapFamilyFileChange {
+	id: String!
+	mapId: SbMapId!
+	map: SbMap!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	before: UUID!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	after: UUID!
+}
+
+type MapFamilyFileMove {
+	id: String!
+	file: SbMap!
+	"""
+	The map the file is in now.
+	"""
+	family: MapFamily!
+	"""
+	The map the file left. Null when it had no other files, so it was merged into `family`.
+	"""
+	previousFamily: MapFamily
+}
+
+"""
+A change staff made to families or family reports.
 """
 type MapFamilyHistory {
 	id: String!
 	kind: MapFamilyHistoryKind!
 	actor: SbUser
 	"""
-	The role the actor acted in.
+	The family acted on, as its id was when the change was made: where a file moved or a family
+	was merged to, the new family of a split, the family whose default changed, or the family a
+	report is about.
 	"""
-	source: MapLinkSource!
+	familyId: UUID!
 	"""
-	The map the change was about. Null for a label change.
+	The family a file left, the family merged away, or the other family of a `SAME_MAP`
+	report, as its id was when the change was made.
+	"""
+	otherFamilyId: UUID
+	"""
+	The file that moved, was split out or was made the default, or the file of a `WRONG_MAP`
+	report.
 	"""
 	map: SbMap
 	"""
-	The parent of a link, or the other map of a suggestion or report.
+	Every file that changed families, including every file of a merged family.
 	"""
-	otherMap: SbMap
+	fileChanges: [MapFamilyFileChange!]!
 	"""
-	The family of a label change.
+	Every default pick that changed, including the pick of a merged family and a pick cleared
+	because its file left the family.
 	"""
-	familyId: UUID
-	"""
-	Every file whose place changed, including files that moved along with the map.
-	"""
-	memberChanges: [MapFamilyMemberChange!]!
-	"""
-	Every suggestion whose status changed, including ones a link accepted or a removal
-	rejected.
-	"""
-	suggestionChanges: [MapFamilySuggestionChange!]!
-	labelBefore: String
-	labelAfter: String
+	defaultChanges: [MapFamilyDefaultChange!]!
 	reportId: UUID
 	reportStatusBefore: MapFamilyReportStatus
 	reportStatusAfter: MapFamilyReportStatus
@@ -742,25 +810,25 @@ What kind of change a history entry records.
 """
 enum MapFamilyHistoryKind {
 	"""
-	A map was placed under another map.
+	A file was moved to another family.
 	"""
-	LINK
+	MOVE_FILE
 	"""
-	A map was taken out of its family.
+	A family was merged into another one.
 	"""
-	REMOVE
+	MERGE
 	"""
-	A member's version label or pinned current version changed.
+	A file was split out into a family of its own.
 	"""
-	UPDATE_MEMBER
+	SPLIT
 	"""
-	A family's staff label changed.
+	Staff picked a family's default file.
 	"""
-	SET_LABEL
+	SET_DEFAULT
 	"""
-	A suggestion was rejected, marked terrain only, or reopened.
+	Staff cleared their pick of a family's default file.
 	"""
-	DECIDE_SUGGESTION
+	CLEAR_DEFAULT
 	"""
 	A family report was resolved, dismissed or reopened.
 	"""
@@ -768,186 +836,40 @@ enum MapFamilyHistoryKind {
 }
 
 """
-Places a map under another map in a family.
+The map an id from a map page URL names, and the file it named, if it named one.
 """
-input MapFamilyLinkInput {
-	mapId: SbMapId!
-	parentId: SbMapId!
+type MapFamilyLookup {
 	"""
-	Any relation but `ROOT`.
+	The id that was looked up.
 	"""
-	relation: MapFamilyRelation!
+	id: UUID!
+	family: MapFamily!
 	"""
-	The member's version label. Left out, it keeps the member's label (or, for a map that
-	wasn't in a family, the version parsed from its file); null clears it.
+	The file the id named, when it was a file's id (or an old id of one) rather than a map's.
 	"""
-	versionLabel: String
+	file: SbMap
 }
 
 """
-A file's place in its family.
-"""
-type MapFamilyMember {
-	id: String!
-	mapId: SbMapId!
-	map: SbMap!
-	"""
-	The member's parent among the members the viewer can see. Null for the top of the tree.
-	"""
-	parentId: SbMapId
-	"""
-	How the member relates to its parent. A member shown under a parent in another line (because
-	the files between them aren't listed) is a fork of it.
-	"""
-	relation: MapFamilyRelation!
-	"""
-	The member's version, e.g. "1.75". Parsed from the file unless staff set it.
-	"""
-	versionLabel: String
-	"""
-	The current version of the member's line, a listed map. Null when the line has no listed
-	member and the viewer can't manage maps. Members of one line share it.
-	"""
-	lineCurrentId: SbMapId
-	"""
-	Whether the member is the current version of its line.
-	"""
-	isCurrent: Boolean!
-	"""
-	Whether staff pinned the member as its line's current version.
-	"""
-	pinnedCurrent: Boolean!
-	"""
-	Who placed the member. A place can only be changed by the same or a higher source.
-	"""
-	source: MapLinkSource!
-	linkedAt: DateTime!
-	"""
-	The user who placed the member, if a person did. Only available to users who can manage
-	maps.
-	"""
-	linkedBy: SbUser
-}
-
-"""
-How one file's place changed.
-"""
-type MapFamilyMemberChange {
-	id: String!
-	mapId: SbMapId!
-	map: SbMap!
-	"""
-	Null when the file wasn't in a family.
-	"""
-	before: MapFamilyMemberState
-	"""
-	Null when the file left its family.
-	"""
-	after: MapFamilyMemberState
-}
-
-"""
-A file's place in its family at one point in time.
-"""
-type MapFamilyMemberState {
-	id: String!
-	familyId: UUID!
-	parentId: SbMapId
-	parent: SbMap
-	relation: MapFamilyRelation!
-	versionLabel: String
-	pinnedCurrent: Boolean!
-	source: MapLinkSource!
-}
-
-"""
-A group of possibly related files for staff to sort.
-"""
-type MapFamilyProposal {
-	"""
-	Identifies the group by its smallest map id. Changes as the group changes.
-	"""
-	id: String!
-	"""
-	The files with open suggestions, the most played first.
-	"""
-	maps: [SbMap!]!
-	"""
-	The families those files are already in.
-	"""
-	families: [MapFamily!]!
-	"""
-	The open suggestions between the files.
-	"""
-	suggestions: [MapLinkSuggestion!]!
-	"""
-	A place for each file that isn't in a family yet, from the rules' proposals. Files the
-	proposals don't place are roots of their own trees.
-	"""
-	proposedLinks: [MapFamilyProposedLink!]!
-	"""
-	All-time games across the files.
-	"""
-	games: Int!
-}
-
-"""
-A proposed place for a file in the families queue.
-"""
-type MapFamilyProposedLink {
-	mapId: SbMapId!
-	"""
-	Null for a file proposed as the root of its tree.
-	"""
-	parentId: SbMapId
-	relation: MapFamilyRelation!
-	versionLabel: String
-	id: String!
-}
-
-"""
-How a file in a family relates to its parent.
-"""
-enum MapFamilyRelation {
-	"""
-	The family's first file. It has no parent.
-	"""
-	ROOT
-	"""
-	A newer version of its parent, which it supersedes.
-	"""
-	VERSION
-	"""
-	The same version as its parent with small changes (a tournament tag, an observer version, a
-	repack). It doesn't supersede its parent.
-	"""
-	VARIANT
-	"""
-	Its parent in another language.
-	"""
-	TRANSLATION
-	"""
-	Someone else's map based on its parent. It starts its own line, with its own current
-	version.
-	"""
-	FORK
-}
-
-"""
-A user's report that a map is in the wrong family, or is related to another map.
+A user's report that a file isn't part of its map, or that a map is the same as another one.
 """
 type MapFamilyReport {
 	id: UUID!
-	map: SbMap!
-	"""
-	The map the reporter says this one is related to. Only for `RELATED`.
-	"""
-	otherMap: SbMap
 	kind: MapFamilyReportKind!
 	"""
-	How the reporter says the map relates to the other map.
+	The map the report is about: the map the file was in when it was reported, or the map said
+	to be the same as `otherFamily`. If it has since been merged, the map it was merged into.
 	"""
-	suggestedRelation: MapFamilyRelation
+	family: MapFamily
+	"""
+	The file said not to be part of `family`. Only for `WRONG_MAP`.
+	"""
+	map: SbMap
+	"""
+	The map said to be the same as `family`. Only for `SAME_MAP`. If it has since been merged,
+	the map it was merged into.
+	"""
+	otherFamily: MapFamily
 	note: String
 	reportedAt: DateTime!
 	status: MapFamilyReportStatus!
@@ -963,34 +885,37 @@ type MapFamilyReport {
 }
 
 """
-A user's report about a map's family.
+A user's report about a map.
 """
 input MapFamilyReportInput {
-	mapId: SbMapId!
 	kind: MapFamilyReportKind!
 	"""
-	The map this one is related to. Required for `RELATED`, ignored otherwise.
+	The file that isn't part of its map. Required for `WRONG_MAP`, ignored otherwise.
 	"""
-	otherMapId: SbMapId
+	mapId: SbMapId
 	"""
-	How the map relates to the other map, e.g. `VERSION` when it's a newer version of it.
+	The map that is the same as `otherFamilyId`. Required for `SAME_MAP`, ignored otherwise.
 	"""
-	suggestedRelation: MapFamilyRelation
+	familyId: UUID
+	"""
+	The map that is the same as `familyId`. Required for `SAME_MAP`, ignored otherwise.
+	"""
+	otherFamilyId: UUID
 	note: String
 }
 
 """
-What a user is telling staff about a map's family.
+What a user is telling staff about a map.
 """
 enum MapFamilyReportKind {
 	"""
-	The map is in a family it doesn't belong to.
+	A file isn't part of the map it's in.
 	"""
-	WRONG_FAMILY
+	WRONG_MAP
 	"""
-	The map is related to another map it isn't linked with.
+	A map is the same as another map.
 	"""
-	RELATED
+	SAME_MAP
 }
 
 """
@@ -1009,17 +934,6 @@ enum MapFamilyReportStatus {
 	Staff found nothing to change.
 	"""
 	DISMISSED
-}
-
-"""
-How one suggestion's status changed.
-"""
-type MapFamilySuggestionChange {
-	id: String!
-	mapA: SbMapId!
-	mapB: SbMapId!
-	before: MapLinkSuggestionStatus!
-	after: MapLinkSuggestionStatus!
 }
 
 type MapFile {
@@ -1118,11 +1032,6 @@ input MapFilter {
 	Only official maps (`true`) or only maps that aren't official (`false`).
 	"""
 	official: Boolean
-	"""
-	List every version of a map, rather than one map per family line (its current version, or
-	the version that best matches the search). Only the listed maps are folded by line.
-	"""
-	allVersions: Boolean! = false
 }
 
 type MapForce {
@@ -1207,107 +1116,6 @@ type MapLibraryEdge {
 }
 
 """
-Who set a file's place in its family. A place can only be changed by the same or a higher
-source: moderators over reviewers over publishers over the detection rules.
-"""
-enum MapLinkSource {
-	"""
-	The detection rules, e.g. for files with the same scenario.
-	"""
-	RULE
-	"""
-	The user who published the map.
-	"""
-	PUBLISHER
-	"""
-	A trusted user outside staff who works the families queue for listed maps.
-	"""
-	REVIEWER
-	"""
-	Staff.
-	"""
-	MODERATOR
-}
-
-"""
-A pair of files detection found to be possibly related, with the rules' proposal and what
-became of it.
-"""
-type MapLinkSuggestion {
-	id: String!
-	mapA: SbMap!
-	mapB: SbMap!
-	"""
-	The share of the walkable terrain the files have in common, from 0 to 1. Null when they
-	were found by name and their dimensions differ.
-	"""
-	terrainSimilarity: Float
-	"""
-	Whether the files share a base name.
-	"""
-	nameMatch: Boolean!
-	"""
-	How the detection rules propose the files relate. Null when they had no proposal.
-	"""
-	proposedRelation: MapProposedRelation
-	"""
-	The older file of the pair, by the rules. For a version, it's the parent.
-	"""
-	olderMapId: SbMapId
-	"""
-	The rule that made the proposal.
-	"""
-	rule: String
-	status: MapLinkSuggestionStatus!
-	"""
-	The user who decided, null when the detection rules did or nobody has yet.
-	"""
-	decidedBy: SbUser
-	decidedAt: DateTime
-	createdAt: DateTime!
-}
-
-"""
-What staff can set a suggestion's status to. Accepting a suggestion is linking its files.
-"""
-enum MapLinkSuggestionDecision {
-	"""
-	Back to waiting for a decision.
-	"""
-	OPEN
-	"""
-	The files aren't related.
-	"""
-	REJECTED
-	"""
-	A UMS map built on the other map's terrain: related, but never in its family.
-	"""
-	TERRAIN_ONLY
-}
-
-"""
-The status of a detected pair of possibly related files.
-"""
-enum MapLinkSuggestionStatus {
-	"""
-	Waiting for staff.
-	"""
-	OPEN
-	"""
-	The files were linked.
-	"""
-	ACCEPTED
-	"""
-	The files aren't related.
-	"""
-	REJECTED
-	"""
-	A UMS map built on the other map's terrain: related, but never in its family.
-	"""
-	TERRAIN_ONLY
-}
-
-"""
 A matchmaking season and type with matchup results on a map.
 """
 type MapMatchupSeason {
@@ -1378,34 +1186,13 @@ type MapModeration {
 	delistedBy: SbUser
 }
 
-"""
-How the detection rules propose two files relate.
-"""
-enum MapProposedRelation {
+type MapSimilarFile {
+	id: String!
+	map: SbMap!
 	"""
-	The newer file is a newer version of the older one.
+	The share of the walkable terrain the files have in common, from 0.9 to 1.
 	"""
-	VERSION
-	"""
-	The files are the same version with small changes.
-	"""
-	VARIANT
-	"""
-	One file is the other in another language.
-	"""
-	TRANSLATION
-	"""
-	One file is someone else's map based on the other.
-	"""
-	FORK
-	"""
-	A UMS map built on the other map's terrain: related, but never in its family.
-	"""
-	TERRAIN_ONLY
-	"""
-	The files aren't related.
-	"""
-	UNRELATED
+	similarity: Float!
 }
 
 """
@@ -1530,34 +1317,6 @@ type MapStats {
 }
 
 """
-Where a file stands among the versions of its family line.
-"""
-enum MapVersionStatus {
-	"""
-	The current version of its line. A variant or translation is current when it stands in for
-	a version that isn't listed.
-	"""
-	CURRENT
-	"""
-	An older version of its line: the line's current version descends from it.
-	"""
-	SUPERSEDED
-	"""
-	A variant of another file in its line.
-	"""
-	VARIANT
-	"""
-	A translation of another file in its line.
-	"""
-	TRANSLATION
-	"""
-	Not in a family, or a version its line's current doesn't descend from (e.g. a newer file
-	that isn't listed while an older one is current).
-	"""
-	NONE
-}
-
-"""
 Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
 """
 scalar MapVisibility
@@ -1567,7 +1326,7 @@ The games played on a map in one week (starting Monday, UTC).
 """
 type MapWeeklyActivity {
 	"""
-	The map and week, unique across all weeks of all maps.
+	The map (or family) and week, unique across all weeks of all maps.
 	"""
 	id: String!
 	"""
@@ -1744,8 +1503,8 @@ type Mutation {
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
 	"""
-	Adds a map to the current user's favorites. Favoriting a map that is already a favorite
-	does nothing.
+	Adds the map (family) a file is in to the current user's favorites. Favoriting a map that is
+	already a favorite does nothing.
 	"""
 	mapAddFavorite(id: SbMapId!): SbMap!
 	"""
@@ -1754,61 +1513,48 @@ type Mutation {
 	"""
 	mapAddToLibrary(id: SbMapId!): SbMap!
 	"""
-	Removes a map from the current user's favorites. Removing a map that isn't a favorite does
-	nothing.
+	Removes the map (family) a file is in from the current user's favorites. Removing a map that
+	isn't a favorite does nothing.
 	"""
 	mapRemoveFavorite(id: SbMapId!): SbMap!
 	"""
-	Places maps in families, in order, each under its parent with its whole subtree. A parent
-	outside any family starts a new one; a map in another family moves out of it. Open
-	suggestions between maps that end up in one family are accepted. Only available to users who
-	can manage maps or review map families; reviewers can only link listed maps. Returns the
-	linked maps.
+	Moves a file to another map. A map left without files is merged into the other map: its id
+	keeps working as an alias, and its favorites move along. Only available to users who can
+	manage maps.
 	"""
-	mapFamilyLink(links: [MapFamilyLinkInput!]!): [SbMap!]!
+	mapFamilyMoveFile(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
 	"""
-	Takes a map out of its family. When it starts a line, its oldest version takes its place.
-	Only available to users who can manage maps or review map families; reviewers can only
-	remove listed maps.
+	Moves a file out of its map into a new map of its own. Only available to users who can
+	manage maps.
 	"""
-	mapFamilyRemove(mapId: SbMapId!): SbMap!
+	mapFamilySplitFile(fileId: SbMapId!): MapFamilyFileMove!
 	"""
-	Changes a member's version label (null clears it) and whether it's pinned as its line's
-	current version. Only listed maps can be pinned; pinning one unpins the rest of its line.
-	Only available to users who can manage maps or review map families; reviewers can only
-	change listed maps.
+	Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
+	alias of `intoFamilyId`, its favorites move along, and its default pick is dropped. Returns
+	the map merged into. Only available to users who can manage maps.
 	"""
-	mapFamilyUpdateMember(mapId: SbMapId!, versionLabel: String, pinnedCurrent: Boolean): SbMap!
+	mapFamilyMerge(familyId: UUID!, intoFamilyId: UUID!): MapFamily!
 	"""
-	Sets a family's staff-only working label. Only available to users who can manage maps.
+	Makes a file its map's default, the file players get. Only a listed file can be the default
+	of a map with listed files. Returns the file's map. Only available to users who can manage
+	maps.
 	"""
-	mapFamilySetLabel(familyId: UUID!, label: String): MapFamily!
+	mapFamilySetDefault(fileId: SbMapId!): MapFamily!
 	"""
-	Rejects a suggestion, marks it as a UMS map on the other's terrain, or reopens it. Accepting
-	one is linking its maps with `mapFamilyLink`. Only available to users who can manage maps
-	or review map families; reviewers can only decide open suggestions between listed maps.
+	Clears staff's pick of a map's default, so its default is derived again: the most played
+	file, then the newest. Only available to users who can manage maps.
 	"""
-	mapLinkSuggestionDecide(mapA: SbMapId!, mapB: SbMapId!, decision: MapLinkSuggestionDecision!): MapLinkSuggestion!
+	mapFamilyClearDefault(familyId: UUID!): MapFamily!
 	"""
-	Sets a family report's status. Only available to users who can manage maps or review map
-	families; reviewers can only close open reports about listed maps.
-	"""
-	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
-	"""
-	Links a listed map the current user published under another listed map. A `VERSION` of a
-	line whose first file someone else published is linked as a `FORK`, and staff are asked to
-	make it a version; the returned map's family member shows which relation was stored.
-	"""
-	mapFamilyPublisherLink(mapId: SbMapId!, parentId: SbMapId!, relation: MapFamilyRelation!): SbMap!
-	"""
-	Takes a map the current user published out of its family, unless staff placed it.
-	"""
-	mapFamilyPublisherUnlink(mapId: SbMapId!): SbMap!
-	"""
-	Tells staff a map is in the wrong family, or is related to another map. Changes nothing by
-	itself. Reporting the same maps again while a report is open updates that report.
+	Tells staff that a file isn't part of its map, or that a map is the same as another one.
+	Changes nothing by itself. Reporting the same thing again while a report is open updates
+	that report.
 	"""
 	mapFamilyReport(input: MapFamilyReportInput!): MapFamilyReport!
+	"""
+	Sets a family report's status. Only available to users who can manage maps.
+	"""
+	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -2017,51 +1763,44 @@ type Query {
 	"""
 	mapsByHash(hashes: [String!]!): [SbMap!]!
 	"""
-	Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
+	What changed between two maps, e.g. two files of one map. Any two maps can be compared.
+	"""
+	mapComparison(a: SbMapId!, b: SbMapId!): MapComparison!
+	"""
+	Searches and pages through the listed maps, one per family: each family with a listed file
+	shows its current file. A search matches a family when it matches any of its listed files.
+	With a search, sorts by `RELEVANCE` unless
 	told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says
 	otherwise (at most 100). A cursor only continues the listing it came from: using it with a
 	different filter or sort is an error.
 	"""
 	maps(filter: MapFilter, sort: MapSort, after: String, first: Int): SbMapConnection!
 	"""
-	What changed between two maps, e.g. two versions of one map. Any two maps can be compared.
+	Looks up the map an id from a map page URL names, trying it in order as a map's id, an old
+	id of a map that was merged into another one, a file's id, and an old id of a file. A
+	file's id gives the map the file is in, along with the file.
 	"""
-	mapComparison(a: SbMapId!, b: SbMapId!): MapComparison!
+	mapFamily(id: UUID!): MapFamilyLookup
 	"""
-	Groups of possibly related files waiting for staff, the most played first. Each holds the
-	files of connected open suggestions, the families they touch, and a proposed tree. Only
-	available to users who can manage maps or review map families; reviewers only get
-	suggestions between listed maps.
+	The listed files of other maps whose terrain is at least 90% similar to a file's, the most
+	similar first. Only files of the same dimensions can be compared. Only available to users
+	who can manage maps.
 	"""
-	mapFamilyProposals(limit: Int! = 20, offset: Int! = 0): [MapFamilyProposal!]!
+	similarFiles(fileId: SbMapId!): [MapSimilarFile!]!
 	"""
-	How many groups `mapFamilyProposals` holds. Only available to users who can manage maps or
-	review map families.
-	"""
-	mapFamilyProposalCount: Int!
-	"""
-	The groups of possibly related files the maps are in, merged into one, as
-	`mapFamilyProposals` would list them. A map with nothing to sort adds itself and its
-	family. Only available to users who can manage maps or review map families; reviewers only
-	get listed maps.
-	"""
-	mapFamilyGroup(mapIds: [SbMapId!]!): MapFamilyProposal!
-	"""
-	Family reports with a status, oldest first. Only available to users who can manage maps or
-	review map families; reviewers only get reports about listed maps.
+	Family reports with a status, oldest first. Only available to users who can manage maps.
 	"""
 	mapFamilyReports(status: MapFamilyReportStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapFamilyReport!]!
 	"""
-	How many family reports `mapFamilyReports` holds for a status. Only available to users who
-	can manage maps or review map families.
+	How many family reports have a status. Only available to users who can manage maps.
 	"""
 	mapFamilyReportCount(status: MapFamilyReportStatus! = OPEN): Int!
 	"""
-	Changes people made to families, suggestions and family reports, newest first. Filtered to
-	changes about any of `mapIds` or `familyIds` when either is given, and to changes `actorId`
-	made. Only available to users who can manage maps.
+	Changes staff made to families and family reports, newest first. Filtered to changes about
+	any of `familyIds` (including maps since merged into them) or `mapIds` when either is given,
+	and to changes `actorId` made. Only available to users who can manage maps.
 	"""
-	mapFamilyHistory(mapIds: [SbMapId!], familyIds: [UUID!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
+	mapFamilyHistory(familyIds: [UUID!], mapIds: [SbMapId!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -2239,11 +1978,11 @@ type SbMap {
 	"""
 	publishedAt: DateTime
 	"""
-	Play statistics, or null if the map has never been played.
+	Play statistics of this file alone, or null if it has never been played.
 	"""
 	stats: MapStats
 	"""
-	How many users have favorited this map.
+	How many users have favorited the map (family) this file is in.
 	"""
 	favoriteCount: Int!
 	"""
@@ -2277,7 +2016,8 @@ type SbMap {
 	"""
 	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
 	"""
-	Whether the current user has favorited this map. False when logged out.
+	Whether the current user has favorited the map (family) this file is in. False when logged
+	out.
 	"""
 	isFavorited: Boolean!
 	"""
@@ -2285,43 +2025,9 @@ type SbMap {
 	"""
 	inLibrary: Boolean!
 	"""
-	The family of versions, variants, translations and forks this map is in. Null when it's in
-	none.
+	The map (family) this file is in.
 	"""
-	family: MapFamily
-	"""
-	This map's place in its family, even when it isn't listed. Null when it's in no family.
-	"""
-	familyMember: MapFamilyMember
-	"""
-	Where this map stands among the versions of its family line.
-	"""
-	versionStatus: MapVersionStatus!
-	"""
-	The current version of this map's line when it's newer than this map. Always a listed map.
-	"""
-	newerVersion: SbMap
-	"""
-	How many listed maps this map's family line holds (its versions, variants and
-	translations), at least 1.
-	"""
-	versionCount: Int!
-	"""
-	Play statistics summed over every file in this map's family line. Null when the viewer can
-	see fewer than two of the line's files (listed ones, or all of them for users who can manage
-	maps), or the line's stats haven't been computed yet.
-	"""
-	lineStats: MapStats
-	"""
-	Maps detection found to be possibly related to this one that nobody has sorted yet: listed
-	maps, or every one for users who can manage maps. Most similar terrain first.
-	"""
-	similarMaps: [SbMap!]!
-	"""
-	Every detected pair this map is in, with the rules' proposals, open ones first. Only
-	available to users who can manage maps.
-	"""
-	linkSuggestions: [MapLinkSuggestion!]!
+	family: MapFamily!
 }
 
 type SbMapConnection {
@@ -2386,7 +2092,6 @@ type SbPermissions {
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 	manageLiveStreams: Boolean!
-	reviewMapFamilies: Boolean!
 }
 
 input SbPermissionsInput {
@@ -2413,7 +2118,6 @@ input SbPermissionsInput {
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 	manageLiveStreams: Boolean!
-	reviewMapFamilies: Boolean!
 }
 
 type SbUser {

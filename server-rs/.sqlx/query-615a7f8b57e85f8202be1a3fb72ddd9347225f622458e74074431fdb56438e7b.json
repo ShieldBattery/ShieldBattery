@@ -1,0 +1,117 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH families AS (\n                SELECT unnest($3::uuid[]) AS id\n                UNION\n                SELECT old_id FROM map_family_aliases WHERE family_id = ANY($3)\n            )\n            SELECT id, kind, actor as \"actor: SbUserId\", family_id, other_family_id,\n                map_id as \"map_id: SbMapId\", details as \"details: Json<HistoryDetails>\",\n                created_at\n            FROM map_family_history\n            WHERE (NOT $1\n                    OR map_id = ANY($2)\n                    OR family_id IN (SELECT id FROM families)\n                    OR other_family_id IN (SELECT id FROM families))\n                AND ($4::integer IS NULL OR actor = $4)\n            ORDER BY created_at DESC, id\n            LIMIT $5 OFFSET $6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "actor: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "actor"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "other_family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "other_family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "details: Json<HistoryDetails>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "details"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool",
+        "UuidArray",
+        "UuidArray",
+        "Int4",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "615a7f8b57e85f8202be1a3fb72ddd9347225f622458e74074431fdb56438e7b"
+}

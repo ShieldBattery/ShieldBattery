@@ -1,5 +1,5 @@
 import slug from 'slug'
-import { filterColorCodes, makeSbMapId, SbMapId } from './maps'
+import { filterColorCodes, makeSbMapId, MapFamilyId, SbMapId } from './maps'
 import { decodePrettyId, encodePrettyId, isPrettyId } from './pretty-id'
 import { urlPath } from './urls'
 
@@ -77,25 +77,64 @@ export function mapSlug(name: string | undefined): string {
   return (cleaned ? slug(cleaned) : '') || '_'
 }
 
-/**
- * Returns the URL of a map's page. If the map's name is available, the URL will include a slug
- * (otherwise the page replaces the placeholder once the map has loaded).
- */
-export function urlForMap(id: SbMapId, name?: string, subPage?: MapPageSubPage): string {
-  const base = urlPath`/maps/${encodePrettyId(id)}/${mapSlug(name)}`
-  return subPage ? base + urlPath`/${subPage}` : base
-}
+/** The query param of a map page that selects one of the map's files. */
+export const MAP_PAGE_FILE_PARAM = 'file'
 
 /**
- * Returns the map ID from the id segment of a map page URL, which is either a pretty (base64url)
- * ID or a raw UUID. Returns undefined for anything else.
+ * The id in a map page URL: a map family's ID (or an old ID of a family that was merged into
+ * another one), or a map file's ID (or an old ID of one). The server resolves them in that order,
+ * and a file's ID leads to its family's page with that file selected.
  */
-export function mapIdFromRouteSegment(segment: string): SbMapId | undefined {
+export type MapPageId = MapFamilyId | SbMapId
+
+/**
+ * Returns the URL of a map's page. `id` is normally a family's ID; a file's ID also works, and the
+ * page then moves to the file's family with the file selected. If the map's name is available,
+ * the URL will include a slug (otherwise the page replaces the placeholder once the map has
+ * loaded). `file` selects one of the family's files.
+ */
+export function urlForMap(
+  id: MapPageId,
+  name?: string,
+  subPage?: MapPageSubPage,
+  file?: SbMapId,
+): string {
+  let url = urlPath`/maps/${encodePrettyId(id)}/${mapSlug(name)}`
+  if (subPage) {
+    url += urlPath`/${subPage}`
+  }
+  if (file) {
+    url += urlPath`?${MAP_PAGE_FILE_PARAM}=${encodePrettyId(file)}`
+  }
+  return url
+}
+
+/** Returns the UUID in a pretty (base64url) ID or a raw UUID, lowercased, or undefined. */
+function uuidFromIdSegment(segment: string): string | undefined {
   if (isPrettyId(segment)) {
-    return makeSbMapId(decodePrettyId(segment))
+    return decodePrettyId(segment)
   } else if (UUID_PATTERN.test(segment)) {
-    return makeSbMapId(segment.toLowerCase())
+    return segment.toLowerCase()
   } else {
     return undefined
   }
+}
+
+/**
+ * Returns the ID from the id segment of a map page URL, which is either a pretty (base64url) ID or
+ * a raw UUID. Returns undefined for anything else.
+ */
+export function mapIdFromRouteSegment(segment: string): MapPageId | undefined {
+  const id = uuidFromIdSegment(segment)
+  return id !== undefined ? (id as MapPageId) : undefined
+}
+
+/**
+ * Returns a map file's ID from a URL segment that only holds file IDs (a map page's `file` param,
+ * or an id segment of the compare page), which is either a pretty (base64url) ID or a raw UUID.
+ * Returns undefined for anything else.
+ */
+export function mapFileIdFromSegment(segment: string): SbMapId | undefined {
+  const id = uuidFromIdSegment(segment)
+  return id !== undefined ? makeSbMapId(id) : undefined
 }

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COALESCE(\n                (SELECT f.id FROM map_families f WHERE f.id = $1),\n                (SELECT a.family_id FROM map_family_aliases a WHERE a.old_id = $1)\n            ) as \"id?\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5ce4694587001beb5f58e81b584cc0634b993a2732fb1d6bcd7b4d9a9c56865e"
+}

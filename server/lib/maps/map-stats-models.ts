@@ -30,11 +30,12 @@ export interface MapStatsRefreshResult {
 }
 
 /**
- * Recomputes the map stats tables from `games`. The per-map and per-family-line snapshots are
- * always recomputed in full.
+ * Recomputes the map stats tables from `games`. The per-map and per-family snapshots are always
+ * recomputed in full.
  * The daily rows of the last few days and the matchup rows of the current and previous season are
  * recomputed, since results can still change there (late reports, disputes); older rows are kept.
- * If no stats exist yet, all of history is computed instead.
+ * If no stats exist yet, all of history is computed instead. Afterwards every family's current
+ * file is recomputed, since it depends on how much each file has been played.
  *
  * @returns the result of the refresh, or `undefined` if another refresh was already in progress
  */
@@ -56,9 +57,10 @@ export async function refreshMapStats(
     const full = forceFull || !existingResult.rows[0].exists
 
     await refreshSnapshot(client, asOf)
-    await refreshLineStats(client, asOf)
+    await refreshFamilyStats(client, asOf)
     await refreshDaily(client, asOf, full)
     await refreshMatchups(client, asOf, full)
+    await client.query(sql`SELECT refresh_map_families(ARRAY(SELECT id FROM map_families))`)
 
     return { full }
   })
@@ -116,52 +118,44 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
 }
 
 /**
- * Recomputes the stats of every family line with more than one file, the same values as the per-map
- * snapshot summed over the line's files, plus the distinct users who favorited any of them.
+ * Recomputes the stats of every family with more than one file that has been played, the same
+ * values as the per-map snapshot summed over the family's files.
  */
-async function refreshLineStats(client: DbClient, asOf: Date) {
-  await client.query(sql`DELETE FROM map_line_stats`)
+async function refreshFamilyStats(client: DbClient, asOf: Date) {
+  await client.query(sql`DELETE FROM map_family_stats`)
   await client.query(sql`
-    WITH lines AS (
-      SELECT map_id, line_root_id
-      FROM map_family_members
-      WHERE line_root_id IN (
-        SELECT line_root_id FROM map_family_members GROUP BY line_root_id HAVING count(*) > 1
-      )
+    WITH families AS (
+      SELECT id AS map_id, family_id
+      FROM maps
+      WHERE family_id IN (SELECT family_id FROM maps GROUP BY family_id HAVING count(*) > 1)
     ),
     played AS (
-      SELECT g.id, l.line_root_id, g.start_time, g.game_length,
+      SELECT g.id, f.family_id, g.start_time, g.game_length,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
         g.config->>'gameSource' = 'LOBBY' AS is_lobby
       FROM games g
-      INNER JOIN lines l ON l.map_id = g.map_id
+      INNER JOIN families f ON f.map_id = g.map_id
       WHERE ${PLAYED_GAME} AND g.start_time <= ${asOf}
     ),
     players AS (
-      SELECT p.line_root_id, count(DISTINCT gu.user_id) AS players
+      SELECT p.family_id, count(DISTINCT gu.user_id) AS players
       FROM played p
       INNER JOIN games_users gu ON gu.game_id = p.id
       WHERE p.in_90d
-      GROUP BY p.line_root_id
+      GROUP BY p.family_id
     ),
     lobby_players AS (
-      SELECT p.line_root_id, count(DISTINCT gu.user_id) AS players
+      SELECT p.family_id, count(DISTINCT gu.user_id) AS players
       FROM played p
       INNER JOIN games_users gu ON gu.game_id = p.id
       WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
-      GROUP BY p.line_root_id
-    ),
-    favorites AS (
-      SELECT l.line_root_id, count(DISTINCT f.favorited_by) AS favorites
-      FROM favorited_maps f
-      INNER JOIN lines l ON l.map_id = f.map_id
-      GROUP BY l.line_root_id
+      GROUP BY p.family_id
     )
-    INSERT INTO map_line_stats (
-      line_root_id, games_7d, games_28d, games_90d, players_90d, games_total, median_length_90d,
-      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d, favorites
+    INSERT INTO map_family_stats (
+      family_id, games_7d, games_28d, games_90d, players_90d, games_total, median_length_90d,
+      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d
     )
-    SELECT p.line_root_id,
+    SELECT p.family_id,
       count(*) FILTER (WHERE p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (WHERE p.start_time >= ${asOf}::timestamptz - interval '28 days'),
       count(*) FILTER (WHERE p.in_90d),
@@ -175,13 +169,11 @@ async function refreshLineStats(client: DbClient, asOf: Date) {
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
-      COALESCE(lp.players, 0),
-      COALESCE(fv.favorites, 0)
+      COALESCE(lp.players, 0)
     FROM played p
-    LEFT JOIN players pl ON pl.line_root_id = p.line_root_id
-    LEFT JOIN lobby_players lp ON lp.line_root_id = p.line_root_id
-    LEFT JOIN favorites fv ON fv.line_root_id = p.line_root_id
-    GROUP BY p.line_root_id, pl.players, lp.players, fv.favorites
+    LEFT JOIN players pl ON pl.family_id = p.family_id
+    LEFT JOIN lobby_players lp ON lp.family_id = p.family_id
+    GROUP BY p.family_id, pl.players, lp.players
   `)
 }
 
