@@ -129,24 +129,12 @@ impl ReplayCommands {
         };
         match action {
             Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
-            Action::SpeedUp => self.request_speed(
-                Some(playback_controls::step_speed(
-                    view.speed_index,
-                    view.multiplier,
-                    1,
-                )),
-                None,
-                intents,
-            ),
-            Action::SpeedDown => self.request_speed(
-                Some(playback_controls::step_speed(
-                    view.speed_index,
-                    view.multiplier,
-                    -1,
-                )),
-                None,
-                intents,
-            ),
+            Action::SpeedUp | Action::SpeedDown => {
+                let delta = if action == Action::SpeedUp { 1 } else { -1 };
+                if let Some(step) = view.stepped(delta) {
+                    self.request_speed(Some(step), None, intents);
+                }
+            }
             Action::SeekBackward | Action::SeekForward => {
                 let step = playback_controls::seek_step_secs(modifiers);
                 let step = match action {
@@ -323,6 +311,48 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_speed_key_at_the_end_of_the_ladder_is_taken_but_asks_for_nothing_and_makes_no_click() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let fastest = PlaybackView {
+            multiplier: 16,
+            ..replay()
+        };
+        let slowest = PlaybackView {
+            speed_index: 0,
+            multiplier: 1,
+            ..replay()
+        };
+        for (view, key) in [(fastest, Key::U), (slowest, Key::D)] {
+            run_frame(&mut shell, &ctx, Some(&view));
+            assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
+            shell.key_repeated(key, Modifiers::NONE);
+            let time = ctx.input(|input| input.time) + 1.0;
+            let output = run_frame_at(&mut shell, &ctx, Some(&view), time);
+            assert_eq!(output.intents, [], "{key:?}");
+            assert!(!output.button_click, "{key:?}");
+        }
+        // One rung in from the top, the same key still steps and clicks.
+        let below_the_top = PlaybackView {
+            multiplier: 8,
+            ..replay()
+        };
+        run_frame(&mut shell, &ctx, Some(&below_the_top));
+        assert!(shell.key_pressed(Key::U, Modifiers::NONE));
+        let time = ctx.input(|input| input.time) + 1.0;
+        let output = run_frame_at(&mut shell, &ctx, Some(&below_the_top), time);
+        assert_eq!(
+            output.intents,
+            [Intent::SetSpeed {
+                speed_index: 6,
+                multiplier: 16,
+                paused: false,
+            }]
+        );
+        assert!(output.button_click);
     }
 
     #[test]

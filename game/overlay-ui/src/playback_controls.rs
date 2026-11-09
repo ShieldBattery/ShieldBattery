@@ -401,6 +401,14 @@ impl PlaybackView {
     pub fn step(&self) -> SpeedStep {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
     }
+
+    /// The rung `delta` steps from where playback is, or `None` where playback is already running
+    /// at it: a step past either end of the ladder goes nowhere, so there is nothing to ask the game
+    /// for and nothing to be heard.
+    pub fn stepped(&self, delta: i32) -> Option<SpeedStep> {
+        let step = step_speed(self.speed_index, self.multiplier, delta);
+        (step.speed_index != self.speed_index || step.multiplier != self.multiplier).then_some(step)
+    }
 }
 
 /// What the player asked the playback controls for this frame. Every field is what they asked for rather
@@ -641,14 +649,15 @@ fn draw_speed_stepper(
     // Arrows rather than words: they read the same in every language, and a stepper whose ends
     // carried a translated verb would be a paragraph wide in some of them. The verb is on the hover
     // card, which has the room.
-    let slower = stepper_button(ui, SpeedArrow::Slower);
+    let slower_step = view.stepped(-1);
+    let slower = stepper_button(ui, SpeedArrow::Slower, slower_step.is_some());
     hint.action(
         &slower,
         || tr!("playbackControls.slower", "Slower"),
         Action::SpeedDown,
     );
     if slower.clicked() {
-        outcome.speed = Some(step_speed(view.speed_index, view.multiplier, -1));
+        outcome.speed = slower_step;
     }
     ui.add_space(ITEM_GAP);
     widgets::text_cell(
@@ -663,14 +672,15 @@ fn draw_speed_stepper(
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    let faster = stepper_button(ui, SpeedArrow::Faster);
+    let faster_step = view.stepped(1);
+    let faster = stepper_button(ui, SpeedArrow::Faster, faster_step.is_some());
     hint.action(
         &faster,
         || tr!("playbackControls.faster", "Faster"),
         Action::SpeedUp,
     );
     if faster.clicked() {
-        outcome.speed = Some(step_speed(view.speed_index, view.multiplier, 1));
+        outcome.speed = faster_step;
     }
 }
 
@@ -1040,28 +1050,45 @@ const ARROW_SIZE: f32 = 20.0;
 /// One end of the speed stepper, drawn as Material Symbols' double arrow pointing the way it moves
 /// playback: up the ladder for faster, down it for slower. Stroked rather than typed, so no font has
 /// to carry the glyph, and the strokes are tessellated at whatever scale the screen is drawn at.
-fn stepper_button(ui: &mut Ui, arrow: SpeedArrow) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), Sense::click());
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter().add(Shape::rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
-        StrokeKind::Inside,
-    ));
-    widgets::state_overlay(ui, &response, rect, corner_radius);
-    widgets::focus_ring(ui, &response, rect, corner_radius);
-    let color = if response.hovered() {
-        theme::TEXT_PRIMARY
-    } else {
-        theme::TEXT_SECONDARY
-    };
-    let square = Rect::from_center_size(rect.center(), Vec2::splat(ARROW_SIZE));
-    paint_speed_arrow(ui, square, arrow, color);
-    response
+///
+/// An end with no rung past it, which is where playback already is at either end of the ladder, is
+/// drawn at the disabled opacity and takes no click, so pressing it neither asks for a change nor
+/// makes the click sound. It still senses the pointer resting on it, which its hover card needs.
+fn stepper_button(ui: &mut Ui, arrow: SpeedArrow, steps: bool) -> Response {
+    ui.scope(|ui| {
+        let sense = if steps {
+            Sense::click()
+        } else {
+            Sense::hover()
+        };
+        let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), sense);
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+        if !steps {
+            ui.set_opacity(theme::DISABLED_OPACITY);
+        }
+        let corner_radius = theme::radius(theme::RADIUS_CHIP);
+        ui.painter().add(Shape::rect_stroke(
+            rect,
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
+            StrokeKind::Inside,
+        ));
+        if steps {
+            widgets::state_overlay(ui, &response, rect, corner_radius);
+            widgets::focus_ring(ui, &response, rect, corner_radius);
+        }
+        let color = if steps && response.hovered() {
+            theme::TEXT_PRIMARY
+        } else {
+            theme::TEXT_SECONDARY
+        };
+        let square = Rect::from_center_size(rect.center(), Vec2::splat(ARROW_SIZE));
+        paint_speed_arrow(ui, square, arrow, color);
+        response
+    })
+    .inner
 }
 
 /// Paints the double arrow for `arrow` into `square`.
@@ -1256,6 +1283,79 @@ mod tests {
             step_speed(fastest.speed_index, fastest.multiplier, 1),
             fastest
         );
+    }
+
+    #[test]
+    fn a_step_past_either_end_of_the_ladder_is_no_step_at_all() {
+        let at = |step: SpeedStep| PlaybackView {
+            speed_index: step.speed_index,
+            multiplier: step.multiplier,
+            ..view()
+        };
+        let slowest = at(SPEED_LADDER[0]);
+        assert_eq!(slowest.stepped(-1), None);
+        assert_eq!(slowest.stepped(1), Some(SPEED_LADDER[1]));
+        let fastest = at(SPEED_LADDER[SPEED_LADDER.len() - 1]);
+        assert_eq!(fastest.stepped(1), None);
+        assert_eq!(
+            fastest.stepped(-1),
+            Some(SPEED_LADDER[SPEED_LADDER.len() - 2])
+        );
+        // A pair past the top that the game's own plate could have left playback on is not the
+        // top rung, so the step up still moves it there.
+        let past_the_top = PlaybackView {
+            speed_index: 6,
+            multiplier: 32,
+            ..view()
+        };
+        assert_eq!(
+            past_the_top.stepped(1),
+            Some(SPEED_LADDER[SPEED_LADDER.len() - 1])
+        );
+    }
+
+    /// Clicks the middle of a stepper end drawn at the top left corner, one that `steps` or not,
+    /// and reports whether it took the click and whether it asked the host for the click sound.
+    fn click_stepper(steps: bool) -> (bool, bool) {
+        let ctx = Context::default();
+        let pos = pos2(BOX_SIZE / 2.0, BOX_SIZE / 2.0);
+        let events = [
+            vec![egui::Event::PointerMoved(pos)],
+            vec![egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            vec![egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        ];
+        let mut clicked = false;
+        for (frame, events) in events.into_iter().enumerate() {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
+                time: Some(frame as f64 * 0.1),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(raw, |ui| {
+                ui.spacing_mut().item_spacing = Vec2::ZERO;
+                clicked |= stepper_button(ui, SpeedArrow::Faster, steps).clicked();
+            });
+            output.textures_delta.clear();
+        }
+        (clicked, widgets::take_activation(&ctx))
+    }
+
+    #[test]
+    fn a_stepper_end_with_no_rung_past_it_takes_no_click_and_makes_no_sound() {
+        // The same click on an end that steps is taken and heard, so the one below is not a miss.
+        assert_eq!(click_stepper(true), (true, true));
+        assert_eq!(click_stepper(false), (false, false));
     }
 
     #[test]
