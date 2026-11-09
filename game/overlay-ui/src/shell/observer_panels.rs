@@ -266,6 +266,7 @@ impl ObserverPanels {
         self.map_control_available = view.map_control.is_some();
         let screen = ctx.viewport_rect();
         let gap = observer::WING_GAP;
+        let margin = layout::screen_margin(screen);
         // What the watcher wants on screen and the screen had no room for this frame.
         let mut displaced = Vec::new();
         // The surfaces hung from the screen's top edge, which everything below keeps under.
@@ -288,7 +289,7 @@ impl ObserverPanels {
         // surface: a click that landed on a number and went on to select whatever unit was behind
         // it would make the panels unusable exactly where they are most worth reading.
         if let Some(map_control) = &view.map_control {
-            if prefs.map_control && !observer::map_control::fits(screen.width()) {
+            if prefs.map_control && !observer::map_control::fits(screen) {
                 displaced.push(Panel::MapControl);
             }
             // Hung under the matchup bar while the bar is up, and from the screen's own top edge
@@ -299,7 +300,7 @@ impl ObserverPanels {
             let wanted_top = if bar_shown {
                 view.matchup.form().height() + observer::MAP_CONTROL_GAP
             } else {
-                observer::WING_MARGIN
+                margin
             };
             let spot = Spot::new(ctx, spot_id("map_control"), prefs.map_control, [wanted_top]);
             let [top] = spot.at();
@@ -334,7 +335,7 @@ impl ObserverPanels {
         // far end never moves. A minimap on the right edge leaves them the run from the left edge
         // to it.
         let band = {
-            let edge_right = screen.right() - observer::WING_MARGIN;
+            let edge_right = screen.right() - margin;
             if minimap_on_left {
                 let run = Span {
                     left: minimap_right + gap,
@@ -345,7 +346,7 @@ impl ObserverPanels {
                 layout::bottom_band(screen, run, plate_corner)
             } else {
                 Span {
-                    left: screen.left() + observer::WING_MARGIN,
+                    left: screen.left() + margin,
                     right: edge_right.min(minimap.left() - gap),
                 }
             }
@@ -369,7 +370,7 @@ impl ObserverPanels {
         // cards are as tall as the game has players, so where the wings start is measured off what
         // they actually came out as rather than guessed at from a player count.
         let mut tops = if prefs.compact_scoreboard {
-            observer::WingTops::beside_scoreboard(scoreboard.map(|outcome| outcome.rect))
+            observer::WingTops::beside_scoreboard(screen, scoreboard.map(|outcome| outcome.rect))
         } else {
             observer::WingTops::under_bar(view.matchup.form().height())
         };
@@ -417,7 +418,7 @@ impl ObserverPanels {
             ceiling: layout::lowest_bottom_over(run, &top_surfaces, screen.top()),
             screen_bottom: screen.bottom(),
         };
-        let base = observer::WING_MARGIN;
+        let base = margin;
         let column = match layout::BottomRow::along(band) {
             Some(row) => {
                 let stand = slot(row.column, observer::StackAnchor::Left, base);
@@ -978,7 +979,7 @@ mod tests {
 
     #[test]
     fn the_dock_is_part_of_the_plate_or_the_selection_panel_and_the_wings_keep_clear_of_it() {
-        use crate::observer::{WING_GAP, WING_MARGIN, selection};
+        use crate::observer::{WING_GAP, selection};
 
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
@@ -1021,7 +1022,17 @@ mod tests {
             let wings = wings(output);
             assert_eq!(wings.len(), 3);
             for wing in wings {
-                assert!(close(wing.right(), screen.x - WING_MARGIN), "{wing:?}");
+                assert!(
+                    close(
+                        wing.right(),
+                        screen.x
+                            - crate::observer::layout::screen_margin(Rect::from_min_size(
+                                egui::Pos2::ZERO,
+                                screen
+                            ))
+                    ),
+                    "{wing:?}"
+                );
                 assert!(
                     wing.bottom() <= dock.top() - WING_GAP + 0.5,
                     "{wing:?} {dock:?}"
@@ -1064,7 +1075,7 @@ mod tests {
 
     #[test]
     fn with_neither_the_plate_nor_a_selection_up_the_dock_floats_as_a_strip() {
-        use crate::observer::{WING_MARGIN, dock};
+        use crate::observer::dock;
 
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
@@ -1097,7 +1108,14 @@ mod tests {
             })
             .expect("the dock floats as a strip");
         assert!(
-            (strip.bottom() - (screen.y - WING_MARGIN)).abs() < 0.5,
+            (strip.bottom()
+                - (screen.y
+                    - crate::observer::layout::screen_margin(Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        screen
+                    ))))
+            .abs()
+                < 0.5,
             "{strip:?}"
         );
         assert!(dock_column(&output).is_none());
@@ -1443,7 +1461,7 @@ mod tests {
 
     #[test]
     fn the_column_keeps_its_place_whatever_the_minimap_is_drawn_at() {
-        use crate::observer::{ControlGroupsForm, ControlGroupsPlayerView, WING_MARGIN, minimap};
+        use crate::observer::{ControlGroupsForm, ControlGroupsPlayerView, minimap};
 
         let mut game = empty_game();
         game.control_groups.players.push(ControlGroupsPlayerView {
@@ -1498,7 +1516,15 @@ mod tests {
                 "{screen:?}: {placed:?}"
             );
             // Either form stands on the bottom edge, the grid beside the minimap's frame.
-            assert_eq!(placed[0].bottom(), screen.y - WING_MARGIN, "{screen:?}");
+            assert_eq!(
+                placed[0].bottom(),
+                screen.y
+                    - crate::observer::layout::screen_margin(Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        screen
+                    )),
+                "{screen:?}"
+            );
             let frame = minimap::footprint(Rect::from_min_size(egui::Pos2::ZERO, screen), full);
             assert!(placed[0].left() > frame.right(), "{screen:?}");
         }

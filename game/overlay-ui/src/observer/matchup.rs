@@ -26,8 +26,9 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
+use crate::observer::layout;
 use crate::observer::{
-    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_count, paint_picked_race_chip,
+    EdgeCursor, RaceView, centred, game_clock, paint_count, paint_picked_race_chip,
     paint_player_bar, paint_text, vision_alpha,
 };
 use crate::tr;
@@ -529,7 +530,8 @@ pub fn render_matchup_view(
     let area = Area::new(id)
         .anchor(Align2::CENTER_TOP, vec2(0.0, 0.0))
         .order(Order::Foreground);
-    let available = ctx.viewport_rect().width() - WING_MARGIN * 2.0;
+    let screen = ctx.viewport_rect();
+    let available = screen.width() - layout::screen_margin(screen) * 2.0;
     let inner = motion::presence_area_from_top(ctx, id.with("presence"), shown, area, |ui| {
         draw_bar(ui, view, available)
     })?;

@@ -24,9 +24,10 @@ use crate::kit::clamp_layout;
 use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
+use crate::observer::layout;
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_count,
+    STAT_ROW_HEIGHT, WING_GAP, Wing, centred, paint_column_heading, paint_count,
     paint_picked_race_chip, paint_player_swatch, paint_player_swatch_in, paint_text, team_name,
     vision_alpha,
 };
@@ -531,7 +532,8 @@ pub fn render_team_cards_view(
     shown: bool,
 ) -> TeamCardsOutcome {
     let screen = ctx.viewport_rect();
-    let corner = (screen.width() - super::matchup::CLOCK_WIDTH) * 0.5 - WING_GAP - WING_MARGIN;
+    let margin = layout::screen_margin(screen);
+    let corner = (screen.width() - super::matchup::CLOCK_WIDTH) * 0.5 - WING_GAP - margin;
     let layout = CardLayout::fitted(corner, &CardNeeds::measure(ctx, view));
     let mut outcome = TeamCardsOutcome {
         rects: Vec::new(),
@@ -543,8 +545,8 @@ pub fn render_team_cards_view(
     for (index, wing) in [Wing::Left, Wing::Right].into_iter().enumerate() {
         let id = Id::new(("sb_team_card", index));
         let (align, offset_x) = match wing {
-            Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-            Wing::Right => (Align2::RIGHT_TOP, -WING_MARGIN),
+            Wing::Left => (Align2::LEFT_TOP, margin),
+            Wing::Right => (Align2::RIGHT_TOP, -margin),
         };
         let area = Area::new(id)
             .anchor(align, vec2(offset_x, CARD_TOP))

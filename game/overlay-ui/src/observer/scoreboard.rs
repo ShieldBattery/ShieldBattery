@@ -17,12 +17,13 @@ use egui::{Align, Context, Rect, Sense, Ui, Vec2, pos2, vec2};
 use crate::kit::text::{self, TextSpec};
 use crate::kit::widgets::{self, ColumnGlyph};
 use crate::kit::{theme, tiers};
+use crate::observer::layout;
 use crate::observer::matchup::supply_blocked;
 use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
-    WING_MARGIN, Wing, game_clock, paint_count, paint_first_team_name, paint_stat_identity,
-    paint_team_divider, paint_text, panel_name, teams_worth_dividing, vision_alpha, wing_panel,
+    Wing, game_clock, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider,
+    paint_text, panel_name, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -123,7 +124,7 @@ pub fn render_scoreboard_view(
         ctx,
         Panel::Matchup,
         Wing::Right,
-        WING_MARGIN,
+        layout::screen_margin(ctx.viewport_rect()),
         PANEL_WIDTH,
         shown,
         |ui, header| draw_panel(ui, header, view),

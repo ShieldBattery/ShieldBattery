@@ -16,9 +16,7 @@
 
 use egui::{Rect, pos2, vec2};
 
-use crate::observer::{
-    BOTTOM_COLUMN_WIDTH, ControlGroupsForm, ROW_WIDTH, WING_GAP, WING_MARGIN, selection,
-};
+use crate::observer::{BOTTOM_COLUMN_WIDTH, ControlGroupsForm, ROW_WIDTH, WING_GAP, selection};
 
 /// How tall the grid the game lays its console out on is, whatever the screen's shape: its dialogs'
 /// coordinates run 480 down the screen, and as far across it as the screen's shape makes that.
@@ -45,6 +43,16 @@ pub fn minimap_reserve(screen: Rect) -> Rect {
         ),
         vec2(side, side),
     )
+}
+
+/// How far the panels laid along the edges of `screen` sit from them, in whole points: as far as the
+/// minimap's frame sits from the left edge, so every panel lines up with it.
+///
+/// The frame follows the game's console, which is scaled with the screen's height, so the margin is
+/// the same share of the height on every screen rather than taking more of a shorter one out of the
+/// room the panels stack in.
+pub(crate) fn screen_margin(screen: Rect) -> f32 {
+    (minimap_reserve(screen).left() - super::minimap::FRAME_PAD - screen.left()).round()
 }
 
 /// The square BW's minimap takes on this screen.
@@ -227,7 +235,7 @@ pub(crate) fn selection_run(band: Span) -> Span {
 /// lined up with the wing hung over it, as wide as the column is laid out in the row and short of
 /// the band's far end, so it never reaches over the plate's corner.
 pub(crate) fn column_over_minimap(screen: Rect, band: Span) -> Span {
-    let left = screen.left() + WING_MARGIN;
+    let left = screen.left() + screen_margin(screen);
     Span {
         left,
         right: (left + BOTTOM_COLUMN_WIDTH).min(band.right),
@@ -250,7 +258,7 @@ pub(crate) fn groups_beside_minimap(band: Span) -> Option<Span> {
 
 /// The run of the screen's width a wing hung off the left edge takes.
 pub(crate) fn left_wing_span(screen: Rect, width: f32) -> Span {
-    let left = screen.left() + WING_MARGIN;
+    let left = screen.left() + screen_margin(screen);
     Span {
         left,
         right: left + width,
@@ -259,7 +267,7 @@ pub(crate) fn left_wing_span(screen: Rect, width: f32) -> Span {
 
 /// The run of the screen's width a wing hung off the right edge takes.
 pub(crate) fn right_wing_span(screen: Rect, width: f32) -> Span {
-    let right = screen.right() - WING_MARGIN;
+    let right = screen.right() - screen_margin(screen);
     Span {
         left: right - width,
         right,
@@ -269,6 +277,24 @@ pub(crate) fn right_wing_span(screen: Rect, width: f32) -> Span {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_screen_margin_lines_up_with_the_minimaps_frame() {
+        for (width, height, margin) in [
+            (1280.0, 720.0, 5.0),
+            (1600.0, 900.0, 7.0),
+            (1280.0, 960.0, 8.0),
+            (1920.0, 1080.0, 10.0),
+        ] {
+            let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
+            let frame = super::super::minimap::footprint(screen, minimap_reserve(screen));
+            assert_eq!(screen_margin(screen), margin, "{width}x{height}");
+            assert!(
+                (frame.left() - margin).abs() <= 0.5,
+                "{width}x{height}: {frame:?}"
+            );
+        }
+    }
 
     fn span(left: f32, right: f32) -> Span {
         Span { left, right }
@@ -318,7 +344,7 @@ mod tests {
         use crate::observer::minimap;
         let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
         let frame = minimap::footprint(screen, minimap_square(screen, None));
-        let run = span(frame.right() + WING_GAP, width - WING_MARGIN);
+        let run = span(frame.right() + WING_GAP, width - screen_margin(screen));
         let corner = replay
             .then(|| crate::playback_controls::PlaybackControlsPlacement::default().rect(screen));
         bottom_band(screen, run, corner)
@@ -342,7 +368,7 @@ mod tests {
         use crate::observer::{control_groups, production};
         let row = BottomRow::along(bottom_run(1920.0, 1080.0, true)).unwrap();
         let slot = StackSlot {
-            bottom: WING_MARGIN,
+            bottom: screen_margin(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
             span: row.column,
             anchor: StackAnchor::Left,
             ceiling: 0.0,
@@ -504,7 +530,7 @@ mod tests {
     #[test]
     fn a_slot_keeps_its_panel_to_the_part_of_the_run_it_names() {
         let slot = |anchor| StackSlot {
-            bottom: WING_MARGIN,
+            bottom: screen_margin(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
             span: span(364.0, 1568.0),
             anchor,
             ceiling: 0.0,

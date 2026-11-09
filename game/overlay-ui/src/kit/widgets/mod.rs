@@ -22,9 +22,9 @@ pub use charts::{
     sparkline_to,
 };
 pub use controls::{
-    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked, segmented,
-    segmented_sized, segmented_width, slider, slider_sized, stepper, switch, tab_strip,
-    tab_strip_width,
+    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked,
+    scrub_track_marked_flush, segmented, segmented_sized, segmented_width, slider, slider_sized,
+    stepper, switch, tab_strip, tab_strip_width,
 };
 pub use icons::{
     ColumnGlyph, IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_column_glyph,

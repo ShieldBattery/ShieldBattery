@@ -448,7 +448,7 @@ const MAX_CARGO_UPGRADES: usize = 2;
 /// put.
 const BODY_HEIGHT: f32 = max(
     max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT),
-    HEADER_HEIGHT - POOL_RISE + POOL_ROW * READOUTS as f32 + POOL_TAIL + UPGRADE_CHIP,
+    HEADER_HEIGHT + POOL_LEAD + POOL_ROW * READOUTS as f32 + POOL_TAIL + UPGRADE_CHIP,
 );
 
 const fn max(a: f32, b: f32) -> f32 {
@@ -536,16 +536,15 @@ const UNIT_TEXT_WIDTH: f32 = CONTENT_WIDTH - UNIT_TEXT_LEFT;
 
 /// Height of one pool's line under the owner's, how thick its bar is, and the gap between the bar
 /// and the numbers after it.
-///
-/// The rows are what a unit's three pools leave of the body between its head and its upgrades, which
-/// is as much as their numbers can have without the panel growing. A row is taller than its bar and
-/// its digits by enough that the first can start [`POOL_RISE`] up into the lead under the owner's
-/// line and the last can end [`POOL_TAIL`] short of the upgrades, and still have them read as apart.
 const POOL_ROW: f32 = 18.0;
 const POOL_TRACK: f32 = 8.0;
 const POOL_VALUE_GAP: f32 = 10.0;
-const POOL_RISE: f32 = 4.0;
-const POOL_TAIL: f32 = 2.0;
+
+/// Gaps above a unit's pools, past the lead under the owner's line, and below them, before its
+/// upgrades. The pools are a reading of their own between the two, so they are set apart from each
+/// by more than the lines inside either are from one another.
+const POOL_LEAD: f32 = 2.0;
+const POOL_TAIL: f32 = 16.0;
 
 /// Size of one upgrade chip, and the gap between two of them. Large, as the game's console draws
 /// them: how far a unit has been upgraded decides a fight, and a watcher reads it off a stream.
@@ -588,7 +587,7 @@ const TALLY_ROOM: f32 = 104.0;
 /// the name.
 const _: () = assert!(UNIT_TILE <= BODY_HEIGHT);
 const _: () = assert!(
-    HEADER_HEIGHT - POOL_RISE + POOL_ROW * READOUTS as f32 + POOL_TAIL
+    HEADER_HEIGHT + POOL_LEAD + POOL_ROW * READOUTS as f32 + POOL_TAIL
         <= BODY_HEIGHT - UPGRADE_CHIP
 );
 const _: () = assert!(
@@ -899,12 +898,11 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
     let below = draw_header(ui, text, unit, Some((&kills, unit.kills)));
     let pools = pools(unit);
     let columns = PoolColumns::of(ui, &pools);
-    let slash = below.right() - columns.width() + columns.current;
     for (index, &(pool, color)) in pools.iter().enumerate() {
         let line = Rect::from_min_size(
             pos2(
                 below.left(),
-                below.top() - POOL_RISE + index as f32 * POOL_ROW,
+                below.top() + POOL_LEAD + index as f32 * POOL_ROW,
             ),
             vec2(below.width(), POOL_ROW),
         );
@@ -919,6 +917,9 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
             POOL_TRACK,
         );
         paint_track(ui, track, pool_fraction(pool), color);
+        // Beside its bar, each line ends against the panel's edge, where the eye finds it from the
+        // bar's end.
+        let slash = slash_ending_at(ui, line.right(), pool);
         paint_pool_numbers(ui, line, slash, pool, color);
     }
 
@@ -1031,16 +1032,20 @@ fn hit_point_fraction(unit: &SelectedUnitView) -> f32 {
 /// Draws what the subject has left, one line each, the way the console writes them under its
 /// wireframe, as [`pools`] lists and colors them.
 ///
-/// Centered in the column as one block, with the slashes of its lines in one column.
+/// Each line is centered under the tile on its own, as the console centers them under its
+/// wireframe: a line set in a column sized for a longer one reads as pushed off the tile's middle.
+/// Digits are all as wide as each other, so a value ticking down leaves its line where it is until
+/// it loses a digit.
 fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView) {
-    let pools = pools(unit);
-    let columns = PoolColumns::of(ui, &pools);
-    let slash = column.center().x - columns.width() * 0.5 + columns.current;
-    for (index, &(pool, color)) in pools.iter().enumerate() {
+    for (index, (pool, color)) in pools(unit).into_iter().enumerate() {
         let line = Rect::from_min_size(
             pos2(column.left(), top + index as f32 * READOUT_ROW),
             vec2(column.width(), READOUT_ROW),
         );
+        let spec = pool_number_spec();
+        let current = spec.galley(ui, &pool.0.to_string()).size().x;
+        let full = spec.galley(ui, &format!("/{}", pool.1)).size().x;
+        let slash = column.center().x - (current + full) * 0.5 + current;
         paint_pool_numbers(ui, line, slash, pool, color);
     }
 }
@@ -1076,6 +1081,12 @@ impl PoolColumns {
 /// The style a pool's numbers are written in.
 fn pool_number_spec() -> text::TextSpec {
     text::numeral_strong(READOUT_SIZE)
+}
+
+/// Where the slash of a pool whose numbers end at `right` goes: short of it by the slash and the
+/// `full` value after it.
+fn slash_ending_at(ui: &Ui, right: f32, (_, full): (u32, u32)) -> f32 {
+    right - pool_number_spec().galley(ui, &format!("/{full}")).size().x
 }
 
 /// Writes a pool's numbers in `line` around the slash at `slash`: the current value in `color`,

@@ -336,10 +336,48 @@ pub fn scrub_track_marked(
     markers: &[TrackMarker],
 ) -> ScrubTrack {
     let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
-    let bar = Rect::from_min_max(
-        pos2(rect.left() + SCRUB_HEAD, rect.center().y - SCRUB_BAR * 0.5),
+    let bar = scrub_bar(rect, rect.left() + SCRUB_HEAD);
+    scrub_track_in(ui, rect, response, bar, fraction, markers)
+}
+
+/// A marked scrub track whose bar starts right at the left edge of the room it is laid out in, so
+/// it lines up with whatever stands on that edge above and below it.
+///
+/// The room the playhead needs to reach the bar's start, and the room to aim at it, is taken from
+/// the space left of the track, which whatever it is laid out in must leave clear for as wide as
+/// the head and its hover glow. The right end keeps its room inside the track, so the head at the
+/// end stays clear of whatever comes after it.
+pub fn scrub_track_marked_flush(
+    ui: &mut Ui,
+    fraction: f32,
+    size: Vec2,
+    markers: &[TrackMarker],
+) -> ScrubTrack {
+    let (laid_out, placed) = ui.allocate_exact_size(size, Sense::hover());
+    let rect = laid_out.with_min_x(laid_out.left() - SCRUB_HEAD);
+    let response = ui.interact(rect, placed.id.with("scrub"), Sense::click_and_drag());
+    let bar = scrub_bar(rect, laid_out.left());
+    scrub_track_in(ui, rect, response, bar, fraction, markers)
+}
+
+/// The bar of a scrub track taking up `rect`, from `left` to short of the rect's right end by the
+/// head's room.
+fn scrub_bar(rect: Rect, left: f32) -> Rect {
+    Rect::from_min_max(
+        pos2(left, rect.center().y - SCRUB_BAR * 0.5),
         pos2(rect.right() - SCRUB_HEAD, rect.center().y + SCRUB_BAR * 0.5),
-    );
+    )
+}
+
+/// A scrub track over `rect` that `response` takes the pointer for, with its bar at `bar`.
+fn scrub_track_in(
+    ui: &mut Ui,
+    rect: Rect,
+    response: Response,
+    bar: Rect,
+    fraction: f32,
+    markers: &[TrackMarker],
+) -> ScrubTrack {
     let marker_xs: Vec<f32> = markers
         .iter()
         .map(|marker| bar.left() + bar.width() * marker.fraction.clamp(0.0, 1.0))

@@ -33,7 +33,8 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{WING_GAP, WING_MARGIN, paint_text, panel_name, selection};
+use crate::observer::layout;
+use crate::observer::{WING_GAP, paint_text, panel_name, selection};
 use crate::shell::{Action, Hotkeys, MatchupStyle, Mode, Panel, PanelPrefs};
 use crate::tr;
 
@@ -53,12 +54,17 @@ const GROUP_GAP: f32 = 4.0;
 /// Width of the chevron at the strip's far end that opens the table.
 const CHEVRON_WIDTH: f32 = 22.0;
 
-/// How tall the strip over the plate is, chrome included: what brings the plate's panel up to the
-/// selection panel's height, so the two stand level at the end of the bottom row.
-pub(crate) const STRIP_HEIGHT: f32 =
-    selection::PANEL_HEIGHT - crate::playback_controls::PANEL_HEIGHT;
+/// How tall the strip over the plate is, chrome included: a keycap high with a little room around
+/// it, and no more, since the strip is a row of keys rather than a panel of its own.
+pub(crate) const STRIP_HEIGHT: f32 = 48.0;
 
 const _: () = assert!(STRIP_HEIGHT - tiers::PANEL_MARGIN_HEIGHT >= KEY_HEIGHT);
+
+/// The strip and the plate under it stand level with the selection panel at the end of the bottom
+/// row. The plate is what takes up any change in the selection panel's height, so a taller
+/// selection panel never pads out the strip.
+const _: () =
+    assert!(STRIP_HEIGHT + crate::playback_controls::PANEL_HEIGHT == selection::PANEL_HEIGHT);
 
 /// How tall the strip is floating on its own, chrome included: a keycap high, with no panel beside it
 /// to match.
@@ -433,7 +439,8 @@ fn render_strip(
 /// opens down over that instead, rather than taking its title row and the chevron that closes it off
 /// screen.
 fn opened_top(ctx: &Context, bottom: f32, height: f32) -> f32 {
-    (bottom - tiers::PANEL_MARGIN_HEIGHT - height).max(ctx.viewport_rect().top() + WING_MARGIN)
+    let screen = ctx.viewport_rect();
+    (bottom - tiers::PANEL_MARGIN_HEIGHT - height).max(screen.top() + layout::screen_margin(screen))
 }
 
 /// The column against the selection panel's right edge.
@@ -1231,7 +1238,8 @@ mod tests {
         let [table] = placed(true, on_plate(high), 1)[..] else {
             panic!("the table alone is drawn");
         };
-        assert_eq!(table.top(), WING_MARGIN);
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0));
+        assert_eq!(table.top(), layout::screen_margin(screen));
         assert_eq!(table.right(), high.right());
     }
 

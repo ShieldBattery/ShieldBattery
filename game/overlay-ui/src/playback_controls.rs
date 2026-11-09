@@ -36,6 +36,7 @@ use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
+use crate::observer::layout;
 use crate::observer::{MapPoint, Significance, TimelineEventView};
 use crate::shell::hotkeys::{Action, Chord, Held, Hotkeys};
 use crate::{tr, tr_plural};
@@ -45,10 +46,7 @@ pub const PANEL_WIDTH: f32 = 324.0;
 
 /// How tall the plate is. Fixed rather than grown from its contents: both forms take the same
 /// footprint, so switching between them moves nothing on screen.
-pub const PANEL_HEIGHT: f32 = 114.0;
-
-/// How far the plate sits from the screen's right and bottom edges.
-const EDGE_MARGIN: f32 = 16.0;
+pub const PANEL_HEIGHT: f32 = 134.0;
 
 /// The room inside the plate's chrome. Every column below is measured against this rather than
 /// against the space left over, so no value or translation can move a control.
@@ -61,7 +59,7 @@ const TRACK_ROW: f32 = 24.0;
 /// Height of the row carrying the jumps and the play control, which is the tallest thing on it.
 const CHIP_ROW: f32 = 30.0;
 /// Gap between two rows.
-const ROW_GAP: f32 = 8.0;
+const ROW_GAP: f32 = 18.0;
 
 /// The room inside the plate's chrome, vertically.
 const CONTENT_HEIGHT: f32 = INFO_ROW + ROW_GAP + TRACK_ROW + ROW_GAP + CHIP_ROW;
@@ -74,13 +72,13 @@ const _: () = assert!(CONTENT_HEIGHT + 20.0 == PANEL_HEIGHT);
 const PLAY_SIZE: Vec2 = Vec2::new(42.0, 30.0);
 /// Width of the elapsed clock's column. Wide enough for `1:05:30`, so an hour-long replay does not
 /// widen the row.
-const CLOCK_WIDTH: f32 = 62.0;
+const CLOCK_WIDTH: f32 = 76.0;
 /// Text size of the elapsed clock, which is read all the way through a replay.
-const CLOCK_SIZE: f32 = 20.0;
+const CLOCK_SIZE: f32 = 24.0;
 /// Width of the column holding the replay's length, and the size that number is set at: it is read
 /// once, where the elapsed clock is read continuously.
-const LENGTH_WIDTH: f32 = 46.0;
-const LENGTH_SIZE: f32 = 13.0;
+const LENGTH_WIDTH: f32 = 54.0;
+const LENGTH_SIZE: f32 = 15.0;
 /// Side of one square control: an end of the speed stepper, or the eye.
 const BOX_SIZE: f32 = 24.0;
 /// Width of the column holding the rung playback is on, and the size it is set at.
@@ -448,8 +446,9 @@ impl PlaybackControlsPlacement {
     /// Where the plate is on `screen` from here, which the surfaces around it are placed against
     /// before it is drawn.
     pub fn rect(self, screen: Rect) -> Rect {
-        let right = screen.right() - EDGE_MARGIN;
-        let bottom = screen.bottom() - EDGE_MARGIN;
+        let margin = layout::screen_margin(screen);
+        let right = screen.right() - margin;
+        let bottom = screen.bottom() - margin;
         Rect::from_min_max(
             pos2(right - PANEL_WIDTH, bottom - PANEL_HEIGHT),
             pos2(right, bottom),
@@ -471,8 +470,9 @@ pub fn render_playback_controls(
     hotkeys: &Hotkeys,
 ) -> Option<PlaybackControlsOutcome> {
     let id = Id::new("sb_playback_controls");
+    let margin = layout::screen_margin(ctx.viewport_rect());
     let area = Area::new(id)
-        .anchor(Align2::RIGHT_BOTTOM, vec2(-EDGE_MARGIN, -EDGE_MARGIN))
+        .anchor(Align2::RIGHT_BOTTOM, vec2(-margin, -margin))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         let joined = placement.dock_on_top.then_some(tiers::Joined {
@@ -685,8 +685,14 @@ fn draw_track_row(
 ) {
     let marked = marked_events(view, events);
     let markers: Vec<TrackMarker> = marked.iter().map(|(_, marker)| *marker).collect();
-    let track =
-        widgets::scrub_track_marked(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW), &markers);
+    // Flush, so the bar's start lines up with the clock over it and the jumps under it: the head's
+    // room at that end comes out of the plate's padding.
+    let track = widgets::scrub_track_marked_flush(
+        ui,
+        view.progress(),
+        vec2(TRACK_WIDTH, TRACK_ROW),
+        &markers,
+    );
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
     }
@@ -1312,6 +1318,22 @@ mod tests {
     }
 
     #[test]
+    fn an_hour_long_clock_fits_its_column() {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut widths = None;
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            let width = |size| text::numeral(size).galley(ui, "1:05:30").size().x;
+            widths = Some((width(CLOCK_SIZE), width(LENGTH_SIZE)));
+        })
+        .textures_delta
+        .clear();
+        let (clock, length) = widths.unwrap();
+        assert!(clock <= CLOCK_WIDTH, "{clock}");
+        assert!(length <= LENGTH_WIDTH, "{length}");
+    }
+
+    #[test]
     fn a_seek_never_leaves_the_replay() {
         let view = view();
         assert_eq!(view.seek_target(-100_000), 0);
@@ -1531,7 +1553,8 @@ mod tests {
     /// a chip, counted left to right, with the play control taking the slot after the third.
     fn jump_row_point(index: usize, play: bool) -> Pos2 {
         let inset = (PANEL_WIDTH - CONTENT_WIDTH) / 2.0;
-        let left = SCREEN.x - EDGE_MARGIN - PANEL_WIDTH + inset;
+        let margin = layout::screen_margin(Rect::from_min_size(Pos2::ZERO, SCREEN));
+        let left = SCREEN.x - margin - PANEL_WIDTH + inset;
         let mut x = left + index as f32 * (CHIP_WIDTH + CHIP_GAP);
         let width = if play {
             PLAY_SIZE.x
@@ -1541,7 +1564,7 @@ mod tests {
             }
             CHIP_WIDTH
         };
-        let bottom = SCREEN.y - EDGE_MARGIN - (PANEL_HEIGHT - CONTENT_HEIGHT) / 2.0;
+        let bottom = SCREEN.y - margin - (PANEL_HEIGHT - CONTENT_HEIGHT) / 2.0;
         pos2(x + width / 2.0, bottom - CHIP_ROW / 2.0)
     }
 

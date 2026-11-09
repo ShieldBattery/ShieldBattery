@@ -584,9 +584,6 @@ pub(crate) enum Wing {
     Right,
 }
 
-/// How far a wing sits from the edge it hangs off.
-pub(crate) const WING_MARGIN: f32 = 16.0;
-
 /// Gap between the matchup bar and the topmost stats wing under it. With the bar in the form a
 /// duel gives it, this is the design's own 78 points from the screen's top edge.
 pub(crate) const WING_TOP_GAP: f32 = 14.0;
@@ -692,10 +689,11 @@ impl WingTops {
 
     /// The left wing against the screen's top edge, which nothing hangs over, and the right one
     /// under the scoreboard in that corner while it is drawn, and in its place once it is gone.
-    pub(crate) fn beside_scoreboard(scoreboard: Option<Rect>) -> WingTops {
+    pub(crate) fn beside_scoreboard(screen: Rect, scoreboard: Option<Rect>) -> WingTops {
+        let margin = layout::screen_margin(screen);
         WingTops {
-            left: WING_MARGIN,
-            right: WING_MARGIN + stack_share(scoreboard),
+            left: margin,
+            right: margin + stack_share(scoreboard),
         }
     }
 }
@@ -824,9 +822,10 @@ pub(crate) fn wing_panel<R>(
     shown: bool,
     add: impl FnOnce(&mut Ui, Rect) -> R,
 ) -> Option<WingFrame<R>> {
+    let margin = layout::screen_margin(ctx.viewport_rect());
     let (align, offset_x) = match wing {
-        Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-        Wing::Right => (Align2::RIGHT_TOP, -WING_MARGIN),
+        Wing::Left => (Align2::LEFT_TOP, margin),
+        Wing::Right => (Align2::RIGHT_TOP, -margin),
     };
     let id = wing_id(panel);
     let area = Area::new(id)
