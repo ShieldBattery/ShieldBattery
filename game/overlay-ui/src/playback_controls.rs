@@ -1321,20 +1321,16 @@ mod tests {
     fn click_stepper(steps: bool) -> (bool, bool) {
         let ctx = Context::default();
         let pos = pos2(BOX_SIZE / 2.0, BOX_SIZE / 2.0);
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
         let events = [
             vec![egui::Event::PointerMoved(pos)],
-            vec![egui::Event::PointerButton {
-                pos,
-                button: egui::PointerButton::Primary,
-                pressed: true,
-                modifiers: egui::Modifiers::NONE,
-            }],
-            vec![egui::Event::PointerButton {
-                pos,
-                button: egui::PointerButton::Primary,
-                pressed: false,
-                modifiers: egui::Modifiers::NONE,
-            }],
+            vec![button(true)],
+            vec![button(false)],
         ];
         let mut clicked = false;
         for (frame, events) in events.into_iter().enumerate() {

@@ -958,7 +958,8 @@ impl Shell {
                 true
             }
             // A step past either end of the ladder still takes the key, so it does not fall
-            // through to the game, but asks for no change and so makes no click.
+            // through to the game, but asks for no change and so makes no click: the click
+            // follows the intent, not `handled`, so this returns before the shared line below.
             Action::SpeedUp | Action::SpeedDown => {
                 let intent_count = self.intents.len();
                 let handled = self.replay.key_action(action, modifiers, &mut self.intents);
