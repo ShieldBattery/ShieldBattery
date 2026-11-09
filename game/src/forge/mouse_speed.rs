@@ -45,6 +45,8 @@ static SENSITIVITY: AtomicU32 = AtomicU32::new(NO_SENSITIVITY);
 static CURSOR_LEFT: AtomicBool = AtomicBool::new(false);
 /// Whether the game window was in front when last checked.
 static IN_FRONT: AtomicBool = AtomicBool::new(false);
+/// How many times [`IN_FRONT`] has changed.
+static FRONT_CHANGES: AtomicU32 = AtomicU32::new(0);
 /// Set once the process is exiting, after which only the user's speed is applied.
 static EXITING: AtomicBool = AtomicBool::new(false);
 
@@ -175,7 +177,9 @@ impl Reason {
 /// Puts the live speed where the window's state says it belongs, if it isn't already there.
 fn update() {
     let in_front = window_in_front();
-    IN_FRONT.store(in_front, Ordering::Relaxed);
+    if IN_FRONT.swap(in_front, Ordering::Relaxed) != in_front {
+        FRONT_CHANGES.fetch_add(1, Ordering::Relaxed);
+    }
     let sensitivity = SENSITIVITY.load(Ordering::Relaxed);
     let reason = if EXITING.load(Ordering::Relaxed) {
         Reason::Exiting
@@ -199,6 +203,15 @@ fn update() {
         set_live_speed(speed);
         debug!("Mouse speed {speed}: {}", reason.describe());
     }
+}
+
+/// Whether the game window was in front (the foreground window, not minimized) when last checked,
+/// which [`check_window`] does every message pump, and how many times that has changed.
+pub(super) fn in_front() -> (bool, u32) {
+    (
+        IN_FRONT.load(Ordering::Relaxed),
+        FRONT_CHANGES.load(Ordering::Relaxed),
+    )
 }
 
 /// Re-checks whether the window is in front, applying the matching speed if that changed. Cheap

@@ -149,6 +149,7 @@ unsafe extern "system" fn wnd_proc_scr(
             // Avoid recursive locking due to panics
             return DefWindowProcA(window, msg, wparam, lparam);
         }
+        let _pump = time_game_loop_pump();
 
         let ret = with_scr_hooks_disabled(|| {
             gamma::handle_window_message(window, msg, wparam);
@@ -515,6 +516,25 @@ pub fn game_window_handle() -> Option<HWND> {
     if raw == 0 { None } else { Some(raw as HWND) }
 }
 
+/// Whether the game window is in front, the foreground window and not minimized, as of the last
+/// time the game's message pump emptied the queue. Free to call, unlike asking Windows.
+pub fn game_window_in_front() -> bool {
+    mouse_speed::in_front().0
+}
+
+/// How many times the game window has come in front or left it, as [`game_window_in_front`] saw.
+/// A change shows the window was away from the front even when every look found it there.
+pub fn game_window_front_changes() -> u32 {
+    mouse_speed::in_front().1
+}
+
+/// Times a call on the game loop's message pump into the current frame (see
+/// [`crate::frame_timing::pump`]), when this is the game loop's thread and the loop is pumping.
+fn time_game_loop_pump() -> Option<crate::frame_timing::PumpSpan> {
+    (GAME_LOOP_PUMPING.load(Ordering::Relaxed) && raw_mouse::on_window_thread())
+        .then(crate::frame_timing::pump)
+}
+
 impl Forge {
     fn set_window(&mut self, window: Window) {
         assert!(self.window.is_none());
@@ -626,12 +646,19 @@ fn peek_message_w(
         DRAIN_PEEKING.set(Duration::ZERO);
         return 0;
     }
+    let pump = time_game_loop_pump();
+    let count_removed = removing && pump.is_some();
+    let remove_one = |msg: *mut MSG| {
+        let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
+        if count_removed && result != 0 {
+            crate::frame_timing::pumped_message();
+        }
+        result
+    };
     let peek_start = Instant::now();
     let result = match removing && raw_mouse::converts(window, filter_min, filter_max) {
-        true => raw_mouse::remove_next_message(msg, |msg| unsafe {
-            orig(msg, window, filter_min, filter_max, remove)
-        }),
-        false => unsafe { orig(msg, window, filter_min, filter_max, remove) },
+        true => raw_mouse::remove_next_message(msg, remove_one),
+        false => remove_one(msg),
     };
     if result == 0 {
         // A pump ends on an empty queue, so this catches focus changes once per pump even when

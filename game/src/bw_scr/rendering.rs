@@ -743,7 +743,10 @@ impl BwScr {
                 Renderer_SwapBuffers,
                 move |renderer, orig| {
                     crate::frame_pacing::presenting_frame();
-                    let ret = orig(renderer);
+                    let ret = {
+                        let _timing = crate::frame_timing::present();
+                        orig(renderer)
+                    };
                     crate::frame_pacing::frame_presented();
                     ret
                 },

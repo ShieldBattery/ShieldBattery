@@ -112,6 +112,12 @@ pub fn window_created() {
     );
 }
 
+/// Whether this is the thread the game window belongs to.
+pub fn on_window_thread() -> bool {
+    WINDOW_THREAD.load(Ordering::Relaxed)
+        == unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() }
+}
+
 /// Whether this thread has the mouse registered for raw input.
 pub fn taking_input() -> bool {
     TAKING_INPUT.get()
@@ -124,8 +130,7 @@ pub fn converts(window: HWND, filter_min: u32, filter_max: u32) -> bool {
         && filter_max == 0
         && (window.is_null() || super::is_forge_window(window))
         && super::GAME_LOOP_PUMPING.load(Ordering::Relaxed)
-        && WINDOW_THREAD.load(Ordering::Relaxed)
-            == unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() }
+        && on_window_thread()
 }
 
 /// Notes that the cursor was just moved by something other than the mouse, which makes no report.
