@@ -98,6 +98,11 @@ fn deadline_lead_limit(period: Duration) -> Duration {
 const LEAD_LIMIT_MISSES: usize = 5;
 const LEAD_LIMIT_WINDOW: Duration = Duration::from_secs(10);
 
+/// How long after the game window comes back in front its frames still say nothing about reaching
+/// the display: Windows takes a moment to hand a window back its own flips, and a fullscreen one
+/// switches the display mode back first.
+const FRONT_SETTLE: Duration = Duration::from_secs(2);
+
 /// Notes a frame presented at `presented` that was shown late with the learned lead at its limit,
 /// among `misses`, the recent others. Returns whether there have now been enough of them close
 /// together that pacing should step aside, emptying `misses` if so.
@@ -392,6 +397,12 @@ struct State {
     /// would bring back seconds of late frames each time, a change of feel mid-game.
     lead_limit_misses: VecDeque<Instant>,
     lead_limited: bool,
+    /// Since when the game window has been in front, or `None` while it isn't. Only frames
+    /// presented [`FRONT_SETTLE`] after it came in front teach the lead anything: behind other
+    /// windows or minimized, frames are shown late or not at all however they're timed.
+    in_front_since: Option<Instant>,
+    /// [`crate::forge::game_window_front_changes`] as of the last frame presented.
+    front_changes: u32,
     /// Whether the desktop window manager is composing the game window, as the statistics show,
     /// and the evidence for it: up for each frame composed, down for each flipped.
     composed: bool,
@@ -505,6 +516,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     deadline_lead: Duration::ZERO,
     lead_limit_misses: VecDeque::new(),
     lead_limited: false,
+    in_front_since: None,
+    front_changes: 0,
     composed: false,
     composition_votes: 0,
     skip_blank: false,
@@ -861,6 +874,12 @@ impl State {
             Some(Some(plan)) if plan.synced => (plan.period, plan.vsync),
             _ => return,
         };
+        let settled_in_front = self
+            .in_front_since
+            .is_some_and(|since| shown.presented >= since + FRONT_SETTLE);
+        if !settled_in_front {
+            return;
+        }
         // Only a frame presented before its blank says anything about when it had to be: one
         // presented after it was late however the display works.
         let Some(timed_for) = shown.timed_for else {
@@ -1031,8 +1050,20 @@ pub fn frame_presented() {
     if !IN_OWN_DRAW.get() {
         return;
     }
+    let in_front = crate::forge::game_window_in_front();
+    let front_changes = crate::forge::game_window_front_changes();
     let mut state = STATE.lock();
-    state.frame_end = Some(Instant::now());
+    let now = Instant::now();
+    state.frame_end = Some(now);
+    // A minimized window presents nothing, so the window may have left and come back between
+    // two presents that both found it in front.
+    if std::mem::replace(&mut state.front_changes, front_changes) != front_changes {
+        state.in_front_since = None;
+    }
+    state.in_front_since = match in_front {
+        false => None,
+        true => Some(state.in_front_since.unwrap_or(now)),
+    };
     let timed_for = state.frame.and_then(|frame| frame.vblank);
     if let Some(presented) = state.present_start
         && let Some(shown) = present_stats::after_present(presented, timed_for)
@@ -1430,6 +1461,7 @@ pub fn reset() {
     state.deadline_lead = Duration::ZERO;
     state.lead_limit_misses.clear();
     state.lead_limited = false;
+    state.in_front_since = None;
     state.composed = false;
     state.composition_votes = 0;
     state.skip_blank = false;
