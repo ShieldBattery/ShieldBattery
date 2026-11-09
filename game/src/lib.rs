@@ -65,6 +65,7 @@ mod http;
 mod http_proxy;
 #[cfg(debug_assertions)]
 mod input_latency_probe;
+mod log_writer;
 mod machine_info;
 mod netcode_v2;
 mod offline_cookie;
@@ -249,6 +250,7 @@ pub extern "C" fn OnInject() {
     // The crash path writes to the log through its own duplicate of the handle, since the logger
     // itself can't be trusted from a crashing thread.
     let breadcrumb_file = log_file.try_clone();
+    log_writer::init(log_file);
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -267,7 +269,7 @@ pub extern "C" fn OnInject() {
         .level_for("noq", log::LevelFilter::Warn)
         .level_for("noq_proto", log::LevelFilter::Warn)
         .level_for("noq_udp", log::LevelFilter::Warn)
-        .chain(log_file)
+        .chain(fern::Output::call(|record| log_writer::log(*record.args())))
         .apply();
     match breadcrumb_file {
         Ok(file) => crash_dump::set_breadcrumb_file(file),
@@ -349,6 +351,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     // The game's own startup doesn't tolerate other threads running alongside it, so this is the
     // earliest point at which the DLL can start any.
     crash_dump::start_dump_thread();
+    log_writer::start_thread();
     scr_stdout::start_forwarding();
     companion::initialize(parse_args().server_port);
     #[cfg(debug_assertions)]

@@ -63,6 +63,11 @@ use crate::windows;
 const HANDLER_STACK_GUARANTEE: u32 = 64 * 1024;
 /// How long the faulting thread waits for the dump thread before giving up and terminating.
 const DUMP_WAIT_MS: u32 = 60_000;
+/// How long a crash waits for the lines logged before it to reach the log file, so that its
+/// breadcrumbs, which carry no time of their own, come after them.
+const CRASH_LOG_FLUSH: Duration = Duration::from_millis(200);
+/// How long the process ending waits for the last lines logged to reach the log file.
+const EXIT_LOG_FLUSH: Duration = Duration::from_secs(1);
 const MINIDUMP_WITH_DATA_SEGS: u32 = 1;
 /// Puts the type and protection of every region of the address space in the dump.
 const MINIDUMP_WITH_FULL_MEMORY_INFO: u32 = 0x800;
@@ -340,17 +345,20 @@ fn is_exception_exit_code(code: u32) -> bool {
 /// own around its code, or a vectored one) and then ends the process this way never reaches the
 /// top-level filter, which would leave no trace of where or why. This handler's own termination
 /// happens while a crash is being handled, and passes through.
+///
+/// Whatever ends this process, the lines its threads have logged get a moment to reach the log
+/// file first.
 fn terminate_process(
     process: HANDLE,
     code: u32,
     orig: unsafe extern "C" fn(HANDLE, u32) -> i32,
 ) -> i32 {
     unsafe {
-        if is_exception_exit_code(code)
-            && CRASHING_THREAD.load(Ordering::Acquire) == 0
-            && GetProcessId(process) == GetCurrentProcessId()
-        {
-            crash_on_exception_exit("TerminateProcess", code);
+        if GetProcessId(process) == GetCurrentProcessId() {
+            if is_exception_exit_code(code) && CRASHING_THREAD.load(Ordering::Acquire) == 0 {
+                crash_on_exception_exit("TerminateProcess", code);
+            }
+            crate::log_writer::flush(EXIT_LOG_FLUSH);
         }
         orig(process, code)
     }
@@ -362,6 +370,7 @@ fn exit_process(code: u32, orig: unsafe extern "C" fn(u32)) {
         if is_exception_exit_code(code) && CRASHING_THREAD.load(Ordering::Acquire) == 0 {
             crash_on_exception_exit("ExitProcess", code);
         }
+        crate::log_writer::flush(EXIT_LOG_FLUSH);
         orig(code)
     }
 }
@@ -372,6 +381,7 @@ fn exit_process(code: u32, orig: unsafe extern "C" fn(u32)) {
 #[inline(never)]
 unsafe fn crash_on_exception_exit(api: &str, code: u32) -> ! {
     unsafe {
+        crate::log_writer::flush(CRASH_LOG_FLUSH);
         breadcrumb!(
             "{api} ending the process with exception code {code:08x} on thread {:x}; code \
              addresses on its stack: {}",
@@ -924,6 +934,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         }
         INITIAL_EXCEPTION.store(exception, Ordering::Release);
 
+        crate::log_writer::flush(CRASH_LOG_FLUSH);
         // The one line that must make it to disk, before anything that could fault again.
         breadcrumb!("Thread {thread_id:x} crashed @ {place:08x}, exception {code:08x}");
         breadcrumb!(
