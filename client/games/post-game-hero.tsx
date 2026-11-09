@@ -11,26 +11,31 @@ import { bodyMedium, bodySmall, displaySmall, labelMedium } from '../styles/typo
 
 const Root = styled.div`
   position: relative;
-  width: calc(100% - 48px);
-  margin: 8px 24px 16px;
-  min-height: 188px;
-  padding: 28px 32px;
+  min-height: 156px;
+  margin-bottom: 16px;
+  padding-block: 12px;
 
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 12px;
-  background-color: var(--theme-container-low);
   contain: paint;
+
+  @container (max-width: 520px) {
+    min-height: 0;
+    padding-block: 4px 8px;
+  }
 `
 
 const MapImage = styled.img`
   position: absolute;
   top: 0;
   right: 0;
-  width: 55%;
+  width: 52%;
   height: 100%;
   object-fit: cover;
   object-position: center;
   pointer-events: none;
+
+  @container (max-width: 520px) {
+    width: 65%;
+  }
 `
 
 /** The map identifies the match while the opaque left edge keeps the result readable. */
@@ -38,20 +43,30 @@ const MapShade = styled.div`
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    var(--theme-container-low) 38%,
-    rgb(from var(--theme-container-low) r g b / 0.85) 57%,
-    rgb(from var(--theme-container-low) r g b / 0.3) 100%
-  );
-`
+  background:
+    linear-gradient(
+      0deg,
+      var(--theme-surface),
+      transparent 36%,
+      transparent 82%,
+      var(--theme-surface)
+    ),
+    linear-gradient(
+      90deg,
+      var(--theme-surface) 48%,
+      rgb(from var(--theme-surface) r g b / 0.8) 68%,
+      rgb(from var(--theme-surface) r g b / 0.3) 100%
+    );
 
-/** Stands in for the map when it has no image to draw. */
-const MapFallback = styled.div`
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: var(--theme-container-low);
+  @container (max-width: 520px) {
+    background:
+      linear-gradient(0deg, var(--theme-surface) 12%, transparent 80%),
+      linear-gradient(
+        90deg,
+        var(--theme-surface) 35%,
+        rgb(from var(--theme-surface) r g b / 0.65) 100%
+      );
+  }
 `
 
 function Backdrop({ map }: { map?: ReadonlyDeep<MapInfoJson> }) {
@@ -59,7 +74,7 @@ function Backdrop({ map }: { map?: ReadonlyDeep<MapInfoJson> }) {
   const src = map?.image1024Url ?? map?.image512Url ?? map?.image2048Url
 
   if (!map || !src || failedMapId === map.id) {
-    return <MapFallback />
+    return null
   }
 
   const srcSet = [
@@ -93,7 +108,7 @@ const Content = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 `
 
 const Eyebrow = styled.div`
@@ -128,6 +143,13 @@ const MatchLine = styled.div`
   justify-content: flex-start;
   gap: 4px 10px;
   color: var(--theme-on-surface-variant);
+`
+
+const Matchup = styled.span`
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
 `
 
 const Side = styled.span`
@@ -191,30 +213,31 @@ export function PostGameHero({
         <Eyebrow>{modeLabel}</Eyebrow>
         <Outcome $color={result ? OUTCOME_COLORS[result] : undefined}>{outcomeText}</Outcome>
         <MatchLine>
-          {matchup.map((side, sideIndex) => (
-            <Fragment key={sideIndex}>
-              {sideIndex > 0 ? <Separator>{t('gameDetails.postGameVs', 'vs')}</Separator> : null}
-              <Side>
-                {side.map((race, raceIndex) => (
-                  <RaceChip key={raceIndex} $race={race}>
-                    <RaceMark race={race} />
-                    {showRaceNames ? raceCharToLabel(race, t) : null}
-                  </RaceChip>
-                ))}
-              </Side>
-            </Fragment>
-          ))}
-          {mapName ? (
-            <>
-              {matchup.length ? <Separator>{'·'}</Separator> : null}
-              <span>{mapName}</span>
-            </>
+          {matchup.length ? (
+            <Matchup>
+              {matchup.map((side, sideIndex) => (
+                <Fragment key={sideIndex}>
+                  {sideIndex > 0 ? (
+                    <Separator>{t('gameDetails.postGameVs', 'vs')}</Separator>
+                  ) : null}
+                  <Side>
+                    {side.map((race, raceIndex) => (
+                      <RaceChip key={raceIndex} $race={race}>
+                        <RaceMark race={race} />
+                        {showRaceNames ? raceCharToLabel(race, t) : null}
+                      </RaceChip>
+                    ))}
+                  </Side>
+                </Fragment>
+              ))}
+            </Matchup>
           ) : null}
-          {duration ? (
-            <>
-              <Separator>{'·'}</Separator>
-              <span>{duration}</span>
-            </>
+          {mapName || duration ? (
+            <Matchup>
+              {mapName ? <span>{mapName}</span> : null}
+              {mapName && duration ? <Separator>{'·'}</Separator> : null}
+              {duration ? <span>{duration}</span> : null}
+            </Matchup>
           ) : null}
         </MatchLine>
         {playedAt ? <PlayedAt>{playedAt}</PlayedAt> : null}

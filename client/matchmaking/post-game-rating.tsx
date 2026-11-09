@@ -41,20 +41,10 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueBadge } from '../leagues/league-badge'
 import { useLocalizedLeague } from '../leagues/use-localized-league'
 import logger from '../logging/logger'
-import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodySmall, labelMedium, titleMedium } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
-const Root = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-  width: 100%;
-  max-width: 380px;
-  min-width: 0;
-  padding: 20px;
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 8px;
-`
-const CardTitle = styled.h2`
+const ResultTitle = styled.h2`
   ${titleMedium};
   margin: 0;
 `
@@ -160,14 +150,12 @@ export function PostGameRating({
   }, [leagueChanges, leagueStandings, leagues])
 
   return (
-    <Root>
-      <RatedUserContent
-        mmrChange={mmrChange}
-        leagueValues={leagueValues}
-        season={season}
-        animate={animate}
-      />
-    </Root>
+    <RatedUserContent
+      mmrChange={mmrChange}
+      leagueValues={leagueValues}
+      season={season}
+      animate={animate}
+    />
   )
 }
 
@@ -424,7 +412,7 @@ function RatedUserContent({
 
   return (
     <div style={{ '--sb-points-bar-bg': pointsBarBackground } as any}>
-      <CardTitle>{t('gameDetails.debugInfo.reportedResult', 'Result')}</CardTitle>
+      <ResultTitle>{t('gameDetails.debugInfo.reportedResult', 'Result')}</ResultTitle>
       <SeasonName>{season.name}</SeasonName>
       <MainSection>
         <DivisionIconContainer>

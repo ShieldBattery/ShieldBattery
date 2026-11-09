@@ -78,7 +78,7 @@ import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, TabItemContainer, Tabs, TabSpacer } from '../material/tabs'
+import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
@@ -125,61 +125,34 @@ import { PostGameHero } from './post-game-hero'
 import { getPostGameMatchup } from './post-game-matchup'
 import { SaveReplayMenuContent } from './save-replay-menu'
 
-const Container = styled(CenteredContentContainer)`
+const Container = styled(CenteredContentContainer)<{ $postGame: boolean }>`
+  --results-gutter: ${props => (props.$postGame ? '0px' : '24px')};
+
   padding-block: 24px;
+
+  @media (max-width: 600px) {
+    --_target-horizontal-padding: 16px;
+    --results-gutter: 0px;
+    padding-block: 16px 24px;
+  }
   container-type: inline-size;
 `
 
-const TabArea = styled.div<{ $postGame?: boolean }>`
+const TabArea = styled.div`
   width: 100%;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 
-  ${props =>
-    props.$postGame
-      ? `
-    & > div { border-bottom: 1px solid var(--theme-outline-variant); }
-  `
-      : ''}
-
-  & ${TabItemContainer} {
-    ${props =>
-      props.$postGame
-        ? `
-      flex: 0 1 auto;
-      min-width: 120px;
-      border-radius: 0;
-      border-width: 0 0 2px;
-      border-color: transparent;
-      background: transparent;
-      &:focus-visible { border-color: var(--theme-amber); }
-    `
-        : ''}
-  }
-
-  & ${TabSpacer} {
-    ${props => (props.$postGame ? 'flex: 0 0 16px;' : '')}
-  }
-
-  @container (max-width: 520px) {
+  @container (max-width: 420px) {
     & ${TabItemContainer} {
-      ${props => (props.$postGame ? 'flex: 1 1 0; min-width: 0; padding-inline: 8px;' : '')}
+      padding-inline: 8px;
     }
-    & ${TabSpacer} {
-      ${props => (props.$postGame ? 'display: none;' : '')}
-    }
-  }
-`
-
-const ResultsTab = styled(TabItem)<{ $selected?: boolean }>`
-  && {
-    border-bottom-color: ${props => (props.$selected ? 'var(--theme-amber)' : undefined)};
   }
 `
 
 const ButtonBar = styled.div`
   width: 100%;
   margin: 0 0 16px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 
   display: flex;
   flex-wrap: wrap;
@@ -198,7 +171,6 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
 
 const PostGameStatus = styled.div`
   margin: 0 0 16px;
-  padding: 0 24px;
 `
 
 const RatingColumn = styled.aside`
@@ -206,23 +178,20 @@ const RatingColumn = styled.aside`
   grid-column: 2;
   grid-row: 1;
 
-  & > * {
-    max-width: none;
-  }
+  padding-inline-start: 24px;
+  border-inline-start: 1px solid var(--theme-outline-variant);
 
   @container (max-width: 880px) {
     grid-column: 1;
     grid-row: auto;
+    padding: 20px 0 0;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--theme-outline-variant);
   }
 `
 
 const RatingNotice = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-  padding: 24px;
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 8px;
-
-  h3 {
+  h2 {
     ${titleMedium};
     margin: 0 0 8px;
   }
@@ -256,11 +225,17 @@ const RatingNotice = styled.div`
 const HeaderArea = styled.div`
   height: 72px;
   margin: 8px 0;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  @container (max-width: 720px) {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 `
 
 const HeaderInfo = styled.div`
@@ -272,6 +247,13 @@ const HeaderInfo = styled.div`
 
   align-items: center;
   justify-items: start;
+
+  @container (max-width: 720px) {
+    order: 1;
+    flex-basis: 100%;
+    grid-auto-flow: row;
+    grid-template: none;
+  }
 `
 
 const HeaderInfoItem = styled.div`
@@ -289,6 +271,10 @@ const HeaderInfoLabel = styled.div`
 
   color: var(--theme-on-surface-variant);
   text-align: right;
+
+  @container (max-width: 720px) {
+    text-align: left;
+  }
 `
 
 const HeaderInfoValue = styled.div`
@@ -305,6 +291,7 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
 
 const StatusRow = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 `
@@ -327,7 +314,7 @@ const StatusChip = styled.div<{ $color: string }>`
 
 const DisputeNotice = styled.div`
   ${bodyMedium};
-  margin: 0 24px 16px;
+  margin: 0 var(--results-gutter) 16px;
   padding: 12px 16px;
 
   display: flex;
@@ -842,7 +829,7 @@ export function ConnectedGameResultsPage({
   }
 
   return (
-    <Container layoutScroll data-testid='game-results-page'>
+    <Container $postGame={isPostGame} layoutScroll data-testid='game-results-page'>
       {isPostGame ? (
         <>
           <PostGameHero
@@ -1067,20 +1054,11 @@ export function ConnectedGameResultsPage({
           tooltipPosition='left'
         />
       </ButtonBar>
-      <TabArea $postGame={isPostGame}>
+      <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
-          <ResultsTab
-            $selected={isPostGame && subPage === ResultsSubPage.Summary}
-            value={ResultsSubPage.Summary}
-            text={t('gameDetails.tabSummary', 'Summary')}
-          />
-          <ResultsTab
-            $selected={isPostGame && subPage === ResultsSubPage.Stats}
-            value={ResultsSubPage.Stats}
-            text={t('gameDetails.tabStats', 'Stats')}
-          />
-          <ResultsTab
-            $selected={isPostGame && subPage === ResultsSubPage.BuildOrders}
+          <TabItem value={ResultsSubPage.Summary} text={t('gameDetails.tabSummary', 'Summary')} />
+          <TabItem value={ResultsSubPage.Stats} text={t('gameDetails.tabStats', 'Stats')} />
+          <TabItem
             value={ResultsSubPage.BuildOrders}
             text={t('gameDetails.tabBuildOrders', 'Build orders')}
           />
@@ -1094,7 +1072,7 @@ export function ConnectedGameResultsPage({
 const ComingSoonRoot = styled.div`
   /* 34px + 6px from tab = 40px */
   margin-top: 34px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
   text-align: center;
 `
 
@@ -1111,13 +1089,13 @@ const LoadingError = styled.div`
   width: 100%;
   margin-top: 32px;
   margin-bottom: 48px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 `
 
 const SummaryRoot = styled.div<{ $isLoading?: boolean; $postGame?: boolean; $ranked?: boolean }>`
   width: 100%;
-  margin-top: 16px;
-  padding: 0 24px;
+  margin-top: ${props => (props.$postGame ? 24 : 16)}px;
+  padding-inline: var(--results-gutter);
 
   display: grid;
   grid-auto-flow: row;
@@ -1133,6 +1111,10 @@ const SummaryRoot = styled.div<{ $isLoading?: boolean; $postGame?: boolean; $ran
     ${props => (props.$postGame ? 'grid-template-columns: minmax(0, 1fr);' : '')}
   }
 
+  @container (max-width: 720px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   opacity: ${props => (props.$isLoading ? 0.6 : 1)};
   transition: opacity linear 100ms;
 `
@@ -1144,16 +1126,25 @@ const MapContainer = styled.div`
   height: auto;
 
   text-align: center;
+
+  @container (max-width: 720px) {
+    grid-column: 1;
+  }
 `
 
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
+  max-width: 100%;
   height: auto;
 `
 
 const PlayerListContainer = styled.div<{ $postGame?: boolean }>`
   min-width: 0;
   grid-column: ${props => (props.$postGame ? '1' : '1 / 6')};
+
+  @container (max-width: 720px) {
+    grid-column: 1;
+  }
 `
 
 const SectionTitle = styled.h2`
@@ -1161,19 +1152,15 @@ const SectionTitle = styled.h2`
   margin: 0 0 12px;
 `
 
-const PlayerListCard = styled(Card)<{ $postGame?: boolean }>`
+const PlayerListCard = styled(Card)`
   padding: 8px;
-  ${props => (props.$postGame ? 'border: 1px solid var(--theme-outline-variant); box-shadow: none;' : '')}
 `
 
-const TeamLabel = styled.div`
+const TeamLabel = styled.div<{ $postGame: boolean }>`
   ${labelMedium};
   ${singleLine};
-
-  height: 24px;
-  line-height: 24px;
-  margin: 0 8px;
-
+  margin-inline: ${props => (props.$postGame ? '0' : '8px')};
+  padding-block: 4px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -1305,14 +1292,13 @@ function SummaryPage({
           raceAssigned={!game.canceledAt}
           mmrChange={!p.isComputer ? mmrChanges?.get(p.id) : undefined}
           postGame={isPostGame}
-          isSelf={!p.isComputer && p.id === selfUser?.id}
         />
       )
     })
 
     if (showTeams) {
       elems.unshift(
-        <TeamLabel key={`team-${i}`}>
+        <TeamLabel key={`team-${i}`} $postGame={isPostGame}>
           {teamLabels.length > i
             ? teamLabels[i]
             : t('game.teamName.number', {
@@ -1336,14 +1322,14 @@ function SummaryPage({
           <SectionTitle>{t('gameDetails.summary.players', 'Players')}</SectionTitle>
         ) : null}
         <ResultsFeedbackContext.Provider value={{ feedback, onReport }}>
-          <PlayerListCard $postGame={isPostGame}>{playerListItems}</PlayerListCard>
+          {isPostGame ? playerListItems : <PlayerListCard>{playerListItems}</PlayerListCard>}
         </ResultsFeedbackContext.Provider>
       </PlayerListContainer>
       {isPostGame && game.config.gameSource === GameSource.Matchmaking ? (
         <RatingColumn aria-label={t('gameDetails.debugInfo.reportedResult', 'Result')}>
           {rating ?? (
             <RatingNotice>
-              <h3>{t('gameDetails.debugInfo.reportedResult', 'Result')}</h3>
+              <h2>{t('gameDetails.debugInfo.reportedResult', 'Result')}</h2>
               {selfChange ? (
                 <dl>
                   <dt>{t('matchmaking.postMatchDialog.points', 'Points')}</dt>
@@ -1412,14 +1398,13 @@ function SummaryPage({
   )
 }
 
-const PlayerResultRow = styled.div<{ $postGame?: boolean; $self?: boolean }>`
+const PlayerResultRow = styled.div<{ $postGame: boolean; $feedback: boolean }>`
   position: relative;
   width: 100%;
   display: flex;
   align-items: center;
 
-  border-radius: 6px;
-  background: ${props => (props.$postGame && props.$self ? 'var(--theme-container-high)' : 'transparent')};
+  border-radius: ${props => (props.$postGame ? 0 : 6)}px;
 
   & + & {
     border-top: ${props => (props.$postGame ? '1px solid var(--theme-outline-variant)' : 'none')};
@@ -1429,16 +1414,16 @@ const PlayerResultRow = styled.div<{ $postGame?: boolean; $self?: boolean }>`
     margin-top: 16px;
   }
 
-  @container (max-width: 600px) {
-    ${props => (props.$postGame ? 'flex-wrap: wrap;' : '')}
+  @container (max-width: 520px) {
+    --result-feedback-width: ${props => (props.$feedback ? '84px' : '0px')};
   }
 `
 
-const PlayerResultContainer = styled.button<{ $postGame?: boolean }>`
+const PlayerResultContainer = styled.button<{ $postGame: boolean }>`
   ${buttonReset};
 
   min-height: ${props => (props.$postGame ? 64 : 56)}px;
-  padding: 8px;
+  padding: ${props => (props.$postGame ? '8px 0' : '8px')};
   flex: 1 1 auto;
   min-width: 0;
 
@@ -1447,12 +1432,10 @@ const PlayerResultContainer = styled.button<{ $postGame?: boolean }>`
   cursor: pointer;
   text-align: left;
 
-  @container (max-width: 600px) {
-    ${props => (props.$postGame ? 'flex-basis: 100%;' : '')}
-  }
-
   @container (max-width: 520px) {
-    ${props => (props.$postGame ? 'flex-wrap: wrap; row-gap: 8px;' : '')}
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: 4px;
   }
 `
 
@@ -1475,8 +1458,13 @@ const FeedbackActions = styled.div<{ $visible?: boolean }>`
     opacity: 1;
   }
 
-  @container (max-width: 600px) {
-    ${props => (props.$visible ? 'width: 100%; justify-content: flex-end;' : '')}
+  @container (max-width: 520px) {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-end: 8px;
+    width: var(--result-feedback-width);
+    padding-inline-start: 4px;
+    opacity: 1;
   }
 `
 
@@ -1604,6 +1592,10 @@ const RaceRoot = styled.div`
   position: relative;
   width: auto;
   height: 32px;
+
+  @container (max-width: 520px) {
+    height: 24px;
+  }
 `
 
 const StyledRaceIcon = styled(RaceIcon)`
@@ -1631,6 +1623,11 @@ const PlayerAvatar = styled(Avatar)`
   width: 40px;
   height: 40px;
   margin-left: 8px;
+
+  @container (max-width: 520px) {
+    width: 32px;
+    height: 32px;
+  }
 `
 
 const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
@@ -1638,6 +1635,11 @@ const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
   height: 40px;
   margin-left: 8px;
   color: var(--theme-on-surface-variant);
+
+  @container (max-width: 520px) {
+    width: 32px;
+    height: 32px;
+  }
 `
 
 const PlayerIdentity = styled.div`
@@ -1645,35 +1647,59 @@ const PlayerIdentity = styled.div`
   min-width: 0;
   margin-left: 16px;
   margin-right: 8px;
+
+  @container (max-width: 520px) {
+    margin-left: 8px;
+  }
 `
 
 const PlayerName = styled.div`
   ${titleLarge};
   ${singleLine};
+
+  @container (max-width: 520px) {
+    ${titleMedium};
+  }
 `
 
-const PlayerResultMetrics = styled.div<{ $postGame?: boolean }>`
+const PlayerResultMetrics = styled.div`
   display: flex;
   align-items: center;
   flex: none;
 
   @container (max-width: 520px) {
-    ${props => (props.$postGame ? 'flex-basis: 100%; justify-content: flex-end;' : '')}
+    grid-column: 1 / -1;
+    min-height: 40px;
+    margin-inline-end: var(--result-feedback-width, 0px);
+    justify-content: space-between;
+    gap: 8px;
   }
 `
 
 const MmrChangeColumn = styled.div<{ $postGame?: boolean }>`
+  min-width: 0;
   width: ${props => (props.$postGame ? 120 : 136)}px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+
+  @container (max-width: 520px) {
+    width: auto;
+    align-items: flex-start;
+  }
 `
 
 const GameResultColumn = styled.div<{ $postGame?: boolean }>`
-  width: ${props => (props.$postGame ? 56 : 72)}px;
+  width: ${props => (props.$postGame ? 64 : 72)}px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+
+  @container (max-width: 520px) {
+    width: auto;
+    max-width: 50%;
+    margin-inline-start: auto;
+  }
 `
 
 const StyledGameResultText = styled(GameResultText)`
@@ -1696,7 +1722,6 @@ export interface PlayerResultProps {
   raceAssigned?: boolean
   mmrChange?: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
   postGame?: boolean
-  isSelf?: boolean
 }
 
 export function PlayerResult({
@@ -1706,7 +1731,6 @@ export function PlayerResult({
   raceAssigned = true,
   mmrChange,
   postGame = false,
-  isSelf = false,
 }: PlayerResultProps) {
   const { t } = useTranslation()
   const { feedback, onReport } = useContext(ResultsFeedbackContext)
@@ -1735,7 +1759,7 @@ export function PlayerResult({
   const row = (
     <PlayerResultRow
       $postGame={postGame}
-      $self={isSelf}
+      $feedback={showFeedbackColumn}
       onContextMenu={config.isComputer ? undefined : onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}>
@@ -1757,7 +1781,7 @@ export function PlayerResult({
             {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
           </PlayerName>
         </PlayerIdentity>
-        <PlayerResultMetrics $postGame={postGame}>
+        <PlayerResultMetrics>
           {mmrChange ? (
             <MmrChangeColumn $postGame={postGame}>
               <StyledPointsChangeText change={mmrChange} />
