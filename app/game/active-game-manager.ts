@@ -722,7 +722,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * the DLL's crash handling can be exercised end to end. Fire-and-forget: the process dies, and
    * the usual exit handling (including the crash dump check) runs.
    */
-  debugCrashGame(gameId: string, kind: 'accessViolation' | 'stackOverflow'): void {
+  debugCrashGame(
+    gameId: string,
+    kind: 'accessViolation' | 'stackOverflow' | 'exceptionExit',
+  ): void {
     if (!this.gameFor(gameId)) {
       log.verbose(`Got debugCrashGame for ${gameId}, but it is not an active game`)
       return

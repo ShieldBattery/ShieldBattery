@@ -25,26 +25,31 @@ use std::time::Duration;
 use libc::c_void;
 use scopeguard::defer;
 use winapi::shared::minwindef::FARPROC;
+use winapi::shared::minwindef::HMODULE;
 use winapi::um::errhandlingapi::{
     AddVectoredExceptionHandler, GetLastError, SetUnhandledExceptionFilter,
 };
 use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, DeleteFileW, WriteFile};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
-use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::libloaderapi::{
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    GetModuleFileNameW, GetModuleHandleExW, GetModuleHandleW,
+};
 use winapi::um::memoryapi::VirtualQuery;
 use winapi::um::minwinbase::EXCEPTION_ACCESS_VIOLATION;
 use winapi::um::processthreadsapi::{
-    GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, SetThreadStackGuarantee,
-    TerminateProcess,
+    GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, GetProcessId,
+    SetThreadStackGuarantee, TerminateProcess,
 };
 use winapi::um::synchapi::{CreateEventW, SetEvent, WaitForSingleObject};
 use winapi::um::tlhelp32::MODULEENTRY32W;
 use winapi::um::winbase::{INFINITE, MOVEFILE_REPLACE_EXISTING, MoveFileExW, WAIT_OBJECT_0};
 use winapi::um::winnt::{
-    EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
-    IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE, MEMORY_BASIC_INFORMATION,
-    PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
-    PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
+    CONTEXT, EXCEPTION_NONCONTINUABLE, EXCEPTION_POINTERS, EXCEPTION_RECORD, FILE_ATTRIBUTE_NORMAL,
+    GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER, IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED,
+    MEM_PRIVATE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
+    PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE,
+    PAGE_WRITECOPY, RtlCaptureContext,
 };
 use winapi::vc::excpt::EXCEPTION_CONTINUE_SEARCH;
 
@@ -132,22 +137,36 @@ static PREPARED: OnceLock<Prepared> = OnceLock::new();
 
 /// Initializes our own crash handler and patches over
 /// SetUnhandledExceptionFilter so that nobody can override it.
+///
+/// Also catches the process being ended over an exception by something other than this handler
+/// (see [`terminate_process`]).
 pub unsafe fn init_crash_handler() {
     unsafe {
-        use self::hooks::SetUnhandledExceptionFilterDecl;
+        use self::hooks::{ExitProcessDecl, SetUnhandledExceptionFilterDecl, TerminateProcessDecl};
 
         record_own_image_range();
+        record_system_modules();
         SetUnhandledExceptionFilter(Some(exception_handler));
         let kernel32 = windows::load_library("kernel32").unwrap();
         let address = kernel32
             .proc_address("SetUnhandledExceptionFilter")
             .unwrap();
         let mut patcher = crate::PATCHER.lock();
-        let mut patcher = patcher.patch_library("kernel32", 0);
-        patcher.hook_closure_address(
-            SetUnhandledExceptionFilterDecl,
-            |_new, _orig| null_mut(),
-            address as usize - kernel32.handle() as usize,
+        {
+            let mut patcher = patcher.patch_library("kernel32", 0);
+            patcher.hook_closure_address(
+                SetUnhandledExceptionFilterDecl,
+                |_new, _orig| null_mut(),
+                address as usize - kernel32.handle() as usize,
+            );
+        }
+        // kernel32's TerminateProcess only forwards to kernelbase's, which code linked against
+        // the API sets calls directly.
+        hook_winapi_exports!(&mut *patcher, "kernelbase",
+            "TerminateProcess", TerminateProcessDecl, terminate_process;
+        );
+        hook_winapi_exports!(&mut *patcher, "kernel32",
+            "ExitProcess", ExitProcessDecl, exit_process;
         );
     }
 }
@@ -168,8 +187,12 @@ unsafe fn record_own_image_range() {
 }
 
 mod hooks {
+    use winapi::um::winnt::HANDLE;
+
     system_hooks!(
         !0 => SetUnhandledExceptionFilterDecl(*mut libc::c_void) -> *mut libc::c_void;
+        !0 => TerminateProcessDecl(HANDLE, u32) -> i32;
+        !0 => ExitProcessDecl(u32);
     );
 }
 
@@ -304,6 +327,195 @@ macro_rules! breadcrumb {
     ($($arg:tt)*) => {
         breadcrumb(format_args!($($arg)*))
     };
+}
+
+/// Whether a process exit code has the error severity of an `NTSTATUS`, as the code of an
+/// exception a process is ended over does.
+fn is_exception_exit_code(code: u32) -> bool {
+    code & 0xc000_0000 == 0xc000_0000
+}
+
+/// Turns `TerminateProcess` ending this process with an exception's code into a crash this
+/// handler reports. Something in the process that catches an exception itself (a handler of its
+/// own around its code, or a vectored one) and then ends the process this way never reaches the
+/// top-level filter, which would leave no trace of where or why. This handler's own termination
+/// happens while a crash is being handled, and passes through.
+fn terminate_process(
+    process: HANDLE,
+    code: u32,
+    orig: unsafe extern "C" fn(HANDLE, u32) -> i32,
+) -> i32 {
+    unsafe {
+        if is_exception_exit_code(code)
+            && CRASHING_THREAD.load(Ordering::Acquire) == 0
+            && GetProcessId(process) == GetCurrentProcessId()
+        {
+            crash_on_exception_exit("TerminateProcess", code);
+        }
+        orig(process, code)
+    }
+}
+
+/// [`terminate_process`] for `ExitProcess`, which always ends this process.
+fn exit_process(code: u32, orig: unsafe extern "C" fn(u32)) {
+    unsafe {
+        if is_exception_exit_code(code) && CRASHING_THREAD.load(Ordering::Acquire) == 0 {
+            crash_on_exception_exit("ExitProcess", code);
+        }
+        orig(code)
+    }
+}
+
+/// Handles the process being ended by `api` with exception code `code` as a crash on this thread,
+/// at this point: breadcrumbs, a dump whose stack for this thread runs through the caller, then the
+/// usual crash dialog and termination with `code`.
+#[inline(never)]
+unsafe fn crash_on_exception_exit(api: &str, code: u32) -> ! {
+    unsafe {
+        breadcrumb!(
+            "{api} ending the process with exception code {code:08x} on thread {:x}; code \
+             addresses on its stack: {}",
+            GetCurrentThreadId(),
+            StackCodeAddresses,
+        );
+        let mut context: AlignedContext = mem::zeroed();
+        RtlCaptureContext(&mut context.0);
+        let mut record: EXCEPTION_RECORD = mem::zeroed();
+        record.ExceptionCode = code;
+        record.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
+        #[cfg(target_arch = "x86")]
+        let place = context.0.Eip as usize;
+        #[cfg(target_arch = "x86_64")]
+        let place = context.0.Rip as usize;
+        record.ExceptionAddress = place as *mut _;
+        let mut pointers = EXCEPTION_POINTERS {
+            ExceptionRecord: &mut record,
+            ContextRecord: &mut context.0,
+        };
+        crash_dump_and_exit(&mut pointers)
+    }
+}
+
+/// A `CONTEXT` aligned as Windows requires on x64, which winapi's definition leaves out.
+/// `RtlCaptureContext` saves the vector registers with aligned stores.
+#[repr(C, align(16))]
+struct AlignedContext(CONTEXT);
+
+/// How far up the stack [`StackCodeAddresses`] looks.
+const STACK_SCAN_BYTES: usize = 0x4000;
+/// How many code addresses [`StackCodeAddresses`] lists.
+const STACK_SCAN_ADDRESSES: usize = 12;
+
+/// Windows' own DLLs that every call into the system passes through, whose addresses
+/// [`StackCodeAddresses`] leaves out: the stack is full of stale ones, and they never say whose
+/// code made the call.
+const SYSTEM_MODULE_NAMES: [&str; 3] = ["ntdll.dll", "kernelbase.dll", "kernel32.dll"];
+static SYSTEM_MODULES: [AtomicUsize; 3] = [const { AtomicUsize::new(0) }; 3];
+
+fn record_system_modules() {
+    for (name, slot) in SYSTEM_MODULE_NAMES.iter().zip(&SYSTEM_MODULES) {
+        let module = unsafe { GetModuleHandleW(windows::winapi_str(name).as_ptr()) };
+        slot.store(module as usize, Ordering::Relaxed);
+    }
+}
+
+fn is_system_module(module: HMODULE) -> bool {
+    SYSTEM_MODULES
+        .iter()
+        .any(|slot| slot.load(Ordering::Relaxed) == module as usize)
+}
+
+/// Values on the current thread's stack that point into executable code of a module other than
+/// this DLL and Windows' own (see [`SYSTEM_MODULE_NAMES`]), as `module+offset`, nearest first:
+/// mostly return addresses of the frames below this one, with stale values from earlier calls
+/// mixed in. A frame walk can't be relied on here, as the hooks' entry code has no unwind data.
+/// Formats without allocating.
+struct StackCodeAddresses;
+
+impl fmt::Display for StackCodeAddresses {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let marker = 0usize;
+        let start = (&raw const marker as usize) & !(mem::size_of::<usize>() - 1);
+        let own = OWN_IMAGE_START.load(Ordering::Relaxed)..OWN_IMAGE_END.load(Ordering::Relaxed);
+        let mut found = 0;
+        unsafe {
+            let mut region: MEMORY_BASIC_INFORMATION = mem::zeroed();
+            if VirtualQuery(start as *const _, &mut region, mem::size_of_val(&region)) == 0 {
+                return f.write_str("stack unreadable");
+            }
+            let end =
+                (region.BaseAddress as usize + region.RegionSize).min(start + STACK_SCAN_BYTES);
+            let mut pos = start;
+            while pos + mem::size_of::<usize>() <= end && found < STACK_SCAN_ADDRESSES {
+                let value = *(pos as *const usize);
+                pos += mem::size_of::<usize>();
+                if own.contains(&value) || !is_executable(value) {
+                    continue;
+                }
+                let Some(module) = module_containing(value) else {
+                    continue;
+                };
+                if is_system_module(module) {
+                    continue;
+                }
+                if found != 0 {
+                    f.write_str(", ")?;
+                }
+                write_module_name(f, module)?;
+                write!(f, "+{:x}", value - module as usize)?;
+                found += 1;
+            }
+        }
+        if found == 0 {
+            f.write_str("none")?;
+        }
+        Ok(())
+    }
+}
+
+fn is_executable(address: usize) -> bool {
+    unsafe {
+        let mut region: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        VirtualQuery(address as *const _, &mut region, mem::size_of_val(&region)) != 0
+            && region.State == MEM_COMMIT
+            && region.Protect
+                & (PAGE_EXECUTE
+                    | PAGE_EXECUTE_READ
+                    | PAGE_EXECUTE_READWRITE
+                    | PAGE_EXECUTE_WRITECOPY)
+                != 0
+    }
+}
+
+/// The module `address` is in, without taking a reference to it.
+fn module_containing(address: usize) -> Option<HMODULE> {
+    unsafe {
+        let mut module = null_mut();
+        let ok = GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            address as *const u16,
+            &mut module,
+        );
+        (ok != 0 && !module.is_null()).then_some(module)
+    }
+}
+
+/// Writes the file name of `module` without allocating.
+fn write_module_name(f: &mut fmt::Formatter<'_>, module: HMODULE) -> fmt::Result {
+    let mut path = [0u16; 260];
+    let len = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) } as usize;
+    let path = &path[..len.min(path.len())];
+    let name = match path.iter().rposition(|&c| c == u16::from(b'\\')) {
+        Some(slash) => &path[slash + 1..],
+        None => path,
+    };
+    if name.is_empty() {
+        return write!(f, "{:x}", module as usize);
+    }
+    for c in char::decode_utf16(name.iter().copied()) {
+        f.write_char(c.unwrap_or(char::REPLACEMENT_CHARACTER))?;
+    }
+    Ok(())
 }
 
 unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {

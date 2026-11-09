@@ -174,7 +174,10 @@ interface IpcInvokeables {
    * the process dies; verify via the game log's `[CRASH]` lines, a fresh non-empty
    * `latest_crash.dmp`, and the crash exit code the app logs.
    */
-  activeGameDebugCrash: (gameId: string, kind: 'accessViolation' | 'stackOverflow') => void
+  activeGameDebugCrash: (
+    gameId: string,
+    kind: 'accessViolation' | 'stackOverflow' | 'exceptionExit',
+  ) => void
   /**
    * Tells the active game process to send an in-game chat message over its netcode v2 session, as
    * this client (debug game builds only). Only registered in development (`isDev`). Sends to
