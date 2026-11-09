@@ -134,6 +134,7 @@ const Container = styled(CenteredContentContainer)<{ $postGame: boolean }>`
     --_target-horizontal-padding: 16px;
     --results-gutter: 0px;
     padding-block: 16px 24px;
+    scrollbar-gutter: auto;
   }
   container-type: inline-size;
 `
@@ -1671,8 +1672,7 @@ const PlayerResultMetrics = styled.div`
     grid-column: 1 / -1;
     min-height: 40px;
     margin-inline-end: var(--result-feedback-width, 0px);
-    justify-content: space-between;
-    gap: 8px;
+    gap: 16px;
   }
 `
 
@@ -1684,7 +1684,7 @@ const MmrChangeColumn = styled.div<{ $postGame?: boolean }>`
   align-items: flex-end;
 
   @container (max-width: 520px) {
-    width: auto;
+    width: 112px;
     align-items: flex-start;
   }
 `
@@ -1698,7 +1698,6 @@ const GameResultColumn = styled.div<{ $postGame?: boolean }>`
   @container (max-width: 520px) {
     width: auto;
     max-width: 50%;
-    margin-inline-start: auto;
   }
 `
 
