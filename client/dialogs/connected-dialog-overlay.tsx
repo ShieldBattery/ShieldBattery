@@ -4,6 +4,7 @@ import * as m from 'motion/react-m'
 import React, { useEffect, useEffectEvent, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
+import { isActivatingClick } from '../dom/activating-click'
 import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
@@ -345,8 +346,9 @@ export const ConnectedDialogOverlay = () => {
       onCancel={id => dispatch(closeDialogById(id))}
       onScrimClick={(id, event) => {
         // A click outside of a popover dismisses that popover, so a scrim click that did so is not
-        // also a request to close the dialog
-        if (!isHandledDismissalEvent(event.nativeEvent)) {
+        // also a request to close the dialog. Neither is the click that brings an unfocused window
+        // forward, which also reaches the page: the player may only be coming back to the dialog.
+        if (!isHandledDismissalEvent(event.nativeEvent) && !isActivatingClick()) {
           dispatch(closeDialogById(id))
         }
       }}
@@ -501,6 +503,7 @@ function DialogDisplay({
         {isTopDialog && (
           <Scrim
             key='scrim'
+            data-testid='dialog-scrim'
             variants={scrimVariants}
             initial={isDocVisible ? 'initial' : false}
             animate='animate'
