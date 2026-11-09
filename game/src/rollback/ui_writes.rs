@@ -40,13 +40,23 @@ static LOG: Mutex<Vec<(u32, UiWrite)>> = Mutex::new(Vec::new());
 /// isn't running are logged (between steps, or while a step waits for turns), and only while the
 /// rollback engine holds snapshots that could undo them.
 pub(crate) fn record(bw: &BwScr, write: UiWrite) {
-    if super::simulation_running() || SNAPSHOTS.lock().is_none() {
+    if super::simulation_running() || !snapshots_held(super::tick_running()) {
         return;
     }
     let Some(frame) = (unsafe { super::position(bw) }) else {
         return;
     };
     LOG.lock().push((frame, write));
+}
+
+/// Whether the rollback engine holds snapshots that could undo a write made now.
+///
+/// A tick locks the snapshots for its whole run, steps included, and a step that waits for turns
+/// runs SC:R's own input loop on this same thread, where a right click makes a write. Locking the
+/// snapshots there would deadlock the game thread (the mutex isn't reentrant), so while a tick runs
+/// the answer comes from the tick itself: it only runs with snapshots to restore.
+fn snapshots_held(tick_running: bool) -> bool {
+    tick_running || SNAPSHOTS.lock().is_some()
 }
 
 /// Makes the logged writes of `frame` again. Called by a tick that restored a snapshot, right
@@ -75,4 +85,27 @@ pub(super) fn prune(settled_through: u32) {
 
 pub(super) fn reset() {
     LOG.lock().clear();
+}
+
+#[cfg(test)]
+mod test {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use super::*;
+
+    #[test]
+    fn a_running_tick_answers_without_locking_the_snapshots() {
+        // The tick holds the lock while the write is checked, as a step waiting for turns does.
+        let _tick = SNAPSHOTS.lock();
+        let (done_tx, done_rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = done_tx.send(snapshots_held(true));
+        });
+        assert_eq!(
+            done_rx.recv_timeout(Duration::from_secs(5)),
+            Ok(true),
+            "checking for snapshots during a tick waited on the tick's lock"
+        );
+    }
 }

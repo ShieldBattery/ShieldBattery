@@ -1108,6 +1108,31 @@ impl BwScr {
         }
     }
 
+    /// Right-clicks the ground beside one of `player`'s units (`random` picks it) as the person
+    /// does: through the hooked function that places the order confirmation marker, so the
+    /// rollback engine logs the write as it does a real click. Returns where it clicked.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_right_click_for_harness(
+        &self,
+        player: u8,
+        mut random: impl FnMut() -> u32,
+    ) -> Option<(i32, i32)> {
+        unsafe {
+            let units = self.harness_selectable_units(player);
+            if units.is_empty() || self.click_feedback.is_none() {
+                return None;
+            }
+            let unit = bw_dat::Unit::from_ptr(units[random() as usize % units.len()])?;
+            let position = unit.position();
+            let (x, y) = (i32::from(position.x) + 32, i32::from(position.y));
+            self.rollback_replay_ui_write(crate::rollback::ui_writes::UiWrite::CursorMarker {
+                x,
+                y,
+            });
+            Some((x, y))
+        }
+    }
+
     /// Selects one of `player`'s units that has appeared since the last call, as a person
     /// selecting a unit the moment it leaves its factory would, half the time that there is one:
     /// on its own, or added to the local selection when they can be selected together. `seen`

@@ -1081,9 +1081,10 @@ unsafe fn select_if_due(bw: &BwScr) {
     }
 }
 
-/// Selects units for [`local_stand_in`] as the person, on a quarter of the steps that stall at the
-/// prediction limit: a live step that waits that long for turns processes the person's input
-/// while it does, in the middle of a tick.
+/// Acts for [`local_stand_in`] as the person on a quarter of the steps that stall at the prediction
+/// limit, each time right-clicking the ground and selecting units: a live step that waits that long
+/// for turns processes the person's input while it does, in the middle of a tick, with the tick
+/// holding the snapshots.
 unsafe fn select_while_waiting(bw: &BwScr, frame: u32) {
     unsafe {
         let Some(player) = local_stand_in() else {
@@ -1091,6 +1092,9 @@ unsafe fn select_while_waiting(bw: &BwScr, frame: u32) {
         };
         if !next_select_random().is_multiple_of(4) {
             return;
+        }
+        if let Some((x, y)) = bw.rollback_right_click_for_harness(player, next_select_random) {
+            debug!("{SELECT_ENV_VAR}: the stalled step to {frame} right-clicked at {x},{y}");
         }
         let (selected, egg) = bw.rollback_select_for_harness(player, true, next_select_random);
         match egg {
