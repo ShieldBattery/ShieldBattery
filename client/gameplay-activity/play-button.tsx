@@ -126,6 +126,28 @@ const CrystalLight = styled.div`
   transition: opacity 250ms ease-out;
 `
 
+/**
+ * Holds everything that shrinks on press. The scale lives here rather than on the link itself
+ * because transforms also shrink the hit box: a press near the link's edge would then release
+ * outside it, and the click would go to an ancestor instead of navigating.
+ */
+const PressScale = styled.div`
+  position: absolute;
+  inset: 0;
+  padding-inline: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transform-origin: center top;
+  transition: transform 150ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`
+
 const Root = styled.a<{ $active: boolean }>`
   --_psi-play-state: ${props => (props.$active ? 'running' : 'paused')};
 
@@ -133,12 +155,9 @@ const Root = styled.a<{ $active: boolean }>`
   width: ${WIDTH}px;
   height: ${HEIGHT}px;
   margin: 0 -16px;
-  padding-inline: 24px;
   z-index: 5;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   overflow: visible;
 
   ${sofiaSans};
@@ -149,9 +168,6 @@ const Root = styled.a<{ $active: boolean }>`
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
-
-  transform-origin: center top;
-  transition: transform 150ms ease-out;
 
   &:link,
   &:visited {
@@ -200,13 +216,14 @@ const Root = styled.a<{ $active: boolean }>`
   &:active {
     color: var(--theme-on-surface);
     text-decoration: none;
-    transform: scale(0.975);
+
+    ${PressScale} {
+      transform: scale(0.975);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    transition: none;
-
-    &:active {
+    &:active ${PressScale} {
       transform: none;
     }
   }
@@ -296,15 +313,17 @@ function PlayButtonDisplay({
         onMouseDown={() => {
           audioManager.playSound(AvailableSound.PlayButton)
         }}>
-        <PlayButtonBackground aria-hidden={true}>
-          <PlayButtonBackgroundFill>
-            <CrystalLight>
-              <EnergyField ref={energyRef} />
-              <EnergyField ref={counterflowRef} $reverse={true} />
-            </CrystalLight>
-          </PlayButtonBackgroundFill>
-        </PlayButtonBackground>
-        {children}
+        <PressScale>
+          <PlayButtonBackground aria-hidden={true}>
+            <PlayButtonBackgroundFill>
+              <CrystalLight>
+                <EnergyField ref={energyRef} />
+                <EnergyField ref={counterflowRef} $reverse={true} />
+              </CrystalLight>
+            </PlayButtonBackgroundFill>
+          </PlayButtonBackground>
+          {children}
+        </PressScale>
       </Root>
     </Link>
   )
