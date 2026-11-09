@@ -1,5 +1,9 @@
 import { TFunction } from 'i18next'
 import {
+  ALL_ANNOUNCERS,
+  ALL_CONSOLE_SKINS,
+  ALL_DISPLAY_MODES,
+  ALL_INGAME_SKINS,
   getAnnouncerName,
   getConsoleSkinName,
   getDisplayModeName,
@@ -27,6 +31,22 @@ function onOff(value: boolean, t: TFunction): string {
 
 function plainNumber(value: number): string {
   return String(value)
+}
+
+function notSet(t: TFunction): string {
+  return t('settings.game.battleNet.notSet', 'Not set')
+}
+
+/**
+ * Wraps the name getter of a setting with a fixed set of values, which throws for any other value.
+ * Settings files can hold values outside the set (e.g. an empty string written by an old SC:R
+ * version), and those are shown as unset.
+ */
+function knownValue<T>(
+  values: ReadonlyArray<T>,
+  getName: (value: T, t: TFunction) => string,
+): (value: T, t: TFunction) => string {
+  return (value, t) => (values.includes(value) ? getName(value, t) : notSet(t))
 }
 
 // Adding a key to `ScrSettings` fails to compile here until it gets an entry.
@@ -124,7 +144,7 @@ const SCR_SETTING_INFOS: ScrSettingInfos = {
   displayMode: {
     label: t => t('settings.game.video.displayMode.title', 'Display mode'),
     page: GameSettingsPage.Video,
-    format: getDisplayModeName,
+    format: knownValue(ALL_DISPLAY_MODES, getDisplayModeName),
   },
   // The video page shows brightness on a 0-100 slider rather than as SC:R's raw gamma value.
   gamma: {
@@ -242,12 +262,12 @@ const SCR_SETTING_INFOS: ScrSettingInfos = {
   consoleSkin: {
     label: t => t('settings.game.gameplay.consoleSkins.title', 'Console skin'),
     page: GameSettingsPage.Gameplay,
-    format: getConsoleSkinName,
+    format: knownValue(ALL_CONSOLE_SKINS, getConsoleSkinName),
   },
   selectedSkin: {
     label: t => t('settings.game.gameplay.ingameSkins.title', 'Ingame skin'),
     page: GameSettingsPage.Gameplay,
-    format: getIngameSkinName,
+    format: knownValue(ALL_INGAME_SKINS, getIngameSkinName),
   },
   showBonusSkins: {
     label: t => t('settings.game.gameplay.showBonusSkins', 'Show bonus skins'),
@@ -257,7 +277,7 @@ const SCR_SETTING_INFOS: ScrSettingInfos = {
   selectedAnnouncer: {
     label: t => t('settings.game.sound.announcer.title', 'Announcer'),
     page: GameSettingsPage.Sound,
-    format: getAnnouncerName,
+    format: knownValue(ALL_ANNOUNCERS, getAnnouncerName),
   },
   showFps: {
     label: t => t('settings.game.video.showFps', 'Show FPS'),
@@ -285,9 +305,7 @@ export function formatScrSetting<K extends ScrSettingKey>(
   value: ScrSettings[K] | undefined,
   t: TFunction,
 ): string {
-  return value === undefined
-    ? t('settings.game.battleNet.notSet', 'Not set')
-    : SCR_SETTING_INFOS[key].format(value, t)
+  return value === undefined ? notSet(t) : SCR_SETTING_INFOS[key].format(value, t)
 }
 
 /** Every comparable setting, in the order the settings pages present them. */

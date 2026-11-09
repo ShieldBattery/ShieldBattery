@@ -646,11 +646,26 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
         this.blizzardSettings = {}
       }
 
+      let needsWrite = false
       if (!this.settings) {
         this.settings = await this.createDefaults()
-        await fsPromises.writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+        needsWrite = true
       } else if (this.settings.version !== SCR_VERSION) {
         this.settings = this.migrateOldSettings(this.settings)
+        needsWrite = true
+      }
+      // Defaults and migrations copy Battle.net's settings file without checking its values, and
+      // files written that way can hold values the app can't show or choose (e.g. an empty
+      // announcer). Dropped settings fall back to Battle.net's value at launch, like unset ones.
+      const { version, ...stored } = this.settings
+      const rejected: string[] = []
+      const usable = pickValidScrSettings(stored, rejected)
+      if (rejected.length > 0) {
+        log.warning(`Dropping SC:R settings with unusable values: ${rejected.join(', ')}`)
+        this.settings = { version, ...usable }
+        needsWrite = true
+      }
+      if (needsWrite) {
         await fsPromises.writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
       }
 
@@ -809,9 +824,14 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     if (newData.gamma !== undefined) {
       newData.gamma = normalizeGamma(newData.gamma)
     }
+    const rejected: string[] = []
+    const usable = pickValidScrSettings(newData, rejected)
+    if (rejected.length > 0) {
+      log.warning(`Ignoring game settings with unusable values: ${rejected.join(', ')}`)
+    }
     const changed = this.changedSinceGameFileWritten
     this.changedSinceGameFileWritten = {}
-    await super.merge({ ...newData, ...changed })
+    await super.merge({ ...usable, ...changed })
   }
 
   /** Applies changed settings, noting them so a running game's settings file can't undo them. */

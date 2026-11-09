@@ -104,6 +104,32 @@ describe('ScrSettingsManager', () => {
     expect(await manager.get()).toMatchObject({ mouseSensitivity: 40, mouseScrollSpeed: 4 })
   })
 
+  test('loading drops stored values the app cannot show or choose', async () => {
+    const manager = await createManager({
+      selectedAnnouncer: '',
+      consoleSkin: '',
+      selectedSkin: '',
+      mouseSensitivity: 15,
+    })
+
+    expect(await manager.get()).toEqual({ version: 6, selectedSkin: '', mouseSensitivity: 15 })
+    expect(JSON.parse(await readFile(sbPath, { encoding: 'utf8' }))).toEqual({
+      version: 6,
+      selectedSkin: '',
+      mouseSensitivity: 15,
+    })
+  })
+
+  test('reading back the game settings file ignores unusable values', async () => {
+    const manager = await createManager({ selectedAnnouncer: 'Jini', mouseSensitivity: 15 })
+    await manager.writeGameSettingsFile()
+
+    await editGameFile({ selectedAnnouncer: '', MouseSensitivity: 30 })
+    await manager.syncWithGameSettingsFile()
+
+    expect(await manager.get()).toMatchObject({ selectedAnnouncer: 'Jini', mouseSensitivity: 30 })
+  })
+
   test('changes made before a game launched yield to what the game wrote', async () => {
     const manager = await createManager({ mouseSensitivity: 15 })
     await manager.merge({ mouseSensitivity: 40 })
