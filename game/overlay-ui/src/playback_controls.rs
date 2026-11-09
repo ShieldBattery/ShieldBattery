@@ -295,14 +295,6 @@ pub fn current_step(speed_index: u32, multiplier: u32) -> usize {
     nearest
 }
 
-/// The rung `delta` steps away from where playback is, stopping at the ends of the ladder rather
-/// than wrapping: a caster holding the speed-up key must not land back on quarter speed.
-pub fn step_speed(speed_index: u32, multiplier: u32, delta: i32) -> SpeedStep {
-    let current = current_step(speed_index, multiplier) as i32;
-    let last = SPEED_LADDER.len() as i32 - 1;
-    SPEED_LADDER[current.saturating_add(delta).clamp(0, last) as usize]
-}
-
 /// Milliseconds one frame of a replay recorded at `game_speed` took.
 pub fn frame_delay_ms(game_speed: u8) -> u32 {
     FRAME_DELAY_MS
@@ -402,12 +394,25 @@ impl PlaybackView {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
     }
 
-    /// The rung `delta` steps from where playback is, or `None` where playback is already running
-    /// at it: a step past either end of the ladder goes nowhere, so there is nothing to ask the game
-    /// for and nothing to be heard.
-    pub fn stepped(&self, delta: i32) -> Option<SpeedStep> {
-        let step = step_speed(self.speed_index, self.multiplier, delta);
-        (step.speed_index != self.speed_index || step.multiplier != self.multiplier).then_some(step)
+    /// The nearest rung `faster` (or slower) than playback runs, by rate, or `None` where the ladder
+    /// has none: at either end, or past it where the game's own plate left playback off the ladder,
+    /// so there is nothing to ask the game for and nothing to be heard. From a pair between rungs
+    /// the step lands on the next rung in its direction, never back on the one it is nearest.
+    pub fn stepped(&self, faster: bool) -> Option<SpeedStep> {
+        let rate = SpeedStep {
+            speed_index: self.speed_index,
+            multiplier: self.multiplier,
+            label: "",
+        }
+        .rate();
+        if faster {
+            SPEED_LADDER.into_iter().find(|step| step.rate() > rate)
+        } else {
+            SPEED_LADDER
+                .into_iter()
+                .rev()
+                .find(|step| step.rate() < rate)
+        }
     }
 }
 
@@ -649,7 +654,7 @@ fn draw_speed_stepper(
     // Arrows rather than words: they read the same in every language, and a stepper whose ends
     // carried a translated verb would be a paragraph wide in some of them. The verb is on the hover
     // card, which has the room.
-    let slower_step = view.stepped(-1);
+    let slower_step = view.stepped(false);
     let slower = stepper_button(ui, SpeedArrow::Slower, slower_step.is_some());
     hint.action(
         &slower,
@@ -672,7 +677,7 @@ fn draw_speed_stepper(
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    let faster_step = view.stepped(1);
+    let faster_step = view.stepped(true);
     let faster = stepper_button(ui, SpeedArrow::Faster, faster_step.is_some());
     hint.action(
         &faster,
@@ -1051,8 +1056,8 @@ const ARROW_SIZE: f32 = 20.0;
 /// playback: up the ladder for faster, down it for slower. Stroked rather than typed, so no font has
 /// to carry the glyph, and the strokes are tessellated at whatever scale the screen is drawn at.
 ///
-/// An end with no rung past it, which is where playback already is at either end of the ladder, is
-/// drawn at the disabled opacity and takes no click, so pressing it neither asks for a change nor
+/// An end with no rung past it, which is where playback is at either end of the ladder or beyond it,
+/// is drawn at the disabled opacity and takes no click, so pressing it neither asks for a change nor
 /// makes the click sound. It still senses the pointer resting on it, which its hover card needs.
 fn stepper_button(ui: &mut Ui, arrow: SpeedArrow, steps: bool) -> Response {
     ui.scope(|ui| {
@@ -1271,47 +1276,44 @@ mod tests {
         }
     }
 
-    #[test]
-    fn stepping_stops_at_the_ends_of_the_ladder() {
-        let slowest = SPEED_LADDER[0];
-        assert_eq!(
-            step_speed(slowest.speed_index, slowest.multiplier, -1),
-            slowest
-        );
-        let fastest = SPEED_LADDER[SPEED_LADDER.len() - 1];
-        assert_eq!(
-            step_speed(fastest.speed_index, fastest.multiplier, 1),
-            fastest
-        );
+    fn playing_at(speed_index: u32, multiplier: u32) -> PlaybackView {
+        PlaybackView {
+            speed_index,
+            multiplier,
+            ..view()
+        }
     }
 
     #[test]
     fn a_step_past_either_end_of_the_ladder_is_no_step_at_all() {
-        let at = |step: SpeedStep| PlaybackView {
-            speed_index: step.speed_index,
-            multiplier: step.multiplier,
-            ..view()
-        };
-        let slowest = at(SPEED_LADDER[0]);
-        assert_eq!(slowest.stepped(-1), None);
-        assert_eq!(slowest.stepped(1), Some(SPEED_LADDER[1]));
-        let fastest = at(SPEED_LADDER[SPEED_LADDER.len() - 1]);
-        assert_eq!(fastest.stepped(1), None);
+        let (slowest, fastest) = (SPEED_LADDER[0], SPEED_LADDER[SPEED_LADDER.len() - 1]);
+        let at_slowest = playing_at(slowest.speed_index, slowest.multiplier);
+        assert_eq!(at_slowest.stepped(false), None);
+        assert_eq!(at_slowest.stepped(true), Some(SPEED_LADDER[1]));
+        let at_fastest = playing_at(fastest.speed_index, fastest.multiplier);
+        assert_eq!(at_fastest.stepped(true), None);
         assert_eq!(
-            fastest.stepped(-1),
+            at_fastest.stepped(false),
             Some(SPEED_LADDER[SPEED_LADDER.len() - 2])
         );
-        // A pair past the top that the game's own plate could have left playback on is not the
-        // top rung, so the step up still moves it there.
-        let past_the_top = PlaybackView {
-            speed_index: 6,
-            multiplier: 32,
-            ..view()
-        };
-        assert_eq!(
-            past_the_top.stepped(1),
-            Some(SPEED_LADDER[SPEED_LADDER.len() - 1])
-        );
+        // Past either end, where the game's own plate could have left playback, a step outward is
+        // no step either, and a step back in lands on that end.
+        let past_the_top = playing_at(6, 32);
+        assert_eq!(past_the_top.stepped(true), None);
+        assert_eq!(past_the_top.stepped(false), Some(fastest));
+        let past_the_bottom = playing_at(0, 2);
+        assert_eq!(past_the_bottom.stepped(false), None);
+        assert_eq!(past_the_bottom.stepped(true), Some(slowest));
+    }
+
+    #[test]
+    fn a_step_from_a_pair_between_rungs_lands_on_the_next_rung_in_its_direction() {
+        // Fastest tripled is not a rung the plate offers, but the game's own plate could have left
+        // playback there: it reads as the nearer x4, yet x4 is the step up and x2 the step down.
+        let tripled = playing_at(6, 3);
+        assert_eq!(tripled.step().label, "4");
+        assert_eq!(tripled.stepped(true).map(|step| step.label), Some("4"));
+        assert_eq!(tripled.stepped(false).map(|step| step.label), Some("2"));
     }
 
     /// Clicks the middle of a stepper end drawn at the top left corner, one that `steps` or not,
@@ -1356,14 +1358,6 @@ mod tests {
         // The same click on an end that steps is taken and heard, so the one below is not a miss.
         assert_eq!(click_stepper(true), (true, true));
         assert_eq!(click_stepper(false), (false, false));
-    }
-
-    #[test]
-    fn stepping_from_a_pair_that_is_not_on_the_ladder_snaps_to_the_nearest_rung() {
-        // Fastest tripled is not a rung the plate offers, but the game's own plate could have left
-        // playback there; the step up from it is the rung above the one it is nearest.
-        assert_eq!(step_speed(6, 3, 0).label, "4");
-        assert_eq!(step_speed(6, 3, 1).label, "8");
     }
 
     #[test]

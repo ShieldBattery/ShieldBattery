@@ -130,8 +130,7 @@ impl ReplayCommands {
         match action {
             Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
             Action::SpeedUp | Action::SpeedDown => {
-                let delta = if action == Action::SpeedUp { 1 } else { -1 };
-                if let Some(step) = view.stepped(delta) {
+                if let Some(step) = view.stepped(action == Action::SpeedUp) {
                     self.request_speed(Some(step), None, intents);
                 }
             }
@@ -317,16 +316,14 @@ mod tests {
     fn a_speed_key_at_the_end_of_the_ladder_is_taken_but_asks_for_nothing_and_makes_no_click() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
-        let fastest = PlaybackView {
-            multiplier: 16,
+        let ladder = playback_controls::SPEED_LADDER;
+        let (top, below_top) = (ladder[ladder.len() - 1], ladder[ladder.len() - 2]);
+        let at = |step: SpeedStep| PlaybackView {
+            speed_index: step.speed_index,
+            multiplier: step.multiplier,
             ..replay()
         };
-        let slowest = PlaybackView {
-            speed_index: 0,
-            multiplier: 1,
-            ..replay()
-        };
-        for (view, key) in [(fastest, Key::U), (slowest, Key::D)] {
+        for (view, key) in [(at(top), Key::U), (at(ladder[0]), Key::D)] {
             run_frame(&mut shell, &ctx, Some(&view));
             assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
             shell.key_repeated(key, Modifiers::NONE);
@@ -336,10 +333,7 @@ mod tests {
             assert!(!output.button_click, "{key:?}");
         }
         // One rung in from the top, the same key still steps and clicks.
-        let below_the_top = PlaybackView {
-            multiplier: 8,
-            ..replay()
-        };
+        let below_the_top = at(below_top);
         run_frame(&mut shell, &ctx, Some(&below_the_top));
         assert!(shell.key_pressed(Key::U, Modifiers::NONE));
         let time = ctx.input(|input| input.time) + 1.0;
@@ -347,8 +341,8 @@ mod tests {
         assert_eq!(
             output.intents,
             [Intent::SetSpeed {
-                speed_index: 6,
-                multiplier: 16,
+                speed_index: top.speed_index,
+                multiplier: top.multiplier,
                 paused: false,
             }]
         );
