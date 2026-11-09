@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { useAtomValue } from 'jotai'
 import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
@@ -41,6 +42,7 @@ import {
 } from '../../common/games/results'
 import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { GameLeagueRankChange } from '../../common/leagues/leagues'
 import { getTeamNames } from '../../common/maps'
 import { NUM_PLACEMENT_MATCHES, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
@@ -55,18 +57,28 @@ import { useContextMenu } from '../dom/use-context-menu'
 import { longTimestamp, longTimestampWithSeconds, shortTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
+import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, OutlinedButton, TextButton, useButtonState } from '../material/button'
+import { searchAgainFromGame } from '../matchmaking/action-creators'
+import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
+import { PostGameLeagueStandings, PostGameRating } from '../matchmaking/post-game-rating'
+import {
+  FilledButton,
+  IconButton,
+  OutlinedButton,
+  TextButton,
+  useButtonState,
+} from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
+import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
@@ -74,7 +86,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { watchReplayFromUrl } from '../replays/action-creators'
+import { startReplay, watchReplayFromUrl } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -107,43 +119,124 @@ import {
 } from './action-creators'
 import { ChatTranscriptSection } from './chat-transcript-display'
 import { CommendIcon } from './commend-icon'
+import { postGameResultsAtom, recentReplayPathsAtom } from './game-atoms'
 import { CommendAvailability, GameFeedbackState, useGameFeedback } from './game-feedback'
+import { PostGameHero } from './post-game-hero'
+import { getPostGameMatchup } from './post-game-matchup'
 import { SaveReplayMenuContent } from './save-replay-menu'
 
-const Container = styled(CenteredContentContainer)`
-  padding-block: 16px;
+const Container = styled(CenteredContentContainer)<{ $postGame: boolean }>`
+  --results-gutter: ${props => (props.$postGame ? '0px' : '24px')};
+
+  padding-block: 24px;
+
+  @media (max-width: 600px) {
+    --_target-horizontal-padding: 16px;
+    --results-gutter: 0px;
+    padding-block: 16px 24px;
+    scrollbar-gutter: auto;
+  }
+  container-type: inline-size;
 `
 
 const TabArea = styled.div`
   width: 100%;
-  max-width: 720px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
+
+  @container (max-width: 420px) {
+    & ${TabItemContainer} {
+      padding-inline: 8px;
+    }
+  }
 `
 
 const ButtonBar = styled.div`
   width: 100%;
   margin: 0 0 16px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 
   display: flex;
-
-  & > * + * {
-    margin-left: 8px;
-  }
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 `
 
 const ButtonSpacer = styled.div`
   flex-grow: 1;
 `
 
+const SizedSearchAgainIcon = styled(SearchAgainIcon)`
+  width: 20px;
+  height: auto;
+`
+
+const PostGameStatus = styled.div`
+  margin: 0 0 16px;
+`
+
+const RatingColumn = styled.aside`
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1;
+
+  padding-inline-start: 24px;
+  border-inline-start: 1px solid var(--theme-outline-variant);
+
+  @container (max-width: 880px) {
+    grid-column: 1;
+    grid-row: auto;
+    padding: 20px 0 0;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--theme-outline-variant);
+  }
+`
+
+const RatingNotice = styled.div`
+  h2 {
+    ${titleMedium};
+    margin: 0 0 8px;
+  }
+
+  p {
+    ${bodyMedium};
+    margin: 0;
+    color: var(--theme-on-surface-variant);
+  }
+
+  dl {
+    margin: 20px 0 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  dt {
+    ${bodyMedium};
+    color: var(--theme-on-surface-variant);
+  }
+
+  dd {
+    ${titleLarge};
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+`
+
 const HeaderArea = styled.div`
   height: 72px;
   margin: 8px 0;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  @container (max-width: 720px) {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 `
 
 const HeaderInfo = styled.div`
@@ -155,6 +248,13 @@ const HeaderInfo = styled.div`
 
   align-items: center;
   justify-items: start;
+
+  @container (max-width: 720px) {
+    order: 1;
+    flex-basis: 100%;
+    grid-auto-flow: row;
+    grid-template: none;
+  }
 `
 
 const HeaderInfoItem = styled.div`
@@ -172,6 +272,10 @@ const HeaderInfoLabel = styled.div`
 
   color: var(--theme-on-surface-variant);
   text-align: right;
+
+  @container (max-width: 720px) {
+    text-align: left;
+  }
 `
 
 const HeaderInfoValue = styled.div`
@@ -188,6 +292,7 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
 
 const StatusRow = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 `
@@ -210,7 +315,7 @@ const StatusChip = styled.div<{ $color: string }>`
 
 const DisputeNotice = styled.div`
   ${bodyMedium};
-  margin: 0 24px 16px;
+  margin: 0 var(--results-gutter) 16px;
   padding: 12px 16px;
 
   display: flex;
@@ -250,7 +355,7 @@ export function ConnectedGameResultsPage({
   const gameDateFormatter = useFormat(gameDateFormat)
 
   const search = useSearch()
-  const isPostGame = search === '?post-game'
+  const isPostGame = new URLSearchParams(search).has('post-game')
   const linkedTimestamp = parseReplayTimestamp(
     new URLSearchParams(search).get(REPLAY_TIMESTAMP_PARAM),
   )
@@ -285,6 +390,27 @@ export function ConnectedGameResultsPage({
   })
 
   const results = game?.results
+
+  const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const recentReplayPath = useAtomValue(recentReplayPathsAtom).get(gameId)
+  // A replay takes a while to reach the server after a game, but the one the game just saved can
+  // be watched before then.
+  const localReplayPath = isPostGame ? recentReplayPath : undefined
+  const postGameResults = useAtomValue(postGameResultsAtom)
+  const postGameRating =
+    isPostGame && postGameResults?.event.game.id === gameId ? postGameResults : undefined
+  const leagueStandings = useAppSelector(s => s.games.leagueRankChangesById.get(gameId))
+  const selfLeagueStandings = leagueStandings?.filter(standing => standing.userId === selfUser?.id)
+  const postGameMapId = isPostGame ? game?.mapId : undefined
+  const postGameMap = useAppSelector(s =>
+    postGameMapId ? s.maps.byId.get(postGameMapId) : undefined,
+  )
+
+  useEffect(() => {
+    if (postGameMapId) {
+      dispatch(batchGetMapInfo(postGameMapId))
+    }
+  }, [dispatch, postGameMapId])
 
   useEffect(() => {
     cancelLoadRef.current.abort()
@@ -420,7 +546,19 @@ export function ConnectedGameResultsPage({
       : undefined
 
   const onWatchReplay = (fromSeconds?: number) => {
-    if (!replayInfo || !IS_ELECTRON) return
+    if (!IS_ELECTRON) return
+
+    if (localReplayPath) {
+      dispatch(
+        startReplay({
+          path: localReplayPath,
+          startFrame: fromSeconds !== undefined ? replayFrameForSeconds(fromSeconds) : undefined,
+        }),
+      )
+      return
+    }
+
+    if (!replayInfo) return
 
     setIsDownloadingReplay(true)
 
@@ -504,6 +642,22 @@ export function ConnectedGameResultsPage({
           isLoading={isLoading}
           feedback={feedback}
           onReport={openReportDialog}
+          isPostGame={isPostGame}
+          leagueStandings={selfLeagueStandings}
+          rating={
+            postGameRating ? (
+              <PostGameRating
+                key={`${gameId}|${postGameRating.event.mmrChange.points}`}
+                gameId={gameId}
+                mmrChange={postGameRating.event.mmrChange}
+                leagueChanges={postGameRating.event.leagueChanges}
+                leagueStandings={selfLeagueStandings}
+                leagues={postGameRating.event.leagues}
+                season={postGameRating.event.season}
+                revealed={postGameRating.revealed}
+              />
+            ) : undefined
+          }
         />
       )
       break
@@ -646,51 +800,85 @@ export function ConnectedGameResultsPage({
     saveReplayLabel = t('gameDetails.buttonSaveReplay', 'Save replay')
   }
 
+  const statusChips = (
+    <>
+      {game?.manuallyResolved ? (
+        <StatusChip $color='var(--theme-on-surface-variant)'>
+          {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
+        </StatusChip>
+      ) : null}
+      {showDisputeState ? (
+        <StatusChip $color='var(--theme-amber)'>
+          {t('gameDetails.statusDisputed', 'Disputed')}
+        </StatusChip>
+      ) : null}
+      {showDisputeState && isReviewPending ? (
+        <StatusChip $color='var(--theme-on-surface-variant)'>
+          {t('gameDetails.statusReviewRequested', 'Review requested')}
+        </StatusChip>
+      ) : null}
+    </>
+  )
+
+  const selfResult = game?.results?.find(([id]) => id === selfUser?.id)?.[1].result
+
+  let postGameOutcomeText = headline
+  if (game && isLive) {
+    postGameOutcomeText = t('gameDetails.postGameWaiting', 'Waiting for results…')
+  } else if (showDisputeState && selfResult === 'unknown') {
+    postGameOutcomeText = t('gameDetails.statusDisputed', 'Disputed')
+  }
+
   return (
-    <Container layoutScroll>
-      <HeaderArea>
-        <DisplaySmall>{headline}</DisplaySmall>
-        <HeaderInfo>
-          {game ? (
-            <>
-              <HeaderInfoItem>
-                <HeaderInfoLabel>{t('gameDetails.infoGameType', 'Type')}</HeaderInfoLabel>
-                <HeaderInfoValue>{getGameTypeLabel(game, t)}</HeaderInfoValue>
-              </HeaderInfoItem>
-              <HeaderInfoItem>
-                <HeaderInfoLabel>{t('gameDetails.infoDate', 'Date')}</HeaderInfoLabel>
-                <HeaderInfoValue title={longTimestampFormat.format(game.startTime)}>
-                  {gameDateFormatter.format(game.startTime)}
-                </HeaderInfoValue>
-              </HeaderInfoItem>
-              <HeaderInfoItem>
-                <HeaderInfoLabel>{t('gameDetails.infoDuration', 'Duration')}</HeaderInfoLabel>
-                <HeaderInfoValue>
-                  {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
-                </HeaderInfoValue>
-              </HeaderInfoItem>
-            </>
+    <Container $postGame={isPostGame} layoutScroll data-testid='game-results-page'>
+      {isPostGame ? (
+        <>
+          <PostGameHero
+            map={postGameMap}
+            modeLabel={game ? getGameTypeLabel(game, t) : undefined}
+            outcomeText={postGameOutcomeText}
+            result={selfResult}
+            matchup={game ? getPostGameMatchup(game, selfUser?.id) : []}
+            duration={game?.gameLength ? getGameDurationString(game.gameLength) : undefined}
+            playedAt={game ? longTimestampFormat.format(game.startTime) : undefined}
+          />
+          {game?.manuallyResolved || showDisputeState ? (
+            <PostGameStatus>
+              <StatusRow>{statusChips}</StatusRow>
+            </PostGameStatus>
           ) : null}
-        </HeaderInfo>
-        <StatusRow>
-          <LiveFinalIndicator $isLive={isLive}>{statusText}</LiveFinalIndicator>
-          {game?.manuallyResolved ? (
-            <StatusChip $color='var(--theme-on-surface-variant)'>
-              {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
-            </StatusChip>
-          ) : null}
-          {showDisputeState ? (
-            <StatusChip $color='var(--theme-amber)'>
-              {t('gameDetails.statusDisputed', 'Disputed')}
-            </StatusChip>
-          ) : null}
-          {showDisputeState && isReviewPending ? (
-            <StatusChip $color='var(--theme-on-surface-variant)'>
-              {t('gameDetails.statusReviewRequested', 'Review requested')}
-            </StatusChip>
-          ) : null}
-        </StatusRow>
-      </HeaderArea>
+        </>
+      ) : (
+        <HeaderArea>
+          <DisplaySmall>{headline}</DisplaySmall>
+          <HeaderInfo>
+            {game ? (
+              <>
+                <HeaderInfoItem>
+                  <HeaderInfoLabel>{t('gameDetails.infoGameType', 'Type')}</HeaderInfoLabel>
+                  <HeaderInfoValue>{getGameTypeLabel(game, t)}</HeaderInfoValue>
+                </HeaderInfoItem>
+                <HeaderInfoItem>
+                  <HeaderInfoLabel>{t('gameDetails.infoDate', 'Date')}</HeaderInfoLabel>
+                  <HeaderInfoValue title={longTimestampFormat.format(game.startTime)}>
+                    {gameDateFormatter.format(game.startTime)}
+                  </HeaderInfoValue>
+                </HeaderInfoItem>
+                <HeaderInfoItem>
+                  <HeaderInfoLabel>{t('gameDetails.infoDuration', 'Duration')}</HeaderInfoLabel>
+                  <HeaderInfoValue>
+                    {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
+                  </HeaderInfoValue>
+                </HeaderInfoItem>
+              </>
+            ) : null}
+          </HeaderInfo>
+          <StatusRow>
+            <LiveFinalIndicator $isLive={isLive}>{statusText}</LiveFinalIndicator>
+            {statusChips}
+          </StatusRow>
+        </HeaderArea>
+      )}
       {disputeNotice ? (
         <DisputeNotice>
           <DisputeNoticeIcon icon='info' />
@@ -698,6 +886,14 @@ export function ConnectedGameResultsPage({
         </DisputeNotice>
       ) : null}
       <ButtonBar>
+        {isPostGame && IS_ELECTRON && game?.config.gameSource === GameSource.Matchmaking ? (
+          <FilledButton
+            label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
+            iconStart={<SizedSearchAgainIcon />}
+            onClick={() => dispatch(searchAgainFromGame(game.config))}
+            disabled={isMatchmaking}
+          />
+        ) : null}
         {replayInfo && IS_ELECTRON && startTimestamp !== undefined ? (
           <OutlinedButton
             label={t('gameDetails.buttonWatchReplayFrom', {
@@ -709,7 +905,7 @@ export function ConnectedGameResultsPage({
             onClick={() => onWatchReplay(startTimestamp)}
           />
         ) : null}
-        {replayInfo && IS_ELECTRON ? (
+        {(replayInfo || localReplayPath) && IS_ELECTRON ? (
           <OutlinedButton
             label={
               isDownloadingReplay
@@ -772,18 +968,20 @@ export function ConnectedGameResultsPage({
           </>
         ) : null}
         {replayInfo ? (
-          <OutlinedButton
-            label={t('gameDetails.buttonDownloadReplay', 'Download replay')}
-            iconStart='download'
-            onClick={() => {
-              const a = document.createElement('a')
-              a.href = replayInfo.url
-              a.target = '_blank'
-              a.click()
-            }}
-          />
+          <Tooltip text={t('gameDetails.buttonDownloadReplay', 'Download replay')}>
+            <IconButton
+              ariaLabel={t('gameDetails.buttonDownloadReplay', 'Download replay')}
+              icon={<MaterialIcon icon='download' />}
+              onClick={() => {
+                const a = document.createElement('a')
+                a.href = replayInfo.url
+                a.target = '_blank'
+                a.click()
+              }}
+            />
+          </Tooltip>
         ) : null}
-        {canReport ? (
+        {canReport && !isPostGame ? (
           <OutlinedButton
             label={t('gameDetails.buttonReport', 'Report')}
             iconStart='flag'
@@ -875,7 +1073,7 @@ export function ConnectedGameResultsPage({
 const ComingSoonRoot = styled.div`
   /* 34px + 6px from tab = 40px */
   margin-top: 34px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
   text-align: center;
 `
 
@@ -892,19 +1090,31 @@ const LoadingError = styled.div`
   width: 100%;
   margin-top: 32px;
   margin-bottom: 48px;
-  padding: 0 24px;
+  padding-inline: var(--results-gutter);
 `
 
-const SummaryRoot = styled.div<{ $isLoading?: boolean }>`
+const SummaryRoot = styled.div<{ $isLoading?: boolean; $postGame?: boolean; $ranked?: boolean }>`
   width: 100%;
-  margin-top: 16px;
-  padding: 0 24px;
+  margin-top: ${props => (props.$postGame ? 24 : 16)}px;
+  padding-inline: var(--results-gutter);
 
   display: grid;
   grid-auto-flow: row;
   grid-auto-rows: max-content;
-  grid-template-columns: repeat(8, 1fr);
-  grid-gap: 24px 24px;
+  grid-template-columns: ${props => {
+    if (!props.$postGame) return 'repeat(8, 1fr)'
+    return props.$ranked ? 'minmax(0, 1fr) 344px' : 'minmax(0, 1fr)'
+  }};
+  grid-gap: 24px;
+  align-items: start;
+
+  @container (max-width: 880px) {
+    ${props => (props.$postGame ? 'grid-template-columns: minmax(0, 1fr);' : '')}
+  }
+
+  @container (max-width: 720px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
   opacity: ${props => (props.$isLoading ? 0.6 : 1)};
   transition: opacity linear 100ms;
@@ -917,29 +1127,41 @@ const MapContainer = styled.div`
   height: auto;
 
   text-align: center;
+
+  @container (max-width: 720px) {
+    grid-column: 1;
+  }
 `
 
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
+  max-width: 100%;
   height: auto;
 `
 
-const PlayerListContainer = styled.div`
-  grid-column: 1 / 6;
+const PlayerListContainer = styled.div<{ $postGame?: boolean }>`
+  min-width: 0;
+  grid-column: ${props => (props.$postGame ? '1' : '1 / 6')};
+
+  @container (max-width: 720px) {
+    grid-column: 1;
+  }
+`
+
+const SectionTitle = styled.h2`
+  ${titleMedium};
+  margin: 0 0 12px;
 `
 
 const PlayerListCard = styled(Card)`
   padding: 8px;
 `
 
-const TeamLabel = styled.div`
+const TeamLabel = styled.div<{ $postGame: boolean }>`
   ${labelMedium};
   ${singleLine};
-
-  height: 24px;
-  line-height: 24px;
-  margin: 0 8px;
-
+  margin-inline: ${props => (props.$postGame ? '0' : '8px')};
+  padding-block: 4px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -952,6 +1174,9 @@ function SummaryPage({
   isLoading,
   feedback,
   onReport,
+  isPostGame = false,
+  leagueStandings,
+  rating,
 }: {
   gameId: string
   game?: ReadonlyDeep<GameRecordJson>
@@ -959,14 +1184,19 @@ function SummaryPage({
   isLoading: boolean
   feedback: GameFeedbackState
   onReport: (userId: SbUserId) => void
+  isPostGame?: boolean
+  leagueStandings?: ReadonlyArray<GameLeagueRankChange>
+  rating?: React.ReactNode
 }) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
   const hasDebugPermission = !!useSelfPermissions()?.debug
+  const selfUser = useSelfUser()
 
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
   const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
+  const selfChange = selfUser ? mmrChanges?.get(selfUser.id) : undefined
   const debugInfo = useAppSelector(s => s.games.debugInfoById.get(gameId))
 
   const [configAndResults, teamLabels] = useMemo((): [
@@ -1034,6 +1264,22 @@ function SummaryPage({
     return <LoadingDotsArea />
   }
 
+  let ratingNotice = t(
+    'gameDetails.summary.ratingUnavailable',
+    'Rating and points are not available for this game.',
+  )
+  if (game.canceledAt || game.disputable) {
+    ratingNotice = t(
+      'gameDetails.summary.noRatingChange',
+      'No rating or points changes were applied to this game.',
+    )
+  } else if (!game.results) {
+    ratingNotice = t(
+      'gameDetails.summary.ratingPending',
+      'Rating and points will appear here when the results are confirmed.',
+    )
+  }
+
   const showTeams = isTeamType(game.config.gameType)
   const playerListItems = game.config.teams.flatMap((team, i) => {
     const elems = team.map((p, j) => {
@@ -1046,13 +1292,14 @@ function SummaryPage({
           result={result}
           raceAssigned={!game.canceledAt}
           mmrChange={!p.isComputer ? mmrChanges?.get(p.id) : undefined}
+          postGame={isPostGame}
         />
       )
     })
 
     if (showTeams) {
       elems.unshift(
-        <TeamLabel key={`team-${i}`}>
+        <TeamLabel key={`team-${i}`} $postGame={isPostGame}>
           {teamLabels.length > i
             ? teamLabels[i]
             : t('game.teamName.number', {
@@ -1067,15 +1314,69 @@ function SummaryPage({
   })
 
   return (
-    <SummaryRoot $isLoading={isLoading}>
-      <PlayerListContainer>
+    <SummaryRoot
+      $isLoading={isLoading}
+      $postGame={isPostGame}
+      $ranked={game.config.gameSource === GameSource.Matchmaking}>
+      <PlayerListContainer $postGame={isPostGame}>
+        {isPostGame ? (
+          <SectionTitle>{t('gameDetails.summary.players', 'Players')}</SectionTitle>
+        ) : null}
         <ResultsFeedbackContext.Provider value={{ feedback, onReport }}>
-          <PlayerListCard>{playerListItems}</PlayerListCard>
+          {isPostGame ? playerListItems : <PlayerListCard>{playerListItems}</PlayerListCard>}
         </ResultsFeedbackContext.Provider>
       </PlayerListContainer>
-      <MapContainer>
-        {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
-      </MapContainer>
+      {isPostGame && game.config.gameSource === GameSource.Matchmaking ? (
+        <RatingColumn aria-label={t('gameDetails.debugInfo.reportedResult', 'Result')}>
+          {rating ?? (
+            <RatingNotice>
+              <h2>{t('gameDetails.debugInfo.reportedResult', 'Result')}</h2>
+              {selfChange ? (
+                <dl>
+                  <dt>{t('matchmaking.postMatchDialog.points', 'Points')}</dt>
+                  <dd>
+                    {Math.round(selfChange.points)}{' '}
+                    <NumberDelta delta={Math.round(selfChange.pointsChange)} />
+                  </dd>
+                  <dt>{t('gameDetails.summary.mmr', 'MMR')}</dt>
+                  <dd>
+                    {selfChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+                      <>
+                        {Math.round(selfChange.rating)}{' '}
+                        <NumberDelta delta={Math.round(selfChange.ratingChange)} />
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </dd>
+                </dl>
+              ) : (
+                <p>{ratingNotice}</p>
+              )}
+              {selfChange && selfChange.lifetimeGames < NUM_PLACEMENT_MATCHES ? (
+                <p>
+                  {t(
+                    'matchmaking.postMatchDialog.placementsCompleted',
+                    'Placement matches completed: {{completed}} / {{total}}',
+                    {
+                      completed: selfChange.lifetimeGames,
+                      total: NUM_PLACEMENT_MATCHES,
+                    },
+                  )}
+                </p>
+              ) : null}
+              {leagueStandings?.length ? (
+                <PostGameLeagueStandings standings={leagueStandings} />
+              ) : null}
+            </RatingNotice>
+          )}
+        </RatingColumn>
+      ) : null}
+      {!isPostGame && map ? (
+        <MapContainer>
+          <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer />
+        </MapContainer>
+      ) : null}
 
       {/*
         Replays are read by the app's parser, which only exists in Electron. Keyed by game because
@@ -1098,22 +1399,32 @@ function SummaryPage({
   )
 }
 
-const PlayerResultRow = styled.div`
+const PlayerResultRow = styled.div<{ $postGame: boolean; $feedback: boolean }>`
   position: relative;
   width: 100%;
   display: flex;
   align-items: center;
 
+  border-radius: ${props => (props.$postGame ? 0 : 6)}px;
+
+  & + & {
+    border-top: ${props => (props.$postGame ? '1px solid var(--theme-outline-variant)' : 'none')};
+  }
+
   & + ${TeamLabel} {
     margin-top: 16px;
   }
+
+  @container (max-width: 520px) {
+    --result-feedback-width: ${props => (props.$feedback ? '84px' : '0px')};
+  }
 `
 
-const PlayerResultContainer = styled.button`
+const PlayerResultContainer = styled.button<{ $postGame: boolean }>`
   ${buttonReset};
 
-  height: 56px;
-  padding: 8px;
+  min-height: ${props => (props.$postGame ? 64 : 56)}px;
+  padding: ${props => (props.$postGame ? '8px 0' : '8px')};
   flex: 1 1 auto;
   min-width: 0;
 
@@ -1121,6 +1432,12 @@ const PlayerResultContainer = styled.button`
   align-items: center;
   cursor: pointer;
   text-align: left;
+
+  @container (max-width: 520px) {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: 4px;
+  }
 `
 
 /**
@@ -1128,17 +1445,26 @@ const PlayerResultContainer = styled.button`
  * player can still be commended or reported, so the other columns line up; the buttons themselves
  * appear on hover or keyboard focus.
  */
-const FeedbackActions = styled.div`
-  width: 92px;
+const FeedbackActions = styled.div<{ $visible?: boolean }>`
+  width: ${props => (props.$visible ? 84 : 92)}px;
   flex-shrink: 0;
-  padding-left: 12px;
+  padding-left: ${props => (props.$visible ? 4 : 12)}px;
 
   display: flex;
 
-  opacity: 0;
+  opacity: ${props => (props.$visible ? 1 : 0)};
   transition: opacity 150ms ease-out;
 
   ${PlayerResultRow}:hover &, ${PlayerResultRow}:focus-within & {
+    opacity: 1;
+  }
+
+  @container (max-width: 520px) {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-end: 8px;
+    width: var(--result-feedback-width);
+    padding-inline-start: 4px;
     opacity: 1;
   }
 `
@@ -1153,7 +1479,10 @@ const CommendButton = styled(FeedbackButton)`
 `
 
 const ReportButton = styled(FeedbackButton)`
-  color: var(--theme-negative);
+  color: var(--theme-on-surface-variant);
+  &:hover {
+    color: var(--theme-negative);
+  }
 `
 
 const CommendMenuItem = styled(MenuItem)`
@@ -1264,6 +1593,10 @@ const RaceRoot = styled.div`
   position: relative;
   width: auto;
   height: 32px;
+
+  @container (max-width: 520px) {
+    height: 24px;
+  }
 `
 
 const StyledRaceIcon = styled(RaceIcon)`
@@ -1291,6 +1624,11 @@ const PlayerAvatar = styled(Avatar)`
   width: 40px;
   height: 40px;
   margin-left: 8px;
+
+  @container (max-width: 520px) {
+    width: 32px;
+    height: 32px;
+  }
 `
 
 const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
@@ -1298,28 +1636,69 @@ const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
   height: 40px;
   margin-left: 8px;
   color: var(--theme-on-surface-variant);
+
+  @container (max-width: 520px) {
+    width: 32px;
+    height: 32px;
+  }
+`
+
+const PlayerIdentity = styled.div`
+  flex: 1;
+  min-width: 0;
+  margin-left: 16px;
+  margin-right: 8px;
+
+  @container (max-width: 520px) {
+    margin-left: 8px;
+  }
 `
 
 const PlayerName = styled.div`
   ${titleLarge};
   ${singleLine};
-  margin-left: 16px;
-  margin-right: 8px;
-  flex-grow: 1;
+
+  @container (max-width: 520px) {
+    ${titleMedium};
+  }
 `
 
-const MmrChangeColumn = styled.div`
-  width: 136px;
+const PlayerResultMetrics = styled.div`
+  display: flex;
+  align-items: center;
+  flex: none;
+
+  @container (max-width: 520px) {
+    grid-column: 1 / -1;
+    min-height: 40px;
+    margin-inline-end: var(--result-feedback-width, 0px);
+    gap: 16px;
+  }
+`
+
+const MmrChangeColumn = styled.div<{ $postGame?: boolean }>`
+  min-width: 0;
+  width: ${props => (props.$postGame ? 120 : 136)}px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+
+  @container (max-width: 520px) {
+    width: 112px;
+    align-items: flex-start;
+  }
 `
 
-const GameResultColumn = styled.div`
-  width: 72px;
+const GameResultColumn = styled.div<{ $postGame?: boolean }>`
+  width: ${props => (props.$postGame ? 64 : 72)}px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+
+  @container (max-width: 520px) {
+    width: auto;
+    max-width: 50%;
+  }
 `
 
 const StyledGameResultText = styled(GameResultText)`
@@ -1341,6 +1720,7 @@ export interface PlayerResultProps {
   result?: ReconciledPlayerResult
   raceAssigned?: boolean
   mmrChange?: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
+  postGame?: boolean
 }
 
 export function PlayerResult({
@@ -1349,6 +1729,7 @@ export function PlayerResult({
   result,
   raceAssigned = true,
   mmrChange,
+  postGame = false,
 }: PlayerResultProps) {
   const { t } = useTranslation()
   const { feedback, onReport } = useContext(ResultsFeedbackContext)
@@ -1376,11 +1757,13 @@ export function PlayerResult({
 
   const row = (
     <PlayerResultRow
+      $postGame={postGame}
+      $feedback={showFeedbackColumn}
       onContextMenu={config.isComputer ? undefined : onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}>
       <Ripple ref={rippleRef} />
-      <PlayerResultContainer className={className} {...containerProps}>
+      <PlayerResultContainer $postGame={postGame} className={className} {...containerProps}>
         <RaceRoot>
           <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
           {raceAssigned && result?.race && config.race === 'r' ? (
@@ -1392,20 +1775,24 @@ export function PlayerResult({
         ) : (
           <PlayerAvatar user={user?.name ?? ''} image={user?.avatarUrl} />
         )}
-        <PlayerName>
-          {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
-        </PlayerName>
-        {mmrChange ? (
-          <MmrChangeColumn>
-            <StyledPointsChangeText change={mmrChange} />
-          </MmrChangeColumn>
-        ) : undefined}
-        <GameResultColumn>
-          <StyledGameResultText result={result?.result ?? 'unknown'} />
-        </GameResultColumn>
+        <PlayerIdentity>
+          <PlayerName>
+            {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
+          </PlayerName>
+        </PlayerIdentity>
+        <PlayerResultMetrics>
+          {mmrChange ? (
+            <MmrChangeColumn $postGame={postGame}>
+              <StyledPointsChangeText change={mmrChange} />
+            </MmrChangeColumn>
+          ) : null}
+          <GameResultColumn $postGame={postGame}>
+            <StyledGameResultText result={result?.result ?? 'unknown'} />
+          </GameResultColumn>
+        </PlayerResultMetrics>
       </PlayerResultContainer>
       {showFeedbackColumn ? (
-        <FeedbackActions>
+        <FeedbackActions $visible={postGame}>
           {isCandidate ? (
             <>
               <Tooltip

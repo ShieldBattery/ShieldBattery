@@ -123,9 +123,6 @@ const NewsPostDeleteConfirmation = React.lazy(async () => ({
 const NewsPostSettingsDialog = React.lazy(async () => ({
   default: (await import('../admin/news-post-settings-dialog')).NewsPostSettingsDialog,
 }))
-const PostMatchDialog = React.lazy(async () => ({
-  default: (await import('../matchmaking/post-match-dialog')).PostMatchDialog,
-}))
 const ExternalLinkDialog = React.lazy(async () => ({
   default: (await import('../navigation/external-link-dialog')).ExternalLinkDialog,
 }))
@@ -302,8 +299,6 @@ function getDialog(dialogType: DialogType): {
       return { component: NewsPostDeleteConfirmation }
     case DialogType.NewsPostSettings:
       return { component: NewsPostSettingsDialog }
-    case DialogType.PostMatch:
-      return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog }
     case DialogType.RemoveUserAvatar:

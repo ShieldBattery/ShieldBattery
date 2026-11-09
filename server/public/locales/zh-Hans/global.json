@@ -1379,6 +1379,8 @@
     "infoDuration": "时长",
     "infoGameType": "游戏类型",
     "notFound": "未找到该游戏。",
+    "postGameVs": "对阵",
+    "postGameWaiting": "正在等待结果…",
     "refundPoints": {
       "errorAlreadyRefunded": "该游戏的积分已经返还过了。",
       "errorGameNotFound": "未找到该游戏。",
@@ -1429,10 +1431,19 @@
     "statusManuallyResolved": "已手动判定",
     "statusReviewRequested": "已请求复核",
     "summary": {
+      "apm": "APM",
+      "battleground": "地图",
+      "mapSize_other": "{{width}} × {{height}} · {{count}} 人",
       "mmr": "MMR",
+      "noRatingChange": "本场游戏的评分和积分没有变化。",
+      "players": "玩家",
       "pointsBase": "基础",
       "pointsBonus": "奖励分",
-      "rp": "RP"
+      "progression": "您的进度",
+      "ratingPending": "结果确认后，评分和积分将在此显示。",
+      "ratingUnavailable": "本场游戏没有可用的评分和积分。",
+      "rp": "RP",
+      "you": "您"
     },
     "tabBuildOrders": "开局建造顺序",
     "tabStats": "统计数据",
@@ -2411,9 +2422,15 @@
       "warningDescription": "多次违规将导致被禁止匹配。",
       "warningTitle": "匹配警告"
     },
+    "postGameResults": {
+      "ready": "您的比赛结果已出。",
+      "view": "查看结果"
+    },
     "postMatchDialog": {
       "leagues": "联赛",
       "matchmaking": "匹配",
+      "mmr": "MMR",
+      "placementsCompleted": "已完成定级赛：{{completed}} / {{total}}",
       "points": "积分",
       "rating": "评分",
       "searchAgain": "重新匹配",

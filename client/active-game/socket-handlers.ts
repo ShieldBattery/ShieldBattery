@@ -8,8 +8,10 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import { getGameResultsUrl, navigateToGameResults } from '../games/action-creators'
 import {
   addRecentReplayPathAtom,
+  endsOnPostGamePage,
   gameLoadingStatusAtom,
   lastGameAtom,
   participatingGameAtom,
@@ -122,6 +124,18 @@ export default function ({
         if (game?.gameId === status.id && game.playingSince === undefined) {
           jotaiStore.set(participatingGameAtom, { ...game, playingSince: Date.now() })
         }
+      }
+
+      if (
+        status.state === 'finished' &&
+        !window.location.pathname.startsWith(getGameResultsUrl(status.id)) &&
+        endsOnPostGamePage(
+          status.id,
+          jotaiStore.get(lastGameAtom),
+          jotaiStore.get(participatingGameAtom),
+        )
+      ) {
+        navigateToGameResults(status.id, true /* asPostGame */)
       }
 
       // A networked game's load completion reaches the server over the relay path, from the

@@ -1,15 +1,12 @@
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
-import { GameRecordJson } from '../../common/games/games'
 import { TranslationLanguage } from '../../common/i18n'
-import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
+import { LeagueId } from '../../common/leagues/leagues'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import {
   CancelLoadingEvent,
   LobbyViolationPenaltyEvent,
   MatchCanceledReason,
-  MatchmakingSeasonJson,
-  PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -60,7 +57,6 @@ export enum DialogType {
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
-  PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RefundGamePoints = 'refundGamePoints',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -407,16 +403,6 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
     onApply: (settings: NewsPostSettingsValues) => void
   }
 >
-export type PostMatchDialogPayload = BaseDialogPayload<
-  typeof DialogType.PostMatch,
-  {
-    game: GameRecordJson
-    mmrChange: PublicMatchmakingRatingChangeJson
-    leagueChanges: ClientLeagueUserChangeJson[]
-    leagues: LeagueJson[]
-    season: MatchmakingSeasonJson
-  }
->
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
 type RemoveUserAvatarDialogPayload = BaseDialogPayload<
   typeof DialogType.RemoveUserAvatar,
@@ -535,7 +521,6 @@ export type DialogPayload =
   | MatchmakingBannedDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
-  | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RefundGamePointsDialogPayload
   | RemoveUserAvatarDialogPayload

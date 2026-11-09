@@ -119,6 +119,16 @@ export interface ClientLeagueUserChange {
 
 export type ClientLeagueUserChangeJson = Jsonify<ClientLeagueUserChange>
 
+/** League standings captured when a game applies its points. Ranks are one-based. */
+export interface GameLeagueRankChange {
+  userId: SbUserId
+  leagueId: LeagueId
+  leagueName: string
+  /** Null when the player was not on this leaderboard before the game. */
+  rankBefore: number | null
+  rankAfter: number
+}
+
 export function toClientLeagueUserChangeJson(
   change: ClientLeagueUserChange,
 ): ClientLeagueUserChangeJson {

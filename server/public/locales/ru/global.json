@@ -1424,6 +1424,8 @@
     "infoDuration": "Продолжительность",
     "infoGameType": "Тип",
     "notFound": "Не удалось найти эту игру.",
+    "postGameVs": "против",
+    "postGameWaiting": "Ожидание результатов…",
     "refundPoints": {
       "errorAlreadyRefunded": "Очки за эту игру уже возвращены.",
       "errorGameNotFound": "Игра не найдена.",
@@ -1477,10 +1479,22 @@
     "statusManuallyResolved": "Решено вручную",
     "statusReviewRequested": "Запрошена проверка",
     "summary": {
+      "apm": "APM",
+      "battleground": "Карта",
+      "mapSize_one": "{{width}} × {{height}} · {{count}} игрок",
+      "mapSize_few": "{{width}} × {{height}} · {{count}} игрока",
+      "mapSize_many": "{{width}} × {{height}} · {{count}} игроков",
+      "mapSize_other": "{{width}} × {{height}} · {{count}} игрока",
       "mmr": "MMR",
+      "noRatingChange": "Рейтинг и очки за эту игру не изменились.",
+      "players": "Игроки",
       "pointsBase": "Базовые очки",
       "pointsBonus": "Бонусные очки",
-      "rp": "RP"
+      "progression": "Ваш прогресс",
+      "ratingPending": "Рейтинг и очки появятся здесь после подтверждения результатов.",
+      "ratingUnavailable": "Рейтинг и очки для этой игры недоступны.",
+      "rp": "RP",
+      "you": "Вы"
     },
     "tabBuildOrders": "Билд ордеры",
     "tabStats": "Статистика",
@@ -2519,9 +2533,15 @@
       "warningDescription": "Повторные нарушения ведут к бану в матчмейкинге.",
       "warningTitle": "Предупреждение в матчмейкинге"
     },
+    "postGameResults": {
+      "ready": "Результаты матча готовы.",
+      "view": "Посмотреть результаты"
+    },
     "postMatchDialog": {
       "leagues": "Лиги",
       "matchmaking": "Матчмейкинг",
+      "mmr": "MMR",
+      "placementsCompleted": "Сыграно калибровочных матчей: {{completed}} / {{total}}",
       "points": "Очки",
       "rating": "Рейтинг",
       "searchAgain": "Искать снова",

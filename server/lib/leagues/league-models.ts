@@ -1,6 +1,6 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { appendToMultimap } from '../../../common/data-structures/maps'
-import { League, LeagueId } from '../../../common/leagues/leagues'
+import { GameLeagueRankChange, League, LeagueId } from '../../../common/leagues/leagues'
 import { MatchmakingResult, MatchmakingType } from '../../../common/matchmaking'
 import { Patch } from '../../../common/patch'
 import { RaceStats } from '../../../common/races'
@@ -595,6 +595,88 @@ export async function insertLeagueUserChange(
       (${change.userId}, ${change.leagueId}, ${change.gameId}, ${change.changeDate},
        ${change.outcome}, ${change.points}, ${change.pointsChange}, ${change.pointsConverged})
   `)
+}
+
+/** Persists ranks for exactly the league memberships updated in this reconciliation. */
+export async function updateLeagueUserChangeRanks(
+  gameId: string,
+  oldUsers: ReadonlyArray<Pick<LeagueUser, 'leagueId' | 'userId' | 'points' | 'lastPlayedDate'>>,
+  client: DbClient,
+): Promise<void> {
+  if (!oldUsers.length) return
+
+  // Both rankings use one statement snapshot; only the changed memberships are restored to their
+  // prior values for the before ranking, including their prior leaderboard eligibility.
+  await client.query(sql`
+    WITH old_users AS (
+      SELECT * FROM jsonb_to_recordset(${JSON.stringify(oldUsers)}::jsonb)
+        AS old("leagueId" uuid, "userId" integer, points real, "lastPlayedDate" timestamptz)
+    ), members AS (
+      SELECT lu.league_id, lu.user_id, lu.points, lu.last_played_date,
+        old."userId" IS NOT NULL AS changed, old.points AS old_points,
+        old."lastPlayedDate" AS old_last_played_date
+      FROM league_users lu
+      LEFT JOIN old_users old ON old."leagueId" = lu.league_id AND old."userId" = lu.user_id
+      WHERE lu.left_at IS NULL
+        AND lu.league_id IN (SELECT "leagueId" FROM old_users)
+    ), before_ranks AS (
+      SELECT league_id, user_id, row_number() OVER (
+        PARTITION BY league_id ORDER BY
+          (CASE WHEN changed THEN old_points ELSE points END) DESC,
+          user_id::text COLLATE "C" DESC
+      )::integer AS rank
+      FROM members
+      WHERE CASE WHEN changed THEN old_last_played_date IS NOT NULL
+        ELSE last_played_date IS NOT NULL END
+    ), after_ranks AS (
+      SELECT league_id, user_id, row_number() OVER (
+        PARTITION BY league_id ORDER BY points DESC, user_id::text COLLATE "C" DESC
+      )::integer AS rank
+      FROM members
+      WHERE last_played_date IS NOT NULL
+    )
+    UPDATE league_user_changes changes
+    SET rank_before = before_ranks.rank, rank_after = after_ranks.rank
+    FROM old_users old
+    JOIN after_ranks ON after_ranks.league_id = old."leagueId"
+      AND after_ranks.user_id = old."userId"
+    LEFT JOIN before_ranks ON before_ranks.league_id = old."leagueId"
+      AND before_ranks.user_id = old."userId"
+    WHERE changes.game_id = ${gameId} AND changes.league_id = old."leagueId"
+      AND changes.user_id = old."userId"
+  `)
+}
+
+export async function getLeagueRankChangesForGame(
+  gameId: string,
+  withClient?: DbClient,
+): Promise<GameLeagueRankChange[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{
+      user_id: SbUserId
+      league_id: LeagueId
+      league_name: string
+      rank_before: number | null
+      rank_after: number
+    }>(sql`
+      SELECT changes.user_id, changes.league_id, leagues.name AS league_name,
+        changes.rank_before, changes.rank_after
+      FROM league_user_changes changes
+      JOIN leagues ON leagues.id = changes.league_id
+      WHERE changes.game_id = ${gameId} AND changes.rank_after IS NOT NULL
+      ORDER BY changes.league_id, changes.user_id
+    `)
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      leagueId: row.league_id,
+      leagueName: row.league_name,
+      rankBefore: row.rank_before,
+      rankAfter: row.rank_after,
+    }))
+  } finally {
+    done()
+  }
 }
 
 export async function getLeagueUserChangesForGame(

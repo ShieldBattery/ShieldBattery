@@ -7,12 +7,14 @@ import {
   MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
+import { isInParticipatingGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
-import { lastGameAtom } from '../games/game-atoms'
+import { getGameResultsUrl, navigateToGameResults } from '../games/action-creators'
+import { lastGameAtom, postGameResultsAtom, receivePostGameResultsAtom } from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
@@ -341,6 +343,37 @@ export const eventToAction: EventToActionMap = {
   },
 }
 
+/** Holds a game's rating results for its post-game page, for the game the user last played. */
+export function onMatchmakingResults(event: MatchmakingResultsEvent): Dispatchable {
+  return (_dispatch, getState) => {
+    if (event.game.id !== jotaiStore.get(lastGameAtom)?.id) {
+      return
+    }
+
+    jotaiStore.set(receivePostGameResultsAtom, event)
+
+    // A player still in the game lands on the post-game page when it closes, and one already on it
+    // sees the results there. Anyone who moved on needs telling they've arrived.
+    if (
+      !jotaiStore.get(postGameResultsAtom)?.revealed &&
+      !isInParticipatingGame(getState().gameClient) &&
+      !window.location.pathname.startsWith(getGameResultsUrl(event.game.id))
+    ) {
+      externalShowSnackbar(
+        i18n.t('matchmaking.postGameResults.ready', 'Your match results are in.'),
+        DURATION_LONG,
+        {
+          action: {
+            label: i18n.t('matchmaking.postGameResults.view', 'View results'),
+            onClick: () => navigateToGameResults(event.game.id, true /* asPostGame */),
+          },
+          dedupe: true,
+        },
+      )
+    }
+  }
+}
+
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   const matchmakingHandler: RouteHandler = (route: RouteInfo, event: MatchmakingEvent) => {
     if (!eventToAction[event.type]) return
@@ -391,24 +424,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute(
     '/matchmaking-results/:userId',
     (_route: RouteInfo, event: MatchmakingResultsEvent) => {
-      dispatch((dispatch, getState) => {
-        const lastGame = jotaiStore.get(lastGameAtom)
-
-        if (event.game.id === lastGame?.id) {
-          dispatch(
-            openDialog({
-              type: DialogType.PostMatch,
-              initData: {
-                game: event.game,
-                mmrChange: event.mmrChange,
-                leagueChanges: event.leagueChanges,
-                leagues: event.leagues,
-                season: event.season,
-              },
-            }),
-          )
-        }
-      })
+      dispatch(onMatchmakingResults(event))
     },
   )
 }

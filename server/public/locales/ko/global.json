@@ -1379,6 +1379,8 @@
     "infoDuration": "기간",
     "infoGameType": "유형",
     "notFound": "게임을 찾을 수 없습니다.",
+    "postGameVs": "vs",
+    "postGameWaiting": "결과를 기다리는 중…",
     "refundPoints": {
       "errorAlreadyRefunded": "이 게임의 점수는 이미 복구되었습니다.",
       "errorGameNotFound": "게임을 찾을 수 없습니다.",
@@ -1429,10 +1431,19 @@
     "statusManuallyResolved": "수동 확정됨",
     "statusReviewRequested": "검토 요청됨",
     "summary": {
+      "apm": "APM",
+      "battleground": "전장",
+      "mapSize_other": "{{width}} × {{height}} · {{count}}인용",
       "mmr": "MMR",
+      "noRatingChange": "이 게임에는 평점이나 점수 변동이 적용되지 않았습니다.",
+      "players": "플레이어",
       "pointsBase": "기지",
       "pointsBonus": "보너스",
-      "rp": "RP"
+      "progression": "내 진행 상황",
+      "ratingPending": "결과가 확정되면 평점과 점수가 여기에 표시됩니다.",
+      "ratingUnavailable": "이 게임의 평점과 점수를 확인할 수 없습니다.",
+      "rp": "RP",
+      "you": "나"
     },
     "tabBuildOrders": "빌드 오더",
     "tabStats": "스탯",
@@ -2411,9 +2422,15 @@
       "warningDescription": "반복해서 위반하면 매치메이킹이 금지됩니다.",
       "warningTitle": "매치메이킹 경고"
     },
+    "postGameResults": {
+      "ready": "경기 결과가 나왔습니다.",
+      "view": "결과 보기"
+    },
     "postMatchDialog": {
       "leagues": "리그",
       "matchmaking": "매치메이킹",
+      "mmr": "MMR",
+      "placementsCompleted": "완료한 배치 경기: {{completed}} / {{total}}",
       "points": "점수",
       "rating": "레이팅",
       "searchAgain": "다시 검색",

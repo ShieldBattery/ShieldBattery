@@ -66,12 +66,14 @@ import { doFullRankingsUpdate, updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
   getActiveLeaguesForUsersWithLock,
+  getLeagueRankChangesForGame,
   getLeaguesById,
   getLeagueUserChangesForGame,
   insertLeagueUserChange,
   LeagueUser,
   LeagueUserChange,
   updateLeagueUser,
+  updateLeagueUserChangeRanks,
 } from '../leagues/league-models'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
@@ -766,6 +768,14 @@ export default class GameResultService {
     return await getLeagueUserChangesForGame(gameRecord.id)
   }
 
+  async retrieveLeagueRankChanges(gameRecord: Readonly<GameRecord>) {
+    if (gameRecord.config.gameSource !== GameSource.Matchmaking || !gameRecord.results) {
+      return []
+    }
+
+    return await getLeagueRankChangesForGame(gameRecord.id)
+  }
+
   async subscribeToGame(userId: SbUserId, clientId: string, gameId: string): Promise<void> {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
@@ -785,11 +795,15 @@ export default class GameResultService {
       async () => {
         const game = await this.retrieveGame(gameId)
         if (game) {
-          const mmrChanges = await this.retrieveMatchmakingRatingChanges(game)
+          const [mmrChanges, leagueRankChanges] = await Promise.all([
+            this.retrieveMatchmakingRatingChanges(game),
+            this.retrieveLeagueRankChanges(game),
+          ])
           return {
             type: 'update',
             game: toGameRecordJson(game),
             mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+            leagueRankChanges,
           }
         } else {
           return undefined
@@ -1284,6 +1298,7 @@ export default class GameResultService {
 
     const matchmakingRankingChanges: MatchmakingRating[] = []
     const leagueLeaderboardChanges: LeagueUser[] = []
+    const oldLeagueUsers: LeagueUser[] = []
     if (
       gameRecord.config.gameSource === GameSource.Matchmaking &&
       !reconciled.disputed &&
@@ -1509,9 +1524,12 @@ export default class GameResultService {
 
           await updateLeagueUser(updatedLeagueUser, client)
           leagueLeaderboardChanges.push(updatedLeagueUser)
+          oldLeagueUsers.push(oldLeagueUser)
         }
       }
     }
+    await updateLeagueUserChangeRanks(gameId, oldLeagueUsers, client)
+
     for (const [userId, result] of resultEntries) {
       if (options.preserveUnassignedRaces) {
         await setUserLobbyViolationResult(client, userId, gameId, result.result)
@@ -1699,10 +1717,10 @@ export default class GameResultService {
       return { ratingsApplied }
     })
 
-    // Subscribers see the resolved game (and any points that moved with it). The client only opens
-    // a post-match dialog for the viewing user's own most recent game, where showing the newly
-    // applied points is the point. The resolution is already committed, so a publish failure is
-    // logged rather than failing the request.
+    // Subscribers see the resolved game (and any points that moved with it). The client only shows
+    // these results for the viewing user's own most recent game, where showing the newly applied
+    // points is the point. The resolution is already committed, so a publish failure is logged
+    // rather than failing the request.
     try {
       await this.publishReconciledGame(gameId)
     } catch (err) {
@@ -1723,9 +1741,10 @@ export default class GameResultService {
    */
   private async publishReconciledGame(gameId: string): Promise<void> {
     const game = await this.retrieveGame(gameId)
-    const [mmrChanges, leagueUserChanges, season] = await Promise.all([
+    const [mmrChanges, leagueUserChanges, leagueRankChanges, season] = await Promise.all([
       this.retrieveMatchmakingRatingChanges(game),
       this.retrieveLeagueUserChanges(game),
+      this.retrieveLeagueRankChanges(game),
       this.matchmakingSeasonsService.getSeasonForDate(game.startTime).then(([s]) => s),
     ])
 
@@ -1740,6 +1759,7 @@ export default class GameResultService {
       type: 'update',
       game: gameJson,
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+      leagueRankChanges,
     })
 
     if (mmrChanges.length) {

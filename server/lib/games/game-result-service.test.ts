@@ -28,6 +28,7 @@ import {
   getActiveLeaguesForUsersWithLock,
   getLeagueUserChangesForGame,
   updateLeagueUser,
+  updateLeagueUserChangeRanks,
 } from '../leagues/league-models'
 import {
   DEFAULT_MATCHMAKING_RATING,
@@ -113,9 +114,11 @@ vi.mock('../leagues/league-models', async () => {
   return {
     ...actual,
     getActiveLeaguesForUsersWithLock: vi.fn(),
+    getLeagueRankChangesForGame: vi.fn().mockResolvedValue([]),
     getLeagueUserChangesForGame: vi.fn(),
     insertLeagueUserChange: vi.fn(),
     updateLeagueUser: vi.fn(),
+    updateLeagueUserChangeRanks: vi.fn(),
   }
 })
 
@@ -1844,6 +1847,20 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     expect(updatedLeagueUsers).toHaveLength(2)
     expect(updatedLeagueUsers.find(l => l.userId === p1)!.lastPlayedDate).toEqual(new Date(560_000))
     expect(updatedLeagueUsers.find(l => l.userId === p2)!.lastPlayedDate).toEqual(new Date(900_000))
+    expect(
+      asMockedFunction(updateLeagueUserChangeRanks).mock.calls.at(-1)![1][0].lastPlayedDate,
+    ).toBeUndefined()
+    expect(updateLeagueUserChangeRanks).toHaveBeenCalledWith(
+      GAME_ID,
+      expect.arrayContaining([
+        expect.objectContaining({ userId: p1, points: 0 }),
+        expect.objectContaining({ userId: p2, lastPlayedDate: new Date(900_000) }),
+      ]),
+      expect.anything(),
+    )
+    expect(
+      asMockedFunction(updateLeagueUserChangeRanks).mock.invocationCallOrder.at(-1),
+    ).toBeGreaterThan(Math.max(...asMockedFunction(updateLeagueUser).mock.invocationCallOrder))
   })
 
   test('records the resolution without rating changes once the season is finalized', async () => {

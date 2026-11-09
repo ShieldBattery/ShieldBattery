@@ -223,9 +223,8 @@ bits in here, and keep this lean:
     cleanest multi-queue proof). When they match in one mode they're pulled from **all** their
     queues (queue drains fully), and only the *matched* mode writes a `found` completion — the other
     queued modes are abandoned with no completion. **Cancel**, by contrast, writes one
-    `cancel`/`disconnect` completion per queued type. After a game a **"Match results" dialog** stays
-    open and silently blocks the next Find match — close it with the **"Close dialog"** button before
-    re-queuing.
+    `cancel`/`disconnect` completion per queued type. After a game the client lands on the game's
+    post-game results page, whose **Search again** button re-queues the same modes.
   - **Clicking in this Electron app.** Role and test-id locators (`click "getByRole(...)"`,
     `getByTestId(...)`) are the default; the login and lobby recipes in **verify-app** use them.
     If a `click` times out on its actionability wait, first check for the dev-server error overlay
