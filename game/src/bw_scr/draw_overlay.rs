@@ -139,6 +139,9 @@ pub struct OverlayState {
     pending_look_at: Option<PendingLookAt>,
     /// The last number-key group recalled, and when, so a second press can center on it.
     last_group_recall: Option<(u8, u8, Instant)>,
+    /// Whether the "Debug" window is drawn: in debug builds, unless `SB_HIDE_DEBUG_UI=1` asks for
+    /// screenshots without it.
+    show_debug_ui: bool,
     /// The scan codes of the keys held down whose press the shell took. The rest of each keystroke
     /// (its character and its release) is kept from the game too: SC:R acts on some keys from their
     /// character, so a number key recalls the game's own group on top of the one the shell
@@ -487,6 +490,8 @@ impl OverlayState {
             last_requested_seek: None,
             pending_look_at: None,
             last_group_recall: None,
+            show_debug_ui: cfg!(debug_assertions)
+                && !std::env::var("SB_HIDE_DEBUG_UI").is_ok_and(|x| x == "1"),
             shell_held_keys: Vec::new(),
             chat_history: None,
             observer_view: None,
@@ -835,8 +840,7 @@ impl OverlayState {
                         capture_mouse_scroll: hit.captures_scroll,
                     });
                 }
-                let debug = cfg!(debug_assertions);
-                if debug {
+                if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
                 }
             } else {
