@@ -34,8 +34,9 @@ const SCRUB_HEAD: f32 = 5.5;
 /// Corner radius of the bar, which is round enough at this thickness to read as a capsule.
 const SCRUB_RADIUS: u8 = 2;
 /// A scrub track's marker: a tick standing just above the bar, as tall as this and this far clear
-/// of it. Small enough to stay part of the track rather than a row of its own.
-const MARKER_HEIGHT: f32 = 4.5;
+/// of it. Small enough to stay part of the track rather than a row of its own; a hovered one reaches
+/// a little past the top of the track's room, into the gap kept above it.
+const MARKER_HEIGHT: f32 = 8.0;
 const MARKER_GAP: f32 = 2.0;
 /// How much taller and wider the marker the pointer is resting on is drawn.
 const MARKER_HOVER_GROW: f32 = 2.0;
