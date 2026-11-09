@@ -139,7 +139,8 @@ pub struct Matchmaker<T: QueueSelector> {
     /// coordinator-served table (or an operator override change) takes effect without a restart, like
     /// `config`.
     backbone: Arc<BackboneRttTable>,
-    /// Recent active-player ratings, swapped once per search tick outside candidate evaluation.
+    /// Ratings of recently active players, used to scale 2v2 variance costs. Replaced each search
+    /// tick via [`Matchmaker::set_rating_distribution`] with the latest snapshot.
     rating_distribution: Arc<RatingDistribution>,
     queue: Vec<QueueEntry>,
     queued_player_ids: HashSet<usize>,
@@ -172,10 +173,13 @@ pub struct Match {
     pub team_b: Vec<QueueEntry>,
     pub quality: f32,
     /// Variance of the matched players' effective ratings — the raw skill-spread input to the
-    /// quality score, before `weight_rating_variance` is applied. Persisted as match-formation
-    /// telemetry so the weights can later be calibrated against real game outcomes.
+    /// quality score, before `weight_rating_variance` and `rating_variance_multiplier` are applied.
+    /// Persisted as match-formation telemetry so the weights can later be calibrated against real
+    /// game outcomes.
     pub skill_variance: f32,
-    /// Multiplier applied to the configured variance weight for this roster.
+    /// Multiplier applied to `weight_rating_variance` for this roster: 1 to 1.5 by the roster's
+    /// highest raw-rating percentile among active players in 2v2 modes (see
+    /// [`RatingDistribution::variance_multiplier`]), and always 1 in other modes.
     pub rating_variance_multiplier: f32,
     /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
     /// (uncertainty-discounted) ratings — see
@@ -247,6 +251,7 @@ struct PreparedPlayer<'a> {
     selected_index: usize,
     entry: &'a QueueEntry,
     effective_rating: f32,
+    /// This player's [`RatingDistribution::variance_multiplier`]; a roster uses its players' max.
     rating_variance_multiplier: f32,
     map_selection_bits: Option<Vec<u64>>,
 }
@@ -627,7 +632,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         self.backbone = Arc::new(backbone);
     }
 
-    /// Replaces the rating snapshot without depending on the current queue composition.
+    /// Replaces the active-player rating snapshot used to scale 2v2 variance costs.
     pub(crate) fn set_rating_distribution(&mut self, distribution: Arc<RatingDistribution>) {
         self.rating_distribution = distribution;
     }
@@ -938,27 +943,27 @@ impl<T: QueueSelector> Matchmaker<T> {
             mode_stats.players_examined = selected_entries.len();
             let pair_latencies = PairLatencies::new(&selected_entries, &self.backbone);
             let map_selection_bits = prepare_map_selection_bits(&selected_entries, *mode);
-            let selected =
-                selected_entries
-                    .iter()
-                    .zip(map_selection_bits)
-                    .enumerate()
-                    .map(
-                        |(selected_index, (entry, map_selection_bits))| PreparedPlayer {
-                            selected_index,
-                            entry,
-                            effective_rating: effective_rating(
-                                &entry.player,
-                                *mode,
-                                mode_cfg.uncertainty_k,
-                            ),
-                            rating_variance_multiplier: self
-                                .rating_distribution
-                                .variance_multiplier(*mode, entry.player.ratings[mode].rating, now),
-                            map_selection_bits,
-                        },
-                    )
-                    .collect::<Vec<_>>();
+            let selected = selected_entries
+                .iter()
+                .zip(map_selection_bits)
+                .enumerate()
+                .map(|(selected_index, (entry, map_selection_bits))| {
+                    let raw_rating = entry.player.ratings.get(mode).map_or(0.0, |r| r.rating);
+                    PreparedPlayer {
+                        selected_index,
+                        entry,
+                        effective_rating: effective_rating(
+                            &entry.player,
+                            *mode,
+                            mode_cfg.uncertainty_k,
+                        ),
+                        rating_variance_multiplier: self
+                            .rating_distribution
+                            .variance_multiplier(*mode, raw_rating),
+                        map_selection_bits,
+                    }
+                })
+                .collect::<Vec<_>>();
 
             let mode_matches = selected
                 .iter()
@@ -1282,7 +1287,6 @@ mod tests {
 
         mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
             (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
-            mm.start(),
         )));
         let search = mm.find_match_candidates_for_modes(&[mode], now);
         assert!(search.candidates.is_empty());
@@ -1304,7 +1308,6 @@ mod tests {
         let baseline = mm.find_matches_for_modes(&[mode], now).remove(0);
         mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
             (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
-            mm.start(),
         )));
         let scaled = mm.find_matches_for_modes(&[mode], now).remove(0);
         assert_eq!(scaled.rating_variance_multiplier, 1.0);
@@ -1312,25 +1315,17 @@ mod tests {
     }
 
     #[test]
-    fn equal_high_ratings_add_no_cost_and_snapshot_refresh_preserves_queue_wait() {
+    fn equal_high_ratings_add_no_variance_cost() {
         let mode = MatchmakingType::Match2v2;
         let mut mm = percentile_test_matchmaker(&[2000.0; 4]);
-        let snapshot = Arc::new(RatingDistribution::from_ratings(
+        mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
             (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
-            mm.start(),
-        ));
-        mm.set_rating_distribution(snapshot);
+        )));
         let now = mm.start() + Duration::from_secs(20);
         let m = mm.find_matches_for_modes(&[mode], now).remove(0);
         assert_eq!(m.rating_variance_multiplier, 1.5);
         assert_eq!(m.skill_variance, 0.0);
         assert_eq!(m.quality, 20.0);
-        assert!(
-            m.team_a
-                .iter()
-                .chain(&m.team_b)
-                .all(|q| q.queue_time == mm.start())
-        );
     }
 
     #[test]

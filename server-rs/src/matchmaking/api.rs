@@ -41,13 +41,15 @@ const PUBLISH_RETRY_DELAY: Duration = Duration::from_millis(200);
 
 /// How often [run_backbone_fetch_loop] polls the coordinator's `GET /regions` for the served backbone
 /// RTT table. Backbone RTTs are stable, so a coarse cadence is plenty.
-const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_mins(5);
 
 /// Per-request timeout for the coordinator `GET /regions` fetch, so a hung coordinator can't stall a
 /// fetch (and therefore the loop) indefinitely.
 const BACKBONE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
-const RATING_DISTRIBUTION_REFRESH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+/// How often [run_rating_distribution_refresh_loop] reloads the active-player rating snapshot. The
+/// query reads only the current season's 2v2 rows, so a short interval is cheap.
+const RATING_DISTRIBUTION_REFRESH_INTERVAL: Duration = Duration::from_mins(5);
 
 #[derive(Serialize)]
 struct ApiError {
@@ -259,7 +261,6 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     loop {
         interval.tick().await;
 
-        let rating_distribution = state.rating_distribution.load_full();
         let tick_start = Instant::now();
 
         // Load the config once for this tick. If the cadence changed, rebuild the timer so
@@ -276,7 +277,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // Proposal ordering, conflict resolution, and removal are one state transition, so a
         // cancel/requeue cannot interleave with claiming.
         let backbone = state.backbone.load_full();
-        metrics::sample_rating_distribution(&rating_distribution, tick_start);
+        let rating_distribution = state.rating_distribution.load_full();
         let result = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
             matchmaker.set_rating_distribution(rating_distribution);
@@ -307,7 +308,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
                 quality: m.quality,
                 skill_variance: m.skill_variance,
-                rating_variance_multiplier: Some(m.rating_variance_multiplier),
+                rating_variance_multiplier: m.rating_variance_multiplier,
                 win_probability: m.win_probability,
                 team_a_rating: m.team_a_rating,
                 team_b_rating: m.team_b_rating,
@@ -361,8 +362,9 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
     std::process::exit(1);
 }
 
-/// Refreshes the active-player reference without holding the queue mutex. A failed fetch retains
-/// the last successful snapshot; the scorer falls back to the baseline once it is too old.
+/// Loads the active-player rating snapshot at startup and every
+/// [RATING_DISTRIBUTION_REFRESH_INTERVAL] after, without holding the queue mutex. A failed load
+/// keeps the last successful snapshot.
 async fn run_rating_distribution_refresh_loop(
     db_pool: PgPool,
     distribution: Arc<ArcSwap<RatingDistribution>>,
@@ -387,6 +389,7 @@ fn apply_rating_distribution_result(
 ) -> bool {
     match result {
         Ok(snapshot) => {
+            metrics::record_rating_distribution(&snapshot);
             distribution.store(Arc::new(snapshot));
             if was_failing {
                 tracing::info!("active rating distribution refresh recovered");
@@ -658,7 +661,7 @@ mod tests {
     use crate::matchmaking::{MatchmakingType, rating_distribution::RatingDistribution};
     use arc_swap::ArcSwap;
     use color_eyre::eyre::eyre;
-    use std::{sync::Arc, time::Instant};
+    use std::sync::Arc;
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
@@ -670,11 +673,9 @@ mod tests {
 
     #[test]
     fn rating_refresh_failure_retains_snapshot_and_success_replaces_it() {
-        let now = Instant::now();
         let mode = MatchmakingType::Match2v2;
         let snapshot = Arc::new(RatingDistribution::from_ratings(
             (0..20).map(|n| (mode, n as f32)),
-            now,
         ));
         let distribution = ArcSwap::from(snapshot.clone());
         assert!(apply_rating_distribution_result(
@@ -686,7 +687,6 @@ mod tests {
         assert!(!apply_rating_distribution_result(
             Ok(RatingDistribution::from_ratings(
                 (0..20).map(|n| (mode, n as f32 + 1000.0)),
-                now
             )),
             &distribution,
             true,

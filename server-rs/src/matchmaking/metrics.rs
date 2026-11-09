@@ -14,8 +14,6 @@ use crate::matchmaking::rating_distribution::RatingDistribution;
 use strum::IntoEnumIterator;
 
 const RATING_SAMPLE_SIZE: &str = "matchmaker_rating_sample_size";
-const RATING_SNAPSHOT_AGE: &str = "matchmaker_rating_snapshot_age_seconds";
-const RATING_SCALING_READY: &str = "matchmaker_rating_scaling_ready";
 const RATING_PERCENTILE: &str = "matchmaker_rating_percentile";
 const MATCH_VARIANCE_MULTIPLIER: &str = "matchmaker_match_variance_multiplier";
 const QUEUE_SIZE: &str = "matchmaker_queue_size";
@@ -46,26 +44,14 @@ pub fn describe_metrics() {
     ::metrics::describe_gauge!(
         RATING_SAMPLE_SIZE,
         Unit::Count,
-        "Distinct current-season players who played a rated game in the past seven days, per 2v2 mode"
-    );
-    ::metrics::describe_gauge!(
-        RATING_SNAPSHOT_AGE,
-        Unit::Seconds,
-        "Age of the last successful active rating snapshot"
-    );
-    ::metrics::describe_gauge!(
-        RATING_SCALING_READY,
-        Unit::Count,
-        "Whether a 2v2 mode has a fresh rating snapshot with at least twenty players"
+        "Current-season players with a rated game in the past seven days, per 2v2 mode, as of the         last successful rating snapshot (percentile scaling needs at least twenty)"
     );
     ::metrics::describe_gauge!(
         RATING_PERCENTILE,
-        Unit::Count,
-        "Nearest-rank active-player MMR quantiles, per 2v2 mode and percentile"
+        "Nearest-rank active-player MMR quantiles, per 2v2 mode and percentile, as of the last         successful rating snapshot"
     );
     ::metrics::describe_histogram!(
         MATCH_VARIANCE_MULTIPLIER,
-        Unit::Count,
         "Multiplier applied to the configured variance weight of each formed match, per mode"
     );
     ::metrics::describe_gauge!(
@@ -161,21 +147,13 @@ pub fn describe_metrics() {
     );
 }
 
-pub(crate) fn sample_rating_distribution(distribution: &RatingDistribution, now: Instant) {
-    if let Some(age) = distribution.age(now) {
-        ::metrics::gauge!(RATING_SNAPSHOT_AGE).set(age.as_secs_f64());
-    }
+/// Records a freshly loaded rating snapshot. Called once per successful refresh, since the gauges
+/// only change when the snapshot does.
+pub(crate) fn record_rating_distribution(distribution: &RatingDistribution) {
     for mode in MatchmakingType::iter().filter(|mode| mode.team_size() == 2) {
         let label = mode.as_str();
         let (count, p75, p95) = distribution.mode_stats(mode);
         ::metrics::gauge!(RATING_SAMPLE_SIZE, "mode" => label).set(count as f64);
-        ::metrics::gauge!(RATING_SCALING_READY, "mode" => label).set(
-            if distribution.is_ready(mode, now) {
-                1.0
-            } else {
-                0.0
-            },
-        );
         for (percentile, rating) in [("0.75", p75), ("0.95", p95)] {
             ::metrics::gauge!(RATING_PERCENTILE, "mode" => label, "percentile" => percentile)
                 .set(rating.map_or(f64::NAN, f64::from));

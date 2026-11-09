@@ -1826,7 +1826,7 @@ export class MatchmakingService {
       {
         quality: event.quality,
         skillVariance: event.skillVariance,
-        ratingVarianceMultiplier: event.ratingVarianceMultiplier ?? 1,
+        ratingVarianceMultiplier: event.ratingVarianceMultiplier,
         winProbability: event.winProbability,
         teamARating: event.teamARating,
         teamBRating: event.teamBRating,
