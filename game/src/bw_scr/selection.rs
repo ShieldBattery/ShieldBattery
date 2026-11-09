@@ -1161,6 +1161,32 @@ impl BwScr {
         }
     }
 
+    /// Right-clicks the ground under one of `player`'s units, picked by `random`, as the person
+    /// would: through the hooked function that places the order confirmation marker, which the
+    /// rollback engine logs as a UI write (see [`crate::rollback::ui_writes`]). Returns where it
+    /// clicked, or `None` when `player` has no units or analysis didn't find the function.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_right_click_for_harness(
+        &self,
+        player: u8,
+        mut random: impl FnMut() -> u32,
+    ) -> Option<(i32, i32)> {
+        use crate::bw::Bw;
+        use crate::rollback::ui_writes::UiWrite;
+        unsafe {
+            self.click_feedback.as_ref()?;
+            let units = self.harness_selectable_units(player);
+            if units.is_empty() {
+                return None;
+            }
+            let unit = units[random() as usize % units.len()];
+            let at = self.sprite_position((*unit).flingy.sprite as *mut c_void);
+            let (x, y) = (i32::from(at.x), i32::from(at.y));
+            self.rollback_replay_ui_write(UiWrite::CursorMarker { x, y });
+            Some((x, y))
+        }
+    }
+
     /// Whether the local selection is a group holding a building, which SC:R's status panel can't
     /// draw (it crashes the renderer). The selection UI never makes one, and the game takes a unit
     /// that becomes a building out of a group.

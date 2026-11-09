@@ -8,8 +8,9 @@
 
 use std::collections::HashMap;
 use std::mem::size_of;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use parking_lot::Mutex;
+use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 
 use crate::bw::{self, Bw};
 use crate::bw_scr::{BwScr, resolve_operand, scr};
@@ -421,7 +422,61 @@ impl ReplayCursor {
 /// The current game's snapshot ranges and buffers, built at the first tick that needs them and
 /// dropped when the game loop re-enters game init, since every address the layout resolved has to
 /// be found again.
-pub(crate) static SNAPSHOTS: Mutex<Option<Snapshots>> = Mutex::new(None);
+pub(crate) static SNAPSHOTS: SnapshotSlot = SnapshotSlot::new();
+
+/// Where the rollback engine keeps its snapshots between ticks.
+///
+/// A tick holds the lock for as long as it runs, and its steps can run code that wants to know
+/// whether there are snapshots: a step that waits for turns runs BW's own loop for the person's
+/// input inside the tick, and a right click there logs a UI write (see [`super::ui_writes`]).
+/// Taking the lock again on that thread would deadlock, so whether there are snapshots is kept
+/// beside it as well, where [`SnapshotSlot::held`] reads it without the lock. Only this type's
+/// methods put snapshots in or take them out, which keeps the two in step.
+pub(crate) struct SnapshotSlot {
+    snapshots: Mutex<Option<Snapshots>>,
+    held: AtomicBool,
+}
+
+impl SnapshotSlot {
+    const fn new() -> SnapshotSlot {
+        SnapshotSlot {
+            snapshots: Mutex::new(None),
+            held: AtomicBool::new(false),
+        }
+    }
+
+    /// Whether there are snapshots. Never waits for the lock, so code a tick runs can ask.
+    pub(crate) fn held(&self) -> bool {
+        self.held.load(Ordering::Relaxed)
+    }
+
+    /// Locks the snapshots, building them first if there are none yet. `None` (with the lock
+    /// released) while they can't be built, before a game's state exists.
+    pub(crate) unsafe fn lock_or_build(
+        &self,
+        bw: &BwScr,
+    ) -> Option<MappedMutexGuard<'_, Snapshots>> {
+        let mut guard = self.snapshots.lock();
+        if guard.is_none() {
+            *guard = unsafe { Snapshots::build(bw) };
+            self.held.store(guard.is_some(), Ordering::Relaxed);
+        }
+        MutexGuard::try_map(guard, |x| x.as_mut()).ok()
+    }
+
+    /// Locks the snapshots, if there are any.
+    #[cfg(debug_assertions)]
+    pub(crate) fn lock(&self) -> Option<MappedMutexGuard<'_, Snapshots>> {
+        MutexGuard::try_map(self.snapshots.lock(), |x| x.as_mut()).ok()
+    }
+
+    /// Drops the snapshots, so the next tick builds them again. Returns whether there were any.
+    pub(crate) fn clear(&self) -> bool {
+        let had = self.snapshots.lock().take().is_some();
+        self.held.store(false, Ordering::Relaxed);
+        had
+    }
+}
 
 impl Snapshots {
     /// Bytes needed by one raw snapshot slot, including alignment padding.

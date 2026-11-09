@@ -39,8 +39,15 @@ static LOG: Mutex<Vec<(u32, UiWrite)>> = Mutex::new(Vec::new());
 /// simulation, which a re-simulation repeats by itself, so only calls made while the simulation
 /// isn't running are logged (between steps, or while a step waits for turns), and only while the
 /// rollback engine holds snapshots that could undo them.
+///
+/// A step waiting for turns runs inside a tick, which holds the snapshots' lock, so this only
+/// asks whether there are snapshots and never takes the lock.
+///
+/// A step waiting for turns leaves the simulation on the frame it started from, so a write made
+/// while it waits is logged with that frame and comes before the step from it, as one made
+/// between steps does.
 pub(crate) fn record(bw: &BwScr, write: UiWrite) {
-    if super::simulation_running() || SNAPSHOTS.lock().is_none() {
+    if super::simulation_running() || !SNAPSHOTS.held() {
         return;
     }
     let Some(frame) = (unsafe { super::position(bw) }) else {

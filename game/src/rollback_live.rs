@@ -52,7 +52,7 @@ use crate::netcode_v2::{self, InputCounts, InputTable};
 use crate::rollback::lead_window::rollback_target_at;
 use crate::rollback::live_pacing::{TickInfo, TickPacer};
 use crate::rollback::pacing::PacingCounts;
-use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
+use crate::rollback::snapshot::SNAPSHOTS;
 use crate::rollback::tick::{self, TickPlan};
 use crate::rollback::{game_end, hash_reports, sounds};
 use rally_point_client::proto::messages::{LeadReport, RollbackStats};
@@ -557,7 +557,7 @@ pub fn arm_for_session(rollback: bool, opening: bool) -> Option<InputTable> {
 /// Drops the snapshots and forgets per-game state. Called when the game loop (re-)enters game
 /// init.
 pub fn reset_for_game_init() {
-    SNAPSHOTS.lock().take();
+    SNAPSHOTS.clear();
     crate::rollback::reset_for_game_init();
     *SUMMARY.lock() = None;
     *PACER.lock() = TickPacer::new();
@@ -633,11 +633,7 @@ pub unsafe fn run_game_logic_step(
         // A turn state without an input table is one that started before rollback was armed.
         let known_until = known_until?;
 
-        let mut guard = SNAPSHOTS.lock();
-        if guard.is_none() {
-            *guard = Snapshots::build(bw);
-        }
-        let snapshots = guard.as_mut()?;
+        let mut snapshots = SNAPSHOTS.lock_or_build(bw)?;
         if let (Some(target), Some(oldest)) = (resimulate_from, snapshots.oldest_frame())
             && target < oldest
         {
@@ -694,7 +690,7 @@ pub unsafe fn run_game_logic_step(
             spacing,
         };
         let camera_before = bw.rollback_screen_position();
-        let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
+        let (ret, report) = tick::run_tick(bw, &mut snapshots, current, &plan, |step| {
             let ret = step_game_logic(bw, param, orig);
             // A step stalled waiting for turns leaves the simulation on the frame before, which
             // must not be recorded as the frame the step would have produced.
@@ -720,7 +716,7 @@ pub unsafe fn run_game_logic_step(
             }
             ret
         });
-        drop(guard);
+        drop(snapshots);
         // Only the person watching moves the camera in a melee game, and never from inside a step,
         // so a tick that moves it has some camera state in what it restores or re-simulates.
         let camera_after = bw.rollback_screen_position();

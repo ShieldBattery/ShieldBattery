@@ -250,15 +250,11 @@ pub unsafe fn run_game_logic_step(
         if matches!(state.phase, Phase::Finished) {
             return None;
         }
-        let mut guard = SNAPSHOTS.lock();
-        if guard.is_none() {
-            *guard = Snapshots::build(bw);
-        }
-        let snapshots = guard.as_mut()?;
+        let mut snapshots = SNAPSHOTS.lock_or_build(bw)?;
         crate::rollback::count_turns(false);
-        let ret = state.tick(bw, snapshots, param, orig);
+        let ret = state.tick(bw, &mut snapshots, param, orig);
         if matches!(state.phase, Phase::Finished) {
-            drop(guard);
+            drop(snapshots);
             state.finish(bw);
         }
         Some(ret)
