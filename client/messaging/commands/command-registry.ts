@@ -5,6 +5,7 @@ import { cancelCommand } from './commands/cancel'
 import { closeCommand } from './commands/close'
 import { friendsCommand } from './commands/friend'
 import { helpCommand } from './commands/help'
+import { inviteCommand } from './commands/invite-to-lobby'
 import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
 import { leaveCommand } from './commands/leave'
@@ -51,6 +52,7 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   rollCommand,
   flipCommand,
   eightBallCommand,
+  inviteCommand,
 ]
 
 /**

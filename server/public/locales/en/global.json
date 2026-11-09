@@ -462,6 +462,9 @@
         },
         "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
+      "invite": {
+        "invited": "Invited <1><0></0></1> to lobby."
+      },
       "join": {
         "description": "Joins a chat channel, creating it if it does not exist."
       },
