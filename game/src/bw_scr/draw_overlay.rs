@@ -184,6 +184,7 @@ struct ReplayUiValues {
 /// during child functions of step()
 struct OutState {
     replay_visions: u8,
+    show_entire_map: bool,
     select_unit: Option<Unit>,
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
@@ -212,6 +213,7 @@ pub struct StepOutput {
     // (draw layer, primitive data)
     pub primitives: Vec<(u16, Vec<egui::ClippedPrimitive>)>,
     pub replay_visions: u8,
+    pub show_entire_map: bool,
     pub select_unit: Option<Unit>,
     // true => show, false => hide
     pub show_hide_control: Option<(Control, bool)>,
@@ -292,6 +294,7 @@ pub struct BwVars {
     pub rgb_colors: *mut bw::RgbColors,
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
+    pub show_entire_map: bool,
     pub active_units: bw::unit::UnitIterator,
     /// Every unit slot the game has, which is the only thing a unique id can be resolved against:
     /// the units inside a transport or a bunker are named by id rather than by pointer. `None`
@@ -452,6 +455,7 @@ impl OverlayState {
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
+                show_entire_map: false,
                 select_unit: None,
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
@@ -623,6 +627,7 @@ impl OverlayState {
         let ctx = self.ctx.clone();
         self.out_state = OutState {
             replay_visions: bw.replay_visions,
+            show_entire_map: bw.show_entire_map,
             select_unit: None,
             show_hide_control: None,
             show_hide_graphic_layer: None,
@@ -884,6 +889,7 @@ impl OverlayState {
             textures_delta: output.textures_delta,
             primitives,
             replay_visions: self.out_state.replay_visions,
+            show_entire_map: self.out_state.show_entire_map,
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
@@ -1259,6 +1265,11 @@ impl OverlayState {
                 paused,
             }),
             Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
+            Intent::SetShowEntireMap(show) => {
+                if bw.is_replay_or_obs {
+                    self.out_state.show_entire_map = show;
+                }
+            }
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
             }
