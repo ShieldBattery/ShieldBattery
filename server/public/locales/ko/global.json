@@ -27,7 +27,8 @@
         "cover": "대표 이미지",
         "publish": "게시일",
         "summary": "요약",
-        "title": "제목"
+        "title": "제목",
+        "translations": "번역"
       },
       "form": {
         "content": "내용 (마크다운)",
@@ -41,6 +42,7 @@
         "coverUpload": "대표 이미지 업로드",
         "coverUploadError": "대표 이미지를 업로드하는 중 문제가 발생했습니다.",
         "coverUploading": "업로드 중…",
+        "defaultLanguage": "{{language}} (기본)",
         "imageInvalidType": "이미지 파일을 선택해 주세요.",
         "imageTooLarge": "이미지가 너무 큽니다 (최대 5MB).",
         "imageUploadError": "이미지를 업로드하는 중 문제가 발생했습니다.",
@@ -49,12 +51,14 @@
         "insertImageTooltip": "이미지 삽입 (최대 5MB)",
         "insertVideo": "동영상 삽입",
         "insertVideoTooltip": "동영상 삽입 (최대 30MB)",
+        "language": "언어",
         "postSettings": "게시물 설정",
         "publish": "게시",
         "publishDraft": "초안 (게시 안 함)",
         "publishNow": "지금 게시",
         "publishPublished": "게시됨 ({{date}})",
         "publishSchedule": "예약",
+        "removeTranslation": "번역 삭제",
         "scheduleDate": "게시 날짜 및 시간",
         "scheduleHint": "미래의 날짜/시간을 선택하면 예약 게시되고, 과거의 날짜/시간을 선택하면 즉시 게시됩니다.",
         "scheduleRequired": "올바른 날짜와 시간을 선택하세요",
@@ -62,6 +66,8 @@
         "summaryRequired": "요약을 입력하세요",
         "title": "제목",
         "titleRequired": "제목을 입력하세요",
+        "translatedSummary": "요약 ({{language}})",
+        "translationHint": "이 언어를 사용하는 독자에게 이 번역이 표시됩니다. 게시물 설정의 요약을 포함해 비어 있는 항목에는 영어 텍스트가 사용됩니다.",
         "videoInvalidType": "mp4 또는 webm 동영상 파일을 선택해 주세요.",
         "videoTooLarge": "동영상이 너무 큽니다 (최대 30MB).",
         "videoUploadError": "동영상을 업로드하는 중 문제가 발생했습니다.",
@@ -954,6 +960,10 @@
       }
     },
     "privateChannelTitle": "비공개 채널",
+    "sendFailed": {
+      "chatRestricted": "현재 채팅 메시지를 보낼 수 없도록 제한되어 있습니다.",
+      "error": "메시지를 보내지 못했습니다: {{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
       "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
@@ -1084,6 +1094,28 @@
       "minLength_other": "최소 {{count}}자 이상 입력하세요",
       "required": "필수",
       "validatorError": "이 필드를 검증하는 중에 알 수 없는 오류가 발생했습니다"
+    }
+  },
+  "discord": {
+    "activity": {
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "관전 중",
+      "observing": "{{mode}} 관전 중",
+      "privateLobby": "비공개 로비",
+      "rankedMode": "{{mode}} 래더",
+      "replayIcon": "리플레이",
+      "watchingReplay": "리플레이 시청 중"
+    },
+    "activityPrompt": {
+      "decline": "괜찮습니다",
+      "enable": "내 활동 표시",
+      "footnote": "로비, 게임, 리플레이 중이 아닐 때는 아무것도 표시되지 않습니다. 나중에 설정 › 연동에서 바꿀 수 있습니다.",
+      "intro": "ShieldBattery는 이 컴퓨터의 Discord 앱에 로그인된 Discord 계정에 지금 하고 있는 활동을 표시할 수 있습니다:",
+      "sharedGame": "게임 모드, 종족전 또는 내 종족, 맵, 게임 진행 시간",
+      "sharedLobby": "현재 있는 로비의 맵, 공개 로비라면 로비 이름, 그리고 로비의 게임 중에도 유지되는 참가 버튼(일부 공개 로비는 참가 요청 버튼)",
+      "sharedReplay": "리플레이를 보고 있다는 것과 해당 맵",
+      "title": "Discord에 활동을 표시할까요?"
     }
   },
   "fileBrowser": {
@@ -1254,9 +1286,11 @@
     "buttonWatchReplayLoading": "로딩 중…",
     "chatTranscript": {
       "copy": "기록 복사",
+      "draftTitle": "종족 선택",
       "dropped": "<0>{{name}}</0>님의 연결이 끊겼습니다",
       "droppedText": "{{name}}님의 연결이 끊겼습니다",
       "empty": "이 리플레이들에는 기록된 채팅이나 퇴장이 없습니다.",
+      "gameTitle": "게임",
       "hide": "채팅 기록 숨기기",
       "left": "<0>{{name}}</0>님이 게임을 나갔습니다",
       "leftText": "{{name}}님이 게임을 나갔습니다",
@@ -1269,6 +1303,7 @@
       "sources": "다음 사용자가 업로드한 리플레이를 합쳤습니다:",
       "title": "채팅 기록",
       "unknownSender": "슬롯 {{slot}}",
+      "unknownUser": "사용자 {{id}}",
       "view": "채팅 기록 보기"
     },
     "debugInfo": {
@@ -1467,7 +1502,8 @@
       "morePlayers_other": "+{{count}}명",
       "showResults": "결과 보기",
       "versus": "vs",
-      "view": "게임 보기"
+      "view": "게임 보기",
+      "watch": "관전하기"
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
@@ -1682,6 +1718,9 @@
     "assetAuthor": "제작: {{author}}",
     "assetModifications": "변경 사항: {{modifications}}",
     "assetsHeader": "글꼴, 사운드, 아이콘",
+    "discordSdkDescription": "앱은 Discord Social SDK를 통해 Discord에 활동을 표시하며, 이 SDK에는 다른 오픈 소스 소프트웨어가 포함되어 있습니다.",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "이 빌드에는 Discord Social SDK가 포함되어 있지 않습니다.",
     "electronDescription": "앱은 Chromium 및 기타 오픈 소스 소프트웨어가 포함된 Electron으로 만들어졌습니다. 해당 라이선스는 ShieldBattery 설치 폴더의 LICENSE.electron.txt와 LICENSES.chromium.html에서 확인할 수 있습니다.",
     "electronHeader": "Electron과 Chromium",
     "gameDescription": "ShieldBattery 중 스타크래프트 안에서 실행되는 부분에 포함된 오픈 소스 소프트웨어와 글꼴입니다.",
@@ -1702,6 +1741,7 @@
       "generic": "문제가 발생했습니다. 다시 시도해 주세요.",
       "invalidSlotOperation": "지금은 그 자리를 변경할 수 없습니다",
       "invalidTeamLayout": "이 구성에서는 팀을 재배치할 수 없습니다",
+      "mapNotDownloaded": "아직 맵이 없는 사람이 있습니다",
       "notEnoughSides": "최소 두 편에 플레이어가 있어야 합니다",
       "notEveryoneReady": "아직 전원이 준비되지 않았습니다",
       "notHost": "호스트만 할 수 있습니다",
@@ -1962,6 +2002,10 @@
         "visibilityPublic": "공개",
         "visibilityUnlisted": "일부 공개"
       },
+      "mapStatus": {
+        "downloading": "맵 다운로드 중",
+        "failed": "맵 다운로드 실패"
+      },
       "racePicker": {
         "label": "종족"
       },
@@ -1972,9 +2016,12 @@
         "everyoneReady": "전원 준비 완료",
         "holdToBypassReadiness": "{{seconds}}초 동안 누르면 기다리지 않고 시작합니다",
         "holdToStartAnyway": "길게 눌러 바로 시작",
+        "mapDownloadFailed": "맵을 다운로드하지 못했습니다",
+        "mapNotDownloaded": "아직 맵이 없는 사람이 있습니다",
         "needsOpposingSides": "서로 다른 편에 플레이어가 최소 2명 필요합니다",
         "readyCount": "{{readyTotal}}명 중 {{readyCount}}명 준비",
         "readyUp": "준비 완료",
+        "retryMapDownload": "다시 다운로드",
         "startGame": "게임 시작",
         "startingGame": "게임 시작 중",
         "waitingForHost": "호스트가 시작하기를 기다리는 중"
@@ -2162,6 +2209,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "브라우저에서 열기",
+      "title": "이미지"
+    },
     "toolbar": {
       "bold": "굵게",
       "boldTooltip": "굵게 (Ctrl+B)",
@@ -2261,7 +2312,9 @@
     "findMatch": {
       "alternateRace": "부종족",
       "bonus": "보너스",
+      "bonusFrozen": "시즌 마지막 주입니다! 남은 보너스 점수를 모두 사용하세요!",
       "cancelSearch": "검색 취소",
+      "chooseRace": "종족 선택",
       "desc": {
         "1v1": "솔로 · 일반 맵",
         "1v1fastest": "솔로 · 빨무 맵",
@@ -2276,10 +2329,14 @@
       "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
       "errors": {
         "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다",
+        "chooseMaps": "맵을 하나 이상 선택하세요",
+        "chooseRace": "계속하려면 종족을 선택하세요",
+        "completeSettings": "매치를 찾으려면 강조 표시된 설정을 완료하세요.",
         "dialogTitle": "게임 검색 오류",
         "invalidMaps": "선택한 각 매치메이킹 유형마다 설정에서 맵을 하나 이상 선택해야 합니다.",
         "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
-        "searchAgainError": "경기 검색 중 문제가 발생했습니다",
+        "reviewSettings": "검색하기 전에 종족을 선택하고 선택한 각 모드의 맵을 확인하세요.",
+        "settingsLoading": "설정을 아직 불러오는 중입니다",
         "somethingWentWrong": "문제가 발생했습니다 :(",
         "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
       },
@@ -2300,6 +2357,7 @@
       "rank": "순위",
       "rating": "레이팅",
       "readyToQueue": "검색 준비 완료",
+      "reviewSettings": "검색하기 전에 종족을 선택하세요",
       "searchingMessage": "상대 검색 중…",
       "selectAtLeastOne": "검색을 시작하려면 매치메이킹 유형을 하나 이상 선택하세요.",
       "selectedCount": "{{selected}} / {{total}} 선택됨",
@@ -2710,6 +2768,34 @@
       "save": "설정을 저장하는 데 문제가 발생했습니다."
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "APM 경고 텍스트 색상 변경",
+        "apmAlertSound": "APM 경고 소리 재생",
+        "apmAlertValue": "APM 경고 기준값",
+        "copyButton": "Battle.net에서 복사",
+        "copyConfirm": "설정 복사",
+        "copyDialogFeatures_other": "ShieldBattery 기능 {{count}}개도 Battle.net 방식으로 전환",
+        "copyDialogFeaturesOnly_other": "ShieldBattery 기능 {{count}}개가 Battle.net 방식으로 전환됩니다.",
+        "copyDialogNotKept": "현재 값은 유지되지 않습니다.",
+        "copyDialogSettings_other": "ShieldBattery의 스타크래프트 설정 {{count}}개를 Battle.net 값으로 바꿉니다.",
+        "copyDialogTitle": "Battle.net 설정을 복사할까요?",
+        "copyError": "Battle.net 설정을 복사하지 못했습니다. 아무것도 변경되지 않았습니다.",
+        "customCursorSize": "커서 크기 사용자 지정",
+        "differenceSummary_other": "Battle.net과 다른 설정이 {{count}}개 있습니다. 이미 같은 설정은 표시하지 않습니다.",
+        "featuresTitle": "ShieldBattery 기능",
+        "featureSummary_other": "ShieldBattery 기능 {{count}}개 때문에 Battle.net과 플레이 감각이 다릅니다.",
+        "intro": "ShieldBattery는 스타크래프트 설정을 따로 보관하므로 Battle.net에서 바꾼 설정은 이쪽에 적용되지 않습니다.",
+        "matches": "설정이 Battle.net과 같습니다.",
+        "notFound": "ShieldBattery가 Battle.net 설정 파일을 읽지 못했습니다. Battle.net에서 스타크래프트를 한 번 실행하면 파일이 생성됩니다.",
+        "notSet": "설정 안 됨",
+        "settingsTitle": "스타크래프트 설정",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "설정",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_other": "앞으로 새 기능은 {{preset}} 기본값을 사용합니다. 이 프리셋이 다루는 설정 {{count}}개는 어떻게 할까요?",
@@ -2721,6 +2807,7 @@
           "resetToRecommendedDescription": "초기 안개, 커서 크기, 팀 색상, 화면 끌기가 ShieldBattery 기본값으로 바뀝니다.",
           "switchedTitle": "{{preset}}(으)로 전환됨"
         },
+        "battleNetNote": "다른 스타크래프트 설정을 Battle.net에서 복사하려면 Battle.net 페이지를 이용하세요.",
         "firstRun": {
           "continue": "계속",
           "cursorSize": "커서 크기",
@@ -2738,7 +2825,8 @@
           "title": "같은 게임. 세부 설정은 직접 고르세요."
         },
         "intro": "프리셋은 ShieldBattery 자체 게임플레이 설정의 시작 값을 정합니다. 나중에 추가되는 항목의 기본값도 이 프리셋을 따릅니다.",
-        "legacyDescription": "Battle.net과 동일합니다.",
+        "legacyDescription": "아래 설정을 Battle.net과 동일하게 맞춥니다.",
+        "openBattleNet": "Battle.net 페이지 열기",
         "preset": {
           "legacy": "클래식",
           "recommended": "권장"
@@ -3213,6 +3301,12 @@
       },
       "connections": {
         "description": "외부 계정을 ShieldBattery 프로필에 연동합니다.",
+        "discord": {
+          "description": "ShieldBattery에서 하고 있는 활동을 Discord 프로필에 표시합니다.",
+          "name": "Discord",
+          "note": "ShieldBattery 앱과 같은 컴퓨터의 Discord 앱에 로그인된 Discord 계정에 로비, 게임, 리플레이를 표시합니다.",
+          "showActivity": "Discord에 내 활동 표시"
+        },
         "title": "연동",
         "twitch": {
           "connect": "연동하기",
@@ -3571,7 +3665,6 @@
       "noSelfMessaging": "자신에게 메시지를 보낼 수 없습니다",
       "openSession": "사용자 {{errorMessage}}에게 귓속말을 열 수 없습니다",
       "resolveMessageLink": "메시지 링크를 여는 중 오류가 발생했습니다: {{errorMessage}}",
-      "sendingMessage": "메시지 전송 오류: {{errorMessage}}",
       "unknownError": "알 수 없는 오류",
       "userChatRestricted": "현재 채팅 메시지 전송이 제한되어 있습니다",
       "userNotFound": "사용자를 찾을 수 없습니다"

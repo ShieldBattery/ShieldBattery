@@ -208,6 +208,11 @@ consistent. (Seed — extend over time.)
 - **Log in (`auth.login.logIn`) → Entrar**: it labels the app-bar button, where "Iniciar sesión"
   overflowed at phone widths; titles keep the full "Inicia sesión en ShieldBattery".
 - **Licenses page:** open source→**código abierto**, license notices→avisos de licencia, release build→**compilación de lanzamiento**. The lobby ready toggle (rail) keeps the header's **Listo / No estoy listo**; the heart Support button→**Apoyar** (donations, not help).
+- **skin → aspecto** (Blizzard's Spanish term; the old MT "máscara" was fixed), preorder→**Preventa**
+  (LatAm; "Hacer un pedido" was place-an-order MT).
+- **Discord activity:** activity→actividad, Ranked {{mode}}→Clasificatoria {{mode}} (matches
+  `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
+  unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -337,6 +342,10 @@ consistent. (Seed — extend over time.)
   не отвечает / подключается… {{time}} / кик запрошен. teammate→**союзник** (84 px tag).
 
 - **Licenses page:** open source→**открытое ПО / с открытым исходным кодом**, license notices→уведомления о лицензиях, release build→**релизная сборка**. The lobby ready toggle (rail) keeps the header's **Готов / Отменить готовность**.
+- **Discord activity:** activity→активность; the details line for an observer is «Зритель: {{mode}}»
+  (dodges a verb against a nominative mode label), Ranked {{mode}}→Рейтинговый {{mode}}. preorder
+  skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
+  «Открыть страницу Battle.net» clips in its slot beside the note.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -465,6 +474,9 @@ consistent. (Seed — extend over time.)
   teammate→**팀원**.
 
 - **Licenses page:** open source→**오픈 소스**, license→라이선스, license notices→라이선스 고지, release build→**릴리스 빌드**, fonts→글꼴. The lobby ready toggle (rail) keeps **준비 완료 / 준비 취소**; the heart Support button→**후원하기** (donations, not help).
+- **Discord activity:** activity→활동, Ranked {{mode}}→**{{mode}} 래더** (matches
+  `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
+  section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -572,4 +584,7 @@ consistent. (Seed — extend over time.)
   lowercase, which Chinese does not mirror. teammate→**队友**.
 - **SD / HD graphics → 旧版图像 / 高清版图像** (the Video settings' in-file pair; "switch to HD"→切换到高清版).
   The leaderboard self chip "You"→**我** (a label on your own row, not an address, so no 您).
-- **Licenses page:** open source→**开源**, license→**许可证**, license notices→许可证声明, release build→**正式版构建**, software package→软件包. Support (heart button, donations)→**赞助**. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Licenses page:** open source→**开源**, license→**许可证**, license notices→许可证声明, release build→**正式版构建**, software package→软件包. Support (heart button, donations)→**赞助**.
+- **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
+  `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
+  ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.

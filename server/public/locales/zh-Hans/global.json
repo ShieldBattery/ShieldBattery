@@ -27,7 +27,8 @@
         "cover": "封面图片",
         "publish": "发布日期",
         "summary": "摘要",
-        "title": "标题"
+        "title": "标题",
+        "translations": "翻译"
       },
       "form": {
         "content": "内容（Markdown）",
@@ -41,6 +42,7 @@
         "coverUpload": "上传封面",
         "coverUploadError": "上传封面图片时出了点问题。",
         "coverUploading": "上传中…",
+        "defaultLanguage": "{{language}}（默认）",
         "imageInvalidType": "请选择图片文件。",
         "imageTooLarge": "图片过大（最大 5 MB）。",
         "imageUploadError": "上传图片时出了点问题。",
@@ -49,12 +51,14 @@
         "insertImageTooltip": "插入图片（最大 5 MB）",
         "insertVideo": "插入视频",
         "insertVideoTooltip": "插入视频（最大 30 MB）",
+        "language": "语言",
         "postSettings": "文章设置",
         "publish": "发布",
         "publishDraft": "草稿（不发布）",
         "publishNow": "立即发布",
         "publishPublished": "已发布（{{date}}）",
         "publishSchedule": "定时发布",
+        "removeTranslation": "删除翻译",
         "scheduleDate": "发布日期和时间",
         "scheduleHint": "选择未来的时间将定时发布；选择过去的时间将立即发布。",
         "scheduleRequired": "请选择有效的日期和时间",
@@ -62,6 +66,8 @@
         "summaryRequired": "请输入摘要",
         "title": "标题",
         "titleRequired": "请输入标题",
+        "translatedSummary": "摘要（{{language}}）",
+        "translationHint": "使用该语言的读者会看到此翻译。留空的字段（包括文章设置中的摘要）将使用英文内容。",
         "videoInvalidType": "请选择 mp4 或 webm 视频文件。",
         "videoTooLarge": "视频过大（最大 30 MB）。",
         "videoUploadError": "上传视频时出了点问题。",
@@ -954,6 +960,10 @@
       }
     },
     "privateChannelTitle": "私人频道",
+    "sendFailed": {
+      "chatRestricted": "您目前被限制发送聊天消息。",
+      "error": "消息未发送：{{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
       "body": "将 #{{channelName}} 的所有权转让给 {{user}}？您将不再是频道所有者。",
@@ -1084,6 +1094,28 @@
       "minLength_other": "不能输入少于 {{count}} 个字符",
       "required": "必填",
       "validatorError": "验证此字段时发生未知错误"
+    }
+  },
+  "discord": {
+    "activity": {
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "观战中",
+      "observing": "观战：{{mode}}",
+      "privateLobby": "私人房间",
+      "rankedMode": "{{mode}}排位",
+      "replayIcon": "录像",
+      "watchingReplay": "正在看录像"
+    },
+    "activityPrompt": {
+      "decline": "不用了",
+      "enable": "显示我的活动",
+      "footnote": "不在房间、游戏或录像中时不会显示任何内容。之后可在“设置 › 关联账号”中更改。",
+      "intro": "ShieldBattery 可以在本机 Discord 应用所登录的 Discord 账号上显示您正在做什么：",
+      "sharedGame": "游戏模式、对阵或您的种族、地图，以及游戏已进行的时间",
+      "sharedLobby": "您所在房间的地图、房间名称（若公开列出），以及一个“加入”按钮（若不公开则为“请求加入”），该按钮在房间的游戏进行期间也会保留",
+      "sharedReplay": "您正在观看录像，以及录像的地图",
+      "title": "在 Discord 上显示您的活动？"
     }
   },
   "fileBrowser": {
@@ -1254,9 +1286,11 @@
     "buttonWatchReplayLoading": "加载中…",
     "chatTranscript": {
       "copy": "复制记录",
+      "draftTitle": "种族选择",
       "dropped": "<0>{{name}}</0> 已掉线",
       "droppedText": "{{name}} 已掉线",
       "empty": "这些录像中没有记录到聊天或离开。",
+      "gameTitle": "游戏",
       "hide": "隐藏聊天记录",
       "left": "<0>{{name}}</0> 离开了游戏",
       "leftText": "{{name}} 离开了游戏",
@@ -1269,6 +1303,7 @@
       "sources": "合并自以下玩家上传的录像：",
       "title": "聊天记录",
       "unknownSender": "位置 {{slot}}",
+      "unknownUser": "用户 {{id}}",
       "view": "查看聊天记录"
     },
     "debugInfo": {
@@ -1467,7 +1502,8 @@
       "morePlayers_other": "+{{count}} 人",
       "showResults": "显示结果",
       "versus": "vs",
-      "view": "查看游戏"
+      "view": "查看游戏",
+      "watch": "观看"
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
@@ -1682,6 +1718,9 @@
     "assetAuthor": "作者：{{author}}",
     "assetModifications": "修改：{{modifications}}",
     "assetsHeader": "字体、音效和图标",
+    "discordSdkDescription": "客户端通过 Discord Social SDK 在 Discord 上显示您的活动，该 SDK 包含其他开源软件。",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "此构建不包含 Discord Social SDK。",
     "electronDescription": "客户端基于 Electron 构建，其中包含 Chromium 及其他开源软件。它们的许可证位于 ShieldBattery 安装文件夹中的 LICENSE.electron.txt 和 LICENSES.chromium.html。",
     "electronHeader": "Electron 和 Chromium",
     "gameDescription": "ShieldBattery 在星际争霸中运行的部分所包含的开源软件和字体。",
@@ -1702,6 +1741,7 @@
       "generic": "出了点问题，请重试。",
       "invalidSlotOperation": "该座位目前无法更改",
       "invalidTeamLayout": "此布局下无法重新排列队伍",
+      "mapNotDownloaded": "还有人没有地图",
       "notEnoughSides": "游戏至少需要两方都有玩家",
       "notEveryoneReady": "还有人没有准备好",
       "notHost": "只有房主才能这么做",
@@ -1962,6 +2002,10 @@
         "visibilityPublic": "公开",
         "visibilityUnlisted": "不公开"
       },
+      "mapStatus": {
+        "downloading": "正在下载地图",
+        "failed": "地图下载失败"
+      },
       "racePicker": {
         "label": "种族"
       },
@@ -1972,9 +2016,12 @@
         "everyoneReady": "所有人已准备",
         "holdToBypassReadiness": "长按 {{seconds}} 秒可不等待直接开始",
         "holdToStartAnyway": "长按强制开始",
+        "mapDownloadFailed": "地图未能下载",
+        "mapNotDownloaded": "还有人没有地图",
         "needsOpposingSides": "至少需要两名互为对手的玩家",
         "readyCount": "{{readyCount}}/{{readyTotal}} 已准备",
         "readyUp": "准备",
+        "retryMapDownload": "重新下载",
         "startGame": "开始游戏",
         "startingGame": "正在开始游戏",
         "waitingForHost": "等待房主开始"
@@ -2162,6 +2209,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "在浏览器中打开",
+      "title": "图片"
+    },
     "toolbar": {
       "bold": "加粗",
       "boldTooltip": "加粗（Ctrl+B）",
@@ -2261,7 +2312,9 @@
     "findMatch": {
       "alternateRace": "备用种族",
       "bonus": "加分",
+      "bonusFrozen": "本赛季最后一周！快把剩余的加分用掉吧！",
       "cancelSearch": "取消匹配",
+      "chooseRace": "选择种族",
       "desc": {
         "1v1": "单人 · 标准地图",
         "1v1fastest": "单人 · Fastest 地图",
@@ -2276,10 +2329,14 @@
       "description": "选择一个备用种族。当对手与您选择了相同的主种族时，将使用备用种族进行游戏。",
       "errors": {
         "alreadyInGame": "您已经在游戏中、正在搜索比赛或在自定义房间中",
+        "chooseMaps": "请至少选择一张地图",
+        "chooseRace": "请选择种族以继续",
+        "completeSettings": "请完成高亮显示的设置以开始匹配。",
         "dialogTitle": "匹配时遇到错误",
         "invalidMaps": "您必须在设置中为每种所选匹配类型至少选择一张地图。",
         "matchmakingDisabled": "目前已禁用匹配功能",
-        "searchAgainError": "搜索比赛时出现问题",
+        "reviewSettings": "搜索前请选择种族，并检查每个所选模式的地图。",
+        "settingsLoading": "设置仍在加载中",
         "somethingWentWrong": "出错了 :(",
         "userOffline": "与服务器的连接中断，请重新连接后重试。"
       },
@@ -2300,6 +2357,7 @@
       "rank": "排名",
       "rating": "评分",
       "readyToQueue": "准备匹配",
+      "reviewSettings": "搜索前请选择种族",
       "searchingMessage": "正在匹配…",
       "selectAtLeastOne": "请至少选择一种匹配类型以开始匹配。",
       "selectedCount": "{{selected}} / {{total}} 已选",
@@ -2710,6 +2768,34 @@
       "save": "保存设置时遇到问题。"
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "APM 警报彩色文字",
+        "apmAlertSound": "播放 APM 警报声音",
+        "apmAlertValue": "APM 警报阈值",
+        "copyButton": "从 Battle.net 复制",
+        "copyConfirm": "复制设置",
+        "copyDialogFeatures_other": "同时将 {{count}} 项 ShieldBattery 功能切换为 Battle.net 的行为",
+        "copyDialogFeaturesOnly_other": "这会将 {{count}} 项 ShieldBattery 功能切换为 Battle.net 的行为。",
+        "copyDialogNotKept": "您当前的值不会保留。",
+        "copyDialogSettings_other": "这会将 ShieldBattery 中的 {{count}} 项星际争霸设置替换为您在 Battle.net 中的值。",
+        "copyDialogTitle": "复制 Battle.net 设置？",
+        "copyError": "无法复制 Battle.net 设置，未做任何更改。",
+        "customCursorSize": "自定义光标大小",
+        "differenceSummary_other": "有 {{count}} 项设置与 Battle.net 不同。已一致的设置不会列出。",
+        "featuresTitle": "ShieldBattery 功能",
+        "featureSummary_other": "有 {{count}} 项 ShieldBattery 功能会让游戏手感与 Battle.net 不同。",
+        "intro": "ShieldBattery 会单独保存一份您的星际争霸设置，因此通过 Battle.net 所做的更改不会同步过来。",
+        "matches": "您的设置与 Battle.net 一致。",
+        "notFound": "ShieldBattery 无法读取 Battle.net 设置文件。从 Battle.net 启动一次星际争霸即可生成该文件。",
+        "notSet": "未设置",
+        "settingsTitle": "星际争霸设置",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "设置项",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_other": "从现在起，新功能将使用{{preset}}默认值。该预设涵盖的 {{count}} 项设置要如何处理？",
@@ -2721,6 +2807,7 @@
           "resetToRecommendedDescription": "初始迷雾、光标大小、队伍颜色和中键平移将切换为 ShieldBattery 默认值。",
           "switchedTitle": "已切换为{{preset}}"
         },
+        "battleNetNote": "要从 Battle.net 复制其他星际争霸设置，请前往 Battle.net 页面。",
         "firstRun": {
           "continue": "继续",
           "cursorSize": "光标大小",
@@ -2738,7 +2825,8 @@
           "title": "同样的游戏，细节由您决定。"
         },
         "intro": "预设决定 ShieldBattery 自有游戏设置的初始值，也决定日后新增内容的默认值。",
-        "legacyDescription": "与 Battle.net 一致。",
+        "legacyDescription": "下列设置与 Battle.net 的行为一致。",
+        "openBattleNet": "打开 Battle.net 页面",
         "preset": {
           "legacy": "经典",
           "recommended": "推荐"
@@ -3213,6 +3301,12 @@
       },
       "connections": {
         "description": "将外部账号关联到您的 ShieldBattery 个人资料。",
+        "discord": {
+          "description": "在您的 Discord 个人资料上显示您在 ShieldBattery 中的活动。",
+          "name": "Discord",
+          "note": "在与 ShieldBattery 客户端同一台电脑上的 Discord 应用所登录的 Discord 账号上，显示您的房间、游戏或录像。",
+          "showActivity": "在 Discord 上显示我的活动"
+        },
         "title": "关联账号",
         "twitch": {
           "connect": "关联",
@@ -3571,7 +3665,6 @@
       "noSelfMessaging": "您不能对自己发送信息",
       "openSession": "私聊用户时遇到错误：{{errorMessage}}",
       "resolveMessageLink": "打开消息链接时出错：{{errorMessage}}",
-      "sendingMessage": "发送信息时遇到错误：{{errorMessage}}",
       "unknownError": "未知错误",
       "userChatRestricted": "你目前被限制发送聊天消息",
       "userNotFound": "未找到用户"
