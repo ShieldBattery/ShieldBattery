@@ -43,8 +43,8 @@ use winapi::um::winbase::{INFINITE, MOVEFILE_REPLACE_EXISTING, MoveFileExW, WAIT
 use winapi::um::winnt::{
     EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
     IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE, MEMORY_BASIC_INFORMATION,
-    PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOACCESS,
-    PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
+    PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY, PAGE_GUARD,
+    PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
 };
 use winapi::vc::excpt::EXCEPTION_CONTINUE_SEARCH;
 
@@ -940,7 +940,10 @@ unsafe fn write_minidump_file(
             exception,
             client_pointers: 0,
         };
-        let mut extra = ExtraDumpMemory::new(DUMP_EXTRA_PAGE.load(Ordering::Relaxed));
+        let mut extra = ExtraDumpMemory::new(
+            DUMP_EXTRA_PAGE.load(Ordering::Relaxed),
+            !startup_trace::game_init_reached(),
+        );
         let mut callback = MinidumpCallbackInformation {
             routine: add_extra_dump_memory,
             param: &mut extra as *mut ExtraDumpMemory as *mut c_void,
@@ -996,18 +999,26 @@ const MINIDUMP_CALLBACK_INCLUDE_MODULE: u32 = 4;
 const MINIDUMP_CALLBACK_MEMORY: u32 = 5;
 const MINIDUMP_CALLBACK_READ_MEMORY_FAILURE: u32 = 14;
 
-/// Pages to add to a dump, handed to dbghelp one per memory callback.
+/// Most memory ranges a dump adds beyond what dbghelp writes on its own.
+const MAX_EXTRA_RANGES: usize = 128;
+
+/// Most bytes of executable private memory a dump adds (see
+/// [`ExtraDumpMemory::add_executable_private_memory`]).
+const MAX_EXECUTABLE_PRIVATE_BYTES: usize = 0x10_0000;
+
+/// Memory ranges to add to a dump, handed to dbghelp one per memory callback.
 struct ExtraDumpMemory {
-    pages: [usize; 3],
+    ranges: [(usize, usize); MAX_EXTRA_RANGES],
     count: usize,
     next: usize,
 }
 
 impl ExtraDumpMemory {
-    /// `page` and its neighbours, as far as they're readable. Nothing if `page` is 0.
-    fn new(page: usize) -> ExtraDumpMemory {
+    /// `page` and its neighbours, as far as they're readable (none if `page` is 0), and with
+    /// `executable_private`, the process's executable private memory as well.
+    fn new(page: usize, executable_private: bool) -> ExtraDumpMemory {
         let mut extra = ExtraDumpMemory {
-            pages: [0; 3],
+            ranges: [(0, 0); MAX_EXTRA_RANGES],
             count: 0,
             next: 0,
         };
@@ -1019,12 +1030,59 @@ impl ExtraDumpMemory {
             ];
             for candidate in candidates {
                 if readable(candidate, PAGE_SIZE) {
-                    extra.pages[extra.count] = candidate;
-                    extra.count += 1;
+                    extra.push(candidate, PAGE_SIZE);
                 }
             }
         }
+        if executable_private {
+            extra.add_executable_private_memory();
+        }
         extra
+    }
+
+    /// Adds a range, returning false once there's no room left.
+    fn push(&mut self, base: usize, size: usize) -> bool {
+        if self.count == MAX_EXTRA_RANGES {
+            return false;
+        }
+        self.ranges[self.count] = (base, size);
+        self.count += 1;
+        true
+    }
+
+    /// Adds committed private memory that can run code, up to [`MAX_EXECUTABLE_PRIVATE_BYTES`].
+    /// Before game init that is mostly SC:R's exe packer at work: the imports it resolves point
+    /// at stubs it writes into pages like these, so a dump of a crash on an import the packer
+    /// never filled in shows how far it got and which DLL each filled import belongs to.
+    fn add_executable_private_memory(&mut self) {
+        let mut address = 0usize;
+        let mut remaining = MAX_EXECUTABLE_PRIVATE_BYTES;
+        loop {
+            let mut info: MEMORY_BASIC_INFORMATION = unsafe { mem::zeroed() };
+            let queried =
+                unsafe { VirtualQuery(address as *const _, &mut info, mem::size_of_val(&info)) };
+            if queried == 0 {
+                return;
+            }
+            let base = info.BaseAddress as usize;
+            let executable =
+                info.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE) != 0
+                    && info.Protect & PAGE_GUARD == 0;
+            if info.State == MEM_COMMIT && info.Type == MEM_PRIVATE && executable {
+                let size = info.RegionSize.min(remaining);
+                if !self.push(base, size) {
+                    return;
+                }
+                remaining -= size;
+                if remaining == 0 {
+                    return;
+                }
+            }
+            match base.checked_add(info.RegionSize) {
+                Some(next) if next > address => address = next,
+                _ => return,
+            }
+        }
     }
 }
 
@@ -1044,11 +1102,11 @@ unsafe extern "system" fn add_extra_dump_memory(
                 if extra.next == extra.count {
                     return 0;
                 }
-                let page = extra.pages[extra.next];
+                let (base, size) = extra.ranges[extra.next];
                 extra.next += 1;
                 // MemoryBase: u64, then MemorySize: u32
-                (output as *mut u64).write_unaligned(page as u64);
-                (output.add(8) as *mut u32).write_unaligned(PAGE_SIZE as u32);
+                (output as *mut u64).write_unaligned(base as u64);
+                (output.add(8) as *mut u32).write_unaligned(size as u32);
                 1
             }
             MINIDUMP_CALLBACK_READ_MEMORY_FAILURE => {
