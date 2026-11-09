@@ -232,13 +232,14 @@ class ContentsErrorBoundary extends React.Component<
     location.reload()
   }
 
+  /**
+   * Reloads the app at its root, in case the place the user was is what keeps causing the error.
+   * That place includes the history state as well as the path: overlays such as settings are
+   * opened through it, and a reload keeps it, so leaving it would reopen the overlay that crashed.
+   */
   reloadApp = () => {
-    if (location.pathname === '/') {
-      location.reload()
-    } else {
-      // Put them back at the root of the app in case the place they were was causing errors
-      location.pathname = '/'
-    }
+    history.replaceState(null, '', '/')
+    location.reload()
   }
 
   /**
