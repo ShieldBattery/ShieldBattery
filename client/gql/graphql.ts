@@ -76,6 +76,7 @@ export type MatchmakerConfigInput = {
 export type MatchmakerModeConfigOverridesInput = {
   adaptiveComfortableMultiplier?: number | null | undefined
   adaptiveDecayPerMissing?: number | null | undefined
+  maxRatingSpread?: number | null | undefined
   minQuality?: number | null | undefined
   populationHalfLifeSeconds?: number | null | undefined
   uncertaintyK?: number | null | undefined
@@ -289,6 +290,7 @@ export type AdminMatchmakingConfigQuery = {
       weightLatency: number | null
       uncertaintyK: number | null
       winProbScale: number | null
+      maxRatingSpread: number | null
       minQuality: number | null
       adaptiveComfortableMultiplier: number | null
       adaptiveDecayPerMissing: number | null
@@ -302,6 +304,7 @@ export type AdminMatchmakingConfigQuery = {
         weightLatency: number | null
         uncertaintyK: number | null
         winProbScale: number | null
+        maxRatingSpread: number | null
         minQuality: number | null
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
@@ -316,6 +319,7 @@ export type AdminMatchmakingConfigQuery = {
       weightLatency: number
       uncertaintyK: number
       winProbScale: number
+      maxRatingSpread: number
       minQuality: number
       adaptiveComfortableMultiplier: number
       adaptiveDecayPerMissing: number
@@ -329,6 +333,7 @@ export type AdminMatchmakingConfigQuery = {
         weightLatency: number | null
         uncertaintyK: number | null
         winProbScale: number | null
+        maxRatingSpread: number | null
         minQuality: number | null
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
@@ -2599,6 +2604,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2630,6 +2636,7 @@ export const AdminMatchmakingConfigDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                             {
                               kind: 'Field',
@@ -2662,6 +2669,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2693,6 +2701,7 @@ export const AdminMatchmakingConfigDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                             {
                               kind: 'Field',
