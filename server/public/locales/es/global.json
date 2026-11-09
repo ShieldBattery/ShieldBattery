@@ -1374,6 +1374,8 @@
     "infoDuration": "Duración",
     "infoGameType": "Tipo",
     "notFound": "No se pudo encontrar esta partida.",
+    "postGameVs": "vs",
+    "postGameWaiting": "Esperando los resultados…",
     "refundPoints": {
       "errorAlreadyRefunded": "Los puntos de esta partida ya se devolvieron.",
       "errorGameNotFound": "No se encontró la partida.",
@@ -1426,10 +1428,21 @@
     "statusManuallyResolved": "Resolución manual",
     "statusReviewRequested": "Revisión solicitada",
     "summary": {
+      "apm": "APM",
+      "battleground": "Mapa",
+      "mapSize_one": "{{width}} × {{height}} · {{count}} jugador",
+      "mapSize_many": "{{width}} × {{height}} · {{count}} de jugadores",
+      "mapSize_other": "{{width}} × {{height}} · {{count}} jugadores",
       "mmr": "MMR",
+      "noRatingChange": "Esta partida no produjo cambios en la valoración ni en los puntos.",
+      "players": "Jugadores",
       "pointsBase": "Base",
       "pointsBonus": "Bono",
-      "rp": "RP"
+      "progression": "Tu progreso",
+      "ratingPending": "La valoración y los puntos aparecerán aquí cuando se confirmen los resultados.",
+      "ratingUnavailable": "La valoración y los puntos no están disponibles para esta partida.",
+      "rp": "RP",
+      "you": "Tú"
     },
     "tabBuildOrders": "Órdenes de construcción",
     "tabStats": "Estadísticas",
@@ -2425,9 +2438,15 @@
       "warningDescription": "Si se repite, recibirás baneos de emparejamiento.",
       "warningTitle": "Advertencia de emparejamiento"
     },
+    "postGameResults": {
+      "ready": "Ya están disponibles los resultados de tu partida.",
+      "view": "Ver resultados"
+    },
     "postMatchDialog": {
       "leagues": "Ligas",
       "matchmaking": "Emparejamiento",
+      "mmr": "MMR",
+      "placementsCompleted": "Partidas de posicionamiento completadas: {{completed}} / {{total}}",
       "points": "Puntos",
       "rating": "Clasificación",
       "searchAgain": "Busca de nuevo",

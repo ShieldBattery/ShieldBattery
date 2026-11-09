@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { MatchmakingResultsEvent } from '../../common/games/games'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { asMockedFunction } from '../../common/testing/mocks'
@@ -6,6 +7,8 @@ import { ReduxAction } from '../action-types'
 import dialogReducer from '../dialogs/dialog-reducer'
 import { DialogType } from '../dialogs/dialog-type'
 import { DispatchFunction } from '../dispatch-registry'
+import { navigateToGameResults } from '../games/action-creators'
+import { lastGameAtom, postGameResultsAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
@@ -18,7 +21,7 @@ import {
   handledLobbyViolationPenaltyGamesAtom,
   launchingMatchmakingTypeAtom,
 } from './matchmaking-atoms'
-import { eventToAction } from './socket-handlers'
+import { eventToAction, onMatchmakingResults } from './socket-handlers'
 
 vi.mock('../audio/audio-manager', () => ({
   audioManager: { playSound: vi.fn() },
@@ -54,6 +57,11 @@ vi.mock('../logging/logger', () => ({
 
 vi.mock('../i18n/i18next', () => ({
   default: { t: (_key: string, defaultValue: string) => defaultValue },
+}))
+
+vi.mock('../games/action-creators', () => ({
+  getGameResultsUrl: (gameId: string) => `/games/${gameId}/`,
+  navigateToGameResults: vi.fn(),
 }))
 
 vi.mock('./action-creators', () => ({
@@ -522,5 +530,79 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
     // A later requeue from a different match isn't explained by the stale cancel.
     expect(openedDialogs(runRequeue())).toEqual([])
+  })
+})
+
+describe('client/matchmaking/socket-handlers/onMatchmakingResults', () => {
+  const GAME_ID = 'game-id'
+
+  function makeEvent(gameId = GAME_ID, points = 100) {
+    return {
+      game: { id: gameId },
+      mmrChange: { points, pointsChange: 10 },
+    } as unknown as MatchmakingResultsEvent
+  }
+
+  function run(event: MatchmakingResultsEvent, gameState?: string) {
+    const getState = (() => ({
+      gameClient: {
+        status: gameState ? { id: GAME_ID, state: gameState } : undefined,
+        watchOnly: {},
+      },
+    })) as unknown as () => RootState
+    ;(onMatchmakingResults(event) as any)(vi.fn(), getState)
+  }
+
+  beforeEach(() => {
+    showSnackbarMock.mockClear()
+    asMockedFunction(navigateToGameResults).mockClear()
+    jotaiStore.set(lastGameAtom, { id: GAME_ID })
+    jotaiStore.set(postGameResultsAtom, undefined)
+    window.history.replaceState(null, '', '/')
+  })
+
+  test('holds the results of the last game', () => {
+    const event = makeEvent()
+    run(event)
+    expect(jotaiStore.get(postGameResultsAtom)?.event).toBe(event)
+  })
+
+  test('ignores results for any other game', () => {
+    run(makeEvent('other-game'))
+    expect(jotaiStore.get(postGameResultsAtom)).toBeUndefined()
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('offers a way to the results to a player who moved on', () => {
+    run(makeEvent())
+    expect(showSnackbarMock).toHaveBeenCalledOnce()
+
+    showSnackbarMock.mock.calls[0][2]!.action!.onClick()
+    expect(navigateToGameResults).toHaveBeenCalledWith(GAME_ID, true)
+  })
+
+  test('stays quiet for a player still in the game, who will land on the page', () => {
+    run(makeEvent(), 'hasResult')
+    expect(jotaiStore.get(postGameResultsAtom)).toBeDefined()
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('stays quiet for a player already on the page', () => {
+    window.history.replaceState(null, '', `/games/${GAME_ID}/stats`)
+    run(makeEvent())
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('stays quiet when results already shown are published again', () => {
+    const event = makeEvent()
+    jotaiStore.set(postGameResultsAtom, { event, revealed: true })
+    run(makeEvent())
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('tells the player when results already shown change', () => {
+    jotaiStore.set(postGameResultsAtom, { event: makeEvent(), revealed: true })
+    run(makeEvent(GAME_ID, 50))
+    expect(showSnackbarMock).toHaveBeenCalledOnce()
   })
 })

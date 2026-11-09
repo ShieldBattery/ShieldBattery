@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues/leagues'
+import { ClientLeagueUserChangeJson, GameLeagueRankChange, LeagueJson } from '../leagues/leagues'
 import { MapInfoJson, SbMapId } from '../maps'
 import {
   MatchmakingSeasonJson,
@@ -188,6 +188,7 @@ export interface GetGameResponse {
   map: MapInfoJson | undefined
   users: SbUser[]
   mmrChanges: PublicMatchmakingRatingChangeJson[]
+  leagueRankChanges?: GameLeagueRankChange[]
   /** Replay info for the best replay (if available and user has access). */
   replay?: GameReplayInfo
   debugInfo?: GameDebugInfoJson
@@ -230,6 +231,7 @@ export interface GameRecordUpdate {
   type: 'update'
   game: GameRecordJson
   mmrChanges: PublicMatchmakingRatingChangeJson[]
+  leagueRankChanges?: GameLeagueRankChange[]
 }
 
 export interface MatchmakingResultsEvent {

@@ -4,7 +4,7 @@ import { DraftTest } from './draft-tester'
 import { FindMatchListTest } from './find-match-test'
 import { MapPoolChipsTest } from './map-pool-chips-test'
 import { MatchDialogsTest } from './match-dialogs-test'
-import { PostMatchDialogTest } from './post-match-dialog-test'
+import { PostGameTest } from './post-game-test'
 import { RankIconsTest } from './rank-icons-test'
 
 const BASE_URL = '/dev/matchmaking'
@@ -26,7 +26,7 @@ class DevMatchmakingDashboard extends Component {
           <Link href={`${BASE_URL}/match-dialogs`}>Match dialogs</Link>
         </li>
         <li>
-          <Link href={`${BASE_URL}/post-match-dialog`}>Post-match dialog</Link>
+          <Link href={`${BASE_URL}/post-game`}>Post-game results</Link>
         </li>
         <li>
           <Link href={`${BASE_URL}/icons`}>Rank icons</Link>
@@ -43,7 +43,7 @@ export default () => {
       <Route path={`${BASE_URL}/find-match`} component={FindMatchListTest} />
       <Route path={`${BASE_URL}/map-pool-chips`} component={MapPoolChipsTest} />
       <Route path={`${BASE_URL}/match-dialogs`} component={MatchDialogsTest} />
-      <Route path={`${BASE_URL}/post-match-dialog`} component={PostMatchDialogTest} />
+      <Route path={`${BASE_URL}/post-game`} component={PostGameTest} />
       <Route path={`${BASE_URL}/icons`} component={RankIconsTest} />
       <Route>
         <DevMatchmakingDashboard />

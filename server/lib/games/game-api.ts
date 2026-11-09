@@ -509,10 +509,11 @@ export class GameApi {
     const usersToRetrieve = game.config.teams.flatMap(t =>
       t.filter(p => !p.isComputer).map(p => p.id),
     )
-    const [mapArray, users, mmrChanges, canRequestReview] = await Promise.all([
+    const [mapArray, users, mmrChanges, leagueRankChanges, canRequestReview] = await Promise.all([
       getMapInfos([game.mapId]),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
+      this.gameResultService.retrieveLeagueRankChanges(game),
       this.reviewRequestService.canRequestReview(game, ctx.session?.user?.id),
     ])
 
@@ -598,6 +599,7 @@ export class GameApi {
       map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
       users: Array.from(users.values()),
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+      leagueRankChanges,
       replay,
       debugInfo: debugInfo ? toGameDebugInfoJson(debugInfo) : undefined,
       canRequestReview,

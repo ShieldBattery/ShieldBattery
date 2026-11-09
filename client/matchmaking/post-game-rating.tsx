@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
+import { useSetAtom } from 'jotai'
 import {
   AnimatePresence,
   AnimationDefinition,
@@ -7,6 +7,7 @@ import {
   useAnimate,
   useMotionValue,
   usePageInView,
+  useReducedMotion,
   useTransform,
   Variants,
 } from 'motion/react'
@@ -16,7 +17,11 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
-import { LeagueJson } from '../../common/leagues/leagues'
+import {
+  ClientLeagueUserChangeJson,
+  GameLeagueRankChange,
+  LeagueJson,
+} from '../../common/leagues/leagues'
 import {
   getDivisionColor,
   getDivisionContext,
@@ -26,162 +31,115 @@ import {
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
   MatchmakingSeasonJson,
-  matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
   POINTS_FOR_RATING_TARGET_FACTOR,
   PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { PostMatchDialogPayload } from '../dialogs/dialog-type'
-import { recentReplayPathsAtom } from '../games/game-atoms'
-import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
+import { markPostGameResultsRevealedAtom } from '../games/game-atoms'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueBadge } from '../leagues/league-badge'
-import { localizeLeague } from '../leagues/league-translations'
 import { useLocalizedLeague } from '../leagues/use-localized-league'
 import logger from '../logging/logger'
-import { FilledButton } from '../material/button'
-import { Body, Dialog } from '../material/dialog'
-import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { Tooltip } from '../material/tooltip'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch } from '../redux-hooks'
-import { startReplay } from '../replays/action-creators'
-import { headlineMedium, labelMedium, singleLine, titleLarge } from '../styles/typography'
-import { searchAgainFromGame } from './action-creators'
-import { isMatchmakingAtom } from './matchmaking-atoms'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { bodySmall, labelMedium, titleMedium } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
-const ModeTag = styled.span`
-  ${labelMedium};
-  display: inline-block;
-  margin-left: 10px;
-
-  color: var(--theme-amber);
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
+const Root = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  width: 100%;
+  max-width: 380px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 8px;
 `
-
-const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
-  max-width: ${props => (props.$hasLeagues ? '632px' : '432px')};
-  --sb-post-match-delta-gap: ${props => (props.$hasLeagues ? '8px' : '16px')};
-  --sb-post-match-points-bar-width: ${props => (props.$hasLeagues ? '368px' : '100%')};
-
-  & ${Body} {
-    overflow-x: hidden;
-  }
+const CardTitle = styled.h2`
+  ${titleMedium};
+  margin: 0;
 `
-
-const Content = styled.div`
+const SeasonName = styled.div`
+  ${bodySmall};
+  margin-top: 2px;
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
+`
+const MainSection = styled.div`
   display: flex;
-`
-
-const SideOverline = styled.div`
-  ${labelMedium};
-  ${singleLine};
-  text-align: center;
-  overflow-x: hidden;
-`
-const MatchmakingSide = styled.div`
-  width: 384px;
-
-  & ${SideOverline} {
-    width: 176px;
-  }
-`
-
-const LeagueSide = styled.div`
-  width: 200px;
-`
-
-const IconAndDeltas = styled.div`
-  display: flex;
-  gap: var(--sb-post-match-delta-gap);
   align-items: center;
-  padding-top: 8px;
+  gap: 12px;
+  margin-top: 16px;
+  min-width: 0;
 `
-
 const Deltas = styled(m.div)`
-  max-width: 208px;
-  padding-bottom: 36px;
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
-`
+  gap: 12px;
 
-const Leagues = styled.div`
-  position: relative;
-  height: 204px;
-  margin-top: 8px;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  /* left divider */
-  &::after {
-    position: absolute;
-    width: 1px;
-    height: 192px;
-    left: 0;
-    top: 4px;
-    content: '';
-    background-color: var(--theme-outline-variant);
-    z-index: 20;
+  @container (max-width: 880px) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px 32px;
   }
 `
-
-const LeaguesScrollable = styled(m.div)<{ $needsScroll: boolean }>`
-  position: relative;
-  padding: 4px 8px 32px 35px;
-  overflow-y: ${props => (props.$needsScroll ? 'auto' : 'hidden')};
+const PlacementLabel = styled.div`
+  ${bodySmall};
+  margin-top: 12px;
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
 `
-
-const LeagueTooltip = styled(Tooltip)`
-  & + & {
-    margin-top: 16px;
-  }
-`
-
-const ButtonBar = styled.div`
-  margin-bottom: -8px;
-  padding-top: 24px;
+const Leagues = styled(m.div)`
   display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-outline-variant);
+`
+const LeagueHeading = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
-const SizedSearchAgainIcon = styled(SearchAgainIcon)`
-  width: 20px;
-  height: auto;
-`
+export interface PostGameRatingProps {
+  gameId: string
+  mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
+  leagueChanges: ReadonlyDeep<ClientLeagueUserChangeJson[]>
+  leagueStandings?: ReadonlyArray<GameLeagueRankChange>
+  leagues: ReadonlyDeep<LeagueJson[]>
+  season: ReadonlyDeep<MatchmakingSeasonJson>
+  /** Whether the reveal has already played, so these results should just be shown as they are. */
+  revealed: boolean
+}
 
-type PostMatchDialogProps = CommonDialogProps & ReadonlyDeep<PostMatchDialogPayload['initData']>
-
-export function PostMatchDialog({
-  onCancel,
-  game,
+/**
+ * Shows how a matchmaking game moved a player's division, points, rating and leagues, revealing
+ * the changes one by one the first time they're shown.
+ */
+export function PostGameRating({
+  gameId,
   mmrChange,
   leagueChanges,
+  leagueStandings,
   leagues,
   season,
-}: PostMatchDialogProps) {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const replayPath = useAtomValue(recentReplayPathsAtom).get(game.id)
-  const onSearchAgain = useStableCallback(() => {
-    dispatch(searchAgainFromGame(game.config))
-    onCancel()
-  })
-  const onWatchReplay = useStableCallback(() => {
-    if (replayPath) {
-      dispatch(startReplay({ path: replayPath }))
-    }
-  })
-  const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
+  revealed,
+}: PostGameRatingProps) {
+  const markRevealed = useSetAtom(markPostGameResultsRevealedAtom)
+  const reducedMotion = useReducedMotion()
+  const [animate] = useState(!revealed && !reducedMotion)
+
+  useEffect(() => {
+    markRevealed(gameId)
+  }, [gameId, markRevealed])
 
   const leagueValues = useMemo(() => {
     const leagueById = new Map(leagues.map(l => [l.id, l]))
+    const standingByLeague = new Map(
+      leagueStandings?.map(standing => [standing.leagueId, standing]),
+    )
     const result = []
     for (const change of leagueChanges) {
       const league = leagueById.get(change.leagueId)
@@ -192,41 +150,24 @@ export function PostMatchDialog({
       result.push({
         league,
         value: change.pointsChange,
+        standing: standingByLeague.get(change.leagueId),
       })
     }
 
     result.sort((a, b) => a.league.startAt - b.league.startAt)
 
     return result
-  }, [leagueChanges, leagues])
+  }, [leagueChanges, leagueStandings, leagues])
 
   return (
-    <StyledDialog
-      showCloseButton={true}
-      title={
-        <>
-          {t('matchmaking.postMatchDialog.title', 'Match results')}
-          <ModeTag>{matchmakingTypeToLabel(mmrChange.matchmakingType, t)}</ModeTag>
-        </>
-      }
-      onCancel={onCancel}
-      $hasLeagues={leagueValues.length > 0}>
-      <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
-      <ButtonBar>
-        <FilledButton
-          label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
-          iconStart={<SizedSearchAgainIcon />}
-          onClick={onSearchAgain}
-          disabled={!canSearchMatchmaking}
-        />
-        <FilledButton
-          label={t('matchmaking.postMatchDialog.watchReplay', 'Watch replay')}
-          iconStart='videocam'
-          onClick={onWatchReplay}
-          disabled={!replayPath}
-        />
-      </ButtonBar>
-    </StyledDialog>
+    <Root>
+      <RatedUserContent
+        mmrChange={mmrChange}
+        leagueValues={leagueValues}
+        season={season}
+        animate={animate}
+      />
+    </Root>
   )
 }
 
@@ -247,20 +188,26 @@ function calculateDivisionPercent(
 
 const DivisionIconContainer = styled.div`
   position: relative;
-  width: 176px;
-  height: 212px;
+  flex: 0 0 112px;
+  width: 112px;
 `
 
 function RatedUserContent({
   season,
   mmrChange,
   leagueValues,
+  animate,
 }: {
   season: ReadonlyDeep<MatchmakingSeasonJson>
   mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
-  leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
+  leagueValues: ReadonlyArray<{
+    league: ReadonlyDeep<LeagueJson>
+    value: number
+    standing?: GameLeagueRankChange
+  }>
+  animate: boolean
 }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const pageInView = usePageInView()
   const [shownAt] = useState(() => new Date())
   const divisionTransitions = useMemo(() => {
@@ -293,7 +240,8 @@ function RatedUserContent({
       return { divisionWithBounds, from, to }
     })
   }, [mmrChange, season, shownAt])
-  const [divisionIndex, setDivisionIndex] = useState(0)
+  // Starting past the last transition leaves nothing to animate through.
+  const [divisionIndex, setDivisionIndex] = useState(animate ? 0 : divisionTransitions.length)
 
   const deltaValues = useMemo(
     () =>
@@ -302,42 +250,59 @@ function RatedUserContent({
             {
               label: t('matchmaking.postMatchDialog.points', 'Points'),
               value: mmrChange.pointsChange,
+              total: mmrChange.points,
             },
             {
-              label: t('matchmaking.postMatchDialog.rating', 'Rating'),
+              label: t('matchmaking.postMatchDialog.mmr', 'MMR'),
               value: mmrChange.ratingChange,
+              total: mmrChange.rating,
             },
           ]
         : [
             {
               label: t('matchmaking.postMatchDialog.points', 'Points'),
               value: mmrChange.pointsChange,
+              total: mmrChange.points,
             },
           ],
-    [mmrChange.lifetimeGames, mmrChange.pointsChange, mmrChange.ratingChange, t],
+    [
+      mmrChange.lifetimeGames,
+      mmrChange.points,
+      mmrChange.pointsChange,
+      mmrChange.rating,
+      mmrChange.ratingChange,
+      t,
+    ],
   )
 
   const lastPointRevealSoundRef = useRef(0)
-  const playPointRevealSound = useCallback((...args: any[]) => {
-    // Debounce playing this sound so things like Leagues that start a bunch of animations at once
-    // don't play a super loud version of this sound :)
-    const now = window.performance.now()
-    if (now - lastPointRevealSoundRef.current > 50) {
-      audioManager.playSound(AvailableSound.PointReveal)
-      lastPointRevealSoundRef.current = now
-    }
-  }, [])
+  const playPointRevealSound = useCallback(
+    (...args: any[]) => {
+      if (!animate) {
+        return
+      }
+      // Debounce playing this sound so things like Leagues that start a bunch of animations at once
+      // don't play a super loud version of this sound :)
+      const now = window.performance.now()
+      if (now - lastPointRevealSoundRef.current > 50) {
+        audioManager.playSound(AvailableSound.PointReveal)
+        lastPointRevealSoundRef.current = now
+      }
+    },
+    [animate],
+  )
 
   const scoreSoundRef = useRef<FadeableSound | undefined>(undefined)
 
   const [pointsAnimScope, pointsAnimate] = useAnimate()
   const [animatingPoints, setAnimatingPoints] = useState(false)
-  const points = useMotionValue(divisionTransitions[0].from)
+  const initialTransition = animate
+    ? divisionTransitions[0]
+    : divisionTransitions[divisionTransitions.length - 1]
+  const initialPoints = animate ? initialTransition.from : initialTransition.to
+  const points = useMotionValue(initialPoints)
   const divPercent = useMotionValue(
-    calculateDivisionPercent(
-      divisionTransitions[0].divisionWithBounds,
-      divisionTransitions[0].from,
-    ),
+    calculateDivisionPercent(initialTransition.divisionWithBounds, initialPoints),
   )
 
   const maybeBeginPointsAnimation = useCallback((latest: AnimationDefinition) => {
@@ -437,11 +402,10 @@ function RatedUserContent({
     pageInView,
   ])
 
-  const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
-
   const deltaDelay = 0.5
   const deltaStagger = 0.75
   const leagueDelay = deltaDelay + deltaStagger * deltaValues.length
+  const showStandingColumn = leagueValues.some(item => item.standing)
 
   const { divisionWithBounds } =
     divisionTransitions[Math.min(divisionIndex, divisionTransitions.length - 1)]
@@ -459,95 +423,94 @@ function RatedUserContent({
   }, [division])
 
   return (
-    <Content>
-      <MatchmakingSide style={{ '--sb-points-bar-bg': pointsBarBackground } as any}>
-        <SideOverline>{t('matchmaking.postMatchDialog.matchmaking', 'Matchmaking')}</SideOverline>
-        <IconAndDeltas>
-          <DivisionIconContainer>
-            <AnimatePresence mode='wait'>
-              <IconWithLabel
-                key={divisionWithBounds[0]}
-                division={divisionWithBounds[0]}
-                noInitialAnim={divisionIndex === 0}
-              />
-            </AnimatePresence>
-          </DivisionIconContainer>
-          <Deltas
-            variants={{
-              initial: {},
-              animate: { transition: { delayChildren: deltaDelay, staggerChildren: deltaStagger } },
-            }}
-            initial='initial'
-            animate='animate'
-            onAnimationComplete={leagueValues.length === 0 ? maybeBeginPointsAnimation : undefined}>
-            {deltaValues.map(item => (
-              <DeltaItem
-                key={item.label}
-                label={item.label}
-                value={item.value}
-                playSound={playPointRevealSound}
-              />
-            ))}
-          </Deltas>
-        </IconAndDeltas>
-        <PointsBarView points={points} divPercent={divPercent} ref={pointsAnimScope} />
-      </MatchmakingSide>
+    <div style={{ '--sb-points-bar-bg': pointsBarBackground } as any}>
+      <CardTitle>{t('gameDetails.debugInfo.reportedResult', 'Result')}</CardTitle>
+      <SeasonName>{season.name}</SeasonName>
+      <MainSection>
+        <DivisionIconContainer>
+          <AnimatePresence mode='wait'>
+            <IconWithLabel
+              key={division}
+              division={division}
+              noInitialAnim={!animate || divisionIndex === 0}
+            />
+          </AnimatePresence>
+        </DivisionIconContainer>
+        <Deltas
+          variants={{
+            initial: {},
+            animate: { transition: { delayChildren: deltaDelay, staggerChildren: deltaStagger } },
+          }}
+          initial={animate ? 'initial' : false}
+          animate='animate'
+          onAnimationComplete={leagueValues.length === 0 ? maybeBeginPointsAnimation : undefined}>
+          {deltaValues.map((item, i) => (
+            <DeltaItem
+              key={item.label}
+              {...item}
+              animatedTotal={i === 0 ? points : undefined}
+              playSound={playPointRevealSound}
+            />
+          ))}
+        </Deltas>
+      </MainSection>
+      {mmrChange.lifetimeGames < NUM_PLACEMENT_MATCHES ? (
+        <PlacementLabel>
+          {t(
+            'matchmaking.postMatchDialog.placementsCompleted',
+            'Placement matches completed: {{completed}} / {{total}}',
+            {
+              completed: mmrChange.lifetimeGames,
+              total: NUM_PLACEMENT_MATCHES,
+            },
+          )}
+        </PlacementLabel>
+      ) : null}
+      <PointsBarView divPercent={divPercent} ref={pointsAnimScope} />
       {leagueValues.length > 0 ? (
-        <LeagueSide>
-          <SideOverline>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</SideOverline>
-          <Leagues>
-            <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
-            <LeaguesScrollable
-              $needsScroll={!isAtTop || !isAtBottom}
-              variants={{
-                initial: { overflow: 'hidden' },
-                animate: {
-                  overflow: '',
-                  transition: { when: 'afterChildren', delayChildren: leagueDelay },
-                },
-              }}
-              initial='initial'
-              animate='animate'
-              onAnimationComplete={maybeBeginPointsAnimation}>
-              {topElem}
-              {leagueValues.map(item => (
-                <LeagueTooltip
-                  key={item.league.id}
-                  text={localizeLeague(item.league, i18n.resolvedLanguage ?? i18n.language).name}
-                  position={'left'}>
-                  <LeagueDelta {...item} playSound={playPointRevealSound} />
-                </LeagueTooltip>
-              ))}
-              {bottomElem}
-            </LeaguesScrollable>
-            <GradientScrollDivider $showAt='bottom' $heightPx={32} $show={!isAtBottom} />
-          </Leagues>
-        </LeagueSide>
-      ) : undefined}
-    </Content>
+        <Leagues
+          variants={{
+            initial: {},
+            animate: { transition: { when: 'afterChildren', delayChildren: leagueDelay } },
+          }}
+          initial={animate ? 'initial' : false}
+          animate='animate'
+          onAnimationComplete={maybeBeginPointsAnimation}>
+          <LeagueHeading>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</LeagueHeading>
+          {leagueValues.map(item => (
+            <LeagueDelta
+              key={item.league.id}
+              {...item}
+              showStandingColumn={showStandingColumn}
+              playSound={playPointRevealSound}
+            />
+          ))}
+        </Leagues>
+      ) : null}
+    </div>
   )
 }
 
 const DeltaItemRoot = styled(m.div)`
-  ${headlineMedium};
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-
-  & + & {
-    margin-top: 16px;
-  }
+  min-width: 0;
 `
-
-const DeltaValue = styled.div`
-  width: 104px;
-  flex-grow: 0;
-  color: var(--theme-on-surface);
-  text-align: right;
-`
-
 const DeltaLabel = styled.div`
-  ${titleLarge};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
+`
+const DeltaNumbers = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+`
+const DeltaTotal = styled.div`
+  ${titleMedium};
+  color: var(--theme-on-surface);
+`
+const DeltaValue = styled.div`
+  ${labelMedium};
   color: var(--theme-on-surface-variant);
 `
 
@@ -563,13 +526,18 @@ const deltaTransition: Transition = {
 function DeltaItem({
   label,
   value,
+  total,
+  animatedTotal,
   playSound,
 }: {
   label: string
   value: number
+  total: number
+  animatedTotal?: MotionValue<number>
   playSound: () => void
 }) {
   const roundedValue = Math.round(value)
+  const displayTotal = useTransform(() => Math.round(animatedTotal?.get() ?? total))
   const hasPlayedSound = useRef(false)
 
   return (
@@ -584,33 +552,93 @@ function DeltaItem({
           hasPlayedSound.current = true
         }
       }}>
-      <DeltaValue>
-        {roundedValue < 0 ? '' : '+'}
-        {roundedValue}
-      </DeltaValue>
       <DeltaLabel>{label}</DeltaLabel>
+      <DeltaNumbers>
+        <DeltaTotal>
+          <m.span>{displayTotal}</m.span>
+        </DeltaTotal>
+        <DeltaValue>
+          {roundedValue < 0 ? '' : '+'}
+          {roundedValue}
+        </DeltaValue>
+      </DeltaNumbers>
     </DeltaItemRoot>
   )
 }
 
 const LeagueDeltaRoot = styled(m.div)`
-  ${titleLarge};
+  ${labelMedium};
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  min-width: 0;
+`
+const LeagueStandingColumn = styled.div`
+  width: 48px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+`
+
+const LeagueRankMovement = styled.span<{ $rose: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  color: ${props => (props.$rose ? 'var(--theme-positive)' : 'var(--theme-negative)')};
+`
+
+function LeagueStanding({ standing }: { standing?: GameLeagueRankChange }) {
+  if (!standing) {
+    return <LeagueStandingColumn />
+  }
+
+  const { rankBefore, rankAfter } = standing
+  const movement = rankBefore !== null ? rankBefore - rankAfter : 0
+  const rank = `#${rankAfter}`
+  const rankHistory = movement ? `#${rankBefore} → ${rank}` : rank
+
+  return (
+    <LeagueStandingColumn title={rankHistory}>
+      <span>{rank}</span>
+      {movement ? (
+        <LeagueRankMovement $rose={movement > 0} role='img' aria-label={rankHistory}>
+          <MaterialIcon icon={movement > 0 ? 'arrow_upward' : 'arrow_downward'} size={16} />
+          {Math.abs(movement)}
+        </LeagueRankMovement>
+      ) : null}
+    </LeagueStandingColumn>
+  )
+}
+
+const StyledLeagueBadge = styled(LeagueBadge)`
+  flex: none;
+`
+const LeagueName = styled.div`
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+`
+const LeagueChange = styled.div`
+  flex: none;
 `
 
 function LeagueDelta({
   league,
   value,
+  standing,
+  showStandingColumn,
   playSound,
 }: {
-  league: ReadonlyDeep<LeagueJson>
-  value: number
-  playSound: () => void
+  league: ReadonlyDeep<Pick<LeagueJson, 'name' | 'badgePath' | 'translations'>>
+  value?: number
+  standing?: GameLeagueRankChange
+  showStandingColumn: boolean
+  playSound?: () => void
 }) {
-  const localized = useLocalizedLeague(league)
-  const roundedValue = Math.round(value)
+  const { name } = useLocalizedLeague(league)
+  const roundedValue = value !== undefined ? Math.round(value) : undefined
   const hasPlayedSound = useRef(false)
 
   return (
@@ -621,35 +649,62 @@ function LeagueDelta({
         // NOTE(tec27): We can't use onAnimationStart here because it fires before the delay/stagger
         // has passed
         if (!hasPlayedSound.current && (latest.opacity as number) > 0) {
-          playSound()
+          playSound?.()
           hasPlayedSound.current = true
         }
       }}>
-      <LeagueBadge leagueName={localized.name} badgeUrl={league.badgePath} />
-      {roundedValue < 0 ? '' : '+'}
-      {roundedValue}
+      {showStandingColumn ? <LeagueStanding standing={standing} /> : null}
+      <StyledLeagueBadge leagueName={name} badgeUrl={league.badgePath} />
+      <LeagueName>{name}</LeagueName>
+      {roundedValue !== undefined ? (
+        <LeagueChange>
+          {roundedValue < 0 ? '' : '+'}
+          {roundedValue}
+        </LeagueChange>
+      ) : null}
     </LeagueDeltaRoot>
   )
 }
 
+/** Shows saved standings when the one-time match reveal is no longer available. */
+export function PostGameLeagueStandings({
+  standings,
+}: {
+  standings: ReadonlyArray<GameLeagueRankChange>
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Leagues>
+      <LeagueHeading>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</LeagueHeading>
+      {standings.map(standing => (
+        <LeagueDelta
+          key={standing.leagueId}
+          league={{ name: standing.leagueName }}
+          standing={standing}
+          showStandingColumn={true}
+        />
+      ))}
+    </Leagues>
+  )
+}
+
 const IconWithLabelElement = styled(m.div)`
-  position: absolute;
-  top: 0;
-  left: 0;
+  width: 100%;
 `
 
 const StyledDivisionIcon = styled(DivisionIcon)`
-  width: 176px;
-  height: 176px;
+  width: 112px;
+  height: 112px;
 
   filter: saturate(var(--_saturate, 100%)) brightness(var(--_brightness, 1)) blur(var(--_blur, 0));
 `
 
 const RankLabel = styled.div`
-  ${titleLarge};
-  ${singleLine};
-  padding-top: 8px;
+  ${labelMedium};
+  padding-top: 4px;
   text-align: center;
+  overflow-wrap: anywhere;
 `
 
 const iconVariants: Variants = {
@@ -691,24 +746,19 @@ function IconWithLabel({
           audioManager.playSound(AvailableSound.RankUp, { when: 0.15 })
         }
       }}>
-      <StyledDivisionIcon division={division} size={176} />
+      <StyledDivisionIcon division={division} size={112} />
       <RankLabel>{matchmakingDivisionToLabel(division, t)}</RankLabel>
     </IconWithLabelElement>
   )
 }
 
 const PointsBarRoot = styled(m.div)`
-  position: relative;
-  width: var(--sb-post-match-points-bar-width);
-  height: 72px;
-  padding: 32px 0 24px;
-  overflow-x: visible;
+  margin-top: 16px;
 `
-
 const PointsBar = styled.div`
   position: relative;
   width: 100%;
-  height: 20px;
+  height: 10px;
 
   background-color: var(--theme-container-lowest);
   border: 2px solid var(--theme-outline-variant);
@@ -729,40 +779,16 @@ const PointsBar = styled.div`
   }
 `
 
-const PointsLabelMover = styled.div`
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 52px;
-
-  transform: translateX(calc(var(--sb-points-bar-scale, 0) * 100%));
-`
-
-const PointsLabel = styled(m.div)`
-  ${labelMedium};
-  position: absolute;
-  transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
-`
-
 interface PointsBarViewProps {
-  points: MotionValue<number>
   divPercent: MotionValue<number>
   ref?: React.Ref<HTMLDivElement>
 }
 
-// NOTE: This is a plain component (not `m.create`) on purpose. `PointsBarRoot` and `PointsLabel`
-// are already motion components, so they consume the `divPercent`/`points` MotionValues natively.
-// Wrapping the whole view in `m.create` instead caused motion to strip the `points` MotionValue
-// before it reached this component, crashing on `points.get()`.
-function PointsBarView({ points, divPercent, ref }: PointsBarViewProps) {
-  const roundedPoints = useTransform(() => Math.round(points.get()))
-
+// NOTE: Keep this a plain component so motion passes the MotionValue to PointsBarRoot intact.
+function PointsBarView({ divPercent, ref }: PointsBarViewProps) {
   return (
     <PointsBarRoot ref={ref} style={{ '--sb-points-bar-scale': divPercent } as any}>
       <PointsBar />
-      <PointsLabelMover>
-        <PointsLabel>{roundedPoints}</PointsLabel>
-      </PointsLabelMover>
     </PointsBarRoot>
   )
 }

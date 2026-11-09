@@ -1394,6 +1394,8 @@
     "infoDuration": "Duration",
     "infoGameType": "Type",
     "notFound": "This game could not be found.",
+    "postGameVs": "vs",
+    "postGameWaiting": "Waiting for results…",
     "refundPoints": {
       "errorAlreadyRefunded": "This game's points have already been refunded.",
       "errorGameNotFound": "Game not found.",
@@ -1446,8 +1448,12 @@
     "statusReviewRequested": "Review requested",
     "summary": {
       "mmr": "MMR",
+      "noRatingChange": "No rating or points changes were applied to this game.",
+      "players": "Players",
       "pointsBase": "Base",
       "pointsBonus": "Bonus",
+      "ratingPending": "Rating and points will appear here when the results are confirmed.",
+      "ratingUnavailable": "Rating and points are not available for this game.",
       "rp": "RP"
     },
     "tabBuildOrders": "Build orders",
@@ -2440,14 +2446,16 @@
       "warningDescription": "Repeat violations lead to matchmaking bans.",
       "warningTitle": "Matchmaking warning"
     },
+    "postGameResults": {
+      "ready": "Your match results are in.",
+      "view": "View results"
+    },
     "postMatchDialog": {
       "leagues": "Leagues",
-      "matchmaking": "Matchmaking",
+      "mmr": "MMR",
+      "placementsCompleted": "Placement matches completed: {{completed}} / {{total}}",
       "points": "Points",
-      "rating": "Rating",
-      "searchAgain": "Search again",
-      "title": "Match results",
-      "watchReplay": "Watch replay"
+      "searchAgain": "Search again"
     },
     "season": {
       "endsOn": "Ends {{date}}"

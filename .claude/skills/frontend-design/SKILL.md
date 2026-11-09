@@ -42,7 +42,7 @@ A few moments in ShieldBattery that show the level of craft to aim for:
 
 **The draft screen timer.** As time runs low, the color shifts from calm to amber to urgent red. You feel the pressure without reading a number. The UI communicates through instinct, not interpretation.
 
-**Staggered point reveals.** In the post-match dialog, your points and rating don't appear all at once. They animate in sequence—points first, then rating—with sound cues on each reveal. The delay creates anticipation; the stagger creates rhythm.
+**Staggered point reveals.** On the post-game page, your points and rating don't appear all at once. They animate in sequence—points first, then rating—with sound cues on each reveal. The delay creates anticipation; the stagger creates rhythm.
 
 These aren't decorations. Each one makes the experience _feel_ like something. That's the bar.
 
@@ -66,7 +66,7 @@ You have permission to:
 
 **Use the full color palette.** The design system has semantic colors for a reason—`--theme-positive` for wins, `--theme-negative` for losses, race colors for faction identity. When the context calls for it, _use them confidently_.
 
-**Create moments with motion.** The project uses `motion/react` for orchestrated animations. A well-timed staggered reveal or a satisfying spring animation can transform a feature from functional to memorable. See `post-match-dialog.tsx` for how this is done well.
+**Create moments with motion.** The project uses `motion/react` for orchestrated animations. A well-timed staggered reveal or a satisfying spring animation can transform a feature from functional to memorable. See `post-game-rating.tsx` for how this is done well.
 
 **Establish visual hierarchy ruthlessly.** Not everything is equally important. Make the important things big, bold, and obvious. Let secondary information recede. If you're not sure what's most important, that's a design problem to solve before coding.
 
@@ -100,7 +100,7 @@ The design system provides the vocabulary. Use it:
 
 For patterns, look at existing features:
 
-- `post-match-dialog.tsx` — orchestrated animations, staggered reveals, sound integration
+- `post-game-rating.tsx` — orchestrated animations, staggered reveals, sound integration
 - `mini-match-history.tsx` — interactive lists, semantic colors for results
 - `draft-screen.tsx` — timer states, urgency through color
 

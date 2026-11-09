@@ -2,20 +2,16 @@ import * as React from 'react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import {
-  GameSource,
-  MatchmakingExtra,
-  MatchmakingGameConfig,
-} from '../../../common/games/configuration'
+import { GameSource, MatchmakingGameConfig } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
-import { GameRecordJson } from '../../../common/games/games'
+import { GameRecordJson, getGameDurationString } from '../../../common/games/games'
 import { makeMatchupString } from '../../../common/games/matchups'
 import {
   ClientLeagueUserChangeJson,
   LeagueJson,
   makeLeagueId,
 } from '../../../common/leagues/leagues'
-import { makeSbMapId } from '../../../common/maps'
+import { makeSbMapId, MapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   makeSeasonId,
@@ -27,19 +23,16 @@ import {
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { openDialog } from '../../dialogs/action-creators'
-import { DialogType } from '../../dialogs/dialog-type'
-import { addRecentReplayPathAtom, recentReplayPathsAtom } from '../../games/game-atoms'
-import { jotaiStore } from '../../jotai-store'
+import { PostGameHero } from '../../games/post-game-hero'
+import { getPostGameMatchup } from '../../games/post-game-matchup'
 import { FilledButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
-import { useStableCallback } from '../../react/state-hooks'
-import { useAppDispatch } from '../../redux-hooks'
 import { BodyMedium } from '../../styles/typography'
+import { PostGameRating } from '../post-game-rating'
 
 const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)
@@ -125,21 +118,40 @@ const LEAGUES: LeagueJson[] = [
   },
 ]
 
+const MAP_IMAGE =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'>
+      <rect width='1024' height='1024' fill='#3a6b35'/>
+      <circle cx='256' cy='256' r='180' fill='#8a7a4a'/>
+      <circle cx='768' cy='768' r='180' fill='#8a7a4a'/>
+      <rect x='420' y='0' width='180' height='1024' fill='#4a7a8a'/>
+    </svg>`,
+  )
+
+const MAP = {
+  id: makeSbMapId('asdf-1234'),
+  name: 'Fighting Spirit',
+  image1024Url: MAP_IMAGE,
+} as unknown as MapInfoJson
+
 const ControlsCard = styled(Card)`
   max-width: 480px;
   margin: 16px;
 `
 
-function makeGameSourceExtra(type: MatchmakingType): MatchmakingExtra {
-  return type === MatchmakingType.Match2v2
-    ? { type, parties: [[PLAYER_ID], [OPPONENT_ID]] }
-    : { type }
-}
+const Preview = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
 
-export function PostMatchDialogTest() {
+export function PostGameTest() {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
 
+  const [playCount, setPlayCount] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const [showMapImage, setShowMapImage] = useState(true)
   const [matchmakingType, setMatchmakingType] = useState(MatchmakingType.Match1v1)
   const [outcome, setOutcome] = useState<MatchmakingResult>('win')
   const [startingRating, setStartingRating] = useState(1500)
@@ -185,92 +197,60 @@ export function PostMatchDialogTest() {
     bonusPointsUsed,
   ])
 
-  const onClick = useStableCallback(() => {
-    const leagueChanges: ClientLeagueUserChangeJson[] = []
+  const leagueChanges: ClientLeagueUserChangeJson[] = []
 
-    if (artoLeague) {
-      leagueChanges.push({
-        userId: PLAYER_ID,
-        leagueId: makeLeagueId('arto'),
-        gameId: GAME_ID,
-        changeDate: GAME.startTime + GAME.gameLength!,
-        outcome,
-        points: startingPoints * 0.85 + mmrChange.pointsChange * 0.85,
-        pointsChange: mmrChange.pointsChange * 0.85,
-      })
-    }
-    if (longLeague) {
-      leagueChanges.push({
-        userId: PLAYER_ID,
-        leagueId: makeLeagueId('long'),
-        gameId: GAME_ID,
-        changeDate: GAME.startTime + GAME.gameLength!,
-        outcome,
-        points: startingPoints * 0.55 + mmrChange.pointsChange * 0.55,
-        pointsChange: mmrChange.pointsChange * 0.55,
-      })
-    }
-    if (earlyLeague) {
-      leagueChanges.push({
-        userId: PLAYER_ID,
-        leagueId: makeLeagueId('early'),
-        gameId: GAME_ID,
-        changeDate: GAME.startTime + GAME.gameLength!,
-        outcome,
-        points: startingPoints * 0.15 + mmrChange.pointsChange * 0.15,
-        pointsChange: mmrChange.pointsChange * 0.15,
-      })
-    }
-    if (anotherLeague) {
-      leagueChanges.push({
-        userId: PLAYER_ID,
-        leagueId: makeLeagueId('another'),
-        gameId: GAME_ID,
-        changeDate: GAME.startTime + GAME.gameLength!,
-        outcome,
-        points: startingPoints * 1.15 + mmrChange.pointsChange * 1.15,
-        pointsChange: mmrChange.pointsChange * 1.15,
-      })
-    }
-
-    dispatch(
-      openDialog({
-        type: DialogType.PostMatch,
-        initData: {
-          game: {
-            ...GAME,
-            config: {
-              ...GAME_CONFIG,
-              gameSourceExtra: makeGameSourceExtra(matchmakingType),
-            },
-          },
-          mmrChange,
-          leagueChanges,
-          leagues: LEAGUES,
-          season: SEASON,
-        },
-      }),
-    )
-
-    // Simulate the replay file being saved a bit after the results arrive, so the "Watch replay"
-    // button starts out disabled and becomes enabled while the dialog is open
-    jotaiStore.set(recentReplayPathsAtom, draft => {
-      draft.delete(GAME_ID)
+  if (artoLeague) {
+    leagueChanges.push({
+      userId: PLAYER_ID,
+      leagueId: makeLeagueId('arto'),
+      gameId: GAME_ID,
+      changeDate: GAME.startTime + GAME.gameLength!,
+      outcome,
+      points: startingPoints * 0.85 + mmrChange.pointsChange * 0.85,
+      pointsChange: mmrChange.pointsChange * 0.85,
     })
-    setTimeout(() => {
-      jotaiStore.set(addRecentReplayPathAtom, {
-        gameId: GAME_ID,
-        path: 'C:\\fake\\path\\to\\replay.rep',
-      })
-    }, 3000)
-  })
+  }
+  if (longLeague) {
+    leagueChanges.push({
+      userId: PLAYER_ID,
+      leagueId: makeLeagueId('long'),
+      gameId: GAME_ID,
+      changeDate: GAME.startTime + GAME.gameLength!,
+      outcome,
+      points: startingPoints * 0.55 + mmrChange.pointsChange * 0.55,
+      pointsChange: mmrChange.pointsChange * 0.55,
+    })
+  }
+  if (earlyLeague) {
+    leagueChanges.push({
+      userId: PLAYER_ID,
+      leagueId: makeLeagueId('early'),
+      gameId: GAME_ID,
+      changeDate: GAME.startTime + GAME.gameLength!,
+      outcome,
+      points: startingPoints * 0.15 + mmrChange.pointsChange * 0.15,
+      pointsChange: mmrChange.pointsChange * 0.15,
+    })
+  }
+  if (anotherLeague) {
+    leagueChanges.push({
+      userId: PLAYER_ID,
+      leagueId: makeLeagueId('another'),
+      gameId: GAME_ID,
+      changeDate: GAME.startTime + GAME.gameLength!,
+      outcome,
+      points: startingPoints * 1.15 + mmrChange.pointsChange * 1.15,
+      pointsChange: mmrChange.pointsChange * 1.15,
+    })
+  }
 
   return (
     <div>
       <ControlsCard>
         <BodyMedium>
-          Input a desired MMR change to show a dialog for. Point/rating change values will
-          automatically change their sign for win/loss, so always input positive amounts.
+          Input a desired MMR change to show the post-game page's header and rating for.
+          Point/rating change values will automatically change their sign for win/loss, so always
+          input positive amounts.
         </BodyMedium>
         <Select
           value={matchmakingType}
@@ -357,8 +337,44 @@ export function PostMatchDialogTest() {
           value={lifetimeGames}
           onChange={setLifetimeGames}
         />
-        <FilledButton label='Show dialog' onClick={onClick} />
+        <CheckBox
+          name='revealed'
+          label='Already revealed?'
+          checked={revealed}
+          onChange={(event: React.ChangeEvent) =>
+            setRevealed((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
+        <CheckBox
+          name='mapimage'
+          label='Show a map image?'
+          checked={showMapImage}
+          onChange={(event: React.ChangeEvent) =>
+            setShowMapImage((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
+        <FilledButton label='Show results' onClick={() => setPlayCount(count => count + 1)} />
       </ControlsCard>
+      {playCount > 0 ? (
+        <Preview key={playCount}>
+          <PostGameHero
+            map={showMapImage ? MAP : undefined}
+            modeLabel={matchmakingTypeToLabel(matchmakingType, t)}
+            outcomeText={outcome === 'win' ? 'Victory!' : 'Defeat!'}
+            result={outcome}
+            matchup={getPostGameMatchup(GAME, PLAYER_ID)}
+            duration={getGameDurationString(GAME.gameLength!)}
+          />
+          <PostGameRating
+            gameId={GAME_ID}
+            mmrChange={mmrChange}
+            leagueChanges={leagueChanges}
+            leagues={LEAGUES}
+            season={SEASON}
+            revealed={revealed}
+          />
+        </Preview>
+      ) : null}
     </div>
   )
 }

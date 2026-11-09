@@ -1,5 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { GameDebugInfoJson, GameRecordJson, GameReplayInfo } from '../../common/games/games'
+import { GameLeagueRankChange } from '../../common/leagues/leagues'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -8,6 +9,7 @@ export interface GameState {
   /** A map of game ID -> game information. */
   byId: Map<string, GameRecordJson>
   mmrChangesById: Map<string, Map<SbUserId, PublicMatchmakingRatingChangeJson>>
+  leagueRankChangesById: Map<string, GameLeagueRankChange[]>
   debugInfoById: Map<string, GameDebugInfoJson>
   /** A map of game ID -> replay info (if available and user has access). */
   replayInfoById: Map<string, GameReplayInfo>
@@ -18,6 +20,7 @@ export interface GameState {
 const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   byId: new Map(),
   mmrChangesById: new Map(),
+  leagueRankChangesById: new Map(),
   debugInfoById: new Map(),
   replayInfoById: new Map(),
   reviewRequestableIds: new Set(),
@@ -62,7 +65,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@games/getGameRecord'](
     state,
-    { payload: { game, mmrChanges, replay, debugInfo, canRequestReview } },
+    { payload: { game, mmrChanges, leagueRankChanges, replay, debugInfo, canRequestReview } },
   ) {
     state.byId.set(game.id, game)
     if (canRequestReview) {
@@ -71,6 +74,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.reviewRequestableIds.delete(game.id)
     }
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
+    if (leagueRankChanges?.length) {
+      state.leagueRankChangesById.set(game.id, leagueRankChanges)
+    } else {
+      state.leagueRankChangesById.delete(game.id)
+    }
     if (replay) {
       state.replayInfoById.set(replay.gameId, replay)
     }
@@ -79,8 +87,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@games/gameUpdate'](state, { payload: { game, mmrChanges } }) {
+  ['@games/gameUpdate'](state, { payload: { game, mmrChanges, leagueRankChanges } }) {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
+    if (leagueRankChanges?.length) {
+      state.leagueRankChangesById.set(game.id, leagueRankChanges)
+    } else if (leagueRankChanges) {
+      state.leagueRankChangesById.delete(game.id)
+    }
   },
 })
