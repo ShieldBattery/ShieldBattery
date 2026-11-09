@@ -70,6 +70,7 @@ fn production_player(id: usize, case: ProductionTickCase) -> Player {
         map_selections,
         region,
         rtt_ms,
+        recent_opponents: HashMap::new(),
     }
 }
 
@@ -104,6 +105,7 @@ fn bench_1v1(c: &mut Criterion) {
         map_selections: HashMap::new(),
         region: None,
         rtt_ms: None,
+        recent_opponents: HashMap::new(),
     }) {
         matchmaker.insert_player(player).unwrap();
     }
@@ -129,6 +131,7 @@ fn bench_2v2(c: &mut Criterion) {
         map_selections: HashMap::new(),
         region: None,
         rtt_ms: None,
+        recent_opponents: HashMap::new(),
     }) {
         matchmaker.insert_player(player).unwrap();
     }
@@ -157,6 +160,7 @@ fn bench_3v3_scaling(c: &mut Criterion) {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         }) {
             matchmaker.insert_player(player).unwrap();
         }
@@ -195,6 +199,7 @@ fn bench_tick_3v3_scaling(c: &mut Criterion) {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         }) {
             template.insert_player(player).unwrap();
         }

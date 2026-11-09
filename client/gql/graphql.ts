@@ -79,9 +79,14 @@ export type MatchmakerModeConfigOverridesInput = {
   maxRatingSpread?: number | null | undefined
   minQuality?: number | null | undefined
   populationHalfLifeSeconds?: number | null | undefined
+  rematchDensityFloor?: number | null | undefined
+  rematchDensityRadius?: number | null | undefined
+  rematchDensityReference?: number | null | undefined
+  rematchHalfLifeSeconds?: number | null | undefined
   uncertaintyK?: number | null | undefined
   weightLatency?: number | null | undefined
   weightRatingVariance?: number | null | undefined
+  weightRematch?: number | null | undefined
   weightWinProb?: number | null | undefined
   winProbScale?: number | null | undefined
 }
@@ -295,6 +300,11 @@ export type AdminMatchmakingConfigQuery = {
       adaptiveComfortableMultiplier: number | null
       adaptiveDecayPerMissing: number | null
       populationHalfLifeSeconds: number | null
+      weightRematch: number | null
+      rematchHalfLifeSeconds: number | null
+      rematchDensityRadius: number | null
+      rematchDensityReference: number | null
+      rematchDensityFloor: number | null
     }
     perMode: Array<{
       matchmakingType: Types.MatchmakingType
@@ -309,6 +319,11 @@ export type AdminMatchmakingConfigQuery = {
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
         populationHalfLifeSeconds: number | null
+        weightRematch: number | null
+        rematchHalfLifeSeconds: number | null
+        rematchDensityRadius: number | null
+        rematchDensityReference: number | null
+        rematchDensityFloor: number | null
       }
     }>
     defaults: {
@@ -324,6 +339,11 @@ export type AdminMatchmakingConfigQuery = {
       adaptiveComfortableMultiplier: number
       adaptiveDecayPerMissing: number
       populationHalfLifeSeconds: number
+      weightRematch: number
+      rematchHalfLifeSeconds: number
+      rematchDensityRadius: number
+      rematchDensityReference: number
+      rematchDensityFloor: number
     }
     modeDefaults: Array<{
       matchmakingType: Types.MatchmakingType
@@ -338,6 +358,11 @@ export type AdminMatchmakingConfigQuery = {
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
         populationHalfLifeSeconds: number | null
+        weightRematch: number | null
+        rematchHalfLifeSeconds: number | null
+        rematchDensityRadius: number | null
+        rematchDensityReference: number | null
+        rematchDensityFloor: number | null
       }
     }>
   }
@@ -2612,6 +2637,11 @@ export const AdminMatchmakingConfigDocument = {
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityRadius' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityReference' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                     ],
                   },
                 },
@@ -2650,6 +2680,20 @@ export const AdminMatchmakingConfigDocument = {
                               kind: 'Field',
                               name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
                             },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchHalfLifeSeconds' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityRadius' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityReference' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                           ],
                         },
                       },
@@ -2677,6 +2721,11 @@ export const AdminMatchmakingConfigDocument = {
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityRadius' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityReference' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                     ],
                   },
                 },
@@ -2715,6 +2764,20 @@ export const AdminMatchmakingConfigDocument = {
                               kind: 'Field',
                               name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
                             },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchHalfLifeSeconds' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityRadius' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityReference' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                           ],
                         },
                       },

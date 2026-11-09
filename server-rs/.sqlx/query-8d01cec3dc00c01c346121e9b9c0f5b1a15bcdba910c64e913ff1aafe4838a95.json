@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT r.matchmaking_type AS \"matchmaking_type!: MatchmakingType\",\n                       r.rating\n                FROM matchmaking_ratings r\n                WHERE r.season_id = (\n                    SELECT id FROM matchmaking_seasons\n                    WHERE start_date <= timezone('utc', now())\n                    ORDER BY start_date DESC\n                    LIMIT 1\n                )\n                  AND r.matchmaking_type IN ('2v2', '2v2bgh', '2v2hunters', '2v2fastest')\n                  AND r.num_games_played > 0\n                  AND r.last_played_date >= timezone('utc', now()) - interval '7 days'\n                ",
+  "query": "\n                SELECT r.matchmaking_type AS \"matchmaking_type!: MatchmakingType\",\n                       r.rating\n                FROM matchmaking_ratings r\n                WHERE r.season_id = (\n                    SELECT id FROM matchmaking_seasons\n                    WHERE start_date <= timezone('utc', now())\n                    ORDER BY start_date DESC\n                    LIMIT 1\n                )\n                  AND r.num_games_played > 0\n                  AND r.last_played_date >= timezone('utc', now()) - interval '7 days'\n                ",
   "describe": {
     "columns": [
       {
@@ -51,5 +51,5 @@
       false
     ]
   },
-  "hash": "f86ae3ec9bececea8bb754bd3d5324dc3f6e2bdad769e57e1beb675e9f51d484"
+  "hash": "8d01cec3dc00c01c346121e9b9c0f5b1a15bcdba910c64e913ff1aafe4838a95"
 }

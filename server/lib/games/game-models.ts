@@ -14,6 +14,7 @@ import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/g
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -676,6 +677,67 @@ export async function getRecentGamesForUser(
       LIMIT ${numGames}
     `)
     return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+export interface RecentMatchmakingOpponent {
+  matchmakingType: MatchmakingType
+  opponentId: SbUserId
+  gameStartTime: Date
+}
+
+/**
+ * Returns the human opponents `userId` faced in matchmaking games of the given types that started
+ * at or after `since`, with one entry per opponent per game. Teammates and canceled games are left
+ * out.
+ */
+export async function getRecentMatchmakingOpponents(
+  userId: SbUserId,
+  matchmakingTypes: ReadonlyArray<MatchmakingType>,
+  since: Date,
+  withClient?: DbClient,
+): Promise<RecentMatchmakingOpponent[]> {
+  if (!matchmakingTypes.length) {
+    return []
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    // Filtering on games_users first keeps this to the user's own recent rows (via its primary key)
+    // before any game configs are read.
+    const result = await client.query<{ config: GameConfig; start_time: Date }>(sql`
+      SELECT g.config, g.start_time
+      FROM games_users u JOIN games g ON u.game_id = g.id
+      WHERE u.user_id = ${userId}
+        AND u.start_time >= ${since}
+        AND g.canceled_at IS NULL
+        AND g.config->>'gameSource' = ${GameSource.Matchmaking}
+        AND g.config->'gameSourceExtra'->>'type' = ANY(${matchmakingTypes})
+    `)
+
+    const opponents: RecentMatchmakingOpponent[] = []
+    for (const { config, start_time: gameStartTime } of result.rows) {
+      if (config.gameSource !== GameSource.Matchmaking) {
+        continue
+      }
+      const matchmakingType = config.gameSourceExtra.type
+      if (!config.teams.some(team => team.some(p => p.id === userId))) {
+        continue
+      }
+      for (const team of config.teams) {
+        if (team.some(p => p.id === userId)) {
+          continue
+        }
+        for (const player of team) {
+          if (!player.isComputer) {
+            opponents.push({ matchmakingType, opponentId: player.id, gameStartTime })
+          }
+        }
+      }
+    }
+    return opponents
   } finally {
     done()
   }

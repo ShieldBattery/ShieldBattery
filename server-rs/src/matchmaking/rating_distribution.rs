@@ -1,4 +1,5 @@
-//! Active player ratings used to scale team-mode variance penalties.
+//! Active player ratings, used to scale 2v2 variance penalties and to soften the rematch penalty for
+//! players in sparse rating ranges.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -24,11 +25,11 @@ pub(crate) struct RatingDistribution {
 }
 
 impl RatingDistribution {
-    /// Fetches one rating per player and 2v2 mode from the current season, for players who finished
-    /// a rated game in that mode in the past seven days. A player's last played date is updated when
-    /// a game result is tabulated, so queue-only activity is not included. Served by the
+    /// Fetches one rating per player and mode from the current season, for players who finished a
+    /// rated game in that mode in the past seven days. A player's last played date is updated when a
+    /// game result is tabulated, so queue-only activity is not included. Served by the
     /// `matchmaking_ratings_points` index on (season_id, matchmaking_type), so the scan is bounded by
-    /// the current season's 2v2 rows.
+    /// the current season's rows.
     pub(crate) async fn load(pool: &PgPool) -> Result<Self> {
         let rows = tokio::time::timeout(
             QUERY_TIMEOUT,
@@ -43,7 +44,6 @@ impl RatingDistribution {
                     ORDER BY start_date DESC
                     LIMIT 1
                 )
-                  AND r.matchmaking_type IN ('2v2', '2v2bgh', '2v2hunters', '2v2fastest')
                   AND r.num_games_played > 0
                   AND r.last_played_date >= timezone('utc', now()) - interval '7 days'
                 "#
@@ -60,11 +60,11 @@ impl RatingDistribution {
         ))
     }
 
-    /// Builds a snapshot from raw mode ratings, discarding non-2v2 modes and non-finite values.
+    /// Builds a snapshot from raw mode ratings, discarding non-finite values.
     pub(crate) fn from_ratings(ratings: impl IntoIterator<Item = (MatchmakingType, f32)>) -> Self {
         let mut by_mode: HashMap<MatchmakingType, Vec<f32>> = HashMap::new();
         for (mode, rating) in ratings {
-            if mode.team_size() == 2 && rating.is_finite() {
+            if rating.is_finite() {
                 by_mode.entry(mode).or_default().push(rating);
             }
         }
@@ -77,8 +77,12 @@ impl RatingDistribution {
     /// The multiplier for a mode's variance weight given a roster's raw rating: 1 up to the P75 of
     /// the mode's active players, ramping linearly to `1 + MAX_EXTRA_MULTIPLIER` at P95 and above.
     /// Percentiles are midrank (ties receive the midpoint of their equal-rating group), so ratings
-    /// below or above the whole sample map to 0 or 1. Modes without enough samples always get 1.
+    /// below or above the whole sample map to 0 or 1. Modes other than 2v2, and modes without enough
+    /// samples, always get 1.
     pub(crate) fn variance_multiplier(&self, mode: MatchmakingType, rating: f32) -> f32 {
+        if mode.team_size() != 2 {
+            return 1.0;
+        }
         let Some(ratings) = self.ready_ratings(mode) else {
             return 1.0;
         };
@@ -90,6 +94,42 @@ impl RatingDistribution {
         let percentile = (below as f32 + (through - below) as f32 * 0.5) / ratings.len() as f32;
         let ramp = ((percentile - RAMP_START) / (RAMP_END - RAMP_START)).clamp(0.0, 1.0);
         1.0 + MAX_EXTRA_MULTIPLIER * ramp
+    }
+
+    /// How many active players in `mode` have a rating within `radius` of `rating`, or `None` when
+    /// the mode has too few samples to judge.
+    pub(crate) fn nearby_count(
+        &self,
+        mode: MatchmakingType,
+        rating: f32,
+        radius: f32,
+    ) -> Option<usize> {
+        let ratings = self.ready_ratings(mode)?;
+        if !rating.is_finite() {
+            return None;
+        }
+        let start = ratings.partition_point(|&r| r < rating - radius);
+        let end = ratings.partition_point(|&r| r <= rating + radius);
+        Some(end - start)
+    }
+
+    /// The [`Self::nearby_count`] of the median active player in `mode` (each player counting
+    /// themselves), or `None` when the mode has too few samples to judge.
+    pub(crate) fn median_nearby_count(&self, mode: MatchmakingType, radius: f32) -> Option<usize> {
+        let ratings = self.ready_ratings(mode)?;
+        let mut counts = Vec::with_capacity(ratings.len());
+        let (mut start, mut end) = (0, 0);
+        for &rating in ratings {
+            while ratings[start] < rating - radius {
+                start += 1;
+            }
+            while end < ratings.len() && ratings[end] <= rating + radius {
+                end += 1;
+            }
+            counts.push(end - start);
+        }
+        let middle = counts.len() / 2;
+        Some(*counts.select_nth_unstable(middle).1)
     }
 
     fn ready_ratings(&self, mode: MatchmakingType) -> Option<&[f32]> {
@@ -161,7 +201,32 @@ mod tests {
             1.0
         );
         let one_v_one = make(MatchmakingType::Match1v1, 20);
-        assert_eq!(one_v_one.mode_stats(MatchmakingType::Match1v1).0, 0);
+        assert_eq!(one_v_one.mode_stats(MatchmakingType::Match1v1).0, 20);
+        assert_eq!(
+            one_v_one.variance_multiplier(MatchmakingType::Match1v1, 100.0),
+            1.0
+        );
+    }
+
+    #[test]
+    fn nearby_counts_include_both_edges() {
+        let mode = MatchmakingType::Match1v1;
+        // Ratings 0, 10, ..., 190.
+        let d = RatingDistribution::from_ratings((0..20).map(|n| (mode, n as f32 * 10.0)));
+        assert_eq!(d.nearby_count(mode, 100.0, 20.0), Some(5));
+        assert_eq!(d.nearby_count(mode, 0.0, 20.0), Some(3));
+        assert_eq!(d.nearby_count(mode, 1000.0, 20.0), Some(0));
+        assert_eq!(d.nearby_count(mode, f32::NAN, 20.0), None);
+        // Interior players see 5, the two at each end see 3 and 4: the median is 5.
+        assert_eq!(d.median_nearby_count(mode, 20.0), Some(5));
+    }
+
+    #[test]
+    fn nearby_counts_need_enough_samples() {
+        let mode = MatchmakingType::Match1v1;
+        let d = make(mode, 19);
+        assert_eq!(d.nearby_count(mode, 5.0, 100.0), None);
+        assert_eq!(d.median_nearby_count(mode, 100.0), None);
     }
 
     #[test]

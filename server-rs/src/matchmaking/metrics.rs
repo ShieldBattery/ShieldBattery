@@ -16,6 +16,7 @@ use strum::IntoEnumIterator;
 const RATING_SAMPLE_SIZE: &str = "matchmaker_rating_sample_size";
 const RATING_PERCENTILE: &str = "matchmaker_rating_percentile";
 const MATCH_VARIANCE_MULTIPLIER: &str = "matchmaker_match_variance_multiplier";
+const MATCH_REMATCH_PENALTY: &str = "matchmaker_match_rematch_penalty";
 const QUEUE_SIZE: &str = "matchmaker_queue_size";
 const POPULATION_ESTIMATE: &str = "matchmaker_population_estimate";
 const EFFECTIVE_MIN_QUALITY: &str = "matchmaker_effective_min_quality";
@@ -53,6 +54,10 @@ pub fn describe_metrics() {
     ::metrics::describe_histogram!(
         MATCH_VARIANCE_MULTIPLIER,
         "Multiplier applied to the configured variance weight of each formed match, per mode"
+    );
+    ::metrics::describe_histogram!(
+        MATCH_REMATCH_PENALTY,
+        "Seconds of rematch penalty in each formed match's quality, per mode"
     );
     ::metrics::describe_gauge!(
         QUEUE_SIZE,
@@ -224,6 +229,7 @@ pub fn record_match_formed(m: &Match, now: Instant) {
     ::metrics::histogram!(MATCH_SKILL_VARIANCE, "mode" => label).record(m.skill_variance as f64);
     ::metrics::histogram!(MATCH_VARIANCE_MULTIPLIER, "mode" => label)
         .record(m.rating_variance_multiplier as f64);
+    ::metrics::histogram!(MATCH_REMATCH_PENALTY, "mode" => label).record(m.rematch_penalty as f64);
     ::metrics::histogram!(MATCH_WINPROB_IMBALANCE, "mode" => label)
         .record((0.5 - m.win_probability).abs() as f64);
     ::metrics::histogram!(MATCH_LATENCY_MS, "mode" => label).record(m.max_latency as f64);
