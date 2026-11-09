@@ -391,6 +391,9 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute(
     '/matchmaking-results/:userId',
     (_route: RouteInfo, event: MatchmakingResultsEvent) => {
+      // Every game's results move the player's standing, not only those of the last game played.
+      dispatch({ type: '@matchmaking/resultsReceived', payload: event })
+
       dispatch((dispatch, getState) => {
         const lastGame = jotaiStore.get(lastGameAtom)
 

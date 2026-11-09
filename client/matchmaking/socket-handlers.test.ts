@@ -1,3 +1,4 @@
+import { NydusClient, RouteInfo } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
@@ -5,7 +6,8 @@ import { asMockedFunction } from '../../common/testing/mocks'
 import { ReduxAction } from '../action-types'
 import dialogReducer from '../dialogs/dialog-reducer'
 import { DialogType } from '../dialogs/dialog-type'
-import { DispatchFunction } from '../dispatch-registry'
+import { DispatchFunction, registerDispatch } from '../dispatch-registry'
+import { lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
@@ -18,7 +20,7 @@ import {
   handledLobbyViolationPenaltyGamesAtom,
   launchingMatchmakingTypeAtom,
 } from './matchmaking-atoms'
-import { eventToAction } from './socket-handlers'
+import registerModule, { eventToAction } from './socket-handlers'
 
 vi.mock('../audio/audio-manager', () => ({
   audioManager: { playSound: vi.fn() },
@@ -522,5 +524,26 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
     // A later requeue from a different match isn't explained by the stale cancel.
     expect(openedDialogs(runRequeue())).toEqual([])
+  })
+})
+
+describe('client/matchmaking/socket-handlers/matchmaking results', () => {
+  test('passes on results for a game other than the last one played', () => {
+    jotaiStore.set(lastGameAtom, undefined)
+    const dispatched = vi.fn()
+    registerDispatch(dispatched)
+
+    const registerRoute = vi.fn()
+    registerModule({ siteSocket: { registerRoute } as unknown as NydusClient })
+    const [, receive] = registerRoute.mock.calls.find(
+      ([path]) => path === '/matchmaking-results/:userId',
+    )!
+    const event = { game: { id: 'game-1' } }
+    receive({} as RouteInfo, event)
+
+    expect(dispatched).toHaveBeenCalledWith({
+      type: '@matchmaking/resultsReceived',
+      payload: event,
+    })
   })
 })
