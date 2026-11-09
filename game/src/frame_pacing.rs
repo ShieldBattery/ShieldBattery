@@ -61,6 +61,7 @@ use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::synchapi::{CreateWaitableTimerExW, SetWaitableTimer, WaitForSingleObject};
 use winapi::um::winbase::INFINITE;
 use winapi::um::winnt::{HANDLE, TIMER_ALL_ACCESS};
+use winapi::um::winuser::IsIconic;
 
 use crate::bw_scr::BwScr;
 
@@ -97,6 +98,23 @@ fn deadline_lead_limit(period: Duration) -> Duration {
 /// lead to its limit by itself, so a single late frame there doesn't say the display needs more.
 const LEAD_LIMIT_MISSES: usize = 5;
 const LEAD_LIMIT_WINDOW: Duration = Duration::from_secs(10);
+
+/// The frame rate while the game window can't be seen, minimized or covered: drawing at the usual
+/// rate would only take GPU time from whatever is in front. It stays well above the logic step
+/// rate, so the loop keeps taking turns off the network promptly and other players don't wait on
+/// this one.
+const HIDDEN_PERIOD: Duration = Duration::from_nanos(1_000_000_000 / 30);
+
+/// Why the game window can't be seen, or `None` if it can: minimized, or covered, which only the
+/// display path knows. A window in front is taken as seen whatever DXGI says, so a mistaken
+/// occlusion status can't slow down the game being played.
+fn hidden_window() -> Option<&'static str> {
+    let window = crate::forge::game_window_handle()?;
+    if unsafe { IsIconic(window) } != 0 {
+        return Some("minimized");
+    }
+    (present_stats::occluded() && !crate::forge::game_window_in_front()).then_some("covered")
+}
 
 /// How long after the game window comes back in front its frames still say nothing about reaching
 /// the display: Windows takes a moment to hand a window back its own flips, and a fullscreen one
@@ -403,6 +421,9 @@ struct State {
     in_front_since: Option<Instant>,
     /// [`crate::forge::game_window_front_changes`] as of the last frame presented.
     front_changes: u32,
+    /// Whether the game window couldn't be seen at the last iteration, which then ran at
+    /// [`HIDDEN_PERIOD`].
+    hidden: bool,
     /// Whether the desktop window manager is composing the game window, as the statistics show,
     /// and the evidence for it: up for each frame composed, down for each flipped.
     composed: bool,
@@ -518,6 +539,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     lead_limited: false,
     in_front_since: None,
     front_changes: 0,
+    hidden: false,
     composed: false,
     composition_votes: 0,
     skip_blank: false,
@@ -598,13 +620,31 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
                 immediate_allowed && (tick_moved || last_iteration.is_some_and(|last| due > last))
             }
         });
+    let hidden = hidden_window();
+    if hidden.is_some() != state.hidden {
+        state.hidden = hidden.is_some();
+        state.next_frame = None;
+        state.last_vblank = None;
+        match hidden {
+            Some(why) => info!(
+                "Frame pacing: the game window is {why}, drawing at {:.0} fps until it shows",
+                1.0 / HIDDEN_PERIOD.as_secs_f64()
+            ),
+            None => info!("Frame pacing: the game window shows again"),
+        }
+    }
     let stepped_aside = state.stepped_aside();
-    let paced = state
-        .plan
-        .as_ref()
-        .and_then(|plan| plan.as_ref())
-        .filter(|_| !stepped_aside)
-        .map(|plan| (plan.period, plan.synced, plan.vsync, plan.variable_refresh));
+    // Unseen frames are only paced to a rate: nothing is shown to time them for, and a step
+    // presenting its own frame shows nothing either.
+    let paced = match state.hidden {
+        true => Some((HIDDEN_PERIOD, false, false, false)),
+        false => state
+            .plan
+            .as_ref()
+            .and_then(|plan| plan.as_ref())
+            .filter(|_| !stepped_aside)
+            .map(|plan| (plan.period, plan.synced, plan.vsync, plan.variable_refresh)),
+    };
     if let Some((period, synced, vsync, variable_refresh)) = paced {
         // An iteration for a step alone mustn't present with vertical sync on or on a variable
         // refresh display, and gains nothing presenting between frames that flip at the blank
@@ -1220,7 +1260,7 @@ pub fn draw() -> Draw {
 
 fn is_pacing() -> bool {
     let state = STATE.lock();
-    matches!(state.plan, Some(Some(_))) && !state.stepped_aside()
+    state.hidden || (matches!(state.plan, Some(Some(_))) && !state.stepped_aside())
 }
 
 /// Whether SC:R's present in progress should flip at the next blank rather than tear in: a frame
@@ -1462,6 +1502,7 @@ pub fn reset() {
     state.lead_limit_misses.clear();
     state.lead_limited = false;
     state.in_front_since = None;
+    state.hidden = false;
     state.composed = false;
     state.composition_votes = 0;
     state.skip_blank = false;

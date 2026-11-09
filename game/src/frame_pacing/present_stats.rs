@@ -371,8 +371,21 @@ unsafe extern "system" fn present(
             true => flags & !DXGI_PRESENT_ALLOW_TEARING,
             false => flags,
         };
-        original(swap_chain, sync_interval, flags)
+        let result = original(swap_chain, sync_interval, flags);
+        OCCLUDED.store(result == DXGI_STATUS_OCCLUDED, Ordering::Relaxed);
+        result
     }
+}
+
+/// `IDXGISwapChain::Present`'s status for a window nothing of which is visible.
+const DXGI_STATUS_OCCLUDED: HRESULT = 0x087a_0001;
+
+/// Whether the last present found nothing of the game window visible.
+static OCCLUDED: AtomicBool = AtomicBool::new(false);
+
+/// Whether DXGI said nothing of the game window was visible when SC:R last presented.
+pub fn occluded() -> bool {
+    OCCLUDED.load(Ordering::Relaxed)
 }
 
 /// A frame SC:R presented, and when the display showed it.
