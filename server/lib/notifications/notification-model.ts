@@ -1,5 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
+import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { MatchmakingBanReason } from '../../../common/matchmaking'
 import {
   LeagueBanNotification,
@@ -38,6 +39,7 @@ export type NotificationData =
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
   | MatchmakingBanNotificationData
+  | LobbyInviteNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -157,6 +159,14 @@ export interface MatchmakingBanNotificationData extends BaseNotificationData {
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
 
+export interface LobbyInviteNotificationData extends BaseNotificationData {
+  type: NotificationType.LobbyInvite
+  from: SbUserId
+  lobbyId: SbLobbyId
+}
+
+type LobbyInviteSearchNotificationData = MakeSearchable<LobbyInviteNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -176,6 +186,7 @@ export type SearchNotificationData =
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | MatchmakingBanSearchNotificationData
+  | LobbyInviteSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

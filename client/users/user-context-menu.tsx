@@ -6,7 +6,9 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap, mergeMultimaps } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { useCurrentActivity } from '../activity/current-activity'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { inviteToLobby } from '../lobbies/action-creators'
 import logger from '../logging/logger'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -25,16 +27,8 @@ import {
   unblockUser,
 } from '../social/action-creators'
 import { userRelationshipErrorToString } from '../social/relationship-errors'
-import { navigateToWhisper, sendMessage } from '../whispers/action-creators'
+import { navigateToWhisper } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
-import { isInLobby } from '../lobbies/lobby-reducer'
-import { useCurrentActivity } from '../activity/current-activity'
-import { useCorrectLobbySlug } from '../lobbies/lobby-url'
-import { urlForLobby } from '../../common/lobbies/lobby-url'
-import { describeFetchError } from '../network/fetch-errors'
-import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { resolveDeepLinkScheme } from '../lobbies/lobby-landing'
-import { getServerOrigin } from '../network/server-url'
 
 const LoadingItem = styled(MenuItem)`
   color: var(--theme-on-surface-variant);
@@ -244,39 +238,6 @@ function ConnectedUserContextMenuContents({
         />,
       )
     }
-    if (currentActivity?.kind=="lobby") {
-
-      const url = urlForLobby(currentActivity.id, currentActivity.name)
-      const message = getServerOrigin() + url
-
-      appendToMultimap(
-        items,
-        MenuItemCategory.General,
-        <MenuItem
-          key='invite'
-          text={t('users.contextMenu.inviteToLobby', 'Invite to Lobby')}
-          onClick={() => {
-              const ret = dispatch(sendMessage(user!.id,  message, {
-                      onSuccess: () => {
-                        console.log("success")
-                      },
-                      onError: err => {
-                        console.log("err")
-                        logger.error(`Error sending inviting ${user!.id} to lobby: ${describeFetchError(err)}`)
-                        snackbarController.showSnackbar(
-                          t('whispers.errors.sendingMessage', {
-                            defaultValue: 'Error sending message: {{errorMessage}}',
-                            errorMessage: err.message,
-                          }),
-                          DURATION_LONG,
-                        )
-                      },
-                    }))
-          }}
-        />,
-      )
-    }
-
     if (selfPermissions?.debug && variant === 'context') {
       appendToMultimap(
         items,
@@ -295,6 +256,31 @@ function ConnectedUserContextMenuContents({
     }
 
     if (user.id !== selfUser?.id) {
+      if (currentActivity?.kind === 'lobby' && relationshipKind !== UserRelationshipKind.Block) {
+        appendToMultimap(
+          items,
+          MenuItemCategory.General,
+          <MenuItem
+            key='invite-to-lobby'
+            text={t('users.contextMenu.inviteToLobby', 'Invite to Lobby')}
+            onClick={() => {
+              dispatch(
+                inviteToLobby(user!.id, {
+                  onSuccess: () => {},
+                  onError: err => {
+                    logger.error(`Error inviting ${user!.id} to lobby: ${err}`)
+                    snackbarController.showSnackbar(
+                      t('users.contextMenu.inviteToLobbyError', 'Error inviting user to lobby'),
+                    )
+                  },
+                }),
+              )
+              onDismiss()
+            }}
+          />,
+        )
+      }
+
       if (isNavigationAvailable && relationshipKind !== UserRelationshipKind.Block) {
         appendToMultimap(
           items,
