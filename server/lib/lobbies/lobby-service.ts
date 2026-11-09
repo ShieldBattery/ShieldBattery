@@ -803,7 +803,11 @@ export class LobbyService {
   }): Promise<void> {
     const joinRegion = await this._resolveRegion(region)
 
-    if (!this.lobbies.has(id)) {
+    // Everything from this snapshot to the write-back below has to stay synchronous, or a
+    // concurrent operation on the lobby (e.g. a settings change replacing the whole layout) would be
+    // silently reverted by it.
+    const lobby = this.lobbies.get(id)
+    if (!lobby) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     if (this.lobbyClients.get(client) === id) {
@@ -811,17 +815,6 @@ export class LobbyService {
       // their own lobby (e.g. during a countdown) looks like, so it resolves as a no-op success
       // rather than reaching the checks below.
       return
-    }
-
-    // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
-    // Fetched before the lobby snapshot below: everything from the snapshot to the write-back has
-    // to stay synchronous, or a concurrent operation on the lobby (e.g. a settings change
-    // replacing the whole layout) would be silently reverted by it.
-    const refreshedMap = (await getMapInfos([this.lobbies.get(id)!.map!.id]))[0]
-
-    const lobby = this.lobbies.get(id)
-    if (!lobby) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
 
     const lifecycle = this._lifecycleOf(id)
@@ -896,12 +889,6 @@ export class LobbyService {
         LobbyServiceErrorCode.JoinAlreadyInActivity,
         'user is already active in a gameplay activity',
       )
-    }
-
-    if (refreshedMap && updated.map!.id === refreshedMap.id) {
-      // A settings change during the fetch above can have swapped the map, in which case its own
-      // freshly-fetched info stays and the stale refresh is discarded
-      updated = { ...updated, map: refreshedMap }
     }
 
     this.lobbies.set(id, updated)
@@ -1309,6 +1296,32 @@ export class LobbyService {
     }
 
     this._publishTo(lobby, { type: 'mapStatusChange', userId: client.userId, status })
+  }
+
+  /**
+   * Signs a fresh download URL for the lobby's current map, for a member whose copy of it has
+   * expired. Members are already entitled to the map whatever its visibility, since the lobby hands
+   * them its URL when they join.
+   *
+   * Returns `undefined` if `mapId` is no longer the lobby's map, since the host can change the map
+   * while a download of the old one is still in flight.
+   */
+  async getMapUrl({
+    client,
+    lobbyId,
+    mapId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    mapId: SbMapId
+  }): Promise<string | undefined> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    if (lobby.map!.id !== mapId) {
+      return undefined
+    }
+
+    const [mapInfo] = await getMapInfos([mapId])
+    return mapInfo?.mapUrl
   }
 
   /**

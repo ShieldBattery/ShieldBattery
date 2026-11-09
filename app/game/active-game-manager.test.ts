@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { InGameReportRequest } from '../../common/ipc'
+import { MapDownloadOutcome } from '../../common/maps'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -252,7 +253,7 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
 describe('ActiveGameManager game setup', () => {
   let commands: Array<[string, string, ...any[]]>
 
-  function managerWithMapDownload(download: Promise<boolean>) {
+  function managerWithMapDownload(download: Promise<MapDownloadOutcome>) {
     const downloadMap = vi.fn(() => download)
     const manager = makeConnectableManager({ downloadMap })
     commands = []
@@ -277,7 +278,7 @@ describe('ActiveGameManager game setup', () => {
   const setupsSent = () => commands.filter(([, command]) => command === 'setupGame')
 
   it('waits for both the map download and the connected process', async () => {
-    let finishDownload!: (ready: boolean) => void
+    let finishDownload!: (outcome: MapDownloadOutcome) => void
     const { manager, downloadMap } = managerWithMapDownload(
       new Promise(resolve => (finishDownload = resolve)),
     )
@@ -287,12 +288,12 @@ describe('ActiveGameManager game setup', () => {
     await manager.handleGameConnected('game-1')
     expect(setupsSent(), 'the map is still downloading').toEqual([])
 
-    finishDownload(true)
+    finishDownload('downloaded')
     await vi.waitFor(() => expect(setupsSent()).toHaveLength(1))
   })
 
   it('sends the setup only after everything it depends on', async () => {
-    const { manager } = managerWithMapDownload(Promise.resolve(true))
+    const { manager } = managerWithMapDownload(Promise.resolve('downloaded'))
     manager.setGameConfig(configWithMap('game-1'))
     // Lets the finished download be taken in.
     await Promise.resolve()
@@ -307,6 +308,18 @@ describe('ActiveGameManager game setup', () => {
 
   it('fails the game when its map download fails', async () => {
     const { manager } = managerWithMapDownload(Promise.reject(new Error('stalled')))
+    const statuses: Array<{ state: string; extra?: unknown }> = []
+    manager.on('gameStatus', status => statuses.push(status))
+
+    manager.setGameConfig(configWithMap('game-1'))
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(commands).toContainEqual(['game-1', 'quit'])
+    expect(statuses.at(-1)?.state).toBe('error')
+    expect(setupsSent()).toEqual([])
+  })
+
+  it('fails the game when its map download URL is rejected', async () => {
+    const { manager } = managerWithMapDownload(Promise.resolve('urlRejected'))
     const statuses: Array<{ state: string; extra?: unknown }> = []
     manager.on('gameStatus', status => statuses.push(status))
 

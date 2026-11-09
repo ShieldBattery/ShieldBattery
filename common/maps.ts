@@ -161,6 +161,14 @@ export enum MapServiceErrorCode {
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 export type MapExtension = 'scx' | 'scm'
+
+/**
+ * How a request to have a map on disk turned out, when it didn't fail outright: the map is on disk
+ * (`downloaded`, whether or not it needed fetching), or the storage host refused its download URL
+ * (`urlRejected`), most likely because the URL's signature has expired. A rejected URL is worth
+ * retrying with a freshly signed one; any other failure is reported as an error instead.
+ */
+export type MapDownloadOutcome = 'downloaded' | 'urlRejected'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
 export type MapForcePlayerRace = 'any' | RaceChar

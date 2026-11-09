@@ -195,6 +195,19 @@ export interface SetLobbyMapStatusRequest extends LobbyClientRequest {
   status: LobbyMapStatus
 }
 
+/**
+ * The body of a request for a freshly signed download URL for a lobby's map, made when the URL the
+ * client was given has expired. The request names the map it is about, so one about a map the lobby
+ * has since moved off of is refused rather than answered with another map's URL.
+ */
+export interface GetLobbyMapUrlRequest extends LobbyClientRequest {
+  mapId: SbMapId
+}
+
+export interface GetLobbyMapUrlResponse {
+  mapUrl: string
+}
+
 /** The body of a request by the host to start the lobby's game. */
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**

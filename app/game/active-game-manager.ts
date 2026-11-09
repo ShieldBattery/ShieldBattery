@@ -398,24 +398,28 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
     game.mapReady = false
-    this.mapStore.downloadMap(map.hash, map.mapData.format, map.mapUrl).then(
-      () => {
-        if (this.gameFor(game.id) !== game) {
-          return
-        }
-        game.mapReady = true
-        this.maybeSendGameSetup(game)
-      },
-      (err: unknown) => {
-        if (this.activeGame !== game) {
-          return
-        }
-        log.error(`Couldn't download the map for game ${game.id}: ${getErrorStack(err)}`)
-        this.emit('gameCommand', game.id, 'quit')
-        this.setStatus(game, GameStatus.Error, new Error(`Map download failed`))
-        this.activeGame = null
-      },
-    )
+    const fail = (err: unknown) => {
+      if (this.activeGame !== game) {
+        return
+      }
+      log.error(`Couldn't download the map for game ${game.id}: ${getErrorStack(err)}`)
+      this.emit('gameCommand', game.id, 'quit')
+      this.setStatus(game, GameStatus.Error, new Error(`Map download failed`))
+      this.activeGame = null
+    }
+    this.mapStore.downloadMap(map.hash, map.mapData.format, map.mapUrl).then(outcome => {
+      if (outcome === 'urlRejected') {
+        // The setup's URL is signed as the game loads, so one that's refused anyway won't be any
+        // better on a retry
+        fail(new Error('Map download URL was rejected'))
+        return
+      }
+      if (this.gameFor(game.id) !== game) {
+        return
+      }
+      game.mapReady = true
+      this.maybeSendGameSetup(game)
+    }, fail)
   }
 
   private launchWatchOnlyGame(config: GameLaunchConfig): string | null {

@@ -855,32 +855,6 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.teams[1].slots[1]).toMatchObject({ type: 'controlledOpen', race: 't' })
     })
 
-    test('a join does not clobber changes that land during its map refresh', async () => {
-      const { id } = await createLobby(host, 'Listed lobby', 'listed')
-
-      let resolveMapFetch: (value: MapInfo[]) => void
-      asMockedFunction(getMapInfos).mockReturnValueOnce(
-        new Promise(resolve => {
-          resolveMapFetch = resolve
-        }),
-      )
-      const callsBefore = asMockedFunction(getMapInfos).mock.calls.length
-      const join = joinLobby(joiner, id)
-      // Let the join run up to its pending map refresh, so the settings change lands mid-fetch
-      await vi.waitFor(() => {
-        expect(asMockedFunction(getMapInfos).mock.calls.length).toBeGreaterThan(callsBefore)
-      })
-
-      await lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true })
-
-      resolveMapFetch!([BIG_GAME_HUNTERS])
-      await join
-
-      const lobby = lobbyService.lobbies.get(id)!
-      expect(lobby.useLegacyLimits).toBe(true)
-      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeDefined()
-    })
-
     test('joining a full lobby puts the joiner on the bench', async () => {
       const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
       // 1v1 lobbies only have 2 slots, and the host already occupies one.
@@ -3959,6 +3933,47 @@ describe('lobbies/lobby-service', () => {
       expect(() => setMapStatus(joiner, id, 'failed')).toThrow(
         expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }),
       )
+    })
+  })
+
+  describe('map URLs', () => {
+    const FRESH_URL = 'https://maps.example/deadbeef?signature=fresh'
+
+    test('a member gets a freshly signed URL for the lobby map', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      asMockedFunction(getMapInfos).mockResolvedValue([{ ...BIG_GAME_HUNTERS, mapUrl: FRESH_URL }])
+
+      await expect(
+        lobbyService.getMapUrl({
+          client: joiner.client,
+          lobbyId: id,
+          mapId: BIG_GAME_HUNTERS.id,
+        }),
+      ).resolves.toBe(FRESH_URL)
+      expect(getMapInfos).toHaveBeenLastCalledWith([BIG_GAME_HUNTERS.id])
+    })
+
+    test("asking about a map that isn't the lobby's current one gets nothing", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      const callsBefore = asMockedFunction(getMapInfos).mock.calls.length
+
+      await expect(
+        lobbyService.getMapUrl({ client: host.client, lobbyId: id, mapId: TWO_SLOT_MAP.id }),
+      ).resolves.toBeUndefined()
+      expect(asMockedFunction(getMapInfos).mock.calls.length).toBe(callsBefore)
+    })
+
+    test('a client that is not in the lobby cannot get one', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      await expect(
+        lobbyService.getMapUrl({
+          client: joiner.client,
+          lobbyId: id,
+          mapId: BIG_GAME_HUNTERS.id,
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotInLobby })
     })
   })
 

@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
@@ -8,6 +9,8 @@ import {
   ALL_LOBBY_MAP_STATUSES,
   CreateLobbyRequest,
   CreateLobbyResponse,
+  GetLobbyMapUrlRequest,
+  GetLobbyMapUrlResponse,
   GetLobbyStateResponse,
   JoinLobbyRequest,
   LobbyClientRequest,
@@ -554,6 +557,29 @@ export class LobbyApi {
       mapId: body.mapId,
       status: body.status,
     })
+  }
+
+  @httpPost('/:lobbyId/map-url')
+  @httpBefore(...authedAction)
+  async getMapUrl(ctx: RouterContext): Promise<GetLobbyMapUrlResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<GetLobbyMapUrlRequest>({
+        clientId: clientIdSchema,
+        mapId: Joi.string().required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    const mapUrl = await this.lobbyService.getMapUrl({
+      client,
+      lobbyId: params.lobbyId,
+      mapId: body.mapId,
+    })
+    if (!mapUrl) {
+      throw new httpErrors.Conflict("that map isn't the lobby's current map")
+    }
+    return { mapUrl }
   }
 
   @httpPost('/:lobbyId/swap-teams')

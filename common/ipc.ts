@@ -16,7 +16,7 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
-import { MapExtension } from './maps'
+import { MapDownloadOutcome, MapExtension } from './maps'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -285,7 +285,11 @@ interface IpcInvokeables {
 
   logMessage: (level: string, message: string) => void
 
-  mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
+  mapStoreDownloadMap: (
+    hash: string,
+    format: MapExtension,
+    mapUrl: string,
+  ) => Promise<MapDownloadOutcome>
 
   pathsGetDocumentsPath: () => Promise<string>
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */

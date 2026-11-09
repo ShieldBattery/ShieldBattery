@@ -1,7 +1,12 @@
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { Lobby } from '../../common/lobbies'
-import { LobbyMapStatus, SetLobbyMapStatusRequest } from '../../common/lobbies/lobby-network'
+import {
+  GetLobbyMapUrlRequest,
+  GetLobbyMapUrlResponse,
+  LobbyMapStatus,
+  SetLobbyMapStatusRequest,
+} from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { apiUrl } from '../../common/urls'
@@ -70,27 +75,56 @@ export function downloadLobbyMap(
       reportMapStatus(lobbyId, mapId, 'downloading')
     }, downloadingReportDelayMs)
 
-    download.then(
-      () => {
-        clearTimeout(downloadingTimer)
-        // The lobby records nothing for a member who has the map, so `ready` only needs sending to
-        // take back a status this client reported before: this download's, or an earlier failure.
-        const { auth, lobby: lobbyState } = getState()
-        const selfId = auth.self?.user.id
-        if (reportedDownloading || lobbyState.mapStatuses.some(entry => entry.userId === selfId)) {
-          reportMapStatus(lobbyId, mapId, 'ready')
+    download
+      .then(async outcome => {
+        if (outcome !== 'urlRejected') {
+          return
         }
-      },
-      (err: unknown) => {
-        clearTimeout(downloadingTimer)
-        // This is already logged to our file by the map store, so we just log it to the console for
-        // easy visibility during development
-        console.error('Error downloading map: ' + getErrorStack(err))
-        // TODO(tec27): Have the server cancel a countdown or load that's already under way when
-        // this arrives, rather than leaving the load to fail on its own
-        reportMapStatus(lobbyId, mapId, 'failed')
-      },
-    )
+
+        // The URL the lobby handed out has outlived its signature (a lobby's map info is signed
+        // when it's set, and members can sit in it for a long while), so get a fresh one and try
+        // again with it
+        const { mapUrl: freshUrl } = await fetchJson<GetLobbyMapUrlResponse>(
+          apiUrl`lobbies/${lobbyId}/map-url`,
+          {
+            method: 'POST',
+            body: encodeBodyAsParams<GetLobbyMapUrlRequest>({ clientId, mapId }),
+          },
+        )
+        const retried = await ipcRenderer.invoke(
+          'mapStoreDownloadMap',
+          hash,
+          mapData.format,
+          freshUrl,
+        )
+        if (retried === 'urlRejected') {
+          throw new Error('Map download URL was rejected even after being signed again')
+        }
+      })
+      .then(
+        () => {
+          clearTimeout(downloadingTimer)
+          // The lobby records nothing for a member who has the map, so `ready` only needs sending to
+          // take back a status this client reported before: this download's, or an earlier failure.
+          const { auth, lobby: lobbyState } = getState()
+          const selfId = auth.self?.user.id
+          if (
+            reportedDownloading ||
+            lobbyState.mapStatuses.some(entry => entry.userId === selfId)
+          ) {
+            reportMapStatus(lobbyId, mapId, 'ready')
+          }
+        },
+        (err: unknown) => {
+          clearTimeout(downloadingTimer)
+          // This is already logged to our file by the map store, so we just log it to the console for
+          // easy visibility during development
+          console.error('Error downloading map: ' + getErrorStack(err))
+          // TODO(tec27): Have the server cancel a countdown or load that's already under way when
+          // this arrives, rather than leaving the load to fail on its own
+          reportMapStatus(lobbyId, mapId, 'failed')
+        },
+      )
   }
 }
 
