@@ -124,6 +124,30 @@ export async function getCurrentMapPools(
   }
 }
 
+/**
+ * Returns the start date of the earliest map pool for `matchmakingType` that starts after `after`,
+ * or `undefined` if none is scheduled.
+ */
+export async function getNextMapPoolStartDate(
+  matchmakingType: MatchmakingType,
+  after: Date,
+  withClient?: DbClient,
+): Promise<Date | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ start_date: Date }>(sql`
+      SELECT start_date
+      FROM matchmaking_map_pools
+      WHERE matchmaking_type = ${matchmakingType} AND start_date > ${after}
+      ORDER BY start_date ASC
+      LIMIT 1;
+    `)
+    return result.rows.length > 0 ? result.rows[0].start_date : undefined
+  } finally {
+    done()
+  }
+}
+
 export async function getMapPoolById(
   mapPoolId: number,
   withClient?: DbClient,

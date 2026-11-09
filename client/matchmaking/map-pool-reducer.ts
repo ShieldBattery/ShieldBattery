@@ -38,8 +38,4 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.lastErrorByType.delete(meta.type)
     state.byType.set(meta.type, payload.pool)
   },
-
-  ['@network/connect']() {
-    return DEFAULT_STATE
-  },
 })

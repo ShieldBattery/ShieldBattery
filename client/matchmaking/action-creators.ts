@@ -258,7 +258,11 @@ export function simulateMatchPop(
 }
 
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
-  return dispatch => {
+  return (dispatch, getState) => {
+    if (getState().mapPools.isRequestingByType.get(type)) {
+      return
+    }
+
     dispatch({
       type: '@matchmaking/getCurrentMapPoolBegin',
       payload: { type },

@@ -18,9 +18,9 @@ import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
+import { CurrentMapPoolCache } from './current-map-pool-cache'
 import {
   addMapPool,
-  getCurrentMapPool,
   getMapPoolById,
   getMapPoolHistory,
   removeMapPool,
@@ -41,6 +41,8 @@ function getValidatedMatchmakingType(ctx: RouterContext) {
 @httpApi('/matchmaking-map-pools')
 @httpBeforeAll(ensureLoggedIn)
 export class MatchmakingMapPoolsApi {
+  constructor(private currentMapPoolCache: CurrentMapPoolCache) {}
+
   @httpGet('/:matchmakingType')
   @httpBefore(checkAllPermissions('manageMapPools'))
   async getHistory(ctx: RouterContext): Promise<GetMatchmakingMapPoolsHistoryResponse> {
@@ -74,18 +76,12 @@ export class MatchmakingMapPoolsApi {
   async getCurrent(ctx: RouterContext): Promise<GetMatchmakingMapPoolResponse> {
     const matchmakingType = getValidatedMatchmakingType(ctx)
 
-    const pool = await getCurrentMapPool(matchmakingType)
-    if (!pool) {
+    const response = await this.currentMapPoolCache.get(matchmakingType)
+    if (!response) {
       throw new httpErrors.NotFound('no matchmaking map pool for this type')
     }
 
-    const mapInfosResult = await getMapInfos(pool.maps)
-    const mapInfos = await reparseMapsAsNeeded(mapInfosResult)
-
-    return {
-      pool: toMatchmakingMapPoolJson(pool),
-      mapInfos: mapInfos.map(m => toMapInfoJson(m)),
-    }
+    return response
   }
 
   @httpPost('/:matchmakingType')
@@ -112,6 +108,7 @@ export class MatchmakingMapPoolsApi {
       maxVetoCount,
       startDate: new Date(startDate),
     })
+    this.currentMapPoolCache.invalidate(matchmakingType)
     const mapInfosResult = await getMapInfos(mapPool.maps)
     const mapInfos = await reparseMapsAsNeeded(mapInfosResult)
 
@@ -140,6 +137,7 @@ export class MatchmakingMapPoolsApi {
     }
 
     await removeMapPool(mapPoolId)
+    this.currentMapPoolCache.invalidate(mapPool.matchmakingType)
     ctx.status = 204
   }
 }
