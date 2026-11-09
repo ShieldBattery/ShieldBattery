@@ -58,13 +58,14 @@ impl ReplayVisionChoice {
         self.show_entire_map = Some(show);
     }
 
-    /// The selected player visions, accounting for visions SC:R took away as players left.
-    pub(super) fn selected_players(&mut self, engine_players: u8, entire_map: bool) -> u8 {
-        match (entire_map, &mut self.entire_map_players) {
-            (true, Some(selected)) => {
-                *selected &= engine_players;
-                *selected
-            }
+    /// The selected player visions, less any SC:R took away from its globals as players left.
+    ///
+    /// A leave only shows in the globals until the entire map is shown again, so whenever this
+    /// drops a player the caller has to save the result through [`Self::apply_players`] on the
+    /// same frame.
+    pub(super) fn selected_players(&self, engine_players: u8, entire_map: bool) -> u8 {
+        match (entire_map, self.entire_map_players) {
+            (true, Some(selected)) => selected & engine_players,
             _ => engine_players,
         }
     }
