@@ -130,7 +130,7 @@ impl ReplayCommands {
         match action {
             Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
             Action::SpeedUp | Action::SpeedDown => {
-                if let Some(step) = view.stepped(action == Action::SpeedUp) {
+                if let Some(step) = view.next_step(action == Action::SpeedUp) {
                     self.request_speed(Some(step), None, intents);
                 }
             }
@@ -350,35 +350,35 @@ mod tests {
     }
 
     #[test]
-    fn a_speed_key_past_the_end_of_the_ladder_steps_back_onto_it_or_not_at_all() {
+    fn a_speed_key_below_the_ladder_steps_up_onto_it_or_not_at_all() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
-        let top = playback_controls::SPEED_LADDER[playback_controls::SPEED_LADDER.len() - 1];
-        // Twice the top: off the ladder, where the game's own plate could leave playback.
-        let past_the_top = PlaybackView {
-            speed_index: top.speed_index,
-            multiplier: top.multiplier * 2,
+        let bottom = playback_controls::SPEED_LADDER[0];
+        // The bottom rung's delay doubled: off the ladder, at half the bottom rung's pace.
+        let below_the_bottom = PlaybackView {
+            speed_index: bottom.speed_index,
+            multiplier: bottom.multiplier * 2,
             ..replay()
         };
         let mut press = |key| {
-            run_frame(&mut shell, &ctx, Some(&past_the_top));
+            run_frame(&mut shell, &ctx, Some(&below_the_bottom));
             assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
             let time = ctx.input(|input| input.time) + 1.0;
-            run_frame_at(&mut shell, &ctx, Some(&past_the_top), time)
+            run_frame_at(&mut shell, &ctx, Some(&below_the_bottom), time)
         };
-        let up = press(Key::U);
-        assert_eq!(up.intents, []);
-        assert!(!up.button_click);
         let down = press(Key::D);
+        assert_eq!(down.intents, []);
+        assert!(!down.button_click);
+        let up = press(Key::U);
         assert_eq!(
-            down.intents,
+            up.intents,
             [Intent::SetSpeed {
-                speed_index: top.speed_index,
-                multiplier: top.multiplier,
+                speed_index: bottom.speed_index,
+                multiplier: bottom.multiplier,
                 paused: false,
             }]
         );
-        assert!(down.button_click);
+        assert!(up.button_click);
     }
 
     #[test]

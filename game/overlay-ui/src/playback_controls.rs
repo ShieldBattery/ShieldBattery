@@ -275,12 +275,7 @@ pub fn current_step(speed_index: u32, multiplier: u32) -> usize {
     if let Some(index) = exact {
         return index;
     }
-    let rate = SpeedStep {
-        speed_index,
-        multiplier,
-        label: "",
-    }
-    .rate();
+    let rate = pair_rate(speed_index, multiplier);
     let mut nearest = 0;
     let mut best = f32::INFINITY;
     for (index, step) in SPEED_LADDER.iter().enumerate() {
@@ -293,6 +288,16 @@ pub fn current_step(speed_index: u32, multiplier: u32) -> usize {
         }
     }
     nearest
+}
+
+/// How fast playback runs at a speed pair, rung or not (see [`SpeedStep::rate`]).
+fn pair_rate(speed_index: u32, multiplier: u32) -> f32 {
+    SpeedStep {
+        speed_index,
+        multiplier,
+        label: "",
+    }
+    .rate()
 }
 
 /// Milliseconds one frame of a replay recorded at `game_speed` took.
@@ -394,17 +399,16 @@ impl PlaybackView {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
     }
 
-    /// The nearest rung `faster` (or slower) than playback runs, by rate, or `None` where the ladder
-    /// has none: at either end, or past it where the game's own plate left playback off the ladder,
-    /// so there is nothing to ask the game for and nothing to be heard. From a pair between rungs
-    /// the step lands on the next rung in its direction, never back on the one it is nearest.
-    pub fn stepped(&self, faster: bool) -> Option<SpeedStep> {
-        let rate = SpeedStep {
-            speed_index: self.speed_index,
-            multiplier: self.multiplier,
-            label: "",
-        }
-        .rate();
+    /// The rung a step along the ladder moves playback to: the nearest one that runs `faster` (or
+    /// slower) than playback does, or `None` where the ladder has none, so there is nothing to ask
+    /// the game for and nothing to be heard. That is at either end of the ladder, and at a pair off
+    /// it that runs slower than every rung.
+    ///
+    /// Counted from the rate playback runs at rather than from the rung it reads as (see
+    /// [`Self::step`]), so from a pair between rungs a step can land on the rung the plate already
+    /// shows. That is still a change of speed, in the direction asked for.
+    pub fn next_step(&self, faster: bool) -> Option<SpeedStep> {
+        let rate = pair_rate(self.speed_index, self.multiplier);
         if faster {
             SPEED_LADDER.into_iter().find(|step| step.rate() > rate)
         } else {
@@ -654,7 +658,7 @@ fn draw_speed_stepper(
     // Arrows rather than words: they read the same in every language, and a stepper whose ends
     // carried a translated verb would be a paragraph wide in some of them. The verb is on the hover
     // card, which has the room.
-    let slower_step = view.stepped(false);
+    let slower_step = view.next_step(false);
     let slower = stepper_button(ui, SpeedArrow::Slower, slower_step.is_some());
     hint.action(
         &slower,
@@ -677,7 +681,7 @@ fn draw_speed_stepper(
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    let faster_step = view.stepped(true);
+    let faster_step = view.next_step(true);
     let faster = stepper_button(ui, SpeedArrow::Faster, faster_step.is_some());
     hint.action(
         &faster,
@@ -1056,9 +1060,9 @@ const ARROW_SIZE: f32 = 20.0;
 /// playback: up the ladder for faster, down it for slower. Stroked rather than typed, so no font has
 /// to carry the glyph, and the strokes are tessellated at whatever scale the screen is drawn at.
 ///
-/// An end with no rung past it, which is where playback is at either end of the ladder or beyond it,
-/// is drawn at the disabled opacity and takes no click, so pressing it neither asks for a change nor
-/// makes the click sound. It still senses the pointer resting on it, which its hover card needs.
+/// An end with no rung to step to (see [`PlaybackView::next_step`]) is drawn at the disabled opacity
+/// and takes no click, so pressing it neither asks for a change nor makes the click sound. It still
+/// senses the pointer resting on it, which its hover card needs.
 fn stepper_button(ui: &mut Ui, arrow: SpeedArrow, steps: bool) -> Response {
     ui.scope(|ui| {
         let sense = if steps {
@@ -1071,7 +1075,9 @@ fn stepper_button(ui: &mut Ui, arrow: SpeedArrow, steps: bool) -> Response {
             return response;
         }
         if !steps {
-            ui.set_opacity(theme::DISABLED_OPACITY);
+            // Multiplied into the opacity the plate is drawn at rather than set over it, so the
+            // end fades in and out with the rest of the plate.
+            ui.multiply_opacity(theme::DISABLED_OPACITY);
         }
         let corner_radius = theme::radius(theme::RADIUS_CHIP);
         ui.painter().add(Shape::rect_stroke(
@@ -1288,32 +1294,55 @@ mod tests {
     fn a_step_past_either_end_of_the_ladder_is_no_step_at_all() {
         let (slowest, fastest) = (SPEED_LADDER[0], SPEED_LADDER[SPEED_LADDER.len() - 1]);
         let at_slowest = playing_at(slowest.speed_index, slowest.multiplier);
-        assert_eq!(at_slowest.stepped(false), None);
-        assert_eq!(at_slowest.stepped(true), Some(SPEED_LADDER[1]));
+        assert_eq!(at_slowest.next_step(false), None);
+        assert_eq!(at_slowest.next_step(true), Some(SPEED_LADDER[1]));
         let at_fastest = playing_at(fastest.speed_index, fastest.multiplier);
-        assert_eq!(at_fastest.stepped(true), None);
+        assert_eq!(at_fastest.next_step(true), None);
         assert_eq!(
-            at_fastest.stepped(false),
+            at_fastest.next_step(false),
             Some(SPEED_LADDER[SPEED_LADDER.len() - 2])
         );
-        // Past either end, where the game's own plate could have left playback, a step outward is
-        // no step either, and a step back in lands on that end.
-        let past_the_top = playing_at(6, 32);
-        assert_eq!(past_the_top.stepped(true), None);
-        assert_eq!(past_the_top.stepped(false), Some(fastest));
-        let past_the_bottom = playing_at(0, 2);
-        assert_eq!(past_the_bottom.stepped(false), None);
-        assert_eq!(past_the_bottom.stepped(true), Some(slowest));
+        // The slowest classic speed with its delay doubled runs at half the bottom rung's pace: a
+        // step down from there is no step either, and a step up lands on the bottom rung.
+        let below_the_bottom = playing_at(0, 2);
+        assert_eq!(below_the_bottom.next_step(false), None);
+        assert_eq!(below_the_bottom.next_step(true), Some(slowest));
     }
 
     #[test]
     fn a_step_from_a_pair_between_rungs_lands_on_the_next_rung_in_its_direction() {
-        // Fastest tripled is not a rung the plate offers, but the game's own plate could have left
-        // playback there: it reads as the nearer x4, yet x4 is the step up and x2 the step down.
-        let tripled = playing_at(6, 3);
-        assert_eq!(tripled.step().label, "4");
-        assert_eq!(tripled.stepped(true).map(|step| step.label), Some("4"));
-        assert_eq!(tripled.stepped(false).map(|step| step.label), Some("2"));
+        // The classic normal speed is not a rung the plate offers. It runs between x.5 and x1 and
+        // reads as the nearer x.5, so x1 is the step up from it and x.5 itself the step down.
+        let classic_normal = playing_at(3, 1);
+        assert_eq!(classic_normal.step().label, ".5");
+        let label = |step: Option<SpeedStep>| step.map(|step| step.label);
+        assert_eq!(label(classic_normal.next_step(true)), Some("1"));
+        assert_eq!(label(classic_normal.next_step(false)), Some(".5"));
+    }
+
+    #[test]
+    fn a_stepper_end_with_no_rung_to_step_to_fades_with_the_plate() {
+        // The alpha the end's outline is painted with on a plate drawn at `plate_opacity`.
+        let outline_alpha = |plate_opacity: f32| {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
+                ..Default::default()
+            };
+            let mut output = Context::default().run_ui(raw, |ui| {
+                ui.set_opacity(plate_opacity);
+                stepper_button(ui, SpeedArrow::Faster, false);
+            });
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .find_map(|clipped| match &clipped.shape {
+                    Shape::Rect(rect) => Some(rect.stroke.color.a()),
+                    _ => None,
+                })
+                .expect("the end paints an outline")
+        };
+        assert!(outline_alpha(0.1) < outline_alpha(1.0));
     }
 
     /// Clicks the middle of a stepper end drawn at the top left corner, one that `steps` or not,
@@ -1353,7 +1382,8 @@ mod tests {
     }
 
     #[test]
-    fn a_stepper_end_with_no_rung_past_it_takes_no_click_and_makes_no_sound_but_keeps_its_card() {
+    fn a_stepper_end_with_no_rung_to_step_to_takes_no_click_and_makes_no_sound_but_keeps_its_card()
+    {
         // The same click on an end that steps is taken and heard, so the one below is not a miss.
         assert_eq!(click_stepper(true), (true, true, true));
         assert_eq!(click_stepper(false), (false, false, true));
