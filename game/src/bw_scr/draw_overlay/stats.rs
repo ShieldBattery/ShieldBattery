@@ -855,13 +855,13 @@ fn whole_hit_points(fixed: i32) -> u32 {
     (fixed.max(0) as u32).saturating_add(0xff) >> 8
 }
 
-/// Whole points out of one of the game's 8.8 fixed-point health values.
+/// Whole points of shields or energy out of the game's 8.8 fixed-point value.
 ///
-/// Rounded up the way the game's own readouts round: anything left of a point is still a point, so
-/// a unit that is alive never reads as zero, and a negative value (which the game allows a dying
-/// unit to reach) reads as none rather than wrapping.
+/// Rounded down, as the game counts them: shields under one whole point absorb no damage, and a
+/// spell is refused until the caster has its whole cost, so a fraction of a point reads as none. A
+/// negative value reads as none rather than wrapping.
 fn whole_points(fixed: i32) -> u32 {
-    (fixed.max(0) as u32).saturating_add(0xff) >> 8
+    (fixed.max(0) as u32) >> 8
 }
 
 /// Builds the timeline's view, newest first, with its events' subjects indexed for their icons,
