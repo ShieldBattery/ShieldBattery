@@ -57,9 +57,16 @@ export async function refreshMapStats(
     const full = forceFull || !existingResult.rows[0].exists
 
     await refreshSnapshot(client, asOf)
-    await refreshFamilyStats(client, asOf)
     await refreshDaily(client, asOf, full)
     await refreshMatchups(client, asOf, full)
+
+    // Everything from here on reads or writes families, so it runs under the families lock. The
+    // lock must be held before the first write that references a family: a writer that deletes a
+    // family while holding the lock would otherwise wait on this transaction's rows while this
+    // transaction waits on the lock. It's taken only now, after the per-file tables that no holder
+    // of the lock writes, so map uploads and staff edits aren't blocked for the whole refresh.
+    await client.query(sql`SELECT lock_map_families()`)
+    await refreshFamilyStats(client, asOf)
     await client.query(sql`SELECT refresh_map_families(ARRAY(SELECT id FROM map_families))`)
 
     return { full }
