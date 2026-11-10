@@ -736,7 +736,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
     let owner = players
         .iter()
         .find(|player| player.player_id == unit.player());
-    let hit_points = whole_points(unit.hitpoints());
+    let hit_points = whole_hit_points(unit.hitpoints());
     // Already the game's "never zero" maximum: the unit's own hit points stand in for a dat entry
     // of zero, and one point stands in for both being zero.
     let max_hit_points = unit.max_hp_displayed().max(0) as u32;
@@ -844,6 +844,15 @@ fn max_energy(bw: &BwVars, unit: Unit) -> u32 {
     } else {
         UNUPGRADED_MAX_ENERGY
     }
+}
+
+/// Whole hit points out of the game's 8.8 fixed-point value.
+///
+/// Rounded up, as the game's own readouts round them: any fraction of a point left is a unit still
+/// alive, so a living unit never reads as zero, and a negative value (which the game allows a dying
+/// unit to reach) reads as none rather than wrapping.
+fn whole_hit_points(fixed: i32) -> u32 {
+    (fixed.max(0) as u32).saturating_add(0xff) >> 8
 }
 
 /// Whole points out of one of the game's 8.8 fixed-point health values.
@@ -1116,19 +1125,34 @@ mod tests {
     }
 
     #[test]
-    fn a_part_of_a_point_still_reads_as_a_whole_one() {
+    fn a_part_of_a_hit_point_still_reads_as_a_whole_one() {
+        assert_eq!(whole_hit_points(0), 0);
+        assert_eq!(whole_hit_points(1), 1);
+        assert_eq!(whole_hit_points(0x80), 1);
+        assert_eq!(whole_hit_points(0x100), 1);
+        assert_eq!(whole_hit_points(0x101), 2);
+        assert_eq!(whole_hit_points(40 * 256), 40);
+    }
+
+    #[test]
+    fn a_part_of_a_shield_or_energy_point_reads_as_none() {
         assert_eq!(whole_points(0), 0);
-        assert_eq!(whole_points(1), 1);
-        assert_eq!(whole_points(0x80), 1);
+        assert_eq!(whole_points(1), 0);
+        assert_eq!(whole_points(0x80), 0);
+        assert_eq!(whole_points(0xff), 0);
         assert_eq!(whole_points(0x100), 1);
-        assert_eq!(whole_points(0x101), 2);
-        assert_eq!(whole_points(40 * 256), 40);
+        assert_eq!(whole_points(0x1ff), 1);
+        assert_eq!(whole_points(0x200), 2);
+        // A Comsat Station half a point short of a scan.
+        assert_eq!(whole_points(50 * 256 - 0x80), 49);
+        assert_eq!(whole_points(50 * 256), 50);
+        assert_eq!(whole_points(-1), 0);
     }
 
     #[test]
     fn a_dying_units_negative_health_reads_as_none() {
-        assert_eq!(whole_points(-1), 0);
-        assert_eq!(whole_points(i32::MIN), 0);
+        assert_eq!(whole_hit_points(-1), 0);
+        assert_eq!(whole_hit_points(i32::MIN), 0);
     }
 
     #[test]
