@@ -182,6 +182,9 @@ app
   // trusted services on the private network/tailnet. See internal-routes.ts for the access
   // boundary.
   .use(internalRoutesMiddleware())
+  // Mounted ahead of everything a CORS preflight has no use for (compression, body parsing,
+  // session handling), since it answers those itself and the app sends a lot of them.
+  .use(cors())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved
@@ -195,7 +198,6 @@ app
   .use(koaBody())
   .use(jwtMiddleware)
   .use(jwtSessionMiddleware)
-  .use(cors())
   .use(secureHeaders())
   .use(userIpsMiddleware())
 

@@ -1,5 +1,6 @@
 import { IncomingMessage } from 'http'
 import koaPino from 'koa-pino-logger'
+import { isApprovedCorsPreflight } from '../security/cors'
 import { getLoggerOptions, getLoggerTransports } from './logger'
 
 /**
@@ -30,9 +31,19 @@ function isClientAssetRequest(req: IncomingMessage): boolean {
   return CLIENT_ASSET_PREFIXES.some(prefix => url.startsWith(prefix))
 }
 
+/**
+ * Returns whether a request is left out of the log. Besides client assets, that covers the CORS
+ * preflights we approve: the app sends one ahead of most API requests, each is immediately followed
+ * by the request it asked about, and metrics still count them by method. Preflights from origins
+ * we don't allow are rare and worth seeing, so those are still logged.
+ */
+function isUnloggedRequest(req: IncomingMessage): boolean {
+  return isClientAssetRequest(req) || isApprovedCorsPreflight(req)
+}
+
 export default function logMiddleware() {
   return koaPino(
-    { ...getLoggerOptions(), autoLogging: { ignore: isClientAssetRequest } },
+    { ...getLoggerOptions(), autoLogging: { ignore: isUnloggedRequest } },
     getLoggerTransports(),
   )
 }
