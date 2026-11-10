@@ -115,19 +115,38 @@ impl NameChecker {
     }
 
     pub async fn check_name(&self, name: &str) -> eyre::Result<Option<NameRestriction>> {
-        let restrictions = self.get_restrictions_cache().await?;
-        let name = name.to_lowercase();
+        self.check_names(&[name], None).await
+    }
 
-        if let Some(restriction) = restrictions.exact.get(&name) {
+    /// Checks many strings at once, returning a restriction that any of them hits. With `reason`,
+    /// only restrictions with that reason count, so a hit of another reason never hides one of
+    /// `reason` on a different string. Every regex restriction is tried against every string in a
+    /// single task on the rayon pool.
+    pub async fn check_names(
+        &self,
+        names: &[&str],
+        reason: Option<RestrictedNameReason>,
+    ) -> eyre::Result<Option<NameRestriction>> {
+        let restrictions = self.get_restrictions_cache().await?;
+        let names: Vec<String> = names.iter().map(|name| name.to_lowercase()).collect();
+        let counts = move |restriction: &NameRestriction| {
+            reason.is_none_or(|reason| restriction.reason == reason)
+        };
+
+        if let Some(restriction) = names
+            .iter()
+            .filter_map(|name| restrictions.exact.get(name))
+            .find(|restriction| counts(restriction))
+        {
             return Ok(Some(restriction.clone()));
         }
-        if restrictions.regex.is_empty() {
+        if restrictions.regex.is_empty() || names.is_empty() {
             return Ok(None);
         }
 
         spawn_rayon(move || {
             for (restriction, re) in &restrictions.regex {
-                if re.is_match(&name) {
+                if counts(restriction) && names.iter().any(|name| re.is_match(name)) {
                     return Ok(Some(restriction.clone()));
                 }
             }
@@ -321,6 +340,45 @@ impl NameChecker {
     }
 }
 
+#[cfg(test)]
+impl NameChecker {
+    /// A checker holding `restrictions` (id, pattern, kind, reason), without a database.
+    pub(crate) fn with_restrictions(
+        restrictions: &[(i32, &str, RestrictedNameKind, RestrictedNameReason)],
+    ) -> Self {
+        let mut exact = HashMap::new();
+        let mut regex = Vec::new();
+        for &(id, pattern, kind, reason) in restrictions {
+            let restriction = NameRestriction {
+                id,
+                pattern: pattern.to_lowercase(),
+                kind,
+                reason,
+                created_at: Utc::now(),
+                created_by: SbUserId::from(1),
+            };
+            match kind {
+                RestrictedNameKind::Exact => {
+                    exact.insert(restriction.pattern.clone(), restriction);
+                }
+                RestrictedNameKind::Regex => {
+                    let re = create_case_insensitive_regex(pattern).unwrap();
+                    regex.push((restriction, re));
+                }
+            }
+        }
+        Self {
+            db_pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@localhost/unused")
+                .unwrap(),
+            restrictions: Arc::new(RwLock::new(Some(Arc::new(RestrictionsCache {
+                exact,
+                regex,
+            })))),
+        }
+    }
+}
+
 /// The minimum length (in characters) of a user's display name.
 pub const DISPLAY_NAME_MIN_LENGTH: usize = 1;
 /// The maximum length (in characters) of a user's display name.
@@ -408,6 +466,61 @@ mod tests {
 
         assert_eq!(matched.id, 7);
         assert_eq!(matched.reason, RestrictedNameReason::Reserved);
+    }
+
+    #[tokio::test]
+    async fn check_names_matches_any_of_the_strings() {
+        use RestrictedNameKind::*;
+        use RestrictedNameReason::*;
+        let checker = NameChecker::with_restrictions(&[
+            (1, "badword", Exact, Profanity),
+            (2, "^evil.*", Regex, Profanity),
+        ]);
+
+        let exact = checker
+            .check_names(&["fine", "BadWord"], None)
+            .await
+            .unwrap();
+        assert_eq!(exact.map(|r| r.id), Some(1));
+        let regex = checker
+            .check_names(&["fine", "EvilMap"], None)
+            .await
+            .unwrap();
+        assert_eq!(regex.map(|r| r.id), Some(2));
+        assert!(
+            checker
+                .check_names(&["fine", "notevil"], None)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(checker.check_names(&[], None).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn check_names_with_a_reason_skips_other_reasons() {
+        use RestrictedNameKind::*;
+        use RestrictedNameReason::*;
+        let checker = NameChecker::with_restrictions(&[
+            (1, "staffname", Exact, Reserved),
+            (2, "badword", Exact, Profanity),
+            (3, "^company.*", Regex, Reserved),
+            (4, "^evil.*", Regex, Profanity),
+        ]);
+
+        let check = async |names: &[&str]| {
+            checker
+                .check_names(names, Some(Profanity))
+                .await
+                .unwrap()
+                .map(|r| r.id)
+        };
+        assert_eq!(check(&["staffname", "companymap"]).await, None);
+        assert_eq!(check(&["staffname", "badword"]).await, Some(2));
+        assert_eq!(check(&["companymap", "evilmap"]).await, Some(4));
+        // Without a reason, the first hit of any reason counts, as for usernames.
+        let any = checker.check_names(&["staffname"], None).await.unwrap();
+        assert_eq!(any.map(|r| r.id), Some(1));
     }
 
     #[test]

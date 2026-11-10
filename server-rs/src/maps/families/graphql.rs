@@ -20,7 +20,8 @@ use crate::maps::catalog::{
     load_user, require_current_user, resolve_existing_map_id,
 };
 use crate::maps::families::edit::{
-    self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus, ReportRequest,
+    self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus, MoveBy,
+    ReportRequest,
 };
 use crate::maps::families::history::{self, MapFamilyHistory};
 use crate::maps::families::{resolve_family_id, resolve_map_page_id};
@@ -400,8 +401,8 @@ impl MapSimilarFile {
 
 /// The outcome of moving a file between maps.
 pub struct MapFamilyFileMove {
-    file_id: SbMapId,
-    moved: FileMove,
+    pub(crate) file_id: SbMapId,
+    pub(crate) moved: FileMove,
 }
 
 #[Object]
@@ -441,6 +442,7 @@ pub struct MapFamilyReport {
     pub status: String,
     pub resolved_by: Option<SbUserId>,
     pub resolved_at: Option<DateTime<Utc>>,
+    pub from_publish: bool,
 }
 
 /// Loads a family by an id that may since have been merged into another family.
@@ -452,7 +454,8 @@ async fn load_family_through_aliases(ctx: &Context<'_>, id: Uuid) -> Result<Opti
     }
 }
 
-/// A user's report that a file isn't part of its map, or that a map is the same as another one.
+/// A user's report that a file isn't part of its map, or that a map is the same as another one; or
+/// a file held for staff when it was published.
 #[Object]
 impl MapFamilyReport {
     async fn id(&self) -> Uuid {
@@ -469,7 +472,8 @@ impl MapFamilyReport {
         load_family_through_aliases(ctx, self.family_id).await
     }
 
-    /// The file said not to be part of `family`. Only for `WRONG_MAP`.
+    /// The file said not to be part of `family`, or the file held for review. Only for `WRONG_MAP`
+    /// and `PUBLISH_REVIEW`.
     async fn map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
         match self.map_id {
             Some(id) => load_sb_map(ctx, id).await.map(Some),
@@ -488,6 +492,12 @@ impl MapFamilyReport {
 
     async fn note(&self) -> Option<&str> {
         self.note.as_deref()
+    }
+
+    /// Whether the report was filed on the reporter's behalf when they published a file and
+    /// weren't sure it's a version of `otherFamily`. Only for `SAME_MAP`.
+    async fn from_publish(&self) -> bool {
+        self.from_publish
     }
 
     async fn reported_at(&self) -> DateTime<Utc> {
@@ -515,13 +525,16 @@ impl MapFamilyReport {
     }
 }
 
-async fn load_report(db: &PgPool, id: Uuid) -> color_eyre::Result<Option<MapFamilyReport>> {
+pub(crate) async fn load_report(
+    db: &PgPool,
+    id: Uuid,
+) -> color_eyre::Result<Option<MapFamilyReport>> {
     sqlx::query_as!(
         MapFamilyReport,
         r#"
             SELECT id, kind, family_id, map_id as "map_id: SbMapId", other_family_id, note,
                 reported_by as "reported_by: SbUserId", reported_at, status,
-                resolved_by as "resolved_by: SbUserId", resolved_at
+                resolved_by as "resolved_by: SbUserId", resolved_at, from_publish
             FROM map_family_reports
             WHERE id = $1
         "#,
@@ -532,7 +545,7 @@ async fn load_report(db: &PgPool, id: Uuid) -> color_eyre::Result<Option<MapFami
     .wrap_err("Failed to load family report")
 }
 
-fn edit_error(error: FamilyEditError) -> async_graphql::Error {
+pub(crate) fn edit_error(error: FamilyEditError) -> async_graphql::Error {
     let code = match &error {
         FamilyEditError::MapNotFound
         | FamilyEditError::FamilyNotFound
@@ -545,7 +558,7 @@ fn edit_error(error: FamilyEditError) -> async_graphql::Error {
     graphql_error(code, error.to_string())
 }
 
-async fn resolve_existing_family_id(db: &PgPool, id: Uuid) -> Result<Uuid> {
+pub(crate) async fn resolve_existing_family_id(db: &PgPool, id: Uuid) -> Result<Uuid> {
     resolve_family_id(db, id)
         .await?
         .ok_or_else(|| graphql_error("NOT_FOUND", "Map not found"))
@@ -611,7 +624,7 @@ impl MapFamiliesQuery {
             r#"
                 SELECT id, kind, family_id, map_id as "map_id: SbMapId", other_family_id, note,
                     reported_by as "reported_by: SbUserId", reported_at, status,
-                    resolved_by as "resolved_by: SbUserId", resolved_at
+                    resolved_by as "resolved_by: SbUserId", resolved_at, from_publish
                 FROM map_family_reports
                 WHERE status = $1
                 ORDER BY reported_at, id
@@ -656,9 +669,10 @@ impl MapFamiliesQuery {
         Ok(i32::try_from(count).unwrap_or(i32::MAX))
     }
 
-    /// Changes staff made to families and family reports, newest first. Filtered to changes about
-    /// any of `familyIds` (including maps since merged into them) or `mapIds` when either is given,
-    /// and to changes `actorId` made. Only available to users who can manage maps.
+    /// Changes made to families, family reports and file listings, newest first. Filtered to
+    /// changes about any of `familyIds` (including maps since merged into them) or `mapIds` when
+    /// either is given, and to changes `actorId` made. Only available to users who can manage
+    /// maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_history(
         &self,
@@ -715,7 +729,7 @@ impl MapFamiliesMutation {
         let file_id = resolve_existing_map_id(db, file_id).await?;
         let family_id = resolve_existing_family_id(db, family_id).await?;
         let mut tx = db.begin().await?;
-        let moved = edit::move_file(&mut tx, file_id, family_id, user.id)
+        let moved = edit::move_file(&mut tx, file_id, family_id, user.id, MoveBy::Staff)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
@@ -734,7 +748,7 @@ impl MapFamiliesMutation {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let file_id = resolve_existing_map_id(db, file_id).await?;
         let mut tx = db.begin().await?;
-        let moved = edit::split_file(&mut tx, file_id, user.id)
+        let moved = edit::split_file(&mut tx, file_id, user.id, MoveBy::Staff)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
@@ -830,7 +844,14 @@ impl MapFamiliesMutation {
                 ReportRequest::SameMap {
                     family_id: resolve_existing_family_id(db, family_id).await?,
                     other_family_id: resolve_existing_family_id(db, other_family_id).await?,
+                    from_publish: false,
                 }
+            }
+            MapFamilyReportKind::PublishReview => {
+                return Err(graphql_error(
+                    "BAD_REQUEST",
+                    "files are only held for review by publishing them",
+                ));
             }
         };
         let mut tx = db.begin().await?;
@@ -883,7 +904,8 @@ impl MapFamiliesMutation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum PublishedMapFamilyReportMessage {
-    /// A report was filed, or an open report was updated by its reporter.
+    /// A report was filed, or an open report was updated by its reporter. Also sent for reports
+    /// the server files when a file is published.
     #[serde(rename_all = "camelCase")]
     ReportCreated { report_id: Uuid },
     /// Staff resolved, dismissed or reopened a report.
@@ -893,7 +915,10 @@ pub enum PublishedMapFamilyReportMessage {
 
 /// Publishes a family report message. Best-effort: a failed publish only leaves staff's open-report
 /// count stale until its next refresh, so it doesn't fail the request.
-async fn publish_report_message(ctx: &Context<'_>, message: PublishedMapFamilyReportMessage) {
+pub(crate) async fn publish_report_message(
+    ctx: &Context<'_>,
+    message: PublishedMapFamilyReportMessage,
+) {
     let Some(redis) = ctx.data_opt::<RedisPool>() else {
         tracing::warn!("no RedisPool available to publish a family report message");
         return;

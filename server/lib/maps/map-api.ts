@@ -27,7 +27,6 @@ import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
   addMapToFavorites,
-  delistMap,
   getFavoritedFromMapIds,
   getLibraryFromMapIds,
   getMapInfos,
@@ -262,33 +261,7 @@ export class MapsApi {
       return
     }
 
-    // TODO(2Pac): Remove once app versions from before `/delist` existed have aged out. Those
-    // remove listed maps through this endpoint.
-    if (ctx.session!.permissions!.manageMaps) {
-      const map = (await getMapInfos([mapId]))[0]
-      if (map && map.visibility !== MapVisibility.Unlisted) {
-        await delistMap(mapId, ctx.session!.user.id)
-        ctx.status = 204
-        return
-      }
-    }
-
     throw new httpErrors.NotFound('Map not found in your maps')
-  }
-
-  /** Removes a map from the listings, leaving it reachable by ID. */
-  @httpPost('/:mapId/delist')
-  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'))
-  async delist(ctx: RouterContext): Promise<void> {
-    const mapId = await getValidatedMapId(ctx)
-
-    const map = (await getMapInfos([mapId]))[0]
-    if (!map) {
-      throw new httpErrors.NotFound('Map not found')
-    }
-
-    await delistMap(mapId, ctx.session!.user.id)
-    ctx.status = 204
   }
 
   @httpPost('/:mapId/favorite')

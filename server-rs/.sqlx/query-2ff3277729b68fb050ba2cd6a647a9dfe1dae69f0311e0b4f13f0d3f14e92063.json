@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT kind, status, map_id as \"map_id: SbMapId\",\n                reported_by as \"reported_by: SbUserId\"\n            FROM map_family_reports\n            WHERE id = $1\n            FOR UPDATE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "reported_by: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "reported_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "2ff3277729b68fb050ba2cd6a647a9dfe1dae69f0311e0b4f13f0d3f14e92063"
+}

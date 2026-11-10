@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_reports (kind, family_id, map_id, other_family_id, note,\n                reported_by, from_publish)\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n            ON CONFLICT (reported_by, kind, family_id, COALESCE(map_id, other_family_id))\n                WHERE status = 'open'\n            DO UPDATE SET note = COALESCE(EXCLUDED.note, map_family_reports.note),\n                from_publish = map_family_reports.from_publish OR EXCLUDED.from_publish,\n                reported_at = now()\n            RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a76c1ff4151a63840d8bd3d71c5f01d5f842689df17bb3cc715961c56163e3c2"
+}

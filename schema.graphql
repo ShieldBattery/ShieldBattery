@@ -674,6 +674,20 @@ type MapComparison {
 }
 
 """
+Who took a map file out of the listings, or blocked it from being listed.
+"""
+enum MapDelistedKind {
+	"""
+	The file's publisher unpublished it. Anyone may publish it again.
+	"""
+	PUBLISHER
+	"""
+	Staff delisted it, whether or not it was listed. Only staff can list it again.
+	"""
+	STAFF
+}
+
+"""
 A map as players know it ("Fighting Spirit"), made of one or more map files. Every file is in
 exactly one family. Any family can be viewed by anyone who has its id.
 """
@@ -776,7 +790,7 @@ type MapFamilyFileMove {
 }
 
 """
-A change staff made to families or family reports.
+A change made to families, family reports or file listings.
 """
 type MapFamilyHistory {
 	id: String!
@@ -794,8 +808,8 @@ type MapFamilyHistory {
 	"""
 	otherFamilyId: UUID
 	"""
-	The file that moved, was split out or was made the default, or the file of a `WRONG_MAP`
-	report.
+	The file that moved, was split out, was made the default or was listed or delisted, or the
+	file of a `WRONG_MAP` or `PUBLISH_REVIEW` report.
 	"""
 	map: SbMap
 	"""
@@ -810,6 +824,10 @@ type MapFamilyHistory {
 	reportId: UUID
 	reportStatusBefore: MapFamilyReportStatus
 	reportStatusAfter: MapFamilyReportStatus
+	"""
+	The note staff left when delisting the file. Only for `DELIST`.
+	"""
+	note: String
 	createdAt: DateTime!
 }
 
@@ -841,6 +859,30 @@ enum MapFamilyHistoryKind {
 	A family report was resolved, dismissed or reopened.
 	"""
 	REPORT_STATUS
+	"""
+	A file was listed.
+	"""
+	PUBLISH
+	"""
+	A file's publisher took it out of the listings.
+	"""
+	UNPUBLISH
+	"""
+	Staff took a file out of the listings.
+	"""
+	DELIST
+	"""
+	Staff listed a delisted file again.
+	"""
+	RELIST
+	"""
+	A file's publisher moved it into a suggested map, while publishing it or later.
+	"""
+	LINK
+	"""
+	A file's publisher moved it out of a map into a new map of its own.
+	"""
+	UNLINK
 }
 
 """
@@ -859,7 +901,8 @@ type MapFamilyLookup {
 }
 
 """
-A user's report that a file isn't part of its map, or that a map is the same as another one.
+A user's report that a file isn't part of its map, or that a map is the same as another one; or
+a file held for staff when it was published.
 """
 type MapFamilyReport {
 	id: UUID!
@@ -870,7 +913,8 @@ type MapFamilyReport {
 	"""
 	family: MapFamily
 	"""
-	The file said not to be part of `family`. Only for `WRONG_MAP`.
+	The file said not to be part of `family`, or the file held for review. Only for `WRONG_MAP`
+	and `PUBLISH_REVIEW`.
 	"""
 	map: SbMap
 	"""
@@ -879,6 +923,11 @@ type MapFamilyReport {
 	"""
 	otherFamily: MapFamily
 	note: String
+	"""
+	Whether the report was filed on the reporter's behalf when they published a file and
+	weren't sure it's a version of `otherFamily`. Only for `SAME_MAP`.
+	"""
+	fromPublish: Boolean!
 	reportedAt: DateTime!
 	status: MapFamilyReportStatus!
 	"""
@@ -924,6 +973,11 @@ enum MapFamilyReportKind {
 	A map is the same as another map.
 	"""
 	SAME_MAP
+	"""
+	A file's name or description hit the restricted names list when it was published, so it
+	waits for staff to list it or dismiss the report. Only filed by the server.
+	"""
+	PUBLISH_REVIEW
 }
 
 """
@@ -1180,18 +1234,153 @@ type MapModeration {
 	"""
 	publishedAt: DateTime
 	"""
-	When the map was taken out of the listings. Null while it is listed.
+	When the map was taken out of the listings, or (by staff) blocked from being listed while
+	it wasn't. Null while it is listed, and for a map nobody delisted.
 	"""
 	delistedAt: DateTime
+	"""
+	Who delisted the map. Set exactly when `delistedAt` is.
+	"""
+	delistedKind: MapDelistedKind
+	"""
+	Why staff delisted the map, if they said. Only set while it is delisted.
+	"""
+	delistedNote: String
 	id: String!
 	"""
 	The user who most recently listed the map. Kept after it is delisted.
 	"""
 	publishedBy: SbUser
 	"""
-	The user who took the map out of the listings, if known. Null while it is listed.
+	The user who delisted the map, if known. Null while it is listed.
 	"""
 	delistedBy: SbUser
+}
+
+input MapPublishAnswerInput {
+	kind: MapPublishAnswerKind!
+	"""
+	One of the suggested maps. Required for `JOIN` and `UNSURE`, ignored for `KEEP`.
+	"""
+	familyId: UUID
+}
+
+"""
+How the publisher answers "is this file a version of one of these maps?".
+"""
+enum MapPublishAnswerKind {
+	"""
+	List the file where it is: in a map of its own, or in its `existingMap`.
+	"""
+	KEEP
+	"""
+	The file is a version of `familyId`: list it in that map.
+	"""
+	JOIN
+	"""
+	The file might be a version of `familyId`: list it in a map of its own, and let staff
+	decide.
+	"""
+	UNSURE
+}
+
+"""
+Why a user can't publish a file.
+"""
+enum MapPublishBlockedReason {
+	"""
+	The file is already listed.
+	"""
+	ALREADY_LISTED
+	"""
+	The user is restricted from publishing maps.
+	"""
+	RESTRICTED
+	"""
+	The user hasn't verified their email address.
+	"""
+	EMAIL_UNVERIFIED
+	"""
+	The user published too many files recently.
+	"""
+	RATE_LIMITED
+	"""
+	The file isn't in the user's library.
+	"""
+	NOT_IN_LIBRARY
+	"""
+	The file's name is empty once color codes are stripped.
+	"""
+	EMPTY_NAME
+	"""
+	Staff took the file out of the listings, so only staff can list it again.
+	"""
+	STAFF_DELISTED
+}
+
+type MapPublishPreview {
+	id: String!
+	"""
+	Why the current user can't publish the file. Null when they can.
+	"""
+	blockedReason: MapPublishBlockedReason
+	"""
+	The map the file is already in along with other files, because it's the same as one of
+	them. Publishing lists the file in this map, and asks nothing.
+	"""
+	existingMap: MapFamily
+	"""
+	The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set.
+	"""
+	suggestions: [MapPublishSuggestion!]!
+	"""
+	Whether publishing will hold the file for staff to review instead of listing it, because
+	its name or description needs a look.
+	"""
+	needsReview: Boolean!
+}
+
+type MapPublishResult {
+	id: String!
+	file: SbMap!
+	"""
+	The map the file is in now.
+	"""
+	family: MapFamily!
+	"""
+	Whether the file was held for staff to review instead of listed.
+	"""
+	heldForReview: Boolean!
+}
+
+type MapPublishSuggestion {
+	id: String!
+	"""
+	The suggested map.
+	"""
+	family: MapFamily!
+	"""
+	The suggested map's listed file most similar to the file.
+	"""
+	file: SbMap!
+	"""
+	The share of the walkable terrain the two files have in common, from 0 to 1. Only maps
+	with a file similar enough to be a likely version are suggested.
+	"""
+	similarity: Float!
+	"""
+	Whether both files are melee maps, or both are UMS maps.
+	"""
+	sameKind: Boolean!
+	"""
+	How alike the two files' triggers are, from 0 to 1, when both are UMS maps.
+	"""
+	triggerSimilarity: Float
+	"""
+	Whether the files have the same number of mineral fields and geysers, and the same minerals
+	in total.
+	"""
+	sameResources: Boolean!
 }
 
 type MapSimilarFile {
@@ -1581,6 +1770,47 @@ type Mutation {
 	Sets a family report's status. Only available to users who can manage maps.
 	"""
 	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
+	"""
+	Publishes a file from the current user's library: lists it in the catalog, in the map
+	`answer` says. A file that's already listed is left as it is. A file whose name or
+	description needs a look is held for staff instead (`heldForReview`), who list it or not.
+	"""
+	mapPublish(fileId: SbMapId!, answer: MapPublishAnswerInput!): MapPublishResult!
+	"""
+	Lists the file of an open `PUBLISH_REVIEW` report, as published by the user who published
+	it, and resolves the report. Only available to users who can manage maps.
+	"""
+	mapPublishReviewApprove(reportId: UUID!): MapFamilyReport!
+	"""
+	Takes a file the current user published out of the listings. Anyone may publish it again.
+	Official files can't be unpublished.
+	"""
+	mapUnpublish(fileId: SbMapId!): SbMap!
+	"""
+	Blocks a file, with an optional note (at most 500 characters) saying why, so only staff can
+	list it from then on. Works on any file staff haven't delisted already: a listed file is
+	taken out of the listings, a file its publisher unpublished stays unlisted, and a file that
+	was never published stays unpublished. Only available to users who can manage maps.
+	"""
+	mapDelist(fileId: SbMapId!, note: String): SbMap!
+	"""
+	Undoes a delisting by staff or by the file's publisher. A file that was published is listed
+	again, as published by whoever published it last; a file that never was is left
+	unpublished, for anyone holding it to publish. Only available to users who can manage
+	maps.
+	"""
+	mapRelist(fileId: SbMapId!): SbMap!
+	"""
+	Moves a listed file the current user published, while it's the only file of its map, into
+	one of the maps suggested for it (see `mapLinkSuggestions`). Its old map is merged into
+	that map.
+	"""
+	mapFileLink(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
+	"""
+	Moves a file the current user published out of a map holding other files, into a new map
+	of its own.
+	"""
+	mapFileUnlink(fileId: SbMapId!): MapFamilyFileMove!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -1848,11 +2078,23 @@ type Query {
 	"""
 	mapFamilyReportCount(status: MapFamilyReportStatus! = OPEN): Int!
 	"""
-	Changes staff made to families and family reports, newest first. Filtered to changes about
-	any of `familyIds` (including maps since merged into them) or `mapIds` when either is given,
-	and to changes `actorId` made. Only available to users who can manage maps.
+	Changes made to families, family reports and file listings, newest first. Filtered to
+	changes about any of `familyIds` (including maps since merged into them) or `mapIds` when
+	either is given, and to changes `actorId` made. Only available to users who can manage
+	maps.
 	"""
 	mapFamilyHistory(familyIds: [UUID!], mapIds: [SbMapId!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
+	"""
+	What publishing a file would do for the current user: whether they can, the map it would be
+	listed in if it's the same as a file already there, the maps it may be a version of, and
+	whether it would be held for review. Changes nothing.
+	"""
+	mapPublishPreview(fileId: SbMapId!): MapPublishPreview!
+	"""
+	The maps a file may be a version of, the likeliest first, which its publisher can link it
+	to. Only available to the file's publisher and users who can manage maps.
+	"""
+	mapLinkSuggestions(fileId: SbMapId!): [MapPublishSuggestion!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or

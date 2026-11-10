@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE maps\n            SET published_by = $2, published_at = now(), delisted_by = NULL, delisted_at = NULL,\n                delisted_kind = NULL, delisted_note = NULL\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aa5f29b3429622780c801befce35d3c4b6e3f9bba8a7d3cb5d6d0a6b1de58982"
+}

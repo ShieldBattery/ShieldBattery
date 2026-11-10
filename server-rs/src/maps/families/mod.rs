@@ -3,13 +3,16 @@
 //! one current file, the one players get: staff's pick while it's eligible, otherwise derived by the
 //! database function `refresh_map_families`.
 //!
-//! Files only change families when staff move them (see [`edit`]), with one exception: an unlisted
-//! file alone in its family joins another family holding a file with the same scenario (see
+//! Files only change families when staff move them (see [`edit`]) or when a file's publisher links
+//! it to a suggested family or unlinks it (see [`publish`]), with one exception: an unlisted file
+//! alone in its family joins another family holding a file with the same scenario (see
 //! [`join_identical_files`]).
 
 pub mod edit;
 pub mod graphql;
 pub mod history;
+pub mod publish;
+pub mod publish_graphql;
 
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::{PgPool, Postgres, Transaction};
