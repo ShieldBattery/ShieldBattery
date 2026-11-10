@@ -175,6 +175,10 @@ unsafe extern "system" fn wnd_proc_scr(
                     msg_game_started(window);
                     return Some(0);
                 }
+                WM_COUNTDOWN_BEEP => {
+                    get_bw().play_sound(COUNTDOWN_BEEP);
+                    return Some(0);
+                }
                 WM_FIX_CLIP_CURSOR => {
                     // Fake a minimize event to the SC:R wndproc to put it in a state where it will
                     // properly ClipCursor
@@ -1061,6 +1065,9 @@ const WM_END_WND_PROC_WORKER: u32 = WM_FIRST_CUSTOM;
 const WM_BRING_WINDOW_FORWARD: u32 = WM_FIRST_CUSTOM + 1;
 const WM_GAME_STARTED: u32 = WM_FIRST_CUSTOM + 2;
 const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 3;
+const WM_COUNTDOWN_BEEP: u32 = WM_FIRST_CUSTOM + 4;
+
+const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
 
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
@@ -1161,6 +1168,18 @@ pub fn bring_window_forward() {
     if let Some(handle) = handle {
         unsafe {
             PostMessageW(handle, WM_BRING_WINDOW_FORWARD, 0, 0);
+        }
+    }
+}
+
+/// Plays one beep of the pre-game countdown. Callable from any thread: the sound is started by the
+/// main thread, the next time it handles window messages (see
+/// [`BwScr::play_sound`](crate::bw_scr::BwScr::play_sound) for why).
+pub fn play_countdown_beep() {
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
+    if let Some(handle) = handle {
+        unsafe {
+            PostMessageW(handle, WM_COUNTDOWN_BEEP, 0, 0);
         }
     }
 }
