@@ -49,12 +49,16 @@ use crate::kit::theme;
 
 /// Draws the rest of this `Ui` as disabled: inert, and at the design's disabled opacity.
 ///
-/// egui's own disabling fades to its style's alpha, so the opacity is set afterwards rather than
-/// multiplied on top of it, and one token decides how a disabled control looks everywhere.
+/// The disabled opacity is multiplied into whatever opacity the `Ui` is already drawn at, so a
+/// disabled control fades in and out with the surface it is on. egui's own disabling fades by its
+/// style's alpha as well, which is dropped rather than stacked on top: one token decides how a
+/// disabled control looks everywhere. A `Ui` that is already disabled is already dimmed, and is
+/// left as it is.
 pub fn set_disabled(ui: &mut Ui, disabled: bool) {
-    if disabled {
+    if disabled && ui.is_enabled() {
+        let opacity = ui.opacity();
         ui.disable();
-        ui.set_opacity(theme::DISABLED_OPACITY);
+        ui.set_opacity(opacity * theme::DISABLED_OPACITY);
     }
 }
 
@@ -144,5 +148,49 @@ pub(crate) fn active_halo(ui: &Ui, rect: Rect, corner_radius: CornerRadius, colo
             Stroke::new(theme::HAIRLINE, color.gamma_multiply(alpha)),
             StrokeKind::Outside,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{RawInput, pos2, vec2};
+
+    use super::*;
+
+    /// The color an opaque white fill comes out as on a `Ui` drawn at `surface_opacity` and then
+    /// disabled as many times as `disables`.
+    fn disabled_fill(surface_opacity: f32, disables: usize) -> Color32 {
+        let raw = RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(100.0, 100.0))),
+            ..Default::default()
+        };
+        let mut output = Context::default().run_ui(raw, |ui| {
+            ui.set_opacity(surface_opacity);
+            for _ in 0..disables {
+                set_disabled(ui, true);
+            }
+            let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(10.0, 10.0));
+            ui.painter().rect_filled(rect, 0.0, Color32::WHITE);
+        });
+        output.textures_delta.clear();
+        output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                Shape::Rect(rect) => Some(rect.fill),
+                _ => None,
+            })
+            .expect("the fill is painted")
+    }
+
+    #[test]
+    fn a_disabled_ui_is_dimmed_by_the_disabled_opacity_alone_whatever_its_surface_is_drawn_at() {
+        let dimmed = |opacity: f32| Color32::WHITE.gamma_multiply(opacity);
+        // Without egui's own disabled fade stacked on top.
+        assert_eq!(disabled_fill(1.0, 1), dimmed(theme::DISABLED_OPACITY));
+        // A surface halfway through fading in takes its disabled controls with it.
+        assert_eq!(disabled_fill(0.5, 1), dimmed(0.5 * theme::DISABLED_OPACITY));
+        // Disabling what is already disabled dims it no further.
+        assert_eq!(disabled_fill(1.0, 2), dimmed(theme::DISABLED_OPACITY));
     }
 }
