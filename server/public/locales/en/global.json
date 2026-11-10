@@ -2213,6 +2213,26 @@
       "mapName": "Map name",
       "mapNameRequired": "Enter a map name"
     },
+    "familySearch": {
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "noResults": "No maps found.",
+      "search": "Search maps, or paste a map link"
+    },
+    "files": {
+      "compareWithDefault": "Compare with default",
+      "default": "Default",
+      "games_one": "{{formattedCount}} game",
+      "games_other": "{{formattedCount}} games",
+      "host": "Host",
+      "notDefaultNotice": "Not the default. Players get <2>{{name}}</2>.",
+      "showAll_one": "Show all {{count}}",
+      "showAll_other": "Show all {{count}}",
+      "showFewer": "Show fewer",
+      "title": "Files",
+      "uploaded": "Uploaded {{date}}",
+      "useInLobby": "Use"
+    },
     "local": {
       "cantBeUsed": "Can't be used: {{reason}}",
       "checking": "Checking…",
@@ -2238,6 +2258,12 @@
       "uploadMapError": "An unknown error occurred while uploading the map. Please try again later.",
       "uploadMapInvalidFileError": "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a way we cannot read.",
       "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
+    },
+    "nudge": {
+      "notDefaultFile": "This isn't {{map}}'s default file.",
+      "notDefaultUseFile": "This isn't {{map}}'s default file. Use {{file}}?",
+      "switchError": "Couldn't load the default file",
+      "useDefault": "Use default"
     },
     "page": {
       "allGames": "All games on this map",
@@ -2314,6 +2340,22 @@
     },
     "preview": {
       "zoom": "Zoom"
+    },
+    "report": {
+      "error": "Something went wrong. Please try again later.",
+      "note": "Anything staff should know? (optional)",
+      "noteTooLong": "Keep it under {{max}} characters.",
+      "pickRequired": "Pick the map it’s the same as.",
+      "rateLimited": "You've sent too many reports recently. Please try again later.",
+      "restricted": "You are currently restricted from reporting.",
+      "sameMapAction": "This map is the same as…",
+      "sameMapIntro": "Tell staff that <1>{{mapName}}</1> is the same map as another one, so they can combine them. Nothing changes until staff check it.",
+      "sameMapTitle": "This map is the same as…",
+      "send": "Send to staff",
+      "sent": "Thanks! Staff will take a look.",
+      "wrongMapAction": "This file isn't part of this map",
+      "wrongMapIntro": "Tell staff that the file <1>{{fileName}}</1> doesn’t belong with the other files of <3>{{mapName}}</3>. Nothing changes until staff check it.",
+      "wrongMapTitle": "This file isn't part of this map"
     },
     "server": {
       "delisted": "Map delisted",

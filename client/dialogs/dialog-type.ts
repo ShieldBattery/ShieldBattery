@@ -49,6 +49,8 @@ export enum DialogType {
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   MapDownload = 'mapDownload',
+  MapFamilyAction = 'mapFamilyAction',
+  MapFamilyReport = 'mapFamilyReport',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
@@ -309,6 +311,32 @@ type MapDownloadDialogPayload = BaseDialogPayload<
     mapId: SbMapId
   }
 >
+/** A staff change to which files a map holds, or to which of them is its default. */
+export type MapFamilyActionKind = 'makeDefault' | 'clearDefault' | 'split' | 'move' | 'merge'
+
+type MapFamilyActionDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyAction,
+  {
+    action: MapFamilyActionKind
+    /** The map acted on. */
+    familyId: string
+    /** The file acted on. Unused for `merge`, which acts on every file of the map. */
+    fileId?: SbMapId
+    /** The file the map's page currently shows. */
+    selectedId: SbMapId
+  }
+>
+
+type MapFamilyReportDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyReport,
+  {
+    /** `wrongMap`: `fileId` isn't part of the map. `sameMap`: the map is the same as another. */
+    kind: 'wrongMap' | 'sameMap'
+    familyId: string
+    fileId: SbMapId
+  }
+>
+
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
@@ -481,6 +509,8 @@ export type DialogPayload =
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
   | MapDownloadDialogPayload
+  | MapFamilyActionDialogPayload
+  | MapFamilyReportDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchCanceledDialogPayload

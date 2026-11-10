@@ -15,7 +15,7 @@ import {
 import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { DialogType, MapFamilyActionKind } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
 import i18n from '../i18n/i18next'
@@ -309,6 +309,25 @@ export function getMapInfo(mapId: SbMapId, spec: RequestHandlingSpec<void>): Thu
 
 export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
+}
+
+/** Opens the dialog that confirms a staff change to a map's files, spelling out its effects. */
+export function openMapFamilyActionDialog(initData: {
+  action: MapFamilyActionKind
+  familyId: string
+  fileId?: SbMapId
+  selectedId: SbMapId
+}) {
+  return openDialog({ type: DialogType.MapFamilyAction, initData })
+}
+
+/** Opens the dialog for telling staff that a map's files are wrong. */
+export function openMapFamilyReportDialog(initData: {
+  kind: 'wrongMap' | 'sameMap'
+  familyId: string
+  fileId: SbMapId
+}) {
+  return openDialog({ type: DialogType.MapFamilyReport, initData })
 }
 
 export function openMapDownloadDialog(mapId: SbMapId) {

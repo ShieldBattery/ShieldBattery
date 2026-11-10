@@ -94,6 +94,12 @@ const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
 }))
+const MapFamilyActionDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-family-action-dialog')).MapFamilyActionDialog,
+}))
+const MapFamilyReportDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-family-report-dialog')).MapFamilyReportDialog,
+}))
 const MapPreviewDialog = React.lazy(async () => ({
   default: (await import('../maps/map-preview')).MapPreviewDialog,
 }))
@@ -266,6 +272,10 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
+    case DialogType.MapFamilyAction:
+      return { component: MapFamilyActionDialog }
+    case DialogType.MapFamilyReport:
+      return { component: MapFamilyReportDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
     case DialogType.Markdown:
