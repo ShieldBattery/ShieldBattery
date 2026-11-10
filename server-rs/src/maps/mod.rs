@@ -16,7 +16,7 @@ use uuid::Uuid;
 use crate::file_store::FileStore;
 use crate::maps::analysis::{MapAnalysisLoader, MapFileAnalysis};
 use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
-use crate::maps::families::graphql::{MapFamilyLoader, MapLineStatsLoader};
+use crate::maps::families::graphql::{MapFamilyFilesLoader, MapFamilyLoader, MapFamilyStatsLoader};
 use crate::maps::ingest::map_image_path;
 use crate::maps::parse::MapStartLocation;
 use crate::maps::render::{MAP_JPEG_SIZE, MapImageFormat};
@@ -30,12 +30,12 @@ mod analysis;
 pub mod api;
 mod catalog;
 mod compare;
-mod credits;
 pub mod families;
 pub mod ingest;
 pub mod parse;
 pub mod render;
 pub mod search;
+mod similarity;
 mod stats;
 
 pub use catalog::{
@@ -78,7 +78,11 @@ impl SchemaBuilderModule for MapsModule {
                 tokio::spawn,
             ))
             .data(DataLoader::new(
-                MapLineStatsLoader::new(self.db_pool.clone()),
+                MapFamilyFilesLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                MapFamilyStatsLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
             .data(MapSearchRepo::new(self.db_pool.clone()))

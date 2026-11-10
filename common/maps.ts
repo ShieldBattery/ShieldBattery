@@ -24,6 +24,20 @@ export function makeSbMapId(id: string): SbMapId {
   return id as SbMapId
 }
 
+/**
+ * The ID of a map family: a map as players know it ("Fighting Spirit"), made of one or more map
+ * files. Every map file (`SbMapId`) is in exactly one family.
+ */
+export type MapFamilyId = Tagged<string, 'MapFamilyId'>
+
+/**
+ * Converts a map family ID string into a properly typed version. Alternative methods of retrieving
+ * a MapFamilyId should be preferred, such as using a value retrieved from the database.
+ */
+export function makeMapFamilyId(id: string): MapFamilyId {
+  return id as MapFamilyId
+}
+
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
   Badlands = 0,

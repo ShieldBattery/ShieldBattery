@@ -9,7 +9,7 @@ import {
   ALL_MAP_COMPARE_VIEWS,
   MAP_COMPARE_SEGMENT,
   MapCompareView,
-  mapIdFromRouteSegment,
+  mapFileIdFromSegment,
   urlForMap,
   urlForMapCompare,
 } from '../../common/map-url'
@@ -348,8 +348,8 @@ export function MapComparePageRoute() {
   const [match, params] = useRoute(`/maps/${MAP_COMPARE_SEGMENT}/:a/:b`)
   useTrackPageView(`/maps/${MAP_COMPARE_SEGMENT}`)
 
-  const a = match ? mapIdFromRouteSegment(params.a) : undefined
-  const b = match ? mapIdFromRouteSegment(params.b) : undefined
+  const a = match ? mapFileIdFromSegment(params.a) : undefined
+  const b = match ? mapFileIdFromSegment(params.b) : undefined
   if (!a || !b) {
     return (
       <CenteredContentContainer>
