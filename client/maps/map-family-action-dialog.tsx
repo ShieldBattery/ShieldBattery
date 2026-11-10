@@ -8,7 +8,7 @@ import { filterColorCodes, makeMapFamilyId, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { MapFamilyActionKind } from '../dialogs/dialog-type'
 import { graphql, useFragment } from '../gql'
-import { MapFamilyAction_FamilyFragmentFragment } from '../gql/graphql'
+import { MapFamilyAction_FamilyFragmentFragment, MapFamilyReportStatus } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { TextButton } from '../material/button'
@@ -16,9 +16,10 @@ import { Dialog } from '../material/dialog'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { bodyLarge, bodyMedium, labelLarge } from '../styles/typography'
+import { bodyLarge, bodyMedium } from '../styles/typography'
 import { FamilyFileFacts, predictCurrentFile } from './map-family-files'
-import { MapFamilyCandidate, MapFamilySearch } from './map-family-search'
+import { MapFamilyCandidate, MapFamilySearch, useFamilyCandidate } from './map-family-search'
+import { useSetReportStatus } from './map-report-status'
 
 // Only staff can change which files make up a map, so this dialog isn't translated.
 
@@ -73,38 +74,6 @@ const MapFamilyActionSimilarQuery = graphql(/* GraphQL */ `
           ...MapFamilySearch_FamilyFragment
         }
       }
-    }
-  }
-`)
-
-const SetDefaultMutation = graphql(/* GraphQL */ `
-  mutation MapFamilySetDefault($fileId: SbMapId!) {
-    mapFamilySetDefault(fileId: $fileId) {
-      id
-      name
-      current {
-        id
-      }
-      defaultMap {
-        id
-      }
-      defaultSetAt
-    }
-  }
-`)
-
-const ClearDefaultMutation = graphql(/* GraphQL */ `
-  mutation MapFamilyClearDefault($familyId: UUID!) {
-    mapFamilyClearDefault(familyId: $familyId) {
-      id
-      name
-      current {
-        id
-      }
-      defaultMap {
-        id
-      }
-      defaultSetAt
     }
   }
 `)
@@ -188,32 +157,37 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const EffectsHeading = styled.div`
-  ${labelLarge};
+const Subject = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
+`
+
+const SubjectName = styled.span`
   color: var(--theme-on-surface);
 `
 
-const Effects = styled.ul`
+const Result = styled.div`
   ${bodyMedium};
-  margin: 0;
-  padding-left: 20px;
+  padding-top: 12px;
 
   display: flex;
   flex-direction: column;
   gap: 6px;
 
+  border-top: 1px solid var(--theme-outline-variant);
   color: var(--theme-on-surface);
   overflow-wrap: anywhere;
+`
+
+/** A result line about a default changing. */
+const DefaultChangeLine = styled.div`
+  color: var(--theme-amber);
 `
 
 const PlainText = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
-`
-
-const FileList = styled.ul`
-  margin: 4px 0 0;
-  padding-left: 20px;
 `
 
 function factsOf(file: FileData): FamilyFileFacts {
@@ -243,75 +217,76 @@ function errorText(error: CombinedError): string {
   return error.graphQLErrors[0]?.message ?? error.message
 }
 
-/** Names a file the way staff can tell it apart from its map's other files. */
-function useFileLabel(): (file: FileData | undefined) => string {
+/** What a map's link and favorites do when the map goes away into `target`. */
+function goesAwayText(family: FamilyData, target: string): string {
+  const favorites = favoritesOf(family)
+  return favorites
+    ? `its link and ${pluralize(favorites, 'favorite', 'favorites')} move to ${target}.`
+    : `its link moves to ${target}.`
+}
+
+/** Describes files the way staff can tell them apart from a map's other files. */
+function useFileDescriptions() {
   const date = useFormat(uploadedFormat)
-  return file =>
-    file
-      ? `${filterColorCodes(file.name)} (uploaded ${date.format(new Date(file.firstSeenAt))}, ` +
-        `${pluralize(file.stats?.gamesTotal ?? 0, 'game', 'games')})`
-      : 'no file'
+  const facts = (file: FileData) => [
+    date.format(new Date(file.firstSeenAt)),
+    pluralize(file.stats?.gamesTotal ?? 0, 'game', 'games'),
+  ]
+  return {
+    /** The file as a sentence names it: `Name (Oct 5, 2024 · 51 games)`. */
+    label: (file: FileData | undefined) =>
+      file ? `${filterColorCodes(file.name)} (${facts(file).join(' · ')})` : 'no file',
+    /** The file as a dialog's subject line shows it: `Name · Oct 5, 2024 · 51 games`. */
+    subject: (file: FileData) => (
+      <>
+        <SubjectName>{filterColorCodes(file.name)}</SubjectName>
+        {` · ${facts(file).join(' · ')}`}
+      </>
+    ),
+  }
 }
 
-/** What happens to the favorites of a map merged into `target`. */
-function favoritesMove(family: FamilyData, target: string): string {
-  const count = favoritesOf(family)
-  return count
-    ? `its ${pluralize(count, 'favorite', 'favorites')} move to ${target}`
-    : 'it has no favorites to move'
-}
-
-/** What players who pick a map get afterwards, compared with what they get now. */
-function PlayersGet({
-  map,
-  predicted,
-  currentId,
-  files,
-}: {
-  /** The map, as the sentence should name it ("this map", or its name in bold). */
-  map: React.ReactNode
-  predicted: SbMapId | undefined
-  currentId: SbMapId | undefined
-  files: ReadonlyArray<FileData>
-}) {
-  const label = useFileLabel()
-  const predictedFile = files.find(f => f.id === predicted)
-  const currentFile = files.find(f => f.id === currentId)
-  if (!predictedFile) {
-    return null
+/**
+ * Predicts the file players get from a map after `file` leaves it, as `{ changes, file }`. A pick
+ * of the leaving file is cleared, so the default follows play.
+ */
+function predictSource(family: FamilyData, file: FileData) {
+  const remaining = family.files.filter(f => f.id !== file.id)
+  const wasPicked = family.defaultMap?.id === file.id
+  const predicted = predictCurrentFile(remaining.map(factsOf), {
+    defaultMapId: wasPicked ? undefined : family.defaultMap?.id,
+    incumbentId: family.current.id,
+    keepCurrent: true,
+  })
+  return {
+    remaining,
+    changes: predicted !== family.current.id,
+    file: remaining.find(f => f.id === predicted),
   }
-  let comparison = '.'
-  if (predicted === currentId) {
-    comparison = ', the same file as now.'
-  } else if (currentFile) {
-    comparison = `, instead of ${label(currentFile)}.`
-  }
-  return (
-    <li>
-      Players who pick {map} will get <strong>{label(predictedFile)}</strong>
-      {comparison}
-    </li>
-  )
 }
 
 export interface MapFamilyActionDialogProps extends CommonDialogProps {
   action: MapFamilyActionKind
   familyId: string
   fileId?: SbMapId
-  selectedId: SbMapId
+  selectedId?: SbMapId
+  reportId?: string
+  targetFamilyId?: string
 }
 
 /**
- * Confirms a staff change to a map: picking or clearing its default, splitting a file out of it,
- * moving a file to another map, or merging it into another map. Before anything is applied, it
- * spells out what moves, what happens to an emptied map's link and favorites, and which file
- * players get afterwards.
+ * Confirms a staff change to a map: splitting a file out of it, moving a file to another map, or
+ * merging it into another map. Before anything is applied, it states what changes: which files
+ * the maps hold, what happens to an emptied map's link and favorites, and any default that
+ * changes. When opened for a report, a successful change also resolves the report.
  */
 export function MapFamilyActionDialog({
   action,
   familyId,
   fileId,
   selectedId,
+  reportId,
+  targetFamilyId,
   onCancel,
   close,
 }: MapFamilyActionDialogProps) {
@@ -339,18 +314,14 @@ export function MapFamilyActionDialog({
     )
   }
 
-  const props = { family, onCancel, close }
+  const props = { family, reportId, onCancel, close }
   switch (action) {
-    case 'makeDefault':
-      return <MakeDefaultDialog {...props} file={file!} selectedId={selectedId} />
-    case 'clearDefault':
-      return <ClearDefaultDialog {...props} selectedId={selectedId} />
     case 'split':
       return <SplitDialog {...props} file={file!} selectedId={selectedId} />
     case 'move':
       return <MoveDialog {...props} file={file!} selectedId={selectedId} />
     case 'merge':
-      return <MergeDialog {...props} />
+      return <MergeDialog {...props} selectedId={selectedId} targetFamilyId={targetFamilyId} />
     default:
       return assertUnreachable(action)
   }
@@ -358,12 +329,8 @@ export function MapFamilyActionDialog({
 
 function actionTitle(action: MapFamilyActionKind): string {
   switch (action) {
-    case 'makeDefault':
-      return 'Make default'
-    case 'clearDefault':
-      return 'Clear default'
     case 'split':
-      return 'Split into its own map'
+      return 'Split into its own map?'
     case 'move':
       return 'Move to another map'
     case 'merge':
@@ -375,13 +342,16 @@ function actionTitle(action: MapFamilyActionKind): string {
 
 interface ActionProps {
   family: FamilyData
+  /** A report to resolve once the change is made. */
+  reportId?: string
   onCancel: () => void
   close: () => void
 }
 
-/** The dialog frame shared by every action: an error line, the content and the two buttons. */
+/** The dialog frame shared by every action: a subject line, an error line, the content and buttons. */
 function ActionFrame({
   action,
+  subject,
   confirmLabel,
   canConfirm,
   pending,
@@ -391,6 +361,8 @@ function ActionFrame({
   children,
 }: {
   action: MapFamilyActionKind
+  /** What the action is about, shown directly under the title. */
+  subject: React.ReactNode
   confirmLabel: string
   canConfirm: boolean
   pending: boolean
@@ -415,6 +387,7 @@ function ActionFrame({
       onCancel={onCancel}
       showCloseButton={true}>
       <Layout>
+        <Subject>{subject}</Subject>
         {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
         {children}
       </Layout>
@@ -422,9 +395,13 @@ function ActionFrame({
   )
 }
 
-/** Runs a mutation, reporting a failure in the dialog and a success with a snackbar. */
-function useRunAction(close: () => void) {
+/**
+ * Runs a mutation, reporting a failure in the dialog and a success with a snackbar. A success also
+ * resolves `reportId`'s report, and the snackbar says if that didn't work.
+ */
+function useRunAction(close: () => void, reportId: string | undefined) {
   const snackbarController = useSnackbarController()
+  const setReportStatus = useSetReportStatus()
   const [errorMessage, setErrorMessage] = useState<string>()
   const [pending, setPending] = useState(false)
 
@@ -435,18 +412,28 @@ function useRunAction(close: () => void) {
     setPending(true)
     setErrorMessage(undefined)
     request
-      .then(result => {
-        setPending(false)
+      .then(async result => {
         if (result.error || !result.data) {
+          setPending(false)
           setErrorMessage(
             result.error ? errorText(result.error) : 'Something went wrong. Please try again.',
           )
           return
         }
         const { message, open } = onSuccess(result.data)
+        let fullMessage = message
+        if (reportId) {
+          try {
+            await setReportStatus(reportId, MapFamilyReportStatus.Resolved)
+            fullMessage = `${message} and resolved the report`
+          } catch (err) {
+            fullMessage = `${message}, but couldn't resolve the report: ${(err as Error).message}`
+          }
+        }
+        setPending(false)
         close()
         snackbarController.showSnackbar(
-          message,
+          fullMessage,
           undefined,
           open ? { action: { label: 'Open', onClick: () => push(open) } } : undefined,
         )
@@ -460,169 +447,23 @@ function useRunAction(close: () => void) {
   return { run, pending, errorMessage }
 }
 
-function MakeDefaultDialog({
-  family,
-  file,
-  selectedId,
-  onCancel,
-  close,
-}: ActionProps & { file: FileData; selectedId: SbMapId }) {
-  const label = useFileLabel()
-  const [, setDefault] = useMutation(SetDefaultMutation)
-  const { run, pending, errorMessage } = useRunAction(close)
-  const name = mapName(family)
-  const current = family.files.find(f => f.id === family.current.id)
-  const otherPick =
-    family.defaultMap && family.defaultMap.id !== file.id
-      ? family.files.find(f => f.id === family.defaultMap!.id)
-      : undefined
-
-  return (
-    <ActionFrame
-      action='makeDefault'
-      confirmLabel='Make default'
-      canConfirm={true}
-      pending={pending}
-      errorMessage={errorMessage}
-      onCancel={onCancel}
-      onConfirm={() =>
-        run(setDefault({ fileId: file.id }), () => ({
-          message: `Made ${filterColorCodes(file.name)} the default of ${name}`,
-        }))
-      }>
-      <EffectsHeading>What happens</EffectsHeading>
-      <Effects>
-        {file.id === family.current.id ? (
-          <li>
-            Players who pick this map already get <strong>{label(file)}</strong>. Making it the
-            default keeps it that way, however much the other files get played.
-          </li>
-        ) : (
-          <>
-            <li>
-              Players who pick this map will get <strong>{label(file)}</strong>, instead of{' '}
-              {label(current)}.
-            </li>
-            <li>
-              It moves to the top of the Files list, and the map&apos;s catalog tile, name and image
-              will come from it.
-              {selectedId === family.current.id
-                ? ' This page shows the default, so it will switch to it.'
-                : null}
-            </li>
-          </>
-        )}
-        {otherPick ? <li>It replaces the current pick, {label(otherPick)}.</li> : null}
-        <li>It stays the default until staff change it.</li>
-      </Effects>
-    </ActionFrame>
-  )
-}
-
-function ClearDefaultDialog({
-  family,
-  selectedId,
-  onCancel,
-  close,
-}: ActionProps & { selectedId: SbMapId }) {
-  const label = useFileLabel()
-  const [, clearDefault] = useMutation(ClearDefaultMutation)
-  const { run, pending, errorMessage } = useRunAction(close)
-  const name = mapName(family)
-  const picked = family.files.find(f => f.id === family.defaultMap?.id)
-  const predicted = predictCurrentFile(family.files.map(factsOf), { keepCurrent: false })
-
-  return (
-    <ActionFrame
-      action='clearDefault'
-      confirmLabel='Clear default'
-      canConfirm={true}
-      pending={pending}
-      errorMessage={errorMessage}
-      onCancel={onCancel}
-      onConfirm={() =>
-        run(clearDefault({ familyId: family.id }), () => ({
-          message: `Cleared the default of ${name}`,
-        }))
-      }>
-      <EffectsHeading>What happens</EffectsHeading>
-      <Effects>
-        <li>
-          <strong>{label(picked)}</strong> stops being the picked default of this map. From now on
-          the default follows play: the listed file with the most games in the last 28 days (then
-          the most games ever, then the newest).
-        </li>
-        <PlayersGet
-          map='this map'
-          predicted={predicted}
-          currentId={family.current.id}
-          files={family.files}
-        />
-        {predicted !== family.current.id ? (
-          <li>
-            That file moves to the top of the Files list, and the map&apos;s catalog tile, name and
-            image will come from it.
-            {selectedId === family.current.id
-              ? ' This page shows the default, so it will switch to it.'
-              : null}
-          </li>
-        ) : null}
-      </Effects>
-    </ActionFrame>
-  )
-}
-
-/**
- * What happens to the map a file leaves, when other files stay in it: its default pick is cleared
- * if it was that file, and players may get a different file.
- */
-function SourceEffects({ family, file }: { family: FamilyData; file: FileData }) {
-  const label = useFileLabel()
-  const remaining = family.files.filter(f => f.id !== file.id)
-  const wasPicked = family.defaultMap?.id === file.id
-  const predicted = predictCurrentFile(remaining.map(factsOf), {
-    defaultMapId: wasPicked ? undefined : family.defaultMap?.id,
-    incumbentId: family.current.id,
-    keepCurrent: true,
-  })
-
-  return (
-    <>
-      <li>
-        This map keeps{' '}
-        {remaining.length === 1 ? 'its other file' : `its other ${remaining.length} files`} and all
-        of its favorites.
-      </li>
-      {wasPicked ? (
-        <li>
-          {label(file)} was the picked default of this map, so that pick is cleared and the default
-          follows play.
-        </li>
-      ) : null}
-      <PlayersGet
-        map='this map'
-        predicted={predicted}
-        currentId={family.current.id}
-        files={family.files}
-      />
-    </>
-  )
-}
-
 function SplitDialog({
   family,
+  reportId,
   file,
   selectedId,
   onCancel,
   close,
-}: ActionProps & { file: FileData; selectedId: SbMapId }) {
-  const label = useFileLabel()
+}: ActionProps & { file: FileData; selectedId?: SbMapId }) {
+  const { label, subject } = useFileDescriptions()
   const [, splitFile] = useMutation(SplitFileMutation)
-  const { run, pending, errorMessage } = useRunAction(close)
+  const { run, pending, errorMessage } = useRunAction(close, reportId)
+  const source = predictSource(family, file)
 
   return (
     <ActionFrame
       action='split'
+      subject={subject(file)}
       confirmLabel='Split'
       canConfirm={true}
       pending={pending}
@@ -634,31 +475,32 @@ function SplitDialog({
           return {
             message: `Split ${filterColorCodes(file.name)} into its own map`,
             open:
-              file.id === selectedId
+              selectedId && file.id === selectedId
                 ? undefined
                 : urlForMap(makeMapFamilyId(moved.family.id), moved.family.name),
           }
         })
       }>
-      <EffectsHeading>What happens</EffectsHeading>
-      <Effects>
-        <li>
-          <strong>{label(file)}</strong> leaves this map and becomes a map of its own, with its own
-          page and no favorites.
-          {file.listed ? ' It shows up in the catalog as a separate map.' : null}
-        </li>
-        <SourceEffects family={family} file={file} />
-        <li>
-          {file.id === selectedId
-            ? 'This page will switch to the new map.'
-            : 'It will no longer be listed on this page.'}
-        </li>
-      </Effects>
+      <Result>
+        <div>
+          {`It becomes a separate map with its own page${file.listed ? ' and a catalog tile' : ''}. `}
+          {`This map keeps ${
+            source.remaining.length === 1
+              ? 'its other file'
+              : `its other ${source.remaining.length} files`
+          }${source.changes ? '' : ' and its default'}.`}
+        </div>
+        {source.changes ? (
+          <DefaultChangeLine>
+            {`This map's default changes to ${label(source.file)}.`}
+          </DefaultChangeLine>
+        ) : null}
+      </Result>
     </ActionFrame>
   )
 }
 
-/** The map picked in a dialog, loaded with its files so the effects can be spelled out. */
+/** The map picked in a dialog, loaded with its files so the result can be spelled out. */
 function usePickedFamily(picked: MapFamilyCandidate | undefined) {
   const [{ data, error, fetching }] = useQuery({
     query: MapFamilyActionFamilyQuery,
@@ -677,22 +519,24 @@ function usePickedFamily(picked: MapFamilyCandidate | undefined) {
 
 function MoveDialog({
   family,
+  reportId,
   file,
   selectedId,
   onCancel,
   close,
-}: ActionProps & { file: FileData; selectedId: SbMapId }) {
-  const label = useFileLabel()
+}: ActionProps & { file: FileData; selectedId?: SbMapId }) {
+  const { label, subject } = useFileDescriptions()
   const [picked, setPicked] = useState<MapFamilyCandidate>()
   const { target, loading, error } = usePickedFamily(picked)
-  const [{ data: similarData }] = useQuery({
+  const [{ data: similarData, fetching: similarFetching }] = useQuery({
     query: MapFamilyActionSimilarQuery,
     variables: { fileId: file.id },
     context: NO_SUSPENSE_CONTEXT,
   })
   const [, moveFile] = useMutation(MoveFileMutation)
-  const { run, pending, errorMessage } = useRunAction(close)
-  const emptied = family.files.length === 1
+  const { run, pending, errorMessage } = useRunAction(close, reportId)
+  const source = predictSource(family, file)
+  const emptied = source.remaining.length === 0
 
   // One suggestion per map, at the similarity of its most similar file
   const suggestions: MapFamilyCandidate[] = []
@@ -702,23 +546,19 @@ function MoveDialog({
       suggestions.push({
         familyId: other.id,
         family: other,
-        note: `${Math.floor(similar.similarity * 100)}% similar terrain to this file`,
+        note: `${Math.floor(similar.similarity * 100)}% similar`,
       })
     }
   }
 
-  let effects: React.ReactNode
+  let result: React.ReactNode
   if (!picked) {
-    effects = (
-      <PlainText>
-        Pick the map to move {label(file)} to.{' '}
-        {suggestions.length
-          ? 'The maps with files whose terrain is most like it come first.'
-          : 'No other listed map has a file with similar terrain.'}
-      </PlainText>
-    )
+    result =
+      suggestions.length || !similarData || similarFetching ? null : (
+        <PlainText>No listed map has a file with similar terrain.</PlainText>
+      )
   } else if (!target) {
-    effects = loading ? (
+    result = loading ? (
       <LoadingDotsArea />
     ) : (
       <ErrorText>{error ? errorText(error) : "Couldn't load that map"}</ErrorText>
@@ -731,41 +571,38 @@ function MoveDialog({
       incumbentId: target.current.id,
       keepCurrent: true,
     })
-    effects = (
-      <>
-        <EffectsHeading>What happens</EffectsHeading>
-        <Effects>
-          <li>
-            <strong>{label(file)}</strong> moves from this map to <strong>{targetName}</strong>,
-            which will have {pluralize(targetFiles.length, 'file', 'files')}.
-          </li>
-          {emptied ? (
-            <li>
-              This map has no other files, so it&apos;s merged into {targetName}: links to it will
-              open {targetName}, and {favoritesMove(family, targetName)}.
-            </li>
-          ) : (
-            <SourceEffects family={family} file={file} />
-          )}
-          <PlayersGet
-            map={<strong>{targetName}</strong>}
-            predicted={predictedTarget}
-            currentId={target.current.id}
-            files={targetFiles}
-          />
-          <li>
-            {emptied || file.id === selectedId
-              ? `This page will switch to ${targetName}.`
-              : 'It will no longer be listed on this page.'}
-          </li>
-        </Effects>
-      </>
+    const targetChanges = predictedTarget !== target.current.id
+    const nothingChanges = !targetChanges && (emptied || !source.changes)
+    const unchangedText = emptied
+      ? " Its default doesn't change."
+      : " Neither map's default changes."
+    result = (
+      <Result>
+        <div>
+          {`${targetName} will have ${pluralize(targetFiles.length, 'file', 'files')}.`}
+          {nothingChanges ? unchangedText : null}
+        </div>
+        {targetChanges ? (
+          <DefaultChangeLine>
+            {`${targetName}'s default changes to ${label(targetFiles.find(f => f.id === predictedTarget))}.`}
+          </DefaultChangeLine>
+        ) : null}
+        {!emptied && source.changes ? (
+          <DefaultChangeLine>
+            {`This map's default changes to ${label(source.file)}.`}
+          </DefaultChangeLine>
+        ) : null}
+        {emptied ? (
+          <div>{`This map has no other files, so it goes away: ${goesAwayText(family, targetName)}`}</div>
+        ) : null}
+      </Result>
     )
   }
 
   return (
     <ActionFrame
       action='move'
+      subject={subject(file)}
       confirmLabel='Move'
       canConfirm={!!target}
       pending={pending}
@@ -778,7 +615,7 @@ function MoveDialog({
         run(moveFile({ fileId: file.id, familyId: target.id }), () => ({
           message: `Moved ${filterColorCodes(file.name)} to ${mapName(target)}`,
           open:
-            emptied || file.id === selectedId
+            selectedId && (emptied || file.id === selectedId)
               ? undefined
               : urlForMap(makeMapFamilyId(target.id), target.name),
         }))
@@ -790,27 +627,34 @@ function MoveDialog({
         suggestions={suggestions}
         disabled={pending}
       />
-      {effects}
+      {result}
     </ActionFrame>
   )
 }
 
-function MergeDialog({ family, onCancel, close }: ActionProps) {
-  const label = useFileLabel()
-  const [picked, setPicked] = useState<MapFamilyCandidate>()
+function MergeDialog({
+  family,
+  reportId,
+  selectedId,
+  targetFamilyId,
+  onCancel,
+  close,
+}: ActionProps & { selectedId?: SbMapId; targetFamilyId?: string }) {
+  const { label } = useFileDescriptions()
+  const [chosen, setChosen] = useState<MapFamilyCandidate>()
+  // The map to merge into is `targetFamilyId`'s until another one is chosen
+  const preselected = useFamilyCandidate(targetFamilyId !== family.id ? targetFamilyId : undefined)
+  const picked = chosen ?? preselected
   const { target, loading, error } = usePickedFamily(picked)
   const [, merge] = useMutation(MergeMutation)
-  const { run, pending, errorMessage } = useRunAction(close)
+  const { run, pending, errorMessage } = useRunAction(close, reportId)
   const name = mapName(family)
-  const picks = family.defaultMap
-    ? family.files.find(f => f.id === family.defaultMap!.id)
-    : undefined
 
-  let effects: React.ReactNode
+  let result: React.ReactNode
   if (!picked) {
-    effects = <PlainText>Pick the map to merge this map into.</PlainText>
+    result = null
   } else if (!target) {
-    effects = loading ? (
+    result = loading ? (
       <LoadingDotsArea />
     ) : (
       <ErrorText>{error ? errorText(error) : "Couldn't load that map"}</ErrorText>
@@ -823,42 +667,36 @@ function MergeDialog({ family, onCancel, close }: ActionProps) {
       incumbentId: target.current.id,
       keepCurrent: true,
     })
-    effects = (
-      <>
-        <EffectsHeading>What happens</EffectsHeading>
-        <Effects>
-          <li>
-            {family.files.length === 1
-              ? 'The only file of this map moves'
-              : `All ${family.files.length} files of this map move`}{' '}
-            to <strong>{targetName}</strong>, which will have{' '}
-            {pluralize(merged.length, 'file', 'files')}:
-            <FileList>
-              {family.files.map(f => (
-                <li key={f.id}>{label(f)}</li>
-              ))}
-            </FileList>
-          </li>
-          <li>
-            This map stops being a map of its own: links to it will open {targetName}, and{' '}
-            {favoritesMove(family, targetName)}.
-          </li>
-          {picks ? <li>Its picked default, {label(picks)}, is dropped.</li> : null}
-          <PlayersGet
-            map={<strong>{targetName}</strong>}
-            predicted={predictedTarget}
-            currentId={target.current.id}
-            files={merged}
-          />
-          <li>This page will switch to {targetName}.</li>
-        </Effects>
-      </>
+    result = (
+      <Result>
+        <div>
+          {`${
+            family.files.length === 1
+              ? 'The only file moves'
+              : `All ${family.files.length} files move`
+          } to ${targetName}, which will have ${pluralize(merged.length, 'file', 'files')}.`}
+        </div>
+        <div>{`This map goes away: ${goesAwayText(family, targetName)}`}</div>
+        {predictedTarget !== target.current.id ? (
+          <DefaultChangeLine>
+            {`${targetName}'s default changes to ${label(merged.find(f => f.id === predictedTarget))}.`}
+          </DefaultChangeLine>
+        ) : (
+          <div>{`${targetName}'s default doesn't change.`}</div>
+        )}
+      </Result>
     )
   }
 
   return (
     <ActionFrame
       action='merge'
+      subject={
+        <>
+          <SubjectName>{name}</SubjectName>
+          {` · ${pluralize(family.files.length, 'file', 'files')}`}
+        </>
+      }
       confirmLabel='Merge'
       canConfirm={!!target}
       pending={pending}
@@ -870,15 +708,16 @@ function MergeDialog({ family, onCancel, close }: ActionProps) {
         }
         run(merge({ familyId: family.id, intoFamilyId: target.id }), () => ({
           message: `Merged ${name} into ${mapName(target)}`,
+          open: selectedId ? undefined : urlForMap(makeMapFamilyId(target.id), target.name),
         }))
       }}>
       <MapFamilySearch
         picked={picked}
-        onPick={setPicked}
+        onPick={setChosen}
         excludeFamilyId={family.id}
         disabled={pending}
       />
-      {effects}
+      {result}
     </ActionFrame>
   )
 }

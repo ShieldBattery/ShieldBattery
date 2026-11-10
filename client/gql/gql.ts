@@ -49,9 +49,8 @@ type Documents = {
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
-  '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyReportsDocument
+  '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyReportsDocument
   '\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n  }\n': typeof types.AdminMapFamilyReportCountsDocument
-  '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n': typeof types.AdminMapFamilyReportSetStatusDocument
   '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n': typeof types.MapSearchTest_MapFragmentDoc
   '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestMapsDocument
   '\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestLibraryDocument
@@ -67,18 +66,15 @@ type Documents = {
   '\n  query MapCatalogFavorites(\n    $filter: MapFilter\n    $sort: MapSort\n    $after: String\n    $first: Int\n    $withCount: Boolean!\n  ) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        totalCount @include(if: $withCount)\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          node {\n            id\n            ...MapTile_SbMapFragment\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapCatalogFavoritesDocument
   '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n': typeof types.MapCompareDocument
   '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image2048Url\n      imageSpawnsBaked\n      umsContent\n      startLocations {\n        id\n        slot\n        x\n        y\n      }\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n    }\n  }\n': typeof types.MapCompare_SideFragmentDoc
-  '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        name\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n': typeof types.MapDefaultNudgeDocument
+  '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n': typeof types.MapDefaultNudgeDocument
   '\n  fragment MapFamilyAction_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n    }\n    defaultMap {\n      id\n    }\n    files {\n      id\n      name\n      listed\n      firstSeenAt\n      favoriteCount\n      stats {\n        id\n        games28d\n        gamesTotal\n      }\n    }\n  }\n': typeof types.MapFamilyAction_FamilyFragmentFragmentDoc
   '\n  query MapFamilyActionFamily($id: UUID!) {\n    mapFamily(id: $id) {\n      id\n      family {\n        id\n        ...MapFamilyAction_FamilyFragment\n      }\n    }\n  }\n': typeof types.MapFamilyActionFamilyDocument
   '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n': typeof types.MapFamilyActionSimilarDocument
-  '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n': typeof types.MapFamilySetDefaultDocument
-  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n': typeof types.MapFamilyClearDefaultDocument
   '\n  mutation MapFamilySplitFile($fileId: SbMapId!) {\n    mapFamilySplitFile(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n': typeof types.MapFamilySplitFileDocument
   '\n  mutation MapFamilyMoveFile($fileId: SbMapId!, $familyId: UUID!) {\n    mapFamilyMoveFile(fileId: $fileId, familyId: $familyId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n': typeof types.MapFamilyMoveFileDocument
   '\n  mutation MapFamilyMerge($familyId: UUID!, $intoFamilyId: UUID!) {\n    mapFamilyMerge(familyId: $familyId, intoFamilyId: $intoFamilyId) {\n      id\n      name\n    }\n  }\n': typeof types.MapFamilyMergeDocument
-  '\n  query MapFamilyReportDialog($familyId: UUID!, $fileId: SbMapId!) {\n    mapFamily(id: $familyId) {\n      id\n      family {\n        id\n        name\n      }\n    }\n    map(id: $fileId) {\n      id\n      name\n    }\n  }\n': typeof types.MapFamilyReportDialogDocument
   '\n  mutation MapFamilyReport($input: MapFamilyReportInput!) {\n    mapFamilyReport(input: $input) {\n      id\n      status\n    }\n  }\n': typeof types.MapFamilyReportDocument
-  '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      playerCount\n      firstSeenAt\n      file {\n        id\n        width\n        height\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n': typeof types.MapFamilySearch_FamilyFragmentFragmentDoc
+  '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      file {\n        id\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n': typeof types.MapFamilySearch_FamilyFragmentFragmentDoc
   '\n  query MapFamilySearch($search: String!) {\n    maps(filter: { search: $search }, first: 6) {\n      nodes {\n        id\n        family {\n          id\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n': typeof types.MapFamilySearchDocument
   '\n  query MapFamilySearchById($id: UUID!) {\n    mapFamily(id: $id) {\n      id\n      family {\n        id\n        ...MapFamilySearch_FamilyFragment\n      }\n    }\n  }\n': typeof types.MapFamilySearchByIdDocument
   '\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n      family {\n        id\n        files {\n          id\n          isFavorited\n          favoriteCount\n        }\n      }\n    }\n  }\n': typeof types.MapAddFavoriteDocument
@@ -86,8 +82,10 @@ type Documents = {
   '\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n': typeof types.MapFileImage_FileFragmentFragmentDoc
   '\n  mutation LocalAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.LocalAddToLibraryDocument
   '\n  query MapLiveGames {\n    liveGames {\n      id\n      map {\n        id\n      }\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n': typeof types.MapLiveGamesDocument
-  '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n    }\n  }\n': typeof types.MapPageFiles_FileFragmentFragmentDoc
+  '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n  }\n': typeof types.MapPageFiles_FileFragmentFragmentDoc
   '\n  fragment MapPageFiles_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n      name\n    }\n    defaultMap {\n      id\n    }\n    defaultSetBy @include(if: $canManageMaps) {\n      id\n      name\n    }\n    files {\n      id\n      ...MapPageFiles_FileFragment\n    }\n  }\n': typeof types.MapPageFiles_FamilyFragmentFragmentDoc
+  '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapFamilySetDefaultDocument
+  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapFamilyClearDefaultDocument
   '\n  fragment MapPageStats_FamilyFragment on MapFamily {\n    id\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n': typeof types.MapPageStats_FamilyFragmentFragmentDoc
   '\n  fragment MapPageMatchups_MapFragment on SbMap {\n    id\n    kind\n    matchupSeasons {\n      id\n      seasonId\n      matchmakingType\n      games\n    }\n  }\n': typeof types.MapPageMatchups_MapFragmentFragmentDoc
   '\n  query MapMatchups($id: SbMapId!, $matchmakingType: MatchmakingType!, $seasonId: Int) {\n    map(id: $id) {\n      id\n      matchups(matchmakingType: $matchmakingType, seasonId: $seasonId) {\n        id\n        matchup\n        games\n        leftWins\n        rightWins\n        medianLength\n      }\n    }\n  }\n': typeof types.MapMatchupsDocument
@@ -97,6 +95,8 @@ type Documents = {
   '\n  fragment MapPage_HeaderFragment on SbMap {\n    id\n    name\n    description\n    kind\n    listed\n    official\n    publishedAt\n    publisher {\n      id\n      name\n    }\n    file {\n      id\n      originalName\n      originalDescription\n    }\n    moderation @include(if: $canManageMaps) {\n      id\n      delistedAt\n      delistedBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapPage_HeaderFragmentFragmentDoc
   '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    publisher {\n      id\n    }\n  }\n': typeof types.MapPage_ActionsFragmentFragmentDoc
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n': typeof types.MapPage_HowToPlayFragmentFragmentDoc
+  '\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n': typeof types.MapReportBarDocument
+  '\n  mutation MapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.MapFamilyReportSetStatusDocument
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    family {\n      id\n      name\n      current {\n        id\n      }\n    }\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n': typeof types.MapTile_SbMapFragmentFragmentDoc
   '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n': typeof types.MapUploadKnownMapDocument
   '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.MapUploadAddToLibraryDocument
@@ -202,12 +202,10 @@ const documents: Documents = {
     types.Leagues_HomeFeedFragmentFragmentDoc,
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
     types.Leagues_HomeFeedEntryFragmentFragmentDoc,
-  '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n':
+  '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n':
     types.AdminMapFamilyReportsDocument,
   '\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n  }\n':
     types.AdminMapFamilyReportCountsDocument,
-  '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n':
-    types.AdminMapFamilyReportSetStatusDocument,
   '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n':
     types.MapSearchTest_MapFragmentDoc,
   '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n':
@@ -238,7 +236,7 @@ const documents: Documents = {
     types.MapCompareDocument,
   '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image2048Url\n      imageSpawnsBaked\n      umsContent\n      startLocations {\n        id\n        slot\n        x\n        y\n      }\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n    }\n  }\n':
     types.MapCompare_SideFragmentDoc,
-  '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        name\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n':
+  '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n':
     types.MapDefaultNudgeDocument,
   '\n  fragment MapFamilyAction_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n    }\n    defaultMap {\n      id\n    }\n    files {\n      id\n      name\n      listed\n      firstSeenAt\n      favoriteCount\n      stats {\n        id\n        games28d\n        gamesTotal\n      }\n    }\n  }\n':
     types.MapFamilyAction_FamilyFragmentFragmentDoc,
@@ -246,21 +244,15 @@ const documents: Documents = {
     types.MapFamilyActionFamilyDocument,
   '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n':
     types.MapFamilyActionSimilarDocument,
-  '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n':
-    types.MapFamilySetDefaultDocument,
-  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n':
-    types.MapFamilyClearDefaultDocument,
   '\n  mutation MapFamilySplitFile($fileId: SbMapId!) {\n    mapFamilySplitFile(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n':
     types.MapFamilySplitFileDocument,
   '\n  mutation MapFamilyMoveFile($fileId: SbMapId!, $familyId: UUID!) {\n    mapFamilyMoveFile(fileId: $fileId, familyId: $familyId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n':
     types.MapFamilyMoveFileDocument,
   '\n  mutation MapFamilyMerge($familyId: UUID!, $intoFamilyId: UUID!) {\n    mapFamilyMerge(familyId: $familyId, intoFamilyId: $intoFamilyId) {\n      id\n      name\n    }\n  }\n':
     types.MapFamilyMergeDocument,
-  '\n  query MapFamilyReportDialog($familyId: UUID!, $fileId: SbMapId!) {\n    mapFamily(id: $familyId) {\n      id\n      family {\n        id\n        name\n      }\n    }\n    map(id: $fileId) {\n      id\n      name\n    }\n  }\n':
-    types.MapFamilyReportDialogDocument,
   '\n  mutation MapFamilyReport($input: MapFamilyReportInput!) {\n    mapFamilyReport(input: $input) {\n      id\n      status\n    }\n  }\n':
     types.MapFamilyReportDocument,
-  '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      playerCount\n      firstSeenAt\n      file {\n        id\n        width\n        height\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n':
+  '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      file {\n        id\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n':
     types.MapFamilySearch_FamilyFragmentFragmentDoc,
   '\n  query MapFamilySearch($search: String!) {\n    maps(filter: { search: $search }, first: 6) {\n      nodes {\n        id\n        family {\n          id\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n':
     types.MapFamilySearchDocument,
@@ -276,10 +268,14 @@ const documents: Documents = {
     types.LocalAddToLibraryDocument,
   '\n  query MapLiveGames {\n    liveGames {\n      id\n      map {\n        id\n      }\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n':
     types.MapLiveGamesDocument,
-  '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n    }\n  }\n':
+  '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n  }\n':
     types.MapPageFiles_FileFragmentFragmentDoc,
   '\n  fragment MapPageFiles_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n      name\n    }\n    defaultMap {\n      id\n    }\n    defaultSetBy @include(if: $canManageMaps) {\n      id\n      name\n    }\n    files {\n      id\n      ...MapPageFiles_FileFragment\n    }\n  }\n':
     types.MapPageFiles_FamilyFragmentFragmentDoc,
+  '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n':
+    types.MapFamilySetDefaultDocument,
+  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n':
+    types.MapFamilyClearDefaultDocument,
   '\n  fragment MapPageStats_FamilyFragment on MapFamily {\n    id\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n':
     types.MapPageStats_FamilyFragmentFragmentDoc,
   '\n  fragment MapPageMatchups_MapFragment on SbMap {\n    id\n    kind\n    matchupSeasons {\n      id\n      seasonId\n      matchmakingType\n      games\n    }\n  }\n':
@@ -298,6 +294,10 @@ const documents: Documents = {
     types.MapPage_ActionsFragmentFragmentDoc,
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n':
     types.MapPage_HowToPlayFragmentFragmentDoc,
+  '\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n':
+    types.MapReportBarDocument,
+  '\n  mutation MapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n':
+    types.MapFamilyReportSetStatusDocument,
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    family {\n      id\n      name\n      current {\n        id\n      }\n    }\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n':
     types.MapTile_SbMapFragmentFragmentDoc,
   '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n':
@@ -593,20 +593,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n']
+  source: '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
   source: '\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n  }\n',
 ): (typeof documents)['\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
-  source: '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n',
-): (typeof documents)['\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -701,8 +695,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        name\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        name\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n']
+  source: '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -725,18 +719,6 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n',
-): (typeof documents)['\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
-  source: '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n',
-): (typeof documents)['\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
   source: '\n  mutation MapFamilySplitFile($fileId: SbMapId!) {\n    mapFamilySplitFile(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n',
 ): (typeof documents)['\n  mutation MapFamilySplitFile($fileId: SbMapId!) {\n    mapFamilySplitFile(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n']
 /**
@@ -755,20 +737,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query MapFamilyReportDialog($familyId: UUID!, $fileId: SbMapId!) {\n    mapFamily(id: $familyId) {\n      id\n      family {\n        id\n        name\n      }\n    }\n    map(id: $fileId) {\n      id\n      name\n    }\n  }\n',
-): (typeof documents)['\n  query MapFamilyReportDialog($familyId: UUID!, $fileId: SbMapId!) {\n    mapFamily(id: $familyId) {\n      id\n      family {\n        id\n        name\n      }\n    }\n    map(id: $fileId) {\n      id\n      name\n    }\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
   source: '\n  mutation MapFamilyReport($input: MapFamilyReportInput!) {\n    mapFamilyReport(input: $input) {\n      id\n      status\n    }\n  }\n',
 ): (typeof documents)['\n  mutation MapFamilyReport($input: MapFamilyReportInput!) {\n    mapFamilyReport(input: $input) {\n      id\n      status\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      playerCount\n      firstSeenAt\n      file {\n        id\n        width\n        height\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n',
-): (typeof documents)['\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      playerCount\n      firstSeenAt\n      file {\n        id\n        width\n        height\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n']
+  source: '\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      file {\n        id\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n',
+): (typeof documents)['\n  fragment MapFamilySearch_FamilyFragment on MapFamily {\n    id\n    name\n    stats {\n      id\n      gamesTotal\n    }\n    files {\n      id\n    }\n    current {\n      id\n      listed\n      file {\n        id\n        ...MapFileImage_FileFragment\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -815,14 +791,26 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n    }\n  }\n',
-): (typeof documents)['\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n    }\n  }\n']
+  source: '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n  }\n',
+): (typeof documents)['\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
   source: '\n  fragment MapPageFiles_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n      name\n    }\n    defaultMap {\n      id\n    }\n    defaultSetBy @include(if: $canManageMaps) {\n      id\n      name\n    }\n    files {\n      id\n      ...MapPageFiles_FileFragment\n    }\n  }\n',
 ): (typeof documents)['\n  fragment MapPageFiles_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n      name\n    }\n    defaultMap {\n      id\n    }\n    defaultSetBy @include(if: $canManageMaps) {\n      id\n      name\n    }\n    files {\n      id\n      ...MapPageFiles_FileFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -877,6 +865,18 @@ export function graphql(
 export function graphql(
   source: '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n',
 ): (typeof documents)['\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

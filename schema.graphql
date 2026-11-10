@@ -1792,6 +1792,11 @@ type Query {
 	"""
 	mapFamilyReports(status: MapFamilyReportStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapFamilyReport!]!
 	"""
+	A family report by its id, whatever its status. Only available to users who can manage
+	maps.
+	"""
+	mapFamilyReportById(id: UUID!): MapFamilyReport
+	"""
 	How many family reports have a status. Only available to users who can manage maps.
 	"""
 	mapFamilyReportCount(status: MapFamilyReportStatus! = OPEN): Int!

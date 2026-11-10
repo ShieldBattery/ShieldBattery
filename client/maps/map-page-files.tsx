@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { useTranslation } from 'react-i18next'
+import styled, { css } from 'styled-components'
+import { useMutation } from 'urql'
 import { Link } from 'wouter'
-import { urlForMapCompare } from '../../common/map-url'
 import { filterColorCodes, SbMapId } from '../../common/maps'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { FragmentType, graphql, useFragment } from '../gql'
@@ -10,23 +10,25 @@ import {
   MapPageFiles_FamilyFragmentFragment,
   MapPageFiles_FileFragmentFragment,
 } from '../gql/graphql'
-import { TransInterpolation } from '../i18n/i18next'
 import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { IconButton, TextButton } from '../material/button'
-import { Callout } from '../material/callout'
 import { Card } from '../material/card'
-import { LinkButton } from '../material/link-button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapFamilyActionDialog } from './action-creators'
-import { orderFamilyFiles, urlForMapFile, visibleFamilyFiles } from './map-family-files'
-import { useMapHostAction } from './map-host-action'
+import {
+  duplicateFileNames,
+  orderFamilyFiles,
+  urlForMapFile,
+  visibleFamilyFiles,
+} from './map-family-files'
 
 export const MapPageFiles_FileFragment = graphql(/* GraphQL */ `
   fragment MapPageFiles_FileFragment on SbMap {
@@ -38,11 +40,6 @@ export const MapPageFiles_FileFragment = graphql(/* GraphQL */ `
       id
       games28d
       gamesTotal
-    }
-    file {
-      id
-      width
-      height
     }
   }
 `)
@@ -70,11 +67,53 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
   }
 `)
 
+const SetDefaultMutation = graphql(/* GraphQL */ `
+  mutation MapFamilySetDefault($fileId: SbMapId!) {
+    mapFamilySetDefault(fileId: $fileId) {
+      id
+      name
+      current {
+        id
+        name
+      }
+      defaultMap {
+        id
+      }
+      defaultSetAt
+      defaultSetBy {
+        id
+        name
+      }
+    }
+  }
+`)
+
+const ClearDefaultMutation = graphql(/* GraphQL */ `
+  mutation MapFamilyClearDefault($familyId: UUID!) {
+    mapFamilyClearDefault(familyId: $familyId) {
+      id
+      name
+      current {
+        id
+        name
+      }
+      defaultMap {
+        id
+      }
+      defaultSetAt
+      defaultSetBy {
+        id
+        name
+      }
+    }
+  }
+`)
+
 const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits: 1 })
-const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short', day: 'numeric' })
+const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short' })
 
 const FilesCard = styled(Card)`
-  padding: 16px 12px 12px 20px;
+  padding: 16px 8px 12px;
 
   display: flex;
   flex-direction: column;
@@ -82,53 +121,74 @@ const FilesCard = styled(Card)`
 `
 
 const Rows = styled.div`
-  /* Lines the selected row's highlight up with the card's padding. */
-  margin-left: -8px;
-
   display: flex;
   flex-direction: column;
   gap: 2px;
 `
 
 const Row = styled.div<{ $selected: boolean }>`
-  min-height: 48px;
-  padding: 4px 0 4px 8px;
+  min-height: 40px;
 
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
 
   border-radius: 6px;
   background-color: ${props => (props.$selected ? 'var(--theme-container-high)' : 'transparent')};
 `
 
-const RowText = styled.div`
+const rowBody = css`
   flex: 1 1 auto;
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-`
-
-const RowTitle = styled.div`
-  min-width: 0;
+  min-height: 40px;
+  padding: 4px;
 
   display: flex;
   align-items: center;
   gap: 8px;
+
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
 `
 
-const FileName = styled.span`
+const RowContent = styled.div`
+  ${rowBody};
+`
+
+const RowLink = styled(Link)`
+  ${rowBody};
+
+  &:hover {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
+`
+
+const FileName = styled.span<{ $link: boolean }>`
   ${titleSmall};
   ${singleLine};
   min-width: 0;
-  color: var(--theme-on-surface);
+  color: ${props => (props.$link ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
 `
 
-const FileLink = styled(Link)`
-  ${titleSmall};
-  ${singleLine};
-  min-width: 0;
+/** A tooltip around a chip, which must keep the chip's full size when the row is tight. */
+const ChipTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+`
+
+/**
+ * The button's 48px hit area is mostly empty around its 24px icon, so it overlaps the row's
+ * padding and takes only 24px from the row.
+ */
+const MenuTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+  margin-inline: -12px;
 `
 
 const RowChip = styled(RoomChip)`
@@ -145,42 +205,29 @@ const DefaultChip = styled(RowChip)`
   color: var(--theme-positive);
 `
 
-const RowSubtitle = styled.div`
+const RowMeta = styled.div`
   ${bodySmall};
+  margin-left: auto;
+  flex-shrink: 0;
+
   color: var(--theme-on-surface-variant);
-`
-
-/** Holds the compare button's place on the default's row, so every row's buttons line up. */
-const CompareSpacer = styled.div`
-  width: 48px;
-  flex-shrink: 0;
-`
-
-const RowActions = styled.div`
-  flex-shrink: 0;
-
-  display: flex;
-  align-items: center;
-`
-
-const HostButton = styled(TextButton)`
-  min-width: 0;
-  padding-inline: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 `
 
 const ShowAllButton = styled(TextButton)`
   align-self: flex-start;
-  /** Lines the label up with the rows, past the button's own padding. */
-  margin-left: -16px;
+  /** Lines the label up with the rows' text, past the button's own padding. */
+  margin-left: -12px;
 `
 
 type FileData = MapPageFiles_FileFragmentFragment
+type FamilyData = MapPageFiles_FamilyFragmentFragment
 
 /**
  * The files that make up a map: the default (the file players get) first, then the rest by how
- * much they're played. Each can be viewed, hosted and compared with the default, and staff can
- * change which files the map holds and which is its default. Players only see it when the map has
- * more than one file.
+ * much they're played. Selecting one shows it on the page, and staff can change which files the
+ * map holds and which is its default. Players only see it when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -209,6 +256,7 @@ export function MapFilesCard({
     family.current.id,
   )
   const { rows, hiddenCount } = visibleFamilyFiles(ordered, selected.id, expanded)
+  const duplicateNames = duplicateFileNames(files)
 
   return (
     <FilesCard>
@@ -219,7 +267,8 @@ export function MapFilesCard({
             key={file.id}
             file={file}
             family={family}
-            fileCount={files.length}
+            files={files}
+            duplicateNames={duplicateNames}
             selectedId={selected.id}
             canManageMaps={canManageMaps}
           />
@@ -243,123 +292,123 @@ export function MapFilesCard({
   )
 }
 
-type FamilyData = MapPageFiles_FamilyFragmentFragment
-
 function FileRow({
   file,
   family,
-  fileCount,
+  files,
+  duplicateNames,
   selectedId,
   canManageMaps,
 }: {
   file: FileData
   family: FamilyData
-  fileCount: number
+  files: ReadonlyArray<FileData>
+  duplicateNames: ReadonlySet<string>
   selectedId: SbMapId
   canManageMaps: boolean
 }) {
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
   const uploadedDate = useFormat(uploadedDateFormat)
-  const { isLobbyHost, play } = useMapHostAction()
 
   const name = filterColorCodes(file.name)
   const isSelected = file.id === selectedId
   const isDefault = file.id === family.current.id
+  const isPicked = family.defaultMap?.id === file.id
   const games = file.stats?.gamesTotal ?? 0
 
-  const subtitle = [
+  const meta = [
     t('maps.files.games', {
       defaultValue: '{{formattedCount}} games',
       defaultValue_one: '{{formattedCount}} game',
       count: games,
       formattedCount: numbers.format(games),
     }),
-    `${file.file.width}×${file.file.height}`,
-    t('maps.files.uploaded', {
-      defaultValue: 'Uploaded {{date}}',
-      date: uploadedDate.format(new Date(file.firstSeenAt)),
-    }),
   ]
-  // Admin-only details, so they aren't translated
-  if (canManageMaps && isDefault) {
-    subtitle.unshift(
-      family.defaultMap?.id === file.id
-        ? `Picked by ${family.defaultSetBy?.name ?? 'staff'}`
-        : 'Most played',
-    )
-  } else if (canManageMaps && family.defaultMap?.id === file.id) {
-    subtitle.unshift('Picked, but unused while unlisted')
+  if (duplicateNames.has(name)) {
+    meta.unshift(uploadedDate.format(new Date(file.firstSeenAt)))
   }
 
-  const compareLabel = t('maps.files.compareWithDefault', 'Compare with default')
-  const playLabel = isLobbyHost ? t('maps.files.useInLobby', 'Use') : t('maps.files.host', 'Host')
-  const playTooltip = isLobbyHost
-    ? t('maps.page.useInMyLobby', 'Use in my lobby')
-    : t('maps.page.hostLobby', 'Host a lobby')
+  let defaultChip = (
+    <DefaultChip>
+      <MaterialIcon icon='star' size={14} filled={true} />
+      {t('maps.files.default', 'Default')}
+    </DefaultChip>
+  )
+  if (canManageMaps) {
+    // Admin-only details, so they aren't translated
+    defaultChip = (
+      <ChipTooltip
+        text={isPicked ? `Picked by ${family.defaultSetBy?.name ?? 'staff'}` : 'Most played'}
+        position='top'>
+        {defaultChip}
+      </ChipTooltip>
+    )
+  }
+
+  let unlistedChip = <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>
+  if (canManageMaps && isPicked && !isDefault) {
+    unlistedChip = (
+      <ChipTooltip text='Picked as default, but unused while unlisted' position='top'>
+        {unlistedChip}
+      </ChipTooltip>
+    )
+  }
+
+  const content = (
+    <>
+      <FileName $link={!isSelected}>{name}</FileName>
+      {isDefault ? defaultChip : null}
+      {!file.listed ? unlistedChip : null}
+      <RowMeta>{meta.join(' · ')}</RowMeta>
+    </>
+  )
 
   return (
     <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
-      <RowText>
-        <RowTitle>
-          {isSelected ? (
-            <FileName>{name}</FileName>
-          ) : (
-            <FileLink href={urlForMapFile(family, file.id)}>{name}</FileLink>
-          )}
-          {isDefault ? (
-            <DefaultChip>
-              <MaterialIcon icon='star' size={14} filled={true} />
-              {t('maps.files.default', 'Default')}
-            </DefaultChip>
-          ) : null}
-          {!file.listed ? <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip> : null}
-        </RowTitle>
-        <RowSubtitle>{subtitle.join(' · ')}</RowSubtitle>
-      </RowText>
-      <RowActions>
-        <Tooltip text={playTooltip} position='top' tabIndex={-1}>
-          <HostButton label={playLabel} onClick={() => play(file.id)} />
-        </Tooltip>
-        {isDefault ? (
-          <CompareSpacer />
-        ) : (
-          <Tooltip text={compareLabel} position='top' tabIndex={-1}>
-            <LinkButton href={urlForMapCompare(family.current.id, file.id)}>
-              <IconButton
-                styledAs='div'
-                icon={<MaterialIcon icon='compare' />}
-                ariaLabel={compareLabel}
-              />
-            </LinkButton>
-          </Tooltip>
-        )}
-        {canManageMaps ? (
-          <FileStaffMenu
-            file={file}
-            family={family}
-            fileCount={fileCount}
-            selectedId={selectedId}
-          />
-        ) : null}
-      </RowActions>
+      {isSelected ? (
+        <RowContent>{content}</RowContent>
+      ) : (
+        <RowLink href={urlForMapFile(family, file.id)}>{content}</RowLink>
+      )}
+      {canManageMaps ? (
+        <FileStaffMenu
+          file={file}
+          family={family}
+          files={files}
+          duplicateNames={duplicateNames}
+          selectedId={selectedId}
+        />
+      ) : null}
     </Row>
   )
+}
+
+/** What a default-changing mutation returns, as far as the snackbar needs. */
+interface DefaultChangeResult {
+  data?: { current: { id: SbMapId; name: string } } | null
+  error?: { graphQLErrors: ReadonlyArray<{ message: string }>; message: string }
 }
 
 /** The staff's actions on one file of a map. Admin-only, so not translated. */
 function FileStaffMenu({
   file,
   family,
-  fileCount,
+  files,
+  duplicateNames,
   selectedId,
 }: {
   file: FileData
   family: FamilyData
-  fileCount: number
+  files: ReadonlyArray<FileData>
+  duplicateNames: ReadonlySet<string>
   selectedId: SbMapId
 }) {
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const uploadedDate = useFormat(uploadedDateFormat)
+  const [, setDefault] = useMutation(SetDefaultMutation)
+  const [, clearDefault] = useMutation(ClearDefaultMutation)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -367,34 +416,73 @@ function FileStaffMenu({
   // Only a listed file can be the default of a map with listed files
   const canBeDefault = file.listed || !family.listed
 
+  /** Names a file by its display name, plus its upload date when another file has that name. */
+  const labelOf = (current: { id: SbMapId; name: string }) => {
+    const name = filterColorCodes(current.name)
+    const found = files.find(f => f.id === current.id)
+    return found && duplicateNames.has(name)
+      ? `${name} (${uploadedDate.format(new Date(found.firstSeenAt))})`
+      : name
+  }
+
+  const changeDefault = (request: Promise<DefaultChangeResult>, suffix: string) => {
+    request
+      .then(result => {
+        if (result.error || !result.data) {
+          throw new Error(result.error?.graphQLErrors[0]?.message ?? result.error?.message)
+        }
+        snackbarController.showSnackbar(`Default is now ${labelOf(result.data.current)}${suffix}`)
+      })
+      .catch((err: Error) => {
+        snackbarController.showSnackbar(`Couldn't change the default: ${err.message}`)
+      })
+  }
+
   const items: Array<{
     text: string
     secondaryText?: string
     disabled?: boolean
     onClick: () => void
   }> = []
-  const openAction = (action: 'makeDefault' | 'clearDefault' | 'split' | 'move') =>
+  const openAction = (action: 'split' | 'move') =>
     dispatch(
       openMapFamilyActionDialog({ action, familyId: family.id, fileId: file.id, selectedId }),
     )
   if (isPicked) {
-    items.push({ text: 'Clear default', onClick: () => openAction('clearDefault') })
+    items.push({
+      text: 'Clear default',
+      onClick: () =>
+        changeDefault(
+          clearDefault({ familyId: family.id }).then(r => ({
+            data: r.data?.mapFamilyClearDefault,
+            error: r.error,
+          })),
+          ' (most played)',
+        ),
+    })
   } else {
     items.push({
       text: 'Make default',
       secondaryText: canBeDefault ? undefined : 'Unlisted files can’t be the default',
       disabled: !canBeDefault,
-      onClick: () => openAction('makeDefault'),
+      onClick: () =>
+        changeDefault(
+          setDefault({ fileId: file.id }).then(r => ({
+            data: r.data?.mapFamilySetDefault,
+            error: r.error,
+          })),
+          '',
+        ),
     })
   }
-  if (fileCount > 1) {
+  if (files.length > 1) {
     items.push({ text: 'Split into its own map', onClick: () => openAction('split') })
   }
   items.push({ text: 'Move to another map…', onClick: () => openAction('move') })
 
   return (
     <>
-      <Tooltip text='File actions' position='top' tabIndex={-1}>
+      <MenuTooltip text='File actions' position='top' tabIndex={-1}>
         <IconButton
           ref={anchorRef}
           icon={<MaterialIcon icon='more_vert' />}
@@ -403,7 +491,7 @@ function FileStaffMenu({
           ariaExpanded={open}
           onClick={openMenu}
         />
-      </Tooltip>
+      </MenuTooltip>
       <Popover
         open={open}
         onDismiss={closeMenu}
@@ -427,38 +515,5 @@ function FileStaffMenu({
         </MenuList>
       </Popover>
     </>
-  )
-}
-
-const NoticeLink = styled(Link)`
-  ${titleSmall};
-  overflow-wrap: anywhere;
-`
-
-/** Tells the viewer that the file they're looking at isn't the one players get. */
-export function MapNotDefaultNotice({
-  family: familyRef,
-  selectedId,
-}: {
-  family: FragmentType<typeof MapPageFiles_FamilyFragment>
-  selectedId: SbMapId
-}) {
-  const { t } = useTranslation()
-  const family = useFragment(MapPageFiles_FamilyFragment, familyRef)
-  if (family.current.id === selectedId) {
-    return null
-  }
-
-  const name = filterColorCodes(family.current.name)
-  return (
-    <Callout variant='inline' icon='info'>
-      <Trans t={t} i18nKey='maps.files.notDefaultNotice'>
-        Not the default. Players get{' '}
-        <NoticeLink href={urlForMapFile(family, family.current.id)}>
-          {{ name } as TransInterpolation}
-        </NoticeLink>
-        .
-      </Trans>
-    </Callout>
   )
 }

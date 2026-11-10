@@ -962,9 +962,14 @@ export type AdminMapFamilyReportsQuery = {
     reportedAt: string
     status: MapFamilyReportStatus
     resolvedAt: string | null
-    family: { id: string; name: string } | null
+    family: {
+      id: string
+      name: string
+      current: { id: Types.SbMapId }
+      files: Array<{ id: Types.SbMapId }>
+    } | null
     map: { id: Types.SbMapId; name: string } | null
-    otherFamily: { id: string; name: string } | null
+    otherFamily: { id: string; name: string; current: { id: Types.SbMapId } } | null
     reportedBy: { id: Types.SbUserId } | null
     resolvedBy: { id: Types.SbUserId } | null
   }>
@@ -973,15 +978,6 @@ export type AdminMapFamilyReportsQuery = {
 export type AdminMapFamilyReportCountsQueryVariables = Exact<{ [key: string]: never }>
 
 export type AdminMapFamilyReportCountsQuery = { open: number; resolved: number; dismissed: number }
-
-export type AdminMapFamilyReportSetStatusMutationVariables = Exact<{
-  id: string
-  status: MapFamilyReportStatus
-}>
-
-export type AdminMapFamilyReportSetStatusMutation = {
-  mapFamilyReportSetStatus: { id: string; status: MapFamilyReportStatus; resolvedAt: string | null }
-}
 
 export type MapSearchTest_MapFragment = {
   id: Types.SbMapId
@@ -1274,11 +1270,7 @@ export type MapDefaultNudgeQueryVariables = Exact<{
 export type MapDefaultNudgeQuery = {
   map: {
     id: Types.SbMapId
-    family: {
-      id: string
-      name: string
-      current: { id: Types.SbMapId; name: string; listed: boolean }
-    }
+    family: { id: string; current: { id: Types.SbMapId; name: string; listed: boolean } }
   } | null
 }
 
@@ -1332,34 +1324,6 @@ export type MapFamilyActionSimilarQuery = {
   }>
 }
 
-export type MapFamilySetDefaultMutationVariables = Exact<{
-  fileId: Types.SbMapId
-}>
-
-export type MapFamilySetDefaultMutation = {
-  mapFamilySetDefault: {
-    id: string
-    name: string
-    defaultSetAt: string | null
-    current: { id: Types.SbMapId }
-    defaultMap: { id: Types.SbMapId } | null
-  }
-}
-
-export type MapFamilyClearDefaultMutationVariables = Exact<{
-  familyId: string
-}>
-
-export type MapFamilyClearDefaultMutation = {
-  mapFamilyClearDefault: {
-    id: string
-    name: string
-    defaultSetAt: string | null
-    current: { id: Types.SbMapId }
-    defaultMap: { id: Types.SbMapId } | null
-  }
-}
-
 export type MapFamilySplitFileMutationVariables = Exact<{
   fileId: Types.SbMapId
 }>
@@ -1394,16 +1358,6 @@ export type MapFamilyMergeMutationVariables = Exact<{
 
 export type MapFamilyMergeMutation = { mapFamilyMerge: { id: string; name: string } }
 
-export type MapFamilyReportDialogQueryVariables = Exact<{
-  familyId: string
-  fileId: Types.SbMapId
-}>
-
-export type MapFamilyReportDialogQuery = {
-  mapFamily: { id: string; family: { id: string; name: string } } | null
-  map: { id: Types.SbMapId; name: string } | null
-}
-
 export type MapFamilyReportMutationVariables = Exact<{
   input: MapFamilyReportInput
 }>
@@ -1420,9 +1374,7 @@ export type MapFamilySearch_FamilyFragmentFragment = {
   current: {
     id: Types.SbMapId
     listed: boolean
-    playerCount: number
-    firstSeenAt: string
-    file: { id: string; width: number; height: number } & {
+    file: { id: string } & {
       ' $fragmentRefs'?: { MapFileImage_FileFragmentFragment: MapFileImage_FileFragmentFragment }
     }
   }
@@ -1531,7 +1483,6 @@ export type MapPageFiles_FileFragmentFragment = {
   listed: boolean
   firstSeenAt: string
   stats: { id: string; games28d: number; gamesTotal: number } | null
-  file: { id: string; width: number; height: number }
 } & { ' $fragmentName'?: 'MapPageFiles_FileFragmentFragment' }
 
 export type MapPageFiles_FamilyFragmentFragment = {
@@ -1547,6 +1498,36 @@ export type MapPageFiles_FamilyFragmentFragment = {
     }
   >
 } & { ' $fragmentName'?: 'MapPageFiles_FamilyFragmentFragment' }
+
+export type MapFamilySetDefaultMutationVariables = Exact<{
+  fileId: Types.SbMapId
+}>
+
+export type MapFamilySetDefaultMutation = {
+  mapFamilySetDefault: {
+    id: string
+    name: string
+    defaultSetAt: string | null
+    current: { id: Types.SbMapId; name: string }
+    defaultMap: { id: Types.SbMapId } | null
+    defaultSetBy: { id: Types.SbUserId; name: string } | null
+  }
+}
+
+export type MapFamilyClearDefaultMutationVariables = Exact<{
+  familyId: string
+}>
+
+export type MapFamilyClearDefaultMutation = {
+  mapFamilyClearDefault: {
+    id: string
+    name: string
+    defaultSetAt: string | null
+    current: { id: Types.SbMapId; name: string }
+    defaultMap: { id: Types.SbMapId } | null
+    defaultSetBy: { id: Types.SbUserId; name: string } | null
+  }
+}
 
 export type MapPageStats_FamilyFragmentFragment = {
   id: string
@@ -1701,6 +1682,50 @@ export type MapPage_HowToPlayFragmentFragment = {
   kind: MapKind
   file: { id: string; originalDescription: string }
 } & { ' $fragmentName'?: 'MapPage_HowToPlayFragmentFragment' }
+
+export type MapReportBarQueryVariables = Exact<{
+  id: string
+}>
+
+export type MapReportBarQuery = {
+  mapFamilyReportById: {
+    id: string
+    kind: MapFamilyReportKind
+    note: string | null
+    reportedAt: string
+    status: MapFamilyReportStatus
+    resolvedAt: string | null
+    reportedBy: { id: Types.SbUserId } | null
+    resolvedBy: { id: Types.SbUserId } | null
+    family: {
+      id: string
+      name: string
+      current: { id: Types.SbMapId }
+      files: Array<{ id: Types.SbMapId }>
+    } | null
+    map: {
+      id: Types.SbMapId
+      name: string
+      firstSeenAt: string
+      stats: { id: string; gamesTotal: number } | null
+    } | null
+    otherFamily: { id: string; name: string; current: { id: Types.SbMapId } } | null
+  } | null
+}
+
+export type MapFamilyReportSetStatusMutationVariables = Exact<{
+  id: string
+  status: MapFamilyReportStatus
+}>
+
+export type MapFamilyReportSetStatusMutation = {
+  mapFamilyReportSetStatus: {
+    id: string
+    status: MapFamilyReportStatus
+    resolvedAt: string | null
+    resolvedBy: { id: Types.SbUserId } | null
+  }
+}
 
 export type MapTile_SbMapFragmentFragment = {
   id: Types.SbMapId
@@ -3082,8 +3107,6 @@ export const MapFamilySearch_FamilyFragmentFragmentDoc = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'file' },
@@ -3091,8 +3114,6 @@ export const MapFamilySearch_FamilyFragmentFragmentDoc = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                       {
                         kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
@@ -3163,18 +3184,6 @@ export const MapPageFiles_FileFragmentFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'file' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
               ],
             },
           },
@@ -3276,18 +3285,6 @@ export const MapPageFiles_FamilyFragmentFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'file' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
               ],
             },
           },
@@ -6517,6 +6514,22 @@ export const AdminMapFamilyReportsDocument = {
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'current' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'files' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
                     ],
                   },
                 },
@@ -6539,6 +6552,14 @@ export const AdminMapFamilyReportsDocument = {
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'current' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
                     ],
                   },
                 },
@@ -6619,66 +6640,6 @@ export const AdminMapFamilyReportCountsDocument = {
 } as unknown as DocumentNode<
   AdminMapFamilyReportCountsQuery,
   AdminMapFamilyReportCountsQueryVariables
->
-export const AdminMapFamilyReportSetStatusDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'AdminMapFamilyReportSetStatus' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'status' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamilyReportStatus' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilyReportSetStatus' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'id' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-              },
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'status' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'status' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'status' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<
-  AdminMapFamilyReportSetStatusMutation,
-  AdminMapFamilyReportSetStatusMutationVariables
 >
 export const MapSearchTestMapsDocument = {
   kind: 'Document',
@@ -8707,7 +8668,6 @@ export const MapDefaultNudgeDocument = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'current' },
@@ -8976,8 +8936,6 @@ export const MapFamilyActionSimilarDocument = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'file' },
@@ -8985,8 +8943,6 @@ export const MapFamilyActionSimilarDocument = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                       {
                         kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
@@ -9002,126 +8958,6 @@ export const MapFamilyActionSimilarDocument = {
     },
   ],
 } as unknown as DocumentNode<MapFamilyActionSimilarQuery, MapFamilyActionSimilarQueryVariables>
-export const MapFamilySetDefaultDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'MapFamilySetDefault' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilySetDefault' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'fileId' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'current' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'defaultMap' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                { kind: 'Field', name: { kind: 'Name', value: 'defaultSetAt' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<MapFamilySetDefaultMutation, MapFamilySetDefaultMutationVariables>
-export const MapFamilyClearDefaultDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'MapFamilyClearDefault' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilyClearDefault' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'familyId' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'current' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'defaultMap' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                { kind: 'Field', name: { kind: 'Name', value: 'defaultSetAt' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<MapFamilyClearDefaultMutation, MapFamilyClearDefaultMutationVariables>
 export const MapFamilySplitFileDocument = {
   kind: 'Document',
   definitions: [
@@ -9355,85 +9191,6 @@ export const MapFamilyMergeDocument = {
     },
   ],
 } as unknown as DocumentNode<MapFamilyMergeMutation, MapFamilyMergeMutationVariables>
-export const MapFamilyReportDialogDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'query',
-      name: { kind: 'Name', value: 'MapFamilyReportDialog' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamily' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'id' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'family' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'map' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'id' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<MapFamilyReportDialogQuery, MapFamilyReportDialogQueryVariables>
 export const MapFamilyReportDocument = {
   kind: 'Document',
   definitions: [
@@ -9622,8 +9379,6 @@ export const MapFamilySearchDocument = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'file' },
@@ -9631,8 +9386,6 @@ export const MapFamilySearchDocument = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                       {
                         kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
@@ -9770,8 +9523,6 @@ export const MapFamilySearchByIdDocument = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'file' },
@@ -9779,8 +9530,6 @@ export const MapFamilySearchByIdDocument = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                       {
                         kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
@@ -10213,6 +9962,154 @@ export const MapLiveGamesDocument = {
     },
   ],
 } as unknown as DocumentNode<MapLiveGamesQuery, MapLiveGamesQueryVariables>
+export const MapFamilySetDefaultDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapFamilySetDefault' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamilySetDefault' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'fileId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'defaultMap' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'defaultSetAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'defaultSetBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapFamilySetDefaultMutation, MapFamilySetDefaultMutationVariables>
+export const MapFamilyClearDefaultDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapFamilyClearDefault' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamilyClearDefault' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'familyId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'defaultMap' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'defaultSetAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'defaultSetBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapFamilyClearDefaultMutation, MapFamilyClearDefaultMutationVariables>
 export const MapMatchupsDocument = {
   kind: 'Document',
   definitions: [
@@ -10406,18 +10303,6 @@ export const MapPageFamilyDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'file' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
               ],
             },
           },
@@ -10905,15 +10790,135 @@ export const MapPageFileDocument = {
               ],
             },
           },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPageFileQuery, MapPageFileQueryVariables>
+export const MapReportBarDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapReportBar' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'file' },
+            name: { kind: 'Name', value: 'mapFamilyReportById' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'note' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reportedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'status' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'reportedBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'resolvedBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'family' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'current' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'files' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'map' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'stats' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'otherFamily' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'current' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
+                    ],
+                  },
+                },
               ],
             },
           },
@@ -10921,7 +10926,75 @@ export const MapPageFileDocument = {
       },
     },
   ],
-} as unknown as DocumentNode<MapPageFileQuery, MapPageFileQueryVariables>
+} as unknown as DocumentNode<MapReportBarQuery, MapReportBarQueryVariables>
+export const MapFamilyReportSetStatusDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapFamilyReportSetStatus' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'status' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamilyReportStatus' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamilyReportSetStatus' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'status' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'status' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'status' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'resolvedBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  MapFamilyReportSetStatusMutation,
+  MapFamilyReportSetStatusMutationVariables
+>
 export const MapUploadKnownMapDocument = {
   kind: 'Document',
   definitions: [

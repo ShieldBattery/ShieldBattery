@@ -289,16 +289,18 @@ export function openMapFamilyActionDialog(initData: {
   action: MapFamilyActionKind
   familyId: string
   fileId?: SbMapId
-  selectedId: SbMapId
+  selectedId?: SbMapId
+  reportId?: string
+  targetFamilyId?: string
 }) {
   return openDialog({ type: DialogType.MapFamilyAction, initData })
 }
 
 /** Opens the dialog for telling staff that a map's files are wrong. */
 export function openMapFamilyReportDialog(initData: {
-  kind: 'wrongMap' | 'sameMap'
   familyId: string
   fileId: SbMapId
+  fileCount: number
 }) {
   return openDialog({ type: DialogType.MapFamilyReport, initData })
 }

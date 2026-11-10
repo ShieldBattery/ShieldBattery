@@ -7,6 +7,7 @@ import { useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
 import {
   ALL_MAP_COMPARE_VIEWS,
+  MAP_COMPARE_REPORT_PARAM,
   MAP_COMPARE_SEGMENT,
   MapCompareView,
   mapFileIdFromSegment,
@@ -14,6 +15,7 @@ import {
   urlForMapCompare,
 } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapChange, MapStartLocationChangeKind } from '../gql/graphql'
@@ -40,6 +42,7 @@ import {
 } from '../styles/typography'
 import { MapBackButton } from './map-back-button'
 import { CompareImage, isPixelView, MapCompareViewer } from './map-compare-viewer'
+import { MapReportBar } from './map-report-bar'
 import { MapTileSource, useMapTileSource } from './map-tile-source'
 
 const MapCompareQuery = graphql(/* GraphQL */ `
@@ -499,6 +502,9 @@ function MapComparePage({ a, b }: { a: SbMapId; b: SbMapId }) {
     context: NO_SUSPENSE_CONTEXT,
   })
 
+  const [reportId] = useLocationSearchParam(MAP_COMPARE_REPORT_PARAM)
+  const canManageMaps = useHasAnyPermission('manageMaps')
+
   const comparison = data?.mapComparison
   let content: React.ReactNode
   if (comparison) {
@@ -533,6 +539,7 @@ function MapComparePage({ a, b }: { a: SbMapId; b: SbMapId }) {
         <BackRow>
           <MapBackButton />
         </BackRow>
+        {reportId && canManageMaps ? <MapReportBar reportId={reportId} /> : null}
         {content}
       </PageContent>
     </CenteredContentContainer>
@@ -557,6 +564,7 @@ function CompareBody({
   const aTiles = useMapTileSource(a.id)
   const bTiles = useMapTileSource(b.id)
   const [viewParam, setViewParam] = useLocationSearchParam('view')
+  const [reportId] = useLocationSearchParam(MAP_COMPARE_REPORT_PARAM)
   const [showSpawns, setShowSpawns] = useState(true)
   const [showTerrainChanges, setShowTerrainChanges] = useState(false)
   const [showTechnical, setShowTechnical] = useState(false)
@@ -600,7 +608,7 @@ function CompareBody({
             <IconButton
               icon={<MaterialIcon icon='swap_horiz' />}
               ariaLabel={swapLabel}
-              onClick={() => replace(urlForMapCompare(b.id, a.id, view))}
+              onClick={() => replace(urlForMapCompare(b.id, a.id, view, reportId || undefined))}
             />
           </Tooltip>
           <NameLink href={urlForMap(b.id, b.name)} title={bName}>

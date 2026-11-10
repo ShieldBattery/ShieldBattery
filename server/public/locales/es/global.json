@@ -2262,20 +2262,18 @@
       "search": "Busca mapas o pega un enlace de mapa"
     },
     "files": {
-      "compareWithDefault": "Comparar con el predeterminado",
+      "compare": "Comparar",
       "default": "Predeterminado",
       "games_one": "{{formattedCount}} partida",
       "games_many": "{{formattedCount}} de partidas",
       "games_other": "{{formattedCount}} partidas",
-      "host": "Crear",
-      "notDefaultNotice": "No es el archivo predeterminado. Los jugadores usan <2>{{name}}</2>.",
+      "notDefault": "No es el archivo predeterminado",
       "showAll_one": "Mostrar {{count}}",
       "showAll_many": "Mostrar los {{count}}",
       "showAll_other": "Mostrar los {{count}}",
       "showFewer": "Mostrar menos",
       "title": "Archivos",
-      "uploaded": "Subido el {{date}}",
-      "useInLobby": "Usar"
+      "viewDefault": "Ver el predeterminado"
     },
     "local": {
       "cantBeUsed": "No se puede usar: {{reason}}",
@@ -2305,8 +2303,6 @@
       "uploadMapNoPlayerSlotsError": "Este mapa no tiene posiciones iniciales ni espacios de jugador utilizables, así que nunca podría jugarse. Añade posiciones iniciales al mapa e inténtalo de nuevo."
     },
     "nudge": {
-      "notDefaultFor": "Este no es el archivo predeterminado de {{map}}.",
-      "notDefaultForUseFile": "Este no es el archivo predeterminado de {{map}}. ¿Usar {{file}}?",
       "switchError": "No se pudo cargar el archivo predeterminado",
       "useDefault": "Usar el predeterminado"
     },
@@ -2394,19 +2390,16 @@
     },
     "report": {
       "error": "Algo salió mal. Inténtalo de nuevo más tarde.",
+      "menuItem": "Reportar un problema…",
       "note": "¿Algo que el staff deba saber? (opcional)",
       "noteTooLong": "No pases de {{max}} caracteres.",
-      "pickRequired": "Elige el mapa con el que coincide.",
       "rateLimited": "Enviaste demasiados reportes hace poco. Inténtalo de nuevo más tarde.",
       "restricted": "Ahora mismo tienes restringido enviar reportes.",
-      "sameMapAction": "Este mapa es el mismo que…",
-      "sameMapIntro": "Avisa al staff de que <1>{{mapName}}</1> es el mismo mapa que otro, para que los unan. Nada cambia hasta que el staff lo revise.",
-      "sameMapTitle": "Este mapa es el mismo que…",
+      "sameMapOption": "Este mapa es el mismo que otro",
       "send": "Enviar al staff",
       "sent": "¡Gracias! El staff le echará un vistazo.",
-      "wrongMapAction": "Este archivo no es de este mapa",
-      "wrongMapIntro": "Avisa al staff de que el archivo <1>{{fileName}}</1> no va con los demás archivos de <3>{{mapName}}</3>. Nada cambia hasta que el staff lo revise.",
-      "wrongMapTitle": "Este archivo no es de este mapa"
+      "title": "Reportar un problema",
+      "wrongMapOption": "Este archivo no es de este mapa"
     },
     "server": {
       "delisted": "Mapa retirado del catálogo",

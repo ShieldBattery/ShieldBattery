@@ -3,8 +3,9 @@ import {
   mapFileIdFromSegment,
   MapPageSubPage,
   urlForMap,
+  urlForMapCompare,
 } from '../../common/map-url'
-import { makeMapFamilyId, SbMapId } from '../../common/maps'
+import { filterColorCodes, makeMapFamilyId, SbMapId } from '../../common/maps'
 import { encodePrettyId } from '../../common/pretty-id'
 
 /** How many files a map's Files card shows before the rest are behind "Show all". */
@@ -199,4 +200,51 @@ export function urlForMapFile(
     subPage,
     fileId === family.current.id ? undefined : fileId,
   )
+}
+
+/**
+ * Returns the display names (color codes stripped) that more than one of a map's files has, which
+ * is when files need their upload dates to be told apart.
+ */
+export function duplicateFileNames(files: ReadonlyArray<{ name: string }>): Set<string> {
+  const seen = new Set<string>()
+  const duplicates = new Set<string>()
+  for (const file of files) {
+    const name = filterColorCodes(file.name)
+    if (seen.has(name)) {
+      duplicates.add(name)
+    }
+    seen.add(name)
+  }
+  return duplicates
+}
+
+/**
+ * Returns the compare page URL that helps judge a report that a file doesn't belong in its map:
+ * the file against the map's default, or (when the file is the default) against the map's first
+ * other file. Undefined when the map has no other file. With `reportId`, the page reviews that
+ * report.
+ */
+export function wrongMapReportCompareUrl(
+  family: { current: { id: SbMapId }; files: ReadonlyArray<{ id: SbMapId }> },
+  fileId: SbMapId,
+  reportId?: string,
+): string | undefined {
+  if (fileId !== family.current.id) {
+    return urlForMapCompare(family.current.id, fileId, undefined, reportId)
+  }
+  const other = family.files.find(f => f.id !== fileId)
+  return other ? urlForMapCompare(family.current.id, other.id, undefined, reportId) : undefined
+}
+
+/**
+ * Returns the compare page URL that helps judge a report that two maps are the same. With
+ * `reportId`, the page reviews that report.
+ */
+export function sameMapReportCompareUrl(
+  family: { current: { id: SbMapId } },
+  otherFamily: { current: { id: SbMapId } },
+  reportId?: string,
+): string {
+  return urlForMapCompare(family.current.id, otherFamily.current.id, undefined, reportId)
 }

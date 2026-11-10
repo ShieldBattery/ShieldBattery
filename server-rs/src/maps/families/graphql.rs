@@ -626,6 +626,18 @@ impl MapFamiliesQuery {
         .wrap_err("Failed to load family reports")?)
     }
 
+    /// A family report by its id, whatever its status. Only available to users who can manage
+    /// maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn map_family_report_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: Uuid,
+    ) -> Result<Option<MapFamilyReport>> {
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(load_report(db, id).await?)
+    }
+
     /// How many family reports have a status. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_report_count(

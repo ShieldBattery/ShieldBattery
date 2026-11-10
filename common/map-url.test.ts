@@ -17,6 +17,7 @@ import { encodePrettyId } from './pretty-id'
 
 const MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
 const OTHER_MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000bbbb')
+const REPORT_ID = '5eed0000-0000-0000-0000-00000000cccc'
 const FAMILY_ID = makeMapFamilyId('5eed0000-0000-0000-0000-00000000ffff')
 
 describe('common/map-url', () => {
@@ -92,6 +93,12 @@ describe('common/map-url', () => {
     expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, MapCompareView.Split)).toBe(base)
     expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, MapCompareView.Slider)).toBe(
       `${base}?view=slider`,
+    )
+    expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, undefined, REPORT_ID)).toBe(
+      `${base}?report=${REPORT_ID}`,
+    )
+    expect(urlForMapCompare(MAP_ID, OTHER_MAP_ID, MapCompareView.Fade, REPORT_ID)).toBe(
+      `${base}?view=fade&report=${REPORT_ID}`,
     )
   })
 

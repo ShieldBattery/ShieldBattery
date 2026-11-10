@@ -2220,18 +2220,16 @@
       "search": "Search maps, or paste a map link"
     },
     "files": {
-      "compareWithDefault": "Compare with default",
+      "compare": "Compare",
       "default": "Default",
       "games_one": "{{formattedCount}} game",
       "games_other": "{{formattedCount}} games",
-      "host": "Host",
-      "notDefaultNotice": "Not the default. Players get <2>{{name}}</2>.",
+      "notDefault": "Not the default file",
       "showAll_one": "Show all {{count}}",
       "showAll_other": "Show all {{count}}",
       "showFewer": "Show fewer",
       "title": "Files",
-      "uploaded": "Uploaded {{date}}",
-      "useInLobby": "Use"
+      "viewDefault": "View default"
     },
     "local": {
       "cantBeUsed": "Can't be used: {{reason}}",
@@ -2260,8 +2258,6 @@
       "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
     },
     "nudge": {
-      "notDefaultFor": "This isn't the default file for {{map}}.",
-      "notDefaultForUseFile": "This isn't the default file for {{map}}. Use {{file}}?",
       "switchError": "Couldn't load the default file",
       "useDefault": "Use default"
     },
@@ -2343,19 +2339,16 @@
     },
     "report": {
       "error": "Something went wrong. Please try again later.",
+      "menuItem": "Report a problem…",
       "note": "Anything staff should know? (optional)",
       "noteTooLong": "Keep it under {{max}} characters.",
-      "pickRequired": "Pick the map it’s the same as.",
       "rateLimited": "You've sent too many reports recently. Please try again later.",
       "restricted": "You are currently restricted from reporting.",
-      "sameMapAction": "This map is the same as…",
-      "sameMapIntro": "Tell staff that <1>{{mapName}}</1> is the same map as another one, so they can combine them. Nothing changes until staff check it.",
-      "sameMapTitle": "This map is the same as…",
+      "sameMapOption": "This map is the same as another map",
       "send": "Send to staff",
       "sent": "Thanks! Staff will take a look.",
-      "wrongMapAction": "This file isn't part of this map",
-      "wrongMapIntro": "Tell staff that the file <1>{{fileName}}</1> doesn’t belong with the other files of <3>{{mapName}}</3>. Nothing changes until staff check it.",
-      "wrongMapTitle": "This file isn't part of this map"
+      "title": "Report a problem",
+      "wrongMapOption": "This file doesn't belong in this map"
     },
     "server": {
       "delisted": "Map delisted",

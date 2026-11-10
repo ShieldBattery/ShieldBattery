@@ -5,7 +5,7 @@ import { useQuery } from 'urql'
 import { mapIdFromRouteSegment } from '../../common/map-url'
 import { filterColorCodes } from '../../common/maps'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
+import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
@@ -29,12 +29,8 @@ export const MapFamilySearch_FamilyFragment = graphql(/* GraphQL */ `
     current {
       id
       listed
-      playerCount
-      firstSeenAt
       file {
         id
-        width
-        height
         ...MapFileImage_FileFragment
       }
     }
@@ -71,7 +67,7 @@ const MapFamilySearchByIdQuery = graphql(/* GraphQL */ `
 export interface MapFamilyCandidate {
   familyId: string
   family: FragmentType<typeof MapFamilySearch_FamilyFragment>
-  /** Shown under the map's facts, e.g. why it's suggested. */
+  /** Shown at the end of the map's row, e.g. why it's suggested. */
   note?: string
 }
 
@@ -124,6 +120,21 @@ function useCandidateSearch(value: string): {
   }
 }
 
+/**
+ * The map with an id as a candidate to pick, once it has loaded (undefined when there's no id or
+ * no such map).
+ */
+export function useFamilyCandidate(familyId: string | undefined): MapFamilyCandidate | undefined {
+  const [{ data }] = useQuery({
+    query: MapFamilySearchByIdQuery,
+    variables: { id: familyId ?? '' },
+    pause: !familyId,
+    context: NO_SUSPENSE_CONTEXT,
+  })
+  const family = data?.mapFamily?.family
+  return familyId && family ? { familyId: family.id, family } : undefined
+}
+
 const Root = styled.div`
   display: flex;
   flex-direction: column;
@@ -136,6 +147,7 @@ const MutedText = styled.div`
 `
 
 const CandidateRow = styled.div`
+  width: 100%;
   min-width: 0;
   padding-block: 4px;
 
@@ -145,14 +157,15 @@ const CandidateRow = styled.div`
 `
 
 const CandidateImage = styled.div`
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 4px;
 `
 
 const CandidateText = styled.div`
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -169,17 +182,31 @@ const CandidateMeta = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short', day: 'numeric' })
+const CandidateNote = styled.div`
+  ${bodySmall};
+  flex-shrink: 0;
+
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+`
+
+/** About four and a half candidate rows, so a long list scrolls and shows there's more. */
+const CandidateList = styled.div`
+  max-height: 216px;
+  /* Keeps the rows' end notes clear of the scrollbar. */
+  padding-right: 8px;
+  overflow-y: auto;
+`
 
 function Candidate({ candidate }: { candidate: MapFamilyCandidate }) {
   const { t } = useTranslation()
-  const uploadedDate = useFormat(uploadedDateFormat)
   const numbers = useFormat(countFormat)
   const family = useFragment(MapFamilySearch_FamilyFragment, candidate.family)
   const file = family.current
   const name = filterColorCodes(family.name)
   const games = family.stats?.gamesTotal ?? 0
-  const history = [
+  const meta = [
     t('maps.familySearch.files', {
       defaultValue: '{{count}} files',
       defaultValue_one: '{{count}} file',
@@ -191,21 +218,9 @@ function Candidate({ candidate }: { candidate: MapFamilyCandidate }) {
       count: games,
       formattedCount: numbers.format(games),
     }),
-    t('maps.files.uploaded', {
-      defaultValue: 'Uploaded {{date}}',
-      date: uploadedDate.format(new Date(file.firstSeenAt)),
-    }),
-  ]
-  const facts = [
-    t('maps.catalog.players', {
-      defaultValue: '{{count}} players',
-      defaultValue_one: '{{count}} player',
-      count: file.playerCount,
-    }),
-    `${file.file.width}×${file.file.height}`,
   ]
   if (!file.listed) {
-    facts.push(t('maps.page.unlisted', 'Unlisted'))
+    meta.push(t('maps.page.unlisted', 'Unlisted'))
   }
 
   return (
@@ -215,10 +230,9 @@ function Candidate({ candidate }: { candidate: MapFamilyCandidate }) {
       </CandidateImage>
       <CandidateText>
         <CandidateName>{name}</CandidateName>
-        <CandidateMeta>{facts.join(' · ')}</CandidateMeta>
-        <CandidateMeta>{history.join(' · ')}</CandidateMeta>
-        {candidate.note ? <CandidateMeta>{candidate.note}</CandidateMeta> : null}
+        <CandidateMeta>{meta.join(' · ')}</CandidateMeta>
       </CandidateText>
+      {candidate.note ? <CandidateNote>{candidate.note}</CandidateNote> : null}
     </CandidateRow>
   )
 }
@@ -266,24 +280,26 @@ export function MapFamilySearch({
         onChange={e => setSearch(e.target.value)}
       />
       {candidates.length ? (
-        <RadioGroup
-          value={picked?.familyId}
-          dense={true}
-          onChange={e => {
-            const next = candidates.find(c => c.familyId === e.target.value)
-            if (next) {
-              onPick(next)
-            }
-          }}>
-          {candidates.map(c => (
-            <RadioButton
-              key={c.familyId}
-              value={c.familyId}
-              label={<Candidate candidate={c} />}
-              disabled={disabled}
-            />
-          ))}
-        </RadioGroup>
+        <CandidateList>
+          <RadioGroup
+            value={picked?.familyId}
+            dense={true}
+            onChange={e => {
+              const next = candidates.find(c => c.familyId === e.target.value)
+              if (next) {
+                onPick(next)
+              }
+            }}>
+            {candidates.map(c => (
+              <RadioButton
+                key={c.familyId}
+                value={c.familyId}
+                label={<Candidate candidate={c} />}
+                disabled={disabled}
+              />
+            ))}
+          </RadioGroup>
+        </CandidateList>
       ) : null}
       {search.trim() && !fetching && !results.length ? (
         <MutedText>{t('maps.familySearch.noResults', 'No maps found.')}</MutedText>

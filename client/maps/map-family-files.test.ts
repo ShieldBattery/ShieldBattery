@@ -1,15 +1,18 @@
 import { describe, expect, test } from 'vitest'
-import { MapPageSubPage, mapSlug } from '../../common/map-url'
+import { MapPageSubPage, mapSlug, urlForMapCompare } from '../../common/map-url'
 import { makeSbMapId, SbMapId } from '../../common/maps'
 import { encodePrettyId } from '../../common/pretty-id'
 import {
   correctedMapPageUrl,
+  duplicateFileNames,
   FamilyFileFacts,
   FILES_COLLAPSED_ROWS,
   orderFamilyFiles,
   predictCurrentFile,
+  sameMapReportCompareUrl,
   urlForMapFile,
   visibleFamilyFiles,
+  wrongMapReportCompareUrl,
 } from './map-family-files'
 
 function fileId(n: number): SbMapId {
@@ -245,5 +248,66 @@ describe('maps/map-family-files/urlForMapFile', () => {
     expect(urlForMapFile(family, fileId(2))).toBe(
       `${FAMILY_PATH}?file=${encodePrettyId(fileId(2))}`,
     )
+  })
+})
+
+describe('duplicateFileNames', () => {
+  test('finds names shared by several files', () => {
+    expect(duplicateFileNames([{ name: 'Fighting Spirit' }, { name: 'Fighting Spirit' }])).toEqual(
+      new Set(['Fighting Spirit']),
+    )
+  })
+
+  test('compares names without color codes', () => {
+    expect(duplicateFileNames([{ name: 'Fighting Spirit' }, { name: 'Fighting Spirit' }])).toEqual(
+      new Set(['Fighting Spirit']),
+    )
+  })
+
+  test('is empty when every name is different', () => {
+    expect(
+      duplicateFileNames([{ name: 'Fighting Spirit' }, { name: 'Fighting Spirit 2' }]).size,
+    ).toBe(0)
+  })
+})
+
+describe('wrongMapReportCompareUrl', () => {
+  const family = { current: { id: fileId(1) }, files: [{ id: fileId(1) }, { id: fileId(2) }] }
+
+  test('compares the reported file with the default', () => {
+    expect(wrongMapReportCompareUrl(family, fileId(2))).toBe(urlForMapCompare(fileId(1), fileId(2)))
+  })
+
+  test('compares a reported default with the first other file', () => {
+    expect(wrongMapReportCompareUrl(family, fileId(1))).toBe(urlForMapCompare(fileId(1), fileId(2)))
+  })
+
+  test('carries the report to review', () => {
+    expect(wrongMapReportCompareUrl(family, fileId(2), 'r1')).toBe(
+      urlForMapCompare(fileId(1), fileId(2), undefined, 'r1'),
+    )
+  })
+
+  test('has no URL when the reported default is the only file', () => {
+    expect(
+      wrongMapReportCompareUrl(
+        { current: { id: fileId(1) }, files: [{ id: fileId(1) }] },
+        fileId(1),
+      ),
+    ).toBeUndefined()
+  })
+})
+
+describe('sameMapReportCompareUrl', () => {
+  test('compares the two maps defaults', () => {
+    expect(
+      sameMapReportCompareUrl({ current: { id: fileId(1) } }, { current: { id: fileId(3) } }),
+    ).toBe(urlForMapCompare(fileId(1), fileId(3)))
+  })
+
+  test('carries the report to review', () => {
+    expect(
+      sameMapReportCompareUrl({ current: { id: fileId(1) } }, { current: { id: fileId(3) } }, 'r1'),
+    ).toBe(urlForMapCompare(fileId(1), fileId(3), undefined, 'r1'))
   })
 })

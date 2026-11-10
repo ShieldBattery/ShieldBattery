@@ -2178,16 +2178,14 @@
       "search": "搜索地图，或粘贴地图链接"
     },
     "files": {
-      "compareWithDefault": "与默认文件比较",
+      "compare": "比较",
       "default": "默认",
       "games_other": "{{formattedCount}} 场游戏",
-      "host": "创建",
-      "notDefaultNotice": "这不是默认文件。玩家使用的是 <2>{{name}}</2>。",
+      "notDefault": "不是默认文件",
       "showAll_other": "显示全部 {{count}} 个",
       "showFewer": "收起",
       "title": "文件",
-      "uploaded": "上传于 {{date}}",
-      "useInLobby": "使用"
+      "viewDefault": "查看默认文件"
     },
     "local": {
       "cantBeUsed": "无法使用：{{reason}}",
@@ -2215,8 +2213,6 @@
       "uploadMapNoPlayerSlotsError": "此地图没有出生点，也没有可用的玩家位置，因此永远无法进行游戏。请为地图添加出生点后重试。"
     },
     "nudge": {
-      "notDefaultFor": "这不是 {{map}} 的默认文件。",
-      "notDefaultForUseFile": "这不是 {{map}} 的默认文件。要使用 {{file}} 吗？",
       "switchError": "无法加载默认文件",
       "useDefault": "使用默认文件"
     },
@@ -2292,19 +2288,16 @@
     },
     "report": {
       "error": "出了点问题，请稍后再试。",
+      "menuItem": "报告问题…",
       "note": "有什么需要告诉工作人员的吗？（可选）",
       "noteTooLong": "请控制在 {{max}} 个字符以内。",
-      "pickRequired": "请选择与之相同的地图。",
       "rateLimited": "您最近提交的报告过多，请稍后再试。",
       "restricted": "您目前被限制提交报告。",
-      "sameMapAction": "此地图与另一张地图相同…",
-      "sameMapIntro": "告诉工作人员 <1>{{mapName}}</1> 和另一张地图是同一张地图，以便将它们合并。在工作人员核实之前不会有任何变化。",
-      "sameMapTitle": "此地图与另一张地图相同…",
+      "sameMapOption": "此地图与另一张地图相同",
       "send": "发送给工作人员",
       "sent": "谢谢！工作人员会查看。",
-      "wrongMapAction": "此文件不属于此地图",
-      "wrongMapIntro": "告诉工作人员文件 <1>{{fileName}}</1> 与 <3>{{mapName}}</3> 的其他文件不是同一张地图。在工作人员核实之前不会有任何变化。",
-      "wrongMapTitle": "此文件不属于此地图"
+      "title": "报告问题",
+      "wrongMapOption": "此文件不属于此地图"
     },
     "server": {
       "delisted": "地图已下架",

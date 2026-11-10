@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { useMutation, useQuery } from 'urql'
+import { useQuery } from 'urql'
 import { Link } from 'wouter'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, makeMapFamilyId } from '../../common/maps'
@@ -21,9 +21,10 @@ import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { sameMapReportCompareUrl, wrongMapReportCompareUrl } from './map-family-files'
+import { useChangeReportStatus } from './map-report-status'
 
 // An admin-only page, so it isn't translated.
 
@@ -41,6 +42,12 @@ const MapFamilyReportsQuery = graphql(/* GraphQL */ `
       family {
         id
         name
+        current {
+          id
+        }
+        files {
+          id
+        }
       }
       map {
         id
@@ -49,6 +56,9 @@ const MapFamilyReportsQuery = graphql(/* GraphQL */ `
       otherFamily {
         id
         name
+        current {
+          id
+        }
       }
       reportedBy {
         id
@@ -68,25 +78,8 @@ const MapFamilyReportCountsQuery = graphql(/* GraphQL */ `
   }
 `)
 
-const SetReportStatusMutation = graphql(/* GraphQL */ `
-  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {
-    mapFamilyReportSetStatus(id: $id, status: $status) {
-      id
-      status
-      resolvedAt
-    }
-  }
-`)
-
 const STATUS_PARAM_VALUES: Record<MapFamilyReportStatus, string> = {
   [MapFamilyReportStatus.Open]: 'open',
-  [MapFamilyReportStatus.Resolved]: 'resolved',
-  [MapFamilyReportStatus.Dismissed]: 'dismissed',
-}
-
-/** What setting a report's status does to it, for confirming the change. */
-const STATUS_DONE_TEXT: Record<MapFamilyReportStatus, string> = {
-  [MapFamilyReportStatus.Open]: 'reopened',
   [MapFamilyReportStatus.Resolved]: 'resolved',
   [MapFamilyReportStatus.Dismissed]: 'dismissed',
 }
@@ -116,12 +109,6 @@ const HeadlineRow = styled.div`
   justify-content: space-between;
   margin-top: 8px;
   margin-bottom: 8px;
-`
-
-const Intro = styled.div`
-  ${bodyMedium};
-  margin-bottom: 16px;
-  color: var(--theme-on-surface-variant);
 `
 
 const StyledTabs = styled(Tabs)`
@@ -185,6 +172,14 @@ const WrappingCell = styled(Cell)`
   overflow-wrap: anywhere;
 `
 
+const ActionsCell = styled(Cell)`
+  padding-block: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible;
+`
+
 const MutedText = styled.span`
   color: var(--theme-on-surface-variant);
 `
@@ -197,8 +192,9 @@ const LoadMoreRow = styled.div`
 
 /**
  * Players' reports that a file isn't part of its map, or that two maps are the same. Each row
- * leads to the map's page, where staff move, split or merge files; the report is then resolved (or
- * dismissed) here.
+ * opens the report on the comparison of the files involved, where staff settle it. A report with
+ * nothing to compare opens the map's page instead, and is resolved or dismissed from its row's
+ * menu.
  */
 export function AdminMapReports() {
   const [statusParam, setStatusParam] = useLocationSearchParam('status')
@@ -225,10 +221,6 @@ export function AdminMapReports() {
           }}
         />
       </HeadlineRow>
-      <Intro>
-        Open a report to go to its map&apos;s page and fix it there from the Files card or the map
-        menu, then come back to mark it resolved. Dismiss reports that need no change.
-      </Intro>
       <StyledTabs
         activeTab={status}
         onChange={(value: MapFamilyReportStatus) =>
@@ -287,28 +279,14 @@ function ReportsPage({
   isLastPage: boolean
   onLoadMore: () => void
 }) {
-  const snackbarController = useSnackbarController()
+  const changeStatus = useChangeReportStatus()
   const [{ data, fetching, error }] = useQuery({
     query: MapFamilyReportsQuery,
     variables: { status, limit: PAGE_SIZE, offset },
     requestPolicy: 'cache-and-network',
   })
-  const [, setStatus] = useMutation(SetReportStatusMutation)
   const reports = data?.mapFamilyReports ?? []
   const isOpen = status === MapFamilyReportStatus.Open
-
-  const changeStatus = (id: string, next: MapFamilyReportStatus) => {
-    setStatus({ id, status: next })
-      .then(result => {
-        if (result.error) {
-          throw result.error
-        }
-        snackbarController.showSnackbar(`Report ${STATUS_DONE_TEXT[next]}`)
-      })
-      .catch((err: Error) => {
-        snackbarController.showSnackbar(`Couldn't update the report: ${err.message}`)
-      })
-  }
 
   return (
     <>
@@ -321,13 +299,19 @@ function ReportsPage({
               r.kind === MapFamilyReportKind.WrongMap ? r.map?.id : undefined,
             )
           : undefined
+        const compareUrl = reportCompareUrl(r)
+        const rowUrl = compareUrl ?? mapUrl
         return (
-          <TableRow key={r.id} onClick={mapUrl ? () => push(mapUrl) : undefined}>
+          <TableRow key={r.id} onClick={rowUrl ? () => push(rowUrl) : undefined}>
             <Cell $width={104}>
               <NarrowDuration to={new Date(r.reportedAt)} />
             </Cell>
-            <Cell $width={200}>
-              {r.family ? filterColorCodes(r.family.name) : <MutedText>Deleted map</MutedText>}
+            <Cell $width={200} onClick={e => e.stopPropagation()}>
+              {r.family && mapUrl ? (
+                <Link href={mapUrl}>{filterColorCodes(r.family.name)}</Link>
+              ) : (
+                <MutedText>Deleted map</MutedText>
+              )}
             </Cell>
             <WrappingCell $width={240} onClick={e => e.stopPropagation()}>
               <ReportSummary report={r} />
@@ -351,18 +335,20 @@ function ReportsPage({
                 ) : null}
               </Cell>
             )}
-            <Cell $width={64} onClick={e => e.stopPropagation()}>
-              <ReportMenu
-                items={
-                  isOpen
-                    ? [
-                        ['Resolve', () => changeStatus(r.id, MapFamilyReportStatus.Resolved)],
-                        ['Dismiss', () => changeStatus(r.id, MapFamilyReportStatus.Dismissed)],
-                      ]
-                    : [['Reopen', () => changeStatus(r.id, MapFamilyReportStatus.Open)]]
-                }
-              />
-            </Cell>
+            <ActionsCell $width={64} onClick={e => e.stopPropagation()}>
+              {compareUrl ? null : (
+                <ReportMenu
+                  items={
+                    isOpen
+                      ? [
+                          ['Resolve', () => changeStatus(r.id, MapFamilyReportStatus.Resolved)],
+                          ['Dismiss', () => changeStatus(r.id, MapFamilyReportStatus.Dismissed)],
+                        ]
+                      : [['Reopen', () => changeStatus(r.id, MapFamilyReportStatus.Open)]]
+                  }
+                />
+              )}
+            </ActionsCell>
           </TableRow>
         )
       })}
@@ -381,6 +367,21 @@ function ReportsPage({
 }
 
 type ReportRow = AdminMapFamilyReportsQuery['mapFamilyReports'][number]
+
+/** The page that reviews a report next to the files it's about, if there are any to compare. */
+function reportCompareUrl(report: ReportRow): string | undefined {
+  if (!report.family) {
+    return undefined
+  }
+  if (report.kind === MapFamilyReportKind.WrongMap) {
+    return report.map
+      ? wrongMapReportCompareUrl(report.family, report.map.id, report.id)
+      : undefined
+  }
+  return report.otherFamily
+    ? sameMapReportCompareUrl(report.family, report.otherFamily, report.id)
+    : undefined
+}
 
 /** What a report says, linking to the other map it names. */
 function ReportSummary({ report }: { report: ReportRow }) {

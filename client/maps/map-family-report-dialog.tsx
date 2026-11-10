@@ -1,40 +1,22 @@
 import { TFunction } from 'i18next'
 import { useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { CombinedError, useMutation, useQuery } from 'urql'
-import { filterColorCodes, SbMapId } from '../../common/maps'
+import { CombinedError, useMutation } from 'urql'
+import { SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { graphql } from '../gql'
 import { MapFamilyReportKind } from '../gql/graphql'
-import { TransInterpolation } from '../i18n/i18next'
-import { LoadErrorRow } from '../lists/load-error-row'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
-import { LoadingDotsArea } from '../progress/dots'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { MapFamilyCandidate, MapFamilySearch } from './map-family-search'
 
 /** Keep in sync with `MAX_REPORT_NOTE_LENGTH` on the server (maps/families/edit.rs). */
 const MAX_NOTE_LENGTH = 500
-
-const MapFamilyReportDialogQuery = graphql(/* GraphQL */ `
-  query MapFamilyReportDialog($familyId: UUID!, $fileId: SbMapId!) {
-    mapFamily(id: $familyId) {
-      id
-      family {
-        id
-        name
-      }
-    }
-    map(id: $fileId) {
-      id
-      name
-    }
-  }
-`)
 
 const ReportMutation = graphql(/* GraphQL */ `
   mutation MapFamilyReport($input: MapFamilyReportInput!) {
@@ -44,12 +26,6 @@ const ReportMutation = graphql(/* GraphQL */ `
     }
   }
 `)
-
-/**
- * Requests results without suspending: the dialog renders its own loading state. Module-level so
- * the query sees the same context every render.
- */
-const NO_SUSPENSE_CONTEXT = { suspense: false }
 
 function errorMessage(error: CombinedError, t: TFunction): string {
   switch (error.graphQLErrors[0]?.extensions?.code) {
@@ -83,7 +59,6 @@ const Layout = styled.div`
 const Intro = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
-  overflow-wrap: anywhere;
 `
 
 const ErrorText = styled.div`
@@ -92,62 +67,41 @@ const ErrorText = styled.div`
 `
 
 export interface MapFamilyReportDialogProps extends CommonDialogProps {
-  kind: 'wrongMap' | 'sameMap'
   familyId: string
   fileId: SbMapId
+  /** How many of the map's files the reporter can see. */
+  fileCount: number
 }
 
+type ReportKind = 'wrongMap' | 'sameMap'
+
 /**
- * Tells staff that a file isn't part of the map it's in (`wrongMap`), or that a map is the same as
- * another map (`sameMap`). Nothing changes until staff look at it.
+ * Tells staff that the file being viewed isn't part of the map it's in, or that its map is the
+ * same as another map. Nothing changes until staff look at it.
  */
 export function MapFamilyReportDialog({
-  kind,
   familyId,
   fileId,
+  fileCount,
   onCancel,
   close,
 }: MapFamilyReportDialogProps) {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
-  const [{ data, error }, refetch] = useQuery({
-    query: MapFamilyReportDialogQuery,
-    variables: { familyId, fileId },
-    context: NO_SUSPENSE_CONTEXT,
-  })
+  const [chosenKind, setChosenKind] = useState<ReportKind>()
   const [picked, setPicked] = useState<MapFamilyCandidate>()
   const [note, setNote] = useState('')
   const [submitError, setSubmitError] = useState<string>()
   const [{ fetching: sending }, report] = useMutation(ReportMutation)
 
-  const title =
-    kind === 'wrongMap'
-      ? t('maps.report.wrongMapTitle', "This file isn't part of this map")
-      : t('maps.report.sameMapTitle', 'This map is the same as…')
-
-  const family = data?.mapFamily?.family
-  const file = data?.map
-  if (!family || !file) {
-    return (
-      <StyledDialog title={title} onCancel={onCancel} showCloseButton={true}>
-        {error || data ? (
-          <LoadErrorRow
-            message={t('maps.page.loadError', "Couldn't load this map")}
-            onRetry={() => refetch({ requestPolicy: 'network-only' })}
-          />
-        ) : (
-          <LoadingDotsArea />
-        )}
-      </StyledDialog>
-    )
-  }
-
-  const mapName = filterColorCodes(family.name)
-  const fileName = filterColorCodes(file.name)
+  // A map with a single file has no file that could be in the wrong map
+  const canReportWrongMap = fileCount > 1
+  const kind = canReportWrongMap ? chosenKind : 'sameMap'
+  const wrongMapLabel = t('maps.report.wrongMapOption', "This file doesn't belong in this map")
+  const sameMapLabel = t('maps.report.sameMapOption', 'This map is the same as another map')
 
   const onSubmit = () => {
-    if (kind === 'sameMap' && !picked) {
-      setSubmitError(t('maps.report.pickRequired', 'Pick the map it’s the same as.'))
+    if (!kind || (kind === 'sameMap' && !picked)) {
       return
     }
     setSubmitError(undefined)
@@ -157,7 +111,7 @@ export function MapFamilyReportDialog({
           ? { kind: MapFamilyReportKind.WrongMap, mapId: fileId, note: note.trim() || undefined }
           : {
               kind: MapFamilyReportKind.SameMap,
-              familyId: family.id,
+              familyId,
               otherFamilyId: picked!.familyId,
               note: note.trim() || undefined,
             },
@@ -185,34 +139,42 @@ export function MapFamilyReportDialog({
     <TextButton
       key='submit'
       label={t('maps.report.send', 'Send to staff')}
-      disabled={sending || noteTooLong(note) || (kind === 'sameMap' && !picked)}
+      disabled={sending || noteTooLong(note) || !kind || (kind === 'sameMap' && !picked)}
       onClick={onSubmit}
     />,
   ]
 
   return (
-    <StyledDialog title={title} buttons={buttons} onCancel={onCancel} showCloseButton={true}>
+    <StyledDialog
+      title={t('maps.report.title', 'Report a problem')}
+      buttons={buttons}
+      onCancel={onCancel}
+      showCloseButton={true}>
       <Layout>
         {submitError ? <ErrorText>{submitError}</ErrorText> : null}
-        <Intro>
-          {kind === 'wrongMap' ? (
-            <Trans t={t} i18nKey='maps.report.wrongMapIntro'>
-              Tell staff that the file <strong>{{ fileName } as TransInterpolation}</strong> doesn’t
-              belong with the other files of <strong>{{ mapName } as TransInterpolation}</strong>.
-              Nothing changes until staff check it.
-            </Trans>
-          ) : (
-            <Trans t={t} i18nKey='maps.report.sameMapIntro'>
-              Tell staff that <strong>{{ mapName } as TransInterpolation}</strong> is the same map
-              as another one, so they can combine them. Nothing changes until staff check it.
-            </Trans>
-          )}
-        </Intro>
+        {canReportWrongMap ? (
+          <RadioGroup
+            value={chosenKind}
+            dense={true}
+            onChange={e => setChosenKind(e.target.value as ReportKind)}>
+            {[
+              <RadioButton
+                key='wrongMap'
+                value='wrongMap'
+                label={wrongMapLabel}
+                disabled={sending}
+              />,
+              <RadioButton key='sameMap' value='sameMap' label={sameMapLabel} disabled={sending} />,
+            ]}
+          </RadioGroup>
+        ) : (
+          <Intro>{sameMapLabel}</Intro>
+        )}
         {kind === 'sameMap' ? (
           <MapFamilySearch
             picked={picked}
             onPick={setPicked}
-            excludeFamilyId={family.id}
+            excludeFamilyId={familyId}
             disabled={sending}
           />
         ) : null}

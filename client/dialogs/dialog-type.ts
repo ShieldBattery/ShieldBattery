@@ -311,8 +311,8 @@ type MapDownloadDialogPayload = BaseDialogPayload<
     mapId: SbMapId
   }
 >
-/** A staff change to which files a map holds, or to which of them is its default. */
-export type MapFamilyActionKind = 'makeDefault' | 'clearDefault' | 'split' | 'move' | 'merge'
+/** A staff change to which files a map holds. */
+export type MapFamilyActionKind = 'split' | 'move' | 'merge'
 
 type MapFamilyActionDialogPayload = BaseDialogPayload<
   typeof DialogType.MapFamilyAction,
@@ -322,18 +322,23 @@ type MapFamilyActionDialogPayload = BaseDialogPayload<
     familyId: string
     /** The file acted on. Unused for `merge`, which acts on every file of the map. */
     fileId?: SbMapId
-    /** The file the map's page currently shows. */
-    selectedId: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
+    /** A map report to resolve once the change is made. */
+    reportId?: string
+    /** For `merge`, the map to merge into, which can still be changed in the dialog. */
+    targetFamilyId?: string
   }
 >
 
 type MapFamilyReportDialogPayload = BaseDialogPayload<
   typeof DialogType.MapFamilyReport,
   {
-    /** `wrongMap`: `fileId` isn't part of the map. `sameMap`: the map is the same as another. */
-    kind: 'wrongMap' | 'sameMap'
     familyId: string
+    /** The file the reporter is looking at. */
     fileId: SbMapId
+    /** How many of the map's files the reporter can see. */
+    fileCount: number
   }
 >
 

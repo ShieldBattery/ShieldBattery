@@ -2178,16 +2178,14 @@
       "search": "맵을 검색하거나 맵 링크를 붙여 넣으세요"
     },
     "files": {
-      "compareWithDefault": "기본 파일과 비교",
+      "compare": "비교",
       "default": "기본",
       "games_other": "{{formattedCount}}게임",
-      "host": "만들기",
-      "notDefaultNotice": "기본 파일이 아닙니다. 플레이어는 <2>{{name}}</2> 파일로 플레이합니다.",
+      "notDefault": "기본 파일이 아닙니다",
       "showAll_other": "{{count}}개 모두 보기",
       "showFewer": "접기",
       "title": "파일",
-      "uploaded": "{{date}} 업로드",
-      "useInLobby": "사용"
+      "viewDefault": "기본 파일 보기"
     },
     "local": {
       "cantBeUsed": "사용할 수 없음: {{reason}}",
@@ -2215,8 +2213,6 @@
       "uploadMapNoPlayerSlotsError": "이 맵에는 시작 위치나 사용 가능한 플레이어 슬롯이 없어 플레이할 수 없습니다. 맵에 시작 위치를 추가한 뒤 다시 시도하세요."
     },
     "nudge": {
-      "notDefaultFor": "{{map}} 맵의 기본 파일이 아닙니다.",
-      "notDefaultForUseFile": "{{map}} 맵의 기본 파일이 아닙니다. {{file}} 파일을 사용하시겠습니까?",
       "switchError": "기본 파일을 불러올 수 없습니다",
       "useDefault": "기본 파일 사용"
     },
@@ -2292,19 +2288,16 @@
     },
     "report": {
       "error": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+      "menuItem": "문제 신고…",
       "note": "운영진에게 전할 내용 (선택)",
       "noteTooLong": "{{max}}자 이내로 입력하세요.",
-      "pickRequired": "같은 맵을 선택하세요.",
       "rateLimited": "최근에 제보를 너무 많이 보냈습니다. 나중에 다시 시도해 주세요.",
       "restricted": "현재 제보가 제한된 상태입니다.",
-      "sameMapAction": "이 맵과 같은 맵이 있습니다…",
-      "sameMapIntro": "<1>{{mapName}}</1> 맵이 다른 맵과 같은 맵이라고 운영진에게 알려 주세요. 운영진이 두 맵을 합칩니다. 운영진이 확인하기 전에는 아무것도 바뀌지 않습니다.",
-      "sameMapTitle": "이 맵과 같은 맵이 있습니다…",
+      "sameMapOption": "이 맵은 다른 맵과 같은 맵입니다",
       "send": "운영진에게 보내기",
       "sent": "감사합니다! 운영진이 확인하겠습니다.",
-      "wrongMapAction": "이 맵의 파일이 아닙니다",
-      "wrongMapIntro": "<1>{{fileName}}</1> 파일이 <3>{{mapName}}</3> 맵의 다른 파일들과 맞지 않는다고 운영진에게 알려 주세요. 운영진이 확인하기 전에는 아무것도 바뀌지 않습니다.",
-      "wrongMapTitle": "이 맵의 파일이 아닙니다"
+      "title": "문제 신고",
+      "wrongMapOption": "이 파일은 이 맵의 파일이 아닙니다"
     },
     "server": {
       "delisted": "맵을 목록에서 내렸습니다",

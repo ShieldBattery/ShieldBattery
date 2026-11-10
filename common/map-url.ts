@@ -55,15 +55,31 @@ export enum MapCompareView {
   Subtract = 'subtract',
 }
 
+/** The query param of the compare page that names the map family report to review. */
+export const MAP_COMPARE_REPORT_PARAM = 'report'
+
 export const ALL_MAP_COMPARE_VIEWS: ReadonlyArray<MapCompareView> = Object.values(MapCompareView)
 
 /**
  * Returns the URL of the page comparing map `a` (the before side) with map `b` (the after side).
- * The default view is left out of the URL.
+ * The default view is left out of the URL. `reportId` makes the page show that map family report
+ * to staff, who can resolve it there.
  */
-export function urlForMapCompare(a: SbMapId, b: SbMapId, view?: MapCompareView): string {
+export function urlForMapCompare(
+  a: SbMapId,
+  b: SbMapId,
+  view?: MapCompareView,
+  reportId?: string,
+): string {
   const base = urlPath`/maps/${MAP_COMPARE_SEGMENT}/${encodePrettyId(a)}/${encodePrettyId(b)}`
-  return view && view !== MapCompareView.Split ? base + urlPath`?view=${view}` : base
+  const params: string[] = []
+  if (view && view !== MapCompareView.Split) {
+    params.push(urlPath`view=${view}`)
+  }
+  if (reportId) {
+    params.push(urlPath`${MAP_COMPARE_REPORT_PARAM}=${reportId}`)
+  }
+  return params.length ? `${base}?${params.join('&')}` : base
 }
 
 /**

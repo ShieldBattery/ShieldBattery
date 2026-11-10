@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { useRoute } from 'wouter'
+import { Link, useRoute } from 'wouter'
 import { useLocationProperty } from 'wouter/use-browser-location'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
@@ -13,6 +13,7 @@ import {
   mapIdFromRouteSegment,
   MapPageId,
   MapPageSubPage,
+  urlForMapCompare,
 } from '../../common/map-url'
 import {
   filterColorCodes,
@@ -76,7 +77,7 @@ import { useToggleMapFavorite } from './map-favorites'
 import { useMapHostAction } from './map-host-action'
 import { MapFileImage } from './map-image'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
-import { MapFilesCard, MapNotDefaultNotice } from './map-page-files'
+import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
@@ -306,7 +307,6 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
             <MapFilesCard family={family} selected={file} />
           </LeftColumn>
           <RightColumn>
-            <MapNotDefaultNotice family={family} selectedId={file.id} />
             <MapHeaderAndActions
               header={file}
               actions={file}
@@ -620,6 +620,10 @@ const Notice = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const NotDefaultIcon = styled(MaterialIcon)`
+  color: var(--color-amber80);
+`
+
 /** Text with a username in the middle of it. */
 const InlineParts = styled.span`
   display: inline-flex;
@@ -652,11 +656,13 @@ const FromFileName = styled.div`
 
 function MapHeader({
   map: mapRef,
+  family,
   editing,
   onEditDone,
   onChanged,
 }: {
   map: FragmentType<typeof MapPage_HeaderFragment>
+  family: ActionsFamily
   editing: 'name' | 'description' | undefined
   onEditDone: () => void
   onChanged: () => void
@@ -751,6 +757,20 @@ function MapHeader({
           <span>{publishedDate.format(new Date(map.publishedAt))}</span>
         </Byline>
       ) : null}
+      {family.current.id !== map.id ? (
+        <Notice>
+          <NotDefaultIcon icon='info' size={20} />
+          <span>{t('maps.files.notDefault', 'Not the default file')}</span>
+          <span>·</span>
+          <Link href={urlForMapFile(family, family.current.id)}>
+            {t('maps.files.viewDefault', 'View default')}
+          </Link>
+          <span>·</span>
+          <Link href={urlForMapCompare(family.current.id, map.id)}>
+            {t('maps.files.compare', 'Compare')}
+          </Link>
+        </Notice>
+      ) : null}
       {!map.listed ? (
         <Notice>
           <MaterialIcon icon='link' size={20} />
@@ -835,6 +855,7 @@ function MapHeaderAndActions({
     <>
       <MapHeader
         map={header}
+        family={family}
         editing={editing}
         onEditDone={() => setEditing(undefined)}
         onChanged={onChanged}
@@ -959,20 +980,15 @@ function MapActions({
     )
   } else if (selfUser) {
     // Staff fix these themselves, from the Files card and this menu
-    if (family.fileCount > 1) {
-      menuItems.push([
-        t('maps.report.wrongMapAction', "This file isn't part of this map"),
-        () =>
-          dispatch(
-            openMapFamilyReportDialog({ kind: 'wrongMap', familyId: family.id, fileId: map.id }),
-          ),
-      ])
-    }
     menuItems.push([
-      t('maps.report.sameMapAction', 'This map is the same as…'),
+      t('maps.report.menuItem', 'Report a problem…'),
       () =>
         dispatch(
-          openMapFamilyReportDialog({ kind: 'sameMap', familyId: family.id, fileId: map.id }),
+          openMapFamilyReportDialog({
+            familyId: family.id,
+            fileId: map.id,
+            fileCount: family.fileCount,
+          }),
         ),
     ])
   }
