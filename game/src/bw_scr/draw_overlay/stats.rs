@@ -754,15 +754,15 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         hit_points: (!unit.is_invincible()).then_some((hit_points, max_hit_points)),
         shields: unit_id.has_shields().then(|| {
             (
-                whole_points(unit.shields()),
-                whole_points(unit_id.shields()),
+                whole_shield_or_energy_points(unit.shields()),
+                whole_shield_or_energy_points(unit_id.shields()),
             )
         }),
         energy: lifetime_energy(unit).or_else(|| {
             is_spellcaster(unit_id).then(|| {
                 (
-                    whole_points(unit.energy() as i32),
-                    whole_points(max_energy(bw, unit) as i32),
+                    whole_shield_or_energy_points(unit.energy() as i32),
+                    whole_shield_or_energy_points(max_energy(bw, unit) as i32),
                 )
             })
         }),
@@ -848,9 +848,9 @@ fn max_energy(bw: &BwVars, unit: Unit) -> u32 {
 
 /// Whole hit points out of the game's 8.8 fixed-point value.
 ///
-/// Rounded up, as the game's own readouts round them: any fraction of a point left is a unit still
-/// alive, so a living unit never reads as zero, and a negative value (which the game allows a dying
-/// unit to reach) reads as none rather than wrapping.
+/// Rounded up the way the game's own hit point readouts round: anything left of a point is still
+/// a point, so a unit that is alive never reads as zero, and a negative value (which the game
+/// allows a dying unit to reach) reads as none rather than wrapping.
 fn whole_hit_points(fixed: i32) -> u32 {
     (fixed.max(0) as u32).saturating_add(0xff) >> 8
 }
@@ -860,7 +860,7 @@ fn whole_hit_points(fixed: i32) -> u32 {
 /// Rounded down, as the game counts them: shields under one whole point absorb no damage, and a
 /// spell is refused until the caster has its whole cost, so a fraction of a point reads as none. A
 /// negative value reads as none rather than wrapping.
-fn whole_points(fixed: i32) -> u32 {
+fn whole_shield_or_energy_points(fixed: i32) -> u32 {
     (fixed.max(0) as u32) >> 8
 }
 
@@ -1136,23 +1136,24 @@ mod tests {
 
     #[test]
     fn a_part_of_a_shield_or_energy_point_reads_as_none() {
-        assert_eq!(whole_points(0), 0);
-        assert_eq!(whole_points(1), 0);
-        assert_eq!(whole_points(0x80), 0);
-        assert_eq!(whole_points(0xff), 0);
-        assert_eq!(whole_points(0x100), 1);
-        assert_eq!(whole_points(0x1ff), 1);
-        assert_eq!(whole_points(0x200), 2);
+        assert_eq!(whole_shield_or_energy_points(0), 0);
+        assert_eq!(whole_shield_or_energy_points(1), 0);
+        assert_eq!(whole_shield_or_energy_points(0x80), 0);
+        assert_eq!(whole_shield_or_energy_points(0xff), 0);
+        assert_eq!(whole_shield_or_energy_points(0x100), 1);
+        assert_eq!(whole_shield_or_energy_points(0x1ff), 1);
+        assert_eq!(whole_shield_or_energy_points(0x200), 2);
         // A Comsat Station half a point short of a scan.
-        assert_eq!(whole_points(50 * 256 - 0x80), 49);
-        assert_eq!(whole_points(50 * 256), 50);
-        assert_eq!(whole_points(-1), 0);
+        assert_eq!(whole_shield_or_energy_points(50 * 256 - 0x80), 49);
+        assert_eq!(whole_shield_or_energy_points(50 * 256), 50);
     }
 
     #[test]
     fn a_dying_units_negative_health_reads_as_none() {
         assert_eq!(whole_hit_points(-1), 0);
         assert_eq!(whole_hit_points(i32::MIN), 0);
+        assert_eq!(whole_shield_or_energy_points(-1), 0);
+        assert_eq!(whole_shield_or_energy_points(i32::MIN), 0);
     }
 
     #[test]
