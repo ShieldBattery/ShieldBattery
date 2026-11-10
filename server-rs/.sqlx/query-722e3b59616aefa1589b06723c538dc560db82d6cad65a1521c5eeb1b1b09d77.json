@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH files AS (\n                SELECT a.chk_hash, m.id, m.family_id, m.listed\n                FROM map_analysis a\n                INNER JOIN maps m ON m.id = a.map_id\n                WHERE a.chk_hash IS NOT NULL AND ($1::uuid[] IS NULL OR a.chk_hash IN (\n                    SELECT chk_hash FROM map_analysis WHERE map_id = ANY($1)\n                ))\n            ),\n            shared AS (\n                SELECT chk_hash\n                FROM files\n                GROUP BY chk_hash\n                HAVING count(DISTINCT family_id) > 1\n            ),\n            target AS (\n                SELECT DISTINCT ON (c.chk_hash) c.chk_hash, c.family_id\n                FROM (\n                    SELECT DISTINCT f.chk_hash, f.family_id\n                    FROM files f\n                    INNER JOIN shared s ON s.chk_hash = f.chk_hash\n                ) c\n                INNER JOIN map_families fam ON fam.id = c.family_id\n                CROSS JOIN LATERAL (\n                    SELECT COALESCE(sum(st.games_total), 0) AS games\n                    FROM maps mm\n                    INNER JOIN map_stats st ON st.map_id = mm.id\n                    WHERE mm.family_id = fam.id\n                ) played\n                ORDER BY c.chk_hash, fam.listed DESC, played.games DESC, fam.created_at, fam.id\n            ),\n            movable AS (\n                SELECT f.id, f.family_id AS from_id, t.family_id AS into_id\n                FROM files f\n                INNER JOIN target t ON t.chk_hash = f.chk_hash\n                WHERE NOT f.listed AND t.family_id <> f.family_id\n                    AND ($1::uuid[] IS NULL OR f.id = ANY($1))\n                    AND NOT EXISTS (\n                        SELECT 1 FROM maps o WHERE o.family_id = f.family_id AND o.id <> f.id\n                    )\n            )\n            UPDATE maps m\n            SET family_id = mv.into_id\n            FROM movable mv\n            WHERE m.id = mv.id\n            RETURNING mv.from_id as \"from_id!\", mv.into_id as \"into_id!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "from_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "into_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "family_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "722e3b59616aefa1589b06723c538dc560db82d6cad65a1521c5eeb1b1b09d77"
+}

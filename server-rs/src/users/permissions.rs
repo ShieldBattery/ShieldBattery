@@ -40,7 +40,6 @@ pub struct SbPermissions {
     pub manage_restricted_names: bool,
     pub manage_signup_codes: bool,
     pub manage_live_streams: bool,
-    pub review_map_families: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -64,7 +63,6 @@ pub enum RequiredPermission {
     ManageRestrictedNames,
     ManageSignupCodes,
     ManageLiveStreams,
-    ReviewMapFamilies,
 }
 
 impl RequiredPermission {
@@ -88,7 +86,6 @@ impl RequiredPermission {
             Self::ManageRestrictedNames => permissions.manage_restricted_names,
             Self::ManageSignupCodes => permissions.manage_signup_codes,
             Self::ManageLiveStreams => permissions.manage_live_streams,
-            Self::ReviewMapFamilies => permissions.review_map_families,
         }
     }
 }
@@ -128,7 +125,6 @@ impl Loader<SbUserId> for PermissionsLoader {
                         mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
                         manage_restricted_names, manage_signup_codes, manage_live_streams,
-                        review_map_families,
                         use_development_client
                     FROM permissions
                     WHERE user_id = ANY($1)
@@ -159,7 +155,6 @@ impl Loader<SbUserId> for PermissionsLoader {
                     manage_restricted_names: r.manage_restricted_names,
                     manage_signup_codes: r.manage_signup_codes,
                     manage_live_streams: r.manage_live_streams,
-                    review_map_families: r.review_map_families,
                 },
             )
         })

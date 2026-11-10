@@ -1,7 +1,4 @@
-//! The record of every change a person makes to families, suggestions and family reports, so staff
-//! can check a reviewer's decisions and undo the wrong ones with the family editor.
-
-use std::collections::{BTreeMap, BTreeSet};
+//! The record of every change staff make to families and family reports, one entry per action.
 
 use async_graphql::{Context, Enum, Object, Result};
 use chrono::{DateTime, Utc};
@@ -12,25 +9,23 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
-use crate::maps::catalog::SbMap;
+use crate::maps::catalog::{SbMap, load_sb_map, load_user};
 use crate::maps::families::edit::MapFamilyReportStatus;
-use crate::maps::families::graphql::{MapLinkSuggestionStatus, load_sb_map, load_user};
-use crate::maps::families::{MapFamilyRelation, MapLinkSource};
 use crate::users::{SbUser, SbUserId};
 
 /// What kind of change a history entry records.
 #[derive(Enum, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MapFamilyHistoryKind {
-    /// A map was placed under another map.
-    Link,
-    /// A map was taken out of its family.
-    Remove,
-    /// A member's version label or pinned current version changed.
-    UpdateMember,
-    /// A family's staff label changed.
-    SetLabel,
-    /// A suggestion was rejected, marked terrain only, or reopened.
-    DecideSuggestion,
+    /// A file was moved to another family.
+    MoveFile,
+    /// A family was merged into another one.
+    Merge,
+    /// A file was split out into a family of its own.
+    Split,
+    /// Staff picked a family's default file.
+    SetDefault,
+    /// Staff cleared their pick of a family's default file.
+    ClearDefault,
     /// A family report was resolved, dismissed or reopened.
     ReportStatus,
 }
@@ -38,53 +33,43 @@ pub enum MapFamilyHistoryKind {
 impl MapFamilyHistoryKind {
     fn as_str(self) -> &'static str {
         match self {
-            Self::Link => "link",
-            Self::Remove => "remove",
-            Self::UpdateMember => "update_member",
-            Self::SetLabel => "set_label",
-            Self::DecideSuggestion => "decide_suggestion",
+            Self::MoveFile => "move_file",
+            Self::Merge => "merge",
+            Self::Split => "split",
+            Self::SetDefault => "set_default",
+            Self::ClearDefault => "clear_default",
             Self::ReportStatus => "report_status",
         }
     }
 
     fn from_db(kind: &str) -> Self {
         match kind {
-            "remove" => Self::Remove,
-            "update_member" => Self::UpdateMember,
-            "set_label" => Self::SetLabel,
-            "decide_suggestion" => Self::DecideSuggestion,
+            "merge" => Self::Merge,
+            "split" => Self::Split,
+            "set_default" => Self::SetDefault,
+            "clear_default" => Self::ClearDefault,
             "report_status" => Self::ReportStatus,
-            _ => Self::Link,
+            _ => Self::MoveFile,
         }
     }
 }
 
+/// The family a file was in before and after a change.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct MapFamilyMemberState {
-    pub family_id: Uuid,
-    pub parent_id: Option<SbMapId>,
-    pub relation: MapFamilyRelation,
-    pub version_label: Option<String>,
-    pub pinned_current: bool,
-    pub source: MapLinkSource,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MapFamilyMemberChange {
+pub struct FileChange {
     pub map_id: SbMapId,
-    pub before: Option<MapFamilyMemberState>,
-    pub after: Option<MapFamilyMemberState>,
+    pub before: Uuid,
+    pub after: Uuid,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// A family's default pick before and after a change.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct MapFamilySuggestionChange {
-    pub map_a: SbMapId,
-    pub map_b: SbMapId,
-    pub before: MapLinkSuggestionStatus,
-    pub after: MapLinkSuggestionStatus,
+pub struct DefaultChange {
+    pub family_id: Uuid,
+    pub before: Option<SbMapId>,
+    pub after: Option<SbMapId>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -97,11 +82,9 @@ pub struct Change<T> {
 #[serde(rename_all = "camelCase")]
 pub struct HistoryDetails {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub members: Vec<MapFamilyMemberChange>,
+    pub files: Vec<FileChange>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub suggestions: Vec<MapFamilySuggestionChange>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<Change<Option<String>>>,
+    pub defaults: Vec<DefaultChange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -112,161 +95,44 @@ pub struct HistoryDetails {
 pub struct HistoryEntry {
     pub kind: MapFamilyHistoryKind,
     pub actor: SbUserId,
-    pub source: MapLinkSource,
+    pub family_id: Uuid,
+    pub other_family_id: Option<Uuid>,
     pub map_id: Option<SbMapId>,
-    pub other_map_id: Option<SbMapId>,
-    pub family_id: Option<Uuid>,
     pub details: HistoryDetails,
 }
 
-pub async fn record(tx: &mut Transaction<'_, Postgres>, entry: HistoryEntry) -> eyre::Result<()> {
-    sqlx::query!(
+/// Records a change, returning the entry's id.
+pub async fn record(tx: &mut Transaction<'_, Postgres>, entry: HistoryEntry) -> eyre::Result<Uuid> {
+    sqlx::query_scalar!(
         r#"
-            INSERT INTO map_family_history (kind, actor, source, map_id, other_map_id, family_id,
+            INSERT INTO map_family_history (kind, actor, family_id, other_family_id, map_id,
                 details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
         "#,
         entry.kind.as_str(),
         entry.actor as _,
-        entry.source as _,
-        entry.map_id as _,
-        entry.other_map_id as _,
         entry.family_id,
+        entry.other_family_id,
+        entry.map_id as _,
         Json(&entry.details) as _,
     )
-    .execute(&mut **tx)
+    .fetch_one(&mut **tx)
     .await
-    .wrap_err("Failed to record family history")?;
-    Ok(())
+    .wrap_err("Failed to record family history")
 }
 
-/// The places of every member of `family_ids`, plus `map_ids` wherever they are.
-pub type Snapshot = BTreeMap<Uuid, MapFamilyMemberState>;
-
-pub async fn snapshot(
-    tx: &mut Transaction<'_, Postgres>,
-    family_ids: &[Uuid],
-    map_ids: &[SbMapId],
-) -> eyre::Result<Snapshot> {
-    let map_ids: Vec<Uuid> = map_ids.iter().map(|id| id.0).collect();
-    let rows = sqlx::query!(
-        r#"
-            SELECT map_id, family_id, parent_map_id as "parent_id: SbMapId",
-                relation as "relation: MapFamilyRelation", version_label, pinned_current,
-                source as "source: MapLinkSource"
-            FROM map_family_members
-            WHERE family_id = ANY($1) OR map_id = ANY($2)
-        "#,
-        family_ids,
-        &map_ids,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .wrap_err("Failed to snapshot family members")?;
-    Ok(rows
-        .into_iter()
-        .map(|row| {
-            (
-                row.map_id,
-                MapFamilyMemberState {
-                    family_id: row.family_id,
-                    parent_id: row.parent_id,
-                    relation: row.relation,
-                    version_label: row.version_label,
-                    pinned_current: row.pinned_current,
-                    source: row.source,
-                },
-            )
-        })
-        .collect())
-}
-
-/// The members whose place differs between the snapshots.
-pub fn diff(before: &Snapshot, after: &Snapshot) -> Vec<MapFamilyMemberChange> {
-    let ids: BTreeSet<&Uuid> = before.keys().chain(after.keys()).collect();
-    ids.into_iter()
-        .filter_map(|id| {
-            let (b, a) = (before.get(id), after.get(id));
-            (b != a).then(|| MapFamilyMemberChange {
-                map_id: SbMapId(*id),
-                before: b.cloned(),
-                after: a.cloned(),
-            })
-        })
-        .collect()
-}
-
-pub struct MemberStateView<'a> {
-    id: String,
-    state: &'a MapFamilyMemberState,
-}
-
-/// A file's place in its family at one point in time.
-#[Object(name = "MapFamilyMemberState")]
-impl MemberStateView<'_> {
-    async fn id(&self) -> &str {
-        &self.id
-    }
-
-    async fn family_id(&self) -> Uuid {
-        self.state.family_id
-    }
-
-    async fn parent_id(&self) -> Option<SbMapId> {
-        self.state.parent_id
-    }
-
-    async fn parent(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
-        match self.state.parent_id {
-            Some(id) => load_sb_map(ctx, id).await.map(Some),
-            None => Ok(None),
-        }
-    }
-
-    async fn relation(&self) -> MapFamilyRelation {
-        self.state.relation
-    }
-
-    async fn version_label(&self) -> Option<&str> {
-        self.state.version_label.as_deref()
-    }
-
-    async fn pinned_current(&self) -> bool {
-        self.state.pinned_current
-    }
-
-    async fn source(&self) -> MapLinkSource {
-        self.state.source
-    }
-}
-
-pub struct MemberChangeView<'a> {
+pub struct FileChangeView<'a> {
     entry_id: Uuid,
-    change: &'a MapFamilyMemberChange,
+    change: &'a FileChange,
 }
 
-impl<'a> MemberChangeView<'a> {
-    fn state(
-        &self,
-        side: &str,
-        state: &'a Option<MapFamilyMemberState>,
-    ) -> Option<MemberStateView<'a>> {
-        state.as_ref().map(|state| MemberStateView {
-            id: format!(
-                "map-family-history:{}:member:{}:{side}",
-                self.entry_id, self.change.map_id
-            ),
-            state,
-        })
-    }
-}
-
-/// How one file's place changed.
-#[Object(name = "MapFamilyMemberChange")]
-impl<'a> MemberChangeView<'a> {
+/// The family a file was in before and after a change.
+#[Object(name = "MapFamilyFileChange")]
+impl FileChangeView<'_> {
     async fn id(&self) -> String {
         format!(
-            "map-family-history:{}:member:{}",
+            "map-family-history:{}:file:{}",
             self.entry_id, self.change.map_id
         )
     }
@@ -279,46 +145,51 @@ impl<'a> MemberChangeView<'a> {
         load_sb_map(ctx, self.change.map_id).await
     }
 
-    /// Null when the file wasn't in a family.
-    async fn before(&self) -> Option<MemberStateView<'a>> {
-        self.state("before", &self.change.before)
-    }
-
-    /// Null when the file left its family.
-    async fn after(&self) -> Option<MemberStateView<'a>> {
-        self.state("after", &self.change.after)
-    }
-}
-
-pub struct SuggestionChangeView<'a> {
-    entry_id: Uuid,
-    change: &'a MapFamilySuggestionChange,
-}
-
-/// How one suggestion's status changed.
-#[Object(name = "MapFamilySuggestionChange")]
-impl SuggestionChangeView<'_> {
-    async fn id(&self) -> String {
-        format!(
-            "map-family-history:{}:suggestion:{}:{}",
-            self.entry_id, self.change.map_a, self.change.map_b
-        )
-    }
-
-    async fn map_a(&self) -> SbMapId {
-        self.change.map_a
-    }
-
-    async fn map_b(&self) -> SbMapId {
-        self.change.map_b
-    }
-
-    async fn before(&self) -> MapLinkSuggestionStatus {
+    /// The family's id when the change was made. It may since have been merged into another one.
+    async fn before(&self) -> Uuid {
         self.change.before
     }
 
-    async fn after(&self) -> MapLinkSuggestionStatus {
+    /// The family's id when the change was made. It may since have been merged into another one.
+    async fn after(&self) -> Uuid {
         self.change.after
+    }
+}
+
+pub struct DefaultChangeView<'a> {
+    entry_id: Uuid,
+    change: &'a DefaultChange,
+}
+
+/// A family's default pick before and after a change.
+#[Object(name = "MapFamilyDefaultChange")]
+impl DefaultChangeView<'_> {
+    async fn id(&self) -> String {
+        format!(
+            "map-family-history:{}:default:{}",
+            self.entry_id, self.change.family_id
+        )
+    }
+
+    /// The family's id when the change was made. It may since have been merged into another one.
+    async fn family_id(&self) -> Uuid {
+        self.change.family_id
+    }
+
+    /// Null when the default was derived.
+    async fn before(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
+        match self.change.before {
+            Some(id) => load_sb_map(ctx, id).await.map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// Null when the default is derived.
+    async fn after(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
+        match self.change.after {
+            Some(id) => load_sb_map(ctx, id).await.map(Some),
+            None => Ok(None),
+        }
     }
 }
 
@@ -326,16 +197,15 @@ pub struct MapFamilyHistory {
     id: Uuid,
     kind: String,
     actor: SbUserId,
-    source: MapLinkSource,
+    family_id: Uuid,
+    other_family_id: Option<Uuid>,
     map_id: Option<SbMapId>,
-    other_map_id: Option<SbMapId>,
-    family_id: Option<Uuid>,
     details: Json<HistoryDetails>,
     created_at: DateTime<Utc>,
 }
 
-/// A change a person made to families, suggestions or family reports.
-#[async_graphql::Object]
+/// A change staff made to families or family reports.
+#[Object]
 impl MapFamilyHistory {
     async fn id(&self) -> String {
         format!("map-family-history:{}", self.id)
@@ -349,12 +219,21 @@ impl MapFamilyHistory {
         load_user(ctx, Some(self.actor)).await
     }
 
-    /// The role the actor acted in.
-    async fn source(&self) -> MapLinkSource {
-        self.source
+    /// The family acted on, as its id was when the change was made: where a file moved or a family
+    /// was merged to, the new family of a split, the family whose default changed, or the family a
+    /// report is about.
+    async fn family_id(&self) -> Uuid {
+        self.family_id
     }
 
-    /// The map the change was about. Null for a label change.
+    /// The family a file left, the family merged away, or the other family of a `SAME_MAP`
+    /// report, as its id was when the change was made.
+    async fn other_family_id(&self) -> Option<Uuid> {
+        self.other_family_id
+    }
+
+    /// The file that moved, was split out or was made the default, or the file of a `WRONG_MAP`
+    /// report.
     async fn map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
         match self.map_id {
             Some(id) => load_sb_map(ctx, id).await.map(Some),
@@ -362,52 +241,31 @@ impl MapFamilyHistory {
         }
     }
 
-    /// The parent of a link, or the other map of a suggestion or report.
-    async fn other_map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
-        match self.other_map_id {
-            Some(id) => load_sb_map(ctx, id).await.map(Some),
-            None => Ok(None),
-        }
-    }
-
-    /// The family of a label change.
-    async fn family_id(&self) -> Option<Uuid> {
-        self.family_id
-    }
-
-    /// Every file whose place changed, including files that moved along with the map.
-    async fn member_changes(&self) -> Vec<MemberChangeView<'_>> {
+    /// Every file that changed families, including every file of a merged family.
+    async fn file_changes(&self) -> Vec<FileChangeView<'_>> {
         self.details
             .0
-            .members
+            .files
             .iter()
-            .map(|change| MemberChangeView {
+            .map(|change| FileChangeView {
                 entry_id: self.id,
                 change,
             })
             .collect()
     }
 
-    /// Every suggestion whose status changed, including ones a link accepted or a removal
-    /// rejected.
-    async fn suggestion_changes(&self) -> Vec<SuggestionChangeView<'_>> {
+    /// Every default pick that changed, including the pick of a merged family and a pick cleared
+    /// because its file left the family.
+    async fn default_changes(&self) -> Vec<DefaultChangeView<'_>> {
         self.details
             .0
-            .suggestions
+            .defaults
             .iter()
-            .map(|change| SuggestionChangeView {
+            .map(|change| DefaultChangeView {
                 entry_id: self.id,
                 change,
             })
             .collect()
-    }
-
-    async fn label_before(&self) -> Option<&str> {
-        self.details.0.label.as_ref()?.before.as_deref()
-    }
-
-    async fn label_after(&self) -> Option<&str> {
-        self.details.0.label.as_ref()?.after.as_deref()
     }
 
     async fn report_id(&self) -> Option<Uuid> {
@@ -427,12 +285,13 @@ impl MapFamilyHistory {
     }
 }
 
-/// Loads history entries, newest first. Entries match when they're about one of `map_ids` (as
-/// either map) or `family_ids`, and were made by `actor`; filters left out match everything.
+/// Loads history entries, newest first. Entries match when they're about one of `family_ids` (as
+/// either family, including ids that are now aliases of them) or `map_ids`, and were made by
+/// `actor`; filters left out match everything.
 pub async fn load_history(
     db: &PgPool,
-    map_ids: Option<&[SbMapId]>,
     family_ids: Option<&[Uuid]>,
+    map_ids: Option<&[SbMapId]>,
     actor: Option<SbUserId>,
     limit: i64,
     offset: i64,
@@ -442,11 +301,19 @@ pub async fn load_history(
     sqlx::query_as!(
         MapFamilyHistory,
         r#"
-            SELECT id, kind, actor as "actor: SbUserId", source as "source: MapLinkSource",
-                map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId", family_id,
-                details as "details: Json<HistoryDetails>", created_at
+            WITH families AS (
+                SELECT unnest($3::uuid[]) AS id
+                UNION
+                SELECT old_id FROM map_family_aliases WHERE family_id = ANY($3)
+            )
+            SELECT id, kind, actor as "actor: SbUserId", family_id, other_family_id,
+                map_id as "map_id: SbMapId", details as "details: Json<HistoryDetails>",
+                created_at
             FROM map_family_history
-            WHERE (NOT $1 OR map_id = ANY($2) OR other_map_id = ANY($2) OR family_id = ANY($3))
+            WHERE (NOT $1
+                    OR map_id = ANY($2)
+                    OR family_id IN (SELECT id FROM families)
+                    OR other_family_id IN (SELECT id FROM families))
                 AND ($4::integer IS NULL OR actor = $4)
             ORDER BY created_at DESC, id
             LIMIT $5 OFFSET $6
@@ -467,40 +334,20 @@ pub async fn load_history(
 mod tests {
     use super::*;
 
-    fn state(family: u8, parent: Option<u8>) -> MapFamilyMemberState {
-        MapFamilyMemberState {
-            family_id: Uuid::from_bytes([family; 16]),
-            parent_id: parent.map(|p| SbMapId(Uuid::from_bytes([p; 16]))),
-            relation: MapFamilyRelation::Version,
-            version_label: None,
-            pinned_current: false,
-            source: MapLinkSource::Reviewer,
-        }
-    }
-
-    #[test]
-    fn diff_holds_only_changed_members() {
-        let id = |n: u8| Uuid::from_bytes([n; 16]);
-        let before = Snapshot::from([(id(1), state(9, None)), (id(2), state(9, Some(1)))]);
-        let after = Snapshot::from([
-            (id(1), state(9, None)),
-            (id(2), state(9, Some(3))),
-            (id(3), state(9, Some(1))),
-        ]);
-        let changes = diff(&before, &after);
-        assert_eq!(changes.len(), 2);
-        assert_eq!(changes[0].map_id.0, id(2));
-        assert_eq!(changes[1].map_id.0, id(3));
-        assert!(changes[1].before.is_none());
-    }
-
     #[test]
     fn details_round_trip() {
+        let family = Uuid::from_bytes([1; 16]);
+        let other = Uuid::from_bytes([2; 16]);
         let details = HistoryDetails {
-            members: vec![MapFamilyMemberChange {
+            files: vec![FileChange {
                 map_id: SbMapId(Uuid::nil()),
-                before: None,
-                after: Some(state(1, None)),
+                before: other,
+                after: family,
+            }],
+            defaults: vec![DefaultChange {
+                family_id: other,
+                before: Some(SbMapId(Uuid::nil())),
+                after: None,
             }],
             report_status: Some(Change {
                 before: MapFamilyReportStatus::Open,
@@ -510,8 +357,11 @@ mod tests {
         };
         let json = serde_json::to_value(&details).unwrap();
         assert_eq!(json["reportStatus"]["after"], "dismissed");
-        assert!(json.get("suggestions").is_none());
+        assert_eq!(json["files"][0]["after"], family.to_string());
+        assert_eq!(json["defaults"][0]["after"], serde_json::Value::Null);
+        assert!(json.get("reportId").is_none());
         let back: HistoryDetails = serde_json::from_value(json).unwrap();
-        assert_eq!(back.members[0].after, Some(state(1, None)));
+        assert_eq!(back.files, details.files);
+        assert_eq!(back.defaults, details.defaults);
     }
 }

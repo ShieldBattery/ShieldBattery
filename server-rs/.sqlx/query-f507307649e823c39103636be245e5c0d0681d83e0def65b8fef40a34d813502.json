@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT lock_map_families()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "lock_map_families",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f507307649e823c39103636be245e5c0d0681d83e0def65b8fef40a34d813502"
+}

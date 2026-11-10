@@ -85,7 +85,6 @@ function perms(overrides: Partial<SbPermissions>): SbPermissions {
     manageRestrictedNames: false,
     manageSignupCodes: false,
     manageLiveStreams: false,
-    reviewMapFamilies: false,
     ...overrides,
   }
 }

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)\n            SELECT DISTINCT ON (v.into_id, f.favorited_by) v.into_id, f.favorited_by,\n                f.favorited_date\n            FROM favorited_maps f\n            INNER JOIN unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)\n                ON v.from_id = f.family_id\n            ORDER BY v.into_id, f.favorited_by, f.favorited_date NULLS LAST\n            ON CONFLICT (family_id, favorited_by) DO UPDATE\n            SET favorited_date = LEAST(favorited_maps.favorited_date, EXCLUDED.favorited_date)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc49d9b7c50dac99aef060436f7d5ac86545b521bfde55d578a2a86729c27237"
+}
