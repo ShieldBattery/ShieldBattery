@@ -113,7 +113,7 @@ const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits:
 const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short' })
 
 const FilesCard = styled(Card)`
-  padding: 16px 8px 12px;
+  padding: 16px 6px 12px;
 
   display: flex;
   flex-direction: column;
@@ -131,42 +131,56 @@ const Row = styled.div<{ $selected: boolean }>`
 
   display: flex;
   align-items: center;
-  gap: 0;
 
   border-radius: 6px;
   background-color: ${props => (props.$selected ? 'var(--theme-container-high)' : 'transparent')};
+
+  ${props =>
+    props.$selected
+      ? ''
+      : css`
+          &:hover {
+            background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+          }
+        `}
+
+  &:has(a:focus-visible) {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
 `
 
-const rowBody = css`
+/**
+ * The row's text and chips. It carries the row's inner padding, so the link covers the whole row
+ * (up to the staff menu button) for clicking.
+ */
+const rowBody = css<{ $staff: boolean }>`
   flex: 1 1 auto;
   min-width: 0;
   min-height: 40px;
-  padding: 4px;
+  padding: 4px ${props => (props.$staff ? '0' : '12px')} 4px 12px;
 
   display: flex;
   align-items: center;
   gap: 8px;
 
-  border-radius: 6px;
   color: inherit;
   text-decoration: none;
 `
 
-const RowContent = styled.div`
+const RowContent = styled.div<{ $staff: boolean }>`
   ${rowBody};
 `
 
-const RowLink = styled(Link)`
+const RowLink = styled(Link)<{ $staff: boolean }>`
   ${rowBody};
 
   &:hover {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
     text-decoration: none;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--theme-primary);
-    outline-offset: -2px;
+    outline: none;
   }
 `
 
@@ -183,17 +197,17 @@ const ChipTooltip = styled(Tooltip)`
 `
 
 /**
- * The button's 48px hit area is mostly empty around its 24px icon, so it overlaps the row's
- * padding and takes only 24px from the row.
+ * The button's 48px hit area is mostly empty around its 24px icon, so it overlaps the row's end
+ * and extends past its right edge: the icon sits 8px inside the edge and 4px after the meta text.
  */
 const MenuTooltip = styled(Tooltip)`
   flex-shrink: 0;
-  margin-inline: -12px;
+  margin-inline: -8px -4px;
 `
 
 const RowChip = styled(RoomChip)`
   flex-shrink: 0;
-  padding: 2px 8px;
+  padding: 2px 6px;
 `
 
 const DefaultChip = styled(RowChip)`
@@ -218,7 +232,12 @@ const RowMeta = styled.div`
 const ShowAllButton = styled(TextButton)`
   align-self: flex-start;
   /** Lines the label up with the rows' text, past the button's own padding. */
-  margin-left: -12px;
+  margin-left: -4px;
+`
+
+const FilesLabel = styled(SectionLabel)`
+  /** Lines the label up with the rows' text. */
+  padding-inline: 12px;
 `
 
 type FileData = MapPageFiles_FileFragmentFragment
@@ -260,7 +279,7 @@ export function MapFilesCard({
 
   return (
     <FilesCard>
-      <SectionLabel>{t('maps.files.title', 'Files')}</SectionLabel>
+      <FilesLabel>{t('maps.files.title', 'Files')}</FilesLabel>
       <Rows>
         {rows.map(file => (
           <FileRow
@@ -367,9 +386,11 @@ function FileRow({
   return (
     <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
       {isSelected ? (
-        <RowContent>{content}</RowContent>
+        <RowContent $staff={canManageMaps}>{content}</RowContent>
       ) : (
-        <RowLink href={urlForMapFile(family, file.id)}>{content}</RowLink>
+        <RowLink $staff={canManageMaps} href={urlForMapFile(family, file.id)}>
+          {content}
+        </RowLink>
       )}
       {canManageMaps ? (
         <FileStaffMenu
@@ -499,11 +520,12 @@ function FileStaffMenu({
         anchorY={anchorY ?? 0}
         originX='right'
         originY='top'>
-        <MenuList>
+        <MenuList dense={true}>
           {items.map(item => (
             <MenuItem
               key={item.text}
               text={item.text}
+              dense={true}
               secondaryText={item.secondaryText}
               disabled={item.disabled}
               onClick={() => {

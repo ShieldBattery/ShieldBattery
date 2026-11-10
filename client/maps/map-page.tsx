@@ -900,6 +900,14 @@ function MapActions({
   }
 
   const menuItems: Array<[text: string, handler: () => void]> = []
+  const openReportDialog = () =>
+    dispatch(
+      openMapFamilyReportDialog({
+        familyId: family.id,
+        fileId: map.id,
+        fileCount: family.fileCount,
+      }),
+    )
   if (map.inLibrary) {
     menuItems.push([
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
@@ -980,18 +988,10 @@ function MapActions({
     )
   } else if (selfUser) {
     // Staff fix these themselves, from the Files card and this menu
-    menuItems.push([
-      t('maps.report.menuItem', 'Report a problem…'),
-      () =>
-        dispatch(
-          openMapFamilyReportDialog({
-            familyId: family.id,
-            fileId: map.id,
-            fileCount: family.fileCount,
-          }),
-        ),
-    ])
+    menuItems.push([t('maps.report.menuItem', 'Report a problem…'), openReportDialog])
   }
+  // A menu holding only the report item is shown as a button for it instead
+  const reportOnly = !canManageMaps && !!selfUser && menuItems.length === 1 && !map.inLibrary
 
   const favoriteLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
@@ -1034,7 +1034,19 @@ function MapActions({
           onClick={onCopyLink}
         />
       </Tooltip>
-      {menuItems.length ? (
+      {reportOnly ? (
+        <Tooltip
+          text={t('maps.report.iconLabel', 'Report a problem')}
+          position='bottom'
+          tabIndex={-1}>
+          <IconButton
+            icon={<MaterialIcon icon='flag' />}
+            ariaLabel={t('maps.report.iconLabel', 'Report a problem')}
+            onClick={openReportDialog}
+          />
+        </Tooltip>
+      ) : null}
+      {!reportOnly && menuItems.length ? (
         <>
           <Tooltip
             text={t('maps.thumbnail.mapActions', 'Map actions')}
@@ -1056,11 +1068,12 @@ function MapActions({
             anchorY={anchorY ?? 0}
             originX='right'
             originY='top'>
-            <MenuList>
+            <MenuList dense={true}>
               {menuItems.map(([text, handler]) => (
                 <MenuItem
                   key={text}
                   text={text}
+                  dense={true}
                   onClick={() => {
                     closeMenu()
                     handler()

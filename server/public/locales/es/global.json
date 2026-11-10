@@ -2390,6 +2390,7 @@
     },
     "report": {
       "error": "Algo salió mal. Inténtalo de nuevo más tarde.",
+      "iconLabel": "Reportar un problema",
       "menuItem": "Reportar un problema…",
       "note": "¿Algo que el staff deba saber? (opcional)",
       "noteTooLong": "No pases de {{max}} caracteres.",

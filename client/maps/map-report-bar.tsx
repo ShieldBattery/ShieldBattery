@@ -8,12 +8,14 @@ import { graphql } from '../gql'
 import { MapFamilyReportKind, MapFamilyReportStatus, MapReportBarQuery } from '../gql/graphql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { FilledButton, TextButton } from '../material/button'
+import { IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, bodyMedium } from '../styles/typography'
@@ -124,10 +126,10 @@ const MutedText = styled.span`
 `
 
 const Actions = styled.div`
-  flex-shrink: 0;
-
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 `
 
@@ -271,40 +273,36 @@ function OpenActions({ report }: { report: Report }) {
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   const { family, map, otherFamily } = report
-  const items: Array<[text: string, onClick: () => void]> = []
+  const fixes: Array<{ label: string; tooltip: string; onClick: () => void }> = []
   if (report.kind === MapFamilyReportKind.WrongMap) {
     if (family && map) {
-      items.push([
-        'Move file to another map…',
-        () =>
-          dispatch(
-            openMapFamilyActionDialog({
-              action: 'move',
-              familyId: family.id,
-              fileId: map.id,
-              reportId: report.id,
-            }),
-          ),
-      ])
+      const openAction = (action: 'split' | 'move') =>
+        dispatch(
+          openMapFamilyActionDialog({
+            action,
+            familyId: family.id,
+            fileId: map.id,
+            reportId: report.id,
+          }),
+        )
       if (family.files.length > 1) {
-        items.push([
-          'Split file into its own map…',
-          () =>
-            dispatch(
-              openMapFamilyActionDialog({
-                action: 'split',
-                familyId: family.id,
-                fileId: map.id,
-                reportId: report.id,
-              }),
-            ),
-        ])
+        fixes.push({
+          label: 'Split file…',
+          tooltip: 'Split this file into its own map',
+          onClick: () => openAction('split'),
+        })
       }
+      fixes.push({
+        label: 'Move file…',
+        tooltip: 'Move this file to another map',
+        onClick: () => openAction('move'),
+      })
     }
   } else if (family && otherFamily) {
-    items.push([
-      `Merge into ${filterColorCodes(otherFamily.name)}…`,
-      () =>
+    fixes.push({
+      label: 'Merge maps…',
+      tooltip: `Merge ${filterColorCodes(family.name)} into ${filterColorCodes(otherFamily.name)}`,
+      onClick: () =>
         dispatch(
           openMapFamilyActionDialog({
             action: 'merge',
@@ -313,12 +311,8 @@ function OpenActions({ report }: { report: Report }) {
             targetFamilyId: otherFamily.id,
           }),
         ),
-    ])
+    })
   }
-  items.push([
-    'Mark resolved, no change needed',
-    () => changeStatus(report.id, MapFamilyReportStatus.Resolved),
-  ])
 
   return (
     <>
@@ -326,7 +320,19 @@ function OpenActions({ report }: { report: Report }) {
         label='Dismiss'
         onClick={() => changeStatus(report.id, MapFamilyReportStatus.Dismissed)}
       />
-      <FilledButton ref={anchorRef} label='Resolve' onClick={openMenu} />
+      {fixes.map(fix => (
+        <Tooltip key={fix.label} text={fix.tooltip} position='bottom' tabIndex={-1}>
+          <OutlinedButton label={fix.label} onClick={fix.onClick} />
+        </Tooltip>
+      ))}
+      <IconButton
+        ref={anchorRef}
+        icon={<MaterialIcon icon='more_vert' />}
+        ariaLabel='More actions'
+        ariaHasPopup='menu'
+        ariaExpanded={open}
+        onClick={openMenu}
+      />
       <Popover
         open={open}
         onDismiss={closeMenu}
@@ -335,17 +341,14 @@ function OpenActions({ report }: { report: Report }) {
         originX='right'
         originY='top'>
         <MenuList dense={true}>
-          {items.map(([text, onClick]) => (
-            <MenuItem
-              key={text}
-              text={text}
-              dense={true}
-              onClick={() => {
-                closeMenu()
-                onClick()
-              }}
-            />
-          ))}
+          <MenuItem
+            text='Mark resolved without changes'
+            dense={true}
+            onClick={() => {
+              closeMenu()
+              changeStatus(report.id, MapFamilyReportStatus.Resolved)
+            }}
+          />
         </MenuList>
       </Popover>
     </>

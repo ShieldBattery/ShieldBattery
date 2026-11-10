@@ -2339,6 +2339,7 @@
     },
     "report": {
       "error": "Something went wrong. Please try again later.",
+      "iconLabel": "Report a problem",
       "menuItem": "Report a problem…",
       "note": "Anything staff should know? (optional)",
       "noteTooLong": "Keep it under {{max}} characters.",
