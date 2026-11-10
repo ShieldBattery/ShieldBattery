@@ -957,11 +957,18 @@ impl Shell {
                 self.prefs.spoiler_free = !self.prefs.spoiler_free;
                 true
             }
-            Action::PauseResume
-            | Action::SpeedUp
-            | Action::SpeedDown
-            | Action::SeekBackward
-            | Action::SeekForward => self.replay.key_action(action, modifiers, &mut self.intents),
+            // A step past either end of the ladder still takes the key, so it does not fall
+            // through to the game, but asks for no change and so makes no click: the click
+            // follows the intent, not `handled`, so this returns before the shared line below.
+            Action::SpeedUp | Action::SpeedDown => {
+                let intent_count = self.intents.len();
+                let handled = self.replay.key_action(action, modifiers, &mut self.intents);
+                self.hotkey_activation |= self.intents.len() != intent_count;
+                return handled;
+            }
+            Action::PauseResume | Action::SeekBackward | Action::SeekForward => {
+                self.replay.key_action(action, modifiers, &mut self.intents)
+            }
             Action::ToggleGraphs => {
                 self.prefs.graphs_key(modifiers);
                 true
