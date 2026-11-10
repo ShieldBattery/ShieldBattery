@@ -15,6 +15,14 @@ const MapAddFavoriteMutation = graphql(/* GraphQL */ `
       id
       isFavorited
       favoriteCount
+      family {
+        id
+        files {
+          id
+          isFavorited
+          favoriteCount
+        }
+      }
     }
   }
 `)
@@ -25,14 +33,23 @@ const MapRemoveFavoriteMutation = graphql(/* GraphQL */ `
       id
       isFavorited
       favoriteCount
+      family {
+        id
+        files {
+          id
+          isFavorited
+          favoriteCount
+        }
+      }
     }
   }
 `)
 
 /**
  * Returns a function that favorites a map, or unfavorites it if it already is, and whether a
- * change is in flight. Logged-out viewers are sent to log in instead. The result is confirmed (or
- * the failure reported) with a snackbar.
+ * change is in flight. A favorite is of the map a file is in, so every file of that map changes
+ * with it. Logged-out viewers are sent to log in instead. The result is confirmed (or the failure
+ * reported) with a snackbar.
  */
 export function useToggleMapFavorite(): [
   toggle: (map: { id: SbMapId; isFavorited: boolean }) => void,
@@ -74,10 +91,19 @@ export function useToggleMapFavorite(): [
           return
         }
         // Keeps the map thumbnails elsewhere in the app, which read favorites from Redux, in sync.
-        if (isFavorited) {
-          dispatch({ type: '@maps/removeFromFavorites', payload: id })
-        } else {
-          dispatch({ type: '@maps/addToFavorites', payload: id })
+        let changed: { family: { files: ReadonlyArray<{ id: SbMapId }> } } | undefined
+        if (result.data && 'mapAddFavorite' in result.data) {
+          changed = result.data.mapAddFavorite
+        } else if (result.data && 'mapRemoveFavorite' in result.data) {
+          changed = result.data.mapRemoveFavorite
+        }
+        const fileIds = new Set([id, ...(changed?.family.files.map(f => f.id) ?? [])])
+        for (const fileId of fileIds) {
+          if (isFavorited) {
+            dispatch({ type: '@maps/removeFromFavorites', payload: fileId })
+          } else {
+            dispatch({ type: '@maps/addToFavorites', payload: fileId })
+          }
         }
         snackbarController.showSnackbar(
           isFavorited
