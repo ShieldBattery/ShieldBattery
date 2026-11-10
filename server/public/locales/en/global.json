@@ -2284,6 +2284,24 @@
       "mapName": "Map name",
       "mapNameRequired": "Enter a map name"
     },
+    "familySearch": {
+      "files_one": "{{count}} file",
+      "files_other": "{{count}} files",
+      "noResults": "No maps found.",
+      "search": "Search maps, or paste a map link"
+    },
+    "files": {
+      "compare": "Compare",
+      "default": "Default",
+      "games_one": "{{formattedCount}} game",
+      "games_other": "{{formattedCount}} games",
+      "notDefault": "Not the default file",
+      "showAll_one": "Show all {{count}}",
+      "showAll_other": "Show all {{count}}",
+      "showFewer": "Show fewer",
+      "title": "Files",
+      "viewDefault": "View default"
+    },
     "local": {
       "cantBeUsed": "Can't be used: {{reason}}",
       "checking": "Checking…",
@@ -2309,6 +2327,10 @@
       "uploadMapError": "An unknown error occurred while uploading the map. Please try again later.",
       "uploadMapInvalidFileError": "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a way we cannot read.",
       "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
+    },
+    "nudge": {
+      "switchError": "Couldn't load the default file",
+      "useDefault": "Use default"
     },
     "page": {
       "allGames": "All games on this map",
@@ -2385,6 +2407,20 @@
     },
     "preview": {
       "zoom": "Zoom"
+    },
+    "report": {
+      "error": "Something went wrong. Please try again later.",
+      "iconLabel": "Report a problem",
+      "menuItem": "Report a problem…",
+      "note": "Anything staff should know? (optional)",
+      "noteTooLong": "Keep it under {{max}} characters.",
+      "rateLimited": "You've sent too many reports recently. Please try again later.",
+      "restricted": "You are currently restricted from reporting.",
+      "sameMapOption": "This map is the same as another map",
+      "send": "Send to staff",
+      "sent": "Thanks! Staff will take a look.",
+      "title": "Report a problem",
+      "wrongMapOption": "This file doesn't belong in this map"
     },
     "server": {
       "delisted": "Map delisted",

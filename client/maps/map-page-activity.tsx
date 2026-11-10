@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { getErrorStack } from '../../common/errors'
-import { MapPageSubPage, urlForMap } from '../../common/map-url'
+import { MapPageId } from '../../common/map-url'
 import { SbMapId } from '../../common/maps'
 import { navigateToGameResults } from '../games/action-creators'
 import { GameListEntry } from '../games/game-list-entry'
@@ -53,8 +53,11 @@ const GameRows = styled.div`
   gap: 2px;
 `
 
-/** The latest games played on a map, linking to the full, filterable list. */
-export function MapRecentGames({ mapId, mapName }: { mapId: SbMapId; mapName: string }) {
+/**
+ * The latest games played on a map (any of its files, when given a family's ID), linking to the
+ * full, filterable list.
+ */
+export function MapRecentGames({ mapId, allGamesUrl }: { mapId: MapPageId; allGamesUrl: string }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [gameIds, setGameIds] = useState<ReadonlyArray<string>>()
@@ -126,7 +129,7 @@ export function MapRecentGames({ mapId, mapName }: { mapId: SbMapId; mapName: st
           <TextButton
             label={t('maps.page.allGames', 'All games on this map')}
             iconEnd='arrow_forward'
-            onClick={() => push(urlForMap(mapId, mapName, MapPageSubPage.Games))}
+            onClick={() => push(allGamesUrl)}
           />
         ) : null}
       </SectionHeader>
@@ -142,10 +145,10 @@ const LobbyRows = styled.div`
 `
 
 /**
- * The open lobbies currently playing a map, from the lobby list. Needs the site socket, so it's
- * only there for logged-in viewers.
+ * The open lobbies currently playing any of a map's files, from the lobby list. Needs the site
+ * socket, so it's only there for logged-in viewers.
  */
-export function MapOpenLobbies({ mapId }: { mapId: SbMapId }) {
+export function MapOpenLobbies({ mapIds }: { mapIds: ReadonlyArray<SbMapId> }) {
   const { t } = useTranslation()
   const isConnected = useAppSelector(s => s.network.isConnected)
   const lobbyList = useAppSelector(s => s.lobbyList.list)
@@ -173,7 +176,7 @@ export function MapOpenLobbies({ mapId }: { mapId: SbMapId }) {
 
   const lobbies = lobbyList
     .map(id => lobbiesById.get(id))
-    .filter(summary => summary?.map.id === mapId)
+    .filter(summary => !!summary && mapIds.includes(summary.map.id))
     .map(summary => summary!)
     .sort((a, b) => compareSummaries(a, b, LobbyBrowserSort.Newest))
   if (!lobbies.length) {
@@ -234,7 +237,10 @@ const StyledLiveGameEntry = styled(LiveGameEntry)`
   border-radius: 4px;
 `
 
-/** The ranked games being played on a map right now, among the live games the site features. */
+/**
+ * The ranked games being played on any of a map's files right now, among the live games the site
+ * features.
+ */
 export function MapLiveGames({ mapIds }: { mapIds: ReadonlyArray<SbMapId> }) {
   const { t } = useTranslation()
   const [{ data }] = useQuery({

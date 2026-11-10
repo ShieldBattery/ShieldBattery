@@ -37,6 +37,7 @@ import {
   removeMapFromLibrary,
   resolveMapId,
   resolveMapIds,
+  resolveMapPageId,
   updateMap,
   veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
@@ -308,6 +309,11 @@ export class MapsApi {
     ctx.status = 204
   }
 
+  /**
+   * The games played on a map. `mapId` is any ID a map page URL can hold: a map family's ID (or an
+   * old ID of one) gives the games played on every file of that family, and a file's ID (or an old
+   * ID of one) gives the games played on that file alone.
+   */
   @httpGet('/:mapId/games')
   @httpBefore(throttleMiddleware(mapGamesListThrottle, throttleByUserOrIp))
   async getMapGames(ctx: RouterContext): Promise<GetGamesResponse> {
@@ -333,11 +339,13 @@ export class MapsApi {
       query: GET_GAMES_QUERY_SCHEMA,
     })
 
-    const mapId = await resolveMapId(requestedMapId)
+    const resolved = await resolveMapPageId(requestedMapId)
     const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
 
     const games = await getGames({
-      mapId,
+      ...(resolved && !resolved.fileId
+        ? { mapFamilyId: resolved.familyId }
+        : { mapId: resolved?.fileId ?? requestedMapId }),
       limit: GET_GAMES_LIMIT,
       offset: offset ?? 0,
       source,

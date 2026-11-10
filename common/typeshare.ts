@@ -176,6 +176,26 @@ export type PublishedGameReportMessage =
       }
     }
 
+/**
+ * Messages published to Node (via Redis pub/sub) about family reports. Node uses them to refresh
+ * the open-report counts it pushes to staff.
+ */
+export type PublishedMapFamilyReportMessage =
+  /** A report was filed, or an open report was updated by its reporter. */
+  | {
+      type: 'reportCreated'
+      data: {
+        reportId: string
+      }
+    }
+  /** Staff resolved, dismissed or reopened a report. */
+  | {
+      type: 'reportStatusChanged'
+      data: {
+        reportId: string
+      }
+    }
+
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
 
@@ -185,6 +205,7 @@ export type PublishedMessage =
   | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
   | { type: 'gameReport'; data: PublishedGameReportMessage }
   | { type: 'gameCommend'; data: PublishedGameCommendMessage }
+  | { type: 'mapFamilyReport'; data: PublishedMapFamilyReportMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

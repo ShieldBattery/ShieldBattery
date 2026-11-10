@@ -30,6 +30,9 @@ const LoadableMapManager = IS_ELECTRON
       default: (await import('./map-manager')).AdminMapManager,
     }))
   : () => null
+const LoadableMapReports = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-reports')).AdminMapReports,
+}))
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
@@ -339,6 +342,15 @@ export default function AdminPanel() {
           title: 'Maps',
           description: 'Upload and remove maps',
           icon: 'landscape',
+        },
+        {
+          path: '/admin/maps/reports',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapReports,
+          title: 'Map reports',
+          description: 'Reports about which files make up a map',
+          icon: 'flag',
+          reportKind: 'mapReports',
         },
       ],
     },

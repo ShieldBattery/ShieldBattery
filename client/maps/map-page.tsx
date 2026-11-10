@@ -3,32 +3,36 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { useRoute } from 'wouter'
+import { Link, useRoute } from 'wouter'
+import { useLocationProperty } from 'wouter/use-browser-location'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
   ALL_MAP_PAGE_SUB_PAGES,
+  MAP_PAGE_FILE_PARAM,
   mapFileIdFromSegment,
+  mapIdFromRouteSegment,
+  MapPageId,
   MapPageSubPage,
-  mapSlug,
-  urlForMap,
+  urlForMapCompare,
 } from '../../common/map-url'
-import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
+import {
+  filterColorCodes,
+  makeMapFamilyId,
+  makeSbMapId,
+  SbMapId,
+  Tileset,
+  tilesetToName,
+} from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
-import { encodePrettyId } from '../../common/pretty-id'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
-import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapKind } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { updateLobbySettings } from '../lobbies/action-creators'
-import { isInLobby } from '../lobbies/lobby-reducer'
-import { navigateToLobby } from '../lobbies/lobby-url'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { FilledButton, IconButton } from '../material/button'
@@ -40,10 +44,10 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useScrollMemory } from '../navigation/router-hooks'
-import { push, replace } from '../navigation/routing'
+import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
@@ -59,6 +63,8 @@ import { ConnectedUsername } from '../users/connected-username'
 import {
   delistMap,
   openMapDownloadDialog,
+  openMapFamilyActionDialog,
+  openMapFamilyReportDialog,
   openMapPreviewDialog,
   regenMapImage,
   removeFromMyMaps,
@@ -66,19 +72,49 @@ import {
 } from './action-creators'
 import { MapBackButton } from './map-back-button'
 import { DescriptionForm, NameForm } from './map-edit-forms'
+import { correctedMapPageUrl, SelectedFileState, urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
+import { useMapHostAction } from './map-host-action'
 import { MapFileImage } from './map-image'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
+import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
 
-const MapPageQuery = graphql(/* GraphQL */ `
-  query MapPage($id: SbMapId!, $canManageMaps: Boolean!) {
+const MapPageFamilyQuery = graphql(/* GraphQL */ `
+  query MapPageFamily($id: UUID!, $canManageMaps: Boolean!) {
+    mapFamily(id: $id) {
+      id
+      file {
+        id
+      }
+      family {
+        id
+        name
+        current {
+          id
+        }
+        files {
+          id
+        }
+        ...MapPageStats_FamilyFragment
+        ...MapPageFiles_FamilyFragment
+      }
+    }
+  }
+`)
+
+const MapPageFileQuery = graphql(/* GraphQL */ `
+  query MapPageFile($id: SbMapId!, $canManageMaps: Boolean!) {
     map(id: $id) {
       id
       name
       kind
+      family {
+        id
+        name
+      }
       stats {
         id
       }
@@ -91,8 +127,8 @@ const MapPageQuery = graphql(/* GraphQL */ `
       ...MapPage_ActionsFragment
       ...MapPage_FactsFragment
       ...MapPage_HowToPlayFragment
-      ...MapPageStats_MapFragment
       ...MapPageMatchups_MapFragment
+      ...MapPageFiles_FileFragment
     }
   }
 `)
@@ -119,7 +155,7 @@ function MapNotFound() {
   )
 }
 
-/** The route for a map's page: `/maps/:id/:slug?/:subPage?`. */
+/** The route for a map's page: `/maps/:id/:slug?/:subPage?`, with an optional `file` param. */
 export function MapPageRoute() {
   const [match, params] = useRoute('/maps/:id/:slug?/:subPage?')
   const subPage = ALL_MAP_PAGE_SUB_PAGES.includes(params?.subPage as MapPageSubPage)
@@ -131,82 +167,100 @@ export function MapPageRoute() {
     return null
   }
 
-  const mapId = mapFileIdFromSegment(params.id)
-  if (!mapId) {
+  const pageId = mapIdFromRouteSegment(params.id)
+  if (!pageId) {
     return <MapNotFound />
   }
 
-  return (
-    <MapPage
-      key={mapId}
-      mapId={mapId}
-      idSegment={params.id}
-      slugSegment={params.slug}
-      subPageSegment={params.subPage}
-      subPage={subPage}
-    />
-  )
-}
-
-/**
- * Replaces the URL with the map's canonical one when it differs from it: an old id of the map, a
- * raw UUID id, a slug that doesn't match the map's name, or an unknown sub-page. The server's page
- * metadata uses the same `mapSlug`, or a wrong-slug URL could redirect in a loop.
- */
-function useCorrectMapUrl(
-  map: { id: SbMapId; name: string } | undefined,
-  segments: { idSegment: string; slugSegment?: string; subPageSegment?: string },
-  subPage: MapPageSubPage | undefined,
-) {
-  const { idSegment, slugSegment, subPageSegment } = segments
-  useEffect(() => {
-    if (!map) {
-      return
-    }
-    if (
-      idSegment !== encodePrettyId(map.id) ||
-      slugSegment !== mapSlug(map.name) ||
-      subPageSegment !== subPage
-    ) {
-      replace({ pathname: urlForMap(map.id, map.name, subPage), search: location.search })
-    }
-  }, [map, idSegment, slugSegment, subPageSegment, subPage])
+  return <MapPage key={pageId} pageId={pageId} subPage={subPage} />
 }
 
 export interface MapPageProps {
-  mapId: SbMapId
-  idSegment: string
-  slugSegment?: string
-  subPageSegment?: string
+  /** The id in the page's path: a map's id, or a file's (which selects that file). */
+  pageId: MapPageId
   subPage?: MapPageSubPage
+  /**
+   * Whether the page replaces the URL with the map's canonical one. Only pages showing a map page
+   * outside its own route (dev pages) turn this off.
+   */
+  correctUrl?: boolean
 }
 
-/** A map's page: everything about one map, and the ways to play it. */
-export function MapPage({ mapId, idSegment, slugSegment, subPageSegment, subPage }: MapPageProps) {
+/**
+ * A map's page: everything about one map, and the ways to play it. The map's details come from
+ * one of its files, the one the URL selects or else its default, while how much it's played and
+ * its favorites are the map's as a whole.
+ */
+export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
   const { t } = useTranslation()
   const canManageMaps = useHasAnyPermission('manageMaps')
-  const [{ data, error }, reexecuteQuery] = useQuery({
-    query: MapPageQuery,
-    variables: { id: mapId, canManageMaps },
+  const pathname = useLocationProperty(() => location.pathname)
+  const search = useLocationProperty(() => location.search)
+  const fileParam = new URLSearchParams(search).get(MAP_PAGE_FILE_PARAM)
+  const paramFileId = fileParam ? mapFileIdFromSegment(fileParam) : undefined
+
+  const [{ data: familyData, error: familyError }, reexecuteFamily] = useQuery({
+    query: MapPageFamilyQuery,
+    variables: { id: pageId, canManageMaps },
     context: NO_SUSPENSE_CONTEXT,
   })
+  const lookup = familyData?.mapFamily ?? undefined
+  const family = lookup?.family
+  const pathFileId = lookup?.file?.id
+  const selectedId = pathFileId ?? paramFileId ?? family?.current.id
+
+  const [fileResult, reexecuteFile] = useQuery({
+    query: MapPageFileQuery,
+    variables: { id: selectedId ?? makeSbMapId(''), canManageMaps },
+    pause: !selectedId,
+    context: NO_SUSPENSE_CONTEXT,
+  })
+  // A result for another file (the one selected before) doesn't count
+  const fileLoaded =
+    !!selectedId && !!fileResult.data && fileResult.operation?.variables.id === selectedId
+  const file = fileLoaded ? (fileResult.data?.map ?? undefined) : undefined
+
+  let paramFile: SelectedFileState | undefined
+  if (!pathFileId && paramFileId) {
+    if (file) {
+      paramFile = { kind: 'found', id: file.id, family: file.family }
+    } else if (fileLoaded) {
+      paramFile = { kind: 'missing' }
+    } else {
+      paramFile = { kind: 'loading' }
+    }
+  }
 
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   // The games list remembers and restores this container's scroll position itself.
   useScrollMemory(subPage === MapPageSubPage.Games ? null : scroller)
 
-  const map = data?.map ?? undefined
-  useCorrectMapUrl(
-    map ? { id: map.id, name: map.name } : undefined,
-    { idSegment, slugSegment, subPageSegment },
-    subPage,
-  )
+  // The server's page metadata builds the same canonical URL, or a page could keep redirecting
+  const correctedUrl =
+    family && correctUrl
+      ? correctedMapPageUrl({
+          pathname,
+          search,
+          subPage,
+          family: { id: family.id, name: family.name },
+          pathFileId,
+          paramFile,
+        })
+      : undefined
+  useEffect(() => {
+    if (correctedUrl) {
+      replace(correctedUrl, history.state)
+    }
+  }, [correctedUrl])
 
-  const refresh = () => reexecuteQuery({ requestPolicy: 'network-only' })
+  const refresh = () => {
+    reexecuteFamily({ requestPolicy: 'network-only' })
+    reexecuteFile({ requestPolicy: 'network-only' })
+  }
 
   let content: React.ReactNode
-  if (!data) {
-    content = error ? (
+  if (!familyData) {
+    content = familyError ? (
       <NotFoundText>
         <LoadErrorRow
           message={t('maps.page.loadError', "Couldn't load this map")}
@@ -216,31 +270,63 @@ export function MapPage({ mapId, idSegment, slugSegment, subPageSegment, subPage
     ) : (
       <LoadingDotsArea />
     )
-  } else if (!map) {
+  } else if (!family) {
     content = <NotFoundText>{t('maps.page.notFound', 'This map could not be found.')}</NotFoundText>
+  } else if (!file || file.family.id !== family.id || correctedUrl) {
+    // Either still loading, or the URL is about to change to the file's own map
+    content =
+      fileResult.error && !fileResult.fetching ? (
+        <NotFoundText>
+          <LoadErrorRow
+            message={t('maps.page.loadError', "Couldn't load this map")}
+            onRetry={refresh}
+          />
+        </NotFoundText>
+      ) : (
+        <LoadingDotsArea />
+      )
   } else if (subPage === MapPageSubPage.Games) {
     content = (
-      <MapGamesPage mapId={map.id} mapName={filterColorCodes(map.name)} scrollParent={scroller} />
+      <MapGamesPage
+        mapId={makeMapFamilyId(family.id)}
+        mapName={filterColorCodes(family.name)}
+        backUrl={urlForMapFile(family, file.id)}
+        scrollParent={scroller}
+      />
     )
   } else {
+    const fileIds = family.files.map(f => f.id)
+    const familyFileIds = fileIds.includes(file.id) ? fileIds : [...fileIds, file.id]
     content = (
       <PageContent>
         <MapBackButton />
         <Columns>
           <LeftColumn>
-            <MapHero mapId={map.id} name={filterColorCodes(map.name)} file={map.file} />
-            <MapFacts map={map} />
+            <MapHero mapId={file.id} name={filterColorCodes(file.name)} file={file.file} />
+            <MapFacts map={file} />
+            <MapFilesCard family={family} selected={file} />
           </LeftColumn>
           <RightColumn>
-            <MapHeaderAndActions header={map} actions={map} onChanged={refresh} />
-            <MapStatsCard map={map} />
-            <MapMatchupsCard map={map} />
-            <MapHowToPlay map={map} />
-            {map.kind === MapKind.Melee ? (
-              <MapLiveGames mapIds={mapId === map.id ? [map.id] : [map.id, mapId]} />
-            ) : null}
-            <MapOpenLobbies mapId={map.id} />
-            {map.stats ? <MapRecentGames mapId={map.id} mapName={map.name} /> : null}
+            <MapHeaderAndActions
+              header={file}
+              actions={file}
+              family={{
+                id: family.id,
+                name: family.name,
+                current: family.current,
+                fileCount: familyFileIds.length,
+              }}
+              onChanged={refresh}
+            />
+            <MapStatsCard family={family} kind={file.kind} />
+            <MapMatchupsCard map={file} />
+            <MapHowToPlay map={file} />
+            {file.kind === MapKind.Melee ? <MapLiveGames mapIds={familyFileIds} /> : null}
+            <MapOpenLobbies mapIds={familyFileIds} />
+            <MapRecentGames
+              mapId={makeMapFamilyId(family.id)}
+              allGamesUrl={urlForMapFile(family, file.id, MapPageSubPage.Games)}
+            />
           </RightColumn>
         </Columns>
       </PageContent>
@@ -534,6 +620,10 @@ const Notice = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const NotDefaultIcon = styled(MaterialIcon)`
+  color: var(--color-amber80);
+`
+
 /** Text with a username in the middle of it. */
 const InlineParts = styled.span`
   display: inline-flex;
@@ -566,11 +656,13 @@ const FromFileName = styled.div`
 
 function MapHeader({
   map: mapRef,
+  family,
   editing,
   onEditDone,
   onChanged,
 }: {
   map: FragmentType<typeof MapPage_HeaderFragment>
+  family: ActionsFamily
   editing: 'name' | 'description' | undefined
   onEditDone: () => void
   onChanged: () => void
@@ -665,6 +757,20 @@ function MapHeader({
           <span>{publishedDate.format(new Date(map.publishedAt))}</span>
         </Byline>
       ) : null}
+      {family.current.id !== map.id ? (
+        <Notice>
+          <NotDefaultIcon icon='info' size={20} />
+          <span>{t('maps.files.notDefault', 'Not the default file')}</span>
+          <span>·</span>
+          <Link href={urlForMapFile(family, family.current.id)}>
+            {t('maps.files.viewDefault', 'View default')}
+          </Link>
+          <span>·</span>
+          <Link href={urlForMapCompare(family.current.id, map.id)}>
+            {t('maps.files.compare', 'Compare')}
+          </Link>
+        </Notice>
+      ) : null}
       {!map.listed ? (
         <Notice>
           <MaterialIcon icon='link' size={20} />
@@ -723,14 +829,25 @@ const ActionRow = styled.div`
   gap: 8px;
 `
 
+/** What the page's actions need to know about the map the shown file is in. */
+interface ActionsFamily {
+  id: string
+  name: string
+  current: { id: SbMapId }
+  /** How many of the map's files the viewer can see. */
+  fileCount: number
+}
+
 /** The map's header, and the actions under it (which can put the header's text into editing). */
 function MapHeaderAndActions({
   header,
   actions,
+  family,
   onChanged,
 }: {
   header: FragmentType<typeof MapPage_HeaderFragment>
   actions: FragmentType<typeof MapPage_ActionsFragment>
+  family: ActionsFamily
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<'name' | 'description'>()
@@ -738,21 +855,24 @@ function MapHeaderAndActions({
     <>
       <MapHeader
         map={header}
+        family={family}
         editing={editing}
         onEditDone={() => setEditing(undefined)}
         onChanged={onChanged}
       />
-      <MapActions map={actions} onEdit={setEditing} onChanged={onChanged} />
+      <MapActions map={actions} family={family} onEdit={setEditing} onChanged={onChanged} />
     </>
   )
 }
 
 function MapActions({
   map: mapRef,
+  family,
   onEdit,
   onChanged,
 }: {
   map: FragmentType<typeof MapPage_ActionsFragment>
+  family: ActionsFamily
   onEdit: (field: 'name' | 'description') => void
   onChanged: () => void
 }) {
@@ -762,13 +882,7 @@ function MapActions({
   const map = useFragment(MapPage_ActionsFragment, mapRef)
   const selfUser = useSelfUser()
   const canManageMaps = useHasAnyPermission('manageMaps')
-
-  const inLobby = useAppSelector(s => isInLobby(s.lobby))
-  const lobbyId = useAppSelector(s => s.lobby.info.id)
-  const lobbyName = useAppSelector(s => s.lobby.info.name)
-  const lobbyHostId = useAppSelector(s => s.lobby.info.host.userId)
-  const lobbyMapId = useAppSelector(s => s.lobby.info.map?.id)
-  const isLobbyHost = IS_ELECTRON && inLobby && !!selfUser && lobbyHostId === selfUser.id
+  const { isLobbyHost, play } = useMapHostAction()
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
 
@@ -777,40 +891,8 @@ function MapActions({
 
   const showError = (message: string) => snackbarController.showSnackbar(message)
 
-  const onHost = () => {
-    if (!IS_ELECTRON) {
-      dispatch(openDialog({ type: DialogType.Download }))
-    } else if (!selfUser) {
-      redirectToLogin(push)
-    } else {
-      push(urlPath`/play/lobbies/create?map=${map.id}`)
-    }
-  }
-
-  const onUseInLobby = () => {
-    if (lobbyMapId === map.id) {
-      navigateToLobby(lobbyId, lobbyName)
-      return
-    }
-    dispatch(
-      updateLobbySettings(
-        { map: map.id },
-        {
-          onSuccess: () => navigateToLobby(lobbyId, lobbyName),
-          onError: () =>
-            showError(
-              t(
-                'maps.page.useInLobbyError',
-                "Couldn't change your lobby's map. It may not fit the lobby's current setup.",
-              ),
-            ),
-        },
-      ),
-    )
-  }
-
   const onCopyLink = () => {
-    const url = new URL(makeServerUrl(urlForMap(map.id, map.name)), location.origin).toString()
+    const url = new URL(makeServerUrl(urlForMapFile(family, map.id)), location.origin).toString()
     navigator.clipboard
       .writeText(url)
       .then(() => snackbarController.showSnackbar(t('maps.page.linkCopied', 'Link copied')))
@@ -818,6 +900,14 @@ function MapActions({
   }
 
   const menuItems: Array<[text: string, handler: () => void]> = []
+  const openReportDialog = () =>
+    dispatch(
+      openMapFamilyReportDialog({
+        familyId: family.id,
+        fileId: map.id,
+        fileCount: family.fileCount,
+      }),
+    )
   if (map.inLibrary) {
     menuItems.push([
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
@@ -866,23 +956,42 @@ function MapActions({
     )
   }
   if (canManageMaps) {
-    menuItems.push([
-      t('maps.thumbnail.regenerateImage', 'Regenerate image'),
-      () =>
-        dispatch(
-          regenMapImage(map.id, {
-            onSuccess: () => {
-              snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
-              onChanged()
-            },
-            onError: () =>
-              showError(
-                t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-              ),
-          }),
-        ),
-    ])
+    menuItems.push(
+      [
+        t('maps.thumbnail.regenerateImage', 'Regenerate image'),
+        () =>
+          dispatch(
+            regenMapImage(map.id, {
+              onSuccess: () => {
+                snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
+                onChanged()
+              },
+              onError: () =>
+                showError(
+                  t('maps.server.regenerateError', 'An error occurred while regenerating images'),
+                ),
+            }),
+          ),
+      ],
+      // Admin-only, so not translated
+      [
+        'Merge into another map…',
+        () =>
+          dispatch(
+            openMapFamilyActionDialog({
+              action: 'merge',
+              familyId: family.id,
+              selectedId: map.id,
+            }),
+          ),
+      ],
+    )
+  } else if (selfUser) {
+    // Staff fix these themselves, from the Files card and this menu
+    menuItems.push([t('maps.report.menuItem', 'Report a problem…'), openReportDialog])
   }
+  // A menu holding only the report item is shown as a button for it instead
+  const reportOnly = !canManageMaps && !!selfUser && menuItems.length === 1 && !map.inLibrary
 
   const favoriteLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
@@ -894,13 +1003,13 @@ function MapActions({
         <FilledButton
           label={t('maps.page.useInMyLobby', 'Use in my lobby')}
           iconStart='swap_horiz'
-          onClick={onUseInLobby}
+          onClick={() => play(map.id)}
         />
       ) : (
         <FilledButton
           label={t('maps.page.hostLobby', 'Host a lobby')}
           iconStart='add'
-          onClick={onHost}
+          onClick={() => play(map.id)}
         />
       )}
       <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
@@ -925,7 +1034,19 @@ function MapActions({
           onClick={onCopyLink}
         />
       </Tooltip>
-      {menuItems.length ? (
+      {reportOnly ? (
+        <Tooltip
+          text={t('maps.report.iconLabel', 'Report a problem')}
+          position='bottom'
+          tabIndex={-1}>
+          <IconButton
+            icon={<MaterialIcon icon='flag' />}
+            ariaLabel={t('maps.report.iconLabel', 'Report a problem')}
+            onClick={openReportDialog}
+          />
+        </Tooltip>
+      ) : null}
+      {!reportOnly && menuItems.length ? (
         <>
           <Tooltip
             text={t('maps.thumbnail.mapActions', 'Map actions')}
@@ -947,11 +1068,12 @@ function MapActions({
             anchorY={anchorY ?? 0}
             originX='right'
             originY='top'>
-            <MenuList>
+            <MenuList dense={true}>
               {menuItems.map(([text, handler]) => (
                 <MenuItem
                   key={text}
                   text={text}
+                  dense={true}
                   onClick={() => {
                     closeMenu()
                     handler()

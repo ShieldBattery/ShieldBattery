@@ -53,6 +53,8 @@ export enum DialogType {
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   MapDownload = 'mapDownload',
+  MapFamilyAction = 'mapFamilyAction',
+  MapFamilyReport = 'mapFamilyReport',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
@@ -334,6 +336,37 @@ type MapDownloadDialogPayload = BaseDialogPayload<
     mapId: SbMapId
   }
 >
+/** A staff change to which files a map holds. */
+export type MapFamilyActionKind = 'split' | 'move' | 'merge'
+
+type MapFamilyActionDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyAction,
+  {
+    action: MapFamilyActionKind
+    /** The map acted on. */
+    familyId: string
+    /** The file acted on. Unused for `merge`, which acts on every file of the map. */
+    fileId?: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
+    /** A map report to resolve once the change is made. */
+    reportId?: string
+    /** For `merge`, the map to merge into, which can still be changed in the dialog. */
+    targetFamilyId?: string
+  }
+>
+
+type MapFamilyReportDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyReport,
+  {
+    familyId: string
+    /** The file the reporter is looking at. */
+    fileId: SbMapId
+    /** How many of the map's files the reporter can see. */
+    fileCount: number
+  }
+>
+
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
@@ -521,6 +554,8 @@ export type DialogPayload =
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
   | MapDownloadDialogPayload
+  | MapFamilyActionDialogPayload
+  | MapFamilyReportDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchCanceledDialogPayload

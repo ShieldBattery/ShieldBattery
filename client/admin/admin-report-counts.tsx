@@ -75,6 +75,11 @@ const KIND_INFO: Record<
     noun: ['review request', 'review requests'],
     url: '/admin/review-requests',
   },
+  mapReports: {
+    icon: 'map',
+    noun: ['map report', 'map reports'],
+    url: '/admin/maps/reports',
+  },
 }
 
 function ReportCount({ kind, times }: { kind: AdminReportKind; times: readonly number[] }) {
@@ -119,6 +124,7 @@ export function AdminReportCounts() {
           <ReportCount kind='reviewRequests' times={times.reviewRequests} />
         </>
       ) : null}
+      {permissions?.manageMaps ? <ReportCount kind='mapReports' times={times.mapReports} /> : null}
     </>
   )
 }

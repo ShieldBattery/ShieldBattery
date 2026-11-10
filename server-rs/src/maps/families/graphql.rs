@@ -8,7 +8,9 @@ use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::{Context, InputObject, Object, Result};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::WrapErr;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
@@ -25,6 +27,7 @@ use crate::maps::families::{resolve_family_id, resolve_map_page_id};
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::{self, SimilarFile};
 use crate::maps::stats::{self, DEFAULT_ACTIVITY_WEEKS, MapWeeklyActivity};
+use crate::redis::RedisPool;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, SbUserId};
 
@@ -623,6 +626,18 @@ impl MapFamiliesQuery {
         .wrap_err("Failed to load family reports")?)
     }
 
+    /// A family report by its id, whatever its status. Only available to users who can manage
+    /// maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn map_family_report_by_id(
+        &self,
+        ctx: &Context<'_>,
+        id: Uuid,
+    ) -> Result<Option<MapFamilyReport>> {
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(load_report(db, id).await?)
+    }
+
     /// How many family reports have a status. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_report_count(
@@ -826,6 +841,11 @@ impl MapFamiliesMutation {
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
+        publish_report_message(
+            ctx,
+            PublishedMapFamilyReportMessage::ReportCreated { report_id: id },
+        )
+        .await;
         load_report(db, id)
             .await?
             .ok_or_else(|| graphql_error("NOT_FOUND", "Report not found"))
@@ -846,8 +866,39 @@ impl MapFamiliesMutation {
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
+        publish_report_message(
+            ctx,
+            PublishedMapFamilyReportMessage::ReportStatusChanged { report_id: id },
+        )
+        .await;
         load_report(db, id)
             .await?
             .ok_or_else(|| graphql_error("NOT_FOUND", "Report not found"))
+    }
+}
+
+/// Messages published to Node (via Redis pub/sub) about family reports. Node uses them to refresh
+/// the open-report counts it pushes to staff.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedMapFamilyReportMessage {
+    /// A report was filed, or an open report was updated by its reporter.
+    #[serde(rename_all = "camelCase")]
+    ReportCreated { report_id: Uuid },
+    /// Staff resolved, dismissed or reopened a report.
+    #[serde(rename_all = "camelCase")]
+    ReportStatusChanged { report_id: Uuid },
+}
+
+/// Publishes a family report message. Best-effort: a failed publish only leaves staff's open-report
+/// count stale until its next refresh, so it doesn't fail the request.
+async fn publish_report_message(ctx: &Context<'_>, message: PublishedMapFamilyReportMessage) {
+    let Some(redis) = ctx.data_opt::<RedisPool>() else {
+        tracing::warn!("no RedisPool available to publish a family report message");
+        return;
+    };
+    if let Err(err) = redis.publish(message).await {
+        tracing::error!("failed to publish family report message: {err:?}");
     }
 }

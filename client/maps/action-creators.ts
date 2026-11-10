@@ -2,6 +2,7 @@ import prettyBytes from 'pretty-bytes'
 import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
 import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
+import { MapPageId } from '../../common/map-url'
 import {
   GetBatchMapInfoResponse,
   GetMapsQueryParams,
@@ -15,7 +16,7 @@ import {
 import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { DialogType, MapFamilyActionKind } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
 import i18n from '../i18n/i18next'
@@ -167,34 +168,6 @@ export function getMaps(
   })
 }
 
-export function addToFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
-      method: 'POST',
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/addToFavorites',
-      payload: mapId,
-    })
-  })
-}
-
-export function removeFromFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
-      method: 'DELETE',
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/removeFromFavorites',
-      payload: mapId,
-    })
-  })
-}
-
 /** Removes a map from the current user's own maps. The map itself stays available to others. */
 export function removeFromMyMaps(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -311,6 +284,27 @@ export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }
 
+/** Opens the dialog that confirms a staff change to a map's files, spelling out its effects. */
+export function openMapFamilyActionDialog(initData: {
+  action: MapFamilyActionKind
+  familyId: string
+  fileId?: SbMapId
+  selectedId?: SbMapId
+  reportId?: string
+  targetFamilyId?: string
+}) {
+  return openDialog({ type: DialogType.MapFamilyAction, initData })
+}
+
+/** Opens the dialog for telling staff that a map's files are wrong. */
+export function openMapFamilyReportDialog(initData: {
+  familyId: string
+  fileId: SbMapId
+  fileCount: number
+}) {
+  return openDialog({ type: DialogType.MapFamilyReport, initData })
+}
+
 export function openMapDownloadDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapDownload, initData: { mapId } })
 }
@@ -326,9 +320,12 @@ export function getMapDownloadUrl(mapId: SbMapId, spec: RequestHandlingSpec<stri
   })
 }
 
-/** Gets a page of the games played on a map, newest first unless `params` sorts them otherwise. */
+/**
+ * Gets a page of the games played on a map, newest first unless `params` sorts them otherwise. A
+ * map family's ID gives the games played on any of its files; a file's ID, the games of that file.
+ */
 export function getMapGames(
-  mapId: SbMapId,
+  mapId: MapPageId,
   params: GetGamesQueryParams,
   spec: RequestHandlingSpec<GetGamesResponse>,
 ): ThunkAction {
