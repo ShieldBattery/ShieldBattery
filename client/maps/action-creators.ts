@@ -311,14 +311,6 @@ export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }
 
-/**
- * Opens a dialog for saying how a map relates to another map (`related`), or that it's in the
- * wrong family (`wrongFamily`).
- */
-export function openMapFamilyLinkDialog(mapId: SbMapId, kind: 'related' | 'wrongFamily') {
-  return openDialog({ type: DialogType.MapFamilyLink, initData: { mapId, kind } })
-}
-
 export function openMapDownloadDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapDownload, initData: { mapId } })
 }

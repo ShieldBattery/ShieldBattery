@@ -1,65 +1,47 @@
-//! Changing families by hand: linking a file under another, taking a file out of its family,
-//! editing a member, deciding suggestions, and reports from users. Every change to a family takes
-//! the families lock and rewrites the derived lines of the families it touched before its
-//! transaction commits, and every change a person makes is recorded in the family history.
-//!
-//! Reviewers (trusted users outside staff) may only change listed maps, and only suggestions and
-//! reports that are still open.
+//! Changing families by hand (staff only): moving a file to another family, splitting a file out
+//! into a family of its own, merging two families, and picking a family's default file; plus reports
+//! from users. Every change takes the families lock before touching anything, recomputes the
+//! current file of the families it touched before its transaction commits, and records one history
+//! entry.
 
-use std::collections::{HashMap, HashSet};
-
-use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
-use crate::maps::families::graphql::MapLinkSuggestionStatus;
 use crate::maps::families::history::{
-    self, Change, HistoryDetails, HistoryEntry, MapFamilyHistoryKind, MapFamilySuggestionChange,
+    self, Change, DefaultChange, FileChange, HistoryDetails, HistoryEntry, MapFamilyHistoryKind,
 };
-use crate::maps::families::rules::file_version;
-use crate::maps::families::{MapFamilyRelation, MapLinkSource, lock_families, recompute_family};
+use crate::maps::families::{lock_families, refresh_families, retire_families};
 use crate::users::SbUserId;
 
 /// The longest note a family report can carry, in characters.
 pub const MAX_REPORT_NOTE_LENGTH: usize = 500;
-/// The most family reports a user can file in a rolling hour. Only stops outright spam of the
-/// families queue.
+/// The most family reports a user can file in a rolling hour. Only stops outright spam.
 const MAX_REPORTS_PER_HOUR: i64 = 10;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FamilyEditError {
-    #[error("map not found")]
+    #[error("map file not found")]
     MapNotFound,
-    #[error("the map isn't in a family")]
-    NotInFamily,
-    #[error("a map can't be linked to itself")]
-    SelfLink,
-    #[error("only a family's first file is its root")]
-    RootRelation,
-    #[error("a map can't be linked under a map that descends from it")]
-    Cycle,
-    #[error("the map's place in its family was set by someone who outranks you")]
-    Locked,
-    #[error("only listed maps can be pinned as the current version")]
-    PinUnlisted,
-    #[error("only the user who published a map can link it")]
-    NotPublisher,
-    #[error("only listed maps can be linked")]
-    Unlisted,
-    #[error("reviewers can only change listed maps")]
-    ReviewerUnlisted,
-    #[error("reviewers can only decide what's still open")]
-    ReviewerDecided,
-    #[error("family not found")]
+    #[error("map not found")]
     FamilyNotFound,
-    #[error("suggestion not found")]
-    SuggestionNotFound,
     #[error("report not found")]
     ReportNotFound,
-    #[error("a report of related maps needs the other map")]
-    MissingOtherMap,
+    #[error("the file is already in that map")]
+    AlreadyInFamily,
+    #[error("the file is already the only file of its map")]
+    AlreadyAlone,
+    #[error("a map can't be merged into itself")]
+    SameFamily,
+    #[error("a map can't be reported as the same as itself")]
+    SelfReport,
+    #[error("only a listed file can be the default of a map with listed files")]
+    DefaultUnlisted,
+    #[error("a report that a file isn't part of its map needs the file")]
+    MissingMap,
+    #[error("a report that two maps are the same needs both maps")]
+    MissingFamilies,
     #[error("the note must be at most {MAX_REPORT_NOTE_LENGTH} characters")]
     NoteTooLong,
     #[error("you are currently restricted from reporting")]
@@ -76,861 +58,429 @@ impl From<sqlx::Error> for FamilyEditError {
     }
 }
 
-/// A family member as edits read it.
-#[derive(Debug, Clone)]
-struct Member {
-    map_id: SbMapId,
+struct FileRow {
     family_id: Uuid,
-    parent: Option<SbMapId>,
-    relation: MapFamilyRelation,
-    source: MapLinkSource,
-    line_root: SbMapId,
-    first_seen_at: DateTime<Utc>,
-}
-
-async fn load_membership(
-    tx: &mut Transaction<'_, Postgres>,
-    map_id: SbMapId,
-) -> eyre::Result<Option<Member>> {
-    sqlx::query_as!(
-        Member,
-        r#"
-            SELECT f.map_id as "map_id: SbMapId", f.family_id,
-                f.parent_map_id as "parent: SbMapId", f.relation as "relation: MapFamilyRelation",
-                f.source as "source: MapLinkSource", f.line_root_id as "line_root: SbMapId",
-                m.first_seen_at
-            FROM map_family_members f
-            INNER JOIN maps m ON m.id = f.map_id
-            WHERE f.map_id = $1
-        "#,
-        map_id as _,
-    )
-    .fetch_optional(&mut **tx)
-    .await
-    .wrap_err("Failed to load family membership")
-}
-
-async fn load_family_members(
-    tx: &mut Transaction<'_, Postgres>,
-    family_id: Uuid,
-) -> eyre::Result<Vec<Member>> {
-    sqlx::query_as!(
-        Member,
-        r#"
-            SELECT f.map_id as "map_id: SbMapId", f.family_id,
-                f.parent_map_id as "parent: SbMapId", f.relation as "relation: MapFamilyRelation",
-                f.source as "source: MapLinkSource", f.line_root_id as "line_root: SbMapId",
-                m.first_seen_at
-            FROM map_family_members f
-            INNER JOIN maps m ON m.id = f.map_id
-            WHERE f.family_id = $1
-        "#,
-        family_id,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .wrap_err("Failed to load family members")
-}
-
-/// `root` and every member below it.
-fn subtree(members: &[Member], root: SbMapId) -> Vec<SbMapId> {
-    let mut children: HashMap<SbMapId, Vec<SbMapId>> = HashMap::new();
-    for member in members {
-        if let Some(parent) = member.parent {
-            children.entry(parent).or_default().push(member.map_id);
-        }
-    }
-    let mut found = vec![root];
-    let mut seen = HashSet::from([root]);
-    let mut i = 0;
-    while i < found.len() {
-        for &child in children.get(&found[i]).into_iter().flatten() {
-            if seen.insert(child) {
-                found.push(child);
-            }
-        }
-        i += 1;
-    }
-    found
-}
-
-/// The parsed version of a map's file, the label a new member starts with.
-async fn parsed_version_label(
-    tx: &mut Transaction<'_, Postgres>,
-    map_id: SbMapId,
-) -> eyre::Result<Option<String>> {
-    let row = sqlx::query!(
-        "SELECT title, description, public_name FROM maps WHERE id = $1",
-        map_id as _,
-    )
-    .fetch_one(&mut **tx)
-    .await
-    .wrap_err("Failed to load map for its version")?;
-    let display_name = row.public_name.as_deref().unwrap_or(&row.title);
-    Ok(file_version(&row.title, &row.description, display_name))
-}
-
-struct MapRow {
     listed: bool,
-    published_by: Option<SbUserId>,
+    /// How many files the file's family holds, including the file itself.
+    family_size: i64,
 }
 
-async fn load_map_row(
+async fn load_file(
     tx: &mut Transaction<'_, Postgres>,
-    map_id: SbMapId,
-) -> Result<MapRow, FamilyEditError> {
+    file_id: SbMapId,
+) -> Result<FileRow, FamilyEditError> {
     sqlx::query_as!(
-        MapRow,
+        FileRow,
         r#"
-            SELECT listed as "listed!", published_by as "published_by: SbUserId"
-            FROM maps
-            WHERE id = $1
+            SELECT m.family_id, m.listed as "listed!",
+                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as "family_size!"
+            FROM maps m
+            WHERE m.id = $1
         "#,
-        map_id as _,
+        file_id as _,
     )
     .fetch_optional(&mut **tx)
     .await
-    .wrap_err("Failed to load map")?
+    .wrap_err("Failed to load map file")?
     .ok_or(FamilyEditError::MapNotFound)
 }
 
-/// Checks that a reviewer only touches listed maps. Other sources may touch any map.
-async fn check_reviewer_listed(
-    tx: &mut Transaction<'_, Postgres>,
-    source: MapLinkSource,
-    map_ids: &[SbMapId],
-) -> Result<(), FamilyEditError> {
-    if source != MapLinkSource::Reviewer {
-        return Ok(());
-    }
-    for &map_id in map_ids {
-        if !load_map_row(tx, map_id).await?.listed {
-            return Err(FamilyEditError::ReviewerUnlisted);
-        }
-    }
-    Ok(())
-}
-
-struct SuggestionStatusRow {
-    map_a: SbMapId,
-    map_b: SbMapId,
-    status: String,
-}
-
-fn suggestion_changes(
-    rows: Vec<SuggestionStatusRow>,
-    after: MapLinkSuggestionStatus,
-) -> Vec<MapFamilySuggestionChange> {
-    rows.into_iter()
-        .map(|row| MapFamilySuggestionChange {
-            map_a: row.map_a,
-            map_b: row.map_b,
-            before: MapLinkSuggestionStatus::from_db(&row.status),
-            after,
-        })
-        .collect()
-}
-
-/// A request to place a file in a family under another file.
-#[derive(Debug, Clone)]
-pub struct LinkRequest {
-    pub map_id: SbMapId,
-    pub parent_id: SbMapId,
-    pub relation: MapFamilyRelation,
-    /// The member's version label. `None` keeps the current one, or for a file that wasn't in a
-    /// family, the version parsed from it.
-    pub version_label: Option<Option<String>>,
-}
-
-/// Places `map_id` (with every member below it) under `parent_id`, moving it out of its family if
-/// it was in another one. A parent outside any family becomes the root of a new one. Open
-/// suggestions between files that end up in one family are accepted.
-pub async fn link(
-    tx: &mut Transaction<'_, Postgres>,
-    request: &LinkRequest,
-    source: MapLinkSource,
-    actor: SbUserId,
-) -> Result<(), FamilyEditError> {
-    let LinkRequest {
-        map_id,
-        parent_id,
-        relation,
-        ref version_label,
-    } = *request;
-    if map_id == parent_id {
-        return Err(FamilyEditError::SelfLink);
-    }
-    if relation == MapFamilyRelation::Root {
-        return Err(FamilyEditError::RootRelation);
-    }
-    load_map_row(tx, map_id).await?;
-    load_map_row(tx, parent_id).await?;
-    check_reviewer_listed(tx, source, &[map_id, parent_id]).await?;
-
-    lock_families(tx).await?;
-    let member = load_membership(tx, map_id).await?;
-    let parent = load_membership(tx, parent_id).await?;
-    if member.as_ref().is_some_and(|m| m.source > source) {
-        return Err(FamilyEditError::Locked);
-    }
-    if let (Some(m), Some(p)) = (&member, &parent)
-        && m.family_id == p.family_id
-    {
-        let members = load_family_members(tx, m.family_id).await?;
-        if subtree(&members, map_id).contains(&parent_id) {
-            return Err(FamilyEditError::Cycle);
-        }
-    }
-
-    let touched: Vec<Uuid> = member
-        .iter()
-        .chain(parent.iter())
-        .map(|m| m.family_id)
-        .collect();
-    let before = history::snapshot(tx, &touched, &[map_id, parent_id]).await?;
-
-    let family_id = match &parent {
-        Some(p) => p.family_id,
-        None => {
-            let family_id =
-                sqlx::query_scalar!("INSERT INTO map_families DEFAULT VALUES RETURNING id")
-                    .fetch_one(&mut **tx)
-                    .await
-                    .wrap_err("Failed to create family")?;
-            let label = parsed_version_label(tx, parent_id).await?;
-            insert_member(
-                tx,
-                family_id,
-                parent_id,
-                None,
-                MapFamilyRelation::Root,
-                label,
-                source,
-                actor,
-            )
-            .await?;
-            family_id
-        }
-    };
-
-    let mut old_family = None;
-    match member {
-        None => {
-            let label = match version_label {
-                Some(label) => label.clone(),
-                None => parsed_version_label(tx, map_id).await?,
-            };
-            insert_member(
-                tx,
-                family_id,
-                map_id,
-                Some(parent_id),
-                relation,
-                label,
-                source,
-                actor,
-            )
-            .await?;
-        }
-        Some(m) => {
-            if m.family_id != family_id {
-                let members = load_family_members(tx, m.family_id).await?;
-                let moved: Vec<Uuid> = subtree(&members, map_id).iter().map(|id| id.0).collect();
-                sqlx::query!(
-                    "UPDATE map_family_members SET family_id = $2 WHERE map_id = ANY($1)",
-                    &moved,
-                    family_id,
-                )
-                .execute(&mut **tx)
-                .await
-                .wrap_err("Failed to move family members")?;
-                old_family = Some(m.family_id);
-            }
-            sqlx::query!(
-                r#"
-                    UPDATE map_family_members
-                    SET parent_map_id = $2, relation = $3, source = $4, linked_by = $5,
-                        linked_at = now(),
-                        version_label = CASE WHEN $6 THEN $7 ELSE version_label END
-                    WHERE map_id = $1
-                "#,
-                map_id as _,
-                parent_id as _,
-                relation as _,
-                source as _,
-                actor as _,
-                version_label.is_some(),
-                version_label.clone().flatten(),
-            )
-            .execute(&mut **tx)
-            .await
-            .wrap_err("Failed to update family member")?;
-        }
-    }
-
-    let (a, b) = ordered(map_id, parent_id);
-    let mut accepted = sqlx::query_as!(
-        SuggestionStatusRow,
-        r#"
-            UPDATE map_link_suggestions s
-            SET status = 'accepted', decided_by = $3, decided_at = now()
-            FROM map_link_suggestions old
-            WHERE s.map_a = $1 AND s.map_b = $2 AND s.status <> 'accepted'
-                AND old.map_a = s.map_a AND old.map_b = s.map_b
-            RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId", old.status
-        "#,
-        a as _,
-        b as _,
-        actor as _,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .wrap_err("Failed to accept suggestion")?;
-    accepted.extend(
-        sqlx::query_as!(
-            SuggestionStatusRow,
-            r#"
-                UPDATE map_link_suggestions s
-                SET status = 'accepted', decided_by = $2, decided_at = now()
-                FROM map_family_members fa, map_family_members fb
-                WHERE s.status = 'open' AND fa.map_id = s.map_a AND fb.map_id = s.map_b
-                    AND fa.family_id = $1 AND fb.family_id = $1
-                RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId",
-                    'open' as "status!"
-            "#,
-            family_id,
-            actor as _,
-        )
-        .fetch_all(&mut **tx)
-        .await
-        .wrap_err("Failed to accept suggestions within the family")?,
-    );
-
-    recompute_family(tx, family_id).await?;
-    if let Some(old_family) = old_family {
-        recompute_family(tx, old_family).await?;
-    }
-
-    let touched: Vec<Uuid> = [Some(family_id), old_family]
-        .into_iter()
-        .flatten()
-        .collect();
-    let after = history::snapshot(tx, &touched, &[map_id, parent_id]).await?;
-    history::record(
-        tx,
-        HistoryEntry {
-            kind: MapFamilyHistoryKind::Link,
-            actor,
-            source,
-            map_id: Some(map_id),
-            other_map_id: Some(parent_id),
-            family_id: None,
-            details: HistoryDetails {
-                members: history::diff(&before, &after),
-                suggestions: suggestion_changes(accepted, MapLinkSuggestionStatus::Accepted),
-                ..Default::default()
-            },
-        },
-    )
-    .await?;
-    Ok(())
-}
-
-fn ordered(x: SbMapId, y: SbMapId) -> (SbMapId, SbMapId) {
-    if x.0 < y.0 { (x, y) } else { (y, x) }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn insert_member(
+async fn load_default(
     tx: &mut Transaction<'_, Postgres>,
     family_id: Uuid,
-    map_id: SbMapId,
-    parent_id: Option<SbMapId>,
-    relation: MapFamilyRelation,
-    version_label: Option<String>,
-    source: MapLinkSource,
-    actor: SbUserId,
-) -> eyre::Result<()> {
-    sqlx::query!(
+) -> Result<Option<SbMapId>, FamilyEditError> {
+    let row = sqlx::query!(
         r#"
-            INSERT INTO map_family_members (map_id, family_id, parent_map_id, relation,
-                version_label, source, linked_by, linked_at, line_root_id, line_current_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $1, $1)
+            SELECT default_map_id as "default_map_id: SbMapId"
+            FROM map_families
+            WHERE id = $1
         "#,
-        map_id as _,
-        family_id,
-        parent_id as _,
-        relation as _,
-        version_label,
-        source as _,
-        actor as _,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to add family member")?;
-    Ok(())
-}
-
-/// The child that takes `map_id`'s place when it leaves a line it starts: its oldest version, else
-/// its oldest child.
-fn successor(members: &[Member], map_id: SbMapId) -> Option<SbMapId> {
-    members
-        .iter()
-        .filter(|m| m.parent == Some(map_id))
-        .min_by_key(|m| {
-            (
-                m.relation != MapFamilyRelation::Version,
-                m.first_seen_at,
-                m.map_id.0,
-            )
-        })
-        .map(|m| m.map_id)
-}
-
-/// Takes a file out of its family. When it starts a line (the family's root or a fork), its oldest
-/// version takes its place and the other children move under that; otherwise its children move up
-/// to its parent. Suggestions pairing it with its former relatives are rejected, so detection
-/// doesn't propose them again.
-pub async fn remove(
-    tx: &mut Transaction<'_, Postgres>,
-    map_id: SbMapId,
-    source: MapLinkSource,
-    actor: SbUserId,
-) -> Result<(), FamilyEditError> {
-    check_reviewer_listed(tx, source, &[map_id]).await?;
-    lock_families(tx).await?;
-    let member = load_membership(tx, map_id)
-        .await?
-        .ok_or(FamilyEditError::NotInFamily)?;
-    if member.source > source {
-        return Err(FamilyEditError::Locked);
-    }
-    let before = history::snapshot(tx, &[member.family_id], &[]).await?;
-    let members = load_family_members(tx, member.family_id).await?;
-    let starts_line = member.relation.starts_line() || member.parent.is_none();
-    match successor(&members, map_id) {
-        None => {}
-        Some(_) if !starts_line => {
-            sqlx::query!(
-                "UPDATE map_family_members SET parent_map_id = $2 WHERE parent_map_id = $1",
-                map_id as _,
-                member.parent as _,
-            )
-            .execute(&mut **tx)
-            .await
-            .wrap_err("Failed to move children up")?;
-        }
-        Some(successor) => {
-            sqlx::query!(
-                r#"
-                    UPDATE map_family_members
-                    SET parent_map_id = CASE WHEN map_id = $2 THEN $3 ELSE $2 END,
-                        relation = CASE WHEN map_id = $2 THEN $4 ELSE relation END
-                    WHERE parent_map_id = $1
-                "#,
-                map_id as _,
-                successor as _,
-                member.parent as _,
-                member.relation as _,
-            )
-            .execute(&mut **tx)
-            .await
-            .wrap_err("Failed to promote a child")?;
-        }
-    }
-
-    let relatives: Vec<Uuid> = members
-        .iter()
-        .filter(|m| m.map_id != map_id)
-        .map(|m| m.map_id.0)
-        .collect();
-    let rejected = sqlx::query_as!(
-        SuggestionStatusRow,
-        r#"
-            UPDATE map_link_suggestions s
-            SET status = 'rejected', decided_by = $3, decided_at = now()
-            FROM map_link_suggestions old
-            WHERE ((s.map_a = $1 AND s.map_b = ANY($2)) OR (s.map_b = $1 AND s.map_a = ANY($2)))
-                AND s.status <> 'rejected'
-                AND old.map_a = s.map_a AND old.map_b = s.map_b
-            RETURNING s.map_a as "map_a: SbMapId", s.map_b as "map_b: SbMapId", old.status
-        "#,
-        map_id as _,
-        &relatives,
-        actor as _,
-    )
-    .fetch_all(&mut **tx)
-    .await
-    .wrap_err("Failed to reject suggestions")?;
-    sqlx::query!(
-        "DELETE FROM map_family_members WHERE map_id = $1",
-        map_id as _
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to remove family member")?;
-    recompute_family(tx, member.family_id).await?;
-
-    let after = history::snapshot(tx, &[member.family_id], &[]).await?;
-    history::record(
-        tx,
-        HistoryEntry {
-            kind: MapFamilyHistoryKind::Remove,
-            actor,
-            source,
-            map_id: Some(map_id),
-            other_map_id: None,
-            family_id: None,
-            details: HistoryDetails {
-                members: history::diff(&before, &after),
-                suggestions: suggestion_changes(rejected, MapLinkSuggestionStatus::Rejected),
-                ..Default::default()
-            },
-        },
-    )
-    .await?;
-    Ok(())
-}
-
-/// Changes a member's version label and whether it's pinned as its line's current version.
-/// Pinning a member unpins any other member of its line.
-pub async fn update_member(
-    tx: &mut Transaction<'_, Postgres>,
-    map_id: SbMapId,
-    version_label: Option<Option<String>>,
-    pinned_current: Option<bool>,
-    source: MapLinkSource,
-    actor: SbUserId,
-) -> Result<(), FamilyEditError> {
-    check_reviewer_listed(tx, source, &[map_id]).await?;
-    lock_families(tx).await?;
-    let member = load_membership(tx, map_id)
-        .await?
-        .ok_or(FamilyEditError::NotInFamily)?;
-    if member.source > source {
-        return Err(FamilyEditError::Locked);
-    }
-    let before = history::snapshot(tx, &[member.family_id], &[]).await?;
-    if pinned_current == Some(true) {
-        if !load_map_row(tx, map_id).await?.listed {
-            return Err(FamilyEditError::PinUnlisted);
-        }
-        sqlx::query!(
-            r#"
-                UPDATE map_family_members
-                SET pinned_current = false
-                WHERE line_root_id = $1 AND map_id <> $2 AND pinned_current
-            "#,
-            member.line_root as _,
-            map_id as _,
-        )
-        .execute(&mut **tx)
-        .await
-        .wrap_err("Failed to unpin the line's current")?;
-    }
-    sqlx::query!(
-        r#"
-            UPDATE map_family_members
-            SET version_label = CASE WHEN $2 THEN $3 ELSE version_label END,
-                pinned_current = COALESCE($4, pinned_current)
-            WHERE map_id = $1
-        "#,
-        map_id as _,
-        version_label.is_some(),
-        version_label.flatten(),
-        pinned_current,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to update family member")?;
-    recompute_family(tx, member.family_id).await?;
-
-    let after = history::snapshot(tx, &[member.family_id], &[]).await?;
-    history::record(
-        tx,
-        HistoryEntry {
-            kind: MapFamilyHistoryKind::UpdateMember,
-            actor,
-            source,
-            map_id: Some(map_id),
-            other_map_id: None,
-            family_id: None,
-            details: HistoryDetails {
-                members: history::diff(&before, &after),
-                ..Default::default()
-            },
-        },
-    )
-    .await?;
-    Ok(())
-}
-
-/// Sets a family's staff-only working label.
-pub async fn set_label(
-    tx: &mut Transaction<'_, Postgres>,
-    family_id: Uuid,
-    label: Option<String>,
-    actor: SbUserId,
-) -> Result<(), FamilyEditError> {
-    let before = sqlx::query_scalar!(
-        "SELECT label FROM map_families WHERE id = $1 FOR UPDATE",
         family_id,
     )
     .fetch_optional(&mut **tx)
     .await
-    .wrap_err("Failed to load family label")?
+    .wrap_err("Failed to load family")?
     .ok_or(FamilyEditError::FamilyNotFound)?;
-    sqlx::query!(
-        "UPDATE map_families SET label = $2, updated_at = now() WHERE id = $1",
+    Ok(row.default_map_id)
+}
+
+/// Clears `family_id`'s default pick if it's `file_id`, which is leaving the family. Returns the
+/// change, if there was one.
+async fn clear_departing_default(
+    tx: &mut Transaction<'_, Postgres>,
+    family_id: Uuid,
+    file_id: SbMapId,
+) -> eyre::Result<Option<DefaultChange>> {
+    let cleared = sqlx::query!(
+        r#"
+            UPDATE map_families
+            SET default_map_id = NULL, default_set_by = NULL, default_set_at = NULL,
+                updated_at = now()
+            WHERE id = $1 AND default_map_id = $2
+        "#,
         family_id,
-        label,
+        file_id as _,
     )
     .execute(&mut **tx)
     .await
-    .wrap_err("Failed to set family label")?;
-    if before != label {
-        history::record(
-            tx,
-            HistoryEntry {
-                kind: MapFamilyHistoryKind::SetLabel,
-                actor,
-                source: MapLinkSource::Moderator,
-                map_id: None,
-                other_map_id: None,
-                family_id: Some(family_id),
-                details: HistoryDetails {
-                    label: Some(Change {
-                        before,
-                        after: label,
-                    }),
-                    ..Default::default()
-                },
-            },
-        )
-        .await?;
-    }
-    Ok(())
+    .wrap_err("Failed to clear the default of the file's family")?
+    .rows_affected();
+    Ok((cleared > 0).then_some(DefaultChange {
+        family_id,
+        before: Some(file_id),
+        after: None,
+    }))
 }
 
-/// What staff can set a suggestion's status to. Accepting a suggestion is linking its files.
-#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
-pub enum MapLinkSuggestionDecision {
-    /// Back to waiting for a decision.
-    Open,
-    /// The files aren't related.
-    Rejected,
-    /// A UMS map built on the other map's terrain: related, but never in its family.
-    TerrainOnly,
+/// The outcome of moving one file between families.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileMove {
+    /// The history entry recording the move.
+    pub history_id: Uuid,
+    /// The family the file is in now.
+    pub family_id: Uuid,
+    /// The family the file left, unless it was deleted for having no files left.
+    pub previous_family_id: Option<Uuid>,
 }
 
-impl MapLinkSuggestionDecision {
-    fn status(self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Rejected => "rejected",
-            Self::TerrainOnly => "terrain_only",
-        }
-    }
-}
-
-pub async fn decide_suggestion(
+/// Moves a file to another family. A family left without files is deleted, and its id becomes an
+/// alias of the family the file moved to.
+pub async fn move_file(
     tx: &mut Transaction<'_, Postgres>,
-    x: SbMapId,
-    y: SbMapId,
-    decision: MapLinkSuggestionDecision,
-    source: MapLinkSource,
+    file_id: SbMapId,
+    family_id: Uuid,
     actor: SbUserId,
-) -> Result<(), FamilyEditError> {
-    let (a, b) = ordered(x, y);
-    let before = sqlx::query_scalar!(
-        "SELECT status FROM map_link_suggestions WHERE map_a = $1 AND map_b = $2 FOR UPDATE",
-        a as _,
-        b as _,
-    )
-    .fetch_optional(&mut **tx)
-    .await
-    .wrap_err("Failed to load suggestion")?
-    .ok_or(FamilyEditError::SuggestionNotFound)?;
-    if source == MapLinkSource::Reviewer {
-        if before != "open" {
-            return Err(FamilyEditError::ReviewerDecided);
-        }
-        check_reviewer_listed(tx, source, &[a, b]).await?;
+) -> Result<FileMove, FamilyEditError> {
+    lock_families(tx).await?;
+    let file = load_file(tx, file_id).await?;
+    load_default(tx, family_id).await?;
+    if file.family_id == family_id {
+        return Err(FamilyEditError::AlreadyInFamily);
     }
-    let open = decision == MapLinkSuggestionDecision::Open;
+
     sqlx::query!(
-        r#"
-            UPDATE map_link_suggestions
-            SET status = $3,
-                decided_by = CASE WHEN $4 THEN NULL ELSE $5::integer END,
-                decided_at = CASE WHEN $4 THEN NULL ELSE now() END
-            WHERE map_a = $1 AND map_b = $2
-        "#,
-        a as _,
-        b as _,
-        decision.status(),
-        open,
-        actor as _,
+        "UPDATE maps SET family_id = $2 WHERE id = $1",
+        file_id as _,
+        family_id,
     )
     .execute(&mut **tx)
     .await
-    .wrap_err("Failed to decide suggestion")?;
-    if before != decision.status() {
-        history::record(
-            tx,
-            HistoryEntry {
-                kind: MapFamilyHistoryKind::DecideSuggestion,
-                actor,
-                source,
-                map_id: Some(a),
-                other_map_id: Some(b),
-                family_id: None,
-                details: HistoryDetails {
-                    suggestions: vec![MapFamilySuggestionChange {
-                        map_a: a,
-                        map_b: b,
-                        before: MapLinkSuggestionStatus::from_db(&before),
-                        after: MapLinkSuggestionStatus::from_db(decision.status()),
-                    }],
-                    ..Default::default()
-                },
-            },
-        )
-        .await?;
-    }
-    Ok(())
-}
-
-/// Whether `user` linking a version under `parent_id` may make it the current version of
-/// `parent_id`'s line: they published the line's first file, or nobody is known to have and staff
-/// haven't pinned a current version.
-async fn may_supersede(
-    tx: &mut Transaction<'_, Postgres>,
-    user: SbUserId,
-    parent_id: SbMapId,
-) -> Result<bool, FamilyEditError> {
-    let line_root = load_membership(tx, parent_id)
+    .wrap_err("Failed to move the file")?;
+    let defaults: Vec<DefaultChange> = clear_departing_default(tx, file.family_id, file_id)
         .await?
-        .map_or(parent_id, |m| m.line_root);
-    let pinned = sqlx::query_scalar!(
-        r#"
-            SELECT EXISTS (
-                SELECT 1 FROM map_family_members WHERE line_root_id = $1 AND pinned_current
-            ) as "pinned!"
-        "#,
-        line_root as _,
+        .into_iter()
+        .collect();
+    let emptied = file.family_size == 1;
+    if emptied {
+        retire_families(tx, &[file.family_id], &[family_id]).await?;
+    }
+    refresh_families(tx, &[family_id, file.family_id], true).await?;
+
+    let history_id = history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::MoveFile,
+            actor,
+            family_id,
+            other_family_id: Some(file.family_id),
+            map_id: Some(file_id),
+            details: HistoryDetails {
+                files: vec![FileChange {
+                    map_id: file_id,
+                    before: file.family_id,
+                    after: family_id,
+                }],
+                defaults,
+                ..Default::default()
+            },
+        },
     )
-    .fetch_one(&mut **tx)
-    .await
-    .wrap_err("Failed to check for a pinned current")?;
-    let root_publisher = load_map_row(tx, line_root).await?.published_by;
-    Ok(match root_publisher {
-        Some(publisher) => publisher == user,
-        None => !pinned,
+    .await?;
+    Ok(FileMove {
+        history_id,
+        family_id,
+        previous_family_id: (!emptied).then_some(file.family_id),
     })
 }
 
-/// Links a map its publisher listed under another listed map. A `version` link that would take
-/// over a line whose first file someone else published is stored as a `fork`, with a report asking
-/// staff to make it a version. Returns the relation that was stored.
-pub async fn publisher_link(
+/// Moves a file out of its family into a new family of its own.
+pub async fn split_file(
     tx: &mut Transaction<'_, Postgres>,
-    user: SbUserId,
-    map_id: SbMapId,
-    parent_id: SbMapId,
-    relation: MapFamilyRelation,
-) -> Result<MapFamilyRelation, FamilyEditError> {
-    let map = load_map_row(tx, map_id).await?;
-    if map.published_by != Some(user) {
-        return Err(FamilyEditError::NotPublisher);
-    }
-    if !map.listed || !load_map_row(tx, parent_id).await?.listed {
-        return Err(FamilyEditError::Unlisted);
-    }
+    file_id: SbMapId,
+    actor: SbUserId,
+) -> Result<FileMove, FamilyEditError> {
     lock_families(tx).await?;
-    let stored =
-        if relation == MapFamilyRelation::Version && !may_supersede(tx, user, parent_id).await? {
-            MapFamilyRelation::Fork
-        } else {
-            relation
-        };
-    link(
+    let file = load_file(tx, file_id).await?;
+    if file.family_size == 1 {
+        return Err(FamilyEditError::AlreadyAlone);
+    }
+
+    let family_id = sqlx::query_scalar!(
+        r#"
+            INSERT INTO map_families (current_map_id, listed)
+            VALUES ($1, $2)
+            RETURNING id
+        "#,
+        file_id as _,
+        file.listed,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .wrap_err("Failed to create family")?;
+    sqlx::query!(
+        "UPDATE maps SET family_id = $2 WHERE id = $1",
+        file_id as _,
+        family_id,
+    )
+    .execute(&mut **tx)
+    .await
+    .wrap_err("Failed to move the file")?;
+    let defaults: Vec<DefaultChange> = clear_departing_default(tx, file.family_id, file_id)
+        .await?
+        .into_iter()
+        .collect();
+    refresh_families(tx, &[family_id, file.family_id], true).await?;
+
+    let history_id = history::record(
         tx,
-        &LinkRequest {
-            map_id,
-            parent_id,
-            relation: stored,
-            version_label: None,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::Split,
+            actor,
+            family_id,
+            other_family_id: Some(file.family_id),
+            map_id: Some(file_id),
+            details: HistoryDetails {
+                files: vec![FileChange {
+                    map_id: file_id,
+                    before: file.family_id,
+                    after: family_id,
+                }],
+                defaults,
+                ..Default::default()
+            },
         },
-        MapLinkSource::Publisher,
-        user,
     )
     .await?;
-    if stored != relation {
-        insert_report(
-            tx,
-            &ReportRequest {
-                map_id,
-                kind: MapFamilyReportKind::Related,
-                other_map_id: Some(parent_id),
-                suggested_relation: Some(relation),
-                note: None,
-            },
-            user,
-        )
-        .await?;
-    }
-    Ok(stored)
+    Ok(FileMove {
+        history_id,
+        family_id,
+        previous_family_id: Some(file.family_id),
+    })
 }
 
-/// Takes a map its publisher listed out of its family, unless staff placed it.
-pub async fn publisher_unlink(
+/// Moves every file of `family_id` into `into_id`, then deletes `family_id`, leaving its id as an
+/// alias of `into_id`. Its default pick is dropped.
+pub async fn merge(
     tx: &mut Transaction<'_, Postgres>,
-    user: SbUserId,
-    map_id: SbMapId,
+    family_id: Uuid,
+    into_id: Uuid,
+    actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
-    if load_map_row(tx, map_id).await?.published_by != Some(user) {
-        return Err(FamilyEditError::NotPublisher);
+    if family_id == into_id {
+        return Err(FamilyEditError::SameFamily);
     }
-    remove(tx, map_id, MapLinkSource::Publisher, user).await
+    lock_families(tx).await?;
+    let dropped_default = load_default(tx, family_id).await?;
+    load_default(tx, into_id).await?;
+
+    let moved = sqlx::query_scalar!(
+        r#"
+            UPDATE maps SET family_id = $2 WHERE family_id = $1
+            RETURNING id as "id: SbMapId"
+        "#,
+        family_id,
+        into_id,
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .wrap_err("Failed to move the family's files")?;
+    retire_families(tx, &[family_id], &[into_id]).await?;
+    refresh_families(tx, &[into_id], true).await?;
+
+    let mut files: Vec<FileChange> = moved
+        .into_iter()
+        .map(|map_id| FileChange {
+            map_id,
+            before: family_id,
+            after: into_id,
+        })
+        .collect();
+    files.sort_by_key(|f| f.map_id.0);
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::Merge,
+            actor,
+            family_id: into_id,
+            other_family_id: Some(family_id),
+            map_id: None,
+            details: HistoryDetails {
+                files,
+                defaults: dropped_default
+                    .map(|before| DefaultChange {
+                        family_id,
+                        before: Some(before),
+                        after: None,
+                    })
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    Ok(())
 }
 
-/// What a user is telling staff about a map's family.
+/// Makes a file its family's default. Only a listed file can be the default of a family with any
+/// listed file. Returns the file's family.
+pub async fn set_default(
+    tx: &mut Transaction<'_, Postgres>,
+    file_id: SbMapId,
+    actor: SbUserId,
+) -> Result<Uuid, FamilyEditError> {
+    lock_families(tx).await?;
+    let file = load_file(tx, file_id).await?;
+    let family_listed = sqlx::query_scalar!(
+        r#"SELECT bool_or(listed) as "listed!" FROM maps WHERE family_id = $1"#,
+        file.family_id,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .wrap_err("Failed to load whether the family is listed")?;
+    if family_listed && !file.listed {
+        return Err(FamilyEditError::DefaultUnlisted);
+    }
+    let before = load_default(tx, file.family_id).await?;
+    if before == Some(file_id) {
+        return Ok(file.family_id);
+    }
+
+    sqlx::query!(
+        r#"
+            UPDATE map_families
+            SET default_map_id = $2, default_set_by = $3, default_set_at = now(),
+                updated_at = now()
+            WHERE id = $1
+        "#,
+        file.family_id,
+        file_id as _,
+        actor as _,
+    )
+    .execute(&mut **tx)
+    .await
+    .wrap_err("Failed to set the family's default")?;
+    refresh_families(tx, &[file.family_id], true).await?;
+
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::SetDefault,
+            actor,
+            family_id: file.family_id,
+            other_family_id: None,
+            map_id: Some(file_id),
+            details: HistoryDetails {
+                defaults: vec![DefaultChange {
+                    family_id: file.family_id,
+                    before,
+                    after: Some(file_id),
+                }],
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    Ok(file.family_id)
+}
+
+/// Clears staff's pick of a family's default, so its current file is derived again (right away,
+/// without the margin that keeps a derived current file in place).
+pub async fn clear_default(
+    tx: &mut Transaction<'_, Postgres>,
+    family_id: Uuid,
+    actor: SbUserId,
+) -> Result<(), FamilyEditError> {
+    lock_families(tx).await?;
+    let Some(before) = load_default(tx, family_id).await? else {
+        return Ok(());
+    };
+
+    sqlx::query!(
+        r#"
+            UPDATE map_families
+            SET default_map_id = NULL, default_set_by = NULL, default_set_at = NULL,
+                updated_at = now()
+            WHERE id = $1
+        "#,
+        family_id,
+    )
+    .execute(&mut **tx)
+    .await
+    .wrap_err("Failed to clear the family's default")?;
+    refresh_families(tx, &[family_id], false).await?;
+
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::ClearDefault,
+            actor,
+            family_id,
+            other_family_id: None,
+            map_id: Some(before),
+            details: HistoryDetails {
+                defaults: vec![DefaultChange {
+                    family_id,
+                    before: Some(before),
+                    after: None,
+                }],
+                ..Default::default()
+            },
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// What a user is telling staff about a map.
 #[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MapFamilyReportKind {
-    /// The map is in a family it doesn't belong to.
-    WrongFamily,
-    /// The map is related to another map it isn't linked with.
-    Related,
+    /// A file isn't part of the map it's in.
+    WrongMap,
+    /// A map is the same as another map.
+    SameMap,
 }
 
 impl MapFamilyReportKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::WrongFamily => "wrong_family",
-            Self::Related => "related",
+            Self::WrongMap => "wrong_map",
+            Self::SameMap => "same_map",
         }
     }
 
     pub fn from_db(kind: &str) -> Self {
         match kind {
-            "related" => Self::Related,
-            _ => Self::WrongFamily,
+            "same_map" => Self::SameMap,
+            _ => Self::WrongMap,
         }
     }
 }
 
+/// A report to store, with every id already resolved to an existing file or family.
 #[derive(Debug, Clone)]
-pub struct ReportRequest {
-    pub map_id: SbMapId,
-    pub kind: MapFamilyReportKind,
-    pub other_map_id: Option<SbMapId>,
-    pub suggested_relation: Option<MapFamilyRelation>,
-    pub note: Option<String>,
+pub enum ReportRequest {
+    /// `file_id` isn't part of the family it's in.
+    WrongMap { file_id: SbMapId },
+    /// `family_id` is the same map as `other_family_id`.
+    SameMap {
+        family_id: Uuid,
+        other_family_id: Uuid,
+    },
 }
 
 /// Checks that `user` may file a family report: they aren't restricted from reporting and haven't
-/// filed too many recently. Reports filed on a user's behalf by another edit skip this.
+/// filed too many recently.
 pub async fn check_reporter(
     tx: &mut Transaction<'_, Postgres>,
     user: SbUserId,
@@ -962,59 +512,59 @@ pub async fn check_reporter(
     }
 }
 
-/// Stores a family report, or returns the reporter's open report about the same maps. Returns
-/// the report's id.
+/// Stores a family report, or updates the reporter's open report about the same thing. Returns the
+/// report's id.
 pub async fn insert_report(
     tx: &mut Transaction<'_, Postgres>,
     request: &ReportRequest,
+    note: Option<&str>,
     reported_by: SbUserId,
 ) -> Result<Uuid, FamilyEditError> {
-    let other_map_id = match request.kind {
-        MapFamilyReportKind::Related => Some(
-            request
-                .other_map_id
-                .ok_or(FamilyEditError::MissingOtherMap)?,
-        ),
-        MapFamilyReportKind::WrongFamily => None,
-    };
-    if other_map_id == Some(request.map_id) {
-        return Err(FamilyEditError::SelfLink);
-    }
-    let suggested_relation = request
-        .suggested_relation
-        .filter(|_| other_map_id.is_some());
-    if suggested_relation == Some(MapFamilyRelation::Root) {
-        return Err(FamilyEditError::RootRelation);
-    }
-    let note = request
-        .note
-        .as_deref()
-        .map(str::trim)
-        .filter(|n| !n.is_empty());
+    let note = note.map(str::trim).filter(|n| !n.is_empty());
     if note.is_some_and(|n| n.chars().count() > MAX_REPORT_NOTE_LENGTH) {
         return Err(FamilyEditError::NoteTooLong);
     }
-    load_map_row(tx, request.map_id).await?;
-    if let Some(other) = other_map_id {
-        load_map_row(tx, other).await?;
-    }
+    let (kind, family_id, map_id, other_family_id) = match *request {
+        ReportRequest::WrongMap { file_id } => {
+            let file = load_file(tx, file_id).await?;
+            (
+                MapFamilyReportKind::WrongMap,
+                file.family_id,
+                Some(file_id),
+                None,
+            )
+        }
+        ReportRequest::SameMap {
+            family_id,
+            other_family_id,
+        } => {
+            if family_id == other_family_id {
+                return Err(FamilyEditError::SelfReport);
+            }
+            (
+                MapFamilyReportKind::SameMap,
+                family_id,
+                None,
+                Some(other_family_id),
+            )
+        }
+    };
 
     let id = sqlx::query_scalar!(
         r#"
-            INSERT INTO map_family_reports (map_id, other_map_id, kind, suggested_relation, note,
+            INSERT INTO map_family_reports (kind, family_id, map_id, other_family_id, note,
                 reported_by)
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (reported_by, map_id, COALESCE(other_map_id, map_id))
+            ON CONFLICT (reported_by, kind, family_id, COALESCE(map_id, other_family_id))
                 WHERE status = 'open'
-            DO UPDATE SET suggested_relation = EXCLUDED.suggested_relation,
-                note = COALESCE(EXCLUDED.note, map_family_reports.note),
+            DO UPDATE SET note = COALESCE(EXCLUDED.note, map_family_reports.note),
                 reported_at = now()
             RETURNING id
         "#,
-        request.map_id as _,
-        other_map_id as _,
-        request.kind.as_str(),
-        suggested_relation as _,
+        kind.as_str(),
+        family_id,
+        map_id as _,
+        other_family_id,
         note,
         reported_by as _,
     )
@@ -1060,12 +610,11 @@ pub async fn set_report_status(
     tx: &mut Transaction<'_, Postgres>,
     id: Uuid,
     status: MapFamilyReportStatus,
-    source: MapLinkSource,
     actor: SbUserId,
 ) -> Result<(), FamilyEditError> {
     let report = sqlx::query!(
         r#"
-            SELECT map_id as "map_id: SbMapId", other_map_id as "other_map_id: SbMapId", status
+            SELECT family_id, other_family_id, map_id as "map_id: SbMapId", status
             FROM map_family_reports
             WHERE id = $1
             FOR UPDATE
@@ -1077,15 +626,8 @@ pub async fn set_report_status(
     .wrap_err("Failed to load family report")?
     .ok_or(FamilyEditError::ReportNotFound)?;
     let before = MapFamilyReportStatus::from_db(&report.status);
-    if source == MapLinkSource::Reviewer {
-        if before != MapFamilyReportStatus::Open {
-            return Err(FamilyEditError::ReviewerDecided);
-        }
-        let maps: Vec<SbMapId> = [Some(report.map_id), report.other_map_id]
-            .into_iter()
-            .flatten()
-            .collect();
-        check_reviewer_listed(tx, source, &maps).await?;
+    if before == status {
+        return Ok(());
     }
     let open = status == MapFamilyReportStatus::Open;
     sqlx::query!(
@@ -1104,84 +646,24 @@ pub async fn set_report_status(
     .execute(&mut **tx)
     .await
     .wrap_err("Failed to update family report")?;
-    if before != status {
-        history::record(
-            tx,
-            HistoryEntry {
-                kind: MapFamilyHistoryKind::ReportStatus,
-                actor,
-                source,
-                map_id: Some(report.map_id),
-                other_map_id: report.other_map_id,
-                family_id: None,
-                details: HistoryDetails {
-                    report_id: Some(id),
-                    report_status: Some(Change {
-                        before,
-                        after: status,
-                    }),
-                    ..Default::default()
-                },
+    history::record(
+        tx,
+        HistoryEntry {
+            kind: MapFamilyHistoryKind::ReportStatus,
+            actor,
+            family_id: report.family_id,
+            other_family_id: report.other_family_id,
+            map_id: report.map_id,
+            details: HistoryDetails {
+                report_id: Some(id),
+                report_status: Some(Change {
+                    before,
+                    after: status,
+                }),
+                ..Default::default()
             },
-        )
-        .await?;
-    }
+        },
+    )
+    .await?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(n: u8) -> SbMapId {
-        SbMapId(Uuid::from_bytes([n; 16]))
-    }
-
-    fn member(n: u8, parent: Option<u8>) -> Member {
-        Member {
-            map_id: id(n),
-            family_id: Uuid::nil(),
-            parent: parent.map(id),
-            relation: MapFamilyRelation::Version,
-            source: MapLinkSource::Rule,
-            line_root: id(1),
-            first_seen_at: DateTime::UNIX_EPOCH,
-        }
-    }
-
-    #[test]
-    fn subtree_holds_every_descendant() {
-        let members = [
-            member(1, None),
-            member(2, Some(1)),
-            member(3, Some(2)),
-            member(4, Some(1)),
-            member(5, Some(3)),
-        ];
-        let mut found = subtree(&members, id(2));
-        found.sort_by_key(|m| m.0);
-        assert_eq!(found, [id(2), id(3), id(5)]);
-        assert_eq!(subtree(&members, id(4)), [id(4)]);
-    }
-
-    #[test]
-    fn successor_prefers_the_oldest_version() {
-        let mut variant = member(2, Some(1));
-        variant.relation = MapFamilyRelation::Variant;
-        let mut newer = member(3, Some(1));
-        newer.first_seen_at = DateTime::from_timestamp(10, 0).unwrap();
-        let mut older = member(4, Some(1));
-        older.first_seen_at = DateTime::from_timestamp(5, 0).unwrap();
-        let members = [member(1, None), variant, newer, older];
-        assert_eq!(successor(&members, id(1)), Some(id(4)));
-        assert_eq!(successor(&members, id(4)), None);
-        assert_eq!(successor(&members[..2], id(1)), Some(id(2)));
-    }
-
-    #[test]
-    fn sources_rank_moderators_highest() {
-        assert!(MapLinkSource::Moderator > MapLinkSource::Reviewer);
-        assert!(MapLinkSource::Reviewer > MapLinkSource::Publisher);
-        assert!(MapLinkSource::Publisher > MapLinkSource::Rule);
-    }
 }
