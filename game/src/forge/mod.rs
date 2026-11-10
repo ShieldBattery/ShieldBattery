@@ -43,6 +43,7 @@ mod scr_hooks {
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
+        !0 => SetWindowLongW(HWND, i32, i32) -> i32;
         !0 => ShowWindow(HWND, i32) -> u32;
         !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
@@ -755,6 +756,36 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
     }
 }
 
+/// Keeps `WS_POPUP` out of the styles SC:R gives its window.
+///
+/// SC:R makes its fullscreen window a popup. Chromium-based programs (this project's app, browsers,
+/// chat clients) stop drawing a window of theirs once other windows cover all of it, but they don't
+/// count popups among the windows that can cover it, so one left open behind a fullscreen game
+/// keeps drawing for the whole game. A borderless window covers the screen the same way without
+/// the style, as SC:R's windowed fullscreen mode does.
+///
+/// Wine keeps SC:R's styles: its window managers pick how to treat a window from them, and nothing
+/// there is known to gain from the change.
+fn set_window_long_w(
+    window: HWND,
+    index: i32,
+    value: i32,
+    orig: unsafe extern "C" fn(HWND, i32, i32) -> i32,
+) -> i32 {
+    let style = value as u32;
+    let drop_popup = index == GWL_STYLE
+        && style & WS_POPUP != 0
+        && !scr_hooks_disabled()
+        && is_forge_window(window)
+        && !crate::machine_info::running_under_wine();
+    if !drop_popup {
+        return unsafe { orig(window, index, value) };
+    }
+    let without_popup = style & !WS_POPUP;
+    debug!("Setting window style {without_popup:#x} in place of {style:#x}");
+    unsafe { orig(window, index, without_popup as i32) }
+}
+
 fn register_class_w(
     class: *const WNDCLASSEXW,
     orig: unsafe extern "C" fn(*const WNDCLASSEXW) -> ATOM,
@@ -986,6 +1017,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
+            "SetWindowLongW", SetWindowLongW, set_window_long_w;
             "ShowWindow", ShowWindow, show_window;
             "SystemParametersInfoW", SystemParametersInfoW, system_parameters_info_w;
             "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
