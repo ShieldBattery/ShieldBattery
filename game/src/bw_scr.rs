@@ -1760,10 +1760,10 @@ impl BwScr {
     unsafe fn is_allied_with(&self, other_unique_player: u8) -> bool {
         unsafe {
             let local = self.local_unique_player_id.resolve() as u8;
-            // Observers hold no alliances: a local observer (BW id 0x80-0x83) never sees
-            // allies-scoped chat, and an observer sender (players[12..16]) is allied with no one.
-            // This also keeps the indexing below inside players[0..8] and alliances[0..12] — both
-            // observer encodings would run past those bounds.
+            // Observers hold no alliances: neither a local observer (BW id 0x80-0x83) nor an
+            // observer at players[12..16] is allied with anyone. This also keeps the indexing
+            // below inside players[0..8] and alliances[0..12] — both observer encodings would run
+            // past those bounds.
             if BwPlayerId(local).is_observer() || BwPlayerId(other_unique_player).is_observer() {
                 return false;
             }
