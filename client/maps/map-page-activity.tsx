@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { getErrorStack } from '../../common/errors'
+import { MapPageId } from '../../common/map-url'
 import { SbMapId } from '../../common/maps'
 import { navigateToGameResults } from '../games/action-creators'
 import { GameListEntry } from '../games/game-list-entry'
@@ -52,8 +53,11 @@ const GameRows = styled.div`
   gap: 2px;
 `
 
-/** The latest games played on a map file, linking to the full, filterable list. */
-export function MapRecentGames({ mapId, allGamesUrl }: { mapId: SbMapId; allGamesUrl: string }) {
+/**
+ * The latest games played on a map (any of its files, when given a family's ID), linking to the
+ * full, filterable list.
+ */
+export function MapRecentGames({ mapId, allGamesUrl }: { mapId: MapPageId; allGamesUrl: string }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [gameIds, setGameIds] = useState<ReadonlyArray<string>>()

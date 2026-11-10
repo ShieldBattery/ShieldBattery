@@ -23,14 +23,13 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 import {
-  addToFavorites,
   batchGetMapInfo,
   delistMap,
   openMapPreviewDialog,
   regenMapImage,
-  removeFromFavorites,
   removeFromMyMaps,
 } from './action-creators'
+import { useToggleMapFavorite } from './map-favorites'
 import { MapInfoImage } from './map-image'
 
 // The overlay chrome self-hides on small tiles so the map art stays recognizable: the two 48px
@@ -432,7 +431,14 @@ export function ReduxMapThumbnail({
 }: Simplify<
   Omit<
     MapThumbnailProps,
-    'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview' | 'mapPoolLabels'
+    | 'map'
+    | 'isFavorited'
+    | 'onMapDetails'
+    | 'onRegenMapImage'
+    | 'onPreview'
+    | 'mapPoolLabels'
+    | 'onAddToFavorites'
+    | 'onRemoveFromFavorites'
   > & {
     mapId: SbMapId
     hasMapDetailsAction?: boolean
@@ -455,6 +461,9 @@ export function ReduxMapThumbnail({
   const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
   const libraryMapIds = useAppSelector(s => s.maps.libraryMapIds)
   const mapPoolTypes = useCurrentMapPoolTypes(mapId)
+  // A favorite is of the map a file is in, so this goes through the same path as the map page and
+  // catalog, which keeps every file of the map (in Redux and the GraphQL cache) in step
+  const [toggleFavorite] = useToggleMapFavorite()
 
   useEffect(() => {
     dispatch(batchGetMapInfo(mapId))
@@ -495,52 +504,10 @@ export function ReduxMapThumbnail({
           : undefined
       }
       onAddToFavorites={
-        canFavorite
-          ? mapId => {
-              dispatch(
-                addToFavorites(mapId, {
-                  onSuccess: () => {
-                    props.onAddToFavorites?.(mapId)
-                    snackbarController.showSnackbar(
-                      t('maps.server.favorites.added', 'Added to favorites'),
-                    )
-                  },
-                  onError: () => {
-                    snackbarController.showSnackbar(
-                      t(
-                        'maps.server.favorites.addedError',
-                        'An error occurred while adding to favorites',
-                      ),
-                    )
-                  },
-                }),
-              )
-            }
-          : undefined
+        canFavorite ? mapId => toggleFavorite({ id: mapId, isFavorited: false }) : undefined
       }
       onRemoveFromFavorites={
-        canFavorite
-          ? mapId => {
-              dispatch(
-                removeFromFavorites(mapId, {
-                  onSuccess: () => {
-                    props.onRemoveFromFavorites?.(mapId)
-                    snackbarController.showSnackbar(
-                      t('maps.server.favorites.removed', 'Removed from favorites'),
-                    )
-                  },
-                  onError: () => {
-                    snackbarController.showSnackbar(
-                      t(
-                        'maps.server.favorites.removedError',
-                        'An error occurred while removing from favorites',
-                      ),
-                    )
-                  },
-                }),
-              )
-            }
-          : undefined
+        canFavorite ? mapId => toggleFavorite({ id: mapId, isFavorited: true }) : undefined
       }
       onPreview={canPreviewMap ? () => dispatch(openMapPreviewDialog(map.id)) : undefined}
       onRemove={

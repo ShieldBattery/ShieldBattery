@@ -2260,8 +2260,8 @@
       "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
     },
     "nudge": {
-      "notDefaultFile": "This isn't {{map}}'s default file.",
-      "notDefaultUseFile": "This isn't {{map}}'s default file. Use {{file}}?",
+      "notDefaultFor": "This isn't the default file for {{map}}.",
+      "notDefaultForUseFile": "This isn't the default file for {{map}}. Use {{file}}?",
       "switchError": "Couldn't load the default file",
       "useDefault": "Use default"
     },

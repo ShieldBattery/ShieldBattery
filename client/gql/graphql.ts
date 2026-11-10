@@ -1323,7 +1323,6 @@ export type MapFamilyActionSimilarQuery = {
     similarity: number
     map: {
       id: Types.SbMapId
-      name: string
       family: { id: string; name: string } & {
         ' $fragmentRefs'?: {
           MapFamilySearch_FamilyFragmentFragment: MapFamilySearch_FamilyFragmentFragment
@@ -8885,7 +8884,6 @@ export const MapFamilyActionSimilarDocument = {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'family' },

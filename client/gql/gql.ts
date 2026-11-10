@@ -70,7 +70,7 @@ type Documents = {
   '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        name\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n': typeof types.MapDefaultNudgeDocument
   '\n  fragment MapFamilyAction_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n    }\n    defaultMap {\n      id\n    }\n    files {\n      id\n      name\n      listed\n      firstSeenAt\n      favoriteCount\n      stats {\n        id\n        games28d\n        gamesTotal\n      }\n    }\n  }\n': typeof types.MapFamilyAction_FamilyFragmentFragmentDoc
   '\n  query MapFamilyActionFamily($id: UUID!) {\n    mapFamily(id: $id) {\n      id\n      family {\n        id\n        ...MapFamilyAction_FamilyFragment\n      }\n    }\n  }\n': typeof types.MapFamilyActionFamilyDocument
-  '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        name\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n': typeof types.MapFamilyActionSimilarDocument
+  '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n': typeof types.MapFamilyActionSimilarDocument
   '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n': typeof types.MapFamilySetDefaultDocument
   '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n': typeof types.MapFamilyClearDefaultDocument
   '\n  mutation MapFamilySplitFile($fileId: SbMapId!) {\n    mapFamilySplitFile(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n': typeof types.MapFamilySplitFileDocument
@@ -244,7 +244,7 @@ const documents: Documents = {
     types.MapFamilyAction_FamilyFragmentFragmentDoc,
   '\n  query MapFamilyActionFamily($id: UUID!) {\n    mapFamily(id: $id) {\n      id\n      family {\n        id\n        ...MapFamilyAction_FamilyFragment\n      }\n    }\n  }\n':
     types.MapFamilyActionFamilyDocument,
-  '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        name\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n':
+  '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n':
     types.MapFamilyActionSimilarDocument,
   '\n  mutation MapFamilySetDefault($fileId: SbMapId!) {\n    mapFamilySetDefault(fileId: $fileId) {\n      id\n      name\n      current {\n        id\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n    }\n  }\n':
     types.MapFamilySetDefaultDocument,
@@ -719,8 +719,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        name\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        name\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n']
+  source: '\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapFamilyActionSimilar($fileId: SbMapId!) {\n    similarFiles(fileId: $fileId) {\n      id\n      similarity\n      map {\n        id\n        family {\n          id\n          name\n          ...MapFamilySearch_FamilyFragment\n        }\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

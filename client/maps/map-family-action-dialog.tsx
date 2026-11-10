@@ -67,7 +67,6 @@ const MapFamilyActionSimilarQuery = graphql(/* GraphQL */ `
       similarity
       map {
         id
-        name
         family {
           id
           name
@@ -703,7 +702,7 @@ function MoveDialog({
       suggestions.push({
         familyId: other.id,
         family: other,
-        note: `${Math.floor(similar.similarity * 100)}% similar terrain to ${filterColorCodes(similar.map.name)}`,
+        note: `${Math.floor(similar.similarity * 100)}% similar terrain to this file`,
       })
     }
   }

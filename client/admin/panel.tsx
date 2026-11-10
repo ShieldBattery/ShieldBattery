@@ -350,6 +350,7 @@ export default function AdminPanel() {
           title: 'Map reports',
           description: 'Reports about which files make up a map',
           icon: 'flag',
+          reportKind: 'mapReports',
         },
       ],
     },

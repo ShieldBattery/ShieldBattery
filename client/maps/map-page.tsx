@@ -14,7 +14,14 @@ import {
   MapPageId,
   MapPageSubPage,
 } from '../../common/map-url'
-import { filterColorCodes, makeSbMapId, SbMapId, Tileset, tilesetToName } from '../../common/maps'
+import {
+  filterColorCodes,
+  makeMapFamilyId,
+  makeSbMapId,
+  SbMapId,
+  Tileset,
+  tilesetToName,
+} from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
@@ -280,8 +287,8 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
   } else if (subPage === MapPageSubPage.Games) {
     content = (
       <MapGamesPage
-        mapId={file.id}
-        mapName={filterColorCodes(file.name)}
+        mapId={makeMapFamilyId(family.id)}
+        mapName={filterColorCodes(family.name)}
         backUrl={urlForMapFile(family, file.id)}
         scrollParent={scroller}
       />
@@ -316,12 +323,10 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
             <MapHowToPlay map={file} />
             {file.kind === MapKind.Melee ? <MapLiveGames mapIds={familyFileIds} /> : null}
             <MapOpenLobbies mapIds={familyFileIds} />
-            {file.stats ? (
-              <MapRecentGames
-                mapId={file.id}
-                allGamesUrl={urlForMapFile(family, file.id, MapPageSubPage.Games)}
-              />
-            ) : null}
+            <MapRecentGames
+              mapId={makeMapFamilyId(family.id)}
+              allGamesUrl={urlForMapFile(family, file.id, MapPageSubPage.Games)}
+            />
           </RightColumn>
         </Columns>
       </PageContent>

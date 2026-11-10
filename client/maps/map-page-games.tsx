@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbMapId } from '../../common/maps'
+import { MapPageId } from '../../common/map-url'
 import { GameListFilters, GameListView } from '../games/game-list-view'
 import { GameListSearchPage } from '../games/use-game-list-search'
 import { TextButton } from '../material/button'
@@ -31,8 +31,8 @@ const Title = styled.div`
 `
 
 /**
- * The "games" sub-page of a map's page: every game played on the map, in the shared games-list UI
- * (the same one the games page and a league's games use).
+ * The "games" sub-page of a map's page: every game played on any of the map's files, in the shared
+ * games-list UI (the same one the games page and a league's games use).
  */
 export function MapGamesPage({
   mapId,
@@ -40,7 +40,8 @@ export function MapGamesPage({
   backUrl,
   scrollParent,
 }: {
-  mapId: SbMapId
+  /** The map family's ID, which covers every file of the map. */
+  mapId: MapPageId
   /** The map's name, with color codes already removed. */
   mapName: string
   /** The URL of the map's page, which the back button leads to. */

@@ -12,6 +12,7 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { listRecentUnresolvedBugReportTimes } from '../bugs/bugs-model'
 import { listRecentPendingReviewRequestTimes } from '../games/game-models'
 import { listRecentUnresolvedGameReportTimes } from '../games/game-reports-models'
+import { listRecentOpenMapFamilyReportTimes } from '../maps/map-family-report-models'
 import { getPermissions } from '../models/permissions'
 import { RedisSubscriber } from '../redis/redis'
 import { FakeClock } from '../time/testing/fake-clock'
@@ -35,6 +36,9 @@ vi.mock('../games/game-reports-models', () => ({
 vi.mock('../games/game-models', () => ({
   listRecentPendingReviewRequestTimes: vi.fn(),
 }))
+vi.mock('../maps/map-family-report-models', () => ({
+  listRecentOpenMapFamilyReportTimes: vi.fn(),
+}))
 vi.mock('../models/permissions', () => ({
   getPermissions: vi.fn(),
 }))
@@ -42,6 +46,7 @@ vi.mock('../models/permissions', () => ({
 const bugTimesMock = asMockedFunction(listRecentUnresolvedBugReportTimes)
 const gameTimesMock = asMockedFunction(listRecentUnresolvedGameReportTimes)
 const reviewTimesMock = asMockedFunction(listRecentPendingReviewRequestTimes)
+const mapTimesMock = asMockedFunction(listRecentOpenMapFamilyReportTimes)
 const getPermissionsMock = asMockedFunction(getPermissions)
 
 class FakeRedisSubscriber {
@@ -64,6 +69,7 @@ const BASE_TIME = Number(new Date('2026-01-01T00:00:00.000Z'))
 const BUG_PATH = adminReportCountsPath('bugReports')
 const GAME_PATH = adminReportCountsPath('gameReports')
 const REVIEW_PATH = adminReportCountsPath('reviewRequests')
+const MAP_PATH = adminReportCountsPath('mapReports')
 
 function perms(overrides: Partial<SbPermissions>): SbPermissions {
   return {
@@ -117,6 +123,7 @@ describe('admin/admin-report-counts-service', () => {
     bugTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 1000)])
     gameTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 2000)])
     reviewTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 3000)])
+    mapTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 4000)])
     getPermissionsMock.mockReset()
 
     nydus = createFakeNydusServer()
@@ -183,6 +190,46 @@ describe('admin/admin-report-counts-service', () => {
     await flush()
 
     expect(admin.publish).toHaveBeenCalledWith(GAME_PATH, { kind: 'gameReports', createdAt: [] })
+  })
+
+  test('subscribes only map managers to the map report count', async () => {
+    const mapAdmin = connect(1, perms({ manageMaps: true }))
+    const gameAdmin = connect(2, perms({ manageGameReports: true, manageBugReports: true }))
+    await flush()
+
+    expect(mapAdmin.publish).toHaveBeenCalledWith(MAP_PATH, {
+      kind: 'mapReports',
+      createdAt: [BASE_TIME - 4000],
+    })
+    expect(mapAdmin.publish).not.toHaveBeenCalledWith(GAME_PATH, expect.anything())
+    expect(gameAdmin.publish).not.toHaveBeenCalledWith(MAP_PATH, expect.anything())
+    expect(mapTimesMock).toHaveBeenCalledWith({
+      since: new Date(BASE_TIME - ADMIN_REPORT_COUNT_WINDOW_MS),
+      limit: ADMIN_REPORT_COUNT_MAX,
+    })
+  })
+
+  test('publishes map report counts when a report is filed or its status changes', async () => {
+    const admin = connect(1, perms({ manageMaps: true }))
+    await flush()
+    asMockedFunction(admin.publish).mockClear()
+
+    mapTimesMock.mockResolvedValue([])
+    redisSubscriber.emit('mapFamilyReport', {
+      type: 'reportStatusChanged',
+      data: { reportId: 'r1' },
+    })
+    await flush()
+    expect(admin.publish).toHaveBeenCalledWith(MAP_PATH, { kind: 'mapReports', createdAt: [] })
+
+    asMockedFunction(admin.publish).mockClear()
+    mapTimesMock.mockResolvedValue([new Date(BASE_TIME - 10)])
+    redisSubscriber.emit('mapFamilyReport', { type: 'reportCreated', data: { reportId: 'r2' } })
+    await flush()
+    expect(admin.publish).toHaveBeenCalledWith(MAP_PATH, {
+      kind: 'mapReports',
+      createdAt: [BASE_TIME - 10],
+    })
   })
 
   test('collapses refreshes requested while one is running into one follow-up', async () => {

@@ -4,7 +4,7 @@ import { GameSource } from '../../../common/games/configuration'
 import { GameSourceFilter, MIN_GAME_LENGTH_MS } from '../../../common/games/game-filters'
 import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
-import { makeSbMapId } from '../../../common/maps'
+import { makeMapFamilyId, makeSbMapId } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
@@ -297,6 +297,19 @@ describe('games/game-models/getGames', () => {
     const template = query.mock.calls[0][0]
     expect(template.text).toMatch(/g\.map_id = \$\d+/)
     expect(template.values).toContain(mapId)
+  })
+
+  test('restricts to every file of a map family when mapFamilyId is given', async () => {
+    const query = mockDbClient([])
+    const mapFamilyId = makeMapFamilyId('5eed0000-0000-0000-0000-00000000ffff')
+
+    await getGames({ limit: 10, offset: 0, mapFamilyId })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(/g\.map_id IN \(SELECT id FROM maps WHERE family_id = \$\d+\)/)
+    expect(template.values).toContain(mapFamilyId)
+    expect(template.text).not.toMatch(/g\.map_id = \$\d+/)
   })
 
   test('omits the map filter when mapId is not given', async () => {

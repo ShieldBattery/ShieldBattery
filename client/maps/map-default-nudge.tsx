@@ -128,12 +128,12 @@ export function MapDefaultNudge({
         <NudgeIcon />
         <NudgeText>
           {currentName === mapName
-            ? t('maps.nudge.notDefaultFile', {
-                defaultValue: "This isn't {{map}}'s default file.",
+            ? t('maps.nudge.notDefaultFor', {
+                defaultValue: "This isn't the default file for {{map}}.",
                 map: mapName,
               })
-            : t('maps.nudge.notDefaultUseFile', {
-                defaultValue: "This isn't {{map}}'s default file. Use {{file}}?",
+            : t('maps.nudge.notDefaultForUseFile', {
+                defaultValue: "This isn't the default file for {{map}}. Use {{file}}?",
                 map: mapName,
                 file: currentName,
               })}
