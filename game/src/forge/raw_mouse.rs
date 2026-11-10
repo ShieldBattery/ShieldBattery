@@ -25,6 +25,13 @@
 //! request ends straight away with a `WM_MOUSELEAVE`. SC:R arms one on the first move after a
 //! leave, and its leave handling hides the game's cursor, so the requests are held while raw input
 //! is taken and made for real once it stops, when the cursor may really have left.
+//!
+//! Raw input isn't taken under Wine. The events it avoids are raised by Windows' own window
+//! manager, so there's nothing to gain, and the positions above rest on how Windows queues input:
+//! a report for every cursor move, queued before the move is applied. Wine doesn't promise either.
+//! Its X11 driver can take raw motion and the cursor's position from separate event streams, and
+//! some compositors deliver motion there with no raw movement at all, which would leave the game
+//! with clicks but no mouse moves.
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -36,8 +43,9 @@ use winapi::shared::minwindef::FALSE;
 use winapi::shared::windef::{HWND, POINT};
 use winapi::um::winuser::*;
 
-/// Set to `0` to keep the mouse on legacy messages, for comparing the two.
-const DISABLE_ENV_VAR: &str = "SB_RAW_MOUSE";
+/// Set to `0` to keep the mouse on legacy messages, or to `1` to take raw input even under Wine,
+/// for comparing the two.
+const OVERRIDE_ENV_VAR: &str = "SB_RAW_MOUSE";
 
 const HID_USAGE_PAGE_GENERIC: u16 = 0x01;
 const HID_USAGE_GENERIC_MOUSE: u16 = 0x02;
@@ -96,11 +104,29 @@ struct Motion {
     flags: usize,
 }
 
-/// Reads [`DISABLE_ENV_VAR`].
-pub fn init_from_env() {
-    if std::env::var(DISABLE_ENV_VAR).as_deref() == Ok("0") {
-        info!("Raw mouse input: off ({DISABLE_ENV_VAR}=0)");
-        ENABLED.store(false, Ordering::Release);
+/// Decides whether raw input may be taken at all: not under Wine, unless [`OVERRIDE_ENV_VAR`] says
+/// otherwise.
+pub fn init() {
+    let overridden = std::env::var(OVERRIDE_ENV_VAR).ok();
+    let under_wine = crate::machine_info::running_under_wine();
+    let (enabled, reason) = allowed(overridden.as_deref(), under_wine);
+    if let Some(reason) = reason {
+        info!("Raw mouse input: {reason}");
+    }
+    ENABLED.store(enabled, Ordering::Release);
+}
+
+/// Whether raw input may be taken, given [`OVERRIDE_ENV_VAR`]'s value and whether this is Wine, and
+/// what to log about the decision when it isn't the usual one.
+fn allowed(overridden: Option<&str>, under_wine: bool) -> (bool, Option<String>) {
+    match (overridden, under_wine) {
+        (Some("0"), _) => (false, Some(format!("off ({OVERRIDE_ENV_VAR}=0)"))),
+        (Some("1"), true) => (
+            true,
+            Some(format!("allowed under Wine ({OVERRIDE_ENV_VAR}=1)")),
+        ),
+        (_, true) => (false, Some("off under Wine".into())),
+        (_, false) => (true, None),
     }
 }
 
@@ -575,6 +601,18 @@ mod tests {
             logical_buttons(left_down, (MK_RBUTTON, MK_LBUTTON)),
             MK_RBUTTON
         );
+    }
+
+    #[test]
+    fn raw_input_is_off_under_wine_unless_asked_for() {
+        assert!(allowed(None, false).0);
+        assert!(!allowed(None, true).0);
+        assert!(allowed(Some("1"), true).0);
+        assert!(!allowed(Some("0"), true).0);
+        assert!(!allowed(Some("0"), false).0);
+        // Anything other than the two values it knows leaves the usual decision alone.
+        assert!(!allowed(Some("yes"), true).0);
+        assert!(allowed(Some("yes"), false).0);
     }
 
     fn report_at(x: i32, y: i32) -> MSG {

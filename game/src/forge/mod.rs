@@ -1024,7 +1024,7 @@ pub fn init(
     };
     gamma::configure(gamma_setting);
     mouse_speed::init_settings(scr_settings);
-    raw_mouse::init_from_env();
+    raw_mouse::init();
 
     let background = std::env::var(BACKGROUND_ENV_VAR).as_deref() == Ok("1");
     BACKGROUND.store(background, Ordering::Release);

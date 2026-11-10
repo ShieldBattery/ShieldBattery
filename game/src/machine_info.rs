@@ -132,6 +132,11 @@ fn windows_version() -> Option<(u32, u32, u32)> {
     }
 }
 
+/// Whether the game is running under Wine (or Proton) rather than Windows.
+pub fn running_under_wine() -> bool {
+    wine_version().is_some()
+}
+
 /// The Wine version, if running under Wine (or Proton), which exports it from its ntdll.
 fn wine_version() -> Option<String> {
     type WineGetVersion = unsafe extern "C" fn() -> *const std::ffi::c_char;
