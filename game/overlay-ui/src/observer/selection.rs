@@ -483,6 +483,13 @@ const PROGRESS_NAME_LEAD: f32 = 2.0;
 const PROGRESS_ROW: f32 = 14.0;
 const PROGRESS_HEIGHT: f32 = PROGRESS_NAME_ROW + PROGRESS_NAME_LEAD + PROGRESS_ROW;
 
+/// Where a progress line's name has its letters, down from the top of its row: the top of its
+/// capitals, and the foot of its letters with their descenders aside. The name is centred in a row
+/// taller than its letters, and the gaps either side of it read from its letters, not from the
+/// row's edges.
+const PROGRESS_NAME_CAPS: f32 = 4.0;
+const PROGRESS_NAME_FOOT: f32 = 13.0;
+
 /// Width of the percentage at the end of a progress bar, and the gap before it.
 const PERCENT_WIDTH: f32 = 40.0;
 const PERCENT_GAP: f32 = 8.0;
@@ -493,6 +500,12 @@ const PROGRESS_TRACK: f32 = 5.0;
 /// The queue and its progress line sit under the head of the text column, and a progress line with
 /// no queue sits beside its one slot.
 const _: () = assert!(HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_HEIGHT <= BODY_HEIGHT);
+/// A hangar's queue, the name under it and its bar all fit above the row its owner keeps for its
+/// upgrades, with room left between each of them.
+const _: () = assert!(
+    HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS + PROGRESS_TRACK
+        < BODY_HEIGHT - UPGRADE_CHIP
+);
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
 const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
@@ -774,9 +787,10 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
 /// that.
 ///
 /// What a building is worth to a watcher is how much of it is left and what it is making, so it is
-/// given no tally of kills: that is a unit's own reading. The upgrades it fights with run along the
-/// bottom of the text column, as a unit's do, wherever the reading leaves that row free, with how
-/// many of it are stacked at that row's other end.
+/// given no tally of kills: that is a unit's own reading, which a unit building fighters in its
+/// hangar keeps. The upgrades it fights with run along the bottom of the text column, as a unit's
+/// do, wherever the reading leaves that row free, followed by what its owner has researched for it
+/// and with how many of it are stacked at that row's other end.
 fn draw_subject(
     ui: &Ui,
     body: Rect,
@@ -796,9 +810,17 @@ fn draw_subject(
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
-    let below = draw_header(ui, text, unit, None);
+    let kills = builds_in_hangar(unit).then(|| tr!("observer.selectionKills", "Kills"));
+    let below = draw_header(
+        ui,
+        text,
+        unit,
+        kills.as_deref().map(|label| (label, unit.kills)),
+    );
     match (case, &unit.production) {
-        (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
+        (SelectionCase::Producing, Some(production)) => {
+            draw_production(ui, below, production, builds_in_hangar(unit))
+        }
         (SelectionCase::Loaded, _) => {
             draw_cargo(ui, below, &unit.cargo);
             // Along the floor of the body like every other reading's, but beside the grid, which
@@ -822,7 +844,7 @@ fn draw_subject(
     }
     if has_upgrade_row(unit, case) {
         let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
-        draw_chips(ui, row, &unit.upgrades, &[]);
+        draw_chips(ui, row, &unit.upgrades, &unit.research);
         if let Some(stacked) = unit.stacked {
             draw_tally(
                 ui,
@@ -856,23 +878,39 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
 /// Whether the reading of a building, or of anything making or carrying something, leaves the
 /// bottom of its text column free for the row of its upgrades.
 ///
-/// A queue's progress line runs down to the floor of the body, so it has no row, and the console
-/// gives up its own icons for it. The cargo grid takes up the row's height too, but not its width,
-/// so its upgrades are drawn beside it instead (see [`draw_subject`]). Everything else here is a
-/// header and at most one slot's line beside it, which leaves the row free: an egg's carapace
-/// under what it is turning into, a cannon's shields and guns under the cannon going up.
+/// A building gives the row up to its queue, as the console gives up its own icons for it. A unit
+/// building fighters in its hangar keeps the row, which its queue and progress line end just above:
+/// what it fights with is what a watcher selects a carrier or a reaver to read, and it reads the
+/// same whether or not anything is in the hangar's queue. The cargo grid takes up the row's height
+/// too, but not its width, so its upgrades are drawn beside it instead (see [`draw_subject`]).
+/// Everything else here is a header and at most one slot's line beside it, which leaves the row
+/// free: an egg's carapace under what it is turning into, a cannon's shields and guns under the
+/// cannon going up.
 fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
     match case {
         SelectionCase::Building => true,
-        SelectionCase::Producing => unit
-            .production
-            .as_ref()
-            .is_some_and(|production| production.subject.is_some() || production.queue.is_none()),
+        SelectionCase::Producing => {
+            builds_in_hangar(unit)
+                || unit.production.as_ref().is_some_and(|production| {
+                    production.subject.is_some() || production.queue.is_none()
+                })
+        }
         SelectionCase::Empty
         | SelectionCase::Many
         | SelectionCase::Unit
         | SelectionCase::Loaded => false,
     }
+}
+
+/// Whether this is a unit building fighters in its own hangar: a carrier its interceptors, or a
+/// reaver its scarabs. Those are the only units the game gives a queue; everything else with one is
+/// a building.
+fn builds_in_hangar(unit: &SelectedUnitView) -> bool {
+    !unit.building
+        && unit
+            .production
+            .as_ref()
+            .is_some_and(|production| production.queue.is_some())
 }
 
 /// Draws a unit selected alone: the unit drawn large, and beside it its name with what it has killed
@@ -1366,7 +1404,12 @@ fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
 /// A subject that is itself what is being made, a building going up or an archon forming, is
 /// already named and drawn at the head of the panel, so it gets no slot and no name a second time:
 /// only how far along it is, under a label saying what that bar is.
-fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
+///
+/// A unit building fighters `in_hangar` keeps its row of upgrades under its queue, which leaves its
+/// progress line less room than a building's, so its name and bar are spaced out evenly in what
+/// there is: the gaps from the queue to the name's letters, from those to the bar, and from the bar
+/// to the row of upgrades are all the same.
+fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView, in_hangar: bool) {
     let progress = production.progress.clamp(0.0, 1.0);
     if let Some(subject) = production.subject {
         let label = match subject {
@@ -1401,9 +1444,24 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
                     None => paint_tile(ui, slot, None, EMPTY_ALPHA),
                 }
             }
-            Rect::from_min_size(
-                pos2(rect.left(), first.bottom() + PROGRESS_LEAD),
-                vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_HEIGHT),
+            let (top, bottom) = if in_hangar {
+                let letters = PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS;
+                let room = rect.bottom() - UPGRADE_CHIP - first.bottom();
+                let gap = (room - letters - PROGRESS_TRACK) / 3.0;
+                let top = first.bottom() + gap - PROGRESS_NAME_CAPS;
+                let track = first.bottom() + gap + letters + gap;
+                // The bar is centred in the line at the block's foot.
+                (top, track + (PROGRESS_TRACK + PROGRESS_ROW) * 0.5)
+            } else {
+                let top = first.bottom() + PROGRESS_LEAD;
+                (top, top + PROGRESS_HEIGHT)
+            };
+            Rect::from_min_max(
+                pos2(rect.left(), top),
+                pos2(
+                    rect.left() + QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH,
+                    bottom,
+                ),
             )
         }
         None => Rect::from_min_size(
@@ -2006,11 +2064,81 @@ mod tests {
         egg.production = progress(None, None);
         assert!(has_upgrade_row(&egg, SelectionCase::Producing));
 
-        // A queue runs down to the floor of the body even with nothing waiting in it.
+        // A building gives the row up to its queue even with nothing waiting in it.
         let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
         gateway.building = true;
         gateway.production = progress(Some(Vec::new()), None);
         assert!(!has_upgrade_row(&gateway, SelectionCase::Producing));
+
+        // A carrier building interceptors keeps it, queue and all.
+        let mut carrier = unit((300, 300), Some((150, 150)), 0x48);
+        carrier.production = progress(Some(Vec::new()), None);
+        assert!(has_upgrade_row(&carrier, SelectionCase::Producing));
+    }
+
+    #[test]
+    fn a_unit_building_fighters_keeps_its_kills_where_a_building_has_none() {
+        fn texts(shape: &Shape, out: &mut Vec<String>) {
+            match shape {
+                Shape::Text(text) => out.push(text.galley.text().to_string()),
+                Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
+                _ => {}
+            }
+        }
+        let drawn = |subject: &SelectedUnitView| {
+            let ctx = Context::default();
+            crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+            let mut drawn = Vec::new();
+            for _ in 0..2 {
+                let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                    let body =
+                        Rect::from_min_size(pos2(0.0, 0.0), vec2(CONTENT_WIDTH, BODY_HEIGHT));
+                    draw_subject(ui, body, subject, SelectionCase::Producing);
+                });
+                drawn.clear();
+                for shape in &output.shapes {
+                    texts(&shape.shape, &mut drawn);
+                }
+                output.textures_delta.clear();
+            }
+            drawn
+        };
+        let queue = || {
+            Some(ProductionProgressView {
+                icon: ProductionIcon {
+                    texture: None,
+                    index: 0x49,
+                    size: None,
+                    margin: 0.0,
+                    wireframe: None,
+                },
+                name: None,
+                progress: 0.5,
+                queue: Some(Vec::new()),
+                subject: None,
+            })
+        };
+
+        let mut carrier = unit((300, 300), Some((150, 150)), 0x48);
+        carrier.kills = 17;
+        carrier.production = queue();
+        let drawn_carrier = drawn(&carrier);
+        assert!(
+            drawn_carrier
+                .iter()
+                .any(|text| text.eq_ignore_ascii_case("Kills"))
+        );
+        assert!(drawn_carrier.iter().any(|text| text == "17"));
+
+        let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
+        gateway.building = true;
+        gateway.kills = 17;
+        gateway.production = queue();
+        assert!(
+            !drawn(&gateway)
+                .iter()
+                .any(|text| text.eq_ignore_ascii_case("Kills"))
+        );
 
         let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
         shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
