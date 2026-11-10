@@ -25,7 +25,7 @@ use crate::netcode_v2;
 use crate::windows;
 
 use super::{
-    BwScr, ChatInjection, SNP_INITIALIZED, check_documents_starcraft_path_accessibility,
+    BwScr, ChatInjection, SNP_INITIALIZED, chat, check_documents_starcraft_path_accessibility,
     connect_hook, copy_file_hook, create_event_hook, create_file_hook, dialog_hook, file_hook,
     game, get_file_attributes_hook, get_system_time_precise_as_file_time_hook, load_snp_list_hook,
     log_time, native_sync_disabled, rollback_resimulating, rollback_step, scr, sdf_cache,
@@ -1312,7 +1312,13 @@ impl BwScr {
                         }
                     }
 
-                    orig(text, player, unused);
+                    let tag = chat::ObserverChatTag::from_u8(
+                        self.chat_observer_tag.load(Ordering::Relaxed),
+                    );
+                    match tag.apply(CStr::from_ptr(text).to_bytes()) {
+                        Some(tagged) => orig(tagged.as_ptr(), player, unused),
+                        None => orig(text, player, unused),
+                    }
                 },
                 address,
             );

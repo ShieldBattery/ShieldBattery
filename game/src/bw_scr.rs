@@ -576,6 +576,9 @@ pub struct BwScr {
     /// How the `PrintText` hook treats the chat line being injected right now, as a
     /// [`ChatInjection`] discriminant.
     chat_injection: AtomicU8,
+    /// The [`chat::ObserverChatTag`] the `PrintText` hook puts ahead of the chat line being
+    /// injected right now, as its discriminant.
+    chat_observer_tag: AtomicU8,
     /// Chat a game that predicts inputs showed while stalled, which goes into the replay once the
     /// stalled step runs (see [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted)).
     chat_shown_while_stalled: Mutex<Vec<netcode_v2::InjectedChat>>,
@@ -1472,9 +1475,18 @@ impl BwScr {
                 ChatInjection::ShowWhileStalled => 1,
                 ChatInjection::Live | ChatInjection::RecordShown => 0,
             };
+            let observer_tag = chat::ObserverChatTag::for_line(
+                BwPlayerId(self.local_unique_player_id.resolve() as u8).is_observer(),
+                BwPlayerId(unique_player).is_observer(),
+                target,
+            );
             self.chat_injection
                 .store(injection as u8, Ordering::Relaxed);
+            self.chat_observer_tag
+                .store(observer_tag as u8, Ordering::Relaxed);
             let injected = self.process_injected_game_command(&record, storm_player, recorded);
+            self.chat_observer_tag
+                .store(chat::ObserverChatTag::None as u8, Ordering::Relaxed);
             self.chat_injection
                 .store(ChatInjection::Live as u8, Ordering::Relaxed);
             if injected
@@ -1698,9 +1710,10 @@ impl BwScr {
 
     /// Whether a received chat message naming `target` should be shown to the local player, given
     /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
-    /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
-    /// currently allied with the sender; `Observers` shows only if the local player is an
-    /// observer; `Players` shows only if the local rp2 slot is a member of its mask — a lone
+    /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows to a player currently
+    /// allied with the sender, and to an observer when a player sent it (observers see every team's
+    /// chat, as on Battle.net); `Observers` shows only if the local player is an observer;
+    /// `Players` shows only if the local rp2 slot is a member of its mask — a lone
     /// recipient's mask has one bit, while a team-shared-control game's sender put every slot on
     /// both the addressed team and its own team into the mask. Anything else is dropped silently
     /// by the caller.
@@ -1721,6 +1734,12 @@ impl BwScr {
                 }
                 netcode_v2::ChatTarget::Allies => {
                     match self.unique_player_for_storm(sender_storm) {
+                        Some(sender_unique)
+                            if BwPlayerId(self.local_unique_player_id.resolve() as u8)
+                                .is_observer() =>
+                        {
+                            !BwPlayerId(sender_unique).is_observer()
+                        }
                         Some(sender_unique) => self.is_allied_with(sender_unique),
                         // The sender can't be resolved to a live player right now (e.g. already
                         // left) — nothing to compare alliances against, so don't show it as if it

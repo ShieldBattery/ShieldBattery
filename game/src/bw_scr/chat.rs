@@ -9,7 +9,59 @@ use crate::{
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
     game_thread::{GameThreadMessage, send_game_msg_to_async},
+    netcode_v2::ChatTarget,
 };
+
+/// The tag an observer's screen puts ahead of a player's chat message, saying whether it was said to
+/// everyone or only to the sender's team. Observers see both, as on Battle.net, and the line the
+/// game prints carries nothing else that tells them apart.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ObserverChatTag {
+    None = 0,
+    All = 1,
+    Team = 2,
+}
+
+impl ObserverChatTag {
+    /// The tag for a line a player sent to `target`, as the local client shows it. Only an
+    /// observer's screen tags lines, and only lines from players: an observer's own lines already
+    /// print as an observer's.
+    pub fn for_line(local_is_observer: bool, sender_is_observer: bool, target: ChatTarget) -> Self {
+        if !local_is_observer || sender_is_observer {
+            return ObserverChatTag::None;
+        }
+        match target {
+            ChatTarget::All => ObserverChatTag::All,
+            ChatTarget::Allies => ObserverChatTag::Team,
+            ChatTarget::Observers | ChatTarget::Players(_) => ObserverChatTag::None,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            1 => ObserverChatTag::All,
+            2 => ObserverChatTag::Team,
+            _ => ObserverChatTag::None,
+        }
+    }
+
+    /// A player's printed message text with this tag ahead of it, or `None` when it carries no
+    /// tag. The game draws the sender's name before the text it prints, so the line reads
+    /// `Name: (TEAM) text`. The tag carries no color code of its own: a color code holds for the
+    /// rest of the line, and would recolor the message after it.
+    pub fn apply(self, line: &[u8]) -> Option<CString> {
+        let label: &[u8] = match self {
+            ObserverChatTag::None => return None,
+            ObserverChatTag::All => b"(ALL) ",
+            ObserverChatTag::Team => b"(TEAM) ",
+        };
+        let mut tagged = Vec::with_capacity(label.len() + line.len());
+        tagged.extend_from_slice(label);
+        tagged.extend_from_slice(line);
+        CString::new(tagged).ok()
+    }
+}
 
 pub struct ChatManager {
     players: Vec<JoinedPlayer>,
@@ -519,6 +571,57 @@ mod tests {
             joined("watcher-2", 15, 4),
         ]);
         manager
+    }
+
+    #[test]
+    fn observers_tag_player_lines_by_scope() {
+        assert_eq!(
+            ObserverChatTag::for_line(true, false, ChatTarget::All),
+            ObserverChatTag::All,
+        );
+        assert_eq!(
+            ObserverChatTag::for_line(true, false, ChatTarget::Allies),
+            ObserverChatTag::Team,
+        );
+        assert_eq!(
+            ObserverChatTag::for_line(true, false, ChatTarget::Observers),
+            ObserverChatTag::None,
+        );
+    }
+
+    #[test]
+    fn players_and_observer_senders_are_never_tagged() {
+        for target in [ChatTarget::All, ChatTarget::Allies] {
+            assert_eq!(
+                ObserverChatTag::for_line(false, false, target),
+                ObserverChatTag::None,
+            );
+            assert_eq!(
+                ObserverChatTag::for_line(true, true, target),
+                ObserverChatTag::None,
+            );
+        }
+    }
+
+    #[test]
+    fn tags_go_ahead_of_the_message_text() {
+        assert_eq!(
+            ObserverChatTag::Team.apply(b"gg wp").unwrap().as_bytes(),
+            b"(TEAM) gg wp",
+        );
+        // The message keeps any color code it starts with.
+        assert_eq!(
+            ObserverChatTag::All.apply(b"\x04hi").unwrap().as_bytes(),
+            b"(ALL) \x04hi",
+        );
+        assert_eq!(ObserverChatTag::None.apply(b"hi"), None);
+        for tag in [
+            ObserverChatTag::None,
+            ObserverChatTag::All,
+            ObserverChatTag::Team,
+        ] {
+            assert_eq!(ObserverChatTag::from_u8(tag as u8), tag);
+        }
     }
 
     #[test]
