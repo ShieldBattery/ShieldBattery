@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { MatchmakingResultsEvent } from '../../common/games/games'
 import {
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
@@ -21,6 +22,7 @@ export type MatchmakingActions =
   | MatchmakingStatusUpdate
   | GetMatchmakingSeasons
   | GetCurrentMatchmakingSeason
+  | MatchmakingResultsReceived
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -86,4 +88,13 @@ export interface GetMatchmakingSeasons {
 export interface GetCurrentMatchmakingSeason {
   type: '@matchmaking/getCurrentMatchmakingSeason'
   payload: MatchmakingSeasonJson
+}
+
+/**
+ * The results of one of the current user's matchmaking games (their rating and points changes)
+ * have arrived. This isn't necessarily the last game they played.
+ */
+export interface MatchmakingResultsReceived {
+  type: '@matchmaking/resultsReceived'
+  payload: MatchmakingResultsEvent
 }
