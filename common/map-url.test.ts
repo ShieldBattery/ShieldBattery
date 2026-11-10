@@ -4,6 +4,7 @@ import {
   MAP_COMPARE_SEGMENT,
   MapCatalogTab,
   MapCompareView,
+  mapFileIdFromSegment,
   mapIdFromRouteSegment,
   MapPageSubPage,
   mapSlug,
@@ -11,11 +12,12 @@ import {
   urlForMapCatalog,
   urlForMapCompare,
 } from './map-url'
-import { makeSbMapId } from './maps'
+import { makeMapFamilyId, makeSbMapId } from './maps'
 import { encodePrettyId } from './pretty-id'
 
 const MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
 const OTHER_MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000bbbb')
+const FAMILY_ID = makeMapFamilyId('5eed0000-0000-0000-0000-00000000ffff')
 
 describe('common/map-url', () => {
   test('slugs names, keeping version numbers readable', () => {
@@ -47,10 +49,28 @@ describe('common/map-url', () => {
     )
   })
 
+  test("builds family page URLs that select one of the family's files", () => {
+    const base = `/maps/${encodePrettyId(FAMILY_ID)}/polypoid`
+    expect(urlForMap(FAMILY_ID, 'Polypoid')).toBe(base)
+    expect(urlForMap(FAMILY_ID, 'Polypoid', undefined, MAP_ID)).toBe(
+      `${base}?file=${encodePrettyId(MAP_ID)}`,
+    )
+    expect(urlForMap(FAMILY_ID, 'Polypoid', MapPageSubPage.Games, MAP_ID)).toBe(
+      `${base}/games?file=${encodePrettyId(MAP_ID)}`,
+    )
+  })
+
   test('reads map ids from pretty ids and raw UUIDs', () => {
     expect(mapIdFromRouteSegment(encodePrettyId(MAP_ID))).toBe(MAP_ID)
     expect(mapIdFromRouteSegment(MAP_ID)).toBe(MAP_ID)
     expect(mapIdFromRouteSegment(MAP_ID.toUpperCase())).toBe(MAP_ID)
+    expect(mapIdFromRouteSegment(encodePrettyId(FAMILY_ID))).toBe(FAMILY_ID)
+  })
+
+  test('reads file ids from pretty ids and raw UUIDs', () => {
+    expect(mapFileIdFromSegment(encodePrettyId(MAP_ID))).toBe(MAP_ID)
+    expect(mapFileIdFromSegment(MAP_ID.toUpperCase())).toBe(MAP_ID)
+    expect(mapFileIdFromSegment('polypoid')).toBeUndefined()
   })
 
   test('rejects other id segments', () => {

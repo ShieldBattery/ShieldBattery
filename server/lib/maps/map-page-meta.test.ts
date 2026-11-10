@@ -1,26 +1,30 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
+import { makeMapFamilyId, makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { encodePrettyId } from '../../../common/pretty-id'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { PageMetadataContext } from '../page-metadata/types'
-import { getMapInfos, resolveMapId } from './map-models'
+import { getMapInfos, resolveMapId, resolveMapPageId } from './map-models'
 import { mapComparePageMetadata, mapPageMetadata } from './map-page-meta'
 
 vi.mock('./map-models', () => ({
   getMapInfos: vi.fn(),
   resolveMapId: vi.fn(),
+  resolveMapPageId: vi.fn(),
 }))
 
 const getMapInfosMock = asMockedFunction(getMapInfos)
 const resolveMapIdMock = asMockedFunction(resolveMapId)
+const resolveMapPageIdMock = asMockedFunction(resolveMapPageId)
 
 const CONTEXT: PageMetadataContext = {
   canonicalHost: 'https://shieldbattery.net',
   publicAssetsUrl: 'https://cdn.example.com/public/',
 }
 
+const FAMILY_ID = makeMapFamilyId('5eed0000-0000-0000-0000-00000000ffff')
 const MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
 const ALIAS_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000bbbb')
+const OLD_FILE_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000dddd')
 
 function makeMap(overrides: Partial<MapInfo> = {}): MapInfo {
   return {
@@ -38,20 +42,30 @@ function makeMap(overrides: Partial<MapInfo> = {}): MapInfo {
   } as MapInfo
 }
 
+const FAMILY_URL = `https://shieldbattery.net/maps/${encodePrettyId(FAMILY_ID)}/polypoid-1-75`
+
 describe('maps/map-page-meta', () => {
   beforeEach(() => {
     getMapInfosMock.mockReset()
     resolveMapIdMock.mockReset()
     resolveMapIdMock.mockImplementation(async id => id)
+    resolveMapPageIdMock.mockReset()
+    resolveMapPageIdMock.mockResolvedValue({
+      familyId: FAMILY_ID,
+      currentMapId: MAP_ID,
+      listed: true,
+    })
   })
 
-  test('builds metadata for a listed map', async () => {
+  test('builds metadata for a listed map from its current file', async () => {
     getMapInfosMock.mockResolvedValueOnce([makeMap()])
 
-    const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
 
+    expect(resolveMapPageIdMock).toHaveBeenCalledWith(FAMILY_ID)
+    expect(getMapInfosMock).toHaveBeenCalledWith([MAP_ID, MAP_ID])
     expect(result).toEqual({
-      url: `https://shieldbattery.net/maps/${encodePrettyId(MAP_ID)}/polypoid-1-75`,
+      url: FAMILY_URL,
       type: 'website',
       title: 'Polypoid 1.75',
       description: 'The modern four-player standard.',
@@ -60,24 +74,66 @@ describe('maps/map-page-meta', () => {
     })
   })
 
-  test('accepts a raw UUID and points the canonical URL at the current id of an alias', async () => {
-    resolveMapIdMock.mockResolvedValueOnce(MAP_ID)
+  test('accepts a raw UUID and points the canonical URL at the family of an alias', async () => {
     getMapInfosMock.mockResolvedValueOnce([makeMap()])
 
     const result = await mapPageMetadata({ id: ALIAS_ID }, CONTEXT)
 
-    expect(resolveMapIdMock).toHaveBeenCalledWith(ALIAS_ID)
-    expect(getMapInfosMock).toHaveBeenCalledWith([MAP_ID])
-    expect(result?.url).toBe(
-      `https://shieldbattery.net/maps/${encodePrettyId(MAP_ID)}/polypoid-1-75`,
-    )
+    expect(resolveMapPageIdMock).toHaveBeenCalledWith(ALIAS_ID)
+    expect(result?.url).toBe(FAMILY_URL)
+  })
+
+  test("describes a file named by its id, canonical to its family's page", async () => {
+    resolveMapPageIdMock.mockResolvedValueOnce({
+      familyId: FAMILY_ID,
+      currentMapId: MAP_ID,
+      listed: true,
+      fileId: OLD_FILE_ID,
+    })
+    getMapInfosMock.mockResolvedValueOnce([
+      makeMap(),
+      makeMap({ id: OLD_FILE_ID, name: 'Polypoid 1.65', jpegImageUrl: 'https://x/165.jpg' }),
+    ])
+
+    const result = await mapPageMetadata({ id: encodePrettyId(OLD_FILE_ID) }, CONTEXT)
+
+    expect(getMapInfosMock).toHaveBeenCalledWith([MAP_ID, OLD_FILE_ID])
+    expect(result?.title).toBe('Polypoid 1.65')
+    expect(result?.image).toBe('https://x/165.jpg')
+    // The slug follows the map's name, which is its current file's
+    expect(result?.url).toBe(FAMILY_URL)
+    expect(result?.noindex).toBe(false)
+  })
+
+  test('selects an unlisted file in the canonical URL and keeps it out of search engines', async () => {
+    resolveMapPageIdMock.mockResolvedValueOnce({
+      familyId: FAMILY_ID,
+      currentMapId: MAP_ID,
+      listed: true,
+      fileId: OLD_FILE_ID,
+    })
+    getMapInfosMock.mockResolvedValueOnce([
+      makeMap(),
+      makeMap({ id: OLD_FILE_ID, visibility: MapVisibility.Unlisted }),
+    ])
+
+    const result = await mapPageMetadata({ id: OLD_FILE_ID }, CONTEXT)
+
+    expect(result?.url).toBe(`${FAMILY_URL}?file=${encodePrettyId(OLD_FILE_ID)}`)
+    expect(result?.noindex).toBe(true)
   })
 
   test('keeps unlisted maps out of search engines', async () => {
+    resolveMapPageIdMock.mockResolvedValueOnce({
+      familyId: FAMILY_ID,
+      currentMapId: MAP_ID,
+      listed: false,
+    })
     getMapInfosMock.mockResolvedValueOnce([makeMap({ visibility: MapVisibility.Unlisted })])
 
-    const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
 
+    expect(result?.url).toBe(FAMILY_URL)
     expect(result?.noindex).toBe(true)
   })
 
@@ -86,7 +142,7 @@ describe('maps/map-page-meta', () => {
       makeMap({ name: '\x03Lost \x04Temple', description: '  \x05 ' }),
     ])
 
-    const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
 
     expect(result?.title).toBe('Lost Temple')
     expect(result?.description).toBe('A 4-player Jungle world melee map. Play it on ShieldBattery.')
@@ -95,7 +151,7 @@ describe('maps/map-page-meta', () => {
   test('truncates long descriptions', async () => {
     getMapInfosMock.mockResolvedValueOnce([makeMap({ description: 'a'.repeat(500) })])
 
-    const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
 
     expect(result?.description).toHaveLength(200)
     expect(result?.description.endsWith('…')).toBe(true)
@@ -105,14 +161,23 @@ describe('maps/map-page-meta', () => {
     const result = await mapPageMetadata({ id: 'not-a-map' }, CONTEXT)
 
     expect(result).toBeUndefined()
-    expect(resolveMapIdMock).not.toHaveBeenCalled()
+    expect(resolveMapPageIdMock).not.toHaveBeenCalled()
+    expect(getMapInfosMock).not.toHaveBeenCalled()
+  })
+
+  test('returns undefined for an id that names nothing', async () => {
+    resolveMapPageIdMock.mockResolvedValueOnce(undefined)
+
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
+
+    expect(result).toBeUndefined()
     expect(getMapInfosMock).not.toHaveBeenCalled()
   })
 
   test('returns undefined for a missing map', async () => {
     getMapInfosMock.mockResolvedValueOnce([])
 
-    const result = await mapPageMetadata({ id: encodePrettyId(MAP_ID) }, CONTEXT)
+    const result = await mapPageMetadata({ id: encodePrettyId(FAMILY_ID) }, CONTEXT)
 
     expect(result).toBeUndefined()
   })

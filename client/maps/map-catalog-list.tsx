@@ -248,7 +248,6 @@ export function CatalogFilterRow({
   offersBestMatch = true,
   showOfficial = true,
   besideCount,
-  onAllVersionsChange,
   viewToggle,
   onFiltersChange,
   onSortChange,
@@ -266,8 +265,6 @@ export function CatalogFilterRow({
   showOfficial?: boolean
   /** Shown next to the count, e.g. a link to the same search elsewhere. */
   besideCount?: React.ReactNode
-  /** When set, offers listing every version of a map rather than one per family line. */
-  onAllVersionsChange?: (allVersions: boolean) => void
   /** Shown before the density toggle, e.g. a choice of how to lay out the listing. */
   viewToggle?: React.ReactNode
   onFiltersChange: (changes: Partial<CatalogFilters>) => void
@@ -374,13 +371,6 @@ export function CatalogFilterRow({
           label={t('maps.page.official', 'Official')}
           selected={params.official}
           onClick={() => onFiltersChange({ official: !params.official })}
-        />
-      ) : null}
-      {onAllVersionsChange ? (
-        <FilterChip
-          label={t('maps.catalog.allVersions', 'All versions')}
-          selected={!!params.allVersions}
-          onClick={() => onAllVersionsChange(!params.allVersions)}
         />
       ) : null}
       {hasNonDefaultFilters(params) ? (
@@ -608,7 +598,6 @@ export function MapCatalogList({
   pick,
   besideCount,
   onFiltersChange,
-  onAllVersionsChange,
   onSortChange,
   onDensityChange,
   onClearFilters,
@@ -624,8 +613,6 @@ export function MapCatalogList({
   /** Shown next to the count, e.g. a link to the same search among the maps on this PC. */
   besideCount?: React.ReactNode
   onFiltersChange: (changes: Partial<CatalogFilters>) => void
-  /** Called when the viewer asks for every version of a map, or one tile per family line. */
-  onAllVersionsChange: (allVersions: boolean) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
   onClearFilters: () => void
@@ -650,8 +637,6 @@ export function MapCatalogList({
   const layout = DENSITY_LAYOUT[density]
   const signal = signalFor(tab, sort)
   const showPending = tab === MapCatalogTab.Yours && pendingUploads.length > 0
-  // Only the listing of all maps folds each family line into one tile
-  const folded = tab === MapCatalogTab.All && !params.allVersions
 
   const onLoadMore = () => {
     const endCursor = lastPage.connection?.pageInfo.endCursor
@@ -706,7 +691,6 @@ export function MapCatalogList({
               after={cursor}
               signal={signal}
               imageSize={layout.imageSize}
-              folded={folded}
               pick={pick}
             />
           ))}
@@ -723,7 +707,6 @@ export function MapCatalogList({
         density={density}
         totalCount={totalCount}
         besideCount={besideCount}
-        onAllVersionsChange={tab === MapCatalogTab.All ? onAllVersionsChange : undefined}
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onDensityChange={onDensityChange}
@@ -741,7 +724,6 @@ function MapCatalogChunk({
   after,
   signal,
   imageSize,
-  folded,
   pick,
 }: {
   tab: ServerCatalogTab
@@ -750,7 +732,6 @@ function MapCatalogChunk({
   after: string | null
   signal: MapTileSignal
   imageSize: number
-  folded: boolean
   pick?: MapPickOptions
 }) {
   const { connection } = useCatalogPage(tab, filter, sort, after)
@@ -768,7 +749,6 @@ function MapCatalogChunk({
             addedAt={edge.addedAt ?? undefined}
             onRemovedFromLibrary={!pick && tab === MapCatalogTab.Yours ? bumpLibrary : undefined}
             imageSize={imageSize}
-            folded={folded}
             pick={
               pick
                 ? {

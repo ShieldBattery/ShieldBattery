@@ -2,12 +2,12 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useMutation, useQuery } from 'urql'
+import { useQuery } from 'urql'
 import { useRoute } from 'wouter'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
   ALL_MAP_PAGE_SUB_PAGES,
-  mapIdFromRouteSegment,
+  mapFileIdFromSegment,
   MapPageSubPage,
   mapSlug,
   urlForMap,
@@ -22,7 +22,7 @@ import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapKind, MapLinkSource } from '../gql/graphql'
+import { MapKind } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
@@ -59,7 +59,6 @@ import { ConnectedUsername } from '../users/connected-username'
 import {
   delistMap,
   openMapDownloadDialog,
-  openMapFamilyLinkDialog,
   openMapPreviewDialog,
   regenMapImage,
   removeFromMyMaps,
@@ -70,7 +69,6 @@ import { DescriptionForm, NameForm } from './map-edit-forms'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
-import { MapFamilyCard, MapNewerVersionBanner } from './map-page-family'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
@@ -95,8 +93,6 @@ const MapPageQuery = graphql(/* GraphQL */ `
       ...MapPage_HowToPlayFragment
       ...MapPageStats_MapFragment
       ...MapPageMatchups_MapFragment
-      ...MapPage_NewerVersionFragment
-      ...MapPage_FamilyFragment
     }
   }
 `)
@@ -135,7 +131,7 @@ export function MapPageRoute() {
     return null
   }
 
-  const mapId = mapIdFromRouteSegment(params.id)
+  const mapId = mapFileIdFromSegment(params.id)
   if (!mapId) {
     return <MapNotFound />
   }
@@ -234,10 +230,8 @@ export function MapPage({ mapId, idSegment, slugSegment, subPageSegment, subPage
           <LeftColumn>
             <MapHero mapId={map.id} name={filterColorCodes(map.name)} file={map.file} />
             <MapFacts map={map} />
-            <MapFamilyCard map={map} />
           </LeftColumn>
           <RightColumn>
-            <MapNewerVersionBanner map={map} />
             <MapHeaderAndActions header={map} actions={map} onChanged={refresh} />
             <MapStatsCard map={map} />
             <MapMatchupsCard map={map} />
@@ -719,27 +713,6 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
     publisher {
       id
     }
-    familyMember {
-      id
-      isCurrent
-      source
-    }
-  }
-`)
-
-const MapPagePinCurrentMutation = graphql(/* GraphQL */ `
-  mutation MapPagePinCurrent($mapId: SbMapId!) {
-    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {
-      id
-    }
-  }
-`)
-
-const MapPagePublisherUnlinkMutation = graphql(/* GraphQL */ `
-  mutation MapPagePublisherUnlink($mapId: SbMapId!) {
-    mapFamilyPublisherUnlink(mapId: $mapId) {
-      id
-    }
   }
 `)
 
@@ -789,7 +762,6 @@ function MapActions({
   const map = useFragment(MapPage_ActionsFragment, mapRef)
   const selfUser = useSelfUser()
   const canManageMaps = useHasAnyPermission('manageMaps')
-  const canReviewFamilies = useHasAnyPermission('reviewMapFamilies')
 
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
@@ -799,8 +771,6 @@ function MapActions({
   const isLobbyHost = IS_ELECTRON && inLobby && !!selfUser && lobbyHostId === selfUser.id
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
-  const [, pinCurrent] = useMutation(MapPagePinCurrentMutation)
-  const [, publisherUnlink] = useMutation(MapPagePublisherUnlinkMutation)
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -895,69 +865,7 @@ function MapActions({
       ],
     )
   }
-  const isPublisher = !!selfUser && map.listed && map.publisher?.id === selfUser.id
-  if (isPublisher && !canManageMaps) {
-    menuItems.push([
-      t('maps.page.linkRelatedMap', 'Link to a related map…'),
-      () => dispatch(openMapFamilyLinkDialog(map.id, 'related')),
-    ])
-    if (map.familyMember && map.familyMember.source !== MapLinkSource.Moderator) {
-      menuItems.push([
-        t('maps.page.unlinkFromFamily', 'Unlink from its versions'),
-        () => {
-          publisherUnlink({ mapId: map.id })
-            .then(result => {
-              if (result.error) {
-                throw result.error
-              }
-              snackbarController.showSnackbar(
-                t('maps.page.unlinkedFromFamily', 'Unlinked from its versions'),
-              )
-              onChanged()
-            })
-            .catch(() => showError(t('maps.page.unlinkFromFamilyError', "Couldn't unlink the map")))
-        },
-      ])
-    }
-  } else if (selfUser && !canManageMaps) {
-    menuItems.push([
-      t('maps.page.suggestRelatedMap', 'Suggest a related map…'),
-      () => dispatch(openMapFamilyLinkDialog(map.id, 'related')),
-    ])
-    if (map.familyMember) {
-      menuItems.push([
-        t('maps.page.reportWrongFamily', 'Report a problem with versions…'),
-        () => dispatch(openMapFamilyLinkDialog(map.id, 'wrongFamily')),
-      ])
-    }
-  }
-  if (canManageMaps || (canReviewFamilies && map.listed)) {
-    menuItems.push([
-      t('maps.page.editFamily', 'Edit family…'),
-      () => push(urlPath`/admin/map-families/maps/${map.id}`),
-    ])
-  }
   if (canManageMaps) {
-    if (map.listed && map.familyMember && !map.familyMember.isCurrent) {
-      menuItems.push([
-        t('maps.page.pinAsCurrent', 'Pin as the latest version'),
-        () => {
-          pinCurrent({ mapId: map.id })
-            .then(result => {
-              if (result.error) {
-                throw result.error
-              }
-              snackbarController.showSnackbar(
-                t('maps.page.pinnedAsCurrent', 'Pinned as the latest version'),
-              )
-              onChanged()
-            })
-            .catch(() =>
-              showError(t('maps.page.pinAsCurrentError', "Couldn't pin the latest version")),
-            )
-        },
-      ])
-    }
     menuItems.push([
       t('maps.thumbnail.regenerateImage', 'Regenerate image'),
       () =>

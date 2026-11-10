@@ -4,6 +4,7 @@ use async_graphql::SimpleObject;
 use chrono::{DateTime, Days, NaiveDate, Utc, Weekday};
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::maps::SbMapId;
 use crate::matchmaking::MatchmakingType;
@@ -46,7 +47,7 @@ pub struct MapMatchupSeason {
 /// The games played on a map in one week (starting Monday, UTC).
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct MapWeeklyActivity {
-    /// The map and week, unique across all weeks of all maps.
+    /// The map (or family) and week, unique across all weeks of all maps.
     pub id: String,
     /// The start of the week: midnight UTC on its Monday.
     pub week_start: DateTime<Utc>,
@@ -226,8 +227,9 @@ fn week_starts(today: NaiveDate, weeks: i32) -> Vec<NaiveDate> {
 }
 
 /// One entry per week in `starts`, with weeks missing from `games` (lobby, matchmaking) as zero.
+/// Each entry's id is `id_prefix` and the week.
 fn fill_weeks(
-    map_id: SbMapId,
+    id_prefix: &str,
     starts: &[NaiveDate],
     games: &HashMap<NaiveDate, (i32, i32)>,
 ) -> Vec<MapWeeklyActivity> {
@@ -236,7 +238,7 @@ fn fill_weeks(
         .map(|&start| {
             let (lobby_games, matchmaking_games) = games.get(&start).copied().unwrap_or_default();
             MapWeeklyActivity {
-                id: format!("{map_id}:{start}"),
+                id: format!("{id_prefix}:{start}"),
                 week_start: start.and_time(chrono::NaiveTime::MIN).and_utc(),
                 lobby_games,
                 matchmaking_games,
@@ -245,11 +247,12 @@ fn fill_weeks(
         .collect()
 }
 
-/// Loads the games played on a map in each of the last `weeks` weeks (already clamped), oldest
-/// first, including weeks without any.
+/// Loads the games played on any of `map_ids` in each of the last `weeks` weeks (already clamped),
+/// oldest first, including weeks without any. Each week's id is `id_prefix` and the week.
 pub async fn load_weekly_activity(
     db: &PgPool,
-    map_id: SbMapId,
+    id_prefix: &str,
+    map_ids: &[Uuid],
     weeks: i32,
     today: NaiveDate,
 ) -> eyre::Result<Vec<MapWeeklyActivity>> {
@@ -267,10 +270,10 @@ pub async fn load_weekly_activity(
                 COALESCE(sum(games) FILTER (WHERE game_source = 'MATCHMAKING'), 0)::bigint
                     as "matchmaking_games!"
             FROM map_stats_daily
-            WHERE map_id = $1 AND day >= $2
+            WHERE map_id = ANY($1) AND day >= $2
             GROUP BY 1
         "#,
-        map_id as _,
+        map_ids,
         first_week,
     )
     .fetch_all(db)
@@ -289,13 +292,11 @@ pub async fn load_weekly_activity(
             )
         })
         .collect::<HashMap<_, _>>();
-    Ok(fill_weeks(map_id, &starts, &games))
+    Ok(fill_weeks(id_prefix, &starts, &games))
 }
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
-
     use super::*;
 
     fn row(matchup: &str, games: i32, left: i32, right: i32, median: i32) -> SeasonMatchupRow {
@@ -415,7 +416,7 @@ mod tests {
         let map_id = SbMapId(Uuid::nil());
         let starts = week_starts(date(2026, 10, 21), 3);
         let games = HashMap::from([(date(2026, 10, 12), (4, 7))]);
-        let filled = fill_weeks(map_id, &starts, &games);
+        let filled = fill_weeks(&map_id.to_string(), &starts, &games);
         let summary = filled
             .iter()
             .map(|w| {

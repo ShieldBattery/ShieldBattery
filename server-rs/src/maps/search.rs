@@ -133,20 +133,18 @@ pub struct MapFilter {
     pub published_since: Option<DateTime<Utc>>,
     /// Only official maps (`true`) or only maps that aren't official (`false`).
     pub official: Option<bool>,
-    /// List every version of a map, rather than one map per family line (its current version, or
-    /// the version that best matches the search). Only the listed maps are folded by line.
-    #[graphql(default)]
-    pub all_versions: bool,
 }
 
 /// Which set of maps a listing pages through.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MapScope {
-    /// Every listed map.
+    /// Every family with a listed file, each as its current file. Filters apply to the current
+    /// file, except that a search matches any of the family's listed files and `publishedSince`
+    /// matches the family's most recently published file.
     Listed,
     /// A user's library, listed or not.
     Library(SbUserId),
-    /// A user's favorites, listed or not.
+    /// The families a user has favorited, listed or not, each as its current file.
     Favorites(SbUserId),
 }
 
@@ -278,7 +276,6 @@ pub struct NormalizedFilter {
     eud: EudFilter,
     published_since: Option<DateTime<Utc>>,
     official: Option<bool>,
-    all_versions: bool,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -327,13 +324,7 @@ impl NormalizedFilter {
             eud: filter.eud,
             published_since: filter.published_since,
             official: filter.official,
-            all_versions: filter.all_versions,
         })
-    }
-
-    /// Whether a listing of `scope` shows one map per family line.
-    fn folds(&self, scope: MapScope) -> bool {
-        scope == MapScope::Listed && !self.all_versions
     }
 
     /// The sort used when none is requested.
@@ -427,8 +418,8 @@ fn sort_keys(sort: MapSort) -> &'static [SortKey] {
     // Rows without a usable time sort after every dated row.
     const NEWEST: &[SortKey] = &[
         int_key(
-            "CASE WHEN c.sort_added_at IS NULL THEN 9223372036854775807 \
-             ELSE -(extract(epoch FROM c.sort_added_at) * 1000000) END",
+            "CASE WHEN c.added_at IS NULL THEN 9223372036854775807 \
+             ELSE -(extract(epoch FROM c.added_at) * 1000000) END",
         ),
         ID,
     ];
@@ -513,7 +504,7 @@ impl MapCursor {
 }
 
 /// The columns of [`DbSbMap`], read from `maps m` joined with [`DB_SB_MAP_JOINS`].
-const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
+const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, m.family_id, \
     COALESCE(m.public_description, m.description) AS description, \
     m.kind::text AS kind, m.player_count, m.listed, m.official, \
     m.published_by, m.published_at, m.delisted_by, m.delisted_at, \
@@ -529,15 +520,16 @@ const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
 
 /// The joins [`DB_SB_MAP_COLUMNS`] reads from, after `FROM maps m`.
 const DB_SB_MAP_JOINS: &str = " LEFT JOIN map_stats s ON s.map_id = m.id \
-    LEFT JOIN map_favorite_counts f ON f.map_id = m.id";
+    LEFT JOIN map_favorite_counts f ON f.family_id = m.family_id";
 
 /// A map row as listings and the map loader read it: the map's own columns plus its play stats
-/// and favorite count.
+/// and its family's favorite count.
 #[derive(Debug, Clone, FromRow)]
 pub struct DbSbMap {
     pub id: SbMapId,
     pub hash: MapHash,
     pub name: String,
+    pub family_id: Uuid,
     pub description: String,
     pub kind: String,
     pub player_count: i32,
@@ -566,8 +558,8 @@ pub struct DbSbMap {
 #[derive(Debug, Clone)]
 pub struct MapListingRow {
     pub map: DbSbMap,
-    /// When the map was added to the library or favorites being listed (for listed maps, when it
-    /// was published). `None` if that isn't known.
+    /// When the map was added to the library or favorites being listed (for listed maps, when its
+    /// family's most recently published file was published). `None` if that isn't known.
     pub added_at: Option<DateTime<Utc>>,
     pub cursor: MapCursor,
 }
@@ -718,33 +710,18 @@ fn push_sort_keys(qb: &mut QueryBuilder<Postgres>, keys: &[SortKey], after: Opti
     qb.push(&aliases);
 }
 
-/// Emits the listing's rows, before sorting: the candidates that match the search, and when the
-/// listing folds family lines, only the best matching map of each line (the closest search match,
-/// then the line's current version). Adds `sort_added_at`: when folding, the line's latest
-/// `added_at`, so a newly published version brings its line up in `NEWEST`.
+/// Emits the listing's rows, before sorting: the candidates that match the search.
 fn push_rows(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
-    let folds = filter.folds(scope);
-    if folds {
-        qb.push(
-            "SELECT DISTINCT ON (c.fold_key) c.*, \
-             max(c.added_at) OVER (PARTITION BY c.fold_key) AS sort_added_at FROM (",
-        );
-    } else {
-        qb.push("SELECT c.*, c.added_at AS sort_added_at FROM (");
-    }
+    qb.push("SELECT c.* FROM (");
     push_candidates(qb, scope, filter);
     qb.push(") c");
     if filter.search.is_some() {
         qb.push(" WHERE c.rank > 0");
     }
-    if folds {
-        qb.push(" ORDER BY c.fold_key, c.rank DESC, c.is_current DESC, c.sort_name, c.id");
-    }
 }
 
-/// The columns sort keys and folding read, from the map's own stats.
-const MAP_SORT_COLUMNS: &str = "m.id AS fold_key, TRUE AS is_current, \
-    COALESCE(s.games_7d, 0) AS sort_games_7d, \
+/// The columns sort keys read, from the file's own stats and its family's favorites.
+const MAP_SORT_COLUMNS: &str = "COALESCE(s.games_7d, 0) AS sort_games_7d, \
     COALESCE(s.games_28d, 0) AS sort_games_28d, \
     COALESCE(s.games_90d, 0) AS sort_games_90d, \
     COALESCE(s.games_total, 0) AS sort_games_total, \
@@ -752,37 +729,42 @@ const MAP_SORT_COLUMNS: &str = "m.id AS fold_key, TRUE AS is_current, \
     COALESCE(s.trending_score, 0) AS sort_trending_score, \
     COALESCE(f.favorites, 0) AS sort_favorites";
 
-/// The columns sort keys and folding read when folding family lines: the line's stats, falling
-/// back to the map's own for maps outside a family (or in a line too new to have stats). Reads
-/// [`FOLD_JOINS`].
-const LINE_SORT_COLUMNS: &str = "COALESCE(fam.line_root_id, m.id) AS fold_key, \
-    COALESCE(fam.line_current_id = m.id, TRUE) AS is_current, \
-    COALESCE(ls.games_7d, s.games_7d, 0) AS sort_games_7d, \
-    COALESCE(ls.games_28d, s.games_28d, 0) AS sort_games_28d, \
-    COALESCE(ls.games_90d, s.games_90d, 0) AS sort_games_90d, \
-    COALESCE(ls.games_total, s.games_total, 0) AS sort_games_total, \
-    COALESCE(ls.players_90d, s.players_90d, 0) AS sort_players_90d, \
-    COALESCE(ls.trending_score, s.trending_score, 0) AS sort_trending_score, \
-    COALESCE(ls.favorites, f.favorites, 0) AS sort_favorites";
+/// The columns sort keys read for a family shown as its current file: the family's stats, falling
+/// back to the file's own for families of one file (or too new to have stats). Reads
+/// [`FAMILY_JOINS`].
+const FAMILY_SORT_COLUMNS: &str = "COALESCE(fs.games_7d, s.games_7d, 0) AS sort_games_7d, \
+    COALESCE(fs.games_28d, s.games_28d, 0) AS sort_games_28d, \
+    COALESCE(fs.games_90d, s.games_90d, 0) AS sort_games_90d, \
+    COALESCE(fs.games_total, s.games_total, 0) AS sort_games_total, \
+    COALESCE(fs.players_90d, s.players_90d, 0) AS sort_players_90d, \
+    COALESCE(fs.trending_score, s.trending_score, 0) AS sort_trending_score, \
+    COALESCE(f.favorites, 0) AS sort_favorites";
 
-const FOLD_JOINS: &str = " LEFT JOIN map_family_members fam ON fam.map_id = m.id \
-    LEFT JOIN map_line_stats ls ON ls.line_root_id = fam.line_root_id";
+/// The joins of a listing of families, each as its current file `m`: the family `fam` and its
+/// stats `fs`.
+const FAMILY_JOINS: &str = " JOIN map_families fam ON fam.id = m.family_id \
+    AND fam.current_map_id = m.id \
+    LEFT JOIN map_family_stats fs ON fs.family_id = fam.id";
+
+/// When a listed family's most recently published file was published.
+const FAMILY_PUBLISHED_AT: &str = "(SELECT max(lm.published_at) FROM maps lm \
+    WHERE lm.family_id = fam.id AND lm.listed)";
 
 /// Emits the candidate rows: every map in `scope` that passes `filter`, with the columns of
-/// [`DbSbMap`] plus `sort_name`, `rank`, `added_at`, the popularity columns sort keys read
-/// (`sort_*`), and `fold_key`/`is_current` for folding family lines.
+/// [`DbSbMap`] plus `sort_name`, `rank`, `added_at` and the popularity columns sort keys read
+/// (`sort_*`).
 fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
-    let folds = filter.folds(scope);
+    let families = matches!(scope, MapScope::Listed | MapScope::Favorites(_));
     let added_at = match scope {
-        MapScope::Listed => "m.published_at",
+        MapScope::Listed => FAMILY_PUBLISHED_AT,
         MapScope::Library(_) => "l.added_at",
         MapScope::Favorites(_) => "fm.favorited_date",
     };
     qb.push("SELECT ");
     qb.push(DB_SB_MAP_COLUMNS);
     qb.push(", ");
-    qb.push(if folds {
-        LINE_SORT_COLUMNS
+    qb.push(if families {
+        FAMILY_SORT_COLUMNS
     } else {
         MAP_SORT_COLUMNS
     });
@@ -790,9 +772,15 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
     qb.push(format_args!(
         "CASE WHEN isfinite({added_at}) THEN {added_at} END AS added_at, "
     ));
-    match &filter.search {
-        Some(search) => push_search_rank(qb, search),
-        None => {
+    match (&filter.search, scope) {
+        (Some(search), MapScope::Listed) => {
+            // A family matches as well as its best matching listed file.
+            qb.push("(SELECT COALESCE(max(");
+            push_search_rank(qb, "sm", search);
+            qb.push("), 0) FROM maps sm WHERE sm.family_id = fam.id AND sm.listed)");
+        }
+        (Some(search), _) => push_search_rank(qb, "m", search),
+        (None, _) => {
             qb.push("0");
         }
     }
@@ -805,23 +793,27 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             qb.push_bind(user_id.0);
         }
         MapScope::Favorites(user_id) => {
-            qb.push(" JOIN favorited_maps fm ON fm.map_id = m.id AND fm.favorited_by = ");
+            qb.push(" JOIN favorited_maps fm ON fm.family_id = m.family_id AND fm.favorited_by = ");
             qb.push_bind(user_id.0);
         }
     }
     qb.push(DB_SB_MAP_JOINS);
-    if folds {
-        qb.push(FOLD_JOINS);
+    if families {
+        qb.push(FAMILY_JOINS);
     }
 
     qb.push(" WHERE ");
     match scope {
-        // Listings of every map only ever show listed maps; a user's own library and favorites
-        // include the unlisted maps they hold.
-        MapScope::Listed => qb.push("m.listed"),
+        // Listings of every map only ever show listed maps (a listed family's current file is
+        // always listed); a user's own library and favorites include the unlisted maps they hold.
+        MapScope::Listed => qb.push("fam.listed AND m.listed"),
         MapScope::Library(_) | MapScope::Favorites(_) => qb.push("TRUE"),
     };
-    push_filters(qb, filter);
+    let published_at = match scope {
+        MapScope::Listed => FAMILY_PUBLISHED_AT,
+        MapScope::Library(_) | MapScope::Favorites(_) => "m.published_at",
+    };
+    push_filters(qb, filter, published_at);
 }
 
 /// Emits the search rank of `m` for `search`, which is 0 when it doesn't match. Ranks are
@@ -833,7 +825,9 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
 /// - 500: the query without spaces appears in the searchable name without spaces
 /// - 300-400: fuzzy match against the searchable name (queries of 4+ characters)
 /// - 200: every query token appears in the description
-fn push_search_rank(qb: &mut QueryBuilder<Postgres>, search: &SearchQuery) {
+///
+/// `m` is the alias of the map being ranked.
+fn push_search_rank(qb: &mut QueryBuilder<Postgres>, m: &str, search: &SearchQuery) {
     // Substring tests use strpos rather than LIKE, so no character in the query has special
     // meaning.
     fn push_all_tokens_in(qb: &mut QueryBuilder<Postgres>, column: &str, search: &SearchQuery) {
@@ -850,33 +844,38 @@ fn push_search_rank(qb: &mut QueryBuilder<Postgres>, search: &SearchQuery) {
     }
 
     let q = search.normalized().to_string();
-    qb.push("CASE WHEN map_search_normalize(m.name) = ");
+    qb.push(format_args!("CASE WHEN map_search_normalize({m}.name) = "));
     qb.push_bind(q.clone());
-    qb.push(" THEN 1000 WHEN starts_with(m.search_name, ");
+    qb.push(format_args!(
+        " THEN 1000 WHEN starts_with({m}.search_name, "
+    ));
     qb.push_bind(q.clone());
     qb.push(") THEN 800 WHEN ");
-    push_all_tokens_in(qb, "m.search_name", search);
-    qb.push(" THEN 600 + (100 * similarity(m.search_name, ");
+    push_all_tokens_in(qb, &format!("{m}.search_name"), search);
+    qb.push(format_args!(
+        " THEN 600 + (100 * similarity({m}.search_name, "
+    ));
     qb.push_bind(q.clone());
-    qb.push("))::int WHEN strpos(m.search_compact, ");
+    qb.push(format_args!("))::int WHEN strpos({m}.search_compact, "));
     qb.push_bind(search.compact());
     qb.push(") > 0 THEN 500");
     if search.is_fuzzy() {
         qb.push(" WHEN word_similarity(");
         qb.push_bind(q.clone());
-        qb.push(", m.search_name) >= ");
+        qb.push(format_args!(", {m}.search_name) >= "));
         qb.push_bind(FUZZY_THRESHOLD);
         qb.push(" THEN 300 + (100 * word_similarity(");
         qb.push_bind(q);
-        qb.push(", m.search_name))::int");
+        qb.push(format_args!(", {m}.search_name))::int"));
     }
     qb.push(" WHEN ");
-    push_all_tokens_in(qb, "m.search_description", search);
+    push_all_tokens_in(qb, &format!("{m}.search_description"), search);
     qb.push(" THEN 200 ELSE 0 END");
 }
 
-/// Appends ` AND <condition>` for every filter that is set.
-fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
+/// Appends ` AND <condition>` for every filter that is set. `published_at` is the expression
+/// `publishedSince` compares with.
+fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, published_at: &str) {
     match filter.lens {
         MapLens::All => {}
         MapLens::Melee => {
@@ -928,7 +927,7 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
         }
     }
     if let Some(published_since) = filter.published_since {
-        qb.push(" AND m.published_at >= ");
+        qb.push(format_args!(" AND {published_at} >= "));
         qb.push_bind(published_since);
     }
     match filter.official {
@@ -1383,23 +1382,22 @@ mod tests {
                 eud: EudFilter::Exclude,
                 published_since: Some(Utc::now()),
                 official: Some(true),
-                all_versions: false,
             },
         ] {
             let request =
                 MapListingRequest::new(MapScope::Listed, Some(filter), None, None, None).unwrap();
             let sql = request.build_query().sql();
-            assert!(sql.as_str().contains(" WHERE m.listed"), "{}", sql.as_str());
+            assert!(
+                sql.as_str().contains(" WHERE fam.listed AND m.listed"),
+                "{}",
+                sql.as_str()
+            );
         }
 
         let request =
             MapListingRequest::new(MapScope::Library(SbUserId(1)), None, None, None, None).unwrap();
         let sql = request.build_query().sql();
-        assert!(
-            !sql.as_str().contains(" WHERE m.listed"),
-            "{}",
-            sql.as_str()
-        );
+        assert!(sql.as_str().contains(" WHERE TRUE"), "{}", sql.as_str());
         assert!(
             sql.as_str().contains("JOIN map_library l"),
             "{}",
@@ -1415,7 +1413,7 @@ mod tests {
         })
         .unwrap();
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_filters(&mut qb, &filter);
+        push_filters(&mut qb, &filter, "m.published_at");
         assert_eq!(
             qb.sql().as_str(),
             " AND ((TRUE AND greatest(m.width, m.height) <= 64) OR \
@@ -1454,7 +1452,7 @@ mod tests {
             })
             .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
-            push_filters(&mut qb, &filter);
+            push_filters(&mut qb, &filter, "m.published_at");
             assert_eq!(qb.sql().as_str(), expected);
         }
     }
@@ -1498,19 +1496,14 @@ mod tests {
             assert!(count.contains(&candidates), "{count}");
             assert!(count.contains(") c WHERE c.rank > 0"), "{count}");
             assert!(!count.contains("LIMIT"), "{count}");
-            assert_eq!(
-                count.contains("DISTINCT ON (c.fold_key)"),
-                listing.contains("DISTINCT ON (c.fold_key)"),
-                "{count}"
-            );
         }
     }
 
     #[test]
-    fn only_listed_maps_fold_by_line() {
-        let sql = |scope, all_versions| {
+    fn listed_and_favorite_maps_list_families() {
+        let sql = |scope, search: Option<&str>| {
             let filter = MapFilter {
-                all_versions,
+                search: search.map(str::to_string),
                 ..Default::default()
             };
             MapListingRequest::new(scope, Some(filter), None, None, None)
@@ -1520,42 +1513,64 @@ mod tests {
                 .as_str()
                 .to_string()
         };
-        let folded = sql(MapScope::Listed, false);
-        assert!(folded.contains("DISTINCT ON (c.fold_key)"), "{folded}");
-        assert!(folded.contains("LEFT JOIN map_line_stats ls"), "{folded}");
-        for unfolded in [
-            sql(MapScope::Listed, true),
-            sql(MapScope::Library(SbUserId(1)), false),
-            sql(MapScope::Favorites(SbUserId(1)), false),
+        for families in [
+            sql(MapScope::Listed, None),
+            sql(MapScope::Favorites(SbUserId(1)), None),
         ] {
-            assert!(!unfolded.contains("DISTINCT ON"), "{unfolded}");
-            assert!(!unfolded.contains("map_line_stats"), "{unfolded}");
-            assert!(unfolded.contains("m.id AS fold_key"), "{unfolded}");
+            assert!(
+                families.contains("AND fam.current_map_id = m.id"),
+                "{families}"
+            );
+            assert!(
+                families.contains("LEFT JOIN map_family_stats fs"),
+                "{families}"
+            );
         }
+        let library = sql(MapScope::Library(SbUserId(1)), None);
+        assert!(!library.contains("map_families"), "{library}");
+        assert!(!library.contains("map_family_stats"), "{library}");
+
+        // A search ranks a listed family by its best matching listed file
+        let searched = sql(MapScope::Listed, Some("fighting spirit"));
+        assert!(
+            searched.contains("FROM maps sm WHERE sm.family_id = fam.id AND sm.listed"),
+            "{searched}"
+        );
+        let searched = sql(MapScope::Favorites(SbUserId(1)), Some("fighting spirit"));
+        assert!(!searched.contains("FROM maps sm"), "{searched}");
     }
 
     #[test]
-    fn all_versions_changes_the_listing_hash() {
-        let folded = NormalizedFilter::new(MapFilter::default()).unwrap();
-        let all = NormalizedFilter::new(MapFilter {
-            all_versions: true,
+    fn published_since_reads_the_family_in_the_listed_scope() {
+        let filter = MapFilter {
+            published_since: Some(Utc::now()),
             ..Default::default()
-        })
-        .unwrap();
-        assert_ne!(
-            folded.listing_hash(MapScope::Listed),
-            all.listing_hash(MapScope::Listed)
+        };
+        let sql = |scope| {
+            MapListingRequest::new(scope, Some(filter.clone()), None, None, None)
+                .unwrap()
+                .build_query()
+                .sql()
+                .as_str()
+                .to_string()
+        };
+        let listed = sql(MapScope::Listed);
+        assert!(
+            listed.contains(&format!(" AND {FAMILY_PUBLISHED_AT} >= ")),
+            "{listed}"
         );
+        let library = sql(MapScope::Library(SbUserId(1)));
+        assert!(library.contains(" AND m.published_at >= "), "{library}");
     }
 
     #[test]
     fn fuzzy_matching_only_for_longer_queries() {
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_search_rank(&mut qb, &SearchQuery::new("polypod").unwrap());
+        push_search_rank(&mut qb, "m", &SearchQuery::new("polypod").unwrap());
         assert!(qb.sql().as_str().contains("word_similarity"));
 
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_search_rank(&mut qb, &SearchQuery::new("투혼").unwrap());
+        push_search_rank(&mut qb, "m", &SearchQuery::new("투혼").unwrap());
         assert!(!qb.sql().as_str().contains("word_similarity"));
     }
 }

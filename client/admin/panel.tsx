@@ -30,9 +30,6 @@ const LoadableMapManager = IS_ELECTRON
       default: (await import('./map-manager')).AdminMapManager,
     }))
   : () => null
-const LoadableMapFamilies = React.lazy(async () => ({
-  default: (await import('../maps/admin-map-families')).AdminMapFamilies,
-}))
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
@@ -342,14 +339,6 @@ export default function AdminPanel() {
           title: 'Maps',
           description: 'Upload and remove maps',
           icon: 'landscape',
-        },
-        {
-          path: '/admin/map-families',
-          allowed: !!(perms?.manageMaps || perms?.reviewMapFamilies),
-          Component: LoadableMapFamilies,
-          title: 'Map families',
-          description: 'Link map versions and review related-map reports',
-          icon: 'account_tree',
         },
       ],
     },

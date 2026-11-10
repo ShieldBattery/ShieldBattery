@@ -98,9 +98,6 @@ const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
 const ImageViewerDialog = React.lazy(async () => ({
   default: (await import('../markdown/image-viewer-dialog')).ImageViewerDialog,
 }))
-const MapFamilyLinkDialog = React.lazy(async () => ({
-  default: (await import('../maps/map-family-link-dialog')).MapFamilyLinkDialog,
-}))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
 }))
@@ -288,8 +285,6 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.ImageViewer:
       return { component: ImageViewerDialog }
-    case DialogType.MapFamilyLink:
-      return { component: MapFamilyLinkDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
     case DialogType.MapPreview:

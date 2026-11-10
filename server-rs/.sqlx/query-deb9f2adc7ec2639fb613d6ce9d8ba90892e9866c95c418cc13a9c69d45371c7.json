@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT r.family_id as \"family_id!\", r.file_id as \"file_id: SbMapId\"\n            FROM (\n                SELECT f.id AS family_id, NULL::uuid AS file_id, 1 AS priority\n                FROM map_families f\n                WHERE f.id = $1\n                UNION ALL\n                SELECT a.family_id, NULL::uuid, 2\n                FROM map_family_aliases a\n                WHERE a.old_id = $1\n                UNION ALL\n                SELECT m.family_id, m.id, 3\n                FROM maps m\n                WHERE m.id = $1\n                UNION ALL\n                SELECT m.family_id, m.id, 4\n                FROM map_id_aliases a\n                INNER JOIN maps m ON m.id = a.map_id\n                WHERE a.old_id = $1\n            ) r\n            ORDER BY r.priority\n            LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "file_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "deb9f2adc7ec2639fb613d6ce9d8ba90892e9866c95c418cc13a9c69d45371c7"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        INSERT INTO map_families (id, current_map_id, listed)\n                        VALUES ($1, $2, false)\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f5d87a484a4956ea25b8c22424d34b33e050ba786e5806eeed5adcb3132095b9"
+}
