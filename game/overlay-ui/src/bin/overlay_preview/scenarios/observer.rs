@@ -123,6 +123,11 @@ const ZERG_EGG: u16 = 0x24;
 /// A mineral field, for the selection that is a resource.
 const MINERAL_FIELD: u16 = 0xb0;
 
+/// A carrier and the interceptors it builds in its hangar, for the selection that is a unit making
+/// something inside itself.
+const PROTOSS_CARRIER: u16 = 0x48;
+const PROTOSS_INTERCEPTOR: u16 = 0x49;
+
 /// What two high templar merge into, for the selection that is a unit still forming.
 const PROTOSS_ARCHON: u16 = 0x44;
 
@@ -148,6 +153,8 @@ fn unit_name(id: u16) -> Option<String> {
         PROTOSS_TRANSPORT => "Protoss Shuttle",
         PROTOSS_ARCHON => "Protoss Archon",
         71 => "Protoss Arbiter",
+        PROTOSS_CARRIER => "Protoss Carrier",
+        PROTOSS_INTERCEPTOR => "Protoss Interceptor",
         0x6a => "Terran Command Center",
         0x71 => "Terran Barracks",
         0x83 => "Zerg Hatchery",
@@ -274,6 +281,10 @@ pub struct Knobs {
     /// reading that has the unit's progress as its own under a label saying it is being summoned.
     /// Takes the selection over from the count.
     pub selection_summoning: bool,
+    /// Whether what is selected is a carrier building interceptors in its hangar, which is the
+    /// reading of a unit with a queue that still has its kills and upgrades to read out. Takes the
+    /// selection over from the count.
+    pub selection_fighters: bool,
     /// Whether what is selected is a building with guns of its own and nothing on the way, which
     /// is the reading of a building with upgrades to read out. Takes the selection over from the
     /// count.
@@ -328,6 +339,7 @@ impl Default for Knobs {
             selection_constructing: false,
             selection_morphing: false,
             selection_summoning: false,
+            selection_fighters: false,
             selection_defense: false,
             selection_resource: false,
             selection_status: false,
@@ -971,6 +983,11 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
             units: vec![summoning_archon(knobs, owner, t)],
         };
     }
+    if knobs.selection_fighters {
+        return SelectionView {
+            units: vec![carrier_building_interceptors(knobs, owner, t)],
+        };
+    }
     if knobs.selection_defense {
         return SelectionView {
             units: vec![defense_building(knobs, owner, t)],
@@ -1324,6 +1341,65 @@ fn summoning_archon(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     bonus: 3 * u32::from(weapons.1),
                     hits: 1,
                 }]),
+            ),
+        ],
+    }
+}
+
+/// A carrier of the first player's building an interceptor in its hangar with two more queued
+/// behind it, dealt what the game DLL deals a carrier: armor, shields, its interceptors' count with
+/// their damage, and Carrier Capacity researched.
+fn carrier_building_interceptors(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let upgrade = |(frame, level, name): Upgrade, effect| UnitUpgradeView {
+        icon: unit_icon(frame),
+        level,
+        name: Some(name.to_string()),
+        effect,
+    };
+    SelectedUnitView {
+        icon: unit_icon(PROTOSS_CARRIER),
+        name: unit_name(PROTOSS_CARRIER),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: Some((300 - wave(0.0, t, 0.05, 120.0), 300)),
+        shields: Some((wave(1.0, t, 0.04, 150.0), 150)),
+        energy: None,
+        kills: 7 + (t / 31.0) as u32,
+        status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
+        building: false,
+        resources: None,
+        stacked: None,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(PROTOSS_INTERCEPTOR),
+            name: unit_name(PROTOSS_INTERCEPTOR),
+            progress: fraction(t * 0.09),
+            queue: Some(vec![
+                unit_icon(PROTOSS_INTERCEPTOR),
+                unit_icon(PROTOSS_INTERCEPTOR),
+            ]),
+            subject: None,
+        }),
+        cargo: Vec::new(),
+        research: vec![UnitResearchView {
+            icon: unit_icon(0x10e),
+            name: Some("Carrier Capacity".to_string()),
+        }],
+        upgrades: vec![
+            upgrade(
+                (0x11f, 1, "Protoss Air Armor"),
+                UpgradeEffect::Armor { base: 4, bonus: 1 },
+            ),
+            upgrade(PLASMA_SHIELDS, UpgradeEffect::Shields),
+            upgrade(
+                (PROTOSS_INTERCEPTOR, 5, "Protoss Interceptor"),
+                UpgradeEffect::Count {
+                    damage: 6,
+                    bonus: 1,
+                },
             ),
         ],
     }
@@ -1697,6 +1773,8 @@ pub enum Showcase {
     Morphing,
     /// An archon its templar are still merging into.
     Summoning,
+    /// A carrier building interceptors in its hangar.
+    Fighters,
     /// A building with guns of its own, with nothing on the way.
     Defense,
     /// A mineral field with others stacked on it.
@@ -1866,7 +1944,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 39] = [
+    pub const ALL: [Preset; 40] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1904,6 +1982,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Constructing),
         Preset::selection_showcase(Showcase::Morphing),
         Preset::selection_showcase(Showcase::Summoning),
+        Preset::selection_showcase(Showcase::Fighters),
         Preset::selection_showcase(Showcase::Defense),
         Preset::selection_showcase(Showcase::Resource),
         Preset::selection_showcase(Showcase::Status),
@@ -1927,6 +2006,7 @@ impl Preset {
             Showcase::Constructing => return "1v1-selection-constructing".to_string(),
             Showcase::Morphing => return "1v1-selection-morphing".to_string(),
             Showcase::Summoning => return "1v1-selection-summoning".to_string(),
+            Showcase::Fighters => return "1v1-selection-fighters".to_string(),
             Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::Resource => return "1v1-selection-resource".to_string(),
             Showcase::Status => return "1v1-selection-status".to_string(),
@@ -1984,6 +2064,7 @@ impl Preset {
             selection_constructing: self.showcase == Showcase::Constructing,
             selection_morphing: self.showcase == Showcase::Morphing,
             selection_summoning: self.showcase == Showcase::Summoning,
+            selection_fighters: self.showcase == Showcase::Fighters,
             selection_defense: self.showcase == Showcase::Defense,
             selection_resource: self.showcase == Showcase::Resource,
             selection_status: self.showcase == Showcase::Status,
@@ -2004,7 +2085,10 @@ impl Preset {
         };
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
         // them has, so the readings of a building are watched from a Protoss player's side.
-        if matches!(self.showcase, Showcase::Constructing | Showcase::Defense) {
+        if matches!(
+            self.showcase,
+            Showcase::Constructing | Showcase::Defense | Showcase::Fighters
+        ) {
             knobs.observer.races[0] = RaceView::Protoss;
         }
     }
@@ -2110,6 +2194,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects an archon its templar are still merging into, which reads its progress as its \
              own under a summoning label.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_fighters, "selection is building fighters")
+        .on_hover_text(
+            "Selects a carrier building interceptors in its hangar, which reads out its queue \
+             along with its kills and upgrades.",
         )
         .changed();
     changed |= ui
