@@ -23,6 +23,18 @@ export interface RsModeRating {
    * map). `null` for veto/fixed modes, which don't constrain matching on maps.
    */
   mapSelections: SbMapId[] | null
+  /**
+   * Opponents from the player's recent games in this mode. The matchmaker uses these to discourage
+   * pairing the same players again right away.
+   */
+  recentOpponents: RsRecentOpponent[]
+}
+
+/** An opponent from one of a player's recent games, as sent to Rust when queuing. */
+export interface RsRecentOpponent {
+  userId: SbUserId
+  /** How many seconds before the player queued that game started. */
+  secondsAgo: number
 }
 
 /** Sent to Rust when adding a player to the queue. */

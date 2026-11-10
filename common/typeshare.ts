@@ -60,6 +60,8 @@ export interface MatchFoundMessage {
    * backbone RTT (raw latency input to `quality`).
    */
   maxLatency: number
+  /** Seconds subtracted from `quality` because opposing players played each other recently. */
+  rematchPenalty: number
 }
 
 export interface SbPermissions {

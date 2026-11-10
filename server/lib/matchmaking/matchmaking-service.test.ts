@@ -59,6 +59,12 @@ vi.mock('../maps/map-models', async () => ({
   getMapInfos: vi.fn(),
 }))
 
+vi.mock('../games/game-models', async () => ({
+  ...(await vi.importActual<any>('../games/game-models')),
+  getRecentMatchmakingOpponents: vi.fn().mockResolvedValue([]),
+}))
+
+import { getRecentMatchmakingOpponents } from '../games/game-models'
 import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
@@ -365,6 +371,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -481,6 +488,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -514,6 +522,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -551,6 +560,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1600,
         maxLatency: 1,
+        rematchPenalty: 42.5,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -580,6 +590,7 @@ describe('matchmaking/matchmaking-service', () => {
       teamAPlayerRatings: [1500],
       teamBPlayerRatings: [1500],
       maxLatency: 1,
+      rematchPenalty: 42.5,
     })
   })
 
@@ -606,6 +617,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1600,
         maxLatency: 1,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -659,6 +671,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -679,6 +692,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -723,6 +737,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1600,
         maxLatency: 1,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -771,6 +786,7 @@ describe('matchmaking/matchmaking-service', () => {
           teamARating: 1500,
           teamBRating: 1600,
           maxLatency: 1,
+          rematchPenalty: 0,
         },
       })
       await vi.advanceTimersByTimeAsync(0)
@@ -867,6 +883,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1600,
         maxLatency: 1,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -895,6 +912,7 @@ describe('matchmaking/matchmaking-service', () => {
       teamAPlayerRatings: [1500],
       teamBPlayerRatings: [1500],
       maxLatency: 1,
+      rematchPenalty: 0,
     })
   })
 
@@ -960,6 +978,7 @@ describe('matchmaking/matchmaking-service', () => {
           teamARating: 1500,
           teamBRating: 1600,
           maxLatency: 1,
+          rematchPenalty: 0,
         },
       })
       await vi.advanceTimersByTimeAsync(0)
@@ -1011,6 +1030,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -1059,6 +1079,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -1072,6 +1093,49 @@ describe('matchmaking/matchmaking-service', () => {
     // lead to an accept-timeout ban for a player who did nothing wrong).
     await expect(service.accept(USER_B)).resolves.toBeUndefined()
     await expect(service.accept(USER_A)).resolves.toBeUndefined()
+  })
+
+  test('sends each queued mode its recent opponents with their game ages', async () => {
+    const opponentC = makeSbUserId(3)
+    asMockedFunction(getRecentMatchmakingOpponents).mockResolvedValueOnce([
+      {
+        matchmakingType: MatchmakingType.Match1v1,
+        opponentId: USER_B,
+        gameStartTime: new Date(1_000_000 - 90_000),
+      },
+      {
+        matchmakingType: MatchmakingType.Match1v1Fastest,
+        opponentId: opponentC,
+        gameStartTime: new Date(1_000_000 - 600_000),
+      },
+    ])
+
+    await queueMultiPlayer(USER_A, CLIENT_A, [
+      MatchmakingType.Match1v1,
+      MatchmakingType.Match1v1Fastest,
+    ])
+
+    expect(getRecentMatchmakingOpponents).toHaveBeenCalledWith(
+      USER_A,
+      [MatchmakingType.Match1v1, MatchmakingType.Match1v1Fastest],
+      new Date(1_000_000 - 6 * 60 * 60 * 1000),
+    )
+    const request = matchmakerClient.queue.mock.calls[0][0]
+    const byMode = new Map(request.modeRatings.map(r => [r.mode, r.recentOpponents]))
+    expect(byMode.get(MatchmakingType.Match1v1)).toEqual([{ userId: USER_B, secondsAgo: 90 }])
+    expect(byMode.get(MatchmakingType.Match1v1Fastest)).toEqual([
+      { userId: opponentC, secondsAgo: 600 },
+    ])
+  })
+
+  test('queues without recent opponents when looking them up fails', async () => {
+    asMockedFunction(getRecentMatchmakingOpponents).mockRejectedValueOnce(new Error('db down'))
+
+    await queuePlayer(USER_A, CLIENT_A)
+
+    expect(matchmakerClient.queue).toHaveBeenCalledTimes(1)
+    const request = matchmakerClient.queue.mock.calls[0][0]
+    expect(request.modeRatings[0].recentOpponents).toEqual([])
   })
 
   test('queues a multiqueue player with per-mode ratings and a request per mode', async () => {
@@ -1172,6 +1236,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -1241,6 +1306,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -1268,6 +1334,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -1316,6 +1383,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -1362,6 +1430,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -1409,6 +1478,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()
@@ -1457,6 +1527,7 @@ describe('matchmaking/matchmaking-service', () => {
         teamARating: 1500,
         teamBRating: 1500,
         maxLatency: 0,
+        rematchPenalty: 0,
       },
     })
     await drainMatchmakingTasks()

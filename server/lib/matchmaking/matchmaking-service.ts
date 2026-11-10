@@ -50,6 +50,7 @@ import {
   GameLoadPlayer,
   isGameLoaderError,
 } from '../games/game-loader'
+import { getRecentMatchmakingOpponents } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
@@ -58,6 +59,7 @@ import {
   RsMatchmakerError,
   RsMatchmakerErrorCode,
   RsQueueRequest,
+  RsRecentOpponent,
 } from '../matchmaking/matchmaker-rs-client'
 import {
   MatchmakingPlayer,
@@ -169,6 +171,7 @@ interface MatchFormationTelemetry {
   teamAPlayerRatings: number[]
   teamBPlayerRatings: number[]
   maxLatency: number
+  rematchPenalty: number
 }
 
 class Match {
@@ -507,6 +510,12 @@ const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
  */
 const MAX_TOKEN_FETCH_FAILURES = 2
 
+/**
+ * How far back to look for a player's recent opponents when queuing, for the matchmaker's rematch
+ * penalty. At the default 30-minute half-life an older game would count for almost nothing.
+ */
+const RECENT_OPPONENT_LOOKBACK_MS = 6 * 60 * 60 * 1000
+
 @singleton()
 export class MatchmakingService {
   /** Full player data for players currently in the Rust queue. Keyed by userId. */
@@ -706,6 +715,10 @@ export class MatchmakingService {
       season,
       identifiers,
     )
+    const recentOpponents = await this.retrieveRecentOpponents(
+      userId,
+      allPreferences.map(pref => pref.matchmakingType),
+    )
 
     const typeDataEntries = allPreferences.map(pref => {
       const { matchmakingType: type, race, mapSelections, data: preferenceData } = pref
@@ -732,6 +745,7 @@ export class MatchmakingService {
           getMatchmakingModeInfo(d.type).mapSelectionStyle === 'pick'
             ? d.playerData.mapSelections.slice()
             : null,
+        recentOpponents: recentOpponents.get(d.type) ?? [],
       })),
       // The matchmaker estimates a candidate match's latency from each player's chosen region and
       // measured rtt to it, plus a static region-to-region backbone table (see `match_latency` in
@@ -799,6 +813,40 @@ export class MatchmakingService {
     for (const d of typeDataEntries) {
       this.matchesRequestedMetric.labels(d.type, '1').inc()
     }
+  }
+
+  /**
+   * Looks up the opponents from a player's recent games in each of `types`, for the matchmaker's
+   * rematch penalty. A failed lookup queues the player without that history rather than failing
+   * their search.
+   */
+  private async retrieveRecentOpponents(
+    userId: SbUserId,
+    types: ReadonlyArray<MatchmakingType>,
+  ): Promise<Map<MatchmakingType, RsRecentOpponent[]>> {
+    const now = this.clock.now()
+    const byType = new Map<MatchmakingType, RsRecentOpponent[]>()
+    try {
+      const opponents = await getRecentMatchmakingOpponents(
+        userId,
+        types,
+        new Date(now - RECENT_OPPONENT_LOOKBACK_MS),
+      )
+      for (const { matchmakingType, opponentId, gameStartTime } of opponents) {
+        let list = byType.get(matchmakingType)
+        if (!list) {
+          list = []
+          byType.set(matchmakingType, list)
+        }
+        list.push({
+          userId: opponentId,
+          secondsAgo: Math.max(0, (now - gameStartTime.getTime()) / 1000),
+        })
+      }
+    } catch (err) {
+      logger.error({ err, userId }, 'error looking up recent matchmaking opponents')
+    }
+    return byType
   }
 
   /**
@@ -1835,6 +1883,7 @@ export class MatchmakingService {
         teamAPlayerRatings: teamA.map(p => p.rating),
         teamBPlayerRatings: teamB.map(p => p.rating),
         maxLatency: event.maxLatency,
+        rematchPenalty: event.rematchPenalty,
       },
       this.publisher,
     )

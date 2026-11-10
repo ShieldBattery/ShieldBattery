@@ -56,6 +56,21 @@ pub struct ModeConfig {
     pub adaptive_decay_per_missing: f32,
     /// Half-life of the smoothed population estimate's EWMA.
     pub population_half_life: Duration,
+    /// Seconds of wait traded to avoid replaying an opponent from a game that just started. Each
+    /// earlier game between two opposing players adds this much, decayed by `rematch_half_life`.
+    /// 0 turns rematch avoidance off.
+    pub weight_rematch: f32,
+    /// How quickly an earlier game stops counting toward the rematch penalty.
+    pub rematch_half_life: Duration,
+    /// Rating distance within which another active player counts as nearby when judging how many
+    /// alternatives a player has (see [`ModeConfig::rematch_density_reference`]).
+    pub rematch_density_radius: f32,
+    /// Fraction of the median active player's nearby count that still gets the full rematch
+    /// penalty. Players with fewer nearby players get a proportionally smaller penalty, since
+    /// waiting rarely finds them someone new.
+    pub rematch_density_reference: f32,
+    /// Smallest fraction of the rematch penalty a player in a sparse rating range still gets.
+    pub rematch_density_floor: f32,
 }
 
 impl Default for ModeConfig {
@@ -71,6 +86,11 @@ impl Default for ModeConfig {
             adaptive_comfortable_multiplier: 2,
             adaptive_decay_per_missing: 15.0,
             population_half_life: Duration::from_secs(20 * 60),
+            weight_rematch: 0.0,
+            rematch_half_life: Duration::from_secs(30 * 60),
+            rematch_density_radius: 150.0,
+            rematch_density_reference: 0.6,
+            rematch_density_floor: 0.5,
         }
     }
 }
@@ -83,6 +103,10 @@ pub fn builtin_mode_overrides(mode: MatchmakingType) -> ModeConfigOverrides {
             // Each latency step raises failed starts and sub-5-minute games about twice as much in
             // 1v1 as in team modes.
             weight_latency: Some(60.0),
+            // Both 1v1 players finish a game together and requeue while everyone else is mid-game,
+            // so without a cost they are usually each other's best match again. Two minutes is
+            // often long enough for a comparable new opponent to join outside the top ratings.
+            weight_rematch: Some(120.0),
             ..Default::default()
         }
     } else {
@@ -239,6 +263,11 @@ pub struct ModeConfigOverrides {
     pub adaptive_comfortable_multiplier: Option<i32>,
     pub adaptive_decay_per_missing: Option<f32>,
     pub population_half_life_seconds: Option<f64>,
+    pub weight_rematch: Option<f32>,
+    pub rematch_half_life_seconds: Option<f64>,
+    pub rematch_density_radius: Option<f32>,
+    pub rematch_density_reference: Option<f32>,
+    pub rematch_density_floor: Option<f32>,
 }
 
 impl ModeConfigOverrides {
@@ -273,6 +302,27 @@ impl ModeConfigOverrides {
                 24 * 60 * 60,
             )
             .unwrap_or(base.population_half_life),
+            weight_rematch: clamp_f32(self.weight_rematch, base.weight_rematch, 0.0, 600.0),
+            rematch_half_life: clamp_duration(self.rematch_half_life_seconds, 60, 24 * 60 * 60)
+                .unwrap_or(base.rematch_half_life),
+            rematch_density_radius: clamp_f32(
+                self.rematch_density_radius,
+                base.rematch_density_radius,
+                25.0,
+                1000.0,
+            ),
+            rematch_density_reference: clamp_f32(
+                self.rematch_density_reference,
+                base.rematch_density_reference,
+                0.05,
+                2.0,
+            ),
+            rematch_density_floor: clamp_f32(
+                self.rematch_density_floor,
+                base.rematch_density_floor,
+                0.0,
+                1.0,
+            ),
         }
     }
 }
@@ -515,6 +565,52 @@ mod tests {
     fn max_players_examined_can_fill_every_match_size() {
         let cfg = parse(r#"{"maxPlayersExamined": 2}"#);
         assert_eq!(cfg.max_players_examined, MIN_PLAYERS_EXAMINED as usize);
+    }
+
+    #[test]
+    fn rematch_penalty_is_on_for_1v1_only_by_default() {
+        let cfg = parse("{}");
+        for mode in MatchmakingType::iter() {
+            let expected = if mode.team_size() == 1 { 120.0 } else { 0.0 };
+            assert_eq!(cfg.for_mode(mode).weight_rematch, expected, "{mode:?}");
+            assert_eq!(
+                cfg.for_mode(mode).rematch_half_life,
+                Duration::from_secs(30 * 60)
+            );
+        }
+    }
+
+    #[test]
+    fn rematch_settings_parse_and_clamp() {
+        let cfg = parse(
+            r#"{
+                "global": {"rematchDensityFloor": 0.25, "rematchHalfLifeSeconds": 900},
+                "perMode": {"2v2": {"weightRematch": 45, "rematchDensityRadius": 200}}
+            }"#,
+        );
+        let one = cfg.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(one.weight_rematch, 120.0);
+        assert_eq!(one.rematch_density_floor, 0.25);
+        assert_eq!(one.rematch_half_life, Duration::from_secs(900));
+        let two = cfg.for_mode(MatchmakingType::Match2v2);
+        assert_eq!(two.weight_rematch, 45.0);
+        assert_eq!(two.rematch_density_radius, 200.0);
+
+        let clamped = parse(
+            r#"{"global": {
+                "weightRematch": 9000,
+                "rematchHalfLifeSeconds": 1,
+                "rematchDensityRadius": 1,
+                "rematchDensityReference": 0,
+                "rematchDensityFloor": 3
+            }}"#,
+        );
+        let m = clamped.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(m.weight_rematch, 600.0);
+        assert_eq!(m.rematch_half_life, Duration::from_secs(60));
+        assert_eq!(m.rematch_density_radius, 25.0);
+        assert_eq!(m.rematch_density_reference, 0.05);
+        assert_eq!(m.rematch_density_floor, 1.0);
     }
 
     #[test]

@@ -49,6 +49,8 @@ pub struct MatchFoundMessage {
     /// player's measured RTT to their desired game server region plus the region-to-region
     /// backbone RTT (raw latency input to `quality`).
     pub max_latency: f32,
+    /// Seconds subtracted from `quality` because opposing players played each other recently.
+    pub rematch_penalty: f32,
 }
 
 /// Messages published to the Redis `"matchmaking"` channel.

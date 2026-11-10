@@ -828,6 +828,8 @@ export type MatchmakingMatchFormation = {
    * latency input to quality).
    */
   maxLatency: number
+  /** Seconds subtracted from quality because opposing players played each other recently. */
+  rematchPenalty: number
 } & (
   | { gameId: string; failPhase?: never }
   | { gameId?: never; failPhase: MatchmakingMatchFailPhase }
@@ -847,13 +849,13 @@ export async function insertMatchmakingMatchFormation(
     await client.query(sql`
       INSERT INTO matchmaking_match_formations
         (game_id, fail_phase, matchmaking_type, quality, skill_variance, rating_variance_multiplier,
-          win_probability, team_a_rating, team_b_rating, max_latency, team_a_user_ids, team_b_user_ids,
-          team_a_player_ratings, team_b_player_ratings)
+          win_probability, team_a_rating, team_b_rating, max_latency, rematch_penalty,
+          team_a_user_ids, team_b_user_ids, team_a_player_ratings, team_b_player_ratings)
       VALUES
         (${formation.gameId ?? null}, ${formation.failPhase ?? null}, ${formation.matchmakingType},
           ${formation.quality}, ${formation.skillVariance}, ${formation.ratingVarianceMultiplier},
           ${formation.winProbability}, ${formation.teamARating}, ${formation.teamBRating},
-          ${formation.maxLatency},
+          ${formation.maxLatency}, ${formation.rematchPenalty},
           ${formation.teamAUserIds}, ${formation.teamBUserIds}, ${formation.teamAPlayerRatings},
           ${formation.teamBPlayerRatings})
     `)

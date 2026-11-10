@@ -537,6 +537,11 @@ type MatchmakerConfigDefaults {
 	adaptiveComfortableMultiplier: Int!
 	adaptiveDecayPerMissing: Float!
 	populationHalfLifeSeconds: Float!
+	weightRematch: Float!
+	rematchHalfLifeSeconds: Float!
+	rematchDensityRadius: Float!
+	rematchDensityReference: Float!
+	rematchDensityFloor: Float!
 }
 
 input MatchmakerConfigInput {
@@ -579,6 +584,11 @@ type MatchmakerModeConfigOverrides {
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
 	populationHalfLifeSeconds: Float
+	weightRematch: Float
+	rematchHalfLifeSeconds: Float
+	rematchDensityRadius: Float
+	rematchDensityReference: Float
+	rematchDensityFloor: Float
 }
 
 """
@@ -597,6 +607,11 @@ input MatchmakerModeConfigOverridesInput {
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
 	populationHalfLifeSeconds: Float
+	weightRematch: Float
+	rematchHalfLifeSeconds: Float
+	rematchDensityRadius: Float
+	rematchDensityReference: Float
+	rematchDensityFloor: Float
 }
 
 """

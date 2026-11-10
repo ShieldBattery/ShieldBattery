@@ -1,7 +1,7 @@
 use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt, parse_served_backbone_rtts};
 use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
-    Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
+    Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector, RecentOpponent,
 };
 use crate::matchmaking::rating_distribution::RatingDistribution;
 use crate::matchmaking::{
@@ -48,7 +48,7 @@ const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_mins(5);
 const BACKBONE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How often [run_rating_distribution_refresh_loop] reloads the active-player rating snapshot. The
-/// query reads only the current season's 2v2 rows, so a short interval is cheap.
+/// query reads only the current season's rows, so a short interval is cheap.
 const RATING_DISTRIBUTION_REFRESH_INTERVAL: Duration = Duration::from_mins(5);
 
 #[derive(Serialize)]
@@ -89,6 +89,17 @@ struct PlayerModeRatingDto {
     /// to require that matched players share at least one map. `None`/absent for veto/fixed modes.
     #[serde(default)]
     map_selections: Option<Vec<String>>,
+    /// Opponents from the player's recent games in this mode, used to discourage rematches.
+    #[serde(default)]
+    recent_opponents: Vec<RecentOpponentDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentOpponentDto {
+    user_id: usize,
+    /// How long before the player queued that game started.
+    seconds_ago: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -164,16 +175,36 @@ fn lock_matchmaker(
 }
 
 /// Builds a [`Player`] from the per-mode DTOs received over the wire (or restored from a ticket),
-/// splitting them into the rating map and the positive-map-selection map.
+/// splitting them into the rating, positive-map-selection and recent-opponent maps. Recent games are
+/// placed relative to `queued_at`, the time the player entered the queue.
 fn build_player(
     id: usize,
     mode_ratings: Vec<PlayerModeRatingDto>,
     region: Option<String>,
     rtt_ms: Option<f32>,
+    queued_at: Instant,
 ) -> Player {
     let mut ratings = HashMap::new();
     let mut map_selections = HashMap::new();
+    let mut recent_opponents = HashMap::new();
     for r in mode_ratings {
+        let opponents = r
+            .recent_opponents
+            .iter()
+            .filter(|o| o.seconds_ago.is_finite() && o.seconds_ago >= 0.0)
+            // A game too old to place on this clock is too old to matter.
+            .filter_map(|o| {
+                queued_at
+                    .checked_sub(Duration::from_secs_f64(o.seconds_ago))
+                    .map(|played_at| RecentOpponent {
+                        id: o.user_id,
+                        played_at,
+                    })
+            })
+            .collect::<Vec<_>>();
+        if !opponents.is_empty() {
+            recent_opponents.insert(r.mode, opponents);
+        }
         ratings.insert(
             r.mode,
             PlayerModeRating {
@@ -191,6 +222,7 @@ fn build_player(
         map_selections,
         region,
         rtt_ms,
+        recent_opponents,
     }
 }
 
@@ -206,6 +238,20 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
                 rating: r.rating,
                 uncertainty: r.uncertainty,
                 map_selections: entry.player.map_selections.get(&mode).cloned(),
+                recent_opponents: entry
+                    .player
+                    .recent_opponents
+                    .get(&mode)
+                    .into_iter()
+                    .flatten()
+                    .map(|o| RecentOpponentDto {
+                        user_id: o.id,
+                        seconds_ago: entry
+                            .queue_time
+                            .saturating_duration_since(o.played_at)
+                            .as_secs_f64(),
+                    })
+                    .collect(),
             })
             .collect(),
         region: entry.player.region.clone(),
@@ -313,6 +359,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 team_a_rating: m.team_a_rating,
                 team_b_rating: m.team_b_rating,
                 max_latency: m.max_latency,
+                rematch_penalty: m.rematch_penalty,
             });
 
             publish_match_or_exit(&redis_pool, event).await;
@@ -563,6 +610,7 @@ async fn insert_player(
         payload.mode_ratings,
         payload.region,
         payload.rtt_ms,
+        Instant::now(),
     );
     {
         let mut matchmaker = lock_matchmaker(&state.matchmaker);
@@ -620,7 +668,13 @@ async fn requeue_player(
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
-        build_player(ticket.id, ticket.mode_ratings, ticket.region, ticket.rtt_ms),
+        build_player(
+            ticket.id,
+            ticket.mode_ratings,
+            ticket.region,
+            ticket.rtt_ms,
+            queue_time,
+        ),
         queue_time,
     ) {
         Ok(_) => {
@@ -655,13 +709,82 @@ async fn cancel(
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_backbone_fetch_result, apply_rating_distribution_result, fetch_served_backbone_rtts,
+        PlayerModeRatingDto, QueueTicket, RecentOpponentDto, apply_backbone_fetch_result,
+        apply_rating_distribution_result, build_player, build_ticket, fetch_served_backbone_rtts,
     };
     use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
+    use crate::matchmaking::matchmaker::QueueEntry;
     use crate::matchmaking::{MatchmakingType, rating_distribution::RatingDistribution};
     use arc_swap::ArcSwap;
+    use base64::Engine as _;
+    use base64::prelude::BASE64_STANDARD;
     use color_eyre::eyre::eyre;
     use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use uuid::Uuid;
+
+    #[test]
+    fn recent_opponents_survive_a_requeue_ticket() {
+        let start = Instant::now();
+        let queued_at = start + Duration::from_secs(100);
+        let mode = MatchmakingType::Match1v1;
+        let player = build_player(
+            7,
+            vec![PlayerModeRatingDto {
+                mode,
+                rating: 1500.0,
+                uncertainty: None,
+                map_selections: None,
+                recent_opponents: vec![
+                    RecentOpponentDto {
+                        user_id: 3,
+                        seconds_ago: 40.0,
+                    },
+                    RecentOpponentDto {
+                        user_id: 4,
+                        seconds_ago: f64::NAN,
+                    },
+                ],
+            }],
+            None,
+            None,
+            queued_at,
+        );
+        let opponents = &player.recent_opponents[&mode];
+        assert_eq!(opponents.len(), 1, "invalid ages are dropped");
+        assert_eq!(opponents[0].id, 3);
+        assert_eq!(opponents[0].played_at, start + Duration::from_secs(60));
+
+        let entry = QueueEntry {
+            queue_time: queued_at,
+            modes: mode.into(),
+            player,
+        };
+        let ticket: QueueTicket = serde_json::from_slice(
+            &BASE64_STANDARD
+                .decode(build_ticket(&entry, &Uuid::nil(), start))
+                .unwrap(),
+        )
+        .unwrap();
+        let restored = &ticket.mode_ratings[0].recent_opponents;
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0].user_id, 3);
+        assert_eq!(restored[0].seconds_ago, 40.0);
+    }
+
+    #[test]
+    fn tickets_without_recent_opponents_still_parse() {
+        let ticket: QueueTicket = serde_json::from_str(
+            r#"{
+                "id": 1,
+                "modeRatings": [{"mode": "1v1", "rating": 1500, "uncertainty": null}],
+                "queueTime": 0,
+                "processToken": "00000000-0000-0000-0000-000000000000"
+            }"#,
+        )
+        .unwrap();
+        assert!(ticket.mode_ratings[0].recent_opponents.is_empty());
+    }
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
