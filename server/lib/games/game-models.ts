@@ -705,8 +705,8 @@ export async function getRecentMatchmakingOpponents(
 
   const { client, done } = await db(withClient)
   try {
-    // Filtering on games_users first keeps this to the user's own recent rows (via its primary key)
-    // before any game configs are read.
+    // Filtering on games_users first keeps this to the user's own recent rows (via its
+    // (user_id, start_time) index) before any game configs are read.
     const result = await client.query<{ config: GameConfig; start_time: Date }>(sql`
       SELECT g.config, g.start_time
       FROM games_users u JOIN games g ON u.game_id = g.id
