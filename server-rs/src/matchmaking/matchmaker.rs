@@ -308,69 +308,108 @@ fn rematch_scale(
     (nearby as f32 / reference).clamp(cfg.rematch_density_floor, 1.0)
 }
 
-/// How many recent games `player` has against `opponent_id` in `mode`, each decayed by its age
-/// so a game one half-life ago counts as half a game.
-fn decayed_games_against(
-    player: &Player,
-    opponent_id: usize,
-    mode: MatchmakingType,
-    now: Instant,
-    half_life: Duration,
-) -> f32 {
-    player
-        .recent_opponents
-        .get(&mode)
-        .into_iter()
-        .flatten()
-        .filter(|opponent| opponent.id == opponent_id)
-        .map(|opponent| {
-            let age = now.saturating_duration_since(opponent.played_at);
-            0.5_f32.powf(age.as_secs_f32() / half_life.as_secs_f32())
-        })
-        .sum()
+/// Seconds of rematch penalty for every pair of selected players, were they to land on opposite
+/// teams: `weight_rematch` times the pair's smaller [`rematch_scale`] times their decayed recent
+/// games against each other, where a game one half-life ago counts as half a game. Both players
+/// normally report the same games, so the larger of their two counts is used rather than the sum.
+///
+/// Built once per mode per search so that scoring a candidate roster only reads this table: the
+/// number of rosters grows combinatorially with the players examined, while the pairs do not.
+struct PairRematchPenalties {
+    player_count: usize,
+    /// Indexed like [`PairLatencies`], by both players' `selected_index`. Empty when
+    /// `any_penalty` is false.
+    values: Vec<f32>,
+    /// Whether any pair of selected players carries a penalty.
+    any_penalty: bool,
 }
 
-/// Seconds of rematch penalty for a candidate split: for each pair of players on opposite teams,
-/// `weight_rematch` times the pair's smaller [`rematch_scale`] times their decayed recent games
-/// against each other. Both players normally report the same games, so the larger of their two
-/// counts is used rather than the sum.
+impl PairRematchPenalties {
+    fn new(
+        selected: &[PreparedPlayer<'_>],
+        mode: MatchmakingType,
+        cfg: &ModeConfig,
+        now: Instant,
+    ) -> Self {
+        let player_count = selected.len();
+        let mut result = Self {
+            player_count,
+            values: Vec::new(),
+            any_penalty: false,
+        };
+        if cfg.weight_rematch <= 0.0
+            || selected
+                .iter()
+                .all(|p| !p.entry.player.recent_opponents.contains_key(&mode))
+        {
+            return result;
+        }
+
+        let index_by_id = selected
+            .iter()
+            .enumerate()
+            .map(|(index, p)| (p.entry.player.id, index))
+            .collect::<HashMap<_, _>>();
+        let half_life = cfg.rematch_half_life.as_secs_f32();
+        // decayed_games[i * player_count + j] is how many recent games player i reports against
+        // player j, each decayed by its age.
+        let mut decayed_games = vec![0.0_f32; player_count * player_count];
+        for (i, p) in selected.iter().enumerate() {
+            let Some(opponents) = p.entry.player.recent_opponents.get(&mode) else {
+                continue;
+            };
+            for opponent in opponents {
+                if let Some(&j) = index_by_id.get(&opponent.id) {
+                    let age = now.saturating_duration_since(opponent.played_at);
+                    decayed_games[i * player_count + j] +=
+                        0.5_f32.powf(age.as_secs_f32() / half_life);
+                }
+            }
+        }
+
+        result.values = vec![0.0; player_count * player_count];
+        for (i, a) in selected.iter().enumerate() {
+            for (j, b) in selected.iter().enumerate().skip(i + 1) {
+                let games =
+                    decayed_games[i * player_count + j].max(decayed_games[j * player_count + i]);
+                if games > 0.0 {
+                    let penalty = cfg.weight_rematch * a.rematch_scale.min(b.rematch_scale) * games;
+                    result.values[i * player_count + j] = penalty;
+                    result.values[j * player_count + i] = penalty;
+                    result.any_penalty = true;
+                }
+            }
+        }
+        result
+    }
+
+    fn get(&self, a: usize, b: usize) -> f32 {
+        self.values[a * self.player_count + b]
+    }
+}
+
+/// Seconds of rematch penalty for a candidate split: the sum of the pair penalties across every
+/// pair of players on opposite teams.
 fn rematch_penalty(
     entries: &[&PreparedPlayer<'_>],
     team_a: &TeamIds,
     team_b: &TeamIds,
-    mode: MatchmakingType,
-    cfg: &ModeConfig,
-    now: Instant,
+    pairs: &PairRematchPenalties,
 ) -> f32 {
-    if cfg.weight_rematch <= 0.0 {
+    if !pairs.any_penalty {
         return 0.0;
     }
-    let find = |id: usize| {
+    let selected_index = |id: usize| {
         entries
             .iter()
             .find(|p| p.entry.player.id == id)
             .expect("team members come from the candidate roster")
+            .selected_index
     };
     let mut penalty = 0.0;
-    for a in team_a.iter().map(find) {
-        for b in team_b.iter().map(find) {
-            let games = decayed_games_against(
-                &a.entry.player,
-                b.entry.player.id,
-                mode,
-                now,
-                cfg.rematch_half_life,
-            )
-            .max(decayed_games_against(
-                &b.entry.player,
-                a.entry.player.id,
-                mode,
-                now,
-                cfg.rematch_half_life,
-            ));
-            if games > 0.0 {
-                penalty += cfg.weight_rematch * a.rematch_scale.min(b.rematch_scale) * games;
-            }
+    for a in team_a.iter().map(selected_index) {
+        for b in team_b.iter().map(selected_index) {
+            penalty += pairs.get(a, b);
         }
     }
     penalty
@@ -1101,6 +1140,8 @@ impl<T: QueueSelector> Matchmaker<T> {
                 })
                 .collect::<Vec<_>>();
 
+            let pair_rematch = PairRematchPenalties::new(&selected, *mode, mode_cfg, now);
+
             let mode_matches = selected
                 .iter()
                 // Get all the potential combinations of these players (we will decide teams later)
@@ -1181,7 +1222,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let win_prob = get_win_probability(rating_a, rating_b, mode_cfg.win_prob_scale);
                     let win_prob_diff = (0.5 - win_prob).abs();
                     let rematch_penalty =
-                        rematch_penalty(&queue_entries, &team_a, &team_b, *mode, mode_cfg, now);
+                        rematch_penalty(&queue_entries, &team_a, &team_b, &pair_rematch);
 
                     let quality = wait_seconds
                         - (variance_penalty
@@ -1559,6 +1600,16 @@ mod tests {
             assert_eq!(m.rematch_penalty, 0.0);
             assert!(m.team_a.iter().chain(&m.team_b).any(|e| e.player.id == 2));
         }
+    }
+
+    #[test]
+    fn repeated_games_against_an_opponent_add_up() {
+        let mode = MatchmakingType::Match1v1;
+        let mm = rematch_test_matchmaker(mode, &[(0, 1500.0, &[1, 1]), (1, 1500.0, &[0, 0])]);
+        let wait = Duration::from_secs(300);
+        let matches = mm.find_matches_for_modes(&[mode], mm.start() + wait);
+        assert_eq!(matches.len(), 1);
+        assert!((matches[0].rematch_penalty - 240.0 * decay(wait)).abs() < 0.01);
     }
 
     #[test]
