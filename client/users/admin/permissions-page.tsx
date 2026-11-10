@@ -95,7 +95,6 @@ const PermissionsFragment = graphql(/* GraphQL */ `
       manageRestrictedNames
       manageSignupCodes
       manageLiveStreams
-      reviewMapFamilies
     }
   }
 `)
@@ -335,12 +334,6 @@ function PermissionsEditor({
           <CheckBox
             {...bindCheckable('manageLiveStreams')}
             label='Manage live streams'
-            inputProps={inputProps}
-            disabled={fetching}
-          />
-          <CheckBox
-            {...bindCheckable('reviewMapFamilies')}
-            label='Review map families'
             inputProps={inputProps}
             disabled={fetching}
           />

@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use async_graphql::dataloader::Loader;
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{Object, SimpleObject};
-
-use crate::users::permissions::RequiredPermission;
 use data_encoding::BASE64;
 use sqlx::PgPool;
 use sqlx::types::Json;
@@ -18,8 +16,6 @@ pub struct MapFileAnalysis {
     pub bases: Option<Vec<MapBase>>,
     pub trigger_count: i32,
     pub ums_action_kinds: Vec<String>,
-    pub makers: Vec<String>,
-    pub credited: Vec<String>,
 }
 
 /// What analyzing a map file found about how it plays.
@@ -45,21 +41,6 @@ impl MapFileAnalysis {
     /// for melee maps.
     async fn ums_action_kinds(&self) -> &[String] {
         &self.ums_action_kinds
-    }
-
-    /// Who the map's description says made it, normalized for comparison (lowercase, letters and
-    /// digits only). A hint for sorting families, never shown as a credit. Only available to users
-    /// who can manage maps or review map families.
-    #[graphql(guard = RequiredPermission::ManageMaps.or(RequiredPermission::ReviewMapFamilies))]
-    async fn makers(&self) -> &[String] {
-        &self.makers
-    }
-
-    /// Who the map's description credits as the original, normalized like `makers`. Only
-    /// available to users who can manage maps or review map families.
-    #[graphql(guard = RequiredPermission::ManageMaps.or(RequiredPermission::ReviewMapFamilies))]
-    async fn credited(&self) -> &[String] {
-        &self.credited
     }
 
     /// The resource bases. Null if they couldn't be found.
@@ -126,7 +107,7 @@ impl Loader<MapHash> for MapAnalysisLoader {
         Ok(sqlx::query!(
             r#"
                 SELECT m.hash as "hash: MapHash", a.bases as "bases: Json<Vec<MapBase>>",
-                    a.trigger_count, a.ums_action_kinds, a.makers, a.credited
+                    a.trigger_count, a.ums_action_kinds
                 FROM map_analysis a
                 JOIN maps m ON m.id = a.map_id
                 WHERE m.hash = ANY($1)
@@ -142,8 +123,6 @@ impl Loader<MapHash> for MapAnalysisLoader {
                     bases: row.bases.map(|b| b.0),
                     trigger_count: row.trigger_count,
                     ums_action_kinds: row.ums_action_kinds,
-                    makers: row.makers,
-                    credited: row.credited,
                 },
             )
         })

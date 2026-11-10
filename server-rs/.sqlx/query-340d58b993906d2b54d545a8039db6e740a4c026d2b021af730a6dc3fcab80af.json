@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_aliases (old_id, family_id)\n            SELECT from_id, into_id FROM unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)\n            ON CONFLICT (old_id) DO UPDATE SET family_id = EXCLUDED.family_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "340d58b993906d2b54d545a8039db6e740a4c026d2b021af730a6dc3fcab80af"
+}

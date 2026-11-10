@@ -20,7 +20,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::maps::credits::parse_credits;
 use crate::maps::{LobbyInitData, MapForce, MapForcePlayer, MapForcePlayerRace};
 
 /// The version of the parsing below. Every stored value derived from a map file's bytes was
@@ -182,9 +181,6 @@ pub struct MapAnalysis {
     pub terrain_fingerprint: Option<Vec<u8>>,
     /// SHA-256 of `scenario.chk`, shared by files that differ only in MPQ packing.
     pub chk_hash: Vec<u8>,
-    /// Who the description says made the map, and who it credits as the original, normalized.
-    pub makers: Vec<String>,
-    pub credited: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -278,7 +274,6 @@ pub fn parse_map(
         None => (None, None),
     };
 
-    let credits = parse_credits(&description);
     let analysis = MapAnalysis {
         format_version: i32::from(chk.format_version() as u16),
         string_encoding: string_encoding_name(chk.strings().encoding),
@@ -296,8 +291,6 @@ pub fn parse_map(
         protection_detected,
         terrain_fingerprint,
         chk_hash,
-        makers: credits.makers,
-        credited: credits.credited,
     };
 
     let parsed = ParsedMap {
@@ -919,8 +912,6 @@ mod tests {
                     "string_encoding": parsed.analysis.string_encoding,
                     "fingerprint_bytes": parsed.analysis.terrain_fingerprint.map(|f| f.len()),
                     "chk_hash": data_encoding::HEXLOWER.encode(&parsed.analysis.chk_hash),
-                    "makers": parsed.analysis.makers,
-                    "credited": parsed.analysis.credited,
                 }),
                 Err(e) => serde_json::json!({ "hash": hash, "ok": false, "error": e.to_string() }),
             };

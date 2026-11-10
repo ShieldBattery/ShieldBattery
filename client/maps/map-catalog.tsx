@@ -234,10 +234,6 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     setSavedFilters(filtersOf(next))
   }
 
-  const onAllVersionsChange = (allVersions: boolean) => {
-    navigate({ ...params, allVersions })
-  }
-
   const onSortChange = (nextSort: CatalogSort) => {
     navigate({ ...params, sort: nextSort })
     if (nextSort !== CatalogSort.BestMatch) {
@@ -387,7 +383,6 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
             ) : undefined
           }
           onFiltersChange={onFiltersChange}
-          onAllVersionsChange={onAllVersionsChange}
           onSortChange={onSortChange}
           onDensityChange={setDensity}
           onClearFilters={onClearFilters}

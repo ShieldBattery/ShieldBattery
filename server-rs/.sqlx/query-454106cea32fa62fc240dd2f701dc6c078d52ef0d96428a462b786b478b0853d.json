@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE maps SET family_id = $2 WHERE family_id = $1\n            RETURNING id as \"id: SbMapId\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "454106cea32fa62fc240dd2f701dc6c078d52ef0d96428a462b786b478b0853d"
+}

@@ -1,6 +1,7 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   MapExtension,
+  MapFamilyId,
   MapForce,
   MapInfo,
   MapSortType,
@@ -233,6 +234,69 @@ export async function resolveMapId(mapId: SbMapId): Promise<SbMapId> {
   return (await resolveMapIds([mapId]))[0]
 }
 
+/** The map (family) an ID from a map page URL names. */
+export interface ResolvedMapPageId {
+  familyId: MapFamilyId
+  /** The family's current file, the one players get. */
+  currentMapId: SbMapId
+  /** Whether any of the family's files is listed. */
+  listed: boolean
+  /** The file the ID named, when it named a file rather than a family. */
+  fileId?: SbMapId
+}
+
+/**
+ * Resolves an ID from a map page URL, trying it in order as a family ID, an old ID of a family that
+ * was merged into another one, a file ID, and an old ID of a file. Returns `undefined` if it's none
+ * of these.
+ */
+export async function resolveMapPageId(id: string): Promise<ResolvedMapPageId | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      family_id: MapFamilyId
+      file_id: SbMapId | null
+      current_map_id: SbMapId
+      listed: boolean
+    }>(sql`
+      SELECT r.family_id, r.file_id, f.current_map_id, f.listed
+      FROM (
+        SELECT id AS family_id, NULL::uuid AS file_id, 1 AS priority
+        FROM map_families
+        WHERE id = ${id}
+        UNION ALL
+        SELECT family_id, NULL::uuid, 2
+        FROM map_family_aliases
+        WHERE old_id = ${id}
+        UNION ALL
+        SELECT family_id, id, 3
+        FROM maps
+        WHERE id = ${id}
+        UNION ALL
+        SELECT m.family_id, m.id, 4
+        FROM map_id_aliases a
+        INNER JOIN maps m ON m.id = a.map_id
+        WHERE a.old_id = ${id}
+      ) r
+      INNER JOIN map_families f ON f.id = r.family_id
+      ORDER BY r.priority
+      LIMIT 1
+    `)
+    const row = result.rows[0]
+    if (!row) {
+      return undefined
+    }
+    return {
+      familyId: row.family_id,
+      currentMapId: row.current_map_id,
+      listed: row.listed,
+      fileId: row.file_id ?? undefined,
+    }
+  } finally {
+    done()
+  }
+}
+
 function getWhereCondition(
   conditions: SqlTemplate[],
   numPlayers: NumPlayers[],
@@ -344,16 +408,17 @@ export async function getMaps({
 }
 
 /**
- * Takes in a list of map IDs and returns only those that are favorited by a particular user.
+ * Takes in a list of map IDs and returns only those whose family is favorited by a particular user.
  */
 export async function getFavoritedFromMapIds(
   favoritedBy: SbUserId,
   mapIds: ReadonlyArray<SbMapId>,
 ): Promise<SbMapId[]> {
   const query = sql`
-    SELECT map_id
-    FROM favorited_maps
-    WHERE favorited_by = ${favoritedBy} AND map_id = ANY(${mapIds})
+    SELECT m.id AS map_id
+    FROM maps m
+    INNER JOIN favorited_maps f ON f.family_id = m.family_id
+    WHERE f.favorited_by = ${favoritedBy} AND m.id = ANY(${mapIds})
   `
 
   const { client, done } = await db()
@@ -453,30 +518,35 @@ export async function removeMapFromLibrary(mapId: SbMapId, userId: SbUserId): Pr
 /**
  * Removes a map from the listings. It stays reachable by ID, so games, matchmaking pools,
  * favorites, and users' own maps keep working, and it keeps its curated name and the record of who
- * published it.
+ * published it. Its family's current file is recomputed, since an unlisted file can't be current
+ * while another file of the family is listed.
  */
 export async function delistMap(mapId: SbMapId, delistedBy: SbUserId): Promise<void> {
-  const query = sql`
-    UPDATE maps
-    SET
-      delisted_by = ${delistedBy},
-      delisted_at = CURRENT_TIMESTAMP
-    WHERE id = ${mapId} AND listed;
-  `
-
-  const { client, done } = await db()
-  try {
-    await client.query(query)
-  } finally {
-    done()
-  }
+  await transact(async client => {
+    // Taken before changing anything, like every writer of family memberships and listings
+    await client.query(sql`SELECT lock_map_families()`)
+    const result = await client.query<{ family_id: MapFamilyId }>(sql`
+      UPDATE maps
+      SET
+        delisted_by = ${delistedBy},
+        delisted_at = CURRENT_TIMESTAMP
+      WHERE id = ${mapId} AND listed
+      RETURNING family_id
+    `)
+    if (result.rows.length) {
+      await client.query(
+        sql`SELECT refresh_map_families(${result.rows.map(r => r.family_id)}::uuid[])`,
+      )
+    }
+  })
 }
 
+/** Adds the family a map file is in to a user's favorites. */
 export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
   const query = sql`
-    INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
-    VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP)
-    ON CONFLICT (map_id, favorited_by)
+    INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)
+    SELECT family_id, ${userId}, CURRENT_TIMESTAMP FROM maps WHERE id = ${mapId}
+    ON CONFLICT (family_id, favorited_by)
     DO NOTHING;
   `
 
@@ -488,10 +558,11 @@ export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promi
   }
 }
 
+/** Removes the family a map file is in from a user's favorites. */
 export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
   const query = sql`
     DELETE FROM favorited_maps
-    WHERE map_id = ${mapId} AND favorited_by = ${userId};
+    WHERE family_id = (SELECT family_id FROM maps WHERE id = ${mapId}) AND favorited_by = ${userId};
   `
 
   const { client, done } = await db()
@@ -521,7 +592,7 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
         UPDATE matchmaking_preferences SET map_selections = '{}';
         TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
           map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
-          map_link_suggestions, map_family_reports, map_line_stats, map_family_members,
+          map_family_reports, map_family_history, map_family_stats, map_family_aliases,
           map_families, map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;
       COMMIT;
     `

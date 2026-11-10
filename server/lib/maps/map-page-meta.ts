@@ -1,7 +1,12 @@
-import { mapIdFromRouteSegment, urlForMap, urlForMapCompare } from '../../../common/map-url'
+import {
+  mapFileIdFromSegment,
+  mapIdFromRouteSegment,
+  urlForMap,
+  urlForMapCompare,
+} from '../../../common/map-url'
 import { filterColorCodes, MapVisibility, tilesetToName } from '../../../common/maps'
 import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
-import { getMapInfos, resolveMapId } from './map-models'
+import { getMapInfos, resolveMapId, resolveMapPageId } from './map-models'
 
 const MAX_DESCRIPTION_LENGTH = 200
 
@@ -17,10 +22,13 @@ function truncate(text: string, maxLength: number): string {
  * Resolves the Open Graph/Twitter Card metadata for a map page (registered for the `/maps/:id/*?`
  * route in `page-metadata.ts`).
  *
- * `params.id` is the map's pretty id or raw UUID, and may be an alias of the map's current ID; the
- * canonical URL always uses the current ID. Maps that aren't listed are readable by anyone with
- * the link, but are kept out of search engines. A malformed ID or a missing map returns
- * `undefined`, falling back to the default site-wide metadata.
+ * `params.id` is a pretty id or raw UUID, resolved in order as a map family's ID, an old ID of a
+ * family, a map file's ID and an old ID of a file. A family's page describes its current file; a
+ * file's ID describes that file. The canonical URL is always the family's page under its current
+ * ID, selecting the file only when it's an unlisted file (which the family page wouldn't show).
+ * Maps that aren't listed are readable by anyone with the link, but are kept out of search engines.
+ * A malformed ID or a missing map returns `undefined`, falling back to the default site-wide
+ * metadata.
  */
 export const mapPageMetadata: PageMetadataResolver = async (params, context) => {
   const requestedId = params.id ? mapIdFromRouteSegment(params.id) : undefined
@@ -28,11 +36,18 @@ export const mapPageMetadata: PageMetadataResolver = async (params, context) => 
     return undefined
   }
 
-  const mapId = await resolveMapId(requestedId)
-  const [map] = await getMapInfos([mapId])
-  if (!map) {
+  const resolved = await resolveMapPageId(requestedId)
+  if (!resolved) {
     return undefined
   }
+  const mapId = resolved.fileId ?? resolved.currentMapId
+  const maps = await getMapInfos([resolved.currentMapId, mapId])
+  const current = maps.find(m => m.id === resolved.currentMapId)
+  const map = maps.find(m => m.id === mapId)
+  if (!current || !map) {
+    return undefined
+  }
+  const unlisted = map.visibility === MapVisibility.Unlisted
 
   const name = cleanText(map.name)
   const description = cleanText(map.description)
@@ -42,13 +57,20 @@ export const mapPageMetadata: PageMetadataResolver = async (params, context) => 
     `${kind} map. Play it on ShieldBattery.`
 
   return {
-    url: context.canonicalHost + urlForMap(map.id, map.name),
+    url:
+      context.canonicalHost +
+      urlForMap(
+        resolved.familyId,
+        current.name,
+        undefined,
+        unlisted && map.id !== current.id ? map.id : undefined,
+      ),
     type: 'website',
     title: name || 'Untitled map',
     description: description ? truncate(description, MAX_DESCRIPTION_LENGTH) : fallbackDescription,
     // Crawlers don't all decode AVIF
     image: map.jpegImageUrl ?? defaultPageImage(context),
-    noindex: map.visibility === MapVisibility.Unlisted,
+    noindex: !resolved.listed || unlisted,
   }
 }
 
@@ -58,8 +80,8 @@ export const mapPageMetadata: PageMetadataResolver = async (params, context) => 
  * never indexed. A malformed ID or a missing map returns `undefined`.
  */
 export const mapComparePageMetadata: PageMetadataResolver = async (params, context) => {
-  const requestedA = params.a ? mapIdFromRouteSegment(params.a) : undefined
-  const requestedB = params.b ? mapIdFromRouteSegment(params.b) : undefined
+  const requestedA = params.a ? mapFileIdFromSegment(params.a) : undefined
+  const requestedB = params.b ? mapFileIdFromSegment(params.b) : undefined
   if (!requestedA || !requestedB) {
     return undefined
   }

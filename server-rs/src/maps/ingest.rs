@@ -18,7 +18,7 @@ use crate::async_rayon::spawn_rayon;
 use crate::configuration::Settings;
 use crate::file_store::{FileStore, WriteOptions};
 use crate::maps::catalog::resolve_map_id;
-use crate::maps::families::FamilyDetector;
+use crate::maps::families::{join_identical_files_now, lock_families, refresh_families};
 use crate::maps::parse::{
     AnalysisTables, FINGERPRINT_VERSION, MAP_PARSER_VERSION, MapAnalysis, MapExtension,
     MapParseError, ParsedMap, ParsedMapFile, is_mojibake_of, map_file_hash, parse_map,
@@ -122,7 +122,6 @@ pub struct MapIngester {
     file_store: FileStore,
     analysis_tables: Option<Arc<AnalysisTables>>,
     render_assets: Option<Arc<MapRenderAssets>>,
-    families: FamilyDetector,
     /// Limits how many maps are parsed or rendered at once, across uploads and the reparse job.
     parse_permits: Arc<Semaphore>,
     parse_concurrency: usize,
@@ -166,7 +165,6 @@ impl MapIngester {
             }
         };
         Self {
-            families: FamilyDetector::new(db.clone()),
             db,
             file_store,
             analysis_tables,
@@ -227,9 +225,10 @@ impl MapIngester {
                 let map_id = self
                     .store_new_map(bytes, extension, hash, uploaded_by)
                     .await?;
-                // The hourly sweep scans maps this misses, so a failure here doesn't fail the upload.
-                if let Err(e) = self.families.scan_map(map_id).await {
-                    error!("Scanning a new map for families failed: {e:?}");
+                // The hourly sweep joins files this misses, so a failure here doesn't fail the
+                // upload.
+                if let Err(e) = join_identical_files_now(&self.db, Some(&[map_id])).await {
+                    error!("Joining a new map to a family with the same scenario failed: {e:?}");
                 }
                 map_id
             }
@@ -241,19 +240,25 @@ impl MapIngester {
             .await
             .wrap_err("Failed to start transaction")?;
         if official {
-            sqlx::query!(
+            // Listing the file can change which file of its family is current.
+            lock_families(&mut tx).await?;
+            let family_id = sqlx::query_scalar!(
                 r#"
                     UPDATE maps
                     SET official = true, published_by = $2, published_at = now(),
                         delisted_by = NULL, delisted_at = NULL
                     WHERE id = $1 AND NOT (listed AND official)
+                    RETURNING family_id
                 "#,
                 map_id as _,
                 uploaded_by as _,
             )
-            .execute(&mut *tx)
+            .fetch_optional(&mut *tx)
             .await
             .wrap_err("Failed to publish map")?;
+            if let Some(family_id) = family_id {
+                refresh_families(&mut tx, &[family_id], true).await?;
+            }
         } else {
             sqlx::query!(
                 r#"
@@ -269,13 +274,6 @@ impl MapIngester {
             .wrap_err("Failed to add map to library")?;
         }
         tx.commit().await.wrap_err("Failed to commit map upload")?;
-        if official {
-            // Listing the map can change which version of its family line is current. The hourly
-            // sweep recomputes anything this misses.
-            if let Err(e) = self.families.recompute_stale().await {
-                error!("Recomputing stale map families failed: {e:?}");
-            }
-        }
 
         Ok(map_id)
     }
@@ -339,16 +337,18 @@ impl MapIngester {
             .begin()
             .await
             .wrap_err("Failed to start transaction")?;
-        let inserted = sqlx::query_scalar!(
+        // Every file starts in a family of its own. The family references the file and the file
+        // references the family; the file's reference is only checked at commit.
+        let inserted = sqlx::query!(
             r#"
                 INSERT INTO maps (hash, extension, title, description, width, height, tileset,
                     players_melee, players_ums, lobby_init_data, is_eud, parser_version,
                     image_version, start_locations, ums_content, render_version, render_fallback,
-                    render_failed_version, render_error)
+                    render_failed_version, render_error, family_id)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1, $13, $14, $15, $16,
-                    $17, $18)
+                    $17, $18, sb_uuid())
                 ON CONFLICT (hash) DO NOTHING
-                RETURNING id as "id: SbMapId"
+                RETURNING id as "id: SbMapId", family_id
             "#,
             hash as _,
             extension.as_str(),
@@ -373,9 +373,20 @@ impl MapIngester {
         .await
         .wrap_err("Failed to insert map")?;
         let map_id = match inserted {
-            Some(map_id) => {
-                write_analysis(&mut tx, map_id, &parsed.analysis).await?;
-                map_id
+            Some(row) => {
+                sqlx::query!(
+                    r#"
+                        INSERT INTO map_families (id, current_map_id, listed)
+                        VALUES ($1, $2, false)
+                    "#,
+                    row.family_id,
+                    row.id as _,
+                )
+                .execute(&mut *tx)
+                .await
+                .wrap_err("Failed to create the map's family")?;
+                write_analysis(&mut tx, row.id, &parsed.analysis).await?;
+                row.id
             }
             // Stored by a concurrent upload of the same file.
             None => sqlx::query_scalar!(
@@ -580,10 +591,10 @@ impl MapIngester {
         }
     }
 
-    /// Brings every stored map to the current parser version, scans maps for families under the
-    /// current rules, recomputes families whose files were listed or delisted, then (when render
-    /// assets are available) brings images to the current render version, the most visible maps
-    /// first. A map that fails keeps its old values and isn't retried until the version changes.
+    /// Brings every stored map to the current parser version, joins unlisted files to the family
+    /// of another file with the same scenario, then (when render assets are available) brings
+    /// images to the current render version, the most visible maps first. A map that fails keeps
+    /// its old values and isn't retried until the version changes.
     pub async fn update_outdated_maps(&self) -> eyre::Result<()> {
         // The lock is held by this connection's session, so it's released if the process dies.
         let mut lock_conn = self.db.acquire().await?;
@@ -597,10 +608,15 @@ impl MapIngester {
 
         let mut result = self.reparse_batches().await;
         if result.is_ok() {
-            result = self.families.scan_outdated().await;
-        }
-        if result.is_ok() {
-            result = self.families.recompute_stale().await;
+            result = match join_identical_files_now(&self.db, None).await {
+                Ok(joined) => {
+                    if joined > 0 {
+                        info!(joined, "Joined files to families with the same scenario");
+                    }
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            };
         }
         // Zero-asset minimaps are only for maps that would otherwise have no images, so outdated
         // images are only replaced by real renders.
@@ -928,16 +944,15 @@ async fn write_analysis(
             INSERT INTO map_analysis (map_id, format_version, string_encoding, trigger_count,
                 briefing_count, ums_action_kinds, placed_units, player_units, mineral_fields,
                 mineral_total, geysers, bases, author_suggestions, anomalies, protection_detected,
-                terrain_fingerprint, fingerprint_version, chk_hash, makers, credited)
+                terrain_fingerprint, fingerprint_version, chk_hash)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-                $18, $19, $20)
+                $18)
             ON CONFLICT (map_id) DO UPDATE
             SET format_version = $2, string_encoding = $3, trigger_count = $4, briefing_count = $5,
                 ums_action_kinds = $6, placed_units = $7, player_units = $8, mineral_fields = $9,
                 mineral_total = $10, geysers = $11, bases = $12, author_suggestions = $13,
                 anomalies = $14, protection_detected = $15, terrain_fingerprint = $16,
-                fingerprint_version = $17, chk_hash = $18, makers = $19, credited = $20,
-                family_scan_version = NULL
+                fingerprint_version = $17, chk_hash = $18
         "#,
         map_id as _,
         analysis.format_version,
@@ -960,8 +975,6 @@ async fn write_analysis(
             .as_ref()
             .map(|_| FINGERPRINT_VERSION),
         &analysis.chk_hash,
-        &analysis.makers,
-        &analysis.credited,
     )
     .execute(&mut **tx)
     .await
