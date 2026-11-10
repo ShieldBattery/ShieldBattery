@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_family_aliases a\n            SET family_id = v.into_id\n            FROM unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)\n            WHERE a.family_id = v.from_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d884ed29913fb9327ac57d63aea04bf9f98547b3595a009e306e0c528490ac75"
+}

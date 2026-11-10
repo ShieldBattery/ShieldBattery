@@ -5,17 +5,17 @@ use async_graphql::connection::{
 };
 use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::{
-    ComplexObject, Context, Enum, Object, ObjectType, OutputType, Result, SimpleObject,
+    ComplexObject, Context, Enum, Guard, Object, ObjectType, OutputType, Result, SimpleObject,
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
 use data_encoding::HEXLOWER_PERMISSIVE;
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
-use crate::maps::families::graphql::{
-    self as families, MapFamily, MapFamilyMember, MapLinkSuggestion, MapVersionStatus,
-};
+use crate::maps::compare;
+use crate::maps::families::graphql::{MapFamily, load_family};
 use crate::maps::search::{
     DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
     MapSearchRepo, MapSort,
@@ -60,12 +60,14 @@ pub struct SbMap {
     pub published_by: Option<SbUserId>,
     #[graphql(skip)]
     pub moderation_record: MapModeration,
-    /// Play statistics, or null if the map has never been played.
+    /// Play statistics of this file alone, or null if it has never been played.
     pub stats: Option<MapStats>,
-    /// How many users have favorited this map.
+    /// How many users have favorited the map (family) this file is in.
     pub favorite_count: i32,
     /// When the server first saw the map's file.
     pub first_seen_at: DateTime<Utc>,
+    #[graphql(skip)]
+    pub family_id: Uuid,
 }
 
 #[ComplexObject]
@@ -123,10 +125,14 @@ impl SbMap {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let weeks = stats::clamp_activity_weeks(weeks);
         let today = Utc::now().date_naive();
-        Ok(stats::load_weekly_activity(db, self.id, weeks, today).await?)
+        Ok(
+            stats::load_weekly_activity(db, &self.id.to_string(), &[self.id.0], weeks, today)
+                .await?,
+        )
     }
 
-    /// Whether the current user has favorited this map. False when logged out.
+    /// Whether the current user has favorited the map (family) this file is in. False when logged
+    /// out.
     async fn is_favorited(&self, ctx: &Context<'_>) -> Result<bool> {
         Ok(viewer_flags(ctx, self.id).await?.favorited)
     }
@@ -136,53 +142,9 @@ impl SbMap {
         Ok(viewer_flags(ctx, self.id).await?.in_library)
     }
 
-    /// The family of versions, variants, translations and forks this map is in. Null when it's in
-    /// none.
-    async fn family(&self, ctx: &Context<'_>) -> Result<Option<MapFamily>> {
-        families::map_family(ctx, self.id).await
-    }
-
-    /// This map's place in its family, even when it isn't listed. Null when it's in no family.
-    async fn family_member(&self, ctx: &Context<'_>) -> Result<Option<MapFamilyMember>> {
-        families::map_family_member(ctx, self.id).await
-    }
-
-    /// Where this map stands among the versions of its family line.
-    async fn version_status(&self, ctx: &Context<'_>) -> Result<MapVersionStatus> {
-        families::version_status(ctx, self.id).await
-    }
-
-    /// The current version of this map's line when it's newer than this map. Always a listed map.
-    async fn newer_version(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
-        families::newer_version(ctx, self.id).await
-    }
-
-    /// How many listed maps this map's family line holds (its versions, variants and
-    /// translations), at least 1.
-    async fn version_count(&self, ctx: &Context<'_>) -> Result<i32> {
-        families::version_count(ctx, self.id).await
-    }
-
-    /// Play statistics summed over every file in this map's family line. Null when the viewer can
-    /// see fewer than two of the line's files (listed ones, or all of them for users who can manage
-    /// maps), or the line's stats haven't been computed yet.
-    async fn line_stats(&self, ctx: &Context<'_>) -> Result<Option<MapStats>> {
-        families::line_stats(ctx, self.id).await
-    }
-
-    /// Maps detection found to be possibly related to this one that nobody has sorted yet: listed
-    /// maps, or every one for users who can manage maps. Most similar terrain first.
-    async fn similar_maps(&self, ctx: &Context<'_>) -> Result<Vec<SbMap>> {
-        families::similar_maps(ctx, self.id).await
-    }
-
-    /// Every detected pair this map is in, with the rules' proposals, open ones first. Only
-    /// available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
-    async fn link_suggestions(&self, ctx: &Context<'_>) -> Result<Vec<MapLinkSuggestion>> {
-        // Only the map page's staff tools select this, one map at a time, so it isn't batched
-        let db = ctx.data::<MapSearchRepo>()?.db();
-        Ok(families::load_suggestions_of(db, self.id).await?)
+    /// The map (family) this file is in.
+    async fn family(&self, ctx: &Context<'_>) -> Result<MapFamily> {
+        load_family(ctx, self.family_id).await
     }
 }
 
@@ -230,23 +192,28 @@ impl MapModeration {
     }
 }
 
-async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbUser>> {
+pub(crate) async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbUser>> {
     let Some(id) = id else {
         return Ok(None);
     };
     ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await
 }
 
+/// What a set of play statistics covers.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MapStatsKey {
+    /// One file.
+    Map(SbMapId),
+    /// Every file of a family.
+    Family(Uuid),
+}
+
 /// How much a map has been played, across every kind of game.
 #[derive(SimpleObject, Clone, Debug)]
 #[graphql(complex)]
 pub struct MapStats {
-    /// The map the stats are for, or for a family line's stats, the line's first file.
     #[graphql(skip)]
-    pub map_id: SbMapId,
-    /// Whether these are a family line's stats rather than one map's.
-    #[graphql(skip)]
-    pub line: bool,
+    pub key: MapStatsKey,
     #[graphql(name = "games7d")]
     pub games_7d: i32,
     #[graphql(name = "games28d")]
@@ -270,10 +237,9 @@ pub struct MapStats {
 #[ComplexObject]
 impl MapStats {
     async fn id(&self) -> String {
-        if self.line {
-            format!("map-line-stats:{}", self.map_id)
-        } else {
-            format!("map-stats:{}", self.map_id)
+        match self.key {
+            MapStatsKey::Map(id) => format!("map-stats:{id}"),
+            MapStatsKey::Family(id) => format!("map-family-stats:{id}"),
         }
     }
 }
@@ -282,8 +248,7 @@ impl From<DbSbMap> for SbMap {
     fn from(row: DbSbMap) -> Self {
         let stats = match (row.has_stats, row.last_played_at) {
             (true, Some(last_played_at)) => Some(MapStats {
-                map_id: row.id,
-                line: false,
+                key: MapStatsKey::Map(row.id),
                 games_7d: row.games_7d,
                 games_28d: row.games_28d,
                 games_90d: row.games_90d,
@@ -321,6 +286,7 @@ impl From<DbSbMap> for SbMap {
             stats,
             favorite_count: row.favorites,
             first_seen_at: row.first_seen_at,
+            family_id: row.family_id,
         }
     }
 }
@@ -352,7 +318,8 @@ pub struct ViewerMapFlags {
     pub in_library: bool,
 }
 
-/// Loads whether each (user, map) pair is in that user's favorites and library.
+/// Loads whether each (user, map) pair is in that user's favorites (through the map's family) and
+/// library.
 pub struct ViewerMapFlagsLoader {
     db: PgPool,
 }
@@ -377,8 +344,10 @@ impl Loader<(SbUserId, SbMapId)> for ViewerMapFlagsLoader {
             r#"
                 SELECT k.user_id as "user_id!: SbUserId", k.map_id as "map_id!: SbMapId",
                     EXISTS (
-                        SELECT 1 FROM favorited_maps f
-                        WHERE f.favorited_by = k.user_id AND f.map_id = k.map_id
+                        SELECT 1
+                        FROM favorited_maps f
+                        INNER JOIN maps m ON m.family_id = f.family_id
+                        WHERE f.favorited_by = k.user_id AND m.id = k.map_id
                     ) as "favorited!",
                     EXISTS (
                         SELECT 1 FROM map_library l
@@ -645,7 +614,22 @@ impl MapsQuery {
         Ok(maps.into_values().collect())
     }
 
-    /// Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
+    /// What changed between two maps, e.g. two files of one map. Any two maps can be compared.
+    async fn map_comparison(
+        &self,
+        ctx: &Context<'_>,
+        a: SbMapId,
+        b: SbMapId,
+    ) -> Result<compare::MapComparison> {
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let a = resolve_existing_map_id(db, a).await?;
+        let b = resolve_existing_map_id(db, b).await?;
+        Ok(compare::compare_maps(db, a, b).await?)
+    }
+
+    /// Searches and pages through the listed maps, one per family: each family with a listed file
+    /// shows its current file. A search matches a family when it matches any of its listed files.
+    /// With a search, sorts by `RELEVANCE` unless
     /// told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says
     /// otherwise (at most 100). A cursor only continues the listing it came from: using it with a
     /// different filter or sort is an error.
@@ -676,8 +660,8 @@ pub struct MapsMutation;
 
 #[Object]
 impl MapsMutation {
-    /// Adds a map to the current user's favorites. Favoriting a map that is already a favorite
-    /// does nothing.
+    /// Adds the map (family) a file is in to the current user's favorites. Favoriting a map that is
+    /// already a favorite does nothing.
     async fn map_add_favorite(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
         let user = require_current_user(ctx)?;
         let repo = ctx.data::<MapSearchRepo>()?;
@@ -685,9 +669,9 @@ impl MapsMutation {
 
         sqlx::query!(
             r#"
-                INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
-                VALUES ($1, $2, now())
-                ON CONFLICT (map_id, favorited_by) DO NOTHING
+                INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)
+                SELECT family_id, $2, now() FROM maps WHERE id = $1
+                ON CONFLICT (family_id, favorited_by) DO NOTHING
             "#,
             id as _,
             user.id as _,
@@ -696,7 +680,7 @@ impl MapsMutation {
         .await
         .wrap_err("Failed to add favorite map")?;
 
-        load_map(ctx, id).await
+        load_sb_map(ctx, id).await
     }
 
     /// Adds a map to the current user's library, for maps they hold a copy of without having
@@ -719,18 +703,21 @@ impl MapsMutation {
         .await
         .wrap_err("Failed to add map to library")?;
 
-        load_map(ctx, id).await
+        load_sb_map(ctx, id).await
     }
 
-    /// Removes a map from the current user's favorites. Removing a map that isn't a favorite does
-    /// nothing.
+    /// Removes the map (family) a file is in from the current user's favorites. Removing a map that
+    /// isn't a favorite does nothing.
     async fn map_remove_favorite(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
         let user = require_current_user(ctx)?;
         let repo = ctx.data::<MapSearchRepo>()?;
         let id = resolve_existing_map_id(repo.db(), id).await?;
 
         sqlx::query!(
-            "DELETE FROM favorited_maps WHERE map_id = $1 AND favorited_by = $2",
+            r#"
+                DELETE FROM favorited_maps
+                WHERE family_id = (SELECT family_id FROM maps WHERE id = $1) AND favorited_by = $2
+            "#,
             id as _,
             user.id as _,
         )
@@ -738,8 +725,13 @@ impl MapsMutation {
         .await
         .wrap_err("Failed to remove favorite map")?;
 
-        load_map(ctx, id).await
+        load_sb_map(ctx, id).await
     }
+}
+
+/// Whether the current user can manage maps.
+pub(crate) async fn is_staff(ctx: &Context<'_>) -> bool {
+    RequiredPermission::ManageMaps.check(ctx).await.is_ok()
 }
 
 pub(crate) fn require_current_user<'a>(ctx: &'a Context<'_>) -> Result<&'a CurrentUser> {
@@ -754,7 +746,7 @@ pub(crate) async fn resolve_existing_map_id(db: &PgPool, id: SbMapId) -> Result<
         .ok_or_else(|| graphql_error("NOT_FOUND", "Map not found"))
 }
 
-async fn load_map(ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
+pub(crate) async fn load_sb_map(ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
     ctx.data::<DataLoader<SbMapLoader>>()?
         .load_one(id)
         .await?
@@ -765,7 +757,6 @@ async fn load_map(ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
 mod tests {
     use async_graphql::{EmptyMutation, EmptySubscription, Schema, Value};
     use chrono::TimeZone;
-    use uuid::Uuid;
 
     use super::*;
     use crate::users::permissions::SbPermissions;
@@ -801,6 +792,7 @@ mod tests {
                 trending_score: 0,
                 favorites: 0,
                 first_seen_at: published_at,
+                family_id: Uuid::nil(),
             })
         }
     }
@@ -840,7 +832,6 @@ mod tests {
                 manage_restricted_names: false,
                 manage_signup_codes: false,
                 manage_live_streams: false,
-                review_map_families: false,
                 use_development_client: false,
             },
         }

@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_history (kind, actor, family_id, other_family_id, map_id,\n                details)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_history",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a595580a2aa4b6694fdfd4d63ef056df9319148cc14d3a9092aca5d69e97dabf"
+}
