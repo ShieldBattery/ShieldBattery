@@ -43,10 +43,9 @@ const percentFormat = numberFormat({ style: 'percent', maximumFractionDigits: 0 
 const countFormat = numberFormat()
 const weekFormat = dateTimeFormat({ year: 'numeric', month: 'short', day: 'numeric' })
 
-export const MapPageStats_MapFragment = graphql(/* GraphQL */ `
-  fragment MapPageStats_MapFragment on SbMap {
+export const MapPageStats_FamilyFragment = graphql(/* GraphQL */ `
+  fragment MapPageStats_FamilyFragment on MapFamily {
     id
-    kind
     stats {
       id
       gamesTotal
@@ -138,16 +137,18 @@ const StatsLine = styled.div`
 `
 
 /**
- * How much the map is played: totals, a weekly activity sparkline, and the lobby game type it's
- * usually played as when that's not the obvious one.
+ * How much the map is played, over all of its files: totals and a weekly activity sparkline.
  */
 export function MapStatsCard({
-  map: mapRef,
+  family: familyRef,
+  kind,
 }: {
-  map: FragmentType<typeof MapPageStats_MapFragment>
+  family: FragmentType<typeof MapPageStats_FamilyFragment>
+  /** The kind of the file the page shows, which names a game a session for UMS maps. */
+  kind: MapKind
 }) {
   const { t } = useTranslation()
-  const map = useFragment(MapPageStats_MapFragment, mapRef)
+  const map = useFragment(MapPageStats_FamilyFragment, familyRef)
   const count = useFormat(countFormat)
   const week = useFormat(weekFormat)
 
@@ -162,7 +163,7 @@ export function MapStatsCard({
 
   const weeklyTotals = map.weeklyActivity.map(w => w.lobbyGames + w.matchmakingGames)
   const barHeights = weeklyBarHeights(weeklyTotals)
-  const isUms = map.kind === MapKind.Ums
+  const isUms = kind === MapKind.Ums
 
   return (
     <StatsCard>
