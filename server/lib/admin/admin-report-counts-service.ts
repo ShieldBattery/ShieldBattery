@@ -12,6 +12,7 @@ import { listRecentUnresolvedBugReportTimes } from '../bugs/bugs-model'
 import { listRecentPendingReviewRequestTimes } from '../games/game-models'
 import { listRecentUnresolvedGameReportTimes } from '../games/game-reports-models'
 import logger from '../logging/logger'
+import { listRecentOpenMapFamilyReportTimes } from '../maps/map-family-report-models'
 import { getPermissions } from '../models/permissions'
 import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
@@ -22,6 +23,7 @@ const KIND_PERMISSIONS: Record<AdminReportKind, keyof SbPermissions> = {
   bugReports: 'manageBugReports',
   gameReports: 'manageGameReports',
   reviewRequests: 'manageGameReports',
+  mapReports: 'manageMaps',
 }
 
 const ALL_KINDS = Object.keys(KIND_PERMISSIONS) as AdminReportKind[]
@@ -33,12 +35,13 @@ const KIND_QUERIES: Record<
   bugReports: listRecentUnresolvedBugReportTimes,
   gameReports: listRecentUnresolvedGameReportTimes,
   reviewRequests: listRecentPendingReviewRequestTimes,
+  mapReports: listRecentOpenMapFamilyReportTimes,
 }
 
 /**
- * Pushes the recent unresolved bug report, game report and game review request counts to connected
- * admins. Each report kind has
- * its own socket path, and only users holding that kind's permission are subscribed to it.
+ * Pushes the recent unresolved bug report, game report, game review request and map report counts
+ * to connected admins. Each report kind has its own socket path, and only users holding that kind's
+ * permission are subscribed to it.
  */
 @singleton()
 export class AdminReportCountsService {
@@ -78,6 +81,21 @@ export class AdminReportCountsService {
       })
       .catch(err => {
         logger.error({ err }, 'failed to subscribe to Redis gameReport messages')
+      })
+
+    this.redisSubscriber
+      .subscribe('mapFamilyReport', message => {
+        switch (message.type) {
+          case 'reportCreated':
+          case 'reportStatusChanged':
+            this.refresh('mapReports')
+            break
+          default:
+            message satisfies never
+        }
+      })
+      .catch(err => {
+        logger.error({ err }, 'failed to subscribe to Redis mapFamilyReport messages')
       })
 
     this.redisSubscriber

@@ -51,6 +51,91 @@ function invalidateNewsPostLists(cache: Cache) {
   }
 }
 
+/**
+ * Query fields whose results depend on which files make up each map, or on which file each map
+ * gives players: the catalog shows each map's current file, a map page id resolves through the
+ * maps, and the reports and history are about them.
+ */
+const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'maps',
+  'mapFamily',
+  'similarFiles',
+  'mapFamilyReports',
+  'mapFamilyReportCount',
+  'mapFamilyHistory',
+])
+
+const MAP_FAMILY_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'mapFamilyReports',
+  'mapFamilyReportCount',
+  'mapFamilyHistory',
+])
+
+/** The current user's map listings, which show each favorite as its map's current file. */
+const USER_MAP_LISTING_FIELDS: ReadonlySet<string> = new Set(['favoriteMaps', 'mapLibrary'])
+
+/** Invalidates `fieldNames` of the root query under every argument combination they were cached with. */
+function invalidateQueryFields(cache: Cache, fieldNames: ReadonlySet<string>) {
+  for (const field of cache.inspectFields('Query')) {
+    if (fieldNames.has(field.fieldName)) {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+function invalidateUserMapListings(cache: Cache) {
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey !== 'string') {
+    return
+  }
+  for (const field of cache.inspectFields(userKey)) {
+    if (USER_MAP_LISTING_FIELDS.has(field.fieldName)) {
+      cache.invalidate(userKey, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/**
+ * Invalidates everything cached that a change to which files make up a map, or to which file a map
+ * gives players, can affect. `familyIds` are maps whose files changed. `fileIds` are files that
+ * changed maps without the mutation's result saying where to, so their map is stale too; files
+ * that the result does place only have their favorite state invalidated, via `favoriteFileIds`.
+ */
+function invalidateMapFamilies(
+  cache: Cache,
+  {
+    familyIds = [],
+    fileIds = [],
+    favoriteFileIds = [],
+  }: { familyIds?: string[]; fileIds?: string[]; favoriteFileIds?: string[] } = {},
+) {
+  invalidateQueryFields(cache, MAP_FAMILY_QUERY_FIELDS)
+  invalidateUserMapListings(cache)
+  for (const id of fileIds) {
+    cache.invalidate({ __typename: 'SbMap', id }, 'family')
+  }
+  // A favorite is of a map, so a file's favorite state follows the map it's in
+  for (const id of [...fileIds, ...favoriteFileIds]) {
+    cache.invalidate({ __typename: 'SbMap', id }, 'isFavorited')
+    cache.invalidate({ __typename: 'SbMap', id }, 'favoriteCount')
+  }
+  for (const id of familyIds) {
+    cache.invalidate({ __typename: 'MapFamily', id })
+  }
+}
+
+/** The cached files of a map, read before a change moves them elsewhere. */
+function cachedFamilyFileIds(cache: Cache, familyId: string): string[] {
+  const files = cache.resolve({ __typename: 'MapFamily', id: familyId }, 'files')
+  if (!Array.isArray(files)) {
+    return []
+  }
+  return files.flatMap(key => {
+    const id = typeof key === 'string' ? cache.resolve(key, 'id') : undefined
+    return typeof id === 'string' ? [id] : []
+  })
+}
+
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
@@ -83,6 +168,41 @@ const cacheUpdates: UpdatesConfig = {
       cache.invalidate({ __typename: 'GameFeedback', id: (args.input as any).gameId })
     },
     newsUpdatePost: (_result, _args, cache) => invalidateNewsPostLists(cache),
+    // A favorite is of a map, shown in the favorites listing as the map's current file. The
+    // mutation's result carries the new state of each of the map's files.
+    mapAddFavorite: (_result, _args, cache) => invalidateUserMapListings(cache),
+    mapRemoveFavorite: (_result, _args, cache) => invalidateUserMapListings(cache),
+    mapFamilySetDefault: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapFamilyClearDefault: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapFamilyMoveFile: (result, args, cache) => {
+      const move = result.mapFamilyMoveFile as
+        | { previousFamily?: { id: string } | null; family?: { id: string } }
+        | undefined
+      invalidateMapFamilies(cache, {
+        familyIds: [move?.previousFamily?.id, move?.family?.id].filter((id): id is string => !!id),
+        favoriteFileIds: [args.fileId as string],
+      })
+    },
+    mapFamilySplitFile: (result, args, cache) => {
+      const move = result.mapFamilySplitFile as
+        | { previousFamily?: { id: string } | null }
+        | undefined
+      invalidateMapFamilies(cache, {
+        familyIds: move?.previousFamily ? [move.previousFamily.id] : [],
+        favoriteFileIds: [args.fileId as string],
+      })
+    },
+    mapFamilyMerge: (_result, args, cache) => {
+      const mergedId = args.familyId as string
+      invalidateMapFamilies(cache, {
+        familyIds: [mergedId, args.intoFamilyId as string],
+        fileIds: cachedFamilyFileIds(cache, mergedId),
+      })
+    },
+    mapFamilyReport: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
+    mapFamilyReportSetStatus: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
         cache.invalidate({ __typename: 'NewsPost', id: args.id as string })

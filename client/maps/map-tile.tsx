@@ -28,6 +28,7 @@ import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../s
 import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
 import { useLocalMapImage } from './local-map-images'
 import { LocalMapUpload } from './local-maps'
+import { urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
@@ -42,6 +43,13 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     listed
     publishedAt
     isFavorited
+    family {
+      id
+      name
+      current {
+        id
+      }
+    }
     stats {
       id
       games7d
@@ -438,7 +446,7 @@ export function MapTile({
           {contents}
         </TilePickButton>
       ) : (
-        <TileLink href={urlForMap(map.id, map.name)}>{contents}</TileLink>
+        <TileLink href={urlForMapFile(map.family, map.id)}>{contents}</TileLink>
       )}
       {onRemovedFromLibrary ? (
         <LibraryFooter>

@@ -11,10 +11,8 @@ import {
   Provider as UrqlProvider,
 } from 'urql'
 import { filter, map, pipe } from 'wonka'
-import { mapSlug } from '../../../common/map-url'
-import { makeSbMapId, SbMapId, Tileset } from '../../../common/maps'
+import { makeMapFamilyId, makeSbMapId, SbMapId, Tileset } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
-import { encodePrettyId } from '../../../common/pretty-id'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -184,6 +182,7 @@ function makeMap({
     publisher: listed ? { id: PUBLISHER, name: 'tec27_the_sequel' } : null,
     isFavorited: false,
     inLibrary: !listed,
+    firstSeenAt: new Date(NOW - 210 * DAY).toISOString(),
     favoriteCount: 3,
     stats: stats
       ? {
@@ -362,15 +361,50 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
   }),
 }
 
+/** The id of the single-file map a scenario's file is in. */
+function familyIdOf(scenario: Scenario): string {
+  return `${scenario.map.id}-family`
+}
+
 /**
  * Answers the map page's GraphQL operations from a scenario's fixtures, in place of the server.
  */
 function fixtureExchange(scenario: Scenario, isStaff: boolean): Exchange {
   const resolve = (operation: Operation): object | undefined => {
     switch (getOperationName(operation.query)) {
-      case 'MapPage': {
+      case 'MapPageFamily': {
+        const { id, name, listed, firstSeenAt, stats, weeklyActivity, file } = scenario.map as any
+        return {
+          mapFamily: {
+            id: operation.variables?.id,
+            file: null,
+            family: {
+              id: familyIdOf(scenario),
+              name,
+              listed,
+              current: { id, name },
+              defaultMap: null,
+              ...(isStaff ? { defaultSetBy: null } : {}),
+              files: [
+                {
+                  id,
+                  name,
+                  listed,
+                  firstSeenAt,
+                  stats,
+                  file: { id: file.id, width: file.width, height: file.height },
+                },
+              ],
+              stats,
+              weeklyActivity,
+            },
+          },
+        }
+      }
+      case 'MapPageFile': {
         const { moderation, ...rest } = scenario.map
-        return { map: isStaff ? { ...rest, moderation } : rest }
+        const family = { id: familyIdOf(scenario), name: scenario.map.name }
+        return { map: { ...(isStaff ? { ...rest, moderation } : rest), family } }
       }
       case 'MapMatchups': {
         const type = operation.variables?.matchmakingType as MatchmakingType
@@ -519,11 +553,7 @@ export function MapPageTest() {
       <PageContainer>
         <IsolatedReduxProvider key={key} seedActions={seedActions(viewer, scenario)}>
           <UrqlProvider value={client}>
-            <MapPage
-              mapId={scenario.map.id}
-              idSegment={encodePrettyId(scenario.map.id)}
-              slugSegment={mapSlug(scenario.map.name)}
-            />
+            <MapPage pageId={makeMapFamilyId(familyIdOf(scenario))} correctUrl={false} />
           </UrqlProvider>
         </IsolatedReduxProvider>
       </PageContainer>

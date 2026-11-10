@@ -214,7 +214,7 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
 
-- **Map browser (`maps.*`):** delist→**retirar del catálogo**, fork (map)→**derivado** (Versiones y derivados), map family→**familia**, staff→**el staff**, Melee/UMS lens→Melee / UMS (in-file game type), the Your maps tab→Tus mapas (buttons say "mis mapas"), On this PC→**En este PC**, upload→subir.
+- **Map browser (`maps.*`):** compare views are short segmented labels: Dividir / Deslizador / Fundido / Parpadeo / Resaltar / Restar. delist→**retirar del catálogo**, a map (what players pick)→**mapa**, a file (one upload of it)→**archivo**, the Default file→**predeterminado** (Comparar con el predeterminado, Usar el predeterminado); never "familia" / "versión" for these, staff→**el staff**, report to staff→**reporte**, Melee/UMS lens→Melee / UMS (in-file game type), the Your maps tab→Tus mapas (buttons say "mis mapas"), On this PC→**En este PC**, upload→subir.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -349,7 +349,7 @@ consistent. (Seed — extend over time.)
   skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
   «Открыть страницу Battle.net» clips in its slot beside the note.
 
-- **Map browser (`maps.*`):** delist→**убрать из каталога** (Убрана из каталога), fork (map)→**форк** (Версии и форки), map family→**группа версий**, staff→**администрация**, the Your maps tab→**«Мои карты»** (quoted when referenced in a sentence), Melee lens→Стычка (in-file game type), UMS kept, tileset→Тайлсет, related map→родственная карта. Relative times from `narrowDuration` render as «−3 дн.», so labels that precede one take a colon («Добавлена: {{time}}», «Последняя игра:»).
+- **Map browser (`maps.*`):** delist→**убрать из каталога** (Убрана из каталога), a map (what players pick)→**карта**, a file (one upload of it)→**файл**, the Default file→**файл по умолчанию** (chip «По умолчанию»); never «группа версий» / «версия» for these, staff→**администрация**, report to staff→**жалоба** (in-file), the Your maps tab→**«Мои карты»** (quoted when referenced in a sentence), Melee lens→Стычка (in-file game type), UMS kept, tileset→Тайлсет, related map→родственная карта. Relative times from `narrowDuration` render as «−3 дн.», so labels that precede one take a colon («Добавлена: {{time}}», «Последняя игра:»).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -482,7 +482,7 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
   section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
 
-- **Map browser (`maps.*`):** delist→**목록에서 내리기**, fork (map)→**파생 (맵)** (버전 및 파생 맵), map family→**버전 그룹**, Melee/UMS lens→**섬멸전 / 유즈맵**, player count on tiles/filters→**{{count}}인용**, publish (map)→게시 (게시자:), On this PC→**이 PC**, staff→운영진.
+- **Map browser (`maps.*`):** delist→**목록에서 내리기**, a map (what players pick)→**맵**, a file (one upload of it)→**파일**, the Default file→**기본 파일** (chip 기본); never 버전 그룹 / 버전 for these, report to staff→**제보** (not 신고, which is for punishing players), Melee/UMS lens→**섬멸전 / 유즈맵**, player count on tiles/filters→**{{count}}인용**, publish (map)→게시 (게시자:), On this PC→**이 PC**, staff→운영진.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -594,4 +594,4 @@ consistent. (Seed — extend over time.)
 - **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
-- **Map browser (`maps.*`):** delist→**下架**, fork (map)→**衍生** (版本与衍生), map family→**版本组**, Melee lens→对战 (in-file game type), UMS kept, tileset→地形类型 (in-file), Your maps→“我的地图”, On this PC→**此电脑**, staff→工作人员, map counter→张.
+- **Map browser (`maps.*`):** delist→**下架**, a map (what players pick)→**地图**, a file (one upload of it)→**文件**, the Default file→**默认文件** (chip 默认); never 版本组 / 版本 for these, report to staff→**报告**, Melee lens→对战 (in-file game type), UMS kept, tileset→地形类型 (in-file), Your maps→“我的地图”, On this PC→**此电脑**, staff→工作人员, map counter→张.

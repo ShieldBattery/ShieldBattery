@@ -9,4 +9,5 @@ export const adminReportTimesAtom = atom<Readonly<Record<AdminReportKind, readon
   bugReports: [],
   gameReports: [],
   reviewRequests: [],
+  mapReports: [],
 })
