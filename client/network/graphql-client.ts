@@ -54,11 +54,13 @@ function invalidateNewsPostLists(cache: Cache) {
 /**
  * Query fields whose results depend on which files make up each map, or on which file each map
  * gives players: the catalog shows each map's current file, a map page id resolves through the
- * maps, and the reports and history are about them.
+ * maps, and the reports and history are about them. What claiming a map would do depends on its
+ * listed files and who published them, so the claim preview is among them.
  */
 const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'maps',
   'mapFamily',
+  'mapOwnerClaimPreview',
   'similarFiles',
   'mapFamilyReports',
   'mapFamilyReportCount',

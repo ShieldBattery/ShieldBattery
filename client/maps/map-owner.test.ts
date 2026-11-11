@@ -49,6 +49,22 @@ describe('client/maps/map-owner', () => {
       ).toEqual({ kind: 'pending' })
     })
 
+    test('offers an instant claim even with an open claim, unless the viewer is blocked', () => {
+      expect(claimMenuState(false, preview(null, { instant: true, hasOpenClaim: true }))).toEqual({
+        kind: 'claim',
+        instant: true,
+      })
+      expect(claimMenuState(false, preview(null, { instant: false, hasOpenClaim: true }))).toEqual({
+        kind: 'pending',
+      })
+      expect(
+        claimMenuState(
+          false,
+          preview(MapOwnerClaimBlockedReason.RateLimited, { instant: true, hasOpenClaim: true }),
+        ),
+      ).toEqual({ kind: 'pending' })
+    })
+
     test('says why a claim has to wait', () => {
       expect(claimMenuState(false, preview(MapOwnerClaimBlockedReason.EmailUnverified))).toEqual({
         kind: 'blocked',

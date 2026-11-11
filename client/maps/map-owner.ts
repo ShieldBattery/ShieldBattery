@@ -41,7 +41,9 @@ export function claimMenuState(isOwner: boolean, preview?: ClaimPreviewFacts): C
     default:
       break
   }
-  if (preview.hasOpenClaim) {
+  // The server grants an instant claim at once even when the viewer has an open one (it marks that
+  // claim granted), so only a claim that can't be granted at once is left waiting for staff.
+  if (preview.hasOpenClaim && !(preview.instant && preview.blockedReason == null)) {
     return { kind: 'pending' }
   }
   switch (preview.blockedReason) {
