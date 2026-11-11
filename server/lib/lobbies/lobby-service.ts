@@ -668,6 +668,7 @@ export class LobbyService {
     regionManual,
     clientPubkey,
     leaveCurrentLobby,
+    mapQueue,
     user,
     client,
   }: {
@@ -691,6 +692,8 @@ export class LobbyService {
      * so a failed create never strands the client lobby-less.
      */
     leaveCurrentLobby?: boolean
+    /** The maps the lobby plays after its first one, in order. */
+    mapQueue?: SbMapId[]
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
@@ -701,6 +704,7 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
     }
     checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
+    const fetchedQueue = mapQueue !== undefined ? await fetchMapQueue(mapQueue) : []
 
     let numSlots
     switch (gameType) {
@@ -722,6 +726,7 @@ export class LobbyService {
     const lobby = Lobbies.createLobby({
       name,
       map: mapInfo,
+      mapQueue: fetchedQueue,
       gameType,
       gameSubType: gameSubType ?? undefined,
       numSlots,

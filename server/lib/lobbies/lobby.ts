@@ -354,6 +354,7 @@ function createObserverTeam(): Team {
 export function createLobby({
   name,
   map,
+  mapQueue = [],
   gameType,
   gameSubType = 0,
   numSlots,
@@ -368,6 +369,8 @@ export function createLobby({
 }: {
   name: string
   map: MapInfo
+  /** The maps the lobby plays after `map`, in order. */
+  mapQueue?: ReadonlyArray<MapInfo>
   gameType: GameType
   gameSubType?: number
   numSlots: number
@@ -404,7 +407,7 @@ export function createLobby({
     id: makeSbLobbyId(encodePrettyId(randomUUID())),
     name,
     map,
-    mapQueue: [],
+    mapQueue,
     gameType,
     gameSubType: +gameSubType,
     teams,

@@ -1947,6 +1947,107 @@ describe('lobbies/lobby-service', () => {
       return id
     }
 
+    test('a lobby created with a queue starts with it, in order and with repeats', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+
+      const { id } = await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id, TWO_SLOT_MAP.id],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(BIG_GAME_HUNTERS.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([
+        TWO_SLOT_MAP.id,
+        BIG_GAME_HUNTERS.id,
+        TWO_SLOT_MAP.id,
+      ])
+    })
+
+    test('a lobby created with a queue queues the same maps a settings update would', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const queue = [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id]
+      const { id: createdId } = await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: queue,
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      const { id: updatedId } = await createLobby(otherHost, 'Updated lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: otherHost.client,
+        lobbyId: updatedId,
+        mapQueue: queue,
+      })
+
+      expect(lobbyService.lobbies.get(createdId)!.mapQueue).toEqual(
+        lobbyService.lobbies.get(updatedId)!.mapQueue,
+      )
+    })
+
+    test('creating with a queue that names a map that does not exist fails the create', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+
+      await expect(
+        lobbyService.createLobby({
+          name: 'Queued lobby',
+          map: BIG_GAME_HUNTERS.id,
+          mapQueue: [BIG_GAME_HUNTERS.id, makeSbMapId('no-such-map')],
+          gameType: GameType.Melee,
+          visibility: 'listed',
+          user: host.user,
+          client: host.client,
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidMap })
+
+      expect(lobbyService.lobbies.size).toBe(0)
+      expect(lobbyService.lobbyClients.get(host.client)).toBeUndefined()
+      expect(listPublishes()).toEqual([])
+    })
+
+    test('creating with an empty or absent queue starts with none', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+      const { id: absentId } = await createLobby(host, 'No queue', 'listed')
+      const { id: emptyId } = await lobbyService.createLobby({
+        name: 'Empty queue',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: otherHost.user,
+        client: otherHost.client,
+      })
+
+      expect(lobbyService.lobbies.get(absentId)!.mapQueue).toEqual([])
+      expect(lobbyService.lobbies.get(emptyId)!.mapQueue).toEqual([])
+    })
+
+    test('a lobby created with a queue publishes the same list entry as one without', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await createLobby(otherHost, 'Queued lobby', 'listed')
+
+      const [queued, plain] = listPublishes()
+      expect(queued.action).toBe(plain.action)
+      expect(JSON.stringify(queued.payload).includes(TWO_SLOT_MAP.id)).toBe(false)
+    })
+
     test('queueing maps leaves every seat and ready mark alone', async () => {
       mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
       const { id } = await createLobby(host, 'Listed lobby', 'listed')

@@ -1,22 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MAX_MAP_QUEUE } from '../../../common/lobbies'
-import { SbMapId } from '../../../common/maps'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, singleLine } from '../../styles/typography'
 import { Section, SectionHeader } from '../create/game-setup-form'
-
-/**
- * One map in a map queue being edited. The same map can be queued more than once, so each entry
- * carries its own key to tell the copies apart.
- */
-export interface QueuedMapEntry {
-  key: string
-  mapId: SbMapId
-}
+import { QueuedMapEntry } from '../map-queue-editor'
 
 const QueueList = styled.ol`
   margin: 0;
