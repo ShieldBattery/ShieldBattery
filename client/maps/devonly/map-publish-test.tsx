@@ -23,6 +23,9 @@ type ScenarioId =
   | 'oneLongName'
   | 'threeSuggestions'
   | 'needsReview'
+  | 'ownedMaps'
+  | 'ownedNoSuggestion'
+  | 'ownedSuggestion'
   | 'error'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -34,6 +37,9 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'oneLongName', label: 'One suggestion, long name' },
   { id: 'threeSuggestions', label: 'Three suggestions' },
   { id: 'needsReview', label: 'Needs review' },
+  { id: 'ownedMaps', label: 'Owns maps' },
+  { id: 'ownedNoSuggestion', label: 'Owns maps, no suggestion' },
+  { id: 'ownedSuggestion', label: 'Suggested map is theirs' },
   { id: 'error', label: 'Publish failed' },
 ]
 
@@ -145,7 +151,33 @@ const PREVIEWS: Record<ScenarioId, ReturnType<typeof preview>> = {
   oneLongName: preview({ suggestions: [LONG_NAME] }),
   threeSuggestions: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS, UMS] }),
   needsReview: preview({ needsReview: true, suggestions: [FIGHTING_SPIRIT] }),
+  ownedMaps: preview({ suggestions: [FIGHTING_SPIRIT] }),
+  ownedNoSuggestion: preview({}),
+  ownedSuggestion: preview({ suggestions: [FIGHTING_SPIRIT] }),
   error: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS] }),
+}
+
+/**
+ * Maps the viewer owns. The suggested map among them stays a suggestion, and the file's own map
+ * isn't offered.
+ */
+const OWNED_MAPS = [
+  { id: 'family-1', name: 'Fighting Spirit 1.3' },
+  { id: 'f00d-family', name: 'Fighting Spirit 1.4 (fixed ramps)' },
+  { id: 'owned-1', name: 'Eclipse 1.2' },
+  { id: 'owned-2', name: 'Sylphid' },
+]
+
+function ownedMapsFor(scenarioId: ScenarioId) {
+  switch (scenarioId) {
+    case 'ownedMaps':
+    case 'ownedNoSuggestion':
+      return OWNED_MAPS
+    case 'ownedSuggestion':
+      return OWNED_MAPS.slice(0, 1)
+    default:
+      return []
+  }
 }
 
 const Container = styled.div`
@@ -189,6 +221,7 @@ export function MapPublishTest() {
           key={scenarioId}
           preview={PREVIEWS[scenarioId]}
           file={FILE}
+          ownedMaps={ownedMapsFor(scenarioId)}
           sending={false}
           errorMessage={
             scenarioId === 'error' ? 'That map is no longer suggested for this file.' : undefined

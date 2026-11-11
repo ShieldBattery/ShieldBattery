@@ -63,6 +63,7 @@ import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
 import { ConnectedUserContextMenu } from './user-context-menu'
+import { useOwnsMaps, UserProfileMaps } from './user-profile-maps'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -429,6 +430,7 @@ export function UserProfilePage({
     defaultValue_one: '{{count}} commend',
     count: commendCount ?? 0,
   })
+  const ownsMaps = useOwnsMaps(user.id)
   const twitchChannel = headerData?.user?.twitchChannel
   const liveStream = headerData?.user?.liveStream ?? undefined
   const isLive = !!liveStream
@@ -457,6 +459,10 @@ export function UserProfilePage({
 
     case UserProfileSubPage.Seasons:
       content = <UserProfileSeasons user={user} />
+      break
+
+    case UserProfileSubPage.Maps:
+      content = <UserProfileMaps key={user.id} userId={user.id} />
       break
 
     case UserProfileSubPage.Admin:
@@ -541,6 +547,9 @@ export function UserProfilePage({
             value={UserProfileSubPage.Seasons}
             text={t('users.profile.tabs.season', 'Seasons')}
           />
+          {ownsMaps || subPage === UserProfileSubPage.Maps ? (
+            <TabItem value={UserProfileSubPage.Maps} text={t('users.profile.tabs.maps', 'Maps')} />
+          ) : null}
           {isAdmin ? (
             <TabItem
               value={UserProfileSubPage.Admin}
