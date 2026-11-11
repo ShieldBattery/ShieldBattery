@@ -51,6 +51,7 @@ import { LoadingDotsArea } from './progress/dots'
 import { useMultiplexRef } from './react/refs'
 import { useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
+import { RULES_PATH } from './rules/rules-urls'
 import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
@@ -720,6 +721,14 @@ function AppBar({
               onClick={() => {
                 closeProfileOverlay()
                 dispatch(openSettings())
+              }}
+            />
+            <MenuItem
+              icon={<MaterialIcon icon='gavel' />}
+              text={t('navigation.leftNav.rules', 'Platform rules')}
+              onClick={() => {
+                closeProfileOverlay()
+                push(RULES_PATH)
               }}
             />
             {IS_ELECTRON ? (

@@ -193,7 +193,8 @@
       "reasonLabel": "原因：",
       "reporting": {
         "notification": "你的账户已被限制举报玩家。"
-      }
+      },
+      "viewRules": "查看规则"
     },
     "signup": {
       "ageConfirmation": "我证明我已年满13岁",
@@ -1463,7 +1464,7 @@
     "alreadyReported": "您已经就这场游戏举报过该玩家了。",
     "badRequest": "无法提交举报。请检查详情后重试。",
     "closed": "这场游戏的举报已关闭。玩家只能在游戏结束后 24 小时内被举报。",
-    "description": "举报在这场游戏中违规的玩家。举报将由 ShieldBattery 工作人员审核。",
+    "description": "举报在这场游戏中违反<2>规则</2>的玩家。举报将由 ShieldBattery 工作人员审核。",
     "details": "详情",
     "detailsOptional": "详情（可选）",
     "detailsRequiredForOther": "请描述发生了什么。",
@@ -1596,6 +1597,7 @@
       "faq": "常见问题",
       "licenses": "许可证",
       "privacyPolicy": "隐私政策",
+      "rules": "规则",
       "termsOfService": "服务条款"
     },
     "faq": {
@@ -2516,6 +2518,7 @@
       "logOutErrorMessage": "遇到错误。请稍后再试。",
       "logOutErrorTitle": "登出失败",
       "reportBug": "反馈 bug",
+      "rules": "平台规则",
       "settings": "设置",
       "viewProfile": "查看资料",
       "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
@@ -2683,6 +2686,13 @@
     "reportBug": "反馈 bug",
     "title": "出错了:(",
     "tryAgain": "重试"
+  },
+  "rules": {
+    "consequences": "违反以上准则可能会受到管理处罚，包括聊天、匹配及平台使用限制。",
+    "copyLink": "复制规则链接",
+    "intro": "欢迎来到 ShieldBattery！我们希望每个人都能在这里玩得开心，为此，请您遵守以下社区准则：",
+    "list": "1. **公平游戏**。禁止作弊。\n2. **尊重他人**。请勿使用辱骂性语言或做出恶意行为，以礼相待其他玩家。\n3. **尊重游戏**。不要中途退出游戏。",
+    "title": "平台规则"
   },
   "settings": {
     "activity": {

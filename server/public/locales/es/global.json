@@ -193,7 +193,8 @@
       "reasonLabel": "Razón:",
       "reporting": {
         "notification": "Tu cuenta ha sido restringida para reportar jugadores."
-      }
+      },
+      "viewRules": "Ver reglas"
     },
     "signup": {
       "ageConfirmation": "Certifico que tengo 13 años o más",
@@ -1495,7 +1496,7 @@
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
     "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
     "closed": "Los reportes de esta partida están cerrados. Se puede reportar a un jugador hasta 24 horas después de que termine la partida.",
-    "description": "Reporta a un jugador por incumplir las reglas en esta partida. El equipo de ShieldBattery revisa los reportes.",
+    "description": "Reporta a un jugador por incumplir las <2>reglas</2> en esta partida. El equipo de ShieldBattery revisa los reportes.",
     "details": "Detalles",
     "detailsOptional": "Detalles (opcional)",
     "detailsRequiredForOther": "Describe qué pasó.",
@@ -1634,6 +1635,7 @@
       "faq": "Preguntas Frecuentes",
       "licenses": "Licencias",
       "privacyPolicy": "Política de Privacidad",
+      "rules": "Reglas",
       "termsOfService": "Términos de Servicio"
     },
     "faq": {
@@ -2588,6 +2590,7 @@
       "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
       "logOutErrorTitle": "Error al cerrar sesión",
       "reportBug": "Reportar un error",
+      "rules": "Reglas de la plataforma",
       "settings": "Ajustes",
       "viewProfile": "Ver perfil",
       "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
@@ -2769,6 +2772,13 @@
     "reportBug": "Reportar un error",
     "title": "Algo salió mal :(",
     "tryAgain": "Reintentar"
+  },
+  "rules": {
+    "consequences": "No seguir estas normas puede tener consecuencias administrativas, como restricciones de chat, de emparejamiento o de la plataforma.",
+    "copyLink": "Copiar enlace a las reglas",
+    "intro": "¡Te damos la bienvenida a ShieldBattery! Queremos que todos disfruten su tiempo en nuestra plataforma y, para ello, te pedimos que respetes las siguientes normas de la comunidad:",
+    "list": "1. **Juega limpio.** No se permiten trampas.\n2. **Respeta a los demás.** Evita el lenguaje y el comportamiento abusivos, y trata a los demás jugadores con dignidad.\n3. **Respeta el juego.** No abandones las partidas antes de tiempo.",
+    "title": "Reglas de la plataforma"
   },
   "settings": {
     "activity": {

@@ -52,11 +52,14 @@ export function GuidePage({
   path,
   title,
   markdown,
+  copyLinkLabel,
 }: {
   /** The guide's own path, for page view tracking. */
   path: string
   title: string
   markdown: string
+  /** Tooltip for the copy link button, for pages that shouldn't call themselves a guide. */
+  copyLinkLabel?: string
 }) {
   const { t } = useTranslation()
   useTrackPageView(path)
@@ -68,7 +71,7 @@ export function GuidePage({
           <Title>{title}</Title>
           <CopyLinkButton
             tooltipPosition='right'
-            startingText={t('guides.copyLink', 'Copy link to this guide')}
+            startingText={copyLinkLabel ?? t('guides.copyLink', 'Copy link to this guide')}
           />
         </TitleRow>
         <ArticleMarkdown source={markdown} allowMedia={true} />
