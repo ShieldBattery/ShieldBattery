@@ -133,6 +133,11 @@ pub struct MapFilter {
     pub published_since: Option<DateTime<Utc>>,
     /// Only official maps (`true`) or only maps that aren't official (`false`).
     pub official: Option<bool>,
+    /// Only maps (families) this user owns.
+    pub owner: Option<SbUserId>,
+    /// Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+    /// `false`, only the other maps.
+    pub verified: Option<bool>,
 }
 
 /// Which set of maps a listing pages through.
@@ -276,6 +281,8 @@ pub struct NormalizedFilter {
     eud: EudFilter,
     published_since: Option<DateTime<Utc>>,
     official: Option<bool>,
+    owner: Option<SbUserId>,
+    verified: Option<bool>,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -324,6 +331,8 @@ impl NormalizedFilter {
             eud: filter.eud,
             published_since: filter.published_since,
             official: filter.official,
+            owner: filter.owner,
+            verified: filter.verified,
         })
     }
 
@@ -942,7 +951,23 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, publ
             qb.push(" AND NOT m.official");
         }
     }
+    // Read through the file's family rather than `fam`, which only listings of families join
+    if let Some(owner) = filter.owner {
+        qb.push(
+            " AND m.family_id IN (SELECT ofam.id FROM map_families ofam WHERE ofam.owner_id = ",
+        );
+        qb.push_bind(owner.0);
+        qb.push(")");
+    }
+    if let Some(verified) = filter.verified {
+        qb.push(if verified { " AND " } else { " AND NOT " });
+        qb.push(VERIFIED);
+    }
 }
+
+/// Whether the map `m` is in is verified: its file is official, or staff granted its ownership.
+const VERIFIED: &str = "(m.official OR EXISTS (SELECT 1 FROM map_families vfam \
+    WHERE vfam.id = m.family_id AND vfam.owner_kind = 'staff'))";
 
 /// Loads pages of map listings.
 #[derive(Clone)]
@@ -1385,6 +1410,8 @@ mod tests {
                 eud: EudFilter::Exclude,
                 published_since: Some(Utc::now()),
                 official: Some(true),
+                owner: Some(SbUserId(1)),
+                verified: Some(true),
             },
         ] {
             let request =
@@ -1457,6 +1484,81 @@ mod tests {
             let mut qb = QueryBuilder::<Postgres>::new("");
             push_filters(&mut qb, &filter, "m.published_at");
             assert_eq!(qb.sql().as_str(), expected);
+        }
+    }
+
+    #[test]
+    fn owner_and_verified_filters_read_the_family_in_every_scope() {
+        let filter = MapFilter {
+            owner: Some(SbUserId(7)),
+            verified: Some(true),
+            ..Default::default()
+        };
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+        ] {
+            let request =
+                MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
+            let sql = request.build_query().sql().as_str().to_string();
+            assert!(
+                sql.contains(
+                    " AND m.family_id IN (SELECT ofam.id FROM map_families ofam \
+                     WHERE ofam.owner_id = $"
+                ),
+                "{sql}"
+            );
+            assert!(sql.contains(&format!(" AND {VERIFIED}")), "{sql}");
+        }
+
+        for (verified, expected) in [
+            (None, String::new()),
+            (Some(true), format!(" AND {VERIFIED}")),
+            (Some(false), format!(" AND NOT {VERIFIED}")),
+        ] {
+            let filter = NormalizedFilter::new(MapFilter {
+                verified,
+                ..Default::default()
+            })
+            .unwrap();
+            let mut qb = QueryBuilder::<Postgres>::new("");
+            push_filters(&mut qb, &filter, "m.published_at");
+            assert_eq!(qb.sql().as_str(), expected);
+        }
+    }
+
+    #[test]
+    fn owner_and_verified_filters_change_the_listing_hash() {
+        let any = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let hashes: Vec<String> = [
+            MapFilter {
+                owner: Some(SbUserId(1)),
+                ..Default::default()
+            },
+            MapFilter {
+                owner: Some(SbUserId(2)),
+                ..Default::default()
+            },
+            MapFilter {
+                verified: Some(true),
+                ..Default::default()
+            },
+            MapFilter {
+                verified: Some(false),
+                ..Default::default()
+            },
+        ]
+        .into_iter()
+        .map(|f| {
+            NormalizedFilter::new(f)
+                .unwrap()
+                .listing_hash(MapScope::Listed)
+        })
+        .collect();
+        for (i, hash) in hashes.iter().enumerate() {
+            assert_ne!(hash, &any.listing_hash(MapScope::Listed));
+            assert!(!hashes[i + 1..].contains(hash));
         }
     }
 

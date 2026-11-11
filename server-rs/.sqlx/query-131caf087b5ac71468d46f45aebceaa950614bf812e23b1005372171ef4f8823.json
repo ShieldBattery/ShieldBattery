@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.official, m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\"\n            FROM maps m\n            WHERE m.id = $1\n        ",
+  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.official, m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\",\n                f.owner_id as \"family_owner_id: SbUserId\",\n                f.credit IS NOT NULL as \"family_has_credit!\"\n            FROM maps m\n            INNER JOIN map_families f ON f.id = m.family_id\n            WHERE m.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -80,6 +80,23 @@
         "name": "family_size!",
         "type_info": "Int8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "family_owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "family_has_credit!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -95,8 +112,10 @@
       null,
       true,
       true,
+      null,
+      true,
       null
     ]
   },
-  "hash": "1a7612f5550abcffcce469b6b7caf11d5d15a642ee8670b4a89abee27d6fe8db"
+  "hash": "131caf087b5ac71468d46f45aebceaa950614bf812e23b1005372171ef4f8823"
 }
