@@ -784,10 +784,27 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
         .take(SelectionView::MAX_UNITS)
         .filter_map(|unit| unit.kills)
         .reduce(u32::saturating_add);
-    // Where a unit selected alone has its kills read out: the right end of the line its name heads.
+    // Labelled where a unit selected alone has its kills read out, at the right end of the line its
+    // name heads, with the count under the label rather than beside it: the strip the grid leaves
+    // there is narrow, and a count of a few digits beside the label would run over the grid's last
+    // column.
     if let Some(kills) = kills {
         let line = Rect::from_min_size(body.left_top(), vec2(body.width(), NAME_ROW));
-        draw_tally(ui, line, &tr!("observer.selectionKills", "Kills"), kills);
+        let label = centred(line, TALLY_ROW);
+        paint_text(
+            ui,
+            label,
+            &text::column_label(),
+            &tr!("observer.selectionKills", "Kills"),
+            Align::RIGHT,
+        );
+        paint_text(
+            ui,
+            label.translate(vec2(0.0, TALLY_ROW)),
+            &text::numeral(TALLY_SIZE),
+            &kills.to_string(),
+            Align::RIGHT,
+        );
     }
     clicked
 }
