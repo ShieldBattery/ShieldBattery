@@ -456,6 +456,7 @@ function getGeneralGameSetup({
       turnRate,
       userLatency,
       useLegacyLimits: gameConfig.gameSourceExtra?.useLegacyLimits,
+      allowObserverChat: gameConfig.gameSourceExtra?.allowObserverChat ?? false,
       starcraftCompatibleReplays: gameConfig.gameSourceExtra?.starcraftCompatibleReplays,
       disableAllianceChanges: gameConfig.lockedAlliances,
     }

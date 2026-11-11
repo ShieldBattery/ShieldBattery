@@ -103,6 +103,7 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   gameType: GameType
   gameSubType?: number
   allowObservers?: boolean
+  allowObserverChat?: boolean
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
@@ -394,6 +395,7 @@ export interface LobbySummaryJson {
   useLegacyLimits: boolean
   starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
+  allowObserverChat?: boolean
   playerSlots: LobbyPlayerSlotCounts
   observerSlots: LobbyObserverSlotCounts
   /**
@@ -740,6 +742,7 @@ export interface UpdateLobbySettingsRequest {
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   allowObservers?: boolean
+  allowObserverChat?: boolean
   /**
    * The maps to play after the current one, in order, replacing whatever was queued before. An
    * empty list clears the queue.
@@ -758,6 +761,7 @@ export type LobbyChangedSetting =
   | 'starcraftCompatibleReplays'
   | 'lockedAlliances'
   | 'allowObservers'
+  | 'allowObserverChat'
   | 'mapQueue'
 
 /**
@@ -831,6 +835,7 @@ export interface UpdateLobbyPreferencesRequest {
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
+  allowObserverChat?: boolean
 }
 
 /**
@@ -853,4 +858,5 @@ export interface LobbyPreferencesResponse {
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
+  allowObserverChat?: boolean
 }

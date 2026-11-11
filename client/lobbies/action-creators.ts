@@ -72,6 +72,7 @@ export interface CreateLobbyParams {
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   allowObservers?: boolean
+  allowObserverChat?: boolean
   visibility?: LobbyVisibility
   /**
    * When set, a client currently in a different lobby is removed from it in the same operation
@@ -90,6 +91,7 @@ export function createLobby(
     starcraftCompatibleReplays,
     lockedAlliances,
     allowObservers,
+    allowObserverChat,
     visibility,
     leaveCurrentLobby,
   }: CreateLobbyParams,
@@ -110,6 +112,7 @@ export function createLobby(
         starcraftCompatibleReplays,
         lockedAlliances,
         allowObservers,
+        allowObserverChat,
         visibility,
         leaveCurrentLobby,
         ...network,

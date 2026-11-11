@@ -51,6 +51,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   useLegacyLimits: false,
   starcraftCompatibleReplays: true,
   lockedAlliances: false,
+  allowObserverChat: false,
   visibility: 'listed',
   createdAt: 0,
 })

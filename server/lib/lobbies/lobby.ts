@@ -199,6 +199,7 @@ export function toSummaryJson(
     useLegacyLimits: lobby.useLegacyLimits,
     starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
+    allowObserverChat: !!lobby.allowObserverChat,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
     lifecycle,
@@ -361,6 +362,7 @@ export function createLobby({
   hostRace = 'r',
   hostRegion,
   allowObservers,
+  allowObserverChat = false,
   useLegacyLimits = false,
   starcraftCompatibleReplays = true,
   lockedAlliances = false,
@@ -376,6 +378,7 @@ export function createLobby({
   /** The host's chosen home game-server region, stored on their slot for session-create placement. */
   hostRegion?: GameServerRegionId
   allowObservers: boolean
+  allowObserverChat?: boolean
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
@@ -413,6 +416,7 @@ export function createLobby({
     useLegacyLimits,
     starcraftCompatibleReplays,
     lockedAlliances,
+    allowObserverChat,
     visibility,
     createdAt: Date.now(),
   }
@@ -1224,6 +1228,7 @@ export interface LobbySettings {
   /** How many player slots the lobby has, as derived from the map and the game type. */
   numSlots: number
   allowObservers: boolean
+  allowObserverChat?: boolean
   useLegacyLimits: boolean
   starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
@@ -1263,6 +1268,7 @@ export interface LobbySettings {
  * picked, so the members poured into one keep their own.
  */
 export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
+  const allowObserverChat = next.allowObserverChat ?? lobby.allowObserverChat ?? false
   // A non-UMS layout is fully described by the shapes of its teams plus whether the players in them
   // control their team's remaining slots: melee and ffa on the same map produce the same teams down
   // to their ids and names, while teamMelee at sub-type 2 and topVBottom at sub-type 4 both split 8
@@ -1282,6 +1288,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       useLegacyLimits: next.useLegacyLimits,
       starcraftCompatibleReplays: next.starcraftCompatibleReplays,
       lockedAlliances: next.lockedAlliances,
+      allowObserverChat,
     }
   }
 
@@ -1332,6 +1339,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
     useLegacyLimits: next.useLegacyLimits,
     starcraftCompatibleReplays: next.starcraftCompatibleReplays,
     lockedAlliances: next.lockedAlliances,
+    allowObserverChat,
     teams,
     bench: [],
   }
