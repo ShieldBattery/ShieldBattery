@@ -26,7 +26,7 @@ use crate::colors::BLUE10;
 use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::{motion, theme};
 use crate::observer::race_icon::{icon_rect, paint_race_icon};
-use crate::observer::{RaceView, minimap_reserve};
+use crate::observer::{PLAYER_SWATCH, RaceView, minimap_reserve, paint_player_swatch_with};
 use crate::{tr, tr_plural};
 
 /// How long the card stays at full strength, in seconds: long enough to read a record and two ranks
@@ -830,8 +830,6 @@ fn paint_division_icon(painter: &Painter, rect: Rect, division: Division) {
 /// The roster's row width, which holds a long name and a division side by side.
 const ROSTER_WIDTH: f32 = 380.0;
 const ROSTER_PADDING: Vec2 = vec2(12.0, 10.0);
-/// The player-color bar at the start of each row, which ties the row to the units on screen.
-const ROSTER_SWATCH_WIDTH: f32 = 3.0;
 const ROSTER_RACE_ICON: f32 = 15.0;
 const ROSTER_NAME_SIZE: f32 = 17.0;
 const ROSTER_DETAIL_SIZE: f32 = 13.0;
@@ -983,8 +981,8 @@ impl RosterLayout {
             })
             .fold(column.size().x - ROSTER_EMBLEM - ROSTER_ICON_GAP, f32::max);
         let left_width = inner_width
-            - ROSTER_SWATCH_WIDTH
-            - theme::SPACE_SM
+            - PLAYER_SWATCH
+            - ROSTER_ICON_GAP
             - ROSTER_RACE_ICON
             - ROSTER_ICON_GAP
             - ROSTER_EMBLEM
@@ -1156,18 +1154,22 @@ impl RosterRowLayout {
     }
 
     fn paint(&self, painter: &Painter, rect: Rect, rank_left: f32) {
-        painter.rect_filled(
-            Rect::from_min_size(rect.min, vec2(ROSTER_SWATCH_WIDTH, rect.height())),
-            CornerRadius::from(theme::RADIUS_TIGHT),
-            self.color,
-        );
-        let left = rect.left() + ROSTER_SWATCH_WIDTH + theme::SPACE_SM;
         let name_top = rect.center().y - (self.name.size().y + self.detail.size().y) * 0.5;
-        let icon = icon_rect(
-            pos2(
-                left + ROSTER_RACE_ICON * 0.5,
-                name_top + self.name.size().y * 0.5,
+        let name_middle = name_top + self.name.size().y * 0.5;
+        // The square of the player's color the alliances screen and the observer panels mark a
+        // player with, which ties the row to the player's units on the map.
+        paint_player_swatch_with(
+            painter,
+            Rect::from_min_size(
+                pos2(rect.left(), name_middle - PLAYER_SWATCH * 0.5),
+                Vec2::splat(PLAYER_SWATCH),
             ),
+            self.color,
+            1.0,
+        );
+        let left = rect.left() + PLAYER_SWATCH + ROSTER_ICON_GAP;
+        let icon = icon_rect(
+            pos2(left + ROSTER_RACE_ICON * 0.5, name_middle),
             ROSTER_RACE_ICON,
             painter.ctx().pixels_per_point(),
         );
