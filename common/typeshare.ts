@@ -199,6 +199,36 @@ export type PublishedMapFamilyReportMessage =
       }
     }
 
+/**
+ * Messages published to Node (via Redis pub/sub) about publishing outcomes that concern the
+ * file's publisher. Node turns them into notifications.
+ */
+export type PublishedMapPublishMessage =
+  /** Staff took a listed file out of the listings. */
+  | {
+      type: 'fileDelisted'
+      data: {
+        fileId: TypeshareTypes.SbMapId
+        familyId: string
+        publisherId: TypeshareTypes.SbUserId
+        /** The file's name when it was delisted. */
+        name: string
+        /** The note staff left, when they left one. */
+        note?: string
+      }
+    }
+  /** Staff approved a file held for review, which listed it. */
+  | {
+      type: 'heldPublishListed'
+      data: {
+        fileId: TypeshareTypes.SbMapId
+        familyId: string
+        publisherId: TypeshareTypes.SbUserId
+        /** The file's name when it was listed. */
+        name: string
+      }
+    }
+
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
 
@@ -209,6 +239,7 @@ export type PublishedMessage =
   | { type: 'gameReport'; data: PublishedGameReportMessage }
   | { type: 'gameCommend'; data: PublishedGameCommendMessage }
   | { type: 'mapFamilyReport'; data: PublishedMapFamilyReportMessage }
+  | { type: 'mapPublish'; data: PublishedMapPublishMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

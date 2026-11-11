@@ -187,6 +187,9 @@
         "notification": "你的账户已被限制发送聊天消息。"
       },
       "endsOn": "该限制将于以下时间结束：",
+      "mapPublishing": {
+        "notification": "您的账户已被限制发布地图。"
+      },
       "matchmaking": {
         "notification": "你的账户已被限制使用匹配。"
       },
@@ -2247,13 +2250,13 @@
     },
     "files": {
       "compare": "比较",
-      "default": "默认",
       "games_other": "{{formattedCount}} 场游戏",
-      "notDefault": "不是默认文件",
+      "notRecommended": "不是推荐文件",
+      "recommended": "推荐",
       "showAll_other": "显示全部 {{count}} 个",
       "showFewer": "收起",
       "title": "文件",
-      "viewDefault": "查看默认文件"
+      "viewRecommended": "查看推荐文件"
     },
     "local": {
       "cantBeUsed": "无法使用：{{reason}}",
@@ -2281,8 +2284,8 @@
       "uploadMapNoPlayerSlotsError": "此地图没有出生点，也没有可用的玩家位置，因此永远无法进行游戏。请为地图添加出生点后重试。"
     },
     "nudge": {
-      "switchError": "无法加载默认文件",
-      "useDefault": "使用默认文件"
+      "switchRecommendedError": "无法加载推荐文件",
+      "useRecommended": "使用推荐文件"
     },
     "page": {
       "allGames": "此地图上的所有游戏",
@@ -2338,6 +2341,8 @@
       "typicalLength": "通常 {{length}}",
       "unlisted": "不公开列出",
       "unlistedNotice": "只有拥有链接的人才能看到此地图。",
+      "unpublishedAt": "取消发布于 {{date}}",
+      "unpublishedBy": "取消发布者",
       "updateError": "更新地图时发生错误",
       "useInLobbyError": "无法更换房间地图。它可能不适合房间当前的设置。",
       "useInMyLobby": "用于我的房间",
@@ -2354,6 +2359,59 @@
     "preview": {
       "zoom": "缩放"
     },
+    "publish": {
+      "alreadyListed": "此文件已发布。",
+      "approvedNotification": "您的地图 <1>{{name}}</1> 已通过审核并上架。",
+      "button": "发布",
+      "delistedNotification": "工作人员已将您的地图 <1>{{name}}</1> 下架。",
+      "delistedNotificationNote": "他们的备注：“{{note}}”",
+      "differentKind": "游戏类型不同",
+      "differentTriggers": "触发器不同",
+      "emailUnverified": "请先验证您的电子邮箱，才能发布地图。",
+      "emptyName": "此文件没有名称，无法发布。",
+      "error": "出了点问题，请稍后再试。",
+      "existingMap": "这与 <1>{{mapName}}</1> 是同一张地图，将与其一同上架。",
+      "heldForReview": "已提交给工作人员审核，通过后即会上架。",
+      "inCatalog": "目录中的地图",
+      "join": "是，添加进去",
+      "joinNamed": "是，添加到 {{mapName}}",
+      "link": "添加到地图",
+      "linked": "已添加到 {{mapName}}",
+      "linkMenuItem": "添加到其他地图…",
+      "linkTitle": "添加到其他地图",
+      "manySuggestions": "这看起来是以下某张地图的版本。",
+      "needsReview": "工作人员会先检查此文件的名称和描述，然后才会上架。",
+      "noLinkSuggestions": "没有找到与此文件相似的地图。如果它属于其他地图，请使用“报告问题”，工作人员会查看。",
+      "noneOfThese": "都不是，这是单独的地图",
+      "notInLibrary": "请先将此文件添加到您的地图，才能发布。",
+      "notSuggested": "该地图已不再推荐给此文件。",
+      "notSure": "不确定",
+      "oneSuggestion": "这看起来是 <1>{{mapName}}</1> 的版本，对吗？",
+      "ownPage": "<0>{{fileName}}</0> 将在目录中拥有独立页面。",
+      "publish": "发布",
+      "published": "已发布",
+      "publishedJoined": "已作为 {{mapName}} 的一部分发布",
+      "publishedUnsure": "已发布。工作人员会检查它是否是 {{mapName}} 的版本。",
+      "publishMenuItem": "发布…",
+      "rateLimited": "您今天发布的地图太多了，请明天再试。",
+      "restricted": "您目前被限制发布地图。",
+      "sameResources": "资源相同",
+      "sameTerrain": "地形相同",
+      "sameTriggers": "触发器相同",
+      "separateMap": "不，这是单独的地图",
+      "staffDelisted": "工作人员已将此文件下架，因此无法发布。",
+      "terrainPercent": "地形相同度 {{percent}}%",
+      "title": "发布地图",
+      "unlinked": "已从 {{mapName}} 中移除",
+      "unlinkError": "无法将文件从此地图中移除",
+      "unlinkMenuItem": "从此地图中移除",
+      "unlinkText": "要将 <1>{{fileName}}</1> 从 <4>{{mapName}}</4> 中移除吗？它将成为单独的地图。",
+      "unlinkTitle": "从此地图中移除",
+      "unpublish": "取消发布",
+      "unpublished": "已取消发布",
+      "unpublishError": "无法取消发布地图",
+      "yourFile": "您的文件"
+    },
     "report": {
       "error": "出了点问题，请稍后再试。",
       "iconLabel": "报告问题",
@@ -2369,8 +2427,6 @@
       "wrongMapOption": "此文件不属于此地图"
     },
     "server": {
-      "delisted": "地图已下架",
-      "delistError": "下架地图时发生错误",
       "favorites": {
         "added": "已添加至收藏夹",
         "addedError": "添加到收藏夹时遇到错误",
@@ -2384,7 +2440,6 @@
     },
     "thumbnail": {
       "addToFavorites": "添加到收藏夹",
-      "delistMap": "下架",
       "downloadMap": "下载",
       "mapActions": "地图动作",
       "mapPoolChipTooltip": "在当前 {{mode}} 天梯地图池中",

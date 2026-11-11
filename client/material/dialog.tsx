@@ -149,6 +149,8 @@ const Actions = styled.div<{ $showDivider?: boolean }>`
   padding: 8px 4px 4px;
 
   display: flex;
+  /* Buttons that don't fit on one line wrap instead of overflowing the dialog. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
 

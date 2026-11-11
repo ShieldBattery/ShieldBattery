@@ -17,6 +17,10 @@ import {
 } from '../leagues/league-ban-notification-ui'
 import { LeagueStartNotificationUi } from '../leagues/league-start-notification-ui'
 import { logger } from '../logging/logger'
+import {
+  MapFileDelistedNotificationUi,
+  MapPublishApprovedNotificationUi,
+} from '../maps/map-publish-notification-ui'
 import { MatchmakingBanNotificationUi } from '../matchmaking/matchmaking-ban-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
 import {
@@ -47,6 +51,8 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.GamePointsRefunded:
     case NotificationType.CommendReceived:
     case NotificationType.MatchmakingBan:
+    case NotificationType.MapFileDelisted:
+    case NotificationType.MapPublishApproved:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -176,6 +182,24 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
     case NotificationType.ChannelDeleted:
       return (
         <ChannelDeletedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.MapFileDelisted:
+      return (
+        <MapFileDelistedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.MapPublishApproved:
+      return (
+        <MapPublishApprovedNotificationUi
           ref={ref}
           showDivider={showDivider}
           read={notification.read}

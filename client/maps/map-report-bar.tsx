@@ -1,16 +1,21 @@
 import * as React from 'react'
 import styled from 'styled-components'
-import { useQuery } from 'urql'
+import { useMutation, useQuery } from 'urql'
 import { Link } from 'wouter'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, makeMapFamilyId, SbMapId } from '../../common/maps'
 import { graphql } from '../gql'
-import { MapFamilyReportKind, MapFamilyReportStatus, MapReportBarQuery } from '../gql/graphql'
+import {
+  MapFamilyReportKind,
+  MapFamilyReportStatus,
+  MapPublishReviewAnswer,
+  MapReportBarQuery,
+} from '../gql/graphql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { IconButton, OutlinedButton, TextButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -18,6 +23,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { openMapFamilyActionDialog } from './action-creators'
@@ -25,12 +31,36 @@ import { useChangeReportStatus } from './map-report-status'
 
 // Only staff review reports, so this isn't translated.
 
+const ApproveMutation = graphql(/* GraphQL */ `
+  mutation MapPublishReviewApprove($reportId: UUID!) {
+    mapPublishReviewApprove(reportId: $reportId) {
+      id
+      status
+      resolvedAt
+      resolvedBy {
+        id
+      }
+      map {
+        id
+        listed
+        publishedAt
+        publisher {
+          id
+          name
+        }
+      }
+    }
+  }
+`)
+
 const ReportQuery = graphql(/* GraphQL */ `
   query MapReportBar($id: UUID!) {
     mapFamilyReportById(id: $id) {
       id
       kind
       note
+      fromPublish
+      publishAnswer
       reportedAt
       status
       resolvedAt
@@ -211,10 +241,35 @@ function LoadedReportBar({ report }: { report: Report }) {
       </>
     )
   } else if (report.kind === MapFamilyReportKind.PublishReview) {
+    let answerSuffix: React.ReactNode = null
+    if (report.publishAnswer === MapPublishReviewAnswer.Join) {
+      answerSuffix = (
+        <>
+          {' as a version of '}
+          {mapLink(report.otherFamily)}
+        </>
+      )
+    } else if (report.publishAnswer === MapPublishReviewAnswer.Unsure) {
+      answerSuffix = (
+        <>
+          {"; its publisher wasn't sure whether it's a version of "}
+          {mapLink(report.otherFamily)}
+        </>
+      )
+    }
     claim = (
       <>
         {mapLink(report.family, report.map ?? undefined)}
         {' was held for review when published'}
+        {answerSuffix}
+      </>
+    )
+  } else if (report.fromPublish) {
+    claim = (
+      <>
+        {mapLink(report.family)}
+        {"'s publisher wasn't sure whether it's a version of "}
+        {mapLink(report.otherFamily)}
       </>
     )
   } else {
@@ -232,7 +287,10 @@ function LoadedReportBar({ report }: { report: Report }) {
       <Details>
         <Claim>{claim}</Claim>
         <InlineParts>
-          <span>Reported by</span>
+          {/* A file held for review is reported by publishing it */}
+          <span>
+            {report.kind === MapFamilyReportKind.PublishReview ? 'Published by' : 'Reported by'}
+          </span>
           {report.reportedBy ? (
             <ConnectedUsername userId={report.reportedBy.id} />
           ) : (
@@ -274,6 +332,50 @@ function ClosedActions({ report }: { report: Report }) {
 }
 
 function OpenActions({ report }: { report: Report }) {
+  if (report.kind === MapFamilyReportKind.PublishReview) {
+    return <PublishReviewActions report={report} />
+  }
+  return <FixActions report={report} />
+}
+
+/**
+ * Settles a file held for review when it was published: listing it, or dismissing the report,
+ * which leaves it unlisted. Marking it resolved would do neither, so that isn't offered.
+ */
+function PublishReviewActions({ report }: { report: Report }) {
+  const snackbarController = useSnackbarController()
+  const changeStatus = useChangeReportStatus()
+  const [{ fetching }, approve] = useMutation(ApproveMutation)
+
+  const onApprove = () => {
+    approve({ reportId: report.id })
+      .then(result => {
+        if (result.error || !result.data) {
+          snackbarController.showSnackbar(
+            `Couldn't list the file: ${result.error?.graphQLErrors[0]?.message ?? result.error?.message}`,
+          )
+        } else {
+          snackbarController.showSnackbar('Listed')
+        }
+      })
+      .catch((err: Error) =>
+        snackbarController.showSnackbar(`Couldn't list the file: ${err.message}`),
+      )
+  }
+
+  return (
+    <>
+      <TextButton
+        label='Dismiss'
+        disabled={fetching}
+        onClick={() => changeStatus(report.id, MapFamilyReportStatus.Dismissed)}
+      />
+      <FilledButton label='Approve and list' disabled={fetching} onClick={onApprove} />
+    </>
+  )
+}
+
+function FixActions({ report }: { report: Report }) {
   const dispatch = useAppDispatch()
   const changeStatus = useChangeReportStatus()
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')

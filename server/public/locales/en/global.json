@@ -187,6 +187,9 @@
         "notification": "Your account has been restricted from sending chat messages."
       },
       "endsOn": "This restriction will end on:",
+      "mapPublishing": {
+        "notification": "Your account has been restricted from publishing maps."
+      },
       "matchmaking": {
         "notification": "Your account has been restricted from matchmaking."
       },
@@ -2292,15 +2295,15 @@
     },
     "files": {
       "compare": "Compare",
-      "default": "Default",
       "games_one": "{{formattedCount}} game",
       "games_other": "{{formattedCount}} games",
-      "notDefault": "Not the default file",
+      "notRecommended": "Not the recommended file",
+      "recommended": "Recommended",
       "showAll_one": "Show all {{count}}",
       "showAll_other": "Show all {{count}}",
       "showFewer": "Show fewer",
       "title": "Files",
-      "viewDefault": "View default"
+      "viewRecommended": "View recommended"
     },
     "local": {
       "cantBeUsed": "Can't be used: {{reason}}",
@@ -2329,8 +2332,8 @@
       "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
     },
     "nudge": {
-      "switchError": "Couldn't load the default file",
-      "useDefault": "Use default"
+      "switchRecommendedError": "Couldn't load the recommended file",
+      "useRecommended": "Use recommended"
     },
     "page": {
       "allGames": "All games on this map",
@@ -2389,6 +2392,8 @@
       "typicalLength": "{{length}} typical",
       "unlisted": "Unlisted",
       "unlistedNotice": "Only people with the link can see this map.",
+      "unpublishedAt": "Unpublished on {{date}}",
+      "unpublishedBy": "Unpublished by",
       "updateError": "An error occurred while updating the map",
       "useInLobbyError": "Couldn't change your lobby's map. It may not fit the lobby's current setup.",
       "useInMyLobby": "Use in my lobby",
@@ -2408,6 +2413,59 @@
     "preview": {
       "zoom": "Zoom"
     },
+    "publish": {
+      "alreadyListed": "This file is already published.",
+      "approvedNotification": "Your map <1>{{name}}</1> was reviewed and is now listed.",
+      "button": "Publish",
+      "delistedNotification": "Staff took your map <1>{{name}}</1> out of the listings.",
+      "delistedNotificationNote": "Their note: “{{note}}”",
+      "differentKind": "different game type",
+      "differentTriggers": "different triggers",
+      "emailUnverified": "Verify your email address to publish maps.",
+      "emptyName": "This file has no name, so it can't be published.",
+      "error": "Something went wrong. Please try again later.",
+      "existingMap": "This is the same map as <1>{{mapName}}</1> and will be listed with it.",
+      "heldForReview": "Sent to staff for review. It's listed once they approve it.",
+      "inCatalog": "In the catalog",
+      "join": "Yes, add it",
+      "joinNamed": "Yes, add it to {{mapName}}",
+      "link": "Add to map",
+      "linked": "Added to {{mapName}}",
+      "linkMenuItem": "Add to another map…",
+      "linkTitle": "Add to another map",
+      "manySuggestions": "This looks like a version of one of these maps.",
+      "needsReview": "Staff will check this file's name and description before it's listed.",
+      "noLinkSuggestions": "No similar maps were found for this file. If it belongs with another map, use Report a problem and staff will take a look.",
+      "noneOfThese": "None of these, it's a separate map",
+      "notInLibrary": "Add this file to your maps to publish it.",
+      "notSuggested": "That map is no longer suggested for this file.",
+      "notSure": "Not sure",
+      "oneSuggestion": "This looks like a version of <1>{{mapName}}</1>. Is it?",
+      "ownPage": "<0>{{fileName}}</0> gets its own page in the catalog.",
+      "publish": "Publish",
+      "published": "Published",
+      "publishedJoined": "Published as part of {{mapName}}",
+      "publishedUnsure": "Published. Staff will check whether it's a version of {{mapName}}.",
+      "publishMenuItem": "Publish…",
+      "rateLimited": "You've published a lot of maps today. Try again tomorrow.",
+      "restricted": "You're restricted from publishing maps.",
+      "sameResources": "same resources",
+      "sameTerrain": "same terrain",
+      "sameTriggers": "same triggers",
+      "separateMap": "No, it's a separate map",
+      "staffDelisted": "Staff took this file out of the listings, so it can't be published.",
+      "terrainPercent": "{{percent}}% same terrain",
+      "title": "Publish map",
+      "unlinked": "Removed from {{mapName}}",
+      "unlinkError": "Couldn't remove the file from this map",
+      "unlinkMenuItem": "Remove from this map",
+      "unlinkText": "Remove <1>{{fileName}}</1> from <4>{{mapName}}</4>? It becomes its own map.",
+      "unlinkTitle": "Remove from this map",
+      "unpublish": "Unpublish",
+      "unpublished": "Unpublished",
+      "unpublishError": "Couldn't unpublish the map",
+      "yourFile": "Your file"
+    },
     "report": {
       "error": "Something went wrong. Please try again later.",
       "iconLabel": "Report a problem",
@@ -2423,8 +2481,6 @@
       "wrongMapOption": "This file doesn't belong in this map"
     },
     "server": {
-      "delisted": "Map delisted",
-      "delistError": "An error occurred while delisting the map",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
@@ -2438,7 +2494,6 @@
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",
-      "delistMap": "Delist",
       "downloadMap": "Download",
       "mapActions": "Map actions",
       "mapPoolChipTooltip": "In the current {{mode}} ladder map pool",

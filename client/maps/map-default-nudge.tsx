@@ -105,7 +105,7 @@ export function MapDefaultNudge({
         onError: () => {
           setSwitching(false)
           snackbarController.showSnackbar(
-            t('maps.nudge.switchError', "Couldn't load the default file"),
+            t('maps.nudge.switchRecommendedError', "Couldn't load the recommended file"),
           )
         },
       }),
@@ -115,10 +115,10 @@ export function MapDefaultNudge({
   return (
     <Root>
       <NudgeIcon />
-      <NudgeText>{t('maps.files.notDefault', 'Not the default file')}</NudgeText>
+      <NudgeText>{t('maps.files.notRecommended', 'Not the recommended file')}</NudgeText>
       <Tooltip text={currentName} position='bottom' tabIndex={-1}>
         <SwitchButton
-          label={t('maps.nudge.useDefault', 'Use default')}
+          label={t('maps.nudge.useRecommended', 'Use recommended')}
           disabled={disabled || switching}
           onClick={onClick}
         />

@@ -17,7 +17,7 @@ import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
-import { MapKind } from '../../gql/graphql'
+import { MapDelistedKind, MapKind } from '../../gql/graphql'
 import { IsolatedReduxProvider } from '../../lobbies/devonly/isolated-redux'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { titleMedium } from '../../styles/typography'
@@ -202,6 +202,8 @@ function makeMap({
     moderation: {
       id,
       delistedAt: delisted ? new Date(NOW - 3 * DAY).toISOString() : null,
+      delistedKind: delisted ? MapDelistedKind.Staff : null,
+      delistedNote: delisted ? 'Copied from another author without their permission.' : null,
       delistedBy: delisted ? { id: MODERATOR, name: 'modMercy' } : null,
     },
     file: {

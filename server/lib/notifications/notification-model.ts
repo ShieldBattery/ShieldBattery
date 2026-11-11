@@ -1,5 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
+import { SbMapId } from '../../../common/maps'
 import {
   LeagueBanNotification,
   LeagueStartNotification,
@@ -37,6 +38,8 @@ export type NotificationData =
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
   | MatchmakingBanNotificationData
+  | MapFileDelistedNotificationData
+  | MapPublishApprovedNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -154,6 +157,25 @@ export interface MatchmakingBanNotificationData extends BaseNotificationData {
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
 
+export interface MapFileDelistedNotificationData extends BaseNotificationData {
+  type: NotificationType.MapFileDelisted
+  mapId: SbMapId
+  familyId: string
+  mapName: string
+  note?: string
+}
+
+type MapFileDelistedSearchNotificationData = MakeSearchable<MapFileDelistedNotificationData>
+
+export interface MapPublishApprovedNotificationData extends BaseNotificationData {
+  type: NotificationType.MapPublishApproved
+  mapId: SbMapId
+  familyId: string
+  mapName: string
+}
+
+type MapPublishApprovedSearchNotificationData = MakeSearchable<MapPublishApprovedNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -173,6 +195,8 @@ export type SearchNotificationData =
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | MatchmakingBanSearchNotificationData
+  | MapFileDelistedSearchNotificationData
+  | MapPublishApprovedSearchNotificationData
   | Record<string, never>
 
 export interface Notification {
