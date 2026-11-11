@@ -101,6 +101,7 @@ mod skin_map;
 mod sound;
 mod sprite_unit_map;
 mod stat_txt;
+mod terrain_color;
 pub(crate) mod thiscall;
 mod tick_gates;
 
