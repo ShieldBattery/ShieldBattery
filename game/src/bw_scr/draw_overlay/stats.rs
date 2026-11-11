@@ -766,12 +766,12 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
                 )
             })
         }),
-        // The game counts kills for a building as it does for a unit, though its console reads
-        // none out. A building with no weapon of its own kills nothing: a bunker's passengers make
-        // its kills, and keep them.
-        kills: (!unit_id.is_building()
-            || unit_id.ground_weapon().is_some()
-            || unit_id.air_weapon().is_some())
+        kills: reads_out_kills(KillsKind {
+            building: unit_id.is_building(),
+            armed: unit_id.is_building() && can_attack(unit_id),
+            transport: unit_id.cargo_space_provided() != 0,
+            resource: unit_id.is_resource_container(),
+        })
         .then(|| unit.kills()),
         status: None,
         hallucination: unit.is_hallucination(),
@@ -836,6 +836,41 @@ fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
 fn is_spellcaster(unit_id: UnitId) -> bool {
     const SPELLCASTER: u32 = 0x0020_0000;
     unit_id.flags() & SPELLCASTER != 0
+}
+
+/// What a kind of unit is, as far as reading out its kills goes.
+struct KillsKind {
+    building: bool,
+    /// Has a weapon of its own (see [`can_attack`]). Only decides anything for a building, so a
+    /// host need only look it up for one.
+    armed: bool,
+    /// Has room for other units inside it: a transport, or a bunker.
+    transport: bool,
+    /// A mineral field or a geyser.
+    resource: bool,
+}
+
+/// Whether the panels read out the kills of this kind of unit.
+///
+/// The game counts kills for everything, a building's too though its console reads none out. A
+/// building has any to read out only if it can attack, and a transport has none of its own: a
+/// bunker's or a transport's passengers make its kills, and keep them. Any other unit has its count
+/// read out, armed or not, since some kill with a spell rather than a weapon.
+fn reads_out_kills(kind: KillsKind) -> bool {
+    if kind.building {
+        kind.armed
+    } else {
+        !kind.transport && !kind.resource
+    }
+}
+
+/// Whether this kind of unit has a weapon, on its own units.dat entry or on its turret's, which is
+/// where a goliath's and a siege tank's are.
+fn can_attack(unit_id: UnitId) -> bool {
+    [Some(unit_id), unit_id.subunit()]
+        .into_iter()
+        .flatten()
+        .any(|id| id.ground_weapon().is_some() || id.air_weapon().is_some())
 }
 
 /// The energy this unit tops out at, in the same 8.8 fixed point its current energy is in.
@@ -1056,6 +1091,28 @@ mod tests {
             team: None,
             position: None,
         }
+    }
+
+    #[test]
+    fn kills_are_read_out_for_everything_but_unarmed_buildings_transports_and_resources() {
+        let kind = |building, armed, transport, resource| KillsKind {
+            building,
+            armed,
+            transport,
+            resource,
+        };
+        // A photon cannon, a sunken colony or a missile turret.
+        assert!(reads_out_kills(kind(true, true, false, false)));
+        // A gateway, or a bunker, whose passengers make its kills.
+        assert!(!reads_out_kills(kind(true, false, false, false)));
+        assert!(!reads_out_kills(kind(true, false, true, false)));
+        // A marine, and a high templar, which kills with a spell.
+        assert!(reads_out_kills(kind(false, true, false, false)));
+        assert!(reads_out_kills(kind(false, false, false, false)));
+        // A shuttle, a dropship or an overlord.
+        assert!(!reads_out_kills(kind(false, false, true, false)));
+        // A mineral field or a geyser.
+        assert!(!reads_out_kills(kind(false, false, false, true)));
     }
 
     #[test]

@@ -951,8 +951,9 @@ fn control_groups_player(
 ///
 /// Every reading the panel has is reachable from here, because each of them is a different layout:
 /// no units at all, an army the panel draws as its grid alone, one unit read out as numbers, a
-/// building part way through something, an egg part way through its morph, an archon still
-/// forming, a building with guns, and a transport with an army inside it.
+/// building part way through something, a carrier building interceptors, an egg part way through
+/// its morph, an archon still forming, a building with guns, and a transport with an army inside
+/// it.
 ///
 /// A selection of one is the only one whose numbers are read out, so it is dealt both a shield and
 /// an energy pool: the rows only some units have are the ones a layout gets wrong.
@@ -1548,7 +1549,8 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         hit_points: Some((full_health - wave(0.0, t, 0.06, 60.0), full_health)),
         shields: has_shields(race).then(|| (wave(2.0, t, 0.05, 80.0), 80)),
         energy: None,
-        kills: Some(0),
+        // A transport kills nothing itself; its passengers keep their kills.
+        kills: None,
         status: status_line(knobs),
         hallucination: false,
         parasited: false,
@@ -2084,7 +2086,8 @@ impl Preset {
             ..Knobs::default()
         };
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
-        // them has, so the readings of a building are watched from a Protoss player's side.
+        // them has, so the readings of a building are watched from a Protoss player's side, as is
+        // the carrier, which only a Protoss player has.
         if matches!(
             self.showcase,
             Showcase::Producing | Showcase::Constructing | Showcase::Defense | Showcase::Fighters
@@ -2164,8 +2167,8 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.selection_building, "selection is producing")
         .on_hover_text(
-            "Selects a building part way through a unit with two more queued, which leaves no room \
-             for the building's upgrades.",
+            "Selects a building part way through a unit with two more queued, which reads out the \
+             building's upgrades under its queue.",
         )
         .changed();
     changed |= ui
