@@ -6,6 +6,7 @@ import {
   LeagueBanNotification,
   LeagueStartNotification,
   LeagueUnbanNotification,
+  MapOwnerNotificationEvent,
   NotificationType,
 } from '../../../common/notifications'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
@@ -41,6 +42,7 @@ export type NotificationData =
   | MatchmakingBanNotificationData
   | MapFileDelistedNotificationData
   | MapPublishApprovedNotificationData
+  | MapOwnerNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -179,6 +181,15 @@ export interface MapPublishApprovedNotificationData extends BaseNotificationData
 
 type MapPublishApprovedSearchNotificationData = MakeSearchable<MapPublishApprovedNotificationData>
 
+export interface MapOwnerNotificationData extends BaseNotificationData {
+  type: NotificationType.MapOwner
+  familyId: string
+  mapName: string
+  event: MapOwnerNotificationEvent
+}
+
+type MapOwnerSearchNotificationData = MakeSearchable<MapOwnerNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -200,6 +211,7 @@ export type SearchNotificationData =
   | MatchmakingBanSearchNotificationData
   | MapFileDelistedSearchNotificationData
   | MapPublishApprovedSearchNotificationData
+  | MapOwnerSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

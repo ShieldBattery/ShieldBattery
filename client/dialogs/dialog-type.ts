@@ -59,6 +59,10 @@ export enum DialogType {
   MapFamilyReport = 'mapFamilyReport',
   MapFileLink = 'mapFileLink',
   MapFileUnlink = 'mapFileUnlink',
+  MapOwnerAddFile = 'mapOwnerAddFile',
+  MapOwnerClaim = 'mapOwnerClaim',
+  MapOwnerEdit = 'mapOwnerEdit',
+  MapOwnerRelinquish = 'mapOwnerRelinquish',
   MapPreview = 'mapPreview',
   MapPublish = 'mapPublish',
   Markdown = 'markdown',
@@ -343,6 +347,8 @@ type MapDelistDialogPayload = BaseDialogPayload<
     name: string
     /** Whether the file is listed right now. */
     listed: boolean
+    /** A map report to resolve once the file is delisted. */
+    reportId?: string
   }
 >
 
@@ -401,6 +407,42 @@ type MapFileUnlinkDialogPayload = BaseDialogPayload<
     /** The name of the map it's in. */
     mapName: string
     /** Takes the file out of its map once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
+type MapOwnerAddFileDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerAddFile,
+  {
+    /** The map the viewer owns, to add files to. */
+    familyId: string
+    /** The map's name. */
+    mapName: string
+  }
+>
+
+type MapOwnerClaimDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerClaim,
+  {
+    /** The map being claimed. */
+    familyId: string
+    /** The name of the map's current owner, if it has one. */
+    ownerName?: string
+  }
+>
+
+type MapOwnerEditDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerEdit,
+  {
+    /** The map whose owner and credit staff change. */
+    familyId: string
+  }
+>
+
+type MapOwnerRelinquishDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerRelinquish,
+  {
+    /** Gives up the ownership once the user confirms. */
     onConfirm: () => void
   }
 >
@@ -613,6 +655,10 @@ export type DialogPayload =
   | MapFamilyReportDialogPayload
   | MapFileLinkDialogPayload
   | MapFileUnlinkDialogPayload
+  | MapOwnerAddFileDialogPayload
+  | MapOwnerClaimDialogPayload
+  | MapOwnerEditDialogPayload
+  | MapOwnerRelinquishDialogPayload
   | MapPreviewDialogPayload
   | MapPublishDialogPayload
   | MarkdownDialogPayload

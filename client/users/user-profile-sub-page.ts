@@ -19,6 +19,8 @@ export enum UserProfileSubPage {
    * Statistics for the player broken down by matchmaking season.
    */
   Seasons = 'seasons',
+  /** The maps the user made. Only shown for users who own a map. */
+  Maps = 'maps',
   /** Administrative actions and log for the users. Only visible to users with permissions. */
   Admin = 'admin',
 }
