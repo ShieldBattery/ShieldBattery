@@ -358,7 +358,7 @@ export function createLobby({
   gameSubType = 0,
   numSlots,
   hostUserId,
-  hostRace = 'r',
+  hostRace,
   hostRegion,
   allowObservers,
   useLegacyLimits = false,
@@ -396,7 +396,12 @@ export function createLobby({
   if (!isUms(gameType)) {
     host = createHuman(hostUserId, hostRace)
   } else {
-    host = createHuman(hostUserId, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
+    host = createHuman(
+      hostUserId,
+      hostSlot.hasForcedRace ? hostSlot.race : (hostRace ?? hostSlot.race),
+      hostSlot.hasForcedRace,
+      hostSlot.playerId,
+    )
   }
   host = { ...host, region: hostRegion }
 
@@ -1133,10 +1138,9 @@ function humanSlotFor(
 
 /** Builds the `observer` slot an occupant gets when they are seated in the observer team. */
 function observerSlotFor(occupant: Occupant): Slot {
-  const base = createObserver(occupant.userId)
+  const base = createObserver(occupant.userId, occupant.race)
   return {
     ...base,
-    race: occupant.race,
     id: occupant.id ?? base.id,
     joinedAt: occupant.joinedAt,
     region: occupant.region,

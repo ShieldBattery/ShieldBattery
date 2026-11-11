@@ -273,6 +273,7 @@ export class LobbyApi {
           .valid(...ALL_GAME_TYPES)
           .required(),
         gameSubType: Joi.number().min(1).max(7),
+        race: Joi.string().valid(...ALL_RACE_CHARS),
         allowObservers: Joi.boolean(),
         useLegacyLimits: Joi.boolean(),
         starcraftCompatibleReplays: Joi.boolean(),
@@ -293,6 +294,7 @@ export class LobbyApi {
       map: body.map,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
+      race: body.race,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
@@ -315,6 +317,7 @@ export class LobbyApi {
       params: lobbyIdParams,
       body: Joi.object<JoinLobbyRequest>({
         clientId: clientIdSchema,
+        race: Joi.string().valid(...ALL_RACE_CHARS),
         region: regionSchema,
         rttMs: rttMsSchema,
         regionManual: regionManualSchema,
@@ -328,6 +331,7 @@ export class LobbyApi {
 
     await this.lobbyService.joinLobby({
       id: params.lobbyId,
+      race: body.race,
       region: body.region,
       rttMs: body.rttMs,
       regionManual: body.regionManual,

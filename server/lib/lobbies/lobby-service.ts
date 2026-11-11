@@ -659,6 +659,7 @@ export class LobbyService {
     map,
     gameType,
     gameSubType,
+    race,
     allowObservers,
     useLegacyLimits,
     starcraftCompatibleReplays,
@@ -676,6 +677,7 @@ export class LobbyService {
     map: SbMapId
     gameType: GameType
     gameSubType?: number
+    race?: RaceChar
     allowObservers?: boolean
     useLegacyLimits?: boolean
     starcraftCompatibleReplays?: boolean
@@ -728,7 +730,7 @@ export class LobbyService {
       gameSubType: gameSubType ?? undefined,
       numSlots,
       hostUserId: client.userId,
-      hostRace: undefined,
+      hostRace: race,
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
@@ -775,6 +777,7 @@ export class LobbyService {
 
   async joinLobby({
     id,
+    race,
     region,
     rttMs,
     regionManual,
@@ -785,6 +788,7 @@ export class LobbyService {
     client,
   }: {
     id: SbLobbyId
+    race?: RaceChar
     region?: GameServerRegionId
     rttMs?: number
     /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
@@ -832,7 +836,7 @@ export class LobbyService {
       // already running, so there is nothing a joiner can be seated into until it gathers again.
       // An observer request is no more seatable than a player request while that's true, so every
       // join waits on the bench here.
-      updated = this._benchJoiner(lobby, client.userId, joinRegion)
+      updated = this._benchJoiner(lobby, client.userId, joinRegion, race)
     } else if (asObserver) {
       // An explicit observer request takes an open observer slot or fails outright: unlike an
       // ordinary join, it must never fall back to a player slot or the bench, since neither is
@@ -845,31 +849,31 @@ export class LobbyService {
           'no observer slots are open',
         )
       }
-      const player: Slot = { ...Slots.createObserver(client.userId), region: joinRegion }
+      const player: Slot = { ...Slots.createObserver(client.userId, race), region: joinRegion }
       updated = Lobbies.addPlayer(lobby, obsTeamIndex, obsSlotIndex, player)
     } else {
       const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
       if (teamIndex === undefined || slotIndex === undefined) {
-        updated = this._benchJoiner(lobby, client.userId, joinRegion)
+        updated = this._benchJoiner(lobby, client.userId, joinRegion, race)
       } else {
         let player: Slot
         const [, observerTeam] = getObserverTeam(lobby)
         if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
           // Every player slot was taken, and the search above fell through to the observer team.
-          player = Slots.createObserver(client.userId)
+          player = Slots.createObserver(client.userId, race)
         } else {
-          // A UMS slot's race and player id come from the map, and a team melee/ffa slot's race
-          // decides the starting units it adds to its team, so a joiner takes those on.
+          // Forced UMS races come from the map. In team melee/ffa, the slot already contributes
+          // its race's starting units to the team, so a joiner inherits it.
           player = isUms(lobby.gameType)
             ? Slots.createHuman(
                 client.userId,
-                availableSlot.race,
+                availableSlot.hasForcedRace ? availableSlot.race : (race ?? availableSlot.race),
                 availableSlot.hasForcedRace,
                 availableSlot.playerId,
               )
             : Slots.createHuman(
                 client.userId,
-                hasControlledOpens(lobby.gameType) ? availableSlot.race : undefined,
+                hasControlledOpens(lobby.gameType) ? availableSlot.race : race,
               )
         }
         player = { ...player, region: joinRegion }
@@ -914,13 +918,14 @@ export class LobbyService {
     lobby: Lobby,
     userId: SbUserId,
     region: GameServerRegionId | undefined,
+    race: RaceChar = 'r',
   ): Lobby {
     if (lobby.bench.length >= MAX_BENCH) {
       throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
     }
     return Lobbies.addToBench(lobby, {
       userId,
-      race: 'r',
+      race,
       joinedAt: Date.now(),
       region,
     })
