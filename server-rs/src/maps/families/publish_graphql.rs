@@ -284,7 +284,11 @@ impl MapPublishingMutation {
     }
 
     /// Lists the file of an open `PUBLISH_REVIEW` report, as published by the user who published
-    /// it, and resolves the report. Only available to users who can manage maps.
+    /// it, and resolves the report. If this lists the file, the report's `publishAnswer` is then
+    /// applied on the publisher's behalf: `JOIN` moves the file into `otherFamily`, `UNSURE` files a
+    /// `SAME_MAP` report about the file's map and `otherFamily`. The answer is skipped when
+    /// `otherFamily` no longer exists, already holds the file, or the file no longer is the only
+    /// file of its map. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_publish_review_approve(
         &self,
@@ -293,7 +297,7 @@ impl MapPublishingMutation {
     ) -> Result<MapFamilyReport> {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        publish::approve_review(db, report_id, user.id)
+        let same_map_report_id = publish::approve_review(db, report_id, user.id)
             .await
             .map_err(publish_error)?;
         publish_report_message(
@@ -301,6 +305,13 @@ impl MapPublishingMutation {
             PublishedMapFamilyReportMessage::ReportStatusChanged { report_id },
         )
         .await;
+        if let Some(report_id) = same_map_report_id {
+            publish_report_message(
+                ctx,
+                PublishedMapFamilyReportMessage::ReportCreated { report_id },
+            )
+            .await;
+        }
         load_report(db, report_id)
             .await?
             .ok_or_else(|| graphql_error("NOT_FOUND", "Report not found"))

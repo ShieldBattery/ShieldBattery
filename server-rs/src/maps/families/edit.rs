@@ -490,6 +490,32 @@ impl MapFamilyReportKind {
     }
 }
 
+/// What a publisher said about the map their file may be a version of, kept on a publish review
+/// while the file is held and applied when staff approve it.
+#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum MapPublishReviewAnswer {
+    /// The file is a version of that map: approving the review moves the file into it.
+    Join,
+    /// The file might be a version of that map: approving the review files a `SAME_MAP` report.
+    Unsure,
+}
+
+impl MapPublishReviewAnswer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Join => "join",
+            Self::Unsure => "unsure",
+        }
+    }
+
+    pub fn from_db(answer: &str) -> Self {
+        match answer {
+            "unsure" => Self::Unsure,
+            _ => Self::Join,
+        }
+    }
+}
+
 /// A report to store, with every id already resolved to an existing file or family.
 #[derive(Debug, Clone)]
 pub enum ReportRequest {
@@ -502,8 +528,13 @@ pub enum ReportRequest {
         other_family_id: Uuid,
         from_publish: bool,
     },
-    /// `file_id` was held for staff when it was published.
-    PublishReview { file_id: SbMapId },
+    /// `file_id` was held for staff when it was published. `answer` is what the publisher said
+    /// about the map (the family id) their file may be a version of, if they said anything, to be
+    /// applied when staff approve the review.
+    PublishReview {
+        file_id: SbMapId,
+        answer: Option<(MapPublishReviewAnswer, Uuid)>,
+    },
 }
 
 /// Checks that `user` may file a family report: they aren't restricted from reporting and haven't
@@ -539,8 +570,9 @@ pub async fn check_reporter(
     }
 }
 
-/// Stores a family report, or updates the reporter's open report about the same thing. Returns the
-/// report's id.
+/// Stores a family report, or updates the reporter's open report about the same thing. Updating a
+/// publish review replaces the publisher's answer with the one in `request`. Returns the report's
+/// id.
 pub async fn insert_report(
     tx: &mut Transaction<'_, Postgres>,
     request: &ReportRequest,
@@ -552,6 +584,7 @@ pub async fn insert_report(
         return Err(FamilyEditError::NoteTooLong);
     }
     let mut from_publish = false;
+    let mut publish_answer = None;
     let (kind, family_id, map_id, other_family_id) = match *request {
         ReportRequest::WrongMap { file_id } => {
             let file = load_file(tx, file_id).await?;
@@ -562,13 +595,18 @@ pub async fn insert_report(
                 None,
             )
         }
-        ReportRequest::PublishReview { file_id } => {
+        ReportRequest::PublishReview { file_id, answer } => {
             let file = load_file(tx, file_id).await?;
+            let other_family_id = answer.map(|(_, family_id)| family_id);
+            if other_family_id == Some(file.family_id) {
+                return Err(FamilyEditError::SelfReport);
+            }
+            publish_answer = answer.map(|(answer, _)| answer.as_str());
             (
                 MapFamilyReportKind::PublishReview,
                 file.family_id,
                 Some(file_id),
-                None,
+                other_family_id,
             )
         }
         ReportRequest::SameMap {
@@ -592,12 +630,14 @@ pub async fn insert_report(
     let id = sqlx::query_scalar!(
         r#"
             INSERT INTO map_family_reports (kind, family_id, map_id, other_family_id, note,
-                reported_by, from_publish)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                reported_by, from_publish, publish_answer)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (reported_by, kind, family_id, COALESCE(map_id, other_family_id))
                 WHERE status = 'open'
             DO UPDATE SET note = COALESCE(EXCLUDED.note, map_family_reports.note),
                 from_publish = map_family_reports.from_publish OR EXCLUDED.from_publish,
+                other_family_id = EXCLUDED.other_family_id,
+                publish_answer = EXCLUDED.publish_answer,
                 reported_at = now()
             RETURNING id
         "#,
@@ -608,6 +648,7 @@ pub async fn insert_report(
         note,
         reported_by as _,
         from_publish,
+        publish_answer,
     )
     .fetch_one(&mut **tx)
     .await

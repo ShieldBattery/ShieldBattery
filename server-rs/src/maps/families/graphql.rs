@@ -20,8 +20,8 @@ use crate::maps::catalog::{
     load_user, require_current_user, resolve_existing_map_id,
 };
 use crate::maps::families::edit::{
-    self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus, MoveBy,
-    ReportRequest,
+    self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus,
+    MapPublishReviewAnswer, MoveBy, ReportRequest,
 };
 use crate::maps::families::history::{self, MapFamilyHistory};
 use crate::maps::families::{resolve_family_id, resolve_map_page_id};
@@ -443,6 +443,7 @@ pub struct MapFamilyReport {
     pub resolved_by: Option<SbUserId>,
     pub resolved_at: Option<DateTime<Utc>>,
     pub from_publish: bool,
+    pub publish_answer: Option<String>,
 }
 
 /// Loads a family by an id that may since have been merged into another family.
@@ -481,8 +482,9 @@ impl MapFamilyReport {
         }
     }
 
-    /// The map said to be the same as `family`. Only for `SAME_MAP`. If it has since been merged,
-    /// the map it was merged into.
+    /// For `SAME_MAP`, the map said to be the same as `family`. For `PUBLISH_REVIEW`, the map the
+    /// publisher answered their file is (or might be) a version of, if they answered so (see
+    /// `publishAnswer`). If it has since been merged, the map it was merged into.
     async fn other_family(&self, ctx: &Context<'_>) -> Result<Option<MapFamily>> {
         match self.other_family_id {
             Some(id) => load_family_through_aliases(ctx, id).await,
@@ -498,6 +500,15 @@ impl MapFamilyReport {
     /// weren't sure it's a version of `otherFamily`. Only for `SAME_MAP`.
     async fn from_publish(&self) -> bool {
         self.from_publish
+    }
+
+    /// What the publisher of a file held for review answered about `otherFamily`: that the file is
+    /// a version of it (`JOIN`) or might be (`UNSURE`). Applied when staff approve the review. Only
+    /// for `PUBLISH_REVIEW`, and null when the publisher gave no such answer.
+    async fn publish_answer(&self) -> Option<MapPublishReviewAnswer> {
+        self.publish_answer
+            .as_deref()
+            .map(MapPublishReviewAnswer::from_db)
     }
 
     async fn reported_at(&self) -> DateTime<Utc> {
@@ -534,7 +545,8 @@ pub(crate) async fn load_report(
         r#"
             SELECT id, kind, family_id, map_id as "map_id: SbMapId", other_family_id, note,
                 reported_by as "reported_by: SbUserId", reported_at, status,
-                resolved_by as "resolved_by: SbUserId", resolved_at, from_publish
+                resolved_by as "resolved_by: SbUserId", resolved_at, from_publish,
+                publish_answer
             FROM map_family_reports
             WHERE id = $1
         "#,
@@ -624,7 +636,8 @@ impl MapFamiliesQuery {
             r#"
                 SELECT id, kind, family_id, map_id as "map_id: SbMapId", other_family_id, note,
                     reported_by as "reported_by: SbUserId", reported_at, status,
-                    resolved_by as "resolved_by: SbUserId", resolved_at, from_publish
+                    resolved_by as "resolved_by: SbUserId", resolved_at, from_publish,
+                    publish_answer
                 FROM map_family_reports
                 WHERE status = $1
                 ORDER BY reported_at, id

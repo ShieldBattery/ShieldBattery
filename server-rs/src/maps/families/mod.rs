@@ -15,7 +15,7 @@ pub mod publish;
 pub mod publish_graphql;
 
 use color_eyre::eyre::{self, WrapErr};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
@@ -250,8 +250,12 @@ pub async fn resolve_map_page_id(db: &PgPool, id: Uuid) -> eyre::Result<Option<R
     }))
 }
 
-/// Resolves a family id that may be an alias of a family that was merged into another one.
-pub async fn resolve_family_id(db: &PgPool, id: Uuid) -> eyre::Result<Option<Uuid>> {
+/// Resolves a family id that may be an alias of a family that was merged into another one. Takes
+/// the pool, or a transaction's connection to resolve the id as that transaction sees it.
+pub async fn resolve_family_id<'e>(
+    db: impl PgExecutor<'e>,
+    id: Uuid,
+) -> eyre::Result<Option<Uuid>> {
     sqlx::query_scalar!(
         r#"
             SELECT COALESCE(

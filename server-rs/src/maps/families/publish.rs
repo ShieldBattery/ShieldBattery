@@ -16,10 +16,10 @@ use uuid::Uuid;
 use crate::maps::SbMapId;
 use crate::maps::families::edit::{
     self, FamilyEditError, FileMove, MAX_REPORT_NOTE_LENGTH, MapFamilyReportKind,
-    MapFamilyReportStatus, MoveBy, ReportRequest,
+    MapFamilyReportStatus, MapPublishReviewAnswer, MoveBy, ReportRequest,
 };
 use crate::maps::families::history::{self, HistoryDetails, HistoryEntry, MapFamilyHistoryKind};
-use crate::maps::families::{lock_families, refresh_families};
+use crate::maps::families::{lock_families, refresh_families, resolve_family_id};
 use crate::maps::parse::filter_color_codes;
 use crate::maps::similarity::{PublishSuggestion, publish_suggestions};
 use crate::users::SbUserId;
@@ -356,6 +356,17 @@ pub enum PublishAnswer {
     Unsure(Uuid),
 }
 
+impl PublishAnswer {
+    /// The answer as a publish review keeps it while the file is held, if there's anything to keep.
+    fn held(self) -> Option<(MapPublishReviewAnswer, Uuid)> {
+        match self {
+            Self::Keep => None,
+            Self::Join(family_id) => Some((MapPublishReviewAnswer::Join, family_id)),
+            Self::Unsure(family_id) => Some((MapPublishReviewAnswer::Unsure, family_id)),
+        }
+    }
+}
+
 /// What publishing a file did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublishOutcome {
@@ -368,8 +379,10 @@ pub struct PublishOutcome {
 }
 
 /// Publishes `file_id` as `user`, who is staff if `staff`. A file that's already listed is left as
-/// it is. Otherwise the file is listed, unless its name or description hits the restricted names
-/// list (checked for everyone but staff): then it's held for staff, who list it or dismiss it.
+/// it is. Otherwise the file is listed and `answer` applied, unless its name or description hits
+/// the restricted names list (checked for everyone but staff): then it's held for staff, who list
+/// it or dismiss it. The publish review keeps `answer`, which is applied if staff list the file
+/// (see [`approve_review`]).
 pub async fn publish(
     db: &PgPool,
     names: &NameChecker,
@@ -418,7 +431,10 @@ pub async fn publish(
     if needs_review {
         let report_id = edit::insert_report(
             &mut tx,
-            &ReportRequest::PublishReview { file_id },
+            &ReportRequest::PublishReview {
+                file_id,
+                answer: answer.held(),
+            },
             None,
             user,
         )
@@ -508,19 +524,36 @@ async fn list_file(
     Ok(())
 }
 
+/// The family a publisher's held answer still applies to when staff list their file: the family
+/// they answered about (`target`, through any merges, `None` if it no longer exists), unless the
+/// file has since ended up in that family or shares its own family with other files. The file is
+/// then left listed where it is.
+fn held_answer_target(
+    target: Option<Uuid>,
+    file_family_id: Uuid,
+    family_size: i64,
+) -> Option<Uuid> {
+    target.filter(|&target| target != file_family_id && family_size == 1)
+}
+
 /// Lists the file of an open publish review, as published by the user it was held for, and
-/// resolves the review.
+/// resolves the review. If this lists the file and the publisher answered that it is (or might
+/// be) a version of another map, the answer is applied as publishing would have, on the
+/// publisher's behalf: the file is moved into that map, or a `same_map` report is filed about it.
+/// The answer is skipped when that map no longer exists, when the file is already in it, or when
+/// the file no longer is the only file of its own map. Returns the `same_map` report filed, if
+/// any.
 pub async fn approve_review(
     db: &PgPool,
     report_id: Uuid,
     actor: SbUserId,
-) -> Result<(), PublishError> {
+) -> Result<Option<Uuid>, PublishError> {
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
     let report = sqlx::query!(
         r#"
             SELECT kind, status, map_id as "map_id: SbMapId",
-                reported_by as "reported_by: SbUserId"
+                reported_by as "reported_by: SbUserId", other_family_id, publish_answer
             FROM map_family_reports
             WHERE id = $1
             FOR UPDATE
@@ -540,14 +573,43 @@ pub async fn approve_review(
     };
 
     let file = load_file(&mut tx, file_id).await?;
+    let mut same_map_report_id = None;
     if !file.listed {
-        list_file(&mut tx, file_id, file.family_id, report.reported_by, actor).await?;
+        let publisher = report.reported_by;
+        list_file(&mut tx, file_id, file.family_id, publisher, actor).await?;
+        if let (Some(answer), Some(other_family_id)) =
+            (report.publish_answer.as_deref(), report.other_family_id)
+        {
+            let target = resolve_family_id(&mut *tx, other_family_id).await?;
+            if let Some(target) = held_answer_target(target, file.family_id, file.family_size) {
+                match MapPublishReviewAnswer::from_db(answer) {
+                    MapPublishReviewAnswer::Join => {
+                        edit::move_file(&mut tx, file_id, target, publisher, MoveBy::Publisher)
+                            .await?;
+                    }
+                    MapPublishReviewAnswer::Unsure => {
+                        let id = edit::insert_report(
+                            &mut tx,
+                            &ReportRequest::SameMap {
+                                family_id: file.family_id,
+                                other_family_id: target,
+                                from_publish: true,
+                            },
+                            None,
+                            publisher,
+                        )
+                        .await?;
+                        same_map_report_id = Some(id);
+                    }
+                }
+            }
+        }
     }
     edit::set_report_status(&mut tx, report_id, MapFamilyReportStatus::Resolved, actor).await?;
     tx.commit()
         .await
         .wrap_err("Failed to commit publish review")?;
-    Ok(())
+    Ok(same_map_report_id)
 }
 
 /// Delisting a file: by its publisher, or by staff with an optional note. See [`unpublish`] and
@@ -909,6 +971,38 @@ mod tests {
         assert!(hits_restricted_names(&names, &profane).await.unwrap());
         let both = with("staffname", "badword");
         assert!(hits_restricted_names(&names, &both).await.unwrap());
+    }
+
+    #[test]
+    fn held_answers_apply_only_to_a_lone_file_and_another_existing_map() {
+        let own = Uuid::from_u128(1);
+        let other = Uuid::from_u128(2);
+        assert_eq!(held_answer_target(Some(other), own, 1), Some(other));
+        assert_eq!(held_answer_target(None, own, 1), None);
+        assert_eq!(held_answer_target(Some(own), own, 1), None);
+        assert_eq!(held_answer_target(Some(other), own, 2), None);
+        assert_eq!(held_answer_target(Some(own), own, 2), None);
+    }
+
+    #[test]
+    fn only_join_and_unsure_answers_are_held() {
+        let family = Uuid::from_u128(1);
+        assert_eq!(PublishAnswer::Keep.held(), None);
+        assert_eq!(
+            PublishAnswer::Join(family).held(),
+            Some((MapPublishReviewAnswer::Join, family))
+        );
+        assert_eq!(
+            PublishAnswer::Unsure(family).held(),
+            Some((MapPublishReviewAnswer::Unsure, family))
+        );
+    }
+
+    #[test]
+    fn publish_review_answers_round_trip_through_the_db_value() {
+        for answer in [MapPublishReviewAnswer::Join, MapPublishReviewAnswer::Unsure] {
+            assert_eq!(MapPublishReviewAnswer::from_db(answer.as_str()), answer);
+        }
     }
 
     #[test]
