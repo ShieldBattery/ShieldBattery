@@ -766,7 +766,13 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
                 )
             })
         }),
-        kills: unit.kills(),
+        // The game counts kills for a building as it does for a unit, though its console reads
+        // none out. A building with no weapon of its own kills nothing: a bunker's passengers make
+        // its kills, and keep them.
+        kills: (!unit_id.is_building()
+            || unit_id.ground_weapon().is_some()
+            || unit_id.air_weapon().is_some())
+        .then(|| unit.kills()),
         status: None,
         hallucination: unit.is_hallucination(),
         // Read only off a finished unit, as the console reads them.

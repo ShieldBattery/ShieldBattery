@@ -129,7 +129,7 @@ pub(super) fn with_a_selection(mut game: ObserverView) -> ObserverView {
         hit_points: Some((40, 40)),
         shields: None,
         energy: None,
-        kills: 0,
+        kills: Some(0),
         status: None,
         hallucination: false,
         parasited: false,
