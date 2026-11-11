@@ -64,8 +64,9 @@ pub struct SelectedUnitView {
     pub shields: Option<(u32, u32)>,
     /// Energy, current and full, for a unit that has any.
     pub energy: Option<(u32, u32)>,
-    /// How many units it has killed, or `None` for something with no kills to read out: a building
-    /// with no weapon of its own, which has no way to kill anything.
+    /// How many units it has killed, read out wherever it is `Some`. `None` for something with no
+    /// kills of its own to read out: a building that cannot attack, a transport, whose passengers
+    /// make its kills and keep them, or a resource.
     pub kills: Option<u32>,
     /// The one line the console writes under a unit selected alone. `None` for nothing to say, and
     /// only read out for a unit selected alone, so a host may leave it `None` for any other.
@@ -93,8 +94,7 @@ pub struct SelectedUnitView {
     pub cargo: Vec<CarriedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
     /// a unit that has any, then whatever improves its weapons and its inventory counts. Only read
-    /// out for a unit selected alone, and not under a queue, which leaves no room for them, so a
-    /// host may leave it empty for any other.
+    /// out for a unit selected alone, so a host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
     /// What its owner has finished researching that changes what it can do, beyond the upgrades it
     /// fights with: the spells it can cast and the upgrades to its speed, range, sight, energy or
@@ -487,6 +487,7 @@ const PROGRESS_HEIGHT: f32 = PROGRESS_NAME_ROW + PROGRESS_NAME_LEAD + PROGRESS_R
 /// row's edges.
 const PROGRESS_NAME_CAPS: f32 = 4.0;
 const PROGRESS_NAME_FOOT: f32 = 13.0;
+const PROGRESS_NAME_LETTERS: f32 = PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS;
 
 /// Width of the percentage at the end of a progress bar, and the gap before it.
 const PERCENT_WIDTH: f32 = 40.0;
@@ -499,7 +500,7 @@ const PROGRESS_TRACK: f32 = 5.0;
 /// of upgrades, with room left between each of them, and a progress line with no queue sits beside
 /// its one slot.
 const _: () = assert!(
-    HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS + PROGRESS_TRACK
+    HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_NAME_LETTERS + PROGRESS_TRACK
         < BODY_HEIGHT - UPGRADE_CHIP
 );
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
@@ -782,12 +783,10 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
 /// under it, then its name and whose it is beside it, and whatever it is making or carrying under
 /// that.
 ///
-/// What a building is worth to a watcher is how much of it is left and what it is making, so a
-/// tally of kills, a unit's own reading, is only given to a building with a weapon of its own (see
-/// [`SelectedUnitView::kills`]), and to a unit building fighters in its hangar, which keeps the
-/// tally it has when idle. The upgrades it fights with run along the bottom of the text column, as
-/// a unit's do, wherever the reading leaves that row free, followed by what its owner has
-/// researched for it and with how many of it are stacked at that row's other end. Whatever is
+/// Its kills are at that name line's other end wherever the host has any to read out (see
+/// [`SelectedUnitView::kills`]). The upgrades it fights with run along the bottom of the text
+/// column, as a unit's do, wherever the reading leaves that row free, followed by what its owner
+/// has researched for it and with how many of it are stacked at that row's other end. Whatever is
 /// being made sits above that row, so the subject reads the same whether or not it is making
 /// anything.
 fn draw_subject(
@@ -809,14 +808,7 @@ fn draw_subject(
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
-    let kills = tr!("observer.selectionKills", "Kills");
-    // A resource reads out where a building does, and kills nothing.
-    let tally = match case {
-        SelectionCase::Building if unit.building => unit.kills,
-        SelectionCase::Producing if builds_in_hangar(unit) => unit.kills,
-        _ => None,
-    };
-    let below = draw_header(ui, text, unit, tally.map(|count| (&*kills, count)));
+    let below = draw_header(ui, text, unit);
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
         (SelectionCase::Loaded, _) => {
@@ -840,7 +832,9 @@ fn draw_subject(
         }
         _ => {}
     }
-    if has_upgrade_row(case) {
+    // Every reading but the cargo grid's leaves the floor of the body free for the row of upgrades,
+    // a queue and its progress line ending just above it.
+    if case != SelectionCase::Loaded {
         let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
         draw_chips(ui, row, &unit.upgrades, &unit.research);
         if let Some(stacked) = unit.stacked {
@@ -873,34 +867,6 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
     );
 }
 
-/// Whether the reading of a building, or of anything making or carrying something, leaves the
-/// bottom of its text column free for the row of its upgrades.
-///
-/// Anything making something keeps the row, where the console gives up its own icons for a queue:
-/// what it fights with reads the same whether or not anything is on the way, and a queue and its
-/// progress line end just above the row. The cargo grid takes up the row's height too, but not its
-/// width, so its upgrades are drawn beside it instead (see [`draw_subject`]).
-fn has_upgrade_row(case: SelectionCase) -> bool {
-    match case {
-        SelectionCase::Building | SelectionCase::Producing => true,
-        SelectionCase::Empty
-        | SelectionCase::Many
-        | SelectionCase::Unit
-        | SelectionCase::Loaded => false,
-    }
-}
-
-/// Whether this is a unit building fighters in its own hangar: a carrier its interceptors, or a
-/// reaver its scarabs. Those are the only units the game gives a queue; everything else with one is
-/// a building.
-fn builds_in_hangar(unit: &SelectedUnitView) -> bool {
-    !unit.building
-        && unit
-            .production
-            .as_ref()
-            .is_some_and(|production| production.queue.is_some())
-}
-
 /// Draws a unit selected alone: the unit drawn large, and beside it its name with what it has killed
 /// at that line's other end, whose it is, a bar for each pool it has, and the row of the upgrades it
 /// fights with followed by what its owner has researched for it.
@@ -920,8 +886,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         pos2(body.left() + UNIT_TEXT_LEFT, body.top()),
         vec2(UNIT_TEXT_WIDTH, BODY_HEIGHT),
     );
-    let kills = tr!("observer.selectionKills", "Kills");
-    let below = draw_header(ui, text, unit, unit.kills.map(|count| (&*kills, count)));
+    let below = draw_header(ui, text, unit);
     let pools = pools(unit);
     let columns = PoolColumns::of(ui, &pools);
     for (index, &(pool, color)) in pools.iter().enumerate() {
@@ -954,18 +919,19 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
     clicked
 }
 
-/// Draws the head of the text column: the subject's name with `tally` at that line's right end,
+/// Draws the head of the text column: the subject's name with its kills at that line's right end,
 /// then whose it is, with its status at that line's right end. Returns the room left under them.
 ///
-/// A unit the host has no name for leaves no gap for one, unless it has a tally to put there: the
+/// A unit the host has no name for leaves no gap for one, unless it has kills to put there: the
 /// owner's line heads the column instead. Nor does a unit nobody owns, a mineral field or a critter,
 /// whose line would be an empty bar, unless it has a status to say.
-fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView, tally: Option<(&str, u32)>) -> Rect {
+fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     let mut top = text.top();
-    if unit.name.is_some() || tally.is_some() {
+    if unit.name.is_some() || unit.kills.is_some() {
         let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), NAME_ROW));
-        if let Some((label, count)) = tally {
-            line.max.x -= draw_tally(ui, line, label, count) + OWNER_GAP;
+        if let Some(count) = unit.kills {
+            let label = tr!("observer.selectionKills", "Kills");
+            line.max.x -= draw_tally(ui, line, &label, count) + OWNER_GAP;
         }
         if let Some(name) = &unit.name {
             paint_text(
@@ -1431,10 +1397,9 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
                     None => paint_tile(ui, slot, None, EMPTY_ALPHA),
                 }
             }
-            let letters = PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS;
             let room = rect.bottom() - UPGRADE_CHIP - first.bottom();
-            let gap = (room - letters - PROGRESS_TRACK) / 3.0;
-            let track = first.bottom() + gap + letters + gap;
+            let gap = (room - PROGRESS_NAME_LETTERS - PROGRESS_TRACK) / 3.0;
+            let track = first.bottom() + gap + PROGRESS_NAME_LETTERS + gap;
             Rect::from_min_max(
                 pos2(rect.left(), first.bottom() + gap - PROGRESS_NAME_CAPS),
                 pos2(
@@ -2015,50 +1980,23 @@ mod tests {
     }
 
     #[test]
-    fn a_building_has_its_upgrades_wherever_its_reading_leaves_room() {
-        assert!(has_upgrade_row(SelectionCase::Building));
-        // A queue, a building going up, an egg and an archon forming all keep the row.
-        assert!(has_upgrade_row(SelectionCase::Producing));
-        // The cargo grid takes up the row's height, so a transport's upgrades go beside it.
-        assert!(!has_upgrade_row(SelectionCase::Loaded));
-    }
-
-    #[test]
-    fn a_unit_building_fighters_keeps_its_kills_where_a_building_has_none() {
-        fn texts(shape: &Shape, out: &mut Vec<String>) {
-            match shape {
-                Shape::Text(text) => out.push(text.galley.text().to_string()),
-                Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
-                _ => {}
-            }
-        }
-        let drawn = |subject: &SelectedUnitView| {
-            let ctx = Context::default();
-            crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
-            let mut drawn = Vec::new();
-            for _ in 0..2 {
-                let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                    let body =
-                        Rect::from_min_size(pos2(0.0, 0.0), vec2(CONTENT_WIDTH, BODY_HEIGHT));
-                    draw_subject(ui, body, subject, SelectionCase::Producing);
-                });
-                drawn.clear();
-                for shape in &output.shapes {
-                    texts(&shape.shape, &mut drawn);
-                }
-                output.textures_delta.clear();
-            }
-            drawn
+    fn kills_are_read_out_wherever_the_host_counts_them() {
+        let body = Rect::from_min_size(pos2(0.0, 0.0), vec2(CONTENT_WIDTH, BODY_HEIGHT));
+        let subject_texts = |subject: &SelectedUnitView, case: SelectionCase| {
+            rendered_texts(|ui| {
+                draw_subject(ui, body, subject, case);
+            })
         };
-        let queue = || {
+        let has_kills = |drawn: &[(String, f32)]| {
+            drawn
+                .iter()
+                .any(|(text, _)| text.eq_ignore_ascii_case("Kills"))
+        };
+        let has_count =
+            |drawn: &[(String, f32)], count: &str| drawn.iter().any(|(text, _)| text == count);
+        let queue = |index| {
             Some(ProductionProgressView {
-                icon: ProductionIcon {
-                    texture: None,
-                    index: 0x49,
-                    size: None,
-                    margin: 0.0,
-                    wireframe: None,
-                },
+                icon: unit((1, 1), None, index).icon,
                 name: None,
                 progress: 0.5,
                 queue: Some(Vec::new()),
@@ -2066,26 +2004,42 @@ mod tests {
             })
         };
 
+        // A carrier building interceptors keeps the kills it has when idle.
         let mut carrier = unit((300, 300), Some((150, 150)), 0x48);
         carrier.kills = Some(17);
-        carrier.production = queue();
-        let drawn_carrier = drawn(&carrier);
-        assert!(
-            drawn_carrier
-                .iter()
-                .any(|text| text.eq_ignore_ascii_case("Kills"))
-        );
-        assert!(drawn_carrier.iter().any(|text| text == "17"));
+        carrier.production = queue(0x49);
+        let drawn = subject_texts(&carrier, SelectionCase::Producing);
+        assert!(has_kills(&drawn) && has_count(&drawn, "17"));
 
+        // A cannon reads out the kills the game counted for it.
+        let mut cannon = unit((100, 100), Some((100, 100)), 0xA2);
+        cannon.building = true;
+        cannon.kills = Some(5);
+        let drawn = subject_texts(&cannon, SelectionCase::Building);
+        assert!(has_kills(&drawn) && has_count(&drawn, "5"));
+
+        // A building that cannot attack has none to read out, training or not, and not even a zero.
         let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
         gateway.building = true;
         gateway.kills = None;
-        gateway.production = queue();
-        assert!(
-            !drawn(&gateway)
-                .iter()
-                .any(|text| text.eq_ignore_ascii_case("Kills"))
-        );
+        assert!(!has_kills(&subject_texts(
+            &gateway,
+            SelectionCase::Building
+        )));
+        gateway.production = queue(0x41);
+        assert!(!has_kills(&subject_texts(
+            &gateway,
+            SelectionCase::Producing
+        )));
+
+        // Nor does a transport, empty or loaded.
+        let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
+        shuttle.kills = None;
+        assert!(!has_kills(&rendered_texts(|ui| {
+            draw_unit(ui, body, &shuttle);
+        })));
+        shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
+        assert!(!has_kills(&subject_texts(&shuttle, SelectionCase::Loaded)));
     }
 
     fn place(
@@ -2256,6 +2210,15 @@ mod tests {
     }
 
     fn rendered_upgrade_texts(upgrade: &UnitUpgradeView) -> Vec<(String, f32)> {
+        rendered_texts(|ui| {
+            let chip = Rect::from_min_size(pos2(10.0, 10.0), Vec2::splat(UPGRADE_CHIP));
+            draw_upgrade_chip(ui, chip, upgrade, true);
+            draw_upgrade_hint(ui, chip.center(), upgrade);
+        })
+    }
+
+    /// Every piece of text `draw` paints, with how far down it is, once the fonts have settled.
+    fn rendered_texts(draw: impl Fn(&Ui)) -> Vec<(String, f32)> {
         fn texts(shape: &Shape, out: &mut Vec<(String, f32)>) {
             match shape {
                 Shape::Text(text) => out.push((text.galley.text().to_string(), text.pos.y)),
@@ -2268,11 +2231,7 @@ mod tests {
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         let mut drawn = Vec::new();
         for _ in 0..2 {
-            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                let chip = Rect::from_min_size(pos2(10.0, 10.0), Vec2::splat(UPGRADE_CHIP));
-                draw_upgrade_chip(ui, chip, upgrade, true);
-                draw_upgrade_hint(ui, chip.center(), upgrade);
-            });
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| draw(ui));
             drawn.clear();
             for shape in &output.shapes {
                 texts(&shape.shape, &mut drawn);
