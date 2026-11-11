@@ -194,7 +194,7 @@ function LocalFilterRow({
       totalCount={totalCount}
       sorts={LOCAL_SORTS}
       offersBestMatch={false}
-      showOfficial={false}
+      showServerFilters={false}
       viewToggle={
         <Tooltip text={viewLabel} position='bottom' tabIndex={-1}>
           <IconButton

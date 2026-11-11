@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { useMutation } from 'urql'
 import { Link } from 'wouter'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { filterColorCodes, SbMapId } from '../../common/maps'
+import { RestrictionKind } from '../../common/users/restrictions'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
   MapPageFiles_FamilyFragmentFragment,
@@ -19,22 +22,25 @@ import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
-import { useAppDispatch } from '../redux-hooks'
+import { push } from '../navigation/routing'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { openMapFamilyActionDialog } from './action-creators'
+import { openMapFamilyActionDialog, openMapFileUnlinkDialog } from './action-creators'
 import {
   duplicateFileNames,
   orderFamilyFiles,
   urlForMapFile,
   visibleFamilyFiles,
 } from './map-family-files'
+import { MapFamilySetDefaultMutation } from './map-make-recommended'
 
 export const MapPageFiles_FileFragment = graphql(/* GraphQL */ `
   fragment MapPageFiles_FileFragment on SbMap {
     id
     name
     listed
+    official
     firstSeenAt
     stats {
       id
@@ -60,6 +66,9 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
       id
       name
     }
+    owner {
+      id
+    }
     files {
       id
       ...MapPageFiles_FileFragment
@@ -67,43 +76,26 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
   }
 `)
 
-const SetDefaultMutation = graphql(/* GraphQL */ `
-  mutation MapFamilySetDefault($fileId: SbMapId!) {
-    mapFamilySetDefault(fileId: $fileId) {
+const FilesUnlinkMutation = graphql(/* GraphQL */ `
+  mutation MapPageFilesUnlink($fileId: SbMapId!) {
+    mapFileUnlink(fileId: $fileId) {
       id
-      name
-      current {
+      file {
+        id
+        family {
+          id
+          name
+        }
+      }
+      family {
         id
         name
+        current {
+          id
+        }
       }
-      defaultMap {
+      previousFamily {
         id
-      }
-      defaultSetAt
-      defaultSetBy {
-        id
-        name
-      }
-    }
-  }
-`)
-
-const ClearDefaultMutation = graphql(/* GraphQL */ `
-  mutation MapFamilyClearDefault($familyId: UUID!) {
-    mapFamilyClearDefault(familyId: $familyId) {
-      id
-      name
-      current {
-        id
-        name
-      }
-      defaultMap {
-        id
-      }
-      defaultSetAt
-      defaultSetBy {
-        id
-        name
       }
     }
   }
@@ -152,13 +144,13 @@ const Row = styled.div<{ $selected: boolean }>`
 
 /**
  * The row's text and chips. It carries the row's inner padding, so the link covers the whole row
- * (up to the staff menu button) for clicking.
+ * (up to the menu button) for clicking.
  */
-const rowBody = css<{ $staff: boolean }>`
+const rowBody = css<{ $withMenu: boolean }>`
   flex: 1 1 auto;
   min-width: 0;
   min-height: 40px;
-  padding: 4px ${props => (props.$staff ? '0' : '12px')} 4px 12px;
+  padding: 4px ${props => (props.$withMenu ? '4px' : '12px')} 4px 12px;
 
   display: flex;
   align-items: center;
@@ -168,11 +160,11 @@ const rowBody = css<{ $staff: boolean }>`
   text-decoration: none;
 `
 
-const RowContent = styled.div<{ $staff: boolean }>`
+const RowContent = styled.div<{ $withMenu: boolean }>`
   ${rowBody};
 `
 
-const RowLink = styled(Link)<{ $staff: boolean }>`
+const RowLink = styled(Link)<{ $withMenu: boolean }>`
   ${rowBody};
 
   &:hover {
@@ -196,13 +188,23 @@ const ChipTooltip = styled(Tooltip)`
   flex-shrink: 0;
 `
 
-/**
- * The button's 48px hit area is mostly empty around its 24px icon, so it overlaps the row's end
- * and extends past its right edge: the icon sits 8px inside the edge and 4px after the meta text.
- */
 const MenuTooltip = styled(Tooltip)`
   flex-shrink: 0;
-  margin-inline: -8px -4px;
+`
+
+/**
+ * Sized to the row's height, so it keeps the row one line and its hover and focus backgrounds stay
+ * clear of the row's text.
+ */
+const MenuButton = styled(IconButton)`
+  width: 40px;
+  min-height: 40px;
+`
+
+/** Stands in for the menu button on rows without one. */
+const MenuSpacer = styled.div`
+  width: 40px;
+  flex-shrink: 0;
 `
 
 const RowChip = styled(RoomChip)`
@@ -244,9 +246,13 @@ type FileData = MapPageFiles_FileFragmentFragment
 type FamilyData = MapPageFiles_FamilyFragmentFragment
 
 /**
- * The files that make up a map: the default (the file players get) first, then the rest by how
- * much they're played. Selecting one shows it on the page, and staff can change which files the
- * map holds and which is its default. Players only see it when the map has more than one file.
+ * The files that make up a map: the recommended file (the one players get) first, then the rest by
+ * how much they're played. Selecting one shows it on the page. A map has one recommended file and
+ * it changes by making another file recommended, so the recommended file's own menu has no
+ * recommendation action. Staff can change which files the map holds, and the map's owner can take
+ * files out of it while they aren't restricted from publishing. A file with no actions has no menu
+ * button; its row still reserves the button's width when another visible row has one, so the rows'
+ * text lines up. Players only see the card when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -261,7 +267,17 @@ export function MapFilesCard({
   const familyFiles = useFragment(MapPageFiles_FileFragment, family.files)
   const selected = useFragment(MapPageFiles_FileFragment, selectedRef)
   const canManageMaps = useHasAnyPermission('manageMaps')
+  const selfUser = useSelfUser()
+  const restrictedFromPublishing = useAppSelector(
+    s => !!s.auth.self?.restrictions.has(RestrictionKind.MapPublishing),
+  )
   const [expanded, setExpanded] = useState(false)
+  const ownerControls =
+    !canManageMaps &&
+    !restrictedFromPublishing &&
+    !!selfUser &&
+    !!family.owner &&
+    family.owner.id === selfUser.id
 
   const files = familyFiles.some(f => f.id === selected.id)
     ? familyFiles
@@ -276,6 +292,9 @@ export function MapFilesCard({
   )
   const { rows, hiddenCount } = visibleFamilyFiles(ordered, selected.id, expanded)
   const duplicateNames = duplicateFileNames(files)
+  const reserveMenuSpace = rows.some(
+    f => fileActionKinds(f, family, files.length, canManageMaps, ownerControls).length > 0,
+  )
 
   return (
     <FilesCard>
@@ -290,6 +309,8 @@ export function MapFilesCard({
             duplicateNames={duplicateNames}
             selectedId={selected.id}
             canManageMaps={canManageMaps}
+            ownerControls={ownerControls}
+            reserveMenuSpace={reserveMenuSpace}
           />
         ))}
       </Rows>
@@ -318,6 +339,8 @@ function FileRow({
   duplicateNames,
   selectedId,
   canManageMaps,
+  ownerControls,
+  reserveMenuSpace,
 }: {
   file: FileData
   family: FamilyData
@@ -325,6 +348,10 @@ function FileRow({
   duplicateNames: ReadonlySet<string>
   selectedId: SbMapId
   canManageMaps: boolean
+  /** Whether the viewer can change the map as its owner. */
+  ownerControls: boolean
+  /** Whether any visible row has a menu button, so rows without one keep its width free. */
+  reserveMenuSpace: boolean
 }) {
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
@@ -383,58 +410,100 @@ function FileRow({
     </>
   )
 
+  const actions = fileActionKinds(file, family, files.length, canManageMaps, ownerControls)
+  let menu: ReactNode = null
+  if (actions.length > 0) {
+    menu = (
+      <FileMenu
+        file={file}
+        family={family}
+        files={files}
+        duplicateNames={duplicateNames}
+        selectedId={selectedId}
+        staff={canManageMaps}
+        actions={actions}
+      />
+    )
+  } else if (reserveMenuSpace) {
+    menu = <MenuSpacer />
+  }
   return (
     <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
       {isSelected ? (
-        <RowContent $staff={canManageMaps}>{content}</RowContent>
+        <RowContent $withMenu={reserveMenuSpace}>{content}</RowContent>
       ) : (
-        <RowLink $staff={canManageMaps} href={urlForMapFile(family, file.id)}>
+        <RowLink $withMenu={reserveMenuSpace} href={urlForMapFile(family, file.id)}>
           {content}
         </RowLink>
       )}
-      {canManageMaps ? (
-        <FileStaffMenu
-          file={file}
-          family={family}
-          files={files}
-          duplicateNames={duplicateNames}
-          selectedId={selectedId}
-        />
-      ) : null}
+      {menu}
     </Row>
   )
 }
 
-/** What a default-changing mutation returns, as far as the snackbar needs. */
-interface DefaultChangeResult {
-  data?: { current: { id: SbMapId; name: string } } | null
-  error?: { graphQLErrors: ReadonlyArray<{ message: string }>; message: string }
+type FileActionKind = 'makeRecommended' | 'split' | 'move' | 'unlink'
+
+/**
+ * The actions a file's menu offers, in order. The map's current file is already the recommended
+ * one, so it has no recommendation action.
+ */
+function fileActionKinds(
+  file: FileData,
+  family: FamilyData,
+  fileCount: number,
+  staff: boolean,
+  ownerControls: boolean,
+): FileActionKind[] {
+  const kinds: FileActionKind[] = []
+  if (!staff && !ownerControls) {
+    return kinds
+  }
+  if (file.id !== family.current.id) {
+    kinds.push('makeRecommended')
+  }
+  if (staff) {
+    if (fileCount > 1) {
+      kinds.push('split')
+    }
+    kinds.push('move')
+  } else if (!file.official && fileCount > 1) {
+    kinds.push('unlink')
+  }
+  return kinds
 }
 
-/** The staff's actions on one file of a map. Admin-only, so not translated. */
-function FileStaffMenu({
+/**
+ * The menu of actions on one file of a map, for staff or for the map's owner. Staff move files
+ * between maps with their own tools, which aren't translated; the owner takes a file out of the
+ * map.
+ */
+function FileMenu({
   file,
   family,
   files,
   duplicateNames,
   selectedId,
+  staff,
+  actions,
 }: {
   file: FileData
   family: FamilyData
   files: ReadonlyArray<FileData>
   duplicateNames: ReadonlySet<string>
   selectedId: SbMapId
+  staff: boolean
+  actions: ReadonlyArray<FileActionKind>
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const uploadedDate = useFormat(uploadedDateFormat)
-  const [, setDefault] = useMutation(SetDefaultMutation)
-  const [, clearDefault] = useMutation(ClearDefaultMutation)
+  const [, setDefault] = useMutation(MapFamilySetDefaultMutation)
+  const [, unlinkFile] = useMutation(FilesUnlinkMutation)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
-  const isPicked = family.defaultMap?.id === file.id
-  // Only a listed file can be the default of a map with listed files
+  // Only a listed file can be the recommended file of a map with listed files
   const canBeDefault = file.listed || !family.listed
 
   /** Names a file by its display name, plus its upload date when another file has that name. */
@@ -446,70 +515,92 @@ function FileStaffMenu({
       : name
   }
 
-  const changeDefault = (request: Promise<DefaultChangeResult>, suffix: string) => {
-    request
+  const makeRecommended = () => {
+    setDefault({ fileId: file.id })
       .then(result => {
         if (result.error || !result.data) {
           throw new Error(result.error?.graphQLErrors[0]?.message ?? result.error?.message)
         }
         snackbarController.showSnackbar(
-          `Recommended file is now ${labelOf(result.data.current)}${suffix}`,
+          t('maps.files.recommendedChanged', 'Recommended file is now {{fileName}}', {
+            fileName: labelOf(result.data.mapFamilySetDefault.current),
+          }),
         )
       })
       .catch((err: Error) => {
-        snackbarController.showSnackbar(`Couldn't change the recommended file: ${err.message}`)
+        snackbarController.showSnackbar(
+          staff
+            ? `Couldn't change the recommended file: ${err.message}`
+            : t('maps.files.recommendError', "Couldn't change the recommended file"),
+        )
       })
   }
 
-  const items: Array<{
-    text: string
-    secondaryText?: string
-    disabled?: boolean
-    onClick: () => void
-  }> = []
+  const onUnlink = () => {
+    unlinkFile({ fileId: file.id })
+      .then(result => {
+        if (result.error || !result.data) {
+          snackbarController.showSnackbar(
+            t('maps.publish.unlinkError', "Couldn't remove the file from this map"),
+          )
+          return
+        }
+        snackbarController.showSnackbar(
+          t('maps.publish.unlinked', 'Removed from {{mapName}}', {
+            mapName: filterColorCodes(family.name),
+          }),
+        )
+        // The page follows the file it shows into its new map
+        if (file.id === selectedId) {
+          push(urlForMapFile(result.data.mapFileUnlink.family, file.id))
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
   const openAction = (action: 'split' | 'move') =>
     dispatch(
       openMapFamilyActionDialog({ action, familyId: family.id, fileId: file.id, selectedId }),
     )
-  if (isPicked) {
-    items.push({
-      text: 'Clear recommendation',
-      onClick: () =>
-        changeDefault(
-          clearDefault({ familyId: family.id }).then(r => ({
-            data: r.data?.mapFamilyClearDefault,
-            error: r.error,
-          })),
-          ' (most played)',
-        ),
-    })
-  } else {
-    items.push({
-      text: 'Make recommended',
-      secondaryText: canBeDefault ? undefined : 'Unlisted files can’t be recommended',
-      disabled: !canBeDefault,
-      onClick: () =>
-        changeDefault(
-          setDefault({ fileId: file.id }).then(r => ({
-            data: r.data?.mapFamilySetDefault,
-            error: r.error,
-          })),
-          '',
-        ),
-    })
-  }
-  if (files.length > 1) {
-    items.push({ text: 'Split into its own map', onClick: () => openAction('split') })
-  }
-  items.push({ text: 'Move to another map…', onClick: () => openAction('move') })
+  const items = actions.map(kind => {
+    switch (kind) {
+      case 'makeRecommended':
+        return {
+          text: t('maps.files.makeRecommended', 'Make recommended'),
+          secondaryText: canBeDefault
+            ? undefined
+            : t('maps.files.unlistedCantBeRecommended', 'Unlisted files can’t be recommended'),
+          disabled: !canBeDefault,
+          onClick: makeRecommended,
+        }
+      // Admin-only, so not translated
+      case 'split':
+        return { text: 'Split into its own map', onClick: () => openAction('split') }
+      case 'move':
+        return { text: 'Move to another map', onClick: () => openAction('move') }
+      default:
+        return {
+          text: t('maps.publish.unlinkMenuItem', 'Remove from this map'),
+          onClick: () =>
+            dispatch(
+              openMapFileUnlinkDialog({
+                fileName: file.name,
+                mapName: family.name,
+                onConfirm: onUnlink,
+              }),
+            ),
+        }
+    }
+  })
+  const menuLabel = staff ? 'File actions' : t('maps.files.fileActions', 'File actions')
 
   return (
     <>
-      <MenuTooltip text='File actions' position='top' tabIndex={-1}>
-        <IconButton
+      <MenuTooltip text={menuLabel} position='top' tabIndex={-1}>
+        <MenuButton
           ref={anchorRef}
           icon={<MaterialIcon icon='more_vert' />}
-          ariaLabel='File actions'
+          ariaLabel={menuLabel}
           ariaHasPopup='menu'
           ariaExpanded={open}
           onClick={openMenu}
@@ -528,8 +619,8 @@ function FileStaffMenu({
               key={item.text}
               text={item.text}
               dense={true}
-              secondaryText={item.secondaryText}
-              disabled={item.disabled}
+              secondaryText={'secondaryText' in item ? item.secondaryText : undefined}
+              disabled={'disabled' in item ? item.disabled : undefined}
               onClick={() => {
                 closeMenu()
                 item.onClick()

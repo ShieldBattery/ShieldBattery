@@ -19,6 +19,7 @@ import { GameCommendNotificationService } from './lib/games/game-commend-notific
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import { computeTranslationHashes } from './lib/i18n/translation-hashes'
+import { MapOwnerNotificationService } from './lib/maps/map-owner-notification-service'
 import { MapPublishNotificationService } from './lib/maps/map-publish-notification-service'
 import { NewsService } from './lib/news/news-service'
 import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/page-metadata'
@@ -47,6 +48,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   container.resolve(GameReportNotificationService)
   container.resolve(GameCommendNotificationService)
   container.resolve(MapPublishNotificationService)
+  container.resolve(MapOwnerNotificationService)
 
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())

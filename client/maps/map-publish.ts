@@ -1,4 +1,70 @@
 import { TFunction } from 'i18next'
+import { MapPublishBlockedReason } from '../gql/graphql'
+
+export function publishGenericErrorText(t: TFunction): string {
+  return t('maps.publish.error', 'Something went wrong. Please try again later.')
+}
+
+/** Says why the current user can't publish a file. */
+export function publishBlockedReasonText(reason: MapPublishBlockedReason, t: TFunction): string {
+  switch (reason) {
+    case MapPublishBlockedReason.AlreadyListed:
+      return t('maps.publish.alreadyListed', 'This file is already published.')
+    case MapPublishBlockedReason.Restricted:
+      return t('maps.publish.restricted', "You're restricted from publishing maps.")
+    case MapPublishBlockedReason.EmailUnverified:
+      return t('maps.publish.emailUnverified', 'Verify your email address to publish maps.')
+    case MapPublishBlockedReason.RateLimited:
+      return t(
+        'maps.publish.rateLimited',
+        "You've published a lot of maps today. Try again tomorrow.",
+      )
+    case MapPublishBlockedReason.NotInLibrary:
+      return t('maps.publish.notInLibrary', 'Add this file to your maps to publish it.')
+    case MapPublishBlockedReason.EmptyName:
+      return t('maps.publish.emptyName', "This file has no name, so it can't be published.")
+    case MapPublishBlockedReason.StaffDelisted:
+      return t(
+        'maps.publish.staffDelisted',
+        "Staff took this file out of the listings, so it can't be published.",
+      )
+    default:
+      reason satisfies never
+      return publishGenericErrorText(t)
+  }
+}
+
+export function protectedMapText(t: TFunction): string {
+  return t(
+    'maps.publish.protectedMap',
+    "This file's map has a maker, so it can't be added to another map.",
+  )
+}
+
+function isBlockedReason(code: unknown): code is MapPublishBlockedReason {
+  return Object.values<unknown>(MapPublishBlockedReason).includes(code)
+}
+
+/**
+ * What a failed publish or link tells the user, given the error code the server sent. The server
+ * uses blocked reasons as codes.
+ */
+export function publishErrorText(code: unknown, t: TFunction): string {
+  if (code === 'NOT_SUGGESTED') {
+    return t('maps.publish.notSuggested', 'That map is no longer suggested for this file.')
+  } else if (isBlockedReason(code)) {
+    return publishBlockedReasonText(code, t)
+  } else if (code === 'PROTECTED_MAP') {
+    return protectedMapText(t)
+  } else if (code === 'HAS_EXISTING_MAP') {
+    return t(
+      'maps.publish.hasExistingMap',
+      "This file is already part of another map, so it can't be added here.",
+    )
+  } else {
+    return publishGenericErrorText(t)
+  }
+}
 
 /** How alike a file is to the file of a map suggested as the one it's a version of. */
 export interface PublishEvidence {
