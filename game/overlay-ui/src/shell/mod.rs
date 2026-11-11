@@ -320,11 +320,22 @@ pub struct Shell {
     stats_card: Option<StatsCard>,
     /// Every other player's stats, as far as the host has them.
     roster: Option<RosterView>,
-    /// Whether the key that holds up the roster is down.
+    /// Which key is holding the roster up, from the press the shell took until it comes up.
+    roster_hold: Option<RosterHold>,
+    /// Whether the roster is held up this frame.
     roster_held: bool,
     /// A spectator hotkey activated a control between frames.
     hotkey_activation: bool,
     intents: Vec<Intent>,
+}
+
+/// The key holding the roster up.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum RosterHold {
+    /// The numpad's 0, which only the host can tell apart.
+    Pad,
+    /// The key of [`hotkeys::ROSTER_CHORD`] that was pressed.
+    Key(Key),
 }
 
 impl Default for Shell {
@@ -352,6 +363,7 @@ impl Shell {
             setting_toast: None,
             stats_card: None,
             roster: None,
+            roster_hold: None,
             roster_held: false,
             hotkey_activation: false,
             intents: Vec::new(),
@@ -437,6 +449,17 @@ impl Shell {
     /// stats on hand.
     pub fn roster_held(&self) -> bool {
         self.roster_held
+    }
+
+    /// Offers a press of the numpad's 0, which holds the roster up, returning whether the shell
+    /// took it. The host tells it apart from the number row's 0 itself (see
+    /// [`hotkeys::ROSTER_CHORD`]), and reports it bare: a modified one is the game's.
+    pub fn roster_pad_pressed(&mut self) -> bool {
+        if !self.roster_key_active() {
+            return false;
+        }
+        self.roster_hold = Some(RosterHold::Pad);
+        true
     }
 
     pub fn set_options_section(&mut self, section: OptionsSection) {
@@ -604,7 +627,8 @@ impl Shell {
         }
         // Taken whenever it would hold the roster up, so the game never also sees the key; the
         // roster itself follows the key being down, which `update_held_keys` reads.
-        if hotkeys::is_roster_key(key, modifiers) && self.roster_key_active() {
+        if hotkeys::is_roster_chord(key, modifiers) && self.roster_key_active() {
+            self.roster_hold = Some(RosterHold::Key(key));
             return true;
         }
         if !self.hotkeys_active() {
@@ -863,20 +887,29 @@ impl Shell {
     }
 
     /// Lets go of a held button's key once `is_down` says it is no longer down, or once the modal
-    /// the button is on is no longer on top. Asked of the keyboard itself every frame rather than
-    /// told by key-up messages, which a switch away from the game can swallow: a hold that outlived
-    /// its key would leave the game on its own.
-    pub fn update_held_keys(&mut self, is_down: impl Fn(Key) -> bool) {
+    /// the button is on is no longer on top, and of the roster once its key is up (`pad_down` for
+    /// the numpad's 0). Asked of the keyboard itself every frame rather than told by key-up
+    /// messages, which a switch away from the game can swallow: a hold that outlived its key would
+    /// leave the game on its own.
+    pub fn update_held_keys(&mut self, is_down: impl Fn(Key) -> bool, pad_down: bool) {
         if let Some((modal, key)) = self.held_button_key
             && (!is_down(key) || self.top_modal() != Some(modal))
         {
             self.held_button_key = None;
         }
-        self.roster_held = self.roster_key_active() && is_down(hotkeys::ROSTER_KEY);
+        let roster_down = match self.roster_hold {
+            Some(RosterHold::Pad) => pad_down,
+            Some(RosterHold::Key(key)) => is_down(key),
+            None => false,
+        };
+        if !roster_down {
+            self.roster_hold = None;
+        }
+        self.roster_held = roster_down && self.roster_key_active();
     }
 
-    /// Whether the roster's key is the roster's: in a player's own game, while the keyboard is the
-    /// game's. In the chat box it types, and a watcher has the observer panels instead.
+    /// Whether the roster's keys are the roster's: in a player's own game, while the keyboard is
+    /// the game's. In the chat box they type, and a watcher has the observer panels instead.
     fn roster_key_active(&self) -> bool {
         self.host.game_started
             && self.host.mode == Mode::Playing
@@ -1352,6 +1385,56 @@ mod tests {
         }
     }
 
+    fn playing_host(native_textbox_open: bool) -> HostFrame {
+        HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            native_textbox_open,
+            native_dialog_open: false,
+            native_menu_open: false,
+            game_seconds: 0,
+            pause_control: None,
+            minimap_rect: None,
+        }
+    }
+
+    #[test]
+    fn the_roster_is_held_up_by_numpad_zero_or_ctrl_tab_while_its_key_is_down() {
+        let mut shell = Shell::new();
+        shell.set_host(&playing_host(false));
+        assert!(shell.roster_pad_pressed());
+        shell.update_held_keys(|_| false, true);
+        assert!(shell.roster_held());
+        shell.update_held_keys(|_| false, false);
+        assert!(!shell.roster_held());
+        // Down again without a press the shell took, as the Insert key that shares its state is.
+        shell.update_held_keys(|_| false, true);
+        assert!(!shell.roster_held());
+
+        assert!(shell.key_pressed(Key::Tab, Modifiers::CTRL));
+        shell.update_held_keys(|key| key == Key::Tab, false);
+        assert!(shell.roster_held());
+        shell.update_held_keys(|_| false, false);
+        assert!(!shell.roster_held());
+    }
+
+    #[test]
+    fn tab_alone_and_shift_tab_stay_the_games() {
+        let mut shell = Shell::new();
+        shell.set_host(&playing_host(false));
+        assert!(!shell.key_pressed(Key::Tab, Modifiers::NONE));
+        assert!(!shell.key_pressed(Key::Tab, Modifiers::SHIFT));
+        assert!(!shell.key_pressed(Key::Tab, Modifiers::CTRL | Modifiers::SHIFT));
+    }
+
+    #[test]
+    fn the_roster_keys_type_into_an_open_chat_box() {
+        let mut shell = Shell::new();
+        shell.set_host(&playing_host(true));
+        assert!(!shell.roster_pad_pressed());
+        assert!(!shell.key_pressed(Key::Tab, Modifiers::CTRL));
+    }
+
     #[test]
     fn a_notice_that_takes_no_input_takes_no_hotkeys_either() {
         let mut shell = spectating_shell();
@@ -1666,7 +1749,7 @@ mod tests {
             Some((ModalId::ConnectionInterrupted, Key::E))
         );
         assert!(!shell.pending_intents().contains(&Intent::AbandonGame));
-        shell.update_held_keys(|_| false);
+        shell.update_held_keys(|_| false, false);
         assert_eq!(shell.held_button_key, None);
     }
 

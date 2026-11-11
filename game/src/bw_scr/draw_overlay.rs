@@ -157,6 +157,10 @@ fn message_scan_code(lparam: isize) -> u16 {
     ((lparam >> 16) & 0x1ff) as u16
 }
 
+/// The numpad's 0 as [`message_scan_code`] reads it: the same with Num Lock on or off, and apart
+/// from the Insert key of the navigation block, which has the extended bit set.
+const NUMPAD_ZERO_SCAN_CODE: u16 = 0x52;
+
 /// A look at a place that waits for a seek to land: centered before it, the view would be moved
 /// for a game the seek is about to replace.
 struct PendingLookAt {
@@ -851,7 +855,8 @@ impl OverlayState {
                 // modal owns the screen. Its rects are registered unconditionally: a BW dialog
                 // sitting on the stack (the hidden `TimeOut` among them) must never be able to
                 // steal a click from a modal of ours.
-                self.shell.update_held_keys(held_key_is_down);
+                self.shell
+                    .update_held_keys(held_key_is_down, numpad_zero_is_down());
                 // Built only while held: the roster is a look at the moment it is asked for. Left
                 // as it was once let go, for it to fade out showing what it showed.
                 if self.shell.roster_held() {
@@ -1671,6 +1676,19 @@ impl OverlayState {
                     // offered presses: a repeat of one it did not take belongs to whatever did,
                     // even once a modal has opened that the same key would answer.
                     let fresh_press = pressed && lparam & (1 << 30) == 0;
+                    // The numpad's 0 holds up the roster of the other players, as it shows their
+                    // stats on Battle.net. egui folds it into the number row's 0, so it is offered
+                    // to the shell here, by where it sits on the keyboard.
+                    if fresh_press
+                        && scan_code == NUMPAD_ZERO_SCAN_CODE
+                        && !modifiers.ctrl
+                        && !modifiers.alt
+                        && !modifiers.shift
+                        && self.shell.roster_pad_pressed()
+                    {
+                        self.shell_held_keys.push(scan_code);
+                        return Some(0);
+                    }
                     if let Some(key) = key {
                         // SC:R's menu keys are the shell's whatever has the keyboard, and so is
                         // every key while a modal whose buttons answer to keys is up: they type
@@ -2116,15 +2134,15 @@ fn control_type_name(ty: u16) -> Cow<'static, str> {
 /// Whether a key the shell holds things up with is down on the keyboard right now, with the game's
 /// own window in front: a key held after switching away is no longer held at the game. Read from
 /// the keyboard rather than from key messages, which a switch away can leave without their key-up.
-/// Only letters and the backtick are ever reported down.
+/// Only letters and Tab are ever reported down.
 fn held_key_is_down(key: egui::Key) -> bool {
     use winapi::um::processthreadsapi::GetCurrentProcessId;
     use winapi::um::winuser::{
-        GetAsyncKeyState, GetForegroundWindow, GetWindowThreadProcessId, VK_OEM_3,
+        GetAsyncKeyState, GetForegroundWindow, GetWindowThreadProcessId, VK_TAB,
     };
 
     let vkey = match key {
-        egui::Key::Backtick => VK_OEM_3,
+        egui::Key::Tab => VK_TAB,
         _ => {
             let name = key.name();
             let [letter] = name.as_bytes() else {
@@ -2140,6 +2158,25 @@ fn held_key_is_down(key: egui::Key) -> bool {
         let mut process = 0;
         GetWindowThreadProcessId(GetForegroundWindow(), &mut process);
         process == GetCurrentProcessId() && GetAsyncKeyState(vkey) as u16 & 0x8000 != 0
+    }
+}
+
+/// Whether the numpad's 0 is down, read the way [`held_key_is_down`] reads a key. With Num Lock off
+/// the key reports itself as Insert, so either counts: the shell only asks once it has taken a
+/// press that came from the numpad.
+fn numpad_zero_is_down() -> bool {
+    use winapi::um::processthreadsapi::GetCurrentProcessId;
+    use winapi::um::winuser::{
+        GetAsyncKeyState, GetForegroundWindow, GetWindowThreadProcessId, VK_INSERT, VK_NUMPAD0,
+    };
+
+    unsafe {
+        let mut process = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), &mut process);
+        process == GetCurrentProcessId()
+            && [VK_NUMPAD0, VK_INSERT]
+                .into_iter()
+                .any(|vkey| GetAsyncKeyState(vkey) as u16 & 0x8000 != 0)
     }
 }
 
