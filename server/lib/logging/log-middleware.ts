@@ -1,5 +1,7 @@
-import { IncomingMessage } from 'http'
+import { IncomingMessage, ServerResponse } from 'http'
 import koaPino from 'koa-pino-logger'
+import { LevelWithSilent } from 'pino'
+import { BASE_API_PATH } from '../http/http-api'
 import { isApprovedCorsPreflight } from '../security/cors'
 import { getLoggerOptions, getLoggerTransports } from './logger'
 
@@ -41,9 +43,47 @@ function isUnloggedRequest(req: IncomingMessage): boolean {
   return isClientAssetRequest(req) || isApprovedCorsPreflight(req)
 }
 
+/**
+ * Returns whether a request is one that arrives constantly and looks the same every time, so that
+ * a line for each one that succeeds says nothing:
+ *
+ * - Loading a matchmaking type's current map pool, which every client does for every type each
+ *   time it opens the Play screen.
+ * - The relay coordinator's game event deliveries, which arrive many times per game. Their
+ *   handlers log the notable events (results, departures, desyncs) themselves.
+ */
+function isRoutineRequest(req: IncomingMessage): boolean {
+  const path = (req.url ?? '').split('?', 1)[0]
+  switch (req.method) {
+    case 'GET':
+      return path.startsWith(`${BASE_API_PATH}/matchmaking-map-pools/`) && path.endsWith('/current')
+    case 'POST':
+      return path === '/webhooks/netcode-v2/game-events'
+    default:
+      return false
+  }
+}
+
+/**
+ * Returns the level a completed request is logged at. Routine requests are logged only when they
+ * fail, since that is the only time one of them differs from the rest. Metrics still count every
+ * request.
+ */
+export function getRequestLogLevel(
+  req: IncomingMessage,
+  res: ServerResponse,
+  err?: Error,
+): LevelWithSilent {
+  return !err && res.statusCode < 400 && isRoutineRequest(req) ? 'silent' : 'info'
+}
+
 export default function logMiddleware() {
   return koaPino(
-    { ...getLoggerOptions(), autoLogging: { ignore: isUnloggedRequest } },
+    {
+      ...getLoggerOptions(),
+      autoLogging: { ignore: isUnloggedRequest },
+      customLogLevel: getRequestLogLevel,
+    },
     getLoggerTransports(),
   )
 }
