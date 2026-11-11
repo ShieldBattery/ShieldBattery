@@ -68,9 +68,9 @@ pub enum RosterSample {
     OneVOne,
     /// A 2v2 matchmaking game: an ally and two opponents.
     TwoVTwo,
-    /// A 3v3 matchmaking game, with one player still loading and one not yet rated in the mode.
+    /// A 3v3 matchmaking game, with one player still loading and one not yet rated in anything.
     ThreeVThree,
-    /// A free-for-all lobby game, which has no mode, so every row shows its player's best.
+    /// A free-for-all lobby game, which has no mode, so each row has only its player's best.
     Lobby,
 }
 
@@ -107,15 +107,19 @@ impl RosterSample {
             race,
             stats,
         };
-        let loaded = |main_race, wins, losses, mode, rank: Option<(Division, u32)>| {
+        let standing = |mode, rank: Option<(Division, u32)>| {
+            Some(ModeStanding {
+                mode,
+                rank: rank.map(|(division, rating)| StatsRank { division, rating }),
+            })
+        };
+        let loaded = |main_race, wins, losses, best, current| {
             RosterStats::Loaded(RosterRecord {
                 main_race,
                 wins,
                 losses,
-                standing: Some(ModeStanding {
-                    mode,
-                    rank: rank.map(|(division, rating)| StatsRank { division, rating }),
-                }),
+                best,
+                current,
             })
         };
         let group = |side, players| RosterGroup { side, players };
@@ -123,7 +127,6 @@ impl RosterSample {
         use RaceView::*;
         match self {
             RosterSample::OneVOne => RosterView {
-                mode: Some(OneVOne),
                 groups: vec![group(
                     RosterSide::Opponents,
                     vec![player(
@@ -134,14 +137,13 @@ impl RosterSample {
                             Some(Protoss),
                             362,
                             248,
-                            OneVOne,
-                            Some((Division::Platinum1, 1865)),
+                            standing(TwoVTwo, Some((Division::Diamond2, 2140))),
+                            standing(OneVOne, Some((Division::Platinum1, 1865))),
                         ),
                     )],
                 )],
             },
             RosterSample::TwoVTwo => RosterView {
-                mode: Some(TwoVTwo),
                 groups: vec![
                     group(
                         RosterSide::Allies,
@@ -153,8 +155,8 @@ impl RosterSample {
                                 Some(Terran),
                                 1204,
                                 699,
-                                TwoVTwo,
-                                Some((Division::Diamond3, 2214)),
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
                             ),
                         )],
                     ),
@@ -169,8 +171,8 @@ impl RosterSample {
                                     Some(Zerg),
                                     880,
                                     602,
-                                    TwoVTwo,
-                                    Some((Division::Diamond1, 2051)),
+                                    standing(OneVOne, Some((Division::Champion, 2512))),
+                                    standing(TwoVTwo, Some((Division::Diamond1, 2051))),
                                 ),
                             ),
                             player(
@@ -181,8 +183,8 @@ impl RosterSample {
                                     Some(Protoss),
                                     431,
                                     390,
-                                    TwoVTwo,
-                                    Some((Division::Gold3, 1742)),
+                                    standing(TwoVTwo, Some((Division::Gold3, 1742))),
+                                    standing(TwoVTwo, Some((Division::Gold3, 1742))),
                                 ),
                             ),
                         ],
@@ -190,7 +192,6 @@ impl RosterSample {
                 ],
             },
             RosterSample::ThreeVThree => RosterView {
-                mode: Some(ThreeVThreeBgh),
                 groups: vec![
                     group(
                         RosterSide::Allies,
@@ -203,15 +204,15 @@ impl RosterSample {
                                     Some(Terran),
                                     12_480,
                                     11_903,
-                                    ThreeVThreeBgh,
-                                    Some((Division::Silver2, 1488)),
+                                    standing(OneVOne, Some((Division::Gold1, 1611))),
+                                    standing(ThreeVThreeBgh, Some((Division::Silver2, 1488))),
                                 ),
                             ),
                             player(
                                 "newcomer",
                                 4,
                                 Terran,
-                                loaded(None, 2, 1, ThreeVThreeBgh, None),
+                                loaded(None, 2, 1, None, standing(ThreeVThreeBgh, None)),
                             ),
                         ],
                     ),
@@ -226,8 +227,8 @@ impl RosterSample {
                                     Some(Terran),
                                     640,
                                     511,
-                                    ThreeVThreeBgh,
-                                    Some((Division::Gold1, 1603)),
+                                    standing(ThreeVThreeBgh, Some((Division::Gold1, 1603))),
+                                    standing(ThreeVThreeBgh, Some((Division::Gold1, 1603))),
                                 ),
                             ),
                             player("Rain", 3, Protoss, RosterStats::Loading),
@@ -239,8 +240,8 @@ impl RosterSample {
                                     Some(Zerg),
                                     977,
                                     845,
-                                    ThreeVThreeBgh,
-                                    Some((Division::Platinum2, 1910)),
+                                    standing(OneVOne, Some((Division::Diamond2, 2160))),
+                                    standing(ThreeVThreeBgh, Some((Division::Platinum2, 1910))),
                                 ),
                             ),
                         ],
@@ -248,7 +249,6 @@ impl RosterSample {
                 ],
             },
             RosterSample::Lobby => RosterView {
-                mode: None,
                 groups: vec![group(
                     RosterSide::Opponents,
                     vec![
@@ -260,8 +260,8 @@ impl RosterSample {
                                 Some(Zerg),
                                 880,
                                 602,
-                                OneVOne,
-                                Some((Division::Champion, 2512)),
+                                standing(OneVOne, Some((Division::Champion, 2512))),
+                                None,
                             ),
                         ),
                         player(
@@ -272,8 +272,8 @@ impl RosterSample {
                                 Some(Terran),
                                 1204,
                                 699,
-                                TwoVTwo,
-                                Some((Division::Diamond3, 2214)),
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
+                                None,
                             ),
                         ),
                         player("guest4471", 3, Random, RosterStats::Unavailable),
