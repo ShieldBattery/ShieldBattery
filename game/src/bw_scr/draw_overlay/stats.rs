@@ -771,7 +771,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
             armed: unit_id.is_building() && can_attack(unit_id),
             transport: unit_id.cargo_space_provided() != 0,
             resource: unit_id.is_resource_container(),
-            harmless: never_kills(unit_id),
+            harmless: never_kills(unit_id) && !can_attack(unit_id),
         })
         .then(|| unit.kills()),
         status: None,
@@ -850,7 +850,8 @@ struct KillsKind {
     transport: bool,
     /// A mineral field or a geyser.
     resource: bool,
-    /// Has no way to kill anything, by weapon or by spell (see [`never_kills`]).
+    /// Has no way to kill anything, by weapon or by spell (see [`never_kills`]), and no weapon a
+    /// map's own units.dat gave it either.
     harmless: bool,
 }
 
@@ -1114,7 +1115,7 @@ mod tests {
     }
 
     #[test]
-    fn kills_are_read_out_for_everything_but_unarmed_buildings_transports_and_resources() {
+    fn kills_are_read_out_for_everything_but_what_cannot_kill_transports_and_resources() {
         let unit = KillsKind {
             building: false,
             armed: false,
