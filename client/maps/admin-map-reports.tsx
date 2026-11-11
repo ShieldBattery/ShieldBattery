@@ -1,19 +1,21 @@
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import styled from 'styled-components'
-import { useQuery } from 'urql'
-import { Link } from 'wouter'
+import { useMutation, useQuery } from 'urql'
+import { Link, useRoute } from 'wouter'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, makeMapFamilyId } from '../../common/maps'
+import { urlPath } from '../../common/urls'
 import { graphql } from '../gql'
 import {
   AdminMapFamilyReportsQuery,
+  AdminMapOwnerClaimsQuery,
   MapFamilyReportKind,
   MapFamilyReportStatus,
   MapPublishReviewAnswer,
 } from '../gql/graphql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { FilledButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -22,9 +24,11 @@ import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { sameMapReportCompareUrl, wrongMapReportCompareUrl } from './map-family-files'
+import { serverErrorText } from './map-owner-actions'
 import { useChangeReportStatus } from './map-report-status'
 
 // An admin-only page, so it isn't translated.
@@ -78,6 +82,7 @@ const MapFamilyReportCountsQuery = graphql(/* GraphQL */ `
     open: mapFamilyReportCount(status: OPEN)
     resolved: mapFamilyReportCount(status: RESOLVED)
     dismissed: mapFamilyReportCount(status: DISMISSED)
+    openClaims: mapOwnerClaimCount(status: OPEN)
   }
 `)
 
@@ -193,14 +198,28 @@ const LoadMoreRow = styled.div`
   padding: 12px;
 `
 
+/** The tabs of the map reports page, as its URL names them. */
+enum MapReportsTab {
+  Reports = 'reports',
+  Claims = 'claims',
+}
+
+const ALL_MAP_REPORTS_TABS: ReadonlyArray<MapReportsTab> = Object.values(MapReportsTab)
+
+function tabText(label: string, count: number | undefined) {
+  return count === undefined ? label : `${label} (${count})`
+}
+
 /**
- * Players' reports that a file isn't part of its map, or that two maps are the same, and files
- * held for review when they were published. Each row opens the report where staff settle it: on
- * the comparison of the files involved, or for a held file, on the file's page. A report with
- * nowhere to settle it opens the map's page instead, and is resolved or dismissed from its row's
- * menu.
+ * Players' reports about maps and their files, files held for review when they were published,
+ * and players' claims to be the maker of a map. Each report row opens the report where staff
+ * settle it: on the comparison of the files involved, or on the page of the map or file it's
+ * about. A report with nowhere to settle it opens the map's page instead, and is resolved or
+ * dismissed from its row's menu. Claims are granted or rejected from their rows.
  */
 export function AdminMapReports() {
+  const [, params] = useRoute<{ tab?: string }>('/admin/maps/reports/:tab?')
+  const tab = ALL_MAP_REPORTS_TABS.find(t => t === params?.tab) ?? MapReportsTab.Reports
   const [statusParam, setStatusParam] = useLocationSearchParam('status')
   const status = statusFromParam(statusParam)
   // Bumped on refresh to re-mount the pages and force a fresh fetch.
@@ -209,9 +228,6 @@ export function AdminMapReports() {
     query: MapFamilyReportCountsQuery,
     requestPolicy: 'cache-and-network',
   })
-
-  const tabText = (label: string, count: number | undefined) =>
-    count === undefined ? label : `${label} (${count})`
 
   return (
     <Content>
@@ -226,9 +242,49 @@ export function AdminMapReports() {
         />
       </HeadlineRow>
       <StyledTabs
+        activeTab={tab}
+        onChange={(value: MapReportsTab) =>
+          push(
+            value === MapReportsTab.Reports
+              ? '/admin/maps/reports'
+              : urlPath`/admin/maps/reports/${value}`,
+          )
+        }>
+        <TabItem value={MapReportsTab.Reports} text={tabText('Reports', counts?.open)} />
+        <TabItem value={MapReportsTab.Claims} text={tabText('Claims', counts?.openClaims)} />
+      </StyledTabs>
+      {tab === MapReportsTab.Claims ? (
+        <ClaimsTable key={refreshToken} />
+      ) : (
+        <ReportsTab
+          status={status}
+          counts={counts}
+          refreshToken={refreshToken}
+          onStatusChange={setStatusParam}
+        />
+      )}
+    </Content>
+  )
+}
+
+function ReportsTab({
+  status,
+  counts,
+  refreshToken,
+  onStatusChange,
+}: {
+  status: MapFamilyReportStatus
+  counts?: { open: number; resolved: number; dismissed: number }
+  refreshToken: number
+  /** Sets the status param of the URL: empty for open reports. */
+  onStatusChange: (value: string) => void
+}) {
+  return (
+    <>
+      <StyledTabs
         activeTab={status}
         onChange={(value: MapFamilyReportStatus) =>
-          setStatusParam(value === MapFamilyReportStatus.Open ? '' : STATUS_PARAM_VALUES[value])
+          onStatusChange(value === MapFamilyReportStatus.Open ? '' : STATUS_PARAM_VALUES[value])
         }>
         <TabItem value={MapFamilyReportStatus.Open} text={tabText('Open', counts?.open)} />
         <TabItem
@@ -241,7 +297,7 @@ export function AdminMapReports() {
         />
       </StyledTabs>
       <ReportsTable key={`${status}-${refreshToken}`} status={status} />
-    </Content>
+    </>
   )
 }
 
@@ -300,7 +356,9 @@ function ReportsPage({
               makeMapFamilyId(r.family.id),
               r.family.name,
               undefined,
-              r.kind === MapFamilyReportKind.SameMap ? undefined : r.map?.id,
+              r.kind === MapFamilyReportKind.SameMap || r.kind === MapFamilyReportKind.WrongOwner
+                ? undefined
+                : r.map?.id,
             )
           : undefined
         const reviewUrl = reportReviewUrl(r)
@@ -379,7 +437,7 @@ type ReportRow = AdminMapFamilyReportsQuery['mapFamilyReports'][number]
 
 /**
  * The page that reviews a report: the comparison of the files it's about, if there are any to
- * compare, or the page of the file held for review.
+ * compare, or else the page of the map or file it's about, with the report's actions.
  */
 function reportReviewUrl(report: ReportRow): string | undefined {
   if (!report.family) {
@@ -390,7 +448,11 @@ function reportReviewUrl(report: ReportRow): string | undefined {
       ? wrongMapReportCompareUrl(report.family, report.map.id, report.id)
       : undefined
   }
-  if (report.kind === MapFamilyReportKind.PublishReview) {
+  if (
+    report.kind === MapFamilyReportKind.PublishReview ||
+    report.kind === MapFamilyReportKind.WrongDefault ||
+    report.kind === MapFamilyReportKind.Inappropriate
+  ) {
     return report.map
       ? urlForMap(
           makeMapFamilyId(report.family.id),
@@ -401,6 +463,15 @@ function reportReviewUrl(report: ReportRow): string | undefined {
         )
       : undefined
   }
+  if (report.kind === MapFamilyReportKind.WrongOwner) {
+    return urlForMap(
+      makeMapFamilyId(report.family.id),
+      report.family.name,
+      undefined,
+      undefined,
+      report.id,
+    )
+  }
   return report.otherFamily
     ? sameMapReportCompareUrl(report.family, report.otherFamily, report.id)
     : undefined
@@ -408,6 +479,25 @@ function reportReviewUrl(report: ReportRow): string | undefined {
 
 /** What a report says, linking to the other map it names. */
 function ReportSummary({ report }: { report: ReportRow }) {
+  if (report.kind === MapFamilyReportKind.WrongOwner) {
+    return <MutedText>Its maker didn&apos;t make it</MutedText>
+  }
+  if (report.kind === MapFamilyReportKind.WrongDefault) {
+    return (
+      <span>
+        {report.map ? filterColorCodes(report.map.name) : 'A file'}{' '}
+        <MutedText>should be the recommended file</MutedText>
+      </span>
+    )
+  }
+  if (report.kind === MapFamilyReportKind.Inappropriate) {
+    return (
+      <span>
+        {report.map ? filterColorCodes(report.map.name) : 'A file'}{' '}
+        <MutedText>is inappropriate</MutedText>
+      </span>
+    )
+  }
   if (report.kind === MapFamilyReportKind.WrongMap) {
     return (
       <span>
@@ -494,5 +584,228 @@ function ReportMenu({ items }: { items: ReadonlyArray<[text: string, handler: ()
         </MenuList>
       </Popover>
     </>
+  )
+}
+
+const MapOwnerClaimsQuery = graphql(/* GraphQL */ `
+  query AdminMapOwnerClaims($limit: Int!, $offset: Int!) {
+    mapOwnerClaims(status: OPEN, limit: $limit, offset: $offset) {
+      id
+      note
+      status
+      createdAt
+      claimant {
+        id
+      }
+      family {
+        id
+        name
+        owner {
+          id
+        }
+      }
+    }
+  }
+`)
+
+/** Selects what the claim's views and its map's views show, so they update from the result. */
+const GrantClaimMutation = graphql(/* GraphQL */ `
+  mutation AdminMapOwnerClaimGrant($claimId: UUID!) {
+    mapOwnerClaimGrant(claimId: $claimId) {
+      id
+      status
+      resolvedAt
+      resolvedBy {
+        id
+      }
+      family {
+        id
+        ...MapOwner_FamilyOwnerFragment
+      }
+    }
+  }
+`)
+
+const RejectClaimMutation = graphql(/* GraphQL */ `
+  mutation AdminMapOwnerClaimReject($claimId: UUID!) {
+    mapOwnerClaimReject(claimId: $claimId) {
+      id
+      status
+      resolvedAt
+      resolvedBy {
+        id
+      }
+    }
+  }
+`)
+
+/** The server returns at most this many claims at a time. */
+const CLAIMS_PAGE_SIZE = 50
+
+const ClaimTableRow = styled(TableRow)`
+  cursor: default;
+`
+
+/** A cell whose text is cut to one line, with all of it in a tooltip. */
+const NoteText = styled.span`
+  ${singleLine};
+  display: block;
+`
+
+const ClaimActions = styled(ActionsCell)`
+  gap: 4px;
+`
+
+/** The claims table's frame and column headings, with `children` as its rows. */
+export function ClaimsTableFrame({ children }: { children: ReactNode }) {
+  return (
+    <Table>
+      <TableHeader>
+        <Cell $width={104}>Claimed</Cell>
+        <Cell $width={200}>Map</Cell>
+        <Cell $width={140}>Claimant</Cell>
+        <Cell $width={140}>Current maker</Cell>
+        <Cell>Note</Cell>
+        <Cell $width={184} />
+      </TableHeader>
+      {children}
+    </Table>
+  )
+}
+
+/** The open claims to be the maker of a map, oldest first, each granted or rejected on its row. */
+function ClaimsTable() {
+  const [pages, setPages] = useState(1)
+  return (
+    <ClaimsTableFrame>
+      {Array.from({ length: pages }, (_, i) => (
+        <ClaimsPage
+          key={i}
+          offset={i * CLAIMS_PAGE_SIZE}
+          isLastPage={i === pages - 1}
+          onLoadMore={() => setPages(p => p + 1)}
+        />
+      ))}
+    </ClaimsTableFrame>
+  )
+}
+
+function ClaimsPage({
+  offset,
+  isLastPage,
+  onLoadMore,
+}: {
+  offset: number
+  isLastPage: boolean
+  onLoadMore: () => void
+}) {
+  const snackbarController = useSnackbarController()
+  const [{ data, fetching, error }] = useQuery({
+    query: MapOwnerClaimsQuery,
+    variables: { limit: CLAIMS_PAGE_SIZE, offset },
+    requestPolicy: 'cache-and-network',
+  })
+  const [{ fetching: granting }, grant] = useMutation(GrantClaimMutation)
+  const [{ fetching: rejecting }, reject] = useMutation(RejectClaimMutation)
+  const claims = data?.mapOwnerClaims ?? []
+
+  const settle = (
+    request: Promise<{ error?: Parameters<typeof serverErrorText>[0] }>,
+    done: string,
+    failed: string,
+  ) => {
+    request
+      .then(result => {
+        snackbarController.showSnackbar(
+          result.error ? `${failed}: ${serverErrorText(result.error)}` : done,
+        )
+      })
+      .catch((err: Error) => snackbarController.showSnackbar(`${failed}: ${err.message}`))
+  }
+
+  return (
+    <>
+      {claims.map(claim => (
+        <ClaimRow
+          key={claim.id}
+          claim={claim}
+          disabled={granting || rejecting}
+          onGrant={() =>
+            settle(grant({ claimId: claim.id }), 'Claim granted', "Couldn't grant the claim")
+          }
+          onReject={() =>
+            settle(reject({ claimId: claim.id }), 'Claim rejected', "Couldn't reject the claim")
+          }
+        />
+      ))}
+      {offset === 0 && data && !claims.length ? <EmptyText>No open claims.</EmptyText> : null}
+      {fetching && !data ? <LoadingDotsArea /> : null}
+      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+      {isLastPage && claims.length === CLAIMS_PAGE_SIZE ? (
+        <LoadMoreRow>
+          <OutlinedButton label='Load more' onClick={onLoadMore} />
+        </LoadMoreRow>
+      ) : null}
+    </>
+  )
+}
+
+export type ClaimRowData = AdminMapOwnerClaimsQuery['mapOwnerClaims'][number]
+
+/** One claim to be the maker of a map, with the buttons that settle it. */
+export function ClaimRow({
+  claim,
+  disabled,
+  onGrant,
+  onReject,
+}: {
+  claim: ClaimRowData
+  disabled: boolean
+  onGrant: () => void
+  onReject: () => void
+}) {
+  const { family } = claim
+  return (
+    <ClaimTableRow>
+      <Cell $width={104}>
+        <NarrowDuration to={new Date(claim.createdAt)} />
+      </Cell>
+      <Cell $width={200}>
+        {family ? (
+          <Link href={urlForMap(makeMapFamilyId(family.id), family.name)}>
+            {filterColorCodes(family.name)}
+          </Link>
+        ) : (
+          <MutedText>Deleted map</MutedText>
+        )}
+      </Cell>
+      <Cell $width={140}>
+        {claim.claimant ? (
+          <ConnectedUsername userId={claim.claimant.id} />
+        ) : (
+          <MutedText>Unknown user</MutedText>
+        )}
+      </Cell>
+      <Cell $width={140}>
+        {family?.owner ? (
+          <ConnectedUsername userId={family.owner.id} />
+        ) : (
+          <MutedText>None</MutedText>
+        )}
+      </Cell>
+      <Cell>
+        {claim.note ? (
+          <Tooltip text={claim.note} position='bottom'>
+            <NoteText>{claim.note}</NoteText>
+          </Tooltip>
+        ) : (
+          <MutedText>No note</MutedText>
+        )}
+      </Cell>
+      <ClaimActions $width={184}>
+        <TextButton label='Reject' disabled={disabled} onClick={onReject} />
+        <FilledButton label='Grant' disabled={disabled} onClick={onGrant} />
+      </ClaimActions>
+    </ClaimTableRow>
   )
 }

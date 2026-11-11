@@ -246,7 +246,7 @@ export function CatalogFilterRow({
   totalCount,
   sorts: browseSorts = BROWSE_SORTS,
   offersBestMatch = true,
-  showOfficial = true,
+  showServerFilters = true,
   besideCount,
   viewToggle,
   onFiltersChange,
@@ -262,7 +262,8 @@ export function CatalogFilterRow({
   sorts?: ReadonlyArray<CatalogSort>
   /** Whether Best match is offered while searching. */
   offersBestMatch?: boolean
-  showOfficial?: boolean
+  /** Whether the Official and Verified filters, which only the server's listings have, show. */
+  showServerFilters?: boolean
   /** Shown next to the count, e.g. a link to the same search elsewhere. */
   besideCount?: React.ReactNode
   /** Shown before the density toggle, e.g. a choice of how to lay out the listing. */
@@ -366,12 +367,19 @@ export function CatalogFilterRow({
           onClick={() => onFiltersChange({ eud: EudFilter.Only })}
         />
       </FilterChip>
-      {showOfficial ? (
-        <FilterChip
-          label={t('maps.page.official', 'Official')}
-          selected={params.official}
-          onClick={() => onFiltersChange({ official: !params.official })}
-        />
+      {showServerFilters ? (
+        <>
+          <FilterChip
+            label={t('maps.page.official', 'Official')}
+            selected={params.official}
+            onClick={() => onFiltersChange({ official: !params.official })}
+          />
+          <FilterChip
+            label={t('maps.page.verified', 'Verified')}
+            selected={params.verified}
+            onClick={() => onFiltersChange({ verified: !params.verified })}
+          />
+        </>
       ) : null}
       {hasNonDefaultFilters(params) ? (
         <TextButton
