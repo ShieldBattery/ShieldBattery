@@ -199,6 +199,8 @@ const cacheUpdates: UpdatesConfig = {
         fileIds: cachedFamilyFileIds(cache, mergedId),
       })
     },
+    // A delisted file can stop being its map's current file, or take its map out of the catalog
+    mapDelist: (_result, _args, cache) => invalidateMapFamilies(cache),
     mapFamilyReport: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     mapFamilyReportSetStatus: (_result, _args, cache) =>

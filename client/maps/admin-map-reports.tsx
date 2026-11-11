@@ -296,11 +296,27 @@ function ReportsPage({
               makeMapFamilyId(r.family.id),
               r.family.name,
               undefined,
-              r.kind === MapFamilyReportKind.WrongMap ? r.map?.id : undefined,
+              r.kind === MapFamilyReportKind.SameMap ? undefined : r.map?.id,
             )
           : undefined
         const compareUrl = reportCompareUrl(r)
         const rowUrl = compareUrl ?? mapUrl
+        const dismiss: [string, () => void] = [
+          'Dismiss',
+          () => changeStatus(r.id, MapFamilyReportStatus.Dismissed),
+        ]
+        let menuItems: Array<[text: string, handler: () => void]>
+        if (!isOpen) {
+          menuItems = [['Reopen', () => changeStatus(r.id, MapFamilyReportStatus.Open)]]
+        } else if (r.kind === MapFamilyReportKind.PublishReview) {
+          // Resolving a held file means listing it, which marking the report resolved doesn't do
+          menuItems = [dismiss]
+        } else {
+          menuItems = [
+            ['Resolve', () => changeStatus(r.id, MapFamilyReportStatus.Resolved)],
+            dismiss,
+          ]
+        }
         return (
           <TableRow key={r.id} onClick={rowUrl ? () => push(rowUrl) : undefined}>
             <Cell $width={104}>
@@ -336,18 +352,7 @@ function ReportsPage({
               </Cell>
             )}
             <ActionsCell $width={64} onClick={e => e.stopPropagation()}>
-              {compareUrl ? null : (
-                <ReportMenu
-                  items={
-                    isOpen
-                      ? [
-                          ['Resolve', () => changeStatus(r.id, MapFamilyReportStatus.Resolved)],
-                          ['Dismiss', () => changeStatus(r.id, MapFamilyReportStatus.Dismissed)],
-                        ]
-                      : [['Reopen', () => changeStatus(r.id, MapFamilyReportStatus.Open)]]
-                  }
-                />
-              )}
+              {compareUrl ? null : <ReportMenu items={menuItems} />}
             </ActionsCell>
           </TableRow>
         )
@@ -378,6 +383,9 @@ function reportCompareUrl(report: ReportRow): string | undefined {
       ? wrongMapReportCompareUrl(report.family, report.map.id, report.id)
       : undefined
   }
+  if (report.kind === MapFamilyReportKind.PublishReview) {
+    return undefined
+  }
   return report.otherFamily
     ? sameMapReportCompareUrl(report.family, report.otherFamily, report.id)
     : undefined
@@ -390,6 +398,14 @@ function ReportSummary({ report }: { report: ReportRow }) {
       <span>
         {report.map ? filterColorCodes(report.map.name) : 'A file'}{' '}
         <MutedText>isn&apos;t part of this map</MutedText>
+      </span>
+    )
+  }
+  if (report.kind === MapFamilyReportKind.PublishReview) {
+    return (
+      <span>
+        {report.map ? filterColorCodes(report.map.name) : 'A file'}{' '}
+        <MutedText>was held for review when published</MutedText>
       </span>
     )
   }

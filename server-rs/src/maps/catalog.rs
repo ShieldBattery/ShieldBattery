@@ -159,6 +159,25 @@ async fn viewer_flags(ctx: &Context<'_>, map_id: SbMapId) -> Result<ViewerMapFla
         .unwrap_or_default())
 }
 
+/// Who took a map file out of the listings, or blocked it from being listed.
+#[derive(Enum, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum MapDelistedKind {
+    /// The file's publisher unpublished it. Anyone may publish it again.
+    Publisher,
+    /// Staff delisted it, whether or not it was listed. Only staff can list it again.
+    Staff,
+}
+
+impl MapDelistedKind {
+    pub fn from_db(kind: &str) -> Option<Self> {
+        match kind {
+            "publisher" => Some(Self::Publisher),
+            "staff" => Some(Self::Staff),
+            _ => None,
+        }
+    }
+}
+
 /// Who listed and delisted a map and when.
 #[derive(SimpleObject, Clone, Debug)]
 #[graphql(complex)]
@@ -169,10 +188,15 @@ pub struct MapModeration {
     pub published_at: Option<DateTime<Utc>>,
     #[graphql(skip)]
     pub published_by_id: Option<SbUserId>,
-    /// When the map was taken out of the listings. Null while it is listed.
+    /// When the map was taken out of the listings, or (by staff) blocked from being listed while
+    /// it wasn't. Null while it is listed, and for a map nobody delisted.
     pub delisted_at: Option<DateTime<Utc>>,
     #[graphql(skip)]
     pub delisted_by_id: Option<SbUserId>,
+    /// Who delisted the map. Set exactly when `delistedAt` is.
+    pub delisted_kind: Option<MapDelistedKind>,
+    /// Why staff delisted the map, if they said. Only set while it is delisted.
+    pub delisted_note: Option<String>,
 }
 
 #[ComplexObject]
@@ -186,7 +210,7 @@ impl MapModeration {
         load_user(ctx, self.published_by_id).await
     }
 
-    /// The user who took the map out of the listings, if known. Null while it is listed.
+    /// The user who delisted the map, if known. Null while it is listed.
     async fn delisted_by(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
         load_user(ctx, self.delisted_by_id).await
     }
@@ -282,6 +306,11 @@ impl From<DbSbMap> for SbMap {
                 published_by_id: row.published_by,
                 delisted_at: row.delisted_at,
                 delisted_by_id: row.delisted_by,
+                delisted_kind: row
+                    .delisted_kind
+                    .as_deref()
+                    .and_then(MapDelistedKind::from_db),
+                delisted_note: row.delisted_note,
             },
             stats,
             favorite_count: row.favorites,
@@ -781,6 +810,8 @@ mod tests {
                 published_at: Some(published_at),
                 delisted_by: None,
                 delisted_at: Some(delisted_at),
+                delisted_kind: Some("staff".into()),
+                delisted_note: None,
                 has_stats: false,
                 games_7d: 0,
                 games_28d: 0,
