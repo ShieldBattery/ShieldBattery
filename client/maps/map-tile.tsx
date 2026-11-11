@@ -6,6 +6,7 @@ import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-libra
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
+import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapKind, MapTile_SbMapFragmentFragment } from '../gql/graphql'
 import { narrowDuration } from '../i18n/date-formats'
@@ -25,13 +26,19 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
-import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
+import {
+  openMapDownloadDialog,
+  openMapPreviewDialog,
+  openMapPublishDialog,
+  removeFromMyMaps,
+} from './action-creators'
 import { useLocalMapImage } from './local-map-images'
 import { LocalMapUpload } from './local-maps'
 import { urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
+import { useUnpublishMap } from './map-unpublish'
 
 export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
   fragment MapTile_SbMapFragment on SbMap {
@@ -43,6 +50,9 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     listed
     publishedAt
     isFavorited
+    publisher {
+      id
+    }
     family {
       id
       name
@@ -451,7 +461,7 @@ export function MapTile({
       {onRemovedFromLibrary ? (
         <LibraryFooter>
           {map.listed ? null : <UnlistedChip>{t('maps.page.unlisted', 'Unlisted')}</UnlistedChip>}
-          <LibraryMapMenu mapId={map.id} mapName={map.name} onRemoved={onRemovedFromLibrary} />
+          <LibraryMapMenu map={map} onRemoved={onRemovedFromLibrary} />
         </LibraryFooter>
       ) : (
         <CornerActions>
@@ -616,17 +626,20 @@ function MonthSignal({ games }: { games: number | undefined }) {
 }
 
 function LibraryMapMenu({
-  mapId,
-  mapName,
+  map,
   onRemoved,
 }: {
-  mapId: SbMapId
-  mapName: string
+  map: Pick<TileMap, 'id' | 'name' | 'listed' | 'official' | 'publisher'>
   onRemoved: (id: SbMapId) => void
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
+  const selfUser = useSelfUser()
+  const unpublish = useUnpublishMap()
+  const mapId = map.id
+  const canUnpublish =
+    map.listed && !map.official && !!selfUser && map.publisher?.id === selfUser.id
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -671,7 +684,7 @@ function LibraryMapMenu({
             icon={<MaterialIcon icon='info' />}
             onClick={() => {
               closeMenu()
-              push(urlForMap(mapId, mapName))
+              push(urlForMap(mapId, map.name))
             }}
           />
           <MenuItem
@@ -682,6 +695,26 @@ function LibraryMapMenu({
               dispatch(openMapDownloadDialog(mapId))
             }}
           />
+          {!map.listed ? (
+            <MenuItem
+              text={t('maps.publish.publishMenuItem', 'Publish…')}
+              icon={<MaterialIcon icon='public' />}
+              onClick={() => {
+                closeMenu()
+                dispatch(openMapPublishDialog({ fileId: mapId }))
+              }}
+            />
+          ) : null}
+          {canUnpublish ? (
+            <MenuItem
+              text={t('maps.publish.unpublish', 'Unpublish')}
+              icon={<MaterialIcon icon='public_off' />}
+              onClick={() => {
+                closeMenu()
+                unpublish(mapId)
+              }}
+            />
+          ) : null}
           <DestructiveMenuItem
             text={t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps')}
             icon={<MaterialIcon icon='delete' />}

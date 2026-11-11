@@ -124,6 +124,44 @@ function invalidateMapFamilies(
   }
 }
 
+/**
+ * The fields of the map a file moved into that the results of `mapFileLink`, `mapFileUnlink` and
+ * `mapPublish` select, so the result brings them fresh from the server.
+ */
+const MOVED_INTO_RESULT_FIELDS: ReadonlySet<string> = new Set([
+  '__typename',
+  'id',
+  'name',
+  'current',
+])
+
+/** A mutation result saying which map a file is in now, and which one it left. */
+type FileMovedIntoResult =
+  | { family?: { id: string }; previousFamily?: { id: string } | null }
+  | undefined
+
+/**
+ * Invalidates what moving the file `fileId` into the map `move.family` can affect, for a mutation
+ * whose result selects `MOVED_INTO_RESULT_FIELDS` of that map. Those fields are kept: the result
+ * returns the map in a non-null field, and the cache reads a result back as null once an entity it
+ * returns that way has been invalidated whole. The map the file left is invalidated whole.
+ */
+function invalidateFileMovedInto(cache: Cache, move: FileMovedIntoResult, fileId: string) {
+  invalidateMapFamilies(cache, {
+    familyIds: move?.previousFamily ? [move.previousFamily.id] : [],
+    favoriteFileIds: [fileId],
+  })
+  if (!move?.family) {
+    return
+  }
+  const family = { __typename: 'MapFamily', id: move.family.id }
+  for (const field of cache.inspectFields(family)) {
+    if (!MOVED_INTO_RESULT_FIELDS.has(field.fieldName)) {
+      cache.invalidate(family, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
 /** The cached files of a map, read before a change moves them elsewhere. */
 function cachedFamilyFileIds(cache: Cache, familyId: string): string[] {
   const files = cache.resolve({ __typename: 'MapFamily', id: familyId }, 'files')
@@ -192,6 +230,18 @@ const cacheUpdates: UpdatesConfig = {
         favoriteFileIds: [args.fileId as string],
       })
     },
+    mapFileLink: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapFileLink as FileMovedIntoResult,
+        args.fileId as string,
+      ),
+    mapFileUnlink: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapFileUnlink as FileMovedIntoResult,
+        args.fileId as string,
+      ),
     mapFamilyMerge: (_result, args, cache) => {
       const mergedId = args.familyId as string
       invalidateMapFamilies(cache, {
@@ -199,8 +249,21 @@ const cacheUpdates: UpdatesConfig = {
         fileIds: cachedFamilyFileIds(cache, mergedId),
       })
     },
-    // A delisted file can stop being its map's current file, or take its map out of the catalog
+    // Listing or delisting a file can change its map's current file, or put its map in or out of
+    // the catalog
     mapDelist: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapUnpublish: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapRelist: (_result, _args, cache) => invalidateMapFamilies(cache),
+    // Publishing can also move the file into another map. The invalidated fields include the
+    // reports, which publishing can file.
+    mapPublish: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapPublish as FileMovedIntoResult,
+        args.fileId as string,
+      ),
+    // Approving lists the file and resolves its report
+    mapPublishReviewApprove: (_result, _args, cache) => invalidateMapFamilies(cache),
     mapFamilyReport: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     mapFamilyReportSetStatus: (_result, _args, cache) =>

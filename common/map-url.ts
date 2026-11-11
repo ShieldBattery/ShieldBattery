@@ -55,8 +55,11 @@ export enum MapCompareView {
   Subtract = 'subtract',
 }
 
-/** The query param of the compare page that names the map family report to review. */
-export const MAP_COMPARE_REPORT_PARAM = 'report'
+/**
+ * The query param of the compare page and of a map's page that names the map family report for
+ * staff to review there.
+ */
+export const MAP_REPORT_PARAM = 'report'
 
 export const ALL_MAP_COMPARE_VIEWS: ReadonlyArray<MapCompareView> = Object.values(MapCompareView)
 
@@ -77,7 +80,7 @@ export function urlForMapCompare(
     params.push(urlPath`view=${view}`)
   }
   if (reportId) {
-    params.push(urlPath`${MAP_COMPARE_REPORT_PARAM}=${reportId}`)
+    params.push(urlPath`${MAP_REPORT_PARAM}=${reportId}`)
   }
   return params.length ? `${base}?${params.join('&')}` : base
 }
@@ -107,22 +110,28 @@ export type MapPageId = MapFamilyId | SbMapId
  * Returns the URL of a map's page. `id` is normally a family's ID; a file's ID also works, and the
  * page then moves to the file's family with the file selected. If the map's name is available,
  * the URL will include a slug (otherwise the page replaces the placeholder once the map has
- * loaded). `file` selects one of the family's files.
+ * loaded). `file` selects one of the family's files. `reportId` makes the page show that map
+ * family report to staff, who can resolve it there.
  */
 export function urlForMap(
   id: MapPageId,
   name?: string,
   subPage?: MapPageSubPage,
   file?: SbMapId,
+  reportId?: string,
 ): string {
   let url = urlPath`/maps/${encodePrettyId(id)}/${mapSlug(name)}`
   if (subPage) {
     url += urlPath`/${subPage}`
   }
+  const params: string[] = []
   if (file) {
-    url += urlPath`?${MAP_PAGE_FILE_PARAM}=${encodePrettyId(file)}`
+    params.push(urlPath`${MAP_PAGE_FILE_PARAM}=${encodePrettyId(file)}`)
   }
-  return url
+  if (reportId) {
+    params.push(urlPath`${MAP_REPORT_PARAM}=${reportId}`)
+  }
+  return params.length ? `${url}?${params.join('&')}` : url
 }
 
 /** Returns the UUID in a pretty (base64url) ID or a raw UUID, lowercased, or undefined. */

@@ -36,6 +36,7 @@ const MapFamilyReportsQuery = graphql(/* GraphQL */ `
       id
       kind
       note
+      fromPublish
       reportedAt
       status
       resolvedAt
@@ -191,9 +192,10 @@ const LoadMoreRow = styled.div`
 `
 
 /**
- * Players' reports that a file isn't part of its map, or that two maps are the same. Each row
- * opens the report on the comparison of the files involved, where staff settle it. A report with
- * nothing to compare opens the map's page instead, and is resolved or dismissed from its row's
+ * Players' reports that a file isn't part of its map, or that two maps are the same, and files
+ * held for review when they were published. Each row opens the report where staff settle it: on
+ * the comparison of the files involved, or for a held file, on the file's page. A report with
+ * nowhere to settle it opens the map's page instead, and is resolved or dismissed from its row's
  * menu.
  */
 export function AdminMapReports() {
@@ -299,8 +301,8 @@ function ReportsPage({
               r.kind === MapFamilyReportKind.SameMap ? undefined : r.map?.id,
             )
           : undefined
-        const compareUrl = reportCompareUrl(r)
-        const rowUrl = compareUrl ?? mapUrl
+        const reviewUrl = reportReviewUrl(r)
+        const rowUrl = reviewUrl ?? mapUrl
         const dismiss: [string, () => void] = [
           'Dismiss',
           () => changeStatus(r.id, MapFamilyReportStatus.Dismissed),
@@ -352,7 +354,7 @@ function ReportsPage({
               </Cell>
             )}
             <ActionsCell $width={64} onClick={e => e.stopPropagation()}>
-              {compareUrl ? null : <ReportMenu items={menuItems} />}
+              {reviewUrl ? null : <ReportMenu items={menuItems} />}
             </ActionsCell>
           </TableRow>
         )
@@ -373,8 +375,11 @@ function ReportsPage({
 
 type ReportRow = AdminMapFamilyReportsQuery['mapFamilyReports'][number]
 
-/** The page that reviews a report next to the files it's about, if there are any to compare. */
-function reportCompareUrl(report: ReportRow): string | undefined {
+/**
+ * The page that reviews a report: the comparison of the files it's about, if there are any to
+ * compare, or the page of the file held for review.
+ */
+function reportReviewUrl(report: ReportRow): string | undefined {
   if (!report.family) {
     return undefined
   }
@@ -384,7 +389,15 @@ function reportCompareUrl(report: ReportRow): string | undefined {
       : undefined
   }
   if (report.kind === MapFamilyReportKind.PublishReview) {
-    return undefined
+    return report.map
+      ? urlForMap(
+          makeMapFamilyId(report.family.id),
+          report.family.name,
+          undefined,
+          report.map.id,
+          report.id,
+        )
+      : undefined
   }
   return report.otherFamily
     ? sameMapReportCompareUrl(report.family, report.otherFamily, report.id)
@@ -411,7 +424,7 @@ function ReportSummary({ report }: { report: ReportRow }) {
   }
   return (
     <span>
-      <MutedText>Same as </MutedText>
+      <MutedText>{report.fromPublish ? 'Might be a version of ' : 'Same as '}</MutedText>
       {report.otherFamily ? (
         <Link href={urlForMap(makeMapFamilyId(report.otherFamily.id), report.otherFamily.name)}>
           {filterColorCodes(report.otherFamily.name)}
@@ -419,6 +432,7 @@ function ReportSummary({ report }: { report: ReportRow }) {
       ) : (
         'a deleted map'
       )}
+      {report.fromPublish ? <MutedText> (publisher wasn&apos;t sure)</MutedText> : null}
     </span>
   )
 }

@@ -5,6 +5,7 @@ export enum RestrictionKind {
   Reporting = 'reporting',
   Matchmaking = 'matchmaking',
   AvatarUpload = 'avatar_upload',
+  MapPublishing = 'map_publishing',
 }
 
 export const ALL_RESTRICTION_KINDS: ReadonlyArray<RestrictionKind> = Object.values(RestrictionKind)
@@ -82,6 +83,11 @@ export const RESTRICTION_REASONS_BY_KIND: Record<
     RestrictionReason.InappropriateContent,
     RestrictionReason.Harassment,
     RestrictionReason.HateSpeech,
+    RestrictionReason.Other,
+  ],
+  [RestrictionKind.MapPublishing]: [
+    RestrictionReason.InappropriateContent,
+    RestrictionReason.Spam,
     RestrictionReason.Other,
   ],
 }

@@ -488,11 +488,11 @@ function SplitDialog({
             source.remaining.length === 1
               ? 'its other file'
               : `its other ${source.remaining.length} files`
-          }${source.changes ? '' : ' and its default'}.`}
+          }${source.changes ? '' : ' and its recommended file'}.`}
         </div>
         {source.changes ? (
           <DefaultChangeLine>
-            {`This map's default changes to ${label(source.file)}.`}
+            {`This map's recommended file changes to ${label(source.file)}.`}
           </DefaultChangeLine>
         ) : null}
       </Result>
@@ -574,8 +574,8 @@ function MoveDialog({
     const targetChanges = predictedTarget !== target.current.id
     const nothingChanges = !targetChanges && (emptied || !source.changes)
     const unchangedText = emptied
-      ? " Its default doesn't change."
-      : " Neither map's default changes."
+      ? " Its recommended file doesn't change."
+      : " Neither map's recommended file changes."
     result = (
       <Result>
         <div>
@@ -584,12 +584,12 @@ function MoveDialog({
         </div>
         {targetChanges ? (
           <DefaultChangeLine>
-            {`${targetName}'s default changes to ${label(targetFiles.find(f => f.id === predictedTarget))}.`}
+            {`${targetName}'s recommended file changes to ${label(targetFiles.find(f => f.id === predictedTarget))}.`}
           </DefaultChangeLine>
         ) : null}
         {!emptied && source.changes ? (
           <DefaultChangeLine>
-            {`This map's default changes to ${label(source.file)}.`}
+            {`This map's recommended file changes to ${label(source.file)}.`}
           </DefaultChangeLine>
         ) : null}
         {emptied ? (
@@ -679,10 +679,10 @@ function MergeDialog({
         <div>{`This map goes away: ${goesAwayText(family, targetName)}`}</div>
         {predictedTarget !== target.current.id ? (
           <DefaultChangeLine>
-            {`${targetName}'s default changes to ${label(merged.find(f => f.id === predictedTarget))}.`}
+            {`${targetName}'s recommended file changes to ${label(merged.find(f => f.id === predictedTarget))}.`}
           </DefaultChangeLine>
         ) : (
-          <div>{`${targetName}'s default doesn't change.`}</div>
+          <div>{`${targetName}'s recommended file doesn't change.`}</div>
         )}
       </Result>
     )

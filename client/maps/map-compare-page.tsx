@@ -7,8 +7,8 @@ import { useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
 import {
   ALL_MAP_COMPARE_VIEWS,
-  MAP_COMPARE_REPORT_PARAM,
   MAP_COMPARE_SEGMENT,
+  MAP_REPORT_PARAM,
   MapCompareView,
   mapFileIdFromSegment,
   urlForMap,
@@ -502,7 +502,7 @@ function MapComparePage({ a, b }: { a: SbMapId; b: SbMapId }) {
     context: NO_SUSPENSE_CONTEXT,
   })
 
-  const [reportId] = useLocationSearchParam(MAP_COMPARE_REPORT_PARAM)
+  const [reportId] = useLocationSearchParam(MAP_REPORT_PARAM)
   const canManageMaps = useHasAnyPermission('manageMaps')
 
   const comparison = data?.mapComparison
@@ -564,7 +564,7 @@ function CompareBody({
   const aTiles = useMapTileSource(a.id)
   const bTiles = useMapTileSource(b.id)
   const [viewParam, setViewParam] = useLocationSearchParam('view')
-  const [reportId] = useLocationSearchParam(MAP_COMPARE_REPORT_PARAM)
+  const [reportId] = useLocationSearchParam(MAP_REPORT_PARAM)
   const [showSpawns, setShowSpawns] = useState(true)
   const [showTerrainChanges, setShowTerrainChanges] = useState(false)
   const [showTechnical, setShowTechnical] = useState(false)

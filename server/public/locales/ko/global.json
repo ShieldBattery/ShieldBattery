@@ -187,6 +187,9 @@
         "notification": "채팅 메시지 전송이 제한되었습니다."
       },
       "endsOn": "제한은 다음 날짜에 해제됩니다:",
+      "mapPublishing": {
+        "notification": "맵 게시가 제한되었습니다."
+      },
       "matchmaking": {
         "notification": "매치메이킹 이용이 제한되었습니다."
       },
@@ -2247,13 +2250,13 @@
     },
     "files": {
       "compare": "비교",
-      "default": "기본",
       "games_other": "{{formattedCount}}게임",
-      "notDefault": "기본 파일이 아닙니다",
+      "notRecommended": "권장 파일이 아닙니다",
+      "recommended": "권장",
       "showAll_other": "{{count}}개 모두 보기",
       "showFewer": "접기",
       "title": "파일",
-      "viewDefault": "기본 파일 보기"
+      "viewRecommended": "권장 파일 보기"
     },
     "local": {
       "cantBeUsed": "사용할 수 없음: {{reason}}",
@@ -2281,8 +2284,8 @@
       "uploadMapNoPlayerSlotsError": "이 맵에는 시작 위치나 사용 가능한 플레이어 슬롯이 없어 플레이할 수 없습니다. 맵에 시작 위치를 추가한 뒤 다시 시도하세요."
     },
     "nudge": {
-      "switchError": "기본 파일을 불러올 수 없습니다",
-      "useDefault": "기본 파일 사용"
+      "switchRecommendedError": "권장 파일을 불러올 수 없습니다",
+      "useRecommended": "권장 파일 사용"
     },
     "page": {
       "allGames": "이 맵의 모든 게임",
@@ -2338,6 +2341,8 @@
       "typicalLength": "보통 {{length}}",
       "unlisted": "일부 공개",
       "unlistedNotice": "링크가 있는 사람만 이 맵을 볼 수 있습니다.",
+      "unpublishedAt": "{{date}}에 게시 취소됨",
+      "unpublishedBy": "게시 취소자",
       "updateError": "맵을 업데이트하는 중 오류가 발생했습니다",
       "useInLobbyError": "로비의 맵을 바꿀 수 없습니다. 현재 로비 설정에 맞지 않는 맵일 수 있습니다.",
       "useInMyLobby": "내 로비에서 사용",
@@ -2354,6 +2359,59 @@
     "preview": {
       "zoom": "확대/축소"
     },
+    "publish": {
+      "alreadyListed": "이미 게시된 파일입니다.",
+      "approvedNotification": "<1>{{name}}</1> 맵이 검토를 거쳐 목록에 올라갔습니다.",
+      "button": "게시",
+      "delistedNotification": "운영진이 <1>{{name}}</1> 맵을 목록에서 내렸습니다.",
+      "delistedNotificationNote": "운영진 메모: “{{note}}”",
+      "differentKind": "다른 게임 유형",
+      "differentTriggers": "다른 트리거",
+      "emailUnverified": "맵을 게시하려면 이메일 주소를 인증해 주세요.",
+      "emptyName": "이름이 없는 파일이라 게시할 수 없습니다.",
+      "error": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+      "existingMap": "이 맵은 <1>{{mapName}}</1>와(과) 같은 맵이며, 해당 맵에 함께 게시됩니다.",
+      "heldForReview": "운영진에게 검토를 요청했습니다. 승인되면 게시됩니다.",
+      "inCatalog": "카탈로그에 있는 맵",
+      "join": "예, 추가합니다",
+      "joinNamed": "예, {{mapName}}에 추가합니다",
+      "link": "맵에 추가",
+      "linked": "{{mapName}}에 추가했습니다",
+      "linkMenuItem": "다른 맵에 추가…",
+      "linkTitle": "다른 맵에 추가",
+      "manySuggestions": "이 맵 중 하나의 버전으로 보입니다.",
+      "needsReview": "운영진이 이 파일의 이름과 설명을 확인한 뒤 게시됩니다.",
+      "noLinkSuggestions": "이 파일과 비슷한 맵을 찾지 못했습니다. 다른 맵에 속하는 파일이라면 ‘문제 신고’를 이용해 주세요. 운영진이 확인하겠습니다.",
+      "noneOfThese": "해당 없음, 별개의 맵입니다",
+      "notInLibrary": "맵을 게시하려면 먼저 이 파일을 내 맵에 추가하세요.",
+      "notSuggested": "이 파일에 더 이상 추천되지 않는 맵입니다.",
+      "notSure": "잘 모르겠습니다",
+      "oneSuggestion": "<1>{{mapName}}</1>의 버전으로 보입니다. 맞습니까?",
+      "ownPage": "<0>{{fileName}}</0>은(는) 카탈로그에 별도의 페이지로 게시됩니다.",
+      "publish": "게시",
+      "published": "게시됨",
+      "publishedJoined": "{{mapName}}의 일부로 게시되었습니다",
+      "publishedUnsure": "게시되었습니다. 운영진이 {{mapName}}의 버전인지 확인합니다.",
+      "publishMenuItem": "게시…",
+      "rateLimited": "오늘 너무 많은 맵을 게시했습니다. 내일 다시 시도해 주세요.",
+      "restricted": "맵 게시가 제한된 상태입니다.",
+      "sameResources": "같은 자원 배치",
+      "sameTerrain": "같은 지형",
+      "sameTriggers": "같은 트리거",
+      "separateMap": "아니요, 별개의 맵입니다",
+      "staffDelisted": "운영진이 이 파일을 목록에서 내렸기 때문에 게시할 수 없습니다.",
+      "terrainPercent": "지형 {{percent}}% 동일",
+      "title": "맵 게시",
+      "unlinked": "{{mapName}}에서 제외했습니다",
+      "unlinkError": "이 맵에서 파일을 제외할 수 없습니다",
+      "unlinkMenuItem": "이 맵에서 제외",
+      "unlinkText": "<4>{{mapName}}</4>에서 <1>{{fileName}}</1>을(를) 제외하시겠습니까? 별개의 맵이 됩니다.",
+      "unlinkTitle": "이 맵에서 제외",
+      "unpublish": "게시 취소",
+      "unpublished": "게시 취소됨",
+      "unpublishError": "맵 게시를 취소할 수 없습니다",
+      "yourFile": "내 파일"
+    },
     "report": {
       "error": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
       "iconLabel": "문제 신고",
@@ -2369,8 +2427,6 @@
       "wrongMapOption": "이 파일은 이 맵의 파일이 아닙니다"
     },
     "server": {
-      "delisted": "맵을 목록에서 내렸습니다",
-      "delistError": "맵을 목록에서 내리는 중 오류가 발생했습니다",
       "favorites": {
         "added": "즐겨찾기에 추가됨",
         "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다",
@@ -2384,7 +2440,6 @@
     },
     "thumbnail": {
       "addToFavorites": "즐겨찾기에 추가",
-      "delistMap": "목록에서 내리기",
       "downloadMap": "다운로드",
       "mapActions": "맵 작업",
       "mapPoolChipTooltip": "현재 {{mode}} 래더 맵 풀에 포함됨",

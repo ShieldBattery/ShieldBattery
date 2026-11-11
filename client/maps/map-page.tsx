@@ -10,6 +10,7 @@ import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
   ALL_MAP_PAGE_SUB_PAGES,
   MAP_PAGE_FILE_PARAM,
+  MAP_REPORT_PARAM,
   mapFileIdFromSegment,
   mapIdFromRouteSegment,
   MapPageId,
@@ -30,13 +31,13 @@ import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapKind } from '../gql/graphql'
+import { MapDelistedKind, MapKind } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
-import { FilledButton, IconButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
@@ -45,7 +46,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useScrollMemory } from '../navigation/router-hooks'
-import { replace } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
@@ -62,10 +63,14 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
+  openMapDelistDialog,
   openMapDownloadDialog,
   openMapFamilyActionDialog,
   openMapFamilyReportDialog,
+  openMapFileLinkDialog,
+  openMapFileUnlinkDialog,
   openMapPreviewDialog,
+  openMapPublishDialog,
   regenMapImage,
   removeFromMyMaps,
   updateMap,
@@ -81,6 +86,8 @@ import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
+import { MapReportBar } from './map-report-bar'
+import { useUnpublishMap } from './map-unpublish'
 
 const MapPageFamilyQuery = graphql(/* GraphQL */ `
   query MapPageFamily($id: UUID!, $canManageMaps: Boolean!) {
@@ -196,8 +203,10 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
   const canManageMaps = useHasAnyPermission('manageMaps')
   const pathname = useLocationProperty(() => location.pathname)
   const search = useLocationProperty(() => location.search)
-  const fileParam = new URLSearchParams(search).get(MAP_PAGE_FILE_PARAM)
+  const searchParams = new URLSearchParams(search)
+  const fileParam = searchParams.get(MAP_PAGE_FILE_PARAM)
   const paramFileId = fileParam ? mapFileIdFromSegment(fileParam) : undefined
+  const reportId = canManageMaps ? searchParams.get(MAP_REPORT_PARAM) : undefined
 
   const [{ data: familyData, error: familyError }, reexecuteFamily] = useQuery({
     query: MapPageFamilyQuery,
@@ -300,6 +309,11 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
     content = (
       <PageContent>
         <MapBackButton />
+        {reportId ? (
+          <ReportBarRow>
+            <MapReportBar reportId={reportId} />
+          </ReportBarRow>
+        ) : null}
         <Columns>
           <LeftColumn>
             <MapHero mapId={file.id} name={filterColorCodes(file.name)} file={file.file} />
@@ -347,6 +361,10 @@ const PageContent = styled.div`
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
+`
+
+const ReportBarRow = styled.div`
+  width: 100%;
 `
 
 const Columns = styled.div`
@@ -567,6 +585,8 @@ const MapPage_HeaderFragment = graphql(/* GraphQL */ `
     moderation @include(if: $canManageMaps) {
       id
       delistedAt
+      delistedKind
+      delistedNote
       delistedBy {
         id
         name
@@ -618,6 +638,16 @@ const Notice = styled.div`
   gap: 8px;
 
   color: var(--theme-on-surface-variant);
+`
+
+/** Lines up with the text of the notice above it, past its icon. */
+const NoticeDetail = styled.div`
+  ${bodyMedium};
+  padding-left: 28px;
+
+  color: var(--theme-on-surface-variant);
+  overflow-wrap: anywhere;
+  user-select: text;
 `
 
 const NotDefaultIcon = styled(MaterialIcon)`
@@ -704,6 +734,27 @@ function MapHeader({
 
   const hasChips = map.official || !map.listed || poolTypes.length > 0
 
+  let delistedText: React.ReactNode
+  if (delisted?.delistedAt) {
+    const unpublished = delisted.delistedKind === MapDelistedKind.Publisher
+    const date = publishedDate.format(new Date(delisted.delistedAt))
+    if (delisted.delistedBy) {
+      delistedText = (
+        <InlineParts>
+          {unpublished
+            ? t('maps.page.unpublishedBy', 'Unpublished by')
+            : t('maps.page.delistedBy', 'Delisted by')}
+          <ConnectedUsername userId={delisted.delistedBy.id} />
+          {t('maps.page.delistedOn', { defaultValue: 'on {{date}}', date })}
+        </InlineParts>
+      )
+    } else {
+      delistedText = unpublished
+        ? t('maps.page.unpublishedAt', { defaultValue: 'Unpublished on {{date}}', date })
+        : t('maps.page.delistedAt', { defaultValue: 'Delisted on {{date}}', date })
+    }
+  }
+
   let descriptionElem: React.ReactNode
   if (editing === 'description') {
     descriptionElem = (
@@ -760,10 +811,10 @@ function MapHeader({
       {family.current.id !== map.id ? (
         <Notice>
           <NotDefaultIcon icon='info' size={20} />
-          <span>{t('maps.files.notDefault', 'Not the default file')}</span>
+          <span>{t('maps.files.notRecommended', 'Not the recommended file')}</span>
           <span>·</span>
           <Link href={urlForMapFile(family, family.current.id)}>
-            {t('maps.files.viewDefault', 'View default')}
+            {t('maps.files.viewRecommended', 'View recommended')}
           </Link>
           <span>·</span>
           <Link href={urlForMapCompare(family.current.id, map.id)}>
@@ -778,24 +829,15 @@ function MapHeader({
         </Notice>
       ) : null}
       {delisted?.delistedAt ? (
-        <Notice>
-          <MaterialIcon icon='visibility_off' size={20} />
-          {delisted.delistedBy ? (
-            <InlineParts>
-              {t('maps.page.delistedBy', 'Delisted by')}
-              <ConnectedUsername userId={delisted.delistedBy.id} />
-              {t('maps.page.delistedOn', {
-                defaultValue: 'on {{date}}',
-                date: publishedDate.format(new Date(delisted.delistedAt)),
-              })}
-            </InlineParts>
-          ) : (
-            t('maps.page.delistedAt', {
-              defaultValue: 'Delisted on {{date}}',
-              date: publishedDate.format(new Date(delisted.delistedAt)),
-            })
-          )}
-        </Notice>
+        <>
+          <Notice>
+            <MaterialIcon icon='visibility_off' size={20} />
+            {delistedText}
+          </Notice>
+          {delisted.delistedNote ? (
+            <NoticeDetail>{`“${delisted.delistedNote}”`}</NoticeDetail>
+          ) : null}
+        </>
       ) : null}
       {descriptionElem}
       {fromFileName || fromFileDescription ? (
@@ -814,20 +856,67 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
     id
     name
     listed
+    official
     isFavorited
     inLibrary
     publisher {
       id
     }
+    moderation @include(if: $canManageMaps) {
+      id
+      publishedAt
+      delistedKind
+    }
   }
 `)
 
-const MapPageDelistMutation = graphql(/* GraphQL */ `
-  mutation MapPageDelist($fileId: SbMapId!) {
-    mapDelist(fileId: $fileId) {
+/** Selects what the page shows about the file's listing, so it updates from the result. */
+const MapPageRelistMutation = graphql(/* GraphQL */ `
+  mutation MapPageRelist($fileId: SbMapId!) {
+    mapRelist(fileId: $fileId) {
       id
       listed
       publishedAt
+      publisher {
+        id
+        name
+      }
+      moderation {
+        id
+        publishedAt
+        delistedAt
+        delistedKind
+        delistedNote
+        delistedBy {
+          id
+          name
+        }
+      }
+    }
+  }
+`)
+
+const MapPageFileUnlinkMutation = graphql(/* GraphQL */ `
+  mutation MapPageFileUnlink($fileId: SbMapId!) {
+    mapFileUnlink(fileId: $fileId) {
+      id
+      file {
+        id
+        family {
+          id
+          name
+        }
+      }
+      family {
+        id
+        name
+        current {
+          id
+        }
+      }
+      previousFamily {
+        id
+      }
     }
   }
 `)
@@ -895,7 +984,9 @@ function MapActions({
   const { isLobbyHost, play } = useMapHostAction()
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
-  const [, delistFile] = useMutation(MapPageDelistMutation)
+  const unpublish = useUnpublishMap()
+  const [, relistFile] = useMutation(MapPageRelistMutation)
+  const [, unlinkFile] = useMutation(MapPageFileUnlinkMutation)
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -910,6 +1001,41 @@ function MapActions({
       .catch(() => showError(t('maps.page.linkCopyError', "Couldn't copy the link")))
   }
 
+  const onUnlink = () => {
+    unlinkFile({ fileId: map.id })
+      .then(result => {
+        if (result.error || !result.data) {
+          showError(t('maps.publish.unlinkError', "Couldn't remove the file from this map"))
+          return
+        }
+        snackbarController.showSnackbar(
+          t('maps.publish.unlinked', 'Removed from {{mapName}}', {
+            mapName: filterColorCodes(family.name),
+          }),
+        )
+        // The page follows the file into its new map
+        push(urlForMapFile(result.data.mapFileUnlink.family, map.id))
+      })
+      .catch(swallowNonBuiltins)
+  }
+
+  // Admin-only, so not translated
+  const onRelist = () => {
+    relistFile({ fileId: map.id })
+      .then(result => {
+        if (result.error || !result.data) {
+          showError(
+            `Couldn't relist the file: ${result.error?.graphQLErrors[0]?.message ?? result.error?.message}`,
+          )
+          return
+        }
+        snackbarController.showSnackbar(
+          result.data.mapRelist.listed ? 'Relisted' : 'No longer blocked',
+        )
+      })
+      .catch(swallowNonBuiltins)
+  }
+
   const menuItems: Array<[text: string, handler: () => void]> = []
   const openReportDialog = () =>
     dispatch(
@@ -919,6 +1045,39 @@ function MapActions({
         fileCount: family.fileCount,
       }),
     )
+  const reportItem: [text: string, handler: () => void] = [
+    t('maps.report.menuItem', 'Report a problem…'),
+    openReportDialog,
+  ]
+  // Staff change listings and maps with their own tools
+  const isPublisher =
+    !canManageMaps &&
+    !!selfUser &&
+    map.listed &&
+    !map.official &&
+    !!map.publisher &&
+    map.publisher.id === selfUser.id
+  if (isPublisher) {
+    menuItems.push([t('maps.publish.unpublish', 'Unpublish'), () => unpublish(map.id)])
+    if (family.fileCount > 1) {
+      menuItems.push([
+        t('maps.publish.unlinkMenuItem', 'Remove from this map'),
+        () =>
+          dispatch(
+            openMapFileUnlinkDialog({
+              fileName: map.name,
+              mapName: family.name,
+              onConfirm: onUnlink,
+            }),
+          ),
+      ])
+    } else if (family.fileCount === 1) {
+      menuItems.push([
+        t('maps.publish.linkMenuItem', 'Add to another map…'),
+        () => dispatch(openMapFileLinkDialog({ fileId: map.id, selectedId: map.id })),
+      ])
+    }
+  }
   if (map.inLibrary) {
     menuItems.push([
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
@@ -948,24 +1107,21 @@ function MapActions({
     menuItems.push(
       [t('maps.details.editName', 'Edit name'), () => onEdit('name')],
       [t('maps.details.editDescription', 'Edit description'), () => onEdit('description')],
-      [
-        t('maps.thumbnail.delistMap', 'Delist'),
-        () => {
-          delistFile({ fileId: map.id })
-            .then(result => {
-              if (result.error) {
-                showError(t('maps.server.delistError', 'An error occurred while delisting the map'))
-              } else {
-                snackbarController.showSnackbar(t('maps.server.delisted', 'Map delisted'))
-                onChanged()
-              }
-            })
-            .catch(swallowNonBuiltins)
-        },
-      ],
     )
   }
   if (canManageMaps) {
+    const delistedKind = map.moderation?.delistedKind
+    // Admin-only, so not translated
+    if (delistedKind !== MapDelistedKind.Staff) {
+      menuItems.push([
+        'Delist…',
+        () => dispatch(openMapDelistDialog({ fileId: map.id, name: map.name, listed: map.listed })),
+      ])
+    }
+    if (!map.listed && delistedKind) {
+      // Relisting a file that was never published only lifts the block on publishing it
+      menuItems.push([map.moderation?.publishedAt ? 'Relist' : 'Unblock', onRelist])
+    }
     menuItems.push(
       [
         t('maps.thumbnail.regenerateImage', 'Regenerate image'),
@@ -983,7 +1139,6 @@ function MapActions({
             }),
           ),
       ],
-      // Admin-only, so not translated
       [
         'Merge into another map…',
         () =>
@@ -998,10 +1153,10 @@ function MapActions({
     )
   } else if (selfUser) {
     // Staff fix these themselves, from the Files card and this menu
-    menuItems.push([t('maps.report.menuItem', 'Report a problem…'), openReportDialog])
+    menuItems.push(reportItem)
   }
   // A menu holding only the report item is shown as a button for it instead
-  const reportOnly = !canManageMaps && !!selfUser && menuItems.length === 1 && !map.inLibrary
+  const reportOnly = menuItems.length === 1 && menuItems[0] === reportItem
 
   const favoriteLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
@@ -1022,6 +1177,13 @@ function MapActions({
           onClick={() => play(map.id)}
         />
       )}
+      {!map.listed && selfUser && (map.inLibrary || canManageMaps) ? (
+        <OutlinedButton
+          label={t('maps.publish.button', 'Publish')}
+          iconStart='public'
+          onClick={() => dispatch(openMapPublishDialog({ fileId: map.id, selectedId: map.id }))}
+        />
+      ) : null}
       <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
         <IconButton
           icon={<MaterialIcon icon='star' filled={map.isFavorited} />}

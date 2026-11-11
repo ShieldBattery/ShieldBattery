@@ -187,6 +187,9 @@
         "notification": "Tu cuenta ha sido restringida para enviar mensajes de chat."
       },
       "endsOn": "Esta restricción finalizará el:",
+      "mapPublishing": {
+        "notification": "Tu cuenta ha sido restringida para publicar mapas."
+      },
       "matchmaking": {
         "notification": "Tu cuenta ha sido restringida para el emparejamiento."
       },
@@ -2337,17 +2340,17 @@
     },
     "files": {
       "compare": "Comparar",
-      "default": "Predeterminado",
       "games_one": "{{formattedCount}} partida",
       "games_many": "{{formattedCount}} de partidas",
       "games_other": "{{formattedCount}} partidas",
-      "notDefault": "No es el archivo predeterminado",
+      "notRecommended": "No es el archivo recomendado",
+      "recommended": "Recomendado",
       "showAll_one": "Mostrar {{count}}",
       "showAll_many": "Mostrar los {{count}}",
       "showAll_other": "Mostrar los {{count}}",
       "showFewer": "Mostrar menos",
       "title": "Archivos",
-      "viewDefault": "Ver el predeterminado"
+      "viewRecommended": "Ver el recomendado"
     },
     "local": {
       "cantBeUsed": "No se puede usar: {{reason}}",
@@ -2377,8 +2380,8 @@
       "uploadMapNoPlayerSlotsError": "Este mapa no tiene posiciones iniciales ni espacios de jugador utilizables, así que nunca podría jugarse. Añade posiciones iniciales al mapa e inténtalo de nuevo."
     },
     "nudge": {
-      "switchError": "No se pudo cargar el archivo predeterminado",
-      "useDefault": "Usar el predeterminado"
+      "switchRecommendedError": "No se pudo cargar el archivo recomendado",
+      "useRecommended": "Usar el recomendado"
     },
     "page": {
       "allGames": "Todas las partidas en este mapa",
@@ -2440,6 +2443,8 @@
       "typicalLength": "típica: {{length}}",
       "unlisted": "No listado",
       "unlistedNotice": "Solo quienes tengan el enlace pueden ver este mapa.",
+      "unpublishedAt": "Despublicado el {{date}}",
+      "unpublishedBy": "Despublicado por",
       "updateError": "Ocurrió un error al actualizar el mapa",
       "useInLobbyError": "No se pudo cambiar el mapa de tu lobby. Puede que no encaje con la configuración actual del lobby.",
       "useInMyLobby": "Usar en mi lobby",
@@ -2462,6 +2467,59 @@
     "preview": {
       "zoom": "Zoom"
     },
+    "publish": {
+      "alreadyListed": "Este archivo ya está publicado.",
+      "approvedNotification": "Tu mapa <1>{{name}}</1> fue revisado y ya está en el catálogo.",
+      "button": "Publicar",
+      "delistedNotification": "El staff retiró tu mapa <1>{{name}}</1> del catálogo.",
+      "delistedNotificationNote": "Su nota: “{{note}}”",
+      "differentKind": "tipo de juego distinto",
+      "differentTriggers": "triggers distintos",
+      "emailUnverified": "Verifica tu correo electrónico para publicar mapas.",
+      "emptyName": "Este archivo no tiene nombre, así que no se puede publicar.",
+      "error": "Algo salió mal. Inténtalo de nuevo más tarde.",
+      "existingMap": "Este es el mismo mapa que <1>{{mapName}}</1> y se publicará junto con él.",
+      "heldForReview": "Enviado al staff para revisión. Se publicará cuando lo aprueben.",
+      "inCatalog": "En el catálogo",
+      "join": "Sí, añadirlo",
+      "joinNamed": "Sí, añadirlo a {{mapName}}",
+      "link": "Añadir al mapa",
+      "linked": "Añadido a {{mapName}}",
+      "linkMenuItem": "Añadir a otro mapa…",
+      "linkTitle": "Añadir a otro mapa",
+      "manySuggestions": "Parece una versión de uno de estos mapas.",
+      "needsReview": "El staff revisará el nombre y la descripción de este archivo antes de publicarlo.",
+      "noLinkSuggestions": "No se encontraron mapas similares para este archivo. Si pertenece a otro mapa, usa Reportar un problema y el staff le echará un vistazo.",
+      "noneOfThese": "Ninguno, es un mapa aparte",
+      "notInLibrary": "Añade este archivo a tus mapas para publicarlo.",
+      "notSuggested": "Ese mapa ya no se sugiere para este archivo.",
+      "notSure": "No estoy seguro",
+      "oneSuggestion": "Parece una versión de <1>{{mapName}}</1>. ¿Lo es?",
+      "ownPage": "<0>{{fileName}}</0> tendrá su propia página en el catálogo.",
+      "publish": "Publicar",
+      "published": "Publicado",
+      "publishedJoined": "Publicado como parte de {{mapName}}",
+      "publishedUnsure": "Publicado. El staff comprobará si es una versión de {{mapName}}.",
+      "publishMenuItem": "Publicar…",
+      "rateLimited": "Has publicado muchos mapas hoy. Inténtalo de nuevo mañana.",
+      "restricted": "Tienes restringido publicar mapas.",
+      "sameResources": "mismos recursos",
+      "sameTerrain": "mismo terreno",
+      "sameTriggers": "mismos triggers",
+      "separateMap": "No, es un mapa aparte",
+      "staffDelisted": "El staff retiró este archivo del catálogo, así que no se puede publicar.",
+      "terrainPercent": "{{percent}}% del mismo terreno",
+      "title": "Publicar mapa",
+      "unlinked": "Quitado de {{mapName}}",
+      "unlinkError": "No se pudo quitar el archivo de este mapa",
+      "unlinkMenuItem": "Quitar de este mapa",
+      "unlinkText": "¿Quitar <1>{{fileName}}</1> de <4>{{mapName}}</4>? Pasará a ser un mapa aparte.",
+      "unlinkTitle": "Quitar de este mapa",
+      "unpublish": "Despublicar",
+      "unpublished": "Despublicado",
+      "unpublishError": "No se pudo despublicar el mapa",
+      "yourFile": "Tu archivo"
+    },
     "report": {
       "error": "Algo salió mal. Inténtalo de nuevo más tarde.",
       "iconLabel": "Reportar un problema",
@@ -2477,8 +2535,6 @@
       "wrongMapOption": "Este archivo no es de este mapa"
     },
     "server": {
-      "delisted": "Mapa retirado del catálogo",
-      "delistError": "Ocurrió un error al retirar el mapa del catálogo",
       "favorites": {
         "added": "Añadido a favoritos",
         "addedError": "Ocurrió un error al añadir a favoritos",
@@ -2492,7 +2548,6 @@
     },
     "thumbnail": {
       "addToFavorites": "Añadir a favoritos",
-      "delistMap": "Retirar del catálogo",
       "downloadMap": "Descargar",
       "mapActions": "Acciones de mapa",
       "mapPoolChipTooltip": "En el grupo de mapas actual de {{mode}}",
