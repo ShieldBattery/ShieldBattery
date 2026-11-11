@@ -25,6 +25,12 @@ pub(crate) use warn_once;
 pub struct RenderState {
     textures: HashMap<TextureId, OwnedBwTexture>,
     queued_texture_frees: Vec<OwnedBwTexture>,
+    bottom_edge: Option<BottomEdgeTexture>,
+}
+
+enum BottomEdgeTexture {
+    Pending(Vec<[u8; 4]>),
+    Uploaded(OwnedBwTexture),
 }
 
 /// Most of this isn't probably safe to use outside renderer (main) thread,
@@ -38,6 +44,36 @@ impl RenderState {
         RenderState {
             textures: HashMap::with_capacity(16),
             queued_texture_frees: Vec::new(),
+            bottom_edge: None,
+        }
+    }
+
+    pub(super) fn set_bottom_edge_colors(&mut self, colors: Option<Vec<[u8; 4]>>) {
+        let old = mem::replace(
+            &mut self.bottom_edge,
+            colors.map(BottomEdgeTexture::Pending),
+        );
+        if let Some(BottomEdgeTexture::Uploaded(texture)) = old {
+            texture.intentional_drop();
+        }
+    }
+
+    /// Uploads the strip on its first use, then reuses the same texture for every view of the map.
+    pub(super) unsafe fn bottom_edge_texture(
+        &mut self,
+        renderer: *mut scr::Renderer,
+    ) -> Option<usize> {
+        match self.bottom_edge.as_ref()? {
+            BottomEdgeTexture::Uploaded(texture) => Some(texture.bw() as usize),
+            BottomEdgeTexture::Pending(colors) => {
+                let size = (colors.len() as u32, 1);
+                let texture = unsafe {
+                    OwnedBwTexture::new_rgba(renderer, size, bytemuck::cast_slice(colors), true)
+                };
+                let id = texture.as_ref().map(|texture| texture.bw() as usize);
+                self.bottom_edge = texture.map(BottomEdgeTexture::Uploaded);
+                id
+            }
         }
     }
 }
