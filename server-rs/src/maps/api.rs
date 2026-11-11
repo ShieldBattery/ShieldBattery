@@ -33,7 +33,7 @@ const UPLOAD_WINDOW: Duration = Duration::from_secs(60);
 pub fn create_maps_api() -> Router<AppState> {
     Router::new()
         .route("/", post(upload_map))
-        .route("/official", post(upload_official_map))
+        .route("/staff-upload", post(upload_staff_map))
         .route("/{map_id}/regenerate", post(regenerate_map_images))
         .layer(DefaultBodyLimit::max(
             MAX_MAP_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
@@ -209,7 +209,9 @@ async fn upload_map(
     Ok(Json(UploadMapResponse { map_id }))
 }
 
-async fn upload_official_map(
+/// Uploads a map and publishes it as the uploading staff member, without adding it to their
+/// library. A file that's already listed is left as it is.
+async fn upload_staff_map(
     State(state): State<AppState>,
     current_user: CurrentUser,
     multipart: Multipart,

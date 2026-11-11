@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE maps\n                    SET published_by = $2, published_at = now(),\n                        delisted_by = NULL, delisted_at = NULL, delisted_kind = NULL,\n                        delisted_note = NULL\n                    WHERE id = $1 AND NOT listed\n                    RETURNING family_id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "family_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2012bf1a838b3dd862b4e4f2dc7c7a18a78b70b4a3c6291303942b68f62ba8d5"
+}

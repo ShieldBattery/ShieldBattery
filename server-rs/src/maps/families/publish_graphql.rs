@@ -85,6 +85,7 @@ fn publish_error(error: PublishError) -> async_graphql::Error {
                 PublishError::ProtectedMap => "PROTECTED_MAP",
                 PublishError::HasExistingMap => "HAS_EXISTING_MAP",
                 PublishError::NotPublisher | PublishError::NotPublisherOrOwner => "FORBIDDEN",
+                PublishError::InLadderPool(_) => "IN_LADDER_POOL",
                 _ => "BAD_REQUEST",
             };
             graphql_error(code, error.to_string())
@@ -399,7 +400,7 @@ impl MapPublishingMutation {
     }
 
     /// Takes a file the current user published out of the listings. Anyone may publish it again.
-    /// Official files can't be unpublished.
+    /// Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
     async fn map_unpublish(&self, ctx: &Context<'_>, file_id: SbMapId) -> Result<SbMap> {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
@@ -413,7 +414,8 @@ impl MapPublishingMutation {
     /// Blocks a file, with an optional note (at most 500 characters) saying why, so only staff can
     /// list it from then on. Works on any file staff haven't delisted already: a listed file is
     /// taken out of the listings, a file its publisher unpublished stays unlisted, and a file that
-    /// was never published stays unpublished. Only available to users who can manage maps.
+    /// was never published stays unpublished. Refused while a current or scheduled ladder map pool
+    /// holds the file (`IN_LADDER_POOL`). Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_delist(
         &self,
@@ -484,6 +486,7 @@ impl MapPublishingMutation {
 
     /// Moves a file out of a map holding other files, into a new map of its own. Only available to
     /// the file's publisher and the map's owner (while they aren't restricted from publishing).
+    /// Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
     async fn map_file_unlink(
         &self,
         ctx: &Context<'_>,

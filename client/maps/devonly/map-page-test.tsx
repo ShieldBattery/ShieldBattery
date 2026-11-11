@@ -143,7 +143,7 @@ function makeMap({
   kind = MapKind.Melee,
   playerCount = 4,
   listed = true,
-  official = false,
+  staffPick = false,
   description = '',
   originalName = name,
   originalDescription = description,
@@ -170,7 +170,7 @@ function makeMap({
   kind?: MapKind
   playerCount?: number
   listed?: boolean
-  official?: boolean
+  staffPick?: boolean
   description?: string
   originalName?: string
   originalDescription?: string
@@ -196,7 +196,7 @@ function makeMap({
     kind,
     playerCount,
     listed,
-    official,
+    staffPick,
     publishedAt: listed ? new Date(NOW - 200 * DAY).toISOString() : null,
     publisher: listed ? { id: PUBLISHER, name: 'tec27_the_sequel' } : null,
     isFavorited: false,
@@ -260,7 +260,7 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
     map: makeMap({
       id: DEV_DB_MAP_ID,
       name: 'Fighting Spirit 1.3',
-      official: true,
+      staffPick: true,
       description: 'The classic 4 player map, as played in the ladder.',
       originalName: '\u0003Fighting \u0004Spirit',
       originalDescription: 'Made by the Korean ladder map makers.',
@@ -462,7 +462,6 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                   id,
                   name,
                   listed,
-                  official: scenario.map.official,
                   firstSeenAt,
                   stats,
                   file: { id: file.id, width: file.width, height: file.height },
@@ -568,7 +567,7 @@ function seedActions(viewer: ViewerId, scenario: Scenario): ReduxAction[] {
       },
     })
   }
-  if (scenario.map.official) {
+  if (scenario.map.staffPick) {
     // Puts the scenario's map in the 1v1 pool, so its ladder pool chip shows.
     actions.push({
       type: '@matchmaking/getCurrentMapPool',
