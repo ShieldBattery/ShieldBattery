@@ -621,37 +621,6 @@ describe('ActiveGameManager watch-only games', () => {
   })
 })
 
-describe('ActiveGameManager graceful stop', () => {
-  let manager: ActiveGameManager
-  let commands: Array<[string, string, ...any[]]>
-
-  beforeEach(() => {
-    vi.useFakeTimers()
-    manager = makeManager()
-    commands = []
-    manager.on('gameCommand', (gameId, command, ...args) => {
-      commands.push([gameId, command, ...args])
-    })
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('lets a game that has its result exit on its own before quitting it', async () => {
-    manager.setGameConfig(configFor('game-1'))
-    manager.handleGameResult('game-1', {}, 0)
-    commands.length = 0
-
-    // The launch remains in flight, so a game with its result receives the full grace period.
-    manager.stop(true).catch(() => {})
-    await vi.advanceTimersByTimeAsync(1999)
-    expect(commands, 'no leave request and no quit yet').toEqual([])
-    await vi.advanceTimersByTimeAsync(1)
-    expect(commands).toEqual([['game-1', 'quit']])
-  })
-})
-
 describe('per-client manager lifetime', () => {
   it('releases its settings listener without removing another manager subscription', () => {
     const { manager, localSettings } = makeManagerWithSettings()

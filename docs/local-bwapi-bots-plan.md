@@ -31,7 +31,7 @@ operation. This is stricter than simply keeping UDP traffic on localhost.
 | Setup            | `common/games/game-launch-config.ts` and `game/src/game_state.rs` expect a local SB user and server config.                                                                 | A local launch mode with local participant identities and cached map paths, without fabricated server accounts or result credentials. |
 | Turns            | The sessionless path in `game_state.rs` supports one human plus built-in AI and rejects multiple humans without netcode v2 setup.                                           | A local multi-client turn provider and local lobby/start coordination. Sessionless alone does not synchronize separate SC:R clients.  |
 | App IPC          | `app/game/game-server.ts` and `game/src/app_socket.rs` use localhost HTTP/WebSocket/TCP.                                                                                    | A named-pipe control channel for the socket-free local mode. Remote match networking remains a separate transport.                    |
-| Process lifetime | The installed stimpack API exposes launch/inject and wait-for-exit. It creates SC:R suspended, but has no public job ownership, child environment, or hidden-start options. | Extend the native launcher before resuming the child, including ownership, explicit environment, and presentation mode.               |
+| Process lifetime | The installed stimpack API exposes launch/inject and wait-for-exit. It creates SC:R suspended, but has no public job ownership, child environment, or hidden-start options. | Use the published API with IPC shutdown and exit observation. Native cancellation/job ownership is separate follow-up work.               |
 | Bot discovery    | Stock BWAPIClient scans a global game table for an available endpoint. The current server names its mapping and pipe by PID.                                                | Deterministic pairing of each bot with its intended game client, including simultaneous startup, reconnect, and crash recovery.       |
 
 ## Local match architecture
@@ -94,16 +94,22 @@ hide-window helper runs after the game loop, and the normal draw path still call
 the original renderer. Existing analysis-backed turn hooks are sufficient to start
 the transport work; a safe rendering/audio suppression mode still needs investigation.
 
-The match owner supervises SC:R, the bot executable or JVM, and helper children.
-Use a Windows job with kill-on-close semantics, assigning children while suspended
-before any can escape supervision. On human exit: request orderly match/bot shutdown,
-allow a bounded learning-file flush, then terminate remaining owned children. App
-crash, launch cancellation, and partial initialization must also leave no workers.
-A bot crash should produce an explicit local outcome, not silently switch its
-player to the built-in AI. Do not reuse the online `begin_local_only` continuation
-as worker shutdown: that deliberately lets a remaining simulation keep playing.
-Job ownership handles lifetime/resource accounting;
-it is not a security sandbox. [Windows job-object documentation](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
+The match owner tracks SC:R and supervises the bot executable or JVM and helper
+children. Request orderly game/bot shutdown and observe game exit through the
+published launcher. If game exit cannot be confirmed within a bounded wait, retain
+the session, control IPC and workers for retry; block replacement local sessions.
+Unresponsive games may require manual closure. Pending native injection cannot be
+cancelled through this API, so a cancelled launch that connects late receives `quit`.
+Launcher injection errors use the published package's own cleanup, which the app
+cannot independently confirm without a returned process handle.
+
+Reliable forced termination, suspended-child ownership and crash cleanup require a
+separate accepted native API. A Windows job with kill-on-close semantics is one
+possible follow-up; it is not a security sandbox. It is not required by the current
+Practice integration, which makes no no-orphan guarantee. A bot crash should produce
+an explicit local outcome, not silently switch its player to the built-in AI. Do not
+reuse the online `begin_local_only` continuation as worker shutdown: that deliberately
+lets a remaining simulation keep playing.
 
 Keep bot-specific settings, logs, terrain caches, and learning files separate from
 the human's SC:R settings and from other bot instances. Packages are immutable;

@@ -304,12 +304,13 @@ test('registered manager lookup survives native process exit and a cleared statu
   expect(f.manager.getManager('other')).toBeUndefined()
 })
 
-test('a client stop failure releases session resources and reports an error', async () => {
+test('a client stop failure retains session resources and reports an error', async () => {
   const f = shutdownFixture()
   f.stop.mockRejectedValue(new Error('Game did not exit after stopping'))
   await f.manager.stopSession(f.session)
-  expect(f.dispose).toHaveBeenCalledOnce()
-  expect(f.close).toHaveBeenCalledOnce()
+  expect(f.dispose).not.toHaveBeenCalled()
+  expect(f.close).not.toHaveBeenCalled()
+  expect(f.worker.postMessage).not.toHaveBeenCalled()
   expect(f.session.status.state).toBe('error')
 })
 

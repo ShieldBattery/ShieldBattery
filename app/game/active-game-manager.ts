@@ -245,7 +245,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * the ring's capacity eviction.
    */
   private pendingNetcodeV2Keys = new NetcodeV2KeyRing()
-  private participatingLaunches = new Set<ProcessLaunchControl>()
+  private participatingLaunches = new Map<ProcessLaunchControl, string>()
   private serverPort = 0
   private localControlPipe?: string
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
@@ -299,42 +299,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   async stop(graceful = false): Promise<void> {
     const game = this.activeGame
-    // Snapshot ownership before awaiting; a replacement launch must never be terminated here.
+    // Retain every participating launch, including ones whose game bookkeeping was cleared.
     const launches = Array.from(this.participatingLaunches)
-    let waitError: Error | undefined
-    if (game) {
-      const state = game.status?.state
-      const leaving = state === GameStatus.HasResult || state === GameStatus.ResultSent
-      try {
-        let exited = false
-        if (graceful && (state === GameStatus.Playing || leaving)) {
-          if (!leaving) {
-            game.stopRequested = true
-            this.emit('gameCommand', game.id, 'leave')
-          }
-          exited = await this.waitForGameExit(game.promise)
-        }
-        if (!exited) {
-          if (this.gameFor(game.id) === game) this.forceQuitGame(game.id)
-          exited = await this.waitForGameExit(game.promise)
-          if (!exited) log.warning(`Game ${game.id} did not exit; terminating its owned process`)
-        }
-      } catch (err) {
-        waitError =
-          err instanceof Error ? err : new Error('Waiting for game exit failed', { cause: err })
-      }
+    for (const [control] of launches) control.cancel()
+    const waitForExit = () => Promise.all(launches.map(([control]) => control.waitForExit()))
+    const leaving =
+      game?.status?.state === GameStatus.HasResult || game?.status?.state === GameStatus.ResultSent
+    if (game) game.stopRequested = true
+    if (graceful && game && (game.status?.state === GameStatus.Playing || leaving)) {
+      if (!leaving) this.emit('gameCommand', game.id, 'leave')
+      if (await this.waitForGameExit(waitForExit())) return
     }
-
-    // Native ownership exists before injection starts. Cancellation also rejects late creation
-    // while the process is suspended. A failed termination keeps its owner available for retry.
-    const terminations = await Promise.allSettled(launches.map(launch => launch.terminate()))
-    for (const termination of terminations) {
-      if (termination.status === 'rejected') {
-        throw new Error('Owned game process termination failed', { cause: termination.reason })
-      }
+    for (const [, gameId] of launches) this.emit('gameCommand', gameId, 'quit')
+    if (!(await this.waitForGameExit(waitForExit()))) {
+      throw new Error('Game did not exit after stopping; close the game manually and retry cleanup')
     }
     if (game && this.gameFor(game.id) === game) this.quitGame(game, 'Game stopped')
-    if (waitError) throw waitError
   }
 
   private async waitForGameExit(promise: Promise<unknown> | undefined): Promise<boolean> {
@@ -400,12 +380,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (foreground) {
       this.emit('gameProcessLaunching', gameId)
     }
-    let processMayBeRunning = false
     const participating = !isReplayMapInfo(config.setup.map)
-    if (participating) this.participatingLaunches.add(launchControl)
+    if (participating) this.participatingLaunches.set(launchControl, gameId)
     const cleanupBackgroundSettings = async () => {
       // A failed wait does not prove the process exited; retain its live settings in that case.
-      if (backgroundSettings && !processMayBeRunning && !launchControl.mayBeRunning) {
+      if (backgroundSettings && !launchControl.mayBeRunning) {
         try {
           const prepared = await backgroundSettings
           await prepared.dispose()
@@ -414,8 +393,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         }
       }
     }
-    launchControl.onTerminated = async () => {
-      processMayBeRunning = false
+    launchControl.onFinished = async () => {
       this.participatingLaunches.delete(launchControl)
       await cleanupBackgroundSettings()
     }
@@ -434,13 +412,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         : undefined,
     )
       .then(
-        async ({ proc, releaseGpuPreference }) => {
-          processMayBeRunning = true
+        async ({ releaseGpuPreference }) => {
           try {
-            const code = await proc.waitForExit()
-            processMayBeRunning = false
-            launchControl.markExited()
-            this.handleGameExit(gameId, code)
+            const code = await launchControl.waitForExit()
+            this.handleGameExit(gameId, code!)
           } catch (err) {
             this.handleGameExitWaitError(gameId, err as Error)
           } finally {
@@ -448,19 +423,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
           }
         },
         async err => {
-          // Injection can fail after CreateProcess succeeds. Its termination guard is best-effort;
-          // confirm cleanup through the owner before discarding any launch bookkeeping.
-          try {
-            await launchControl.terminate()
-          } catch (cleanupError) {
-            this.handleGameLaunchError(gameId, cleanupError as Error)
-            return
-          }
+          await launchControl.launchFailed()
           this.handleGameLaunchError(gameId, err)
         },
       )
       .finally(() => {
-        if (!processMayBeRunning && !launchControl.mayBeRunning) {
+        if (!launchControl.mayBeRunning) {
           this.participatingLaunches.delete(launchControl)
         }
         if (foreground) {
@@ -1515,17 +1483,16 @@ async function doLaunch(
         ? await holdHighPerformanceGpu(appPath)
         : () => {}
     try {
-      const proc = await launchProcess(
-        {
-          appPath,
-          args: args as any,
-          currentDir: starcraftPath,
-          dllPath: injectPath,
-          dllFunc: 'OnInject',
-          logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
-        },
-        process => launchControl.attach(process),
-      )
+      launchControl.beginLaunch()
+      const proc = await launchProcess({
+        appPath,
+        args: args as any,
+        currentDir: starcraftPath,
+        dllPath: injectPath,
+        dllFunc: 'OnInject',
+        logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
+      })
+      launchControl.attach(proc)
       log.verbose('Process launched')
       return { proc, releaseGpuPreference }
     } catch (err) {

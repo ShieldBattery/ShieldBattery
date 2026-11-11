@@ -13,7 +13,7 @@ export async function promptForLocalGameCleanup(
     title: 'Game still running',
     message: "ShieldBattery couldn't confirm that the game has closed.",
     detail:
-      'Retry cleanup to close the game and quit, or cancel quitting to keep ShieldBattery open.',
+      'Close an unresponsive StarCraft game manually, then retry cleanup to quit. Cancel quit keeps ShieldBattery open.',
     buttons: ['Retry cleanup', 'Cancel quit'],
     defaultId: 1,
     cancelId: 1,

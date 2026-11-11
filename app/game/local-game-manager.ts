@@ -333,9 +333,17 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
           clearTimeout(timer)
         }
       }
-      const waits = session.managers.map(manager => manager.stop())
-      // Responsive clients can leave on IPC closure; manager.stop retains native termination as
-      // the fallback for a stalled game thread.
+      const gameStops = await Promise.allSettled(session.managers.map(manager => manager.stop()))
+      const gameFailure = gameStops.find(result => result.status === 'rejected')
+      if (gameFailure?.status === 'rejected') {
+        session.cleanupFailed = true
+        session.status.state = 'error'
+        session.status.error = String(gameFailure.reason?.message ?? gameFailure.reason)
+        this.publish(session)
+        // Keep control IPC and workers available for late startup, exit observation and retries.
+        return
+      }
+      const waits: Promise<void>[] = []
       session.control?.dispose()
       session.hub?.close()
       for (const worker of session.workers) {
