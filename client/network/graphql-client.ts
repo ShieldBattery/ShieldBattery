@@ -54,11 +54,13 @@ function invalidateNewsPostLists(cache: Cache) {
 /**
  * Query fields whose results depend on which files make up each map, or on which file each map
  * gives players: the catalog shows each map's current file, a map page id resolves through the
- * maps, and the reports and history are about them.
+ * maps, and the reports and history are about them. What claiming a map would do depends on its
+ * listed files and who published them, so the claim preview is among them.
  */
 const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'maps',
   'mapFamily',
+  'mapOwnerClaimPreview',
   'similarFiles',
   'mapFamilyReports',
   'mapFamilyReportCount',
@@ -69,6 +71,23 @@ const MAP_FAMILY_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'mapFamilyReports',
   'mapFamilyReportCount',
   'mapFamilyHistory',
+])
+
+/**
+ * Query fields whose results depend on who owns a map or who it's credited to: the listings of a
+ * user's maps, what claiming a map would do, the claims and their counts, the history, and what
+ * publishing or linking a file would offer (a map with another owner or a credit can't be merged
+ * away). The mutations that change an owner or a credit return the map with its owner fields, so the
+ * map itself is never invalidated whole.
+ */
+const MAP_OWNER_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'maps',
+  'mapOwnerClaimPreview',
+  'mapOwnerClaims',
+  'mapOwnerClaimCount',
+  'mapFamilyHistory',
+  'mapPublishPreview',
+  'mapLinkSuggestions',
 ])
 
 /** The current user's map listings, which show each favorite as its map's current file. */
@@ -268,6 +287,19 @@ const cacheUpdates: UpdatesConfig = {
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     mapFamilyReportSetStatus: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
+    mapOwnerClaim: (_result, _args, cache) => invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerRelinquish: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilySetOwner: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilyRemoveOwner: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilySetCredit: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerClaimGrant: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerClaimReject: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
         cache.invalidate({ __typename: 'NewsPost', id: args.id as string })

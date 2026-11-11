@@ -48,6 +48,8 @@ export enum NotificationType {
   MapFileDelisted = 'mapFileDelisted',
   /** A map file the user published was held for review, and staff listed it. */
   MapPublishApproved = 'mapPublishApproved',
+  /** Something changed about who is the maker (owner) of a map the user made or claimed. */
+  MapOwner = 'mapOwner',
 }
 
 export type SbNotification =
@@ -70,6 +72,7 @@ export type SbNotification =
   | MatchmakingBanNotification
   | MapFileDelistedNotification
   | MapPublishApprovedNotification
+  | MapOwnerNotification
 
 export interface BaseNotification {
   /**
@@ -273,4 +276,29 @@ export interface MapPublishApprovedNotification extends BaseNotification {
   familyId: string
   /** The file's name when it was listed. May contain StarCraft color codes. */
   mapName: string
+}
+
+/** What happened to a map's ownership, from the point of view of the notified user. */
+export type MapOwnerNotificationEvent =
+  /** Staff confirmed the user's claim. */
+  | { kind: 'claimGranted' }
+  /** Staff turned down the user's claim. */
+  | { kind: 'claimRejected' }
+  /** Staff made the user the map's owner. */
+  | { kind: 'ownerSet' }
+  /** The user lost the map through someone else's action. */
+  | { kind: 'ownershipRemoved' }
+  /** Someone else moved a file into the user's map. */
+  | { kind: 'fileAdded'; actorId: SbUserId; fileId: SbMapId; fileName: string }
+  /** Someone else moved a file out of the user's map. */
+  | { kind: 'fileRemoved'; actorId: SbUserId; fileId: SbMapId; fileName: string }
+
+/** Tells a player about a change to the ownership of a map they made or claimed. */
+export interface MapOwnerNotification extends BaseNotification {
+  type: NotificationType.MapOwner
+  /** The ID of the map (family). May be an old ID that now resolves to a merged map. */
+  familyId: string
+  /** The map's name when the change happened. May contain StarCraft color codes. */
+  mapName: string
+  event: MapOwnerNotificationEvent
 }

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useMutation, useQuery } from 'urql'
+import { CombinedError, useMutation, useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
 import { useLocationProperty } from 'wouter/use-browser-location'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
@@ -27,11 +27,13 @@ import {
 } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
+import { RestrictionKind } from '../../common/users/restrictions'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapDelistedKind, MapKind } from '../gql/graphql'
+import { MapDelistedKind, MapKind, MapOwnerKind } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
@@ -40,6 +42,7 @@ import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
+import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -49,7 +52,7 @@ import { useScrollMemory } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
@@ -69,6 +72,10 @@ import {
   openMapFamilyReportDialog,
   openMapFileLinkDialog,
   openMapFileUnlinkDialog,
+  openMapOwnerAddFileDialog,
+  openMapOwnerClaimDialog,
+  openMapOwnerEditDialog,
+  openMapOwnerRelinquishDialog,
   openMapPreviewDialog,
   openMapPublishDialog,
   regenMapImage,
@@ -81,6 +88,14 @@ import { correctedMapPageUrl, SelectedFileState, urlForMapFile } from './map-fam
 import { useToggleMapFavorite } from './map-favorites'
 import { useMapHostAction } from './map-host-action'
 import { MapFileImage } from './map-image'
+import { claimMenuState } from './map-owner'
+import {
+  claimBlockedText,
+  claimErrorText,
+  ownerErrorText,
+  useClaimMapOwner,
+  useRelinquishMapOwner,
+} from './map-owner-actions'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
 import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
@@ -105,6 +120,12 @@ const MapPageFamilyQuery = graphql(/* GraphQL */ `
         files {
           id
         }
+        owner {
+          id
+          name
+        }
+        ownerKind
+        credit
         ...MapPageStats_FamilyFragment
         ...MapPageFiles_FamilyFragment
       }
@@ -211,6 +232,9 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
   const [{ data: familyData, error: familyError }, reexecuteFamily] = useQuery({
     query: MapPageFamilyQuery,
     variables: { id: pageId, canManageMaps },
+    // Others change a map while it isn't open (staff, its maker, publishers), so a cached page is
+    // shown at once and then replaced by the current one
+    requestPolicy: 'cache-and-network',
     context: NO_SUSPENSE_CONTEXT,
   })
   const lookup = familyData?.mapFamily ?? undefined
@@ -329,6 +353,9 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
                 name: family.name,
                 current: family.current,
                 fileCount: familyFileIds.length,
+                owner: family.owner ?? undefined,
+                ownerKind: family.ownerKind ?? undefined,
+                credit: family.credit ?? undefined,
               }}
               onChanged={refresh}
             />
@@ -684,6 +711,94 @@ const FromFileName = styled.div`
   user-select: text;
 `
 
+/** Sized to sit in the byline's line of small text. */
+const VerifiedChip = styled(RoomChip)`
+  padding: 2px 6px;
+
+  display: flex;
+  align-items: center;
+  gap: 2px;
+`
+
+/** A maker staff credited the map to, who has no account to link to. */
+const CreditedMaker = styled.span`
+  color: var(--theme-on-surface);
+`
+
+export interface MapBylineProps {
+  /** The map's maker, if it has one. */
+  owner?: { id: SbUserId }
+  ownerKind?: MapOwnerKind
+  /** The maker's name staff credited the map to, for a maker with no account. */
+  credit?: string
+  /** Who published the shown file, while it's listed. */
+  publisher?: { id: SbUserId }
+  publishedAt?: string
+}
+
+/**
+ * Who made the map and who published the shown file, on one line. The maker is the map's owner,
+ * marked Verified when staff confirmed them, or else the name staff credited the map to.
+ */
+export function MapByline({ owner, ownerKind, credit, publisher, publishedAt }: MapBylineProps) {
+  const { t } = useTranslation()
+  const publishedDate = useFormat(publishedDateFormat)
+  const date = publishedAt ? publishedDate.format(new Date(publishedAt)) : undefined
+
+  let publishedPart: React.ReactNode
+  if (publisher && date) {
+    publishedPart =
+      owner?.id === publisher.id ? (
+        <span>{t('maps.page.publishedOn', { defaultValue: 'Published {{date}}', date })}</span>
+      ) : (
+        <>
+          <span>{t('maps.page.publishedBy', 'Published by')}</span>
+          <ConnectedUsername userId={publisher.id} />
+          <span>·</span>
+          <span>{date}</span>
+        </>
+      )
+  }
+
+  let makerPart: React.ReactNode
+  if (owner) {
+    makerPart = (
+      <>
+        <span>{t('maps.page.by', 'by')}</span>
+        <ConnectedUsername userId={owner.id} />
+        {ownerKind === MapOwnerKind.Staff ? (
+          <Tooltip
+            text={t('maps.page.verifiedTooltip', 'Staff confirmed this user made the map')}
+            position='bottom'>
+            <VerifiedChip>
+              <MaterialIcon icon='verified' size={14} filled={true} />
+              {t('maps.page.verified', 'Verified')}
+            </VerifiedChip>
+          </Tooltip>
+        ) : null}
+      </>
+    )
+  } else if (credit) {
+    makerPart = (
+      <>
+        <span>{t('maps.page.by', 'by')}</span>
+        <CreditedMaker>{credit}</CreditedMaker>
+      </>
+    )
+  }
+
+  if (!makerPart && !publishedPart) {
+    return null
+  }
+  return (
+    <Byline>
+      {makerPart}
+      {makerPart && publishedPart ? <span>·</span> : null}
+      {publishedPart}
+    </Byline>
+  )
+}
+
 function MapHeader({
   map: mapRef,
   family,
@@ -800,14 +915,13 @@ function MapHeader({
       ) : (
         <Title>{name}</Title>
       )}
-      {map.listed && map.publisher && map.publishedAt ? (
-        <Byline>
-          {t('maps.page.publishedBy', 'Published by')}
-          <ConnectedUsername userId={map.publisher.id} />
-          {'·'}
-          <span>{publishedDate.format(new Date(map.publishedAt))}</span>
-        </Byline>
-      ) : null}
+      <MapByline
+        owner={family.owner}
+        ownerKind={family.ownerKind}
+        credit={family.credit}
+        publisher={map.listed && map.publishedAt ? (map.publisher ?? undefined) : undefined}
+        publishedAt={map.listed ? (map.publishedAt ?? undefined) : undefined}
+      />
       {family.current.id !== map.id ? (
         <Notice>
           <NotDefaultIcon icon='info' size={20} />
@@ -921,6 +1035,23 @@ const MapPageFileUnlinkMutation = graphql(/* GraphQL */ `
   }
 `)
 
+const MapPageClaimPreviewQuery = graphql(/* GraphQL */ `
+  query MapPageClaimPreview($familyId: UUID!) {
+    mapOwnerClaimPreview(familyId: $familyId) {
+      id
+      blockedReason
+      instant
+      openClaim {
+        id
+        status
+      }
+    }
+  }
+`)
+
+/** An item of the page's menu: its text, what it does, and whether it's disabled. */
+type MenuEntry = [text: string, handler: () => void, disabled?: boolean]
+
 const ActionRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -935,6 +1066,11 @@ interface ActionsFamily {
   current: { id: SbMapId }
   /** How many of the map's files the viewer can see. */
   fileCount: number
+  /** The map's maker, if it has one. */
+  owner?: { id: SbUserId; name: string }
+  ownerKind?: MapOwnerKind
+  /** The maker's name staff credited the map to, for a maker with no account. */
+  credit?: string
 }
 
 /** The map's header, and the actions under it (which can put the header's text into editing). */
@@ -987,6 +1123,20 @@ function MapActions({
   const unpublish = useUnpublishMap()
   const [, relistFile] = useMutation(MapPageRelistMutation)
   const [, unlinkFile] = useMutation(MapPageFileUnlinkMutation)
+  const [claimOwner] = useClaimMapOwner()
+  const relinquishOwner = useRelinquishMapOwner()
+  const restrictedFromPublishing = useAppSelector(
+    s => !!s.auth.self?.restrictions.has(RestrictionKind.MapPublishing),
+  )
+  // Staff set a map's maker with their own tools
+  const [{ data: claimData }] = useQuery({
+    query: MapPageClaimPreviewQuery,
+    variables: { familyId: family.id },
+    pause: !selfUser || canManageMaps,
+    requestPolicy: 'cache-and-network',
+    context: NO_SUSPENSE_CONTEXT,
+  })
+  const claimPreview = claimData?.mapOwnerClaimPreview
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -1036,7 +1186,36 @@ function MapActions({
       .catch(swallowNonBuiltins)
   }
 
-  const menuItems: Array<[text: string, handler: () => void]> = []
+  const onClaim = () => {
+    claimOwner(family.id)
+      .then(granted => {
+        snackbarController.showSnackbar(
+          granted
+            ? t('maps.owner.claimGranted', "You're now this map's maker.")
+            : t('maps.owner.claimSent', 'Claim sent to staff.'),
+        )
+      })
+      .catch((err: unknown) =>
+        showError(err instanceof CombinedError ? claimErrorText(err, t) : ownerErrorText(t)),
+      )
+  }
+
+  const onRelinquish = () => {
+    relinquishOwner(family.id)
+      .then(() =>
+        snackbarController.showSnackbar(
+          t('maps.owner.relinquished', "You're no longer this map's maker."),
+        ),
+      )
+      .catch(() => showError(ownerErrorText(t)))
+  }
+
+  // The menu's items in groups, shown in this order with dividers between them: the shown file,
+  // the map as a whole, the viewer's own maps, and reporting
+  const fileItems: MenuEntry[] = []
+  const mapItems: MenuEntry[] = []
+  const mineItems: MenuEntry[] = []
+  const reportItems: MenuEntry[] = []
   const openReportDialog = () =>
     dispatch(
       openMapFamilyReportDialog({
@@ -1045,10 +1224,6 @@ function MapActions({
         fileCount: family.fileCount,
       }),
     )
-  const reportItem: [text: string, handler: () => void] = [
-    t('maps.report.menuItem', 'Report a problem…'),
-    openReportDialog,
-  ]
   // Staff change listings and maps with their own tools
   const isPublisher =
     !canManageMaps &&
@@ -1058,9 +1233,9 @@ function MapActions({
     !!map.publisher &&
     map.publisher.id === selfUser.id
   if (isPublisher) {
-    menuItems.push([t('maps.publish.unpublish', 'Unpublish'), () => unpublish(map.id)])
+    fileItems.push([t('maps.publish.unpublish', 'Unpublish'), () => unpublish(map.id)])
     if (family.fileCount > 1) {
-      menuItems.push([
+      fileItems.push([
         t('maps.publish.unlinkMenuItem', 'Remove from this map'),
         () =>
           dispatch(
@@ -1072,14 +1247,69 @@ function MapActions({
           ),
       ])
     } else if (family.fileCount === 1) {
-      menuItems.push([
-        t('maps.publish.linkMenuItem', 'Add to another map…'),
+      fileItems.push([
+        t('maps.publish.linkMenuItem', 'Add to another map'),
         () => dispatch(openMapFileLinkDialog({ fileId: map.id, selectedId: map.id })),
       ])
     }
   }
+  const isOwner = !!selfUser && family.owner?.id === selfUser.id
+  if (isOwner && !restrictedFromPublishing) {
+    mapItems.push([
+      t('maps.owner.addFileMenuItem', 'Add a file'),
+      () => dispatch(openMapOwnerAddFileDialog({ familyId: family.id, mapName: family.name })),
+    ])
+  }
+  if (!canManageMaps) {
+    const claimState = claimMenuState(
+      isOwner,
+      claimPreview
+        ? {
+            blockedReason: claimPreview.blockedReason,
+            instant: claimPreview.instant,
+            hasOpenClaim: !!claimPreview.openClaim,
+          }
+        : undefined,
+    )
+    const claimLabel = t('maps.owner.claimMenuItem', 'I made this map')
+    switch (claimState.kind) {
+      case 'hidden':
+        break
+      case 'relinquish':
+        mapItems.push([
+          t('maps.owner.relinquish', 'Remove me as maker'),
+          () => {
+            if (family.ownerKind === MapOwnerKind.Staff) {
+              dispatch(openMapOwnerRelinquishDialog({ onConfirm: onRelinquish }))
+            } else {
+              onRelinquish()
+            }
+          },
+        ])
+        break
+      case 'pending':
+        mapItems.push([t('maps.owner.claimPending', 'Claim sent to staff'), () => {}, true])
+        break
+      case 'blocked':
+        mapItems.push([claimLabel, () => showError(claimBlockedText(claimState.reason, t))])
+        break
+      case 'claim':
+        mapItems.push([
+          claimLabel,
+          claimState.instant
+            ? onClaim
+            : () =>
+                dispatch(
+                  openMapOwnerClaimDialog({ familyId: family.id, ownerName: family.owner?.name }),
+                ),
+        ])
+        break
+      default:
+        claimState satisfies never
+    }
+  }
   if (map.inLibrary) {
-    menuItems.push([
+    mineItems.push([
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
       () =>
         dispatch(
@@ -1104,7 +1334,7 @@ function MapActions({
   // Unlisted maps always show their file's own name and description, so only listed maps can be
   // edited
   if (canManageMaps && map.listed) {
-    menuItems.push(
+    fileItems.push(
       [t('maps.details.editName', 'Edit name'), () => onEdit('name')],
       [t('maps.details.editDescription', 'Edit description'), () => onEdit('description')],
     )
@@ -1113,34 +1343,35 @@ function MapActions({
     const delistedKind = map.moderation?.delistedKind
     // Admin-only, so not translated
     if (delistedKind !== MapDelistedKind.Staff) {
-      menuItems.push([
-        'Delist…',
+      fileItems.push([
+        'Delist',
         () => dispatch(openMapDelistDialog({ fileId: map.id, name: map.name, listed: map.listed })),
       ])
     }
     if (!map.listed && delistedKind) {
       // Relisting a file that was never published only lifts the block on publishing it
-      menuItems.push([map.moderation?.publishedAt ? 'Relist' : 'Unblock', onRelist])
+      fileItems.push([map.moderation?.publishedAt ? 'Relist' : 'Unblock', onRelist])
     }
-    menuItems.push(
+    fileItems.push([
+      t('maps.thumbnail.regenerateImage', 'Regenerate image'),
+      () =>
+        dispatch(
+          regenMapImage(map.id, {
+            onSuccess: () => {
+              snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
+              onChanged()
+            },
+            onError: () =>
+              showError(
+                t('maps.server.regenerateError', 'An error occurred while regenerating images'),
+              ),
+          }),
+        ),
+    ])
+    mapItems.push(
+      ['Maker', () => dispatch(openMapOwnerEditDialog({ familyId: family.id }))],
       [
-        t('maps.thumbnail.regenerateImage', 'Regenerate image'),
-        () =>
-          dispatch(
-            regenMapImage(map.id, {
-              onSuccess: () => {
-                snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
-                onChanged()
-              },
-              onError: () =>
-                showError(
-                  t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-                ),
-            }),
-          ),
-      ],
-      [
-        'Merge into another map…',
+        'Merge into another map',
         () =>
           dispatch(
             openMapFamilyActionDialog({
@@ -1153,10 +1384,11 @@ function MapActions({
     )
   } else if (selfUser) {
     // Staff fix these themselves, from the Files card and this menu
-    menuItems.push(reportItem)
+    reportItems.push([t('maps.report.menuItem', 'Report a problem'), openReportDialog])
   }
+  const menuGroups = [fileItems, mapItems, mineItems, reportItems].filter(group => group.length)
   // A menu holding only the report item is shown as a button for it instead
-  const reportOnly = menuItems.length === 1 && menuItems[0] === reportItem
+  const reportOnly = menuGroups.length === 1 && menuGroups[0] === reportItems
 
   const favoriteLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
@@ -1218,7 +1450,7 @@ function MapActions({
           />
         </Tooltip>
       ) : null}
-      {!reportOnly && menuItems.length ? (
+      {!reportOnly && menuGroups.length ? (
         <>
           <Tooltip
             text={t('maps.thumbnail.mapActions', 'Map actions')}
@@ -1241,17 +1473,21 @@ function MapActions({
             originX='right'
             originY='top'>
             <MenuList dense={true}>
-              {menuItems.map(([text, handler]) => (
-                <MenuItem
-                  key={text}
-                  text={text}
-                  dense={true}
-                  onClick={() => {
-                    closeMenu()
-                    handler()
-                  }}
-                />
-              ))}
+              {menuGroups.flatMap((group, i) => [
+                ...(i > 0 ? [<Divider key={`divider-${i}`} $dense={true} />] : []),
+                ...group.map(([text, handler, disabled]) => (
+                  <MenuItem
+                    key={text}
+                    text={text}
+                    dense={true}
+                    disabled={disabled}
+                    onClick={() => {
+                      closeMenu()
+                      handler()
+                    }}
+                  />
+                )),
+              ])}
             </MenuList>
           </Popover>
         </>

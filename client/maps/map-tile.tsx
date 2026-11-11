@@ -39,6 +39,7 @@ import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
 import { useUnpublishMap } from './map-unpublish'
+import { uploadStatusText } from './map-uploads'
 
 export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
   fragment MapTile_SbMapFragment on SbMap {
@@ -697,7 +698,7 @@ function LibraryMapMenu({
           />
           {!map.listed ? (
             <MenuItem
-              text={t('maps.publish.publishMenuItem', 'Publish…')}
+              text={t('maps.publish.publishMenuItem', 'Publish')}
               icon={<MaterialIcon icon='public' />}
               onClick={() => {
                 closeMenu()
@@ -1008,22 +1009,6 @@ const ProcessingFill = styled.div`
     opacity: 0.6;
   }
 `
-
-/**
- * A map upload's status: how much of the file has been sent, then that the server is processing it
- * (parsing it and rendering its images), which it does before it answers.
- */
-function uploadStatusText(progress: number | undefined, t: TFunction): string {
-  if (progress === undefined) {
-    return t('maps.catalog.uploading', 'Uploading…')
-  } else if (progress >= 1) {
-    return t('maps.catalog.processing', 'Processing…')
-  }
-  return t('maps.catalog.uploadingPercent', {
-    defaultValue: 'Uploading… {{percent}}%',
-    percent: Math.floor(progress * 100),
-  })
-}
 
 /** The bar for {@link uploadStatusText}: filling as the file is sent, then sweeping. */
 function UploadProgressBar({ progress, overImage }: { progress: number; overImage?: boolean }) {
