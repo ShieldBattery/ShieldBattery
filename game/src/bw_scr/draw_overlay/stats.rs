@@ -771,6 +771,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
             armed: unit_id.is_building() && can_attack(unit_id),
             transport: unit_id.cargo_space_provided() != 0,
             resource: unit_id.is_resource_container(),
+            harmless: never_kills(unit_id),
         })
         .then(|| unit.kills()),
         status: None,
@@ -839,6 +840,7 @@ fn is_spellcaster(unit_id: UnitId) -> bool {
 }
 
 /// What a kind of unit is, as far as reading out its kills goes.
+#[derive(Clone, Copy)]
 struct KillsKind {
     building: bool,
     /// Has a weapon of its own (see [`can_attack`]). Only decides anything for a building, so a
@@ -848,6 +850,8 @@ struct KillsKind {
     transport: bool,
     /// A mineral field or a geyser.
     resource: bool,
+    /// Has no way to kill anything, by weapon or by spell (see [`never_kills`]).
+    harmless: bool,
 }
 
 /// Whether the panels read out the kills of this kind of unit.
@@ -855,13 +859,29 @@ struct KillsKind {
 /// The game counts kills for everything, a building's too though its console reads none out. A
 /// building has any to read out only if it can attack, and a transport has none of its own: a
 /// bunker's or a transport's passengers make its kills, and keep them. Any other unit has its count
-/// read out, armed or not, since some kill with a spell rather than a weapon.
+/// read out, armed or not, since some kill with a spell rather than a weapon, unless nothing it can
+/// do kills at all.
 fn reads_out_kills(kind: KillsKind) -> bool {
     if kind.building {
         kind.armed
     } else {
-        !kind.transport && !kind.resource
+        !kind.transport && !kind.resource && !kind.harmless
     }
+}
+
+/// Whether this kind of unit has no way to kill anything, by weapon or by spell:
+///
+/// - a defiler, whose plague stops at one hit point, whose dark swarm deals no damage, and whose
+///   consume only takes its own side's units, which the game counts no kill for;
+/// - a medic, whose heal, optical flare and restoration deal no damage;
+/// - an observer, which has neither a weapon nor a spell.
+fn never_kills(unit_id: UnitId) -> bool {
+    use bw_dat::unit;
+
+    matches!(
+        unit_id,
+        unit::DEFILER | unit::UNCLEAN_ONE | unit::MEDIC | unit::OBSERVER
+    )
 }
 
 /// Whether this kind of unit has a weapon, on its own units.dat entry or on its turret's, which is
@@ -1095,24 +1115,49 @@ mod tests {
 
     #[test]
     fn kills_are_read_out_for_everything_but_unarmed_buildings_transports_and_resources() {
-        let kind = |building, armed, transport, resource| KillsKind {
-            building,
-            armed,
-            transport,
-            resource,
+        let unit = KillsKind {
+            building: false,
+            armed: false,
+            transport: false,
+            resource: false,
+            harmless: false,
+        };
+        let building = KillsKind {
+            building: true,
+            ..unit
         };
         // A photon cannon, a sunken colony or a missile turret.
-        assert!(reads_out_kills(kind(true, true, false, false)));
+        assert!(reads_out_kills(KillsKind {
+            armed: true,
+            ..building
+        }));
         // A gateway, or a bunker, whose passengers make its kills.
-        assert!(!reads_out_kills(kind(true, false, false, false)));
-        assert!(!reads_out_kills(kind(true, false, true, false)));
+        assert!(!reads_out_kills(building));
+        assert!(!reads_out_kills(KillsKind {
+            transport: true,
+            ..building
+        }));
         // A marine, and a high templar, which kills with a spell.
-        assert!(reads_out_kills(kind(false, true, false, false)));
-        assert!(reads_out_kills(kind(false, false, false, false)));
+        assert!(reads_out_kills(KillsKind {
+            armed: true,
+            ..unit
+        }));
+        assert!(reads_out_kills(unit));
         // A shuttle, a dropship or an overlord.
-        assert!(!reads_out_kills(kind(false, false, true, false)));
+        assert!(!reads_out_kills(KillsKind {
+            transport: true,
+            ..unit
+        }));
         // A mineral field or a geyser.
-        assert!(!reads_out_kills(kind(false, false, false, true)));
+        assert!(!reads_out_kills(KillsKind {
+            resource: true,
+            ..unit
+        }));
+        // A defiler, a medic or an observer.
+        assert!(!reads_out_kills(KillsKind {
+            harmless: true,
+            ..unit
+        }));
     }
 
     #[test]
