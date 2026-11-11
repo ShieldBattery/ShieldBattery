@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT EXISTS (\n                SELECT 1 FROM collections\n                WHERE owner_id = $1 AND kind = 'user' AND lower(title) = lower($2)\n                    AND id IS DISTINCT FROM $3\n            ) as \"taken!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0cdf23bba09d5b93c7e2c7f94e8df03269686c3b20116da02367bd2e5815adb0"
+}

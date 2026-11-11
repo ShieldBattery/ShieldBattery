@@ -4,7 +4,11 @@ import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
 import logger from '../logging/logger'
-import { mapComparePageMetadata, mapPageMetadata } from '../maps/map-page-meta'
+import {
+  mapCollectionPageMetadata,
+  mapComparePageMetadata,
+  mapPageMetadata,
+} from '../maps/map-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import {
@@ -49,6 +53,13 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
   // Before the map page pattern, which would otherwise read these segments as a map id
   { pattern: '/maps/compare/:a/:b', resolver: mapComparePageMetadata },
+  staticRoute(
+    '/maps/collections',
+    'ShieldBattery Map Collections',
+    'Browse collections of StarCraft: Brood War maps put together by players and ShieldBattery ' +
+      'staff.',
+  ),
+  { pattern: '/maps/collections/:id/:slug?', resolver: mapCollectionPageMetadata },
   staticRoute(
     '/maps/all',
     'ShieldBattery Maps',

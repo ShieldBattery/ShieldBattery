@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE collection_reports\n            SET resolved_at = now(), resolved_by = $2, resolution = 'hidden'\n            WHERE collection_id = $1 AND resolved_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c170f066462cf5e0f31da40b4b9c4502473476f416e9129a81731a20e2b6262b"
+}

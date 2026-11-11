@@ -14,6 +14,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
+use crate::maps::collections;
 use crate::maps::compare;
 use crate::maps::families::graphql::{MapFamily, load_family};
 use crate::maps::search::{
@@ -347,8 +348,8 @@ pub struct ViewerMapFlags {
     pub in_library: bool,
 }
 
-/// Loads whether each (user, map) pair is in that user's favorites (through the map's family) and
-/// library.
+/// Loads whether each (user, map) pair is in that user's favorites (their Starred collection,
+/// through the map's family) and library.
 pub struct ViewerMapFlagsLoader {
     db: PgPool,
 }
@@ -374,9 +375,10 @@ impl Loader<(SbUserId, SbMapId)> for ViewerMapFlagsLoader {
                 SELECT k.user_id as "user_id!: SbUserId", k.map_id as "map_id!: SbMapId",
                     EXISTS (
                         SELECT 1
-                        FROM favorited_maps f
-                        INNER JOIN maps m ON m.family_id = f.family_id
-                        WHERE f.favorited_by = k.user_id AND m.id = k.map_id
+                        FROM collections c
+                        INNER JOIN collection_maps cm ON cm.collection_id = c.id
+                        INNER JOIN maps m ON m.family_id = cm.family_id
+                        WHERE c.owner_id = k.user_id AND c.kind = 'starred' AND m.id = k.map_id
                     ) as "favorited!",
                     EXISTS (
                         SELECT 1 FROM map_library l
@@ -420,7 +422,7 @@ pub(crate) async fn resolve_map_id(db: &PgPool, id: SbMapId) -> eyre::Result<Opt
     .wrap_err("Failed to resolve map id")
 }
 
-/// Edge fields for a user's map collections.
+/// Edge fields for a user's map library.
 #[derive(SimpleObject, Clone, Debug)]
 pub struct MapLibraryEntry {
     /// When the map was added to the library.
@@ -446,6 +448,29 @@ pub struct MapLibraryEdgeName;
 impl EdgeNameType for MapLibraryEdgeName {
     fn type_name<T: OutputType>() -> String {
         "MapLibraryEdge".to_string()
+    }
+}
+
+/// Edge fields for the maps in a collection.
+#[derive(SimpleObject, Clone, Debug)]
+pub struct CollectionMapEntry {
+    /// When the map was added to the collection. Null for stars from before this was recorded.
+    pub added_at: Option<DateTime<Utc>>,
+}
+
+pub struct CollectionMapConnectionName;
+
+impl ConnectionNameType for CollectionMapConnectionName {
+    fn type_name<T: OutputType>() -> String {
+        "CollectionMapConnection".to_string()
+    }
+}
+
+pub struct CollectionMapEdgeName;
+
+impl EdgeNameType for CollectionMapEdgeName {
+    fn type_name<T: OutputType>() -> String {
+        "CollectionMapEdge".to_string()
     }
 }
 
@@ -495,6 +520,15 @@ pub type FavoriteMapConnection = Connection<
     FavoriteMapEntry,
     FavoriteMapConnectionName,
     FavoriteMapEdgeName,
+>;
+
+pub type CollectionMapConnection = Connection<
+    OpaqueCursor<MapCursor>,
+    SbMap,
+    MapListingInfo,
+    CollectionMapEntry,
+    CollectionMapConnectionName,
+    CollectionMapEdgeName,
 >;
 
 fn listing_error(error: MapListingError) -> async_graphql::Error {
@@ -574,6 +608,29 @@ pub async fn load_favorite_maps(
             OpaqueCursor(row.cursor),
             row.map.into(),
             FavoriteMapEntry {
+                added_at: row.added_at,
+            },
+        ));
+    }
+    Ok(connection)
+}
+
+/// Pages through the maps in a collection, as `scope` (a [`MapScope::Collection`]) lists them.
+pub(crate) async fn load_collection_maps(
+    ctx: &Context<'_>,
+    scope: MapScope,
+    filter: Option<MapFilter>,
+    sort: Option<MapSort>,
+    after: Option<String>,
+    first: Option<i32>,
+) -> Result<CollectionMapConnection> {
+    let (request, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
+    let mut connection = new_listing_connection(request, &page);
+    for row in page.rows {
+        connection.edges.push(Edge::with_additional_fields(
+            OpaqueCursor(row.cursor),
+            row.map.into(),
+            CollectionMapEntry {
                 added_at: row.added_at,
             },
         ));
@@ -689,26 +746,13 @@ pub struct MapsMutation;
 
 #[Object]
 impl MapsMutation {
-    /// Adds the map (family) a file is in to the current user's favorites. Favoriting a map that is
-    /// already a favorite does nothing.
+    /// Adds the map (family) a file is in to the current user's favorites, their Starred
+    /// collection. Favoriting a map that is already a favorite does nothing.
     async fn map_add_favorite(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
         let user = require_current_user(ctx)?;
         let repo = ctx.data::<MapSearchRepo>()?;
         let id = resolve_existing_map_id(repo.db(), id).await?;
-
-        sqlx::query!(
-            r#"
-                INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)
-                SELECT family_id, $2, now() FROM maps WHERE id = $1
-                ON CONFLICT (family_id, favorited_by) DO NOTHING
-            "#,
-            id as _,
-            user.id as _,
-        )
-        .execute(repo.db())
-        .await
-        .wrap_err("Failed to add favorite map")?;
-
+        collections::add_favorite(repo.db(), user.id, id).await?;
         load_sb_map(ctx, id).await
     }
 
@@ -735,25 +779,13 @@ impl MapsMutation {
         load_sb_map(ctx, id).await
     }
 
-    /// Removes the map (family) a file is in from the current user's favorites. Removing a map that
-    /// isn't a favorite does nothing.
+    /// Removes the map (family) a file is in from the current user's favorites, their Starred
+    /// collection. Removing a map that isn't a favorite does nothing.
     async fn map_remove_favorite(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
         let user = require_current_user(ctx)?;
         let repo = ctx.data::<MapSearchRepo>()?;
         let id = resolve_existing_map_id(repo.db(), id).await?;
-
-        sqlx::query!(
-            r#"
-                DELETE FROM favorited_maps
-                WHERE family_id = (SELECT family_id FROM maps WHERE id = $1) AND favorited_by = $2
-            "#,
-            id as _,
-            user.id as _,
-        )
-        .execute(repo.db())
-        .await
-        .wrap_err("Failed to remove favorite map")?;
-
+        collections::remove_favorite(repo.db(), user.id, id).await?;
         load_sb_map(ctx, id).await
     }
 }

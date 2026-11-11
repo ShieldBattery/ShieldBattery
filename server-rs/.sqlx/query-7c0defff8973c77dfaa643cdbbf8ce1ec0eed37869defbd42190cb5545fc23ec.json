@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH removed AS (\n                DELETE FROM collection_maps cm\n                USING collections c, maps m\n                WHERE c.id = cm.collection_id AND c.kind = 'starred' AND c.owner_id = $2\n                    AND m.id = $1 AND cm.family_id = m.family_id\n                RETURNING cm.collection_id\n            )\n            UPDATE collections SET updated_at = now()\n            WHERE id IN (SELECT collection_id FROM removed)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7c0defff8973c77dfaa643cdbbf8ce1ec0eed37869defbd42190cb5545fc23ec"
+}

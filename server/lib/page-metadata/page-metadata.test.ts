@@ -3,7 +3,11 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
-import { mapComparePageMetadata, mapPageMetadata } from '../maps/map-page-meta'
+import {
+  mapCollectionPageMetadata,
+  mapComparePageMetadata,
+  mapPageMetadata,
+} from '../maps/map-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import { PageMetadata, PageMetadataContext, resolvePageMetadata } from './page-metadata'
@@ -31,6 +35,7 @@ vi.mock('../lobbies/lobby-page-meta', () => ({
 vi.mock('../maps/map-page-meta', () => ({
   mapPageMetadata: vi.fn(),
   mapComparePageMetadata: vi.fn(),
+  mapCollectionPageMetadata: vi.fn(),
 }))
 
 const newsPostPageMetadataMock = asMockedFunction(newsPostPageMetadata)
@@ -40,6 +45,7 @@ const gamePageMetadataMock = asMockedFunction(gamePageMetadata)
 const lobbyPageMetadataMock = asMockedFunction(lobbyPageMetadata)
 const mapPageMetadataMock = asMockedFunction(mapPageMetadata)
 const mapComparePageMetadataMock = asMockedFunction(mapComparePageMetadata)
+const mapCollectionPageMetadataMock = asMockedFunction(mapCollectionPageMetadata)
 
 const CONTEXT: PageMetadataContext = {
   canonicalHost: 'https://shieldbattery.net',
@@ -63,6 +69,7 @@ describe('page-metadata/page-metadata', () => {
     lobbyPageMetadataMock.mockReset()
     mapPageMetadataMock.mockReset()
     mapComparePageMetadataMock.mockReset()
+    mapCollectionPageMetadataMock.mockReset()
   })
 
   test('matches a news post route and calls the resolver with the id param (no wildcard)', async () => {
@@ -220,6 +227,41 @@ describe('page-metadata/page-metadata', () => {
     expect(mapComparePageMetadataMock).toHaveBeenCalledWith({ a: 'abc123', b: 'def456' }, CONTEXT)
     expect(mapPageMetadataMock).not.toHaveBeenCalled()
     expect(result?.title).toContain('Polypoid vs. Fighting Spirit')
+  })
+
+  test('matches the map collection route ahead of the map route', async () => {
+    mapCollectionPageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/collections/abc123/ums-night',
+      type: 'website',
+      title: 'UMS night',
+      description: '3 maps',
+      image: 'https://cdn.example.com/a.jpg',
+    })
+
+    const result = await resolvePageMetadata('/maps/collections/abc123/ums-night', CONTEXT)
+
+    expect(mapCollectionPageMetadataMock).toHaveBeenCalledWith(
+      { id: 'abc123', slug: 'ums-night' },
+      CONTEXT,
+    )
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toBe('UMS night · ShieldBattery')
+
+    mapCollectionPageMetadataMock.mockResolvedValueOnce(undefined)
+    await resolvePageMetadata('/maps/collections/abc123', CONTEXT)
+    expect(mapCollectionPageMetadataMock).toHaveBeenLastCalledWith(
+      { id: 'abc123', slug: undefined },
+      CONTEXT,
+    )
+  })
+
+  test('resolves the collections tab to its static metadata without the map resolvers', async () => {
+    const result = await resolvePageMetadata('/maps/collections', CONTEXT)
+
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(mapCollectionPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.url).toBe('https://shieldbattery.net/maps/collections')
+    expect(result?.title).toContain('ShieldBattery Map Collections')
   })
 
   test('resolves the maps catalog to its static metadata without the map resolver', async () => {

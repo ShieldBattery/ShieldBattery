@@ -102,7 +102,8 @@ pub enum MapSort {
     Popular90d,
     /// Most games ever first.
     PopularAllTime,
-    /// Most recently published (or, in a user's maps or favorites, most recently added) first.
+    /// Most recently published (or, in a user's maps, favorites or a collection, most recently
+    /// added) first.
     Newest,
     /// Most favorited first.
     MostFavorited,
@@ -110,6 +111,10 @@ pub enum MapSort {
     Name,
     /// Fewest player slots first.
     Players,
+    /// A collection's own order: as its editor arranged it, or for a Starred collection, the most
+    /// recently starred first. The default when listing a collection's maps; any other listing
+    /// treats it as its own default sort.
+    CollectionOrder,
 }
 
 /// Filters for map listings. Every filter that is set must match.
@@ -149,8 +154,12 @@ pub enum MapScope {
     Listed,
     /// A user's library, listed or not.
     Library(SbUserId),
-    /// The families a user has favorited, listed or not, each as its current file.
+    /// The families a user has favorited (the maps in their Starred collection), listed or not,
+    /// each as its current file.
     Favorites(SbUserId),
+    /// The maps in a collection: each map entry as its map's current file, each exact-file entry
+    /// as that file. With `listed_only`, only the entries whose map is listed.
+    Collection { id: Uuid, listed_only: bool },
 }
 
 impl MapScope {
@@ -159,6 +168,21 @@ impl MapScope {
             MapScope::Listed => "listed".to_string(),
             MapScope::Library(user_id) => format!("library:{user_id}"),
             MapScope::Favorites(user_id) => format!("favorites:{user_id}"),
+            MapScope::Collection { id, listed_only } => {
+                format!(
+                    "collection:{id}:{}",
+                    if listed_only { "listed" } else { "all" }
+                )
+            }
+        }
+    }
+
+    /// The sort used when none is requested, or when `CollectionOrder` is requested outside a
+    /// collection.
+    fn default_sort(self, filter: &NormalizedFilter) -> MapSort {
+        match self {
+            MapScope::Collection { .. } => MapSort::CollectionOrder,
+            _ => filter.default_sort(),
         }
     }
 }
@@ -425,13 +449,14 @@ fn sort_keys(sort: MapSort) -> &'static [SortKey] {
         ID,
     ];
     // Rows without a usable time sort after every dated row.
-    const NEWEST: &[SortKey] = &[
-        int_key(
-            "CASE WHEN c.added_at IS NULL THEN 9223372036854775807 \
-             ELSE -(extract(epoch FROM c.added_at) * 1000000) END",
-        ),
-        ID,
-    ];
+    const NEWEST_FIRST: SortKey = int_key(
+        "CASE WHEN c.added_at IS NULL THEN 9223372036854775807 \
+         ELSE -(extract(epoch FROM c.added_at) * 1000000) END",
+    );
+    const NEWEST: &[SortKey] = &[NEWEST_FIRST, ID];
+    // Positions are unique within a collection except in a Starred one, where every entry has
+    // position 0 and the newest is first.
+    const COLLECTION_ORDER: &[SortKey] = &[int_key("c.sort_position"), NEWEST_FIRST, ID];
     const MOST_FAVORITED: &[SortKey] = &[
         int_key("-c.sort_favorites"),
         int_key("-c.sort_games_28d"),
@@ -452,6 +477,7 @@ fn sort_keys(sort: MapSort) -> &'static [SortKey] {
         MapSort::MostFavorited => MOST_FAVORITED,
         MapSort::Name => NAME,
         MapSort::Players => PLAYERS,
+        MapSort::CollectionOrder => COLLECTION_ORDER,
     }
 }
 
@@ -604,7 +630,10 @@ impl MapListingRequest {
         use async_graphql::connection::{CursorType, OpaqueCursor};
 
         let filter = NormalizedFilter::new(filter.unwrap_or_default())?;
-        let sort = sort.unwrap_or_else(|| filter.default_sort());
+        let sort = match sort {
+            Some(MapSort::CollectionOrder) | None => scope.default_sort(&filter),
+            Some(sort) => sort,
+        };
         let listing_hash = filter.listing_hash(scope);
         let after = after
             .map(|after| {
@@ -762,15 +791,28 @@ const FAMILY_JOINS: &str = " JOIN map_families fam ON fam.id = m.family_id \
 const FAMILY_PUBLISHED_AT: &str = "(SELECT max(lm.published_at) FROM maps lm \
     WHERE lm.family_id = fam.id AND lm.listed)";
 
+/// The joins of a collection's maps, after `FROM collection_maps cm`: the map `m` each entry shows
+/// (its map's current file, or its exact file), that file's family `fam`, and for map entries the
+/// family's stats `fs`. Exact-file entries have no `fs`, so their sort columns read the file's own
+/// stats.
+const COLLECTION_JOINS: &str = " JOIN maps m ON m.id = COALESCE(cm.map_id, \
+    (SELECT efam.current_map_id FROM map_families efam WHERE efam.id = cm.family_id)) \
+    JOIN map_families fam ON fam.id = m.family_id \
+    LEFT JOIN map_family_stats fs ON fs.family_id = fam.id AND cm.family_id IS NOT NULL";
+
 /// Emits the candidate rows: every map in `scope` that passes `filter`, with the columns of
-/// [`DbSbMap`] plus `sort_name`, `rank`, `added_at` and the popularity columns sort keys read
-/// (`sort_*`).
+/// [`DbSbMap`] plus `sort_name`, `rank`, `added_at`, `sort_position` and the popularity columns
+/// sort keys read (`sort_*`).
 fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
-    let families = matches!(scope, MapScope::Listed | MapScope::Favorites(_));
+    let families = matches!(
+        scope,
+        MapScope::Listed | MapScope::Favorites(_) | MapScope::Collection { .. }
+    );
     let added_at = match scope {
         MapScope::Listed => FAMILY_PUBLISHED_AT,
         MapScope::Library(_) => "l.added_at",
-        MapScope::Favorites(_) => "fm.favorited_date",
+        MapScope::Favorites(_) => "fm.added_at",
+        MapScope::Collection { .. } => "cm.added_at",
     };
     qb.push("SELECT ");
     qb.push(DB_SB_MAP_COLUMNS);
@@ -784,6 +826,10 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
     qb.push(format_args!(
         "CASE WHEN isfinite({added_at}) THEN {added_at} END AS added_at, "
     ));
+    qb.push(match scope {
+        MapScope::Collection { .. } => "cm.position AS sort_position, ",
+        _ => "0 AS sort_position, ",
+    });
     match (&filter.search, scope) {
         (Some(search), MapScope::Listed) => {
             // A family matches as well as its best matching listed file.
@@ -796,34 +842,59 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             qb.push("0");
         }
     }
-    qb.push(" AS rank FROM maps m");
+    qb.push(" AS rank");
 
     match scope {
-        MapScope::Listed => {}
+        MapScope::Listed => {
+            qb.push(" FROM maps m");
+            qb.push(DB_SB_MAP_JOINS);
+            qb.push(FAMILY_JOINS);
+        }
         MapScope::Library(user_id) => {
-            qb.push(" JOIN map_library l ON l.map_id = m.id AND l.user_id = ");
+            qb.push(" FROM maps m JOIN map_library l ON l.map_id = m.id AND l.user_id = ");
             qb.push_bind(user_id.0);
+            qb.push(DB_SB_MAP_JOINS);
         }
         MapScope::Favorites(user_id) => {
-            qb.push(" JOIN favorited_maps fm ON fm.family_id = m.family_id AND fm.favorited_by = ");
+            qb.push(
+                " FROM maps m JOIN collection_maps fm ON fm.family_id = m.family_id \
+                 JOIN collections fc ON fc.id = fm.collection_id AND fc.kind = 'starred' \
+                 AND fc.owner_id = ",
+            );
             qb.push_bind(user_id.0);
+            qb.push(DB_SB_MAP_JOINS);
+            qb.push(FAMILY_JOINS);
         }
-    }
-    qb.push(DB_SB_MAP_JOINS);
-    if families {
-        qb.push(FAMILY_JOINS);
+        MapScope::Collection { .. } => {
+            qb.push(" FROM collection_maps cm");
+            qb.push(COLLECTION_JOINS);
+            qb.push(DB_SB_MAP_JOINS);
+        }
     }
 
     qb.push(" WHERE ");
     match scope {
         // Listings of every map only ever show listed maps (a listed family's current file is
         // always listed); a user's own library and favorites include the unlisted maps they hold.
-        MapScope::Listed => qb.push("fam.listed AND m.listed"),
-        MapScope::Library(_) | MapScope::Favorites(_) => qb.push("TRUE"),
-    };
+        MapScope::Listed => {
+            qb.push("fam.listed AND m.listed");
+        }
+        MapScope::Library(_) | MapScope::Favorites(_) => {
+            qb.push("TRUE");
+        }
+        MapScope::Collection { id, listed_only } => {
+            qb.push("cm.collection_id = ");
+            qb.push_bind(id);
+            if listed_only {
+                qb.push(" AND fam.listed");
+            }
+        }
+    }
     let published_at = match scope {
         MapScope::Listed => FAMILY_PUBLISHED_AT,
-        MapScope::Library(_) | MapScope::Favorites(_) => "m.published_at",
+        MapScope::Library(_) | MapScope::Favorites(_) | MapScope::Collection { .. } => {
+            "m.published_at"
+        }
     };
     push_filters(qb, filter, published_at);
 }
@@ -1050,7 +1121,7 @@ mod tests {
 
     use super::*;
 
-    const ALL_SORTS: [MapSort; 10] = [
+    const ALL_SORTS: [MapSort; 11] = [
         MapSort::Relevance,
         MapSort::Trending,
         MapSort::Popular7d,
@@ -1061,7 +1132,13 @@ mod tests {
         MapSort::MostFavorited,
         MapSort::Name,
         MapSort::Players,
+        MapSort::CollectionOrder,
     ];
+
+    const COLLECTION: MapScope = MapScope::Collection {
+        id: Uuid::from_u128(7),
+        listed_only: false,
+    };
 
     #[test]
     fn normalize_lowercases_and_collapses_punctuation() {
@@ -1206,13 +1283,18 @@ mod tests {
         })
         .unwrap();
         for sort in ALL_SORTS {
-            let cursor = sample_cursor(sort, &filter, MapScope::Listed);
+            let scope = if sort == MapSort::CollectionOrder {
+                COLLECTION
+            } else {
+                MapScope::Listed
+            };
+            let cursor = sample_cursor(sort, &filter, scope);
             let encoded = OpaqueCursor(cursor.clone()).encode_cursor();
             let decoded = OpaqueCursor::<MapCursor>::decode_cursor(&encoded).unwrap();
             assert_eq!(decoded.0, cursor);
 
             let request = MapListingRequest::new(
-                MapScope::Listed,
+                scope,
                 Some(MapFilter {
                     search: Some("LOST".into()),
                     ..Default::default()
@@ -1498,6 +1580,7 @@ mod tests {
             MapScope::Listed,
             MapScope::Library(SbUserId(1)),
             MapScope::Favorites(SbUserId(1)),
+            COLLECTION,
         ] {
             let request =
                 MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
@@ -1588,6 +1671,7 @@ mod tests {
             MapScope::Listed,
             MapScope::Library(SbUserId(1)),
             MapScope::Favorites(SbUserId(1)),
+            COLLECTION,
         ] {
             let request =
                 MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
@@ -1666,6 +1750,98 @@ mod tests {
         );
         let library = sql(MapScope::Library(SbUserId(1)));
         assert!(library.contains(" AND m.published_at >= "), "{library}");
+    }
+
+    #[test]
+    fn collection_order_is_the_default_only_in_a_collection() {
+        let sort = |scope, filter: Option<MapFilter>, sort| {
+            MapListingRequest::new(scope, filter, sort, None, None)
+                .unwrap()
+                .sort
+        };
+        let search = || {
+            Some(MapFilter {
+                search: Some("bound".into()),
+                ..Default::default()
+            })
+        };
+        assert_eq!(sort(COLLECTION, None, None), MapSort::CollectionOrder);
+        assert_eq!(sort(COLLECTION, search(), None), MapSort::CollectionOrder);
+        assert_eq!(sort(COLLECTION, None, Some(MapSort::Name)), MapSort::Name);
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+        ] {
+            assert_eq!(
+                sort(scope, None, Some(MapSort::CollectionOrder)),
+                MapSort::Popular28d
+            );
+            assert_eq!(
+                sort(scope, search(), Some(MapSort::CollectionOrder)),
+                MapSort::Relevance
+            );
+        }
+
+        // A cursor from a listing that asked for `COLLECTION_ORDER` outside a collection continues
+        // it, whether or not the sort is asked for again
+        let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let cursor = sample_cursor(MapSort::Popular28d, &filter, MapScope::Listed);
+        let encoded = OpaqueCursor(cursor).encode_cursor();
+        for requested in [Some(MapSort::CollectionOrder), None] {
+            assert!(
+                MapListingRequest::new(MapScope::Listed, None, requested, Some(&encoded), None)
+                    .is_ok()
+            );
+        }
+    }
+
+    #[test]
+    fn collection_scope_lists_entries_of_one_collection() {
+        let sql = |scope| {
+            MapListingRequest::new(scope, None, None, None, None)
+                .unwrap()
+                .build_query()
+                .sql()
+                .as_str()
+                .to_string()
+        };
+        let all = sql(COLLECTION);
+        assert!(all.contains(" FROM collection_maps cm"), "{all}");
+        assert!(all.contains(COLLECTION_JOINS), "{all}");
+        assert!(all.contains(" WHERE cm.collection_id = $"), "{all}");
+        assert!(!all.contains("fam.listed"), "{all}");
+        assert!(all.contains("cm.position AS sort_position"), "{all}");
+        assert!(all.contains("CASE WHEN isfinite(cm.added_at)"), "{all}");
+
+        let listed = sql(MapScope::Collection {
+            id: Uuid::from_u128(7),
+            listed_only: true,
+        });
+        assert!(listed.contains(" AND fam.listed"), "{listed}");
+        assert!(!listed.contains("AND m.listed"), "{listed}");
+
+        // Who's looking changes the rows, so cursors can't cross between the two
+        assert_ne!(
+            NormalizedFilter::new(MapFilter::default())
+                .unwrap()
+                .listing_hash(COLLECTION),
+            NormalizedFilter::new(MapFilter::default())
+                .unwrap()
+                .listing_hash(MapScope::Collection {
+                    id: Uuid::from_u128(7),
+                    listed_only: true,
+                })
+        );
+
+        let favorites = sql(MapScope::Favorites(SbUserId(1)));
+        assert!(
+            favorites.contains(
+                "JOIN collection_maps fm ON fm.family_id = m.family_id \
+                 JOIN collections fc ON fc.id = fm.collection_id AND fc.kind = 'starred'"
+            ),
+            "{favorites}"
+        );
     }
 
     #[test]

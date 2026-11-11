@@ -425,7 +425,8 @@ export async function getMaps({
 }
 
 /**
- * Takes in a list of map IDs and returns only those whose family is favorited by a particular user.
+ * Takes in a list of map IDs and returns only those whose family is favorited by a particular user
+ * (is in their Starred collection).
  */
 export async function getFavoritedFromMapIds(
   favoritedBy: SbUserId,
@@ -434,8 +435,9 @@ export async function getFavoritedFromMapIds(
   const query = sql`
     SELECT m.id AS map_id
     FROM maps m
-    INNER JOIN favorited_maps f ON f.family_id = m.family_id
-    WHERE f.favorited_by = ${favoritedBy} AND m.id = ANY(${mapIds})
+    INNER JOIN collection_maps cm ON cm.family_id = m.family_id
+    INNER JOIN collections c ON c.id = cm.collection_id
+    WHERE c.owner_id = ${favoritedBy} AND c.kind = 'starred' AND m.id = ANY(${mapIds})
   `
 
   const { client, done } = await db()
@@ -532,28 +534,47 @@ export async function removeMapFromLibrary(mapId: SbMapId, userId: SbUserId): Pr
   }
 }
 
-/** Adds the family a map file is in to a user's favorites. */
+/**
+ * Adds the family a map file is in to a user's favorites (their Starred collection, which is created
+ * if they don't have one yet). Favoriting a map that's already a favorite does nothing.
+ */
 export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
-  const query = sql`
-    INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)
-    SELECT family_id, ${userId}, CURRENT_TIMESTAMP FROM maps WHERE id = ${mapId}
-    ON CONFLICT (family_id, favorited_by)
-    DO NOTHING;
-  `
-
-  const { client, done } = await db()
-  try {
-    await client.query(query)
-  } finally {
-    done()
-  }
+  await transact(async client => {
+    await client.query(sql`
+      INSERT INTO collections (kind, owner_id)
+      VALUES ('starred', ${userId})
+      ON CONFLICT (owner_id) WHERE kind = 'starred' DO NOTHING
+    `)
+    await client.query(sql`
+      WITH added AS (
+        INSERT INTO collection_maps (collection_id, family_id, position, added_at)
+        SELECT c.id, m.family_id, 0, now()
+        FROM collections c, maps m
+        WHERE c.owner_id = ${userId} AND c.kind = 'starred' AND m.id = ${mapId}
+        ON CONFLICT (collection_id, family_id) WHERE family_id IS NOT NULL DO NOTHING
+        RETURNING collection_id
+      )
+      UPDATE collections SET updated_at = now()
+      WHERE id IN (SELECT collection_id FROM added)
+    `)
+  })
 }
 
-/** Removes the family a map file is in from a user's favorites. */
+/**
+ * Removes the family a map file is in from a user's favorites (their Starred collection). Removing a
+ * map that isn't a favorite does nothing.
+ */
 export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
   const query = sql`
-    DELETE FROM favorited_maps
-    WHERE family_id = (SELECT family_id FROM maps WHERE id = ${mapId}) AND favorited_by = ${userId};
+    WITH removed AS (
+      DELETE FROM collection_maps cm
+      USING collections c, maps m
+      WHERE c.id = cm.collection_id AND c.kind = 'starred' AND c.owner_id = ${userId}
+        AND m.id = ${mapId} AND cm.family_id = m.family_id
+      RETURNING cm.collection_id
+    )
+    UPDATE collections SET updated_at = now()
+    WHERE id IN (SELECT collection_id FROM removed)
   `
 
   const { client, done } = await db()
@@ -581,7 +602,7 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
       BEGIN;
         UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
         UPDATE matchmaking_preferences SET map_selections = '{}';
-        TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
+        TRUNCATE matchmaking_map_pools, collection_maps, map_favorite_counts, map_library,
           map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
           map_family_reports, map_family_history, map_family_stats, map_family_aliases,
           map_families, map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;

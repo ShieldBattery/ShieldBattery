@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE collection_maps cm\n            SET position = p.position\n            FROM (\n                SELECT o.id,\n                    (CASE WHEN o.index >= $3::integer THEN o.index + 1 ELSE o.index END)::integer\n                        as position\n                FROM (\n                    SELECT e.id, row_number() OVER (ORDER BY e.position, e.id) - 1 as index\n                    FROM collection_maps e\n                    WHERE e.collection_id = $1 AND e.id <> $2\n                ) o\n                UNION ALL\n                SELECT $2::bigint, $3::integer\n            ) p\n            WHERE cm.id = p.id AND cm.position <> p.position\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "74095476465e2137c1edec23f5a7c13467d573913a2e1d6f7b7396c15c9f431f"
+}

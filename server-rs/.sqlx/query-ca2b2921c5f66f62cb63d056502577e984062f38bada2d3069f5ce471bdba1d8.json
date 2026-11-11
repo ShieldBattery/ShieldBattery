@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO collections (kind, owner_id, title, description)\n            VALUES ($1, $2, $3, $4)\n            RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "collection_kind",
+            "kind": {
+              "Enum": [
+                "user",
+                "starred",
+                "staff",
+                "ladder_pool"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ca2b2921c5f66f62cb63d056502577e984062f38bada2d3069f5ce471bdba1d8"
+}

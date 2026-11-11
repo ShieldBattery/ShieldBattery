@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE collections\n            SET hidden_at = NULL, hidden_by = NULL, hidden_note = NULL\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "877dd5933c8e4d2c0483b2d76ffb3b68679aad631f93cb9b5a9c271381ffd3da"
+}

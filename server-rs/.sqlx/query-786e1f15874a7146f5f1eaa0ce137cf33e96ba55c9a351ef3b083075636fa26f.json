@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH dismissed AS (\n                UPDATE collection_reports\n                SET resolved_at = now(), resolved_by = $2, resolution = 'dismissed'\n                WHERE id = $1 AND resolved_at IS NULL\n                RETURNING id\n            )\n            SELECT\n                EXISTS (SELECT 1 FROM dismissed) as \"dismissed!\",\n                EXISTS (SELECT 1 FROM collection_reports WHERE id = $1) as \"exists!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dismissed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "786e1f15874a7146f5f1eaa0ce137cf33e96ba55c9a351ef3b083075636fa26f"
+}
