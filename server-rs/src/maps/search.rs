@@ -507,7 +507,7 @@ impl MapCursor {
 const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, m.family_id, \
     COALESCE(m.public_description, m.description) AS description, \
     m.kind::text AS kind, m.player_count, m.listed, m.official, \
-    m.published_by, m.published_at, m.delisted_by, m.delisted_at, \
+    m.published_by, m.published_at, m.delisted_by, m.delisted_at, m.delisted_kind,     m.delisted_note, \
     s.map_id IS NOT NULL AS has_stats, \
     COALESCE(s.games_7d, 0) AS games_7d, \
     COALESCE(s.games_28d, 0) AS games_28d, \
@@ -541,6 +541,9 @@ pub struct DbSbMap {
     pub published_at: Option<DateTime<Utc>>,
     pub delisted_by: Option<SbUserId>,
     pub delisted_at: Option<DateTime<Utc>>,
+    /// `publisher` or `staff`, set exactly while the map is delisted.
+    pub delisted_kind: Option<String>,
+    pub delisted_note: Option<String>,
     pub has_stats: bool,
     pub games_7d: i32,
     pub games_28d: i32,

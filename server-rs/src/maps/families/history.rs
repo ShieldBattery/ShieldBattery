@@ -1,4 +1,5 @@
-//! The record of every change staff make to families and family reports, one entry per action.
+//! The record of every change made to families, family reports and file listings, one entry per
+//! action.
 
 use async_graphql::{Context, Enum, Object, Result};
 use chrono::{DateTime, Utc};
@@ -28,6 +29,18 @@ pub enum MapFamilyHistoryKind {
     ClearDefault,
     /// A family report was resolved, dismissed or reopened.
     ReportStatus,
+    /// A file was listed.
+    Publish,
+    /// A file's publisher took it out of the listings.
+    Unpublish,
+    /// Staff took a file out of the listings.
+    Delist,
+    /// Staff listed a delisted file again.
+    Relist,
+    /// A file's publisher moved it into a suggested map, while publishing it or later.
+    Link,
+    /// A file's publisher moved it out of a map into a new map of its own.
+    Unlink,
 }
 
 impl MapFamilyHistoryKind {
@@ -39,6 +52,12 @@ impl MapFamilyHistoryKind {
             Self::SetDefault => "set_default",
             Self::ClearDefault => "clear_default",
             Self::ReportStatus => "report_status",
+            Self::Publish => "publish",
+            Self::Unpublish => "unpublish",
+            Self::Delist => "delist",
+            Self::Relist => "relist",
+            Self::Link => "link",
+            Self::Unlink => "unlink",
         }
     }
 
@@ -49,6 +68,12 @@ impl MapFamilyHistoryKind {
             "set_default" => Self::SetDefault,
             "clear_default" => Self::ClearDefault,
             "report_status" => Self::ReportStatus,
+            "publish" => Self::Publish,
+            "unpublish" => Self::Unpublish,
+            "delist" => Self::Delist,
+            "relist" => Self::Relist,
+            "link" => Self::Link,
+            "unlink" => Self::Unlink,
             _ => Self::MoveFile,
         }
     }
@@ -89,6 +114,9 @@ pub struct HistoryDetails {
     pub report_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_status: Option<Change<MapFamilyReportStatus>>,
+    /// The note staff left when delisting a file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// One change to record.
@@ -204,7 +232,7 @@ pub struct MapFamilyHistory {
     created_at: DateTime<Utc>,
 }
 
-/// A change staff made to families or family reports.
+/// A change made to families, family reports or file listings.
 #[Object]
 impl MapFamilyHistory {
     async fn id(&self) -> String {
@@ -232,8 +260,8 @@ impl MapFamilyHistory {
         self.other_family_id
     }
 
-    /// The file that moved, was split out or was made the default, or the file of a `WRONG_MAP`
-    /// report.
+    /// The file that moved, was split out, was made the default or was listed or delisted, or the
+    /// file of a `WRONG_MAP` or `PUBLISH_REVIEW` report.
     async fn map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
         match self.map_id {
             Some(id) => load_sb_map(ctx, id).await.map(Some),
@@ -278,6 +306,11 @@ impl MapFamilyHistory {
 
     async fn report_status_after(&self) -> Option<MapFamilyReportStatus> {
         self.details.0.report_status.as_ref().map(|c| c.after)
+    }
+
+    /// The note staff left when delisting the file. Only for `DELIST`.
+    async fn note(&self) -> Option<&str> {
+        self.details.0.note.as_deref()
     }
 
     async fn created_at(&self) -> DateTime<Utc> {

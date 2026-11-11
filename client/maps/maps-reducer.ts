@@ -1,5 +1,5 @@
 import { Draft, Immutable } from 'immer'
-import { MapInfoJson, MapVisibility, SbMapId } from '../../common/maps'
+import { MapInfoJson, SbMapId } from '../../common/maps'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapsState {
@@ -99,15 +99,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@maps/removeFromMyMaps'](state, action) {
     state.libraryMapIds.delete(action.payload)
-  },
-
-  ['@maps/delistMap'](state, action) {
-    const map = state.byId.get(action.payload)
-    if (map) {
-      map.visibility = MapVisibility.Unlisted
-      map.publishedBy = undefined
-      map.publishedAt = undefined
-    }
   },
 
   ['@maps/updateMap'](state, action) {

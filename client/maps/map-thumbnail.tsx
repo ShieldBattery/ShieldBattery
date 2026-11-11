@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import { urlForMap } from '../../common/map-url'
-import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
+import { MapImageInfo, SbMapId } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
@@ -24,7 +24,6 @@ import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 import {
   batchGetMapInfo,
-  delistMap,
   openMapPreviewDialog,
   regenMapImage,
   removeFromMyMaps,
@@ -257,8 +256,6 @@ export interface MapThumbnailProps {
   onMapDetails?: (mapId: SbMapId) => void
   /** Removes the map from the current user's own maps. */
   onRemove?: (mapId: SbMapId) => void
-  /** Takes the map out of the map listings. */
-  onDelist?: (mapId: SbMapId) => void
   onRegenMapImage?: (mapId: SbMapId) => void
 }
 
@@ -281,7 +278,6 @@ export function MapThumbnail({
   onRemoveFromFavorites,
   onMapDetails,
   onRemove,
-  onDelist,
   onRegenMapImage,
 }: MapThumbnailProps) {
   const { t } = useTranslation()
@@ -326,9 +322,6 @@ export function MapThumbnail({
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
       () => onRemove(map.id),
     ])
-  }
-  if (onDelist) {
-    mapActions.push([t('maps.thumbnail.delistMap', 'Delist'), () => onDelist(map.id)])
   }
 
   const actions = mapActions.map(([text, handler], i) => (
@@ -483,8 +476,6 @@ export function ReduxMapThumbnail({
   const canPreviewMap = hasMapPreviewAction
   const canManageMaps = !!selfPermissions?.manageMaps
   const canRemoveMap = !!selfUser && !!props.onRemove && libraryMapIds.has(map.id)
-  const canDelistMap =
-    canManageMaps && !!props.onDelist && map.visibility !== MapVisibility.Unlisted
   const canRegenMapImage = selfUser && canManageMaps && hasRegenMapImageAction
 
   return (
@@ -527,25 +518,6 @@ export function ReduxMapThumbnail({
                         'maps.server.removeFromMyMapsError',
                         'An error occurred while removing the map from your maps',
                       ),
-                    )
-                  },
-                }),
-              )
-            }
-          : undefined
-      }
-      onDelist={
-        canDelistMap
-          ? mapId => {
-              dispatch(
-                delistMap(mapId, {
-                  onSuccess: () => {
-                    props.onDelist?.(mapId)
-                    snackbarController.showSnackbar(t('maps.server.delisted', 'Map delisted'))
-                  },
-                  onError: () => {
-                    snackbarController.showSnackbar(
-                      t('maps.server.delistError', 'An error occurred while delisting the map'),
                     )
                   },
                 }),

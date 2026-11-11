@@ -104,6 +104,11 @@ export type MapFamilyReportInput = {
 
 /** What a user is telling staff about a map. */
 export enum MapFamilyReportKind {
+  /**
+   * A file's name or description hit the restricted names list when it was published, so it
+   * waits for staff to list it or dismiss the report. Only filed by the server.
+   */
+  PublishReview = 'PUBLISH_REVIEW',
   /** A map is the same as another map. */
   SameMap = 'SAME_MAP',
   /** A file isn't part of the map it's in. */
@@ -1730,6 +1735,14 @@ export type MapPage_ActionsFragmentFragment = {
   inLibrary: boolean
   publisher: { id: Types.SbUserId } | null
 } & { ' $fragmentName'?: 'MapPage_ActionsFragmentFragment' }
+
+export type MapPageDelistMutationVariables = Exact<{
+  fileId: Types.SbMapId
+}>
+
+export type MapPageDelistMutation = {
+  mapDelist: { id: Types.SbMapId; listed: boolean; publishedAt: string | null }
+}
 
 export type MapPage_HowToPlayFragmentFragment = {
   id: Types.SbMapId
@@ -11032,6 +11045,50 @@ export const MapPageFileDocument = {
     },
   ],
 } as unknown as DocumentNode<MapPageFileQuery, MapPageFileQueryVariables>
+export const MapPageDelistDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapPageDelist' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapDelist' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'fileId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPageDelistMutation, MapPageDelistMutationVariables>
 export const MapReportBarDocument = {
   kind: 'Document',
   definitions: [
