@@ -64,8 +64,9 @@ pub struct SelectedUnitView {
     pub shields: Option<(u32, u32)>,
     /// Energy, current and full, for a unit that has any.
     pub energy: Option<(u32, u32)>,
-    /// How many units it has killed.
-    pub kills: u32,
+    /// How many units it has killed, or `None` for something with no kills to read out: a building
+    /// with no weapon of its own, which has no way to kill anything.
+    pub kills: Option<u32>,
     /// The one line the console writes under a unit selected alone. `None` for nothing to say, and
     /// only read out for a unit selected alone, so a host may leave it `None` for any other.
     pub status: Option<UnitStatusView>,
@@ -781,12 +782,14 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
 /// under it, then its name and whose it is beside it, and whatever it is making or carrying under
 /// that.
 ///
-/// What a building is worth to a watcher is how much of it is left and what it is making, so it is
-/// given no tally of kills: that is a unit's own reading, which a unit building fighters in its
-/// hangar keeps. The upgrades it fights with run along the bottom of the text column, as a unit's
-/// do, wherever the reading leaves that row free, followed by what its owner has researched for it
-/// and with how many of it are stacked at that row's other end. Whatever is being made sits above
-/// that row, so the subject reads the same whether or not it is making anything.
+/// What a building is worth to a watcher is how much of it is left and what it is making, so a
+/// tally of kills, a unit's own reading, is only given to a building with a weapon of its own (see
+/// [`SelectedUnitView::kills`]), and to a unit building fighters in its hangar, which keeps the
+/// tally it has when idle. The upgrades it fights with run along the bottom of the text column, as
+/// a unit's do, wherever the reading leaves that row free, followed by what its owner has
+/// researched for it and with how many of it are stacked at that row's other end. Whatever is
+/// being made sits above that row, so the subject reads the same whether or not it is making
+/// anything.
 fn draw_subject(
     ui: &Ui,
     body: Rect,
@@ -806,13 +809,14 @@ fn draw_subject(
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
-    let kills = builds_in_hangar(unit).then(|| tr!("observer.selectionKills", "Kills"));
-    let below = draw_header(
-        ui,
-        text,
-        unit,
-        kills.as_deref().map(|label| (label, unit.kills)),
-    );
+    let kills = tr!("observer.selectionKills", "Kills");
+    // A resource reads out where a building does, and kills nothing.
+    let tally = match case {
+        SelectionCase::Building if unit.building => unit.kills,
+        SelectionCase::Producing if builds_in_hangar(unit) => unit.kills,
+        _ => None,
+    };
+    let below = draw_header(ui, text, unit, tally.map(|count| (&*kills, count)));
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
         (SelectionCase::Loaded, _) => {
@@ -917,7 +921,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         vec2(UNIT_TEXT_WIDTH, BODY_HEIGHT),
     );
     let kills = tr!("observer.selectionKills", "Kills");
-    let below = draw_header(ui, text, unit, Some((&kills, unit.kills)));
+    let below = draw_header(ui, text, unit, unit.kills.map(|count| (&*kills, count)));
     let pools = pools(unit);
     let columns = PoolColumns::of(ui, &pools);
     for (index, &(pool, color)) in pools.iter().enumerate() {
@@ -1827,7 +1831,7 @@ mod tests {
             hit_points: Some(hit_points),
             shields,
             energy: None,
-            kills: 0,
+            kills: Some(0),
             status: None,
             hallucination: false,
             parasited: false,
@@ -2063,7 +2067,7 @@ mod tests {
         };
 
         let mut carrier = unit((300, 300), Some((150, 150)), 0x48);
-        carrier.kills = 17;
+        carrier.kills = Some(17);
         carrier.production = queue();
         let drawn_carrier = drawn(&carrier);
         assert!(
@@ -2075,7 +2079,7 @@ mod tests {
 
         let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
         gateway.building = true;
-        gateway.kills = 17;
+        gateway.kills = None;
         gateway.production = queue();
         assert!(
             !drawn(&gateway)
