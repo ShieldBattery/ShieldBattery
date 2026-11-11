@@ -532,32 +532,6 @@ export async function removeMapFromLibrary(mapId: SbMapId, userId: SbUserId): Pr
   }
 }
 
-/**
- * Removes a map from the listings. It stays reachable by ID, so games, matchmaking pools,
- * favorites, and users' own maps keep working, and it keeps its curated name and the record of who
- * published it. Its family's current file is recomputed, since an unlisted file can't be current
- * while another file of the family is listed.
- */
-export async function delistMap(mapId: SbMapId, delistedBy: SbUserId): Promise<void> {
-  await transact(async client => {
-    // Taken before changing anything, like every writer of family memberships and listings
-    await client.query(sql`SELECT lock_map_families()`)
-    const result = await client.query<{ family_id: MapFamilyId }>(sql`
-      UPDATE maps
-      SET
-        delisted_by = ${delistedBy},
-        delisted_at = CURRENT_TIMESTAMP
-      WHERE id = ${mapId} AND listed
-      RETURNING family_id
-    `)
-    if (result.rows.length) {
-      await client.query(
-        sql`SELECT refresh_map_families(${result.rows.map(r => r.family_id)}::uuid[])`,
-      )
-    }
-  })
-}
-
 /** Adds the family a map file is in to a user's favorites. */
 export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
   const query = sql`

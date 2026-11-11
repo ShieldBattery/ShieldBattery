@@ -246,7 +246,8 @@ impl MapIngester {
                 r#"
                     UPDATE maps
                     SET official = true, published_by = $2, published_at = now(),
-                        delisted_by = NULL, delisted_at = NULL
+                        delisted_by = NULL, delisted_at = NULL, delisted_kind = NULL,
+                        delisted_note = NULL
                     WHERE id = $1 AND NOT (listed AND official)
                     RETURNING family_id
                 "#,
@@ -943,14 +944,14 @@ async fn write_analysis(
         r#"
             INSERT INTO map_analysis (map_id, format_version, string_encoding, trigger_count,
                 briefing_count, ums_action_kinds, placed_units, player_units, mineral_fields,
-                mineral_total, geysers, bases, author_suggestions, anomalies, protection_detected,
+                mineral_total, geysers, bases, trigger_profile, anomalies, protection_detected,
                 terrain_fingerprint, fingerprint_version, chk_hash)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
                 $18)
             ON CONFLICT (map_id) DO UPDATE
             SET format_version = $2, string_encoding = $3, trigger_count = $4, briefing_count = $5,
                 ums_action_kinds = $6, placed_units = $7, player_units = $8, mineral_fields = $9,
-                mineral_total = $10, geysers = $11, bases = $12, author_suggestions = $13,
+                mineral_total = $10, geysers = $11, bases = $12, trigger_profile = $13,
                 anomalies = $14, protection_detected = $15, terrain_fingerprint = $16,
                 fingerprint_version = $17, chk_hash = $18
         "#,
@@ -966,7 +967,7 @@ async fn write_analysis(
         analysis.mineral_total,
         analysis.geysers,
         analysis.bases.as_ref().map(Json) as _,
-        &analysis.author_suggestions,
+        analysis.trigger_profile.as_ref().map(Json) as _,
         &analysis.anomalies,
         analysis.protection_detected,
         analysis.terrain_fingerprint.as_deref(),

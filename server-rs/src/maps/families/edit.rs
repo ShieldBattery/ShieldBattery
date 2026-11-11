@@ -1,8 +1,9 @@
-//! Changing families by hand (staff only): moving a file to another family, splitting a file out
-//! into a family of its own, merging two families, and picking a family's default file; plus reports
-//! from users. Every change takes the families lock before touching anything, recomputes the
-//! current file of the families it touched before its transaction commits, and records one history
-//! entry.
+//! Changing families by hand: moving a file to another family, splitting a file out into a family
+//! of its own, merging two families, and picking a family's default file; plus reports from users.
+//! Staff make every change, except that a file's publisher can move it into a suggested family or
+//! out into one of its own (see [`crate::maps::families::publish`]). Every change takes the
+//! families lock before touching anything, recomputes the current file of the families it touched
+//! before its transaction commits, and records one history entry.
 
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::{Postgres, Transaction};
@@ -132,6 +133,15 @@ async fn clear_departing_default(
     }))
 }
 
+/// Who moves a file between families, which decides how the move is recorded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveBy {
+    /// Staff sorting files into families (`move_file` and `split`).
+    Staff,
+    /// The file's publisher linking it to a suggested map or unlinking it (`link` and `unlink`).
+    Publisher,
+}
+
 /// The outcome of moving one file between families.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileMove {
@@ -150,6 +160,7 @@ pub async fn move_file(
     file_id: SbMapId,
     family_id: Uuid,
     actor: SbUserId,
+    by: MoveBy,
 ) -> Result<FileMove, FamilyEditError> {
     lock_families(tx).await?;
     let file = load_file(tx, file_id).await?;
@@ -179,7 +190,10 @@ pub async fn move_file(
     let history_id = history::record(
         tx,
         HistoryEntry {
-            kind: MapFamilyHistoryKind::MoveFile,
+            kind: match by {
+                MoveBy::Staff => MapFamilyHistoryKind::MoveFile,
+                MoveBy::Publisher => MapFamilyHistoryKind::Link,
+            },
             actor,
             family_id,
             other_family_id: Some(file.family_id),
@@ -208,6 +222,7 @@ pub async fn split_file(
     tx: &mut Transaction<'_, Postgres>,
     file_id: SbMapId,
     actor: SbUserId,
+    by: MoveBy,
 ) -> Result<FileMove, FamilyEditError> {
     lock_families(tx).await?;
     let file = load_file(tx, file_id).await?;
@@ -244,7 +259,10 @@ pub async fn split_file(
     let history_id = history::record(
         tx,
         HistoryEntry {
-            kind: MapFamilyHistoryKind::Split,
+            kind: match by {
+                MoveBy::Staff => MapFamilyHistoryKind::Split,
+                MoveBy::Publisher => MapFamilyHistoryKind::Unlink,
+            },
             actor,
             family_id,
             other_family_id: Some(file.family_id),
@@ -449,6 +467,9 @@ pub enum MapFamilyReportKind {
     WrongMap,
     /// A map is the same as another map.
     SameMap,
+    /// A file's name or description hit the restricted names list when it was published, so it
+    /// waits for staff to list it or dismiss the report. Only filed by the server.
+    PublishReview,
 }
 
 impl MapFamilyReportKind {
@@ -456,13 +477,41 @@ impl MapFamilyReportKind {
         match self {
             Self::WrongMap => "wrong_map",
             Self::SameMap => "same_map",
+            Self::PublishReview => "publish_review",
         }
     }
 
     pub fn from_db(kind: &str) -> Self {
         match kind {
             "same_map" => Self::SameMap,
+            "publish_review" => Self::PublishReview,
             _ => Self::WrongMap,
+        }
+    }
+}
+
+/// What a publisher said about the map their file may be a version of, kept on a publish review
+/// while the file is held and applied when staff approve it.
+#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum MapPublishReviewAnswer {
+    /// The file is a version of that map: approving the review moves the file into it.
+    Join,
+    /// The file might be a version of that map: approving the review files a `SAME_MAP` report.
+    Unsure,
+}
+
+impl MapPublishReviewAnswer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Join => "join",
+            Self::Unsure => "unsure",
+        }
+    }
+
+    pub fn from_db(answer: &str) -> Self {
+        match answer {
+            "unsure" => Self::Unsure,
+            _ => Self::Join,
         }
     }
 }
@@ -472,10 +521,19 @@ impl MapFamilyReportKind {
 pub enum ReportRequest {
     /// `file_id` isn't part of the family it's in.
     WrongMap { file_id: SbMapId },
-    /// `family_id` is the same map as `other_family_id`.
+    /// `family_id` is the same map as `other_family_id`. `from_publish` when it's filed on a
+    /// publisher's behalf, because they weren't sure their file is a version of `other_family_id`.
     SameMap {
         family_id: Uuid,
         other_family_id: Uuid,
+        from_publish: bool,
+    },
+    /// `file_id` was held for staff when it was published. `answer` is what the publisher said
+    /// about the map (the family id) their file may be a version of, if they said anything, to be
+    /// applied when staff approve the review.
+    PublishReview {
+        file_id: SbMapId,
+        answer: Option<(MapPublishReviewAnswer, Uuid)>,
     },
 }
 
@@ -512,8 +570,9 @@ pub async fn check_reporter(
     }
 }
 
-/// Stores a family report, or updates the reporter's open report about the same thing. Returns the
-/// report's id.
+/// Stores a family report, or updates the reporter's open report about the same thing. Updating a
+/// publish review replaces the publisher's answer with the one in `request`. Returns the report's
+/// id.
 pub async fn insert_report(
     tx: &mut Transaction<'_, Postgres>,
     request: &ReportRequest,
@@ -524,6 +583,8 @@ pub async fn insert_report(
     if note.is_some_and(|n| n.chars().count() > MAX_REPORT_NOTE_LENGTH) {
         return Err(FamilyEditError::NoteTooLong);
     }
+    let mut from_publish = false;
+    let mut publish_answer = None;
     let (kind, family_id, map_id, other_family_id) = match *request {
         ReportRequest::WrongMap { file_id } => {
             let file = load_file(tx, file_id).await?;
@@ -534,13 +595,29 @@ pub async fn insert_report(
                 None,
             )
         }
+        ReportRequest::PublishReview { file_id, answer } => {
+            let file = load_file(tx, file_id).await?;
+            let other_family_id = answer.map(|(_, family_id)| family_id);
+            if other_family_id == Some(file.family_id) {
+                return Err(FamilyEditError::SelfReport);
+            }
+            publish_answer = answer.map(|(answer, _)| answer.as_str());
+            (
+                MapFamilyReportKind::PublishReview,
+                file.family_id,
+                Some(file_id),
+                other_family_id,
+            )
+        }
         ReportRequest::SameMap {
             family_id,
             other_family_id,
+            from_publish: publish,
         } => {
             if family_id == other_family_id {
                 return Err(FamilyEditError::SelfReport);
             }
+            from_publish = publish;
             (
                 MapFamilyReportKind::SameMap,
                 family_id,
@@ -553,11 +630,14 @@ pub async fn insert_report(
     let id = sqlx::query_scalar!(
         r#"
             INSERT INTO map_family_reports (kind, family_id, map_id, other_family_id, note,
-                reported_by)
-            VALUES ($1, $2, $3, $4, $5, $6)
+                reported_by, from_publish, publish_answer)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (reported_by, kind, family_id, COALESCE(map_id, other_family_id))
                 WHERE status = 'open'
             DO UPDATE SET note = COALESCE(EXCLUDED.note, map_family_reports.note),
+                from_publish = map_family_reports.from_publish OR EXCLUDED.from_publish,
+                other_family_id = EXCLUDED.other_family_id,
+                publish_answer = EXCLUDED.publish_answer,
                 reported_at = now()
             RETURNING id
         "#,
@@ -567,6 +647,8 @@ pub async fn insert_report(
         other_family_id,
         note,
         reported_by as _,
+        from_publish,
+        publish_answer,
     )
     .fetch_one(&mut **tx)
     .await

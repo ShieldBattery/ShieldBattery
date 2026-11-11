@@ -19,7 +19,6 @@ export type MapsActions =
   | AddToFavorites
   | RemoveFromFavorites
   | RemoveFromMyMaps
-  | DelistMap
   | UpdateMapSuccess
   | LoadMapInfos
   | GetMapGames
@@ -73,12 +72,6 @@ export interface RemoveFromFavorites {
 /** The map has been removed from the current user's own maps. */
 export interface RemoveFromMyMaps {
   type: '@maps/removeFromMyMaps'
-  payload: SbMapId
-}
-
-/** The map has been taken out of the map listings. */
-export interface DelistMap {
-  type: '@maps/delistMap'
   payload: SbMapId
 }
 
