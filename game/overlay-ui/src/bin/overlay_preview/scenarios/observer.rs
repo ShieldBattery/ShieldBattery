@@ -1242,7 +1242,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             subject: None,
         }),
         cargo: Vec::new(),
-        // Dealt as the game DLL deals them, which is what proves a queue leaves no row for them.
+        // Dealt as the game DLL deals them, for the row under the queue to read out.
         research: Vec::new(),
         upgrades: building_upgrades(race, &[]),
     }
@@ -2087,7 +2087,7 @@ impl Preset {
         // them has, so the readings of a building are watched from a Protoss player's side.
         if matches!(
             self.showcase,
-            Showcase::Constructing | Showcase::Defense | Showcase::Fighters
+            Showcase::Producing | Showcase::Constructing | Showcase::Defense | Showcase::Fighters
         ) {
             knobs.observer.races[0] = RaceView::Protoss;
         }
