@@ -527,7 +527,7 @@ fn starting_fog_id(fog: StartingFog) -> &'static str {
 }
 
 /// The options screen's 0-100 brightness as the gamma percentage SC:R keeps.
-fn brightness_to_gamma(brightness: u32) -> u32 {
+pub fn brightness_to_gamma(brightness: u32) -> u32 {
     let across = f64::from(brightness.min(BRIGHTNESS.max)) / f64::from(BRIGHTNESS.max);
     (GAMMA_MIN + across * (GAMMA_MAX - GAMMA_MIN)).round() as u32
 }

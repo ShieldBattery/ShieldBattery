@@ -34,10 +34,24 @@ holds the same shader compiled for multiple backends, tagged by `PrismShader.api
 | 0x4      | D3D SM5 (`ps_5_0`) |
 | 0x1a     | Metal (`MTLB` library; irrelevant on Windows) |
 
+`api_type` is Prism's shader model enum: 0 `Dx40Level91`, 1 `Dx40Level93`, 2 `Dx40`, 3 `Dx41`,
+4 `Dx50`, 0x1a `macOS_Mtl11`. Only the Prism (D3D11) renderer reads these sets. It marks the
+models its device supports from the device's feature level (0 always, 1 from 9_3, 2 from 10_0,
+3 from 10_1, 4 from 11_0) and creates each shader from the set's entry with the highest
+supported model, so a feature level 11 device runs the SM5 entries and anything below runs the
+level-9 containers (a set with only an SM5 entry can't be created there). The device is created
+with feature level 11_1 if possible, else the best of 11_0 down to 9_1. The legacy DX9 renderer
+(`--renderer=legacy`) uses none of this: it compiles the HLSL text files under `ShadersHLSL\`
+with `D3DXCompileShader`, finds its constants by name, and uploads them to fixed registers, so
+no shader replacement reaches it. (`--renderer=dx9` is not a value SC:R knows; it picks a
+renderer automatically then, Prism first.)
+
 `shader_type` is 0 for vertex, 6 for pixel. The blob is a 0x38-byte prism wrapper header
 followed by a standard DXBC container (`compile-shaders`' `wrap_prism_shader` produces
-this). The embedded DXBC is reflection-stripped (no RDEF chunk), so constant/texture
-names below came from prism's own name tables in the exe and the Metal blobs.
+this). The header's u32 at +0x10 is a mask of the texture slots the shader reads, +0x20 of
+its sampler slots, +0x28 of its constant buffers, +0x30 the DXBC length (+0x00 is 3 and
++0x34 is 4 in every D3D entry). The embedded DXBC is reflection-stripped (no RDEF chunk), so
+constant/texture names below came from prism's own name tables in the exe and the Metal blobs.
 
 Shaders too complex for SM4 — all the `Deferred*` ones — ship only SM5 + Metal
 (`count == 2`); the rest have `count == 3`.
@@ -57,11 +71,11 @@ marks shaders that apply the per-draw team color constant (see below).
 
 | id   | name                   | reads                                     | purpose |
 | ---- | ---------------------- | ----------------------------------------- | ------- |
-| 0x00 | Texture                | c0 solidColor; t0                         | Plain textured blit (UI, backgrounds): `tex * solidColor` |
+| 0x00 | Texture                | c0 solidColor; t0                         | Plain textured blit (UI, backgrounds, the final pass to the backbuffer, the software cursor): `tex * solidColor`. **Replaced by ShieldBattery** (brightness curve) |
 | 0x01 | TextureBicubic         | c3 dims/invRes; t0                        | Bicubic-filtered blit (upscaled UI/console art) |
 | 0x02 | FlatColor              | c1 multiplyColor                          | Untextured flat fill |
 | 0x03 | FBOCloak               | c3; t0, t1                                | Screen-space cloak distortion composite of an offscreen target |
-| 0x04 | VertexColored          | c0 solidColor; t0                         | Textured + per-vertex color (`colored_vert`, 5-float verts x,y,u,v,color). **Used by ShieldBattery's egui overlay** |
+| 0x04 | VertexColored          | c0 solidColor; t0                         | Textured + per-vertex color (`colored_vert`, 5-float verts x,y,u,v,color): `tex * color * solidColor`. **Used by ShieldBattery's egui overlay; replaced by ShieldBattery** (brightness curve) |
 | 0x05 | VertexColoredGradient  | t0, t1                                    | Textured + vertex color with gradient/mask second texture |
 | 0x06 | Font                   | c0, c3, c4; t0                            | SDF font rendering (distance decode + shadow) |
 | 0x07 | Video444               | c0; t0-t2                                 | 444 video plane blit |
@@ -192,8 +206,31 @@ replacement (add entries to `PATCHED_SHADERS` + HLSL files), but:
 - The deferred variants write a 6-target G-buffer whose encoding must exactly match what
   `DeferredBlit` (0x0b) expects (normal `(x+1)/2` remap, `cb0[4].y` scale on specular,
   `cb0[4].z` in AO/depth, etc.) — reproduce it from the stock disassembly.
-- A count-3 replacement needs its SM4 entry compiled as a level-9 container
-  (`ps_4_0_level_9_x`) to match `api_type == 0`.
+- A replacement for a shader SC:R ships an SM4 entry for should have that entry compiled as a
+  level-9 container (`compile-shaders`' `ShaderModel::Sm4Level9`, `ps_4_0_level_9_1`) to match
+  `api_type == 0`: a feature level 9 device can't create a shader from a plain `ps_4_0` one.
+  Replacement sets only carry the SM4 and SM5 entries (no Metal), so their count is 2 whatever
+  the stock count is. The level-9 part maps `cb0` registers onto DX9 constants compactly (a
+  shader reading `cb0[0]` and `cb0[4]` gets them as `c0` and `c1`), the same as SC:R's own
+  level-9 shaders.
+
+## Draws to the backbuffer
+
+SC:R draws the game and its own UI into off-screen render targets, then one final draw
+(`render_target_id == 0`, shader 0x00, blend mode 1, `solidColor` white) scales the UI target onto
+the backbuffer, in HD and in SD with any SD filter. Other draws to render target 0, all with blend
+mode 0 (straight alpha):
+
+- ShieldBattery's egui overlay, shader 0x04, on the Prism renderer. The legacy renderers only let
+  draws with their default outputs reach the backbuffer, so there the overlay draws into the UI
+  target before the final pass.
+- SC:R's software cursor, shader 0x00, in HD and SD. ShieldBattery moves it to a layer above the
+  overlay (`software_cursor_draw_commands` in `rendering.rs`).
+- A fade (shader 0x00, `solidColor.a < 1`) while the game view comes up.
+
+Blend mode 0 multiplies the source by its alpha itself, and no blend mode takes premultiplied
+colors, so every shader outputs straight alpha (`overlay_ui::straight_alpha` converts egui's
+colors for that).
 
 ## ShieldBattery's current shader integrations
 
@@ -210,5 +247,16 @@ replacement (add entries to `PATCHED_SHADERS` + HLSL files), but:
 - **egui overlay** — `game/src/bw_scr/draw_inject.rs` builds `DrawCommand`s with
   shader id 4 (`VertexColored`), textures created through the renderer vtable's
   `create_texture`.
+- **Brightness (0x00 and 0x04 replacements)** — `shaders/texture.hlsl`,
+  `shaders/vertex_colored.hlsl` and `shaders/brightness.hlsli`. Each computes exactly the stock
+  result, then raises each RGB channel to the power in `cb0[4].x` (`shader_constants[16]`, unread
+  by the stock shaders) when that is non-zero, leaving alpha alone. The `Renderer::draw` hook
+  writes that constant on every command using either shader: SC:R's brightness curve
+  (`x ^ (2 - gamma / 100)`, `game/src/forge/gamma.rs`) on draws to render target 0, 0 everywhere
+  else. The curve so covers the final pass, the overlay and the software cursor once each, after
+  compositing, in every display mode; opaque pixels come out exactly as SC:R's own gamma ramp
+  would show them, translucent overlay pixels blend between curved colors. The Windows gamma
+  ramp SC:R sets in fullscreen is kept off the display on the Prism renderer. The legacy
+  renderers, which no replacement shader reaches, keep SC:R's ramp.
 - **Team colors** — `game/src/team_colors.rs` writes `rgb_colors` (no shader changes).
 

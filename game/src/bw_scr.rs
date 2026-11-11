@@ -3286,6 +3286,9 @@ impl BwScr {
                 SettingChange::MouseSensitivity(value) => {
                     crate::forge::mouse_speed::set_sensitivity(value)
                 }
+                SettingChange::Brightness(value) => crate::forge::gamma::set_brightness(
+                    draw_overlay::options::brightness_to_gamma(value),
+                ),
                 _ => (),
             }
             self.apply_local_setting_change(change);

@@ -16,7 +16,7 @@ use winapi::um::winuser::*;
 use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
-mod gamma;
+pub mod gamma;
 pub mod mouse_speed;
 mod raw_mouse;
 mod window_placement;
@@ -1050,15 +1050,16 @@ pub fn init(
 ) {
     let settings = Settings::from_config(local_settings, scr_settings, monitor_bounds);
     let display_mode = settings.display_mode();
-    let gamma_setting = if display_mode == DisplayMode::Fullscreen {
-        scr_settings
-            .get("gamma")
-            .and_then(|v| v.as_u64())
-            .and_then(|v| u32::try_from(v).ok())
-    } else {
-        None
-    };
-    gamma::configure(gamma_setting);
+    let gamma_setting = scr_settings
+        .get("gamma")
+        .and_then(|v| v.as_u64())
+        .and_then(|v| u32::try_from(v).ok());
+    if let Some(setting) = gamma_setting {
+        gamma::set_brightness(setting);
+    }
+    // The gamma ramp SC:R is going to set on the renderers that use one, which it only does in
+    // fullscreen.
+    gamma::configure(gamma_setting.filter(|_| display_mode == DisplayMode::Fullscreen));
     mouse_speed::init_settings(scr_settings);
     raw_mouse::init();
 

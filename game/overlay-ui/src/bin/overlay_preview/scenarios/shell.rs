@@ -181,6 +181,7 @@ pub fn option_lists() -> OptionsLists {
             },
         ],
         rollback_game: true,
+        brightness_fullscreen_only: false,
     }
 }
 
