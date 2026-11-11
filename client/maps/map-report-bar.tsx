@@ -210,6 +210,13 @@ function LoadedReportBar({ report }: { report: Report }) {
         {mapLink(report.family, file ?? undefined)}
       </>
     )
+  } else if (report.kind === MapFamilyReportKind.PublishReview) {
+    claim = (
+      <>
+        {mapLink(report.family, report.map ?? undefined)}
+        {' was held for review when published'}
+      </>
+    )
   } else {
     claim = (
       <>
@@ -298,7 +305,7 @@ function OpenActions({ report }: { report: Report }) {
         onClick: () => openAction('move'),
       })
     }
-  } else if (family && otherFamily) {
+  } else if (report.kind === MapFamilyReportKind.SameMap && family && otherFamily) {
     fixes.push({
       label: 'Merge maps…',
       tooltip: `Merge ${filterColorCodes(family.name)} into ${filterColorCodes(otherFamily.name)}`,

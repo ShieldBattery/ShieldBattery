@@ -94,6 +94,7 @@ type Documents = {
   '\n  fragment MapPage_FactsFragment on SbMap {\n    id\n    kind\n    playerCount\n    file {\n      id\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n      analysis {\n        id\n        baseCount\n      }\n    }\n  }\n': typeof types.MapPage_FactsFragmentFragmentDoc
   '\n  fragment MapPage_HeaderFragment on SbMap {\n    id\n    name\n    description\n    kind\n    listed\n    official\n    publishedAt\n    publisher {\n      id\n      name\n    }\n    file {\n      id\n      originalName\n      originalDescription\n    }\n    moderation @include(if: $canManageMaps) {\n      id\n      delistedAt\n      delistedBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapPage_HeaderFragmentFragmentDoc
   '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    publisher {\n      id\n    }\n  }\n': typeof types.MapPage_ActionsFragmentFragmentDoc
+  '\n  mutation MapPageDelist($fileId: SbMapId!) {\n    mapDelist(fileId: $fileId) {\n      id\n      listed\n      publishedAt\n    }\n  }\n': typeof types.MapPageDelistDocument
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n': typeof types.MapPage_HowToPlayFragmentFragmentDoc
   '\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n': typeof types.MapReportBarDocument
   '\n  mutation MapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.MapFamilyReportSetStatusDocument
@@ -292,6 +293,8 @@ const documents: Documents = {
     types.MapPage_HeaderFragmentFragmentDoc,
   '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    publisher {\n      id\n    }\n  }\n':
     types.MapPage_ActionsFragmentFragmentDoc,
+  '\n  mutation MapPageDelist($fileId: SbMapId!) {\n    mapDelist(fileId: $fileId) {\n      id\n      listed\n      publishedAt\n    }\n  }\n':
+    types.MapPageDelistDocument,
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n':
     types.MapPage_HowToPlayFragmentFragmentDoc,
   '\n  query MapReportBar($id: UUID!) {\n    mapFamilyReportById(id: $id) {\n      id\n      kind\n      note\n      reportedAt\n      status\n      resolvedAt\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n        firstSeenAt\n        stats {\n          id\n          gamesTotal\n        }\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n    }\n  }\n':
@@ -859,6 +862,12 @@ export function graphql(
 export function graphql(
   source: '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    publisher {\n      id\n    }\n  }\n',
 ): (typeof documents)['\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    publisher {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapPageDelist($fileId: SbMapId!) {\n    mapDelist(fileId: $fileId) {\n      id\n      listed\n      publishedAt\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapPageDelist($fileId: SbMapId!) {\n    mapDelist(fileId: $fileId) {\n      id\n      listed\n      publishedAt\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
