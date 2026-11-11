@@ -339,6 +339,7 @@ enum CardLayout {
 /// and the mode over the player's MMR in it on the right.
 struct RowLayout {
     rank: Option<Rank>,
+    emblem: f32,
     caption: Arc<Galley>,
     division: Arc<Galley>,
     mode: Option<Arc<Galley>>,
@@ -364,9 +365,9 @@ impl CardLayout {
                     ctx,
                     subtitle_spec.job_truncated(&subtitle(view), inner_width),
                 );
-                let rows = standing_rows(view)
+                let rows = standing_rows(view.best, view.current)
                     .into_iter()
-                    .map(|row| RowLayout::new(ctx, row, inner_width))
+                    .map(|row| RowLayout::new(ctx, row, inner_width, &CARD_STANDING))
                     .collect::<Vec<_>>();
                 let rows_height = rows.iter().map(|row| row.height).sum::<f32>()
                     + theme::SPACE_XS * rows.len().saturating_sub(1) as f32;
@@ -506,10 +507,68 @@ impl CardLayout {
     }
 }
 
+/// What a standing row is about.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum StandingKind {
+    /// The mode the player has their highest MMR in.
+    Best,
+    /// The mode of the game being played.
+    ThisGame,
+    /// The mode of the game being played, which is also the player's best.
+    BestThisGame,
+}
+
+impl StandingKind {
+    fn card_caption(self) -> String {
+        match self {
+            StandingKind::Best => tr!("statsCard.bestMode", "Best mode"),
+            StandingKind::ThisGame => tr!("statsCard.thisGame", "This game"),
+            StandingKind::BestThisGame => {
+                tr!("statsCard.bestModeThisGame", "Best mode · This game")
+            }
+        }
+    }
+
+    /// Shorter than the card's captions, so a roster row's standings leave its name room.
+    fn roster_caption(self) -> String {
+        match self {
+            StandingKind::Best => tr!("statsCard.roster.best", "Best"),
+            StandingKind::ThisGame => tr!("statsCard.thisGame", "This game"),
+            StandingKind::BestThisGame => tr!("statsCard.roster.bestThisGame", "Best · This game"),
+        }
+    }
+}
+
+/// How a standing row is set: in the card's sizes and words, or in the roster's smaller ones.
+struct StandingStyle {
+    emblem: f32,
+    division: f32,
+    /// The mode the row is about.
+    detail: f32,
+    rating: f32,
+    caption: fn(StandingKind) -> String,
+}
+
+const CARD_STANDING: StandingStyle = StandingStyle {
+    emblem: EMBLEM,
+    division: DIVISION_SIZE,
+    detail: DETAIL_SIZE,
+    rating: RATING_SIZE,
+    caption: StandingKind::card_caption,
+};
+
+const ROSTER_STANDING: StandingStyle = StandingStyle {
+    emblem: ROSTER_EMBLEM,
+    division: ROSTER_DIVISION_SIZE,
+    detail: ROSTER_STANDING_DETAIL_SIZE,
+    rating: ROSTER_RATING_SIZE,
+    caption: StandingKind::roster_caption,
+};
+
 /// One row of standings, before it's laid out.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct StandingRow {
-    caption: String,
+    kind: StandingKind,
     /// The mode the row is about, or `None` for the row of a player rated in nothing, which is
     /// about no mode in particular.
     mode: Option<MatchmakingMode>,
@@ -520,23 +579,23 @@ impl RowLayout {
     /// Lays out a row `width` across. The mode and MMR on the right are laid out first and kept
     /// whole, since they're what the row is read for; the caption and division on the left are cut
     /// short with an ellipsis if what's left of the row can't hold them.
-    fn new(ctx: &Context, row: StandingRow, width: f32) -> RowLayout {
+    fn new(ctx: &Context, row: StandingRow, width: f32, style: &StandingStyle) -> RowLayout {
         let mode = row.mode.map(|mode| {
             let spec =
-                text::body(DETAIL_SIZE, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY);
+                text::body(style.detail, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY);
             spec.layout(ctx, spec.job(&mode.label()))
         });
         let rating = row.rank.map(|rank| {
             let mut job = LayoutJob::default();
             append(
                 &mut job,
-                &text::numeral_strong(RATING_SIZE),
+                &text::numeral_strong(style.rating),
                 &rank.rating.to_string(),
                 0.0,
             );
             append(
                 &mut job,
-                &text::numeral(RATING_SIZE).with_color(theme::TEXT_DIM),
+                &text::numeral(style.rating).with_color(theme::TEXT_DIM),
                 &tr!("statsCard.mmr", "MMR"),
                 4.0,
             );
@@ -547,13 +606,13 @@ impl RowLayout {
             .flatten()
             .map(|galley| galley.size().x)
             .fold(0.0, f32::max);
-        let left_width = width - EMBLEM - theme::SPACE_SM - right_width - theme::SPACE_MD;
+        let left_width = width - style.emblem - theme::SPACE_SM - right_width - theme::SPACE_MD;
 
         let caption = text::column_label().layout(
             ctx,
-            text::column_label().job_truncated(&row.caption, left_width),
+            text::column_label().job_truncated(&(style.caption)(row.kind), left_width),
         );
-        let division_spec = text::body(DIVISION_SIZE, BodyWeight::Semibold);
+        let division_spec = text::body(style.division, BodyWeight::Semibold);
         let division = match row.rank {
             Some(rank) => division_spec.layout(
                 ctx,
@@ -572,19 +631,31 @@ impl RowLayout {
             + rating.as_ref().map_or(0.0, |galley| galley.size().y);
         RowLayout {
             rank: row.rank,
+            emblem: style.emblem,
             caption,
             division,
             mode,
             rating,
-            height: EMBLEM.max(left_height).max(right_height),
+            height: style.emblem.max(left_height).max(right_height),
         }
+    }
+
+    /// How wide the row is as laid out, with its two sides as close as they're let come.
+    fn width(&self) -> f32 {
+        let left = self.caption.size().x.max(self.division.size().x);
+        let right = [&self.mode, &self.rating]
+            .into_iter()
+            .flatten()
+            .map(|galley| galley.size().x)
+            .fold(0.0, f32::max);
+        self.emblem + theme::SPACE_SM + left + theme::SPACE_MD + right
     }
 
     fn paint(&self, painter: &Painter, rect: Rect) {
         let division = self.rank.map_or(Division::Unrated, |rank| rank.division);
         let icon = icon_rect(
-            pos2(rect.left() + EMBLEM * 0.5, rect.center().y),
-            EMBLEM,
+            pos2(rect.left() + self.emblem * 0.5, rect.center().y),
+            self.emblem,
             painter.ctx().pixels_per_point(),
         );
         paint_division_icon(painter, icon, division);
@@ -615,26 +686,24 @@ impl RowLayout {
 /// The standing rows a card has: the best mode and the mode of the game being played, as one row
 /// when they're the same mode; and a lone unranked row for a player rated in nothing outside
 /// matchmaking, so the card still says where they stand.
-fn standing_rows(view: &StatsCardView) -> Vec<StandingRow> {
-    let row = |caption: String, standing: ModeStanding| StandingRow {
-        caption,
+fn standing_rows(best: Option<ModeStanding>, current: Option<ModeStanding>) -> Vec<StandingRow> {
+    let row = |kind, standing: ModeStanding| StandingRow {
+        kind,
         mode: Some(standing.mode),
         rank: standing.rank,
     };
-    let best_caption = || tr!("statsCard.bestMode", "Best mode");
-    let current_caption = || tr!("statsCard.thisGame", "This game");
-    match (view.best, view.current) {
-        (Some(best), Some(current)) if best.mode == current.mode => vec![row(
-            tr!("statsCard.bestModeThisGame", "Best mode · This game"),
-            best,
-        )],
-        (Some(best), Some(current)) => {
-            vec![row(best_caption(), best), row(current_caption(), current)]
+    match (best, current) {
+        (Some(best), Some(current)) if best.mode == current.mode => {
+            vec![row(StandingKind::BestThisGame, best)]
         }
-        (Some(best), None) => vec![row(best_caption(), best)],
-        (None, Some(current)) => vec![row(current_caption(), current)],
+        (Some(best), Some(current)) => vec![
+            row(StandingKind::Best, best),
+            row(StandingKind::ThisGame, current),
+        ],
+        (Some(best), None) => vec![row(StandingKind::Best, best)],
+        (None, Some(current)) => vec![row(StandingKind::ThisGame, current)],
         (None, None) => vec![StandingRow {
-            caption: best_caption(),
+            kind: StandingKind::Best,
             mode: None,
             rank: None,
         }],
@@ -827,16 +896,21 @@ fn paint_division_icon(painter: &Painter, rect: Rect, division: Division) {
     );
 }
 
-/// The roster's row width, which holds a long name and a division side by side.
-const ROSTER_WIDTH: f32 = 380.0;
+/// The roster's row width, which holds a name beside the standings its player's card has.
+const ROSTER_WIDTH: f32 = 440.0;
 const ROSTER_PADDING: Vec2 = vec2(12.0, 10.0);
 const ROSTER_RACE_ICON: f32 = 15.0;
 const ROSTER_NAME_SIZE: f32 = 17.0;
 const ROSTER_DETAIL_SIZE: f32 = 13.0;
 const ROSTER_RECORD_SIZE: f32 = 14.0;
-const ROSTER_EMBLEM: f32 = 30.0;
-const ROSTER_DIVISION_SIZE: f32 = 15.0;
-const ROSTER_RATING_SIZE: f32 = 14.0;
+const ROSTER_EMBLEM: f32 = 26.0;
+const ROSTER_DIVISION_SIZE: f32 = 14.0;
+const ROSTER_STANDING_DETAIL_SIZE: f32 = 12.0;
+const ROSTER_RATING_SIZE: f32 = 13.0;
+/// The most of a row the standings may take, as a share of its width.
+const ROSTER_STANDING_SHARE: f32 = 0.55;
+/// Room between one of a row's standings and the next.
+const ROSTER_STANDING_GAP: f32 = 2.0;
 /// Room between one row and the next within a side.
 const ROSTER_ROW_GAP: f32 = 6.0;
 /// Room between an icon and the text beside it.
@@ -875,9 +949,10 @@ pub struct RosterRecord {
     pub main_race: Option<RaceView>,
     pub wins: u32,
     pub losses: u32,
-    /// In a matchmaking game, the player's standing in its mode, with no rank for a player not yet
-    /// rated in it. Outside matchmaking, their best mode, or `None` if they're rated in nothing.
-    pub standing: Option<ModeStanding>,
+    /// The mode the player has their highest MMR in, or `None` if they're rated in none.
+    pub best: Option<ModeStanding>,
+    /// The player's standing in the mode of the game being played, or `None` outside matchmaking.
+    pub current: Option<ModeStanding>,
 }
 
 /// One other player in the game.
@@ -901,9 +976,6 @@ pub struct RosterGroup {
 /// Every other player in the game, by side.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RosterView {
-    /// The game's matchmaking mode, which every row's standing is in, or `None` outside
-    /// matchmaking, where each row shows its player's best mode instead.
-    pub mode: Option<MatchmakingMode>,
     /// Allies before opponents: the player sizes up their own side first.
     pub groups: Vec<RosterGroup>,
 }
@@ -927,17 +999,11 @@ pub fn draw_roster(ctx: &Context, view: &RosterView, shown: bool, minimap: Optio
     .is_some()
 }
 
-/// A row's emblem, division and MMR, for a player whose stats are in. No MMR for one unranked.
-type RankGalleys = (Division, Arc<Galley>, Option<Arc<Galley>>);
-
 struct RosterLayout {
-    /// What the first side's heading says on its right, over the rank column: the mode every rank
-    /// is in, or that each is the player's best.
-    column: Arc<Galley>,
     groups: Vec<(Arc<Galley>, Vec<RosterRowLayout>)>,
-    /// How wide the rank column's text is, which every row's emblem stands to the left of so the
-    /// divisions line up down the roster.
-    rank_text_width: f32,
+    /// How wide the standings column is. Every row's standings are set this wide so their emblems
+    /// line up down the roster.
+    standing_width: f32,
     height: f32,
 }
 
@@ -946,67 +1012,68 @@ struct RosterRowLayout {
     race: RaceView,
     name: Arc<Galley>,
     detail: Arc<Galley>,
-    rank: Option<RankGalleys>,
+    /// The standing rows the player's `/stats` card has, in the roster's sizes. None until the
+    /// player's stats are in.
+    standings: Vec<RowLayout>,
+    standings_height: f32,
     height: f32,
 }
 
 impl RosterLayout {
     fn new(ctx: &Context, view: &RosterView) -> RosterLayout {
         let inner_width = ROSTER_WIDTH - ROSTER_PADDING.x * 2.0;
-        let column_text = match view.mode {
-            Some(mode) => mode.label(),
-            None => tr!("statsCard.bestMode", "Best mode"),
+        let lay_out_standings = |width: f32| {
+            view.groups
+                .iter()
+                .map(|group| {
+                    group
+                        .players
+                        .iter()
+                        .map(|player| roster_standings(ctx, player, width))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
         };
-        let column = text::column_label().layout(ctx, text::column_label().job(&column_text));
-        let ranks = view
-            .groups
-            .iter()
-            .map(|group| {
-                group
-                    .players
-                    .iter()
-                    .map(|player| rank_galleys(ctx, view.mode, player))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let rank_text_width = ranks
+        // The standings are set whole where they fit in their share of the row, and cut short
+        // past it, so a long caption can't take the room the names need.
+        let mut standings = lay_out_standings(f32::INFINITY);
+        let natural_width = standings
             .iter()
             .flatten()
             .flatten()
-            .map(|(_, division, rating)| {
-                division
-                    .size()
-                    .x
-                    .max(rating.as_ref().map_or(0.0, |rating| rating.size().x))
-            })
-            .fold(column.size().x - ROSTER_EMBLEM - ROSTER_ICON_GAP, f32::max);
+            .map(RowLayout::width)
+            .fold(0.0, f32::max);
+        let standing_width = natural_width.min(inner_width * ROSTER_STANDING_SHARE);
+        if natural_width > standing_width {
+            standings = lay_out_standings(standing_width);
+        }
         let left_width = inner_width
             - PLAYER_SWATCH
             - ROSTER_ICON_GAP
             - ROSTER_RACE_ICON
             - ROSTER_ICON_GAP
-            - ROSTER_EMBLEM
-            - ROSTER_ICON_GAP
-            - rank_text_width
+            - standing_width
             - theme::SPACE_MD;
         let mut height = ROSTER_PADDING.y * 2.0;
         let groups = view
             .groups
             .iter()
-            .zip(ranks)
+            .zip(standings)
             .enumerate()
-            .map(|(i, (group, ranks))| {
+            .map(|(i, (group, standings))| {
                 let heading =
                     text::column_label().layout(ctx, text::column_label().job(&group.side.label()));
                 if i > 0 {
                     height += theme::SPACE_SM * 2.0 + theme::HAIRLINE;
                 }
-                height += heading.size().y.max(column.size().y) + theme::SPACE_XS;
+                height += heading.size().y + theme::SPACE_XS;
                 let rows = group
                     .players
                     .iter()
-                    .zip(ranks)
-                    .map(|(player, rank)| RosterRowLayout::new(ctx, player, rank, left_width))
+                    .zip(standings)
+                    .map(|(player, standings)| {
+                        RosterRowLayout::new(ctx, player, standings, left_width)
+                    })
                     .collect::<Vec<_>>();
                 height += rows.iter().map(|row| row.height).sum::<f32>()
                     + ROSTER_ROW_GAP * rows.len().saturating_sub(1) as f32;
@@ -1014,9 +1081,8 @@ impl RosterLayout {
             })
             .collect();
         RosterLayout {
-            column,
             groups,
-            rank_text_width,
+            standing_width,
             height,
         }
     }
@@ -1024,7 +1090,7 @@ impl RosterLayout {
     fn paint(&self, painter: &Painter, rect: Rect) {
         paint_chrome(painter, rect, None);
         let inner = rect.shrink2(ROSTER_PADDING);
-        let rank_left = inner.right() - self.rank_text_width - ROSTER_ICON_GAP - ROSTER_EMBLEM;
+        let standing_left = inner.right() - self.standing_width;
         let mut top = inner.top();
         for (i, (heading, rows)) in self.groups.iter().enumerate() {
             if i > 0 {
@@ -1036,17 +1102,13 @@ impl RosterLayout {
                 );
                 top += theme::HAIRLINE + theme::SPACE_SM;
             }
-            let heading_height = heading.size().y.max(self.column.size().y);
             painter.galley(pos2(inner.left(), top), heading.clone(), theme::TEXT_DIM);
-            if i == 0 {
-                painter.galley(pos2(rank_left, top), self.column.clone(), theme::TEXT_DIM);
-            }
-            top += heading_height + theme::SPACE_XS;
+            top += heading.size().y + theme::SPACE_XS;
             for row in rows {
                 row.paint(
                     painter,
                     Rect::from_min_size(pos2(inner.left(), top), vec2(inner.width(), row.height)),
-                    rank_left,
+                    standing_left,
                 );
                 top += row.height + ROSTER_ROW_GAP;
             }
@@ -1054,54 +1116,22 @@ impl RosterLayout {
     }
 }
 
-/// The division and MMR a row shows on its right, for a player whose stats are in.
-fn rank_galleys(
-    ctx: &Context,
-    mode: Option<MatchmakingMode>,
-    player: &RosterPlayer,
-) -> Option<RankGalleys> {
+/// The standing rows of a player whose stats are in, laid out `width` across.
+fn roster_standings(ctx: &Context, player: &RosterPlayer, width: f32) -> Vec<RowLayout> {
     let RosterStats::Loaded(record) = &player.stats else {
-        return None;
+        return Vec::new();
     };
-    let division_spec = text::body(ROSTER_DIVISION_SIZE, BodyWeight::Semibold);
-    let Some(rank) = record.standing.and_then(|standing| standing.rank) else {
-        let spec = division_spec.with_color(theme::TEXT_SECONDARY);
-        let unranked = spec.layout(ctx, spec.job(&tr!("statsCard.unranked", "Unranked")));
-        return Some((Division::Unrated, unranked, None));
-    };
-    let division = division_spec.layout(ctx, division_spec.job(&rank.division.label()));
-    let mut job = LayoutJob::default();
-    append(
-        &mut job,
-        &text::numeral_strong(ROSTER_RATING_SIZE),
-        &rank.rating.to_string(),
-        0.0,
-    );
-    append(
-        &mut job,
-        &text::numeral(ROSTER_RATING_SIZE).with_color(theme::TEXT_DIM),
-        &tr!("statsCard.mmr", "MMR"),
-        3.0,
-    );
-    // Outside matchmaking each row is about its own player's best mode, so it says which.
-    if mode.is_none()
-        && let Some(standing) = record.standing
-    {
-        append(
-            &mut job,
-            &text::body(ROSTER_DETAIL_SIZE, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY),
-            &format!("· {}", standing.mode.label()),
-            5.0,
-        );
-    }
-    Some((rank.division, division, Some(text_layout(ctx, job))))
+    standing_rows(record.best, record.current)
+        .into_iter()
+        .map(|row| RowLayout::new(ctx, row, width, &ROSTER_STANDING))
+        .collect()
 }
 
 impl RosterRowLayout {
     fn new(
         ctx: &Context,
         player: &RosterPlayer,
-        rank: Option<RankGalleys>,
+        standings: Vec<RowLayout>,
         left_width: f32,
     ) -> RosterRowLayout {
         let name_spec = text::player_name(ROSTER_NAME_SIZE);
@@ -1139,21 +1169,20 @@ impl RosterRowLayout {
                 text_layout(ctx, job)
             }
         };
-        let rank_height = rank.as_ref().map_or(0.0, |(_, division, rating)| {
-            ROSTER_EMBLEM
-                .max(division.size().y + rating.as_ref().map_or(0.0, |rating| rating.size().y))
-        });
+        let standings_height = standings.iter().map(|row| row.height).sum::<f32>()
+            + ROSTER_STANDING_GAP * standings.len().saturating_sub(1) as f32;
         RosterRowLayout {
             color: player.color,
             race: player.race,
-            height: (name.size().y + detail.size().y).max(rank_height),
+            height: (name.size().y + detail.size().y).max(standings_height),
             name,
             detail,
-            rank,
+            standings,
+            standings_height,
         }
     }
 
-    fn paint(&self, painter: &Painter, rect: Rect, rank_left: f32) {
+    fn paint(&self, painter: &Painter, rect: Rect, standing_left: f32) {
         let name_top = rect.center().y - (self.name.size().y + self.detail.size().y) * 0.5;
         let name_middle = name_top + self.name.size().y * 0.5;
         // The square of the player's color the alliances screen and the observer panels mark a
@@ -1185,29 +1214,16 @@ impl RosterRowLayout {
             self.detail.clone(),
             theme::TEXT_SECONDARY,
         );
-        if let Some((division, division_text, rating)) = &self.rank {
-            let emblem = icon_rect(
-                pos2(rank_left + ROSTER_EMBLEM * 0.5, rect.center().y),
-                ROSTER_EMBLEM,
-                painter.ctx().pixels_per_point(),
+        let mut top = rect.center().y - self.standings_height * 0.5;
+        for standing in &self.standings {
+            standing.paint(
+                painter,
+                Rect::from_min_max(
+                    pos2(standing_left, top),
+                    pos2(rect.right(), top + standing.height),
+                ),
             );
-            paint_division_icon(painter, emblem, *division);
-            let text_left = rank_left + ROSTER_EMBLEM + ROSTER_ICON_GAP;
-            let height =
-                division_text.size().y + rating.as_ref().map_or(0.0, |rating| rating.size().y);
-            let top = rect.center().y - height * 0.5;
-            painter.galley(
-                pos2(text_left, top),
-                division_text.clone(),
-                theme::TEXT_PRIMARY,
-            );
-            if let Some(rating) = rating {
-                painter.galley(
-                    pos2(text_left, top + division_text.size().y),
-                    rating.clone(),
-                    theme::TEXT_PRIMARY,
-                );
-            }
+            top += standing.height + ROSTER_STANDING_GAP;
         }
     }
 }
@@ -1245,9 +1261,9 @@ mod tests {
         }
     }
 
-    fn row(caption: &str, standing: ModeStanding) -> StandingRow {
+    fn row(kind: StandingKind, standing: ModeStanding) -> StandingRow {
         StandingRow {
-            caption: caption.to_string(),
+            kind,
             mode: Some(standing.mode),
             rank: standing.rank,
         }
@@ -1258,8 +1274,11 @@ mod tests {
         let best = rated(MatchmakingMode::TwoVTwo, Division::Gold2, 1820);
         let current = rated(MatchmakingMode::OneVOne, Division::Silver1, 1550);
         assert_eq!(
-            standing_rows(&view(Some(best), Some(current))),
-            vec![row("Best mode", best), row("This game", current)]
+            standing_rows(Some(best), Some(current)),
+            vec![
+                row(StandingKind::Best, best),
+                row(StandingKind::ThisGame, current)
+            ]
         );
     }
 
@@ -1267,17 +1286,17 @@ mod tests {
     fn a_best_mode_that_is_this_games_mode_is_one_row() {
         let best = rated(MatchmakingMode::OneVOne, Division::Gold2, 1820);
         assert_eq!(
-            standing_rows(&view(Some(best), Some(best))),
-            vec![row("Best mode · This game", best)]
+            standing_rows(Some(best), Some(best)),
+            vec![row(StandingKind::BestThisGame, best)]
         );
     }
 
     #[test]
     fn a_player_rated_in_nothing_still_has_a_row_about_no_mode() {
         assert_eq!(
-            standing_rows(&view(None, None)),
+            standing_rows(None, None),
             vec![StandingRow {
-                caption: "Best mode".to_string(),
+                kind: StandingKind::Best,
                 mode: None,
                 rank: None,
             }]
@@ -1328,7 +1347,6 @@ mod tests {
         let ctx = Context::default();
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         let roster = RosterView {
-            mode: Some(MatchmakingMode::OneVOne),
             groups: vec![RosterGroup {
                 side: RosterSide::Opponents,
                 players: vec![RosterPlayer {

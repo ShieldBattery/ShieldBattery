@@ -472,6 +472,8 @@
     },
     "roster": {
       "allies": "Allies",
+      "best": "Best",
+      "bestThisGame": "Best · This game",
       "loading": "Loading…",
       "opponents": "Opponents",
       "unavailable": "No stats"

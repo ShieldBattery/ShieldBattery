@@ -107,8 +107,6 @@ pub(super) struct RosterStatsCache {
     /// By name, lowercased: the app answers with the name as the user has it, which may differ in
     /// case from how it was asked for.
     stats: HashMap<String, RosterStats>,
-    /// The game's matchmaking mode, as the first answer that had a standing in it said.
-    mode: Option<MatchmakingMode>,
 }
 
 impl RosterStatsCache {
@@ -130,18 +128,12 @@ impl RosterStatsCache {
     pub(super) fn received(&mut self, result: UserStatsResult) {
         let (name, stats) = match result {
             UserStatsResult::Found(stats) => {
-                let current = stats.current.and_then(mode_standing);
-                if let Some(current) = current {
-                    self.mode = Some(current.mode);
-                }
-                // In a matchmaking game a row is about its mode, even for a player unranked in
-                // it; outside one, about the player's best.
-                let standing = current.or_else(|| stats.best.and_then(mode_standing));
                 let record = RosterRecord {
                     main_race: stats.main_race.map(race_view),
                     wins: stats.wins,
                     losses: stats.losses,
-                    standing,
+                    best: stats.best.and_then(mode_standing),
+                    current: stats.current.and_then(mode_standing),
                 };
                 (stats.name, RosterStats::Loaded(record))
             }
@@ -206,10 +198,7 @@ pub(super) fn build_roster(
     .filter(|(_, players)| !players.is_empty())
     .map(|(side, players)| RosterGroup { side, players })
     .collect();
-    RosterView {
-        mode: cache.mode,
-        groups,
-    }
+    RosterView { groups }
 }
 
 #[cfg(test)]
@@ -295,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn roster_rows_follow_the_games_mode_and_match_names_in_any_case() {
+    fn roster_rows_keep_both_standings_and_match_names_in_any_case() {
         let mut cache = RosterStatsCache::default();
         cache.received(UserStatsResult::Found(found(
             "Tec27",
@@ -306,34 +295,31 @@ mod tests {
             )),
             Some(standing(MatchmakingType::OneVOne, None, None)),
         )));
-        assert_eq!(cache.mode, Some(MatchmakingMode::OneVOne));
         let RosterStats::Loaded(record) = cache.stats_of("tec27") else {
             panic!("expected stats");
         };
         assert_eq!(
-            record.standing,
-            Some(ModeStanding {
-                mode: MatchmakingMode::OneVOne,
-                rank: None,
-            }),
+            (record.best, record.current),
+            (
+                Some(ModeStanding {
+                    mode: MatchmakingMode::TwoVTwo,
+                    rank: Some(Rank {
+                        division: Division::Gold1,
+                        rating: 1700,
+                    }),
+                }),
+                Some(ModeStanding {
+                    mode: MatchmakingMode::OneVOne,
+                    rank: None,
+                }),
+            ),
         );
         assert_eq!(cache.stats_of("someone"), RosterStats::Loading);
     }
 
     #[test]
-    fn roster_rows_outside_matchmaking_show_the_best_mode() {
+    fn a_player_without_stats_has_an_unavailable_row() {
         let mut cache = RosterStatsCache::default();
-        let best = standing(
-            MatchmakingType::TwoVTwo,
-            Some(MatchmakingDivision::Gold1),
-            Some(1700),
-        );
-        cache.received(UserStatsResult::Found(found("tec27", Some(best), None)));
-        assert_eq!(cache.mode, None);
-        let RosterStats::Loaded(record) = cache.stats_of("tec27") else {
-            panic!("expected stats");
-        };
-        assert_eq!(record.standing, mode_standing(best));
         cache.received(UserStatsResult::NotFound {
             name: "ghost".into(),
         });
