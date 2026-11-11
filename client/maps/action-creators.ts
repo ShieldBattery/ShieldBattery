@@ -290,6 +290,33 @@ export function openMapFamilyReportDialog(initData: {
   return openDialog({ type: DialogType.MapFamilyReport, initData })
 }
 
+/**
+ * Opens the dialog that publishes a file from the user's maps. `selectedId` is the file a map's
+ * page shows, when it's opened from one.
+ */
+export function openMapPublishDialog(initData: { fileId: SbMapId; selectedId?: SbMapId }) {
+  return openDialog({ type: DialogType.MapPublish, initData })
+}
+
+/** Opens the dialog that adds a file its publisher listed alone to one of the maps it resembles. */
+export function openMapFileLinkDialog(initData: { fileId: SbMapId; selectedId?: SbMapId }) {
+  return openDialog({ type: DialogType.MapFileLink, initData })
+}
+
+/** Opens the dialog that confirms taking a file its publisher listed out of its map. */
+export function openMapFileUnlinkDialog(initData: {
+  fileName: string
+  mapName: string
+  onConfirm: () => void
+}) {
+  return openDialog({ type: DialogType.MapFileUnlink, initData })
+}
+
+/** Opens the dialog for staff to take a file out of the listings, or block it from them. */
+export function openMapDelistDialog(initData: { fileId: SbMapId; name: string; listed: boolean }) {
+  return openDialog({ type: DialogType.MapDelist, initData })
+}
+
 export function openMapDownloadDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapDownload, initData: { mapId } })
 }

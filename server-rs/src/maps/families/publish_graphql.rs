@@ -3,6 +3,8 @@
 //! unlinking their files.
 
 use async_graphql::{Context, Enum, InputObject, Object, Result};
+use serde::{Deserialize, Serialize};
+use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
@@ -19,8 +21,54 @@ use crate::maps::families::publish::{
 };
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::PublishSuggestion;
+use crate::redis::RedisPool;
+use crate::users::SbUserId;
 use crate::users::names::NameChecker;
 use crate::users::permissions::RequiredPermission;
+
+/// Messages published to Node (via Redis pub/sub) about publishing outcomes that concern the
+/// file's publisher. Node turns them into notifications.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedMapPublishMessage {
+    /// Staff took a listed file out of the listings.
+    #[serde(rename_all = "camelCase")]
+    FileDelisted {
+        file_id: SbMapId,
+        family_id: Uuid,
+        publisher_id: SbUserId,
+        /// The file's name when it was delisted.
+        name: String,
+        /// The note staff left, when they left one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        note: Option<String>,
+    },
+    /// Staff approved a file held for review, which listed it.
+    #[serde(rename_all = "camelCase")]
+    HeldPublishListed {
+        file_id: SbMapId,
+        family_id: Uuid,
+        publisher_id: SbUserId,
+        /// The file's name when it was listed.
+        name: String,
+    },
+}
+
+/// Publishes a map publish message. Best-effort: a failed publish only costs the publisher a
+/// notification, so it doesn't fail the request.
+pub(crate) async fn publish_map_publish_message(
+    ctx: &Context<'_>,
+    message: PublishedMapPublishMessage,
+) {
+    let Some(redis) = ctx.data_opt::<RedisPool>() else {
+        tracing::warn!("no RedisPool available to publish a map publish message");
+        return;
+    };
+    if let Err(err) = redis.publish(message).await {
+        tracing::error!("failed to publish map publish message: {err:?}");
+    }
+}
 
 fn publish_error(error: PublishError) -> async_graphql::Error {
     match error {
@@ -297,15 +345,27 @@ impl MapPublishingMutation {
     ) -> Result<MapFamilyReport> {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let same_map_report_id = publish::approve_review(db, report_id, user.id)
+        let approved = publish::approve_review(db, report_id, user.id)
             .await
             .map_err(publish_error)?;
+        if approved.listed_now && approved.publisher != user.id {
+            publish_map_publish_message(
+                ctx,
+                PublishedMapPublishMessage::HeldPublishListed {
+                    file_id: approved.file_id,
+                    family_id: approved.family_id,
+                    publisher_id: approved.publisher,
+                    name: approved.name,
+                },
+            )
+            .await;
+        }
         publish_report_message(
             ctx,
             PublishedMapFamilyReportMessage::ReportStatusChanged { report_id },
         )
         .await;
-        if let Some(report_id) = same_map_report_id {
+        if let Some(report_id) = approved.same_map_report_id {
             publish_report_message(
                 ctx,
                 PublishedMapFamilyReportMessage::ReportCreated { report_id },
@@ -343,9 +403,25 @@ impl MapPublishingMutation {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let file_id = resolve_existing_map_id(db, file_id).await?;
-        publish::delist(db, file_id, note.as_deref(), user.id)
+        let delisted = publish::delist(db, file_id, note.as_deref(), user.id)
             .await
             .map_err(publish_error)?;
+        if let Some(publisher_id) = delisted
+            .published_by
+            .filter(|&publisher| delisted.was_listed && publisher != user.id)
+        {
+            publish_map_publish_message(
+                ctx,
+                PublishedMapPublishMessage::FileDelisted {
+                    file_id,
+                    family_id: delisted.family_id,
+                    publisher_id,
+                    name: delisted.name,
+                    note: delisted.note,
+                },
+            )
+            .await;
+        }
         load_sb_map(ctx, file_id).await
     }
 

@@ -1,5 +1,6 @@
 import { DevSection } from '../../debug/dev-section'
 import { MapPageTest } from './map-page-test'
+import { MapPublishTest } from './map-publish-test'
 import { MapSearchTest } from './map-search-test'
 import { MapSpawnsTest } from './map-spawns-test'
 import { MapTilesTest } from './map-tiles-test'
@@ -10,6 +11,7 @@ export function DevMaps() {
       baseUrl='/dev/maps'
       routes={[
         ['Map page', 'page', MapPageTest],
+        ['Publish dialog', 'publish', MapPublishTest],
         ['Map search', 'search', MapSearchTest],
         ['Map spawns', 'spawns', MapSpawnsTest],
         ['Map tiles', 'tiles', MapTilesTest],
