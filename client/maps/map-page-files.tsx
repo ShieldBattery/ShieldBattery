@@ -351,7 +351,7 @@ function FileRow({
   let defaultChip = (
     <DefaultChip>
       <MaterialIcon icon='star' size={14} filled={true} />
-      {t('maps.files.default', 'Default')}
+      {t('maps.files.recommended', 'Recommended')}
     </DefaultChip>
   )
   if (canManageMaps) {
@@ -368,7 +368,7 @@ function FileRow({
   let unlistedChip = <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>
   if (canManageMaps && isPicked && !isDefault) {
     unlistedChip = (
-      <ChipTooltip text='Picked as default, but unused while unlisted' position='top'>
+      <ChipTooltip text='Picked as recommended, but unused while unlisted' position='top'>
         {unlistedChip}
       </ChipTooltip>
     )
@@ -452,10 +452,12 @@ function FileStaffMenu({
         if (result.error || !result.data) {
           throw new Error(result.error?.graphQLErrors[0]?.message ?? result.error?.message)
         }
-        snackbarController.showSnackbar(`Default is now ${labelOf(result.data.current)}${suffix}`)
+        snackbarController.showSnackbar(
+          `Recommended file is now ${labelOf(result.data.current)}${suffix}`,
+        )
       })
       .catch((err: Error) => {
-        snackbarController.showSnackbar(`Couldn't change the default: ${err.message}`)
+        snackbarController.showSnackbar(`Couldn't change the recommended file: ${err.message}`)
       })
   }
 
@@ -471,7 +473,7 @@ function FileStaffMenu({
     )
   if (isPicked) {
     items.push({
-      text: 'Clear default',
+      text: 'Clear recommendation',
       onClick: () =>
         changeDefault(
           clearDefault({ familyId: family.id }).then(r => ({
@@ -483,8 +485,8 @@ function FileStaffMenu({
     })
   } else {
     items.push({
-      text: 'Make default',
-      secondaryText: canBeDefault ? undefined : 'Unlisted files can’t be the default',
+      text: 'Make recommended',
+      secondaryText: canBeDefault ? undefined : 'Unlisted files can’t be recommended',
       disabled: !canBeDefault,
       onClick: () =>
         changeDefault(

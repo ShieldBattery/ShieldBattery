@@ -18,6 +18,7 @@ import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-con
 import { GameCommendNotificationService } from './lib/games/game-commend-notification-service'
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
+import { MapPublishNotificationService } from './lib/maps/map-publish-notification-service'
 import { NewsService } from './lib/news/news-service'
 import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/page-metadata'
 import { getCspNonce } from './lib/security/csp'
@@ -44,6 +45,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   // Have no HTTP API of their own; resolved here so their Redis subscriptions are set up at boot.
   container.resolve(GameReportNotificationService)
   container.resolve(GameCommendNotificationService)
+  container.resolve(MapPublishNotificationService)
 
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())

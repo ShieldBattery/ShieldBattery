@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { TranslationLanguage } from './i18n'
+import { SbMapId } from './maps'
 import { MatchmakingBanReason } from './matchmaking'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
@@ -44,6 +45,10 @@ export enum NotificationType {
   CommendReceived = 'commendReceived',
   /** The user was automatically banned or warned for not readying up or not loading into a match. */
   MatchmakingBan = 'matchmakingBan',
+  /** Staff took a map file the user published out of the listings. */
+  MapFileDelisted = 'mapFileDelisted',
+  /** A map file the user published was held for review, and staff listed it. */
+  MapPublishApproved = 'mapPublishApproved',
 }
 
 export type SbNotification =
@@ -64,6 +69,8 @@ export type SbNotification =
   | GamePointsRefundedNotification
   | CommendReceivedNotification
   | MatchmakingBanNotification
+  | MapFileDelistedNotification
+  | MapPublishApprovedNotification
 
 export interface BaseNotification {
   /**
@@ -245,4 +252,28 @@ export interface ClearNotificationsServerResponse {
 
 export interface MarkNotificationsReadServerRequest {
   notificationIds: ReadonlyArray<string>
+}
+
+/** Tells a player that staff took a map file they published out of the listings. */
+export interface MapFileDelistedNotification extends BaseNotification {
+  type: NotificationType.MapFileDelisted
+  /** The ID of the file. */
+  mapId: SbMapId
+  /** The ID of the map (family) the file belongs to. */
+  familyId: string
+  /** The file's name when it was delisted. May contain StarCraft color codes. */
+  mapName: string
+  /** The note staff left, if they left one. */
+  note?: string
+}
+
+/** Tells a player that staff reviewed a map file they published and listed it. */
+export interface MapPublishApprovedNotification extends BaseNotification {
+  type: NotificationType.MapPublishApproved
+  /** The ID of the file. */
+  mapId: SbMapId
+  /** The ID of the map (family) the file belongs to. */
+  familyId: string
+  /** The file's name when it was listed. May contain StarCraft color codes. */
+  mapName: string
 }

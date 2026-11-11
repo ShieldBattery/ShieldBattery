@@ -53,10 +53,14 @@ export enum DialogType {
   LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
+  MapDelist = 'mapDelist',
   MapDownload = 'mapDownload',
   MapFamilyAction = 'mapFamilyAction',
   MapFamilyReport = 'mapFamilyReport',
+  MapFileLink = 'mapFileLink',
+  MapFileUnlink = 'mapFileUnlink',
   MapPreview = 'mapPreview',
+  MapPublish = 'mapPublish',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
@@ -331,6 +335,17 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
   }
 >
 
+type MapDelistDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapDelist,
+  {
+    fileId: SbMapId
+    /** The file's name. */
+    name: string
+    /** Whether the file is listed right now. */
+    listed: boolean
+  }
+>
+
 type MapDownloadDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDownload,
   {
@@ -368,10 +383,42 @@ type MapFamilyReportDialogPayload = BaseDialogPayload<
   }
 >
 
+type MapFileLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFileLink,
+  {
+    /** The file to add to another map. */
+    fileId: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
+  }
+>
+
+type MapFileUnlinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFileUnlink,
+  {
+    /** The name of the file to take out of its map. */
+    fileName: string
+    /** The name of the map it's in. */
+    mapName: string
+    /** Takes the file out of its map once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
     mapId: SbMapId
+  }
+>
+
+type MapPublishDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapPublish,
+  {
+    /** The file to publish. */
+    fileId: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
   }
 >
 type GameVerificationFailedDialogPayload = BaseDialogPayload<
@@ -560,10 +607,14 @@ export type DialogPayload =
   | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
+  | MapDelistDialogPayload
   | MapDownloadDialogPayload
   | MapFamilyActionDialogPayload
   | MapFamilyReportDialogPayload
+  | MapFileLinkDialogPayload
+  | MapFileUnlinkDialogPayload
   | MapPreviewDialogPayload
+  | MapPublishDialogPayload
   | MarkdownDialogPayload
   | GameVerificationFailedDialogPayload
   | MatchCanceledDialogPayload

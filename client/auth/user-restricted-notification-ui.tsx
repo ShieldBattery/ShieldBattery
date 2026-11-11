@@ -36,6 +36,8 @@ function kindToIcon(kind: RestrictionKind): string {
       return 'block'
     case RestrictionKind.AvatarUpload:
       return 'no_accounts'
+    case RestrictionKind.MapPublishing:
+      return 'public_off'
     default:
       return kind satisfies never
   }
@@ -88,6 +90,12 @@ export function UserRestrictedNotificationUi({
       intro = t(
         'auth.restriction.avatarUpload.notification',
         'Your account has been restricted from uploading avatars.',
+      )
+      break
+    case RestrictionKind.MapPublishing:
+      intro = t(
+        'auth.restriction.mapPublishing.notification',
+        'Your account has been restricted from publishing maps.',
       )
       break
     default:
