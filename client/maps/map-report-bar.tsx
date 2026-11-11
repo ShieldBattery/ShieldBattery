@@ -525,7 +525,7 @@ function FixActions({ report }: { report: Report }) {
   } else if (report.kind === MapFamilyReportKind.Inappropriate) {
     if (map) {
       fixes.push({
-        label: 'Delist…',
+        label: 'Delist',
         tooltip: `Take ${filterColorCodes(map.name)} out of the listings`,
         onClick: () =>
           dispatch(
@@ -551,20 +551,20 @@ function FixActions({ report }: { report: Report }) {
         )
       if (family.files.length > 1) {
         fixes.push({
-          label: 'Split file…',
+          label: 'Split file',
           tooltip: 'Split this file into its own map',
           onClick: () => openAction('split'),
         })
       }
       fixes.push({
-        label: 'Move file…',
+        label: 'Move file',
         tooltip: 'Move this file to another map',
         onClick: () => openAction('move'),
       })
     }
   } else if (report.kind === MapFamilyReportKind.SameMap && family && otherFamily) {
     fixes.push({
-      label: 'Merge maps…',
+      label: 'Merge maps',
       tooltip: `Merge ${filterColorCodes(family.name)} into ${filterColorCodes(otherFamily.name)}`,
       onClick: () =>
         dispatch(

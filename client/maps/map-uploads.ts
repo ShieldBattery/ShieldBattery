@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { atom, useSetAtom } from 'jotai'
 import { nanoid } from 'nanoid'
 import { useTranslation } from 'react-i18next'
@@ -75,6 +76,52 @@ async function addKnownMapToLibrary(client: Client, file: File): Promise<SbMapId
   return added.error ? undefined : mapId
 }
 
+/**
+ * Returns a function that adds the map in `file` to the viewer's own maps, resolving to the map once
+ * it's in. A file the server already has is added without uploading it; otherwise the file is
+ * uploaded, with the fraction of it sent so far reported to `onProgress`. Rejects with what went
+ * wrong, for {@link mapUploadErrorMessage}.
+ */
+export function useAddMapFileToLibrary(): (
+  file: File,
+  onProgress?: (fraction: number) => void,
+) => Promise<UploadedMap> {
+  const dispatch = useAppDispatch()
+  const client = useClient()
+  const setLibraryVersion = useSetAtom(mapLibraryVersionAtom)
+
+  return async (file, onProgress) => {
+    // Failing to check is no reason not to upload, so any error here just means uploading
+    const knownMapId = await addKnownMapToLibrary(client, file).catch(() => undefined)
+    const uploaded = await new Promise<UploadedMap>((resolve, reject) => {
+      const spec = { onSuccess: resolve, onError: reject }
+      dispatch(
+        knownMapId
+          ? loadMapAddedToLibrary(knownMapId, spec)
+          : uploadMapFile(file, spec, onProgress),
+      )
+    })
+    setLibraryVersion(v => v + 1)
+    return uploaded
+  }
+}
+
+/**
+ * A map upload's status: how much of the file has been sent, then that the server is processing it
+ * (parsing it and rendering its images), which it does before it answers.
+ */
+export function uploadStatusText(progress: number | undefined, t: TFunction): string {
+  if (progress === undefined) {
+    return t('maps.catalog.uploading', 'Uploading…')
+  } else if (progress >= 1) {
+    return t('maps.catalog.processing', 'Processing…')
+  }
+  return t('maps.catalog.uploadingPercent', {
+    defaultValue: 'Uploading… {{percent}}%',
+    percent: Math.floor(progress * 100),
+  })
+}
+
 export interface UploadMapFilesOptions {
   /**
    * Called when map files start uploading. By default they're shown on the catalog's Your maps
@@ -96,11 +143,9 @@ export function useUploadMapFiles(
   options: UploadMapFilesOptions = {},
 ): (files: Iterable<File>) => void {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const client = useClient()
   const snackbarController = useSnackbarController()
   const setPending = useSetAtom(pendingMapUploadsAtom)
-  const setLibraryVersion = useSetAtom(mapLibraryVersionAtom)
+  const addToLibrary = useAddMapFileToLibrary()
 
   const showUploaded = (map: ReadonlyDeep<MapInfoJson>) => {
     snackbarController.showSnackbar(
@@ -124,32 +169,17 @@ export function useUploadMapFiles(
       setPending(pending => pending.map(p => (p.key === key ? { ...p, ...changes } : p)))
     setPending(pending => [...pending, { key, fileName: file.name }])
 
-    // Failing to check is no reason not to upload, so any error here just means uploading
-    const knownMapId = await addKnownMapToLibrary(client, file).catch(() => undefined)
-
-    await new Promise<void>(resolve => {
-      const spec = {
-        onSuccess: ({ map }: UploadedMap) => {
-          setPending(pending => pending.filter(p => p.key !== key))
-          setLibraryVersion(v => v + 1)
-          if (options.onUploaded) {
-            options.onUploaded(map, files)
-          } else {
-            showUploaded(map)
-          }
-          resolve()
-        },
-        onError: (err: unknown) => {
-          update({ error: mapUploadErrorMessage(err) })
-          resolve()
-        },
+    try {
+      const { map } = await addToLibrary(file, progress => update({ progress }))
+      setPending(pending => pending.filter(p => p.key !== key))
+      if (options.onUploaded) {
+        options.onUploaded(map, files)
+      } else {
+        showUploaded(map)
       }
-      dispatch(
-        knownMapId
-          ? loadMapAddedToLibrary(knownMapId, spec)
-          : uploadMapFile(file, spec, progress => update({ progress })),
-      )
-    })
+    } catch (err) {
+      update({ error: mapUploadErrorMessage(err) })
+    }
   }
 
   return files => {

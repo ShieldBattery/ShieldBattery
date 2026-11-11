@@ -340,7 +340,7 @@ export function openMapOwnerEditDialog(initData: { familyId: string }) {
   return openDialog({ type: DialogType.MapOwnerEdit, initData })
 }
 
-/** Opens the dialog that adds files a map's owner published to that map. */
+/** Opens the dialog that adds a file to a map the current user owns. */
 export function openMapOwnerAddFileDialog(initData: { familyId: string; mapName: string }) {
   return openDialog({ type: DialogType.MapOwnerAddFile, initData })
 }

@@ -1,14 +1,22 @@
-import { useState } from 'react'
+import * as React from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { CombinedError, useMutation, useQuery } from 'urql'
+import { CombinedError, useClient, useMutation, useQuery } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { filterColorCodes } from '../../common/maps'
+import { filterColorCodes, SbMapId } from '../../common/maps'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { UserErrorCode } from '../../common/users/user-network'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { graphql, useFragment } from '../gql'
-import { MapOwnerAddFileLibraryQuery, MapOwnerKind } from '../gql/graphql'
+import {
+  MapDelistedKind,
+  MapOwnerAddFileLibraryQuery,
+  MapOwnerKind,
+  MapPublishAnswerKind,
+} from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { OutlinedButton, TextButton } from '../material/button'
@@ -23,12 +31,16 @@ import {
   bodyMedium,
   bodySmall,
   labelLarge,
+  labelMedium,
   singleLine,
   titleSmall,
 } from '../styles/typography'
 import { findUserByName } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
+import { mapUploadErrorMessage } from './action-creators'
+import { AddFileFacts, addFileUnavailableText, joinedMessage, planAddFile } from './map-add-file'
 import { MapFileImage } from './map-image'
+import { MakeRecommendedCheckBox, useMakeRecommended } from './map-make-recommended'
 import {
   claimErrorText,
   errorCode,
@@ -41,6 +53,8 @@ import {
   useClaimMapOwner,
   useRemoveMapOwner,
 } from './map-owner-actions'
+import { publishErrorText, publishGenericErrorText } from './map-publish'
+import { MAP_FILE_EXTENSIONS, uploadStatusText, useAddMapFileToLibrary } from './map-uploads'
 
 /**
  * Requests results without suspending: the dialogs render their own loading states. Module-level
@@ -50,6 +64,10 @@ const NO_SUSPENSE_CONTEXT = { suspense: false }
 
 const StyledDialog = styled(Dialog)`
   max-width: 560px;
+`
+
+const AddFileDialog = styled(Dialog)`
+  max-width: 640px;
 `
 
 const Layout = styled.div`
@@ -467,8 +485,12 @@ export function MapOwnerEditDialog({ familyId, onCancel }: MapOwnerEditDialogPro
   )
 }
 
+/**
+ * The viewer's library, newest first. A file's map is selected with what deciding how the file can
+ * join another map needs (see {@link planAddFile}).
+ */
 const AddFileLibraryQuery = graphql(/* GraphQL */ `
-  query MapOwnerAddFileLibrary($after: String, $first: Int) {
+  query MapOwnerAddFileLibrary($after: String, $first: Int, $canManageMaps: Boolean!) {
     currentUser {
       id
       mapLibrary(sort: NEWEST, after: $after, first: $first) {
@@ -488,8 +510,17 @@ const AddFileLibraryQuery = graphql(/* GraphQL */ `
             publisher {
               id
             }
+            moderation @include(if: $canManageMaps) {
+              id
+              delistedKind
+            }
             family {
               id
+              name
+              credit
+              owner {
+                id
+              }
               files {
                 id
               }
@@ -502,6 +533,44 @@ const AddFileLibraryQuery = graphql(/* GraphQL */ `
             }
           }
         }
+      }
+    }
+  }
+`)
+
+/** A file the viewer just uploaded, selected as {@link AddFileLibraryQuery} selects its files. */
+const AddFileUploadedQuery = graphql(/* GraphQL */ `
+  query MapOwnerAddFileUploaded($id: SbMapId!, $canManageMaps: Boolean!) {
+    map(id: $id) {
+      id
+      name
+      listed
+      official
+      playerCount
+      publishedAt
+      publisher {
+        id
+      }
+      moderation @include(if: $canManageMaps) {
+        id
+        delistedKind
+      }
+      family {
+        id
+        name
+        credit
+        owner {
+          id
+        }
+        files {
+          id
+        }
+      }
+      file {
+        id
+        width
+        height
+        ...MapFileImage_FileFragment
       }
     }
   }
@@ -532,15 +601,61 @@ const AddFileLinkMutation = graphql(/* GraphQL */ `
   }
 `)
 
+/** Selects what the views of the file show about its listing, so they update from the result. */
+const AddFilePublishMutation = graphql(/* GraphQL */ `
+  mutation MapOwnerAddFilePublish($fileId: SbMapId!, $answer: MapPublishAnswerInput!) {
+    mapPublish(fileId: $fileId, answer: $answer) {
+      id
+      heldForReview
+      file {
+        id
+        listed
+        publishedAt
+        publisher {
+          id
+          name
+        }
+        family {
+          id
+          name
+        }
+      }
+      family {
+        id
+        name
+        current {
+          id
+        }
+      }
+    }
+  }
+`)
+
 /** How many files of the viewer's library each page of the dialog looks through. */
 const LIBRARY_PAGE_SIZE = 100
 
 const publishedFormat = dateTimeFormat({ year: 'numeric', month: 'short', day: 'numeric' })
 
-const FileRows = styled.div`
+const UploadRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+`
+
+const HiddenFileInput = styled.input`
+  display: none;
+`
+
+const FileGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2px;
+`
+
+const GroupLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const FileRow = styled.div`
@@ -583,9 +698,43 @@ const LoadMoreRow = styled.div`
   justify-content: center;
 `
 
-type LibraryFile = NonNullable<
+/** A file of the viewer's library, as the dialog lists it. */
+export type AddFileData = NonNullable<
   MapOwnerAddFileLibraryQuery['currentUser']
 >['mapLibrary']['edges'][number]['node']
+
+function addFileFacts(file: AddFileData): AddFileFacts {
+  return {
+    name: file.name,
+    listed: file.listed,
+    official: file.official,
+    publisherId: file.publisher?.id,
+    staffDelisted: file.moderation?.delistedKind === MapDelistedKind.Staff,
+    family: {
+      id: file.family.id,
+      name: file.family.name,
+      fileCount: file.family.files.length,
+      ownerId: file.family.owner?.id,
+      credited: !!file.family.credit,
+    },
+  }
+}
+
+/** What the add file dialog is doing. */
+export type AddFileBusy =
+  /** Uploading a file the viewer picked, with the fraction of it sent so far once that's known. */
+  | { kind: 'uploading'; progress?: number }
+  /** Adding a file to the map: one of the listed files, or (without `fileId`) the uploaded one. */
+  | { kind: 'adding'; fileId?: SbMapId }
+
+/** The viewer's library as the dialog has loaded it so far. */
+export interface AddFileListing {
+  files: ReadonlyArray<AddFileData>
+  status: 'loading' | 'failed' | 'loaded'
+  /** Set while there are older files to look through. */
+  onLoadMore?: () => void
+  onRetry: () => void
+}
 
 export interface MapOwnerAddFileDialogProps extends CommonDialogProps {
   familyId: string
@@ -593,8 +742,9 @@ export interface MapOwnerAddFileDialogProps extends CommonDialogProps {
 }
 
 /**
- * Adds files a map's owner published to that map: the listed files they published that are alone
- * in maps of their own, each moved in with one button.
+ * Adds a file to a map the viewer owns: one they upload, a listed file of theirs that's alone in a
+ * map of its own, or an unlisted one from their library, which is published into the map. The
+ * file can become the map's recommended file along the way.
  */
 export function MapOwnerAddFileDialog({
   familyId,
@@ -603,178 +753,422 @@ export function MapOwnerAddFileDialog({
   close,
 }: MapOwnerAddFileDialogProps) {
   const { t } = useTranslation()
+  const selfUser = useSelfUser()
+  const canManageMaps = useHasAnyPermission('manageMaps')
+  const client = useClient()
   const snackbarController = useSnackbarController()
+  const addToLibrary = useAddMapFileToLibrary()
+  const makeFileRecommended = useMakeRecommended()
+  const [, link] = useMutation(AddFileLinkMutation)
+  const [, publish] = useMutation(AddFilePublishMutation)
   const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
-  const [{ fetching: adding }, link] = useMutation(AddFileLinkMutation)
+  const [busy, setBusy] = useState<AddFileBusy>()
   const [errorMessage, setErrorMessage] = useState<string>()
+  const [makeRecommended, setMakeRecommended] = useState(true)
 
-  const name = filterColorCodes(mapName)
-  const onAdd = (file: LibraryFile) => {
-    setErrorMessage(undefined)
-    link({ fileId: file.id, familyId })
-      .then(result => {
+  const fail = (message: string) => {
+    setBusy(undefined)
+    setErrorMessage(message)
+  }
+
+  const finishJoined = async (fileId: SbMapId) => {
+    close()
+    const recommended = await makeFileRecommended(fileId, makeRecommended)
+    snackbarController.showSnackbar(joinedMessage({ mapName, recommended }, t))
+  }
+
+  const loadFile = async (id: SbMapId): Promise<AddFileData | undefined> => {
+    const result = await client
+      .query(AddFileUploadedQuery, { id, canManageMaps }, { requestPolicy: 'network-only' })
+      .toPromise()
+    return result.data?.map ?? undefined
+  }
+
+  /**
+   * Adds `file` to the map as {@link planAddFile} says it can join. A file that turns out to have
+   * been published meanwhile is looked at again, once, when `recheck` is set.
+   */
+  const addFile = async (file: AddFileData, recheck: boolean): Promise<void> => {
+    if (!selfUser) {
+      return
+    }
+    const plan = planAddFile(addFileFacts(file), familyId, selfUser.id)
+    switch (plan.kind) {
+      case 'alreadyHere':
+        await finishJoined(file.id)
+        return
+      case 'unavailable':
+        fail(addFileUnavailableText(plan, t))
+        return
+      case 'link': {
+        const result = await link({ fileId: file.id, familyId })
         if (result.error || !result.data) {
-          const code = result.error ? errorCode(result.error) : undefined
-          if (code === 'RESTRICTED') {
-            setErrorMessage(t('maps.owner.restricted', "You're restricted from publishing maps."))
-          } else if (code === 'PROTECTED_MAP') {
-            setErrorMessage(
-              t(
-                'maps.publish.protectedMap',
-                "This file's map has a maker, so it can't be added to another map.",
-              ),
-            )
-          } else {
-            setErrorMessage(ownerErrorText(t))
-          }
+          fail(publishErrorText(result.error ? errorCode(result.error) : undefined, t))
           return
         }
-        close()
-        snackbarController.showSnackbar(
-          t('maps.publish.linked', 'Added to {{mapName}}', { mapName: name }),
-        )
-      })
+        await finishJoined(file.id)
+        return
+      }
+      case 'publish': {
+        const result = await publish({
+          fileId: file.id,
+          answer: {
+            kind: plan.answer,
+            familyId: plan.answer === MapPublishAnswerKind.Join ? familyId : undefined,
+          },
+        })
+        if (result.error || !result.data) {
+          fail(publishErrorText(result.error ? errorCode(result.error) : undefined, t))
+          return
+        }
+        const published = result.data.mapPublish
+        if (published.heldForReview) {
+          close()
+          snackbarController.showSnackbar(
+            t(
+              'maps.owner.addHeldForReview',
+              "Sent to staff for review. It joins {{mapName}} once it's listed.",
+              { mapName: filterColorCodes(mapName) },
+            ),
+          )
+          return
+        }
+        if (published.family.id === familyId) {
+          await finishJoined(file.id)
+          return
+        }
+        // Publishing leaves a file that's already listed as it is
+        const fresh = recheck ? await loadFile(file.id) : undefined
+        if (fresh) {
+          await addFile(fresh, false)
+        } else {
+          fail(
+            addFileUnavailableText(
+              { kind: 'unavailable', reason: 'listedElsewhere', mapName: published.family.name },
+              t,
+            ),
+          )
+        }
+        return
+      }
+      default:
+        plan satisfies never
+    }
+  }
+
+  const onAdd = (file: AddFileData) => {
+    setErrorMessage(undefined)
+    setBusy({ kind: 'adding', fileId: file.id })
+    addFile(file, true).catch(() => fail(publishGenericErrorText(t)))
+  }
+
+  const onUpload = (picked: File) => {
+    setErrorMessage(undefined)
+    setBusy({ kind: 'uploading' })
+    addToLibrary(picked, progress => setBusy({ kind: 'uploading', progress }))
+      .then(
+        async ({ map }) => {
+          setBusy({ kind: 'adding' })
+          try {
+            const file = await loadFile(map.id)
+            if (file) {
+              await addFile(file, true)
+            } else {
+              fail(publishGenericErrorText(t))
+            }
+          } catch {
+            fail(publishGenericErrorText(t))
+          }
+        },
+        (err: unknown) => fail(mapUploadErrorMessage(err)),
+      )
       .catch(swallowNonBuiltins)
   }
 
   return (
-    <StyledDialog
-      title={t('maps.owner.addFileTitle', 'Add one of my files')}
+    <MapOwnerAddFileFrame mapName={mapName} busy={busy} onCancel={onCancel}>
+      {selfUser ? (
+        <LibraryPages
+          cursors={pageCursors}
+          index={0}
+          before={[]}
+          canManageMaps={canManageMaps}
+          onLoadMore={endCursor =>
+            setPageCursors(prev => (prev.includes(endCursor) ? prev : [...prev, endCursor]))
+          }>
+          {listing => (
+            <MapOwnerAddFileBody
+              familyId={familyId}
+              viewerId={selfUser.id}
+              listing={listing}
+              busy={busy}
+              errorMessage={errorMessage}
+              makeRecommended={makeRecommended}
+              onMakeRecommendedChange={setMakeRecommended}
+              onUpload={onUpload}
+              onAdd={onAdd}
+            />
+          )}
+        </LibraryPages>
+      ) : null}
+    </MapOwnerAddFileFrame>
+  )
+}
+
+/**
+ * The pages of the viewer's library that the dialog has asked for, from `index` on, each loaded
+ * after the ones before it (whose files come in `before`). The last page renders the listing.
+ */
+function LibraryPages({
+  cursors,
+  index,
+  before,
+  canManageMaps,
+  onLoadMore,
+  children,
+}: {
+  cursors: ReadonlyArray<string | null>
+  index: number
+  before: ReadonlyArray<AddFileData>
+  canManageMaps: boolean
+  onLoadMore: (endCursor: string) => void
+  children: (listing: AddFileListing) => React.ReactNode
+}) {
+  const [{ data, error }, refetch] = useQuery({
+    query: AddFileLibraryQuery,
+    variables: { after: cursors[index] ?? undefined, first: LIBRARY_PAGE_SIZE, canManageMaps },
+    requestPolicy: 'cache-and-network',
+    context: NO_SUSPENSE_CONTEXT,
+  })
+  const onRetry = () => refetch({ requestPolicy: 'network-only' })
+  const connection = data?.currentUser?.mapLibrary
+  if (!connection) {
+    return children({ files: before, status: error ? 'failed' : 'loading', onRetry })
+  }
+
+  const files = [...before, ...connection.edges.map(e => e.node)]
+  if (index < cursors.length - 1) {
+    return (
+      <LibraryPages
+        cursors={cursors}
+        index={index + 1}
+        before={files}
+        canManageMaps={canManageMaps}
+        onLoadMore={onLoadMore}>
+        {children}
+      </LibraryPages>
+    )
+  }
+  const { hasNextPage, endCursor } = connection.pageInfo
+  return children({
+    files,
+    status: 'loaded',
+    onLoadMore: hasNextPage && endCursor ? () => onLoadMore(endCursor) : undefined,
+    onRetry,
+  })
+}
+
+/** The add file dialog's frame: its title and its Close button. */
+export function MapOwnerAddFileFrame({
+  mapName,
+  busy,
+  onCancel,
+  children,
+}: {
+  mapName: string
+  busy?: AddFileBusy
+  onCancel: () => void
+  children: React.ReactNode
+}) {
+  const { t } = useTranslation()
+  return (
+    <AddFileDialog
+      title={t('maps.owner.addFileTitle', 'Add a file to {{mapName}}', {
+        mapName: filterColorCodes(mapName),
+      })}
       buttons={[
         <TextButton
           key='close'
           label={t('common.actions.close', 'Close')}
-          disabled={adding}
+          disabled={!!busy}
           onClick={onCancel}
         />,
       ]}
       onCancel={onCancel}
       showCloseButton={true}>
-      <Layout>
-        {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
-        <FileRows>
-          {pageCursors.map((cursor, i) => (
-            <AddFilePage
-              key={cursor ?? 'first'}
-              familyId={familyId}
-              after={cursor}
-              isFirst={i === 0}
-              isLast={i === pageCursors.length - 1}
-              disabled={adding}
-              onAdd={onAdd}
-              onLoadMore={endCursor =>
-                setPageCursors(prev => (prev.includes(endCursor) ? prev : [...prev, endCursor]))
-              }
-            />
-          ))}
-        </FileRows>
-      </Layout>
-    </StyledDialog>
+      {children}
+    </AddFileDialog>
   )
 }
 
-/**
- * One page of the viewer's library, showing the files on it that can be added to the map. The
- * first page says when there's nothing to add, and the last one offers to look further.
- */
-function AddFilePage({
-  familyId,
-  after,
-  isFirst,
-  isLast,
-  disabled,
-  onAdd,
-  onLoadMore,
-}: {
+export interface MapOwnerAddFileBodyProps {
   familyId: string
-  after: string | null
-  isFirst: boolean
-  isLast: boolean
-  disabled: boolean
-  onAdd: (file: LibraryFile) => void
-  onLoadMore: (endCursor: string) => void
-}) {
+  viewerId: SbUserId
+  listing: AddFileListing
+  busy?: AddFileBusy
+  errorMessage?: string
+  makeRecommended: boolean
+  onMakeRecommendedChange: (checked: boolean) => void
+  /** Uploads a map file the viewer picked and adds it to the map. */
+  onUpload: (file: File) => void
+  onAdd: (file: AddFileData) => void
+}
+
+/**
+ * What the add file dialog shows: a button uploading a new file, the choice of making the added
+ * file the recommended one, and the viewer's files that can join the map, the listed ones apart
+ * from the ones that would be published.
+ */
+export function MapOwnerAddFileBody({
+  familyId,
+  viewerId,
+  listing,
+  busy,
+  errorMessage,
+  makeRecommended,
+  onMakeRecommendedChange,
+  onUpload,
+  onAdd,
+}: MapOwnerAddFileBodyProps) {
   const { t } = useTranslation()
-  const selfUser = useSelfUser()
-  const publishedDate = useFormat(publishedFormat)
-  const [{ data, error }, refetch] = useQuery({
-    query: AddFileLibraryQuery,
-    variables: { after: after ?? undefined, first: LIBRARY_PAGE_SIZE },
-    requestPolicy: 'cache-and-network',
-    context: NO_SUSPENSE_CONTEXT,
-  })
-  const connection = data?.currentUser?.mapLibrary
-  if (!connection) {
-    return error ? (
-      <LoadErrorRow
-        message={t('maps.owner.filesLoadError', "Couldn't load your files")}
-        onRetry={() => refetch({ requestPolicy: 'network-only' })}
-      />
-    ) : (
-      <LoadingDotsArea />
-    )
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const published: AddFileData[] = []
+  const unpublished: AddFileData[] = []
+  for (const file of listing.files) {
+    const plan = planAddFile(addFileFacts(file), familyId, viewerId)
+    if (plan.kind === 'link') {
+      published.push(file)
+    } else if (plan.kind === 'publish') {
+      unpublished.push(file)
+    }
+  }
+  const hasRows = published.length > 0 || unpublished.length > 0
+  const showGroupLabels = published.length > 0 && unpublished.length > 0
+
+  let uploadLabel = t('maps.owner.uploadFile', 'Upload a file')
+  if (busy?.kind === 'uploading') {
+    uploadLabel = uploadStatusText(busy.progress, t)
+  } else if (busy?.kind === 'adding' && !busy.fileId) {
+    uploadLabel = t('maps.owner.adding', 'Adding…')
   }
 
-  // A file moves in by taking the place of its own map, which only the publisher's listed file
-  // can do while it's alone there
-  const files = connection.edges
-    .map(e => e.node)
-    .filter(
-      f =>
-        f.listed &&
-        !f.official &&
-        !!selfUser &&
-        f.publisher?.id === selfUser.id &&
-        f.family.id !== familyId &&
-        f.family.files.length === 1,
-    )
-  const { hasNextPage, endCursor } = connection.pageInfo
+  const rowsOf = (files: AddFileData[], label: string) =>
+    files.map(file => (
+      <AddFileRow
+        key={file.id}
+        file={file}
+        label={
+          busy?.kind === 'adding' && busy.fileId === file.id
+            ? t('maps.owner.adding', 'Adding…')
+            : label
+        }
+        disabled={!!busy}
+        onAdd={onAdd}
+      />
+    ))
 
   return (
-    <>
-      {files.map(file => {
-        const fileName = filterColorCodes(file.name)
-        const meta = [
-          `${file.file.width}×${file.file.height}`,
-          t('maps.catalog.players', {
-            defaultValue: '{{count}} players',
-            defaultValue_one: '{{count}} player',
-            count: file.playerCount,
-          }),
-        ]
-        if (file.publishedAt) {
-          meta.push(publishedDate.format(new Date(file.publishedAt)))
-        }
-        return (
-          <FileRow key={file.id}>
-            <FileThumbnail>
-              <MapFileImage file={file.file} name={fileName} size={64} forceAspectRatio={1} />
-            </FileThumbnail>
-            <FileName>{fileName}</FileName>
-            <FileMeta>{meta.join(' · ')}</FileMeta>
-            <TextButton
-              label={t('maps.owner.addFile', 'Add')}
-              disabled={disabled}
-              onClick={() => onAdd(file)}
-            />
-          </FileRow>
-        )
-      })}
-      {isFirst && !files.length && !hasNextPage ? (
-        <BodyText>
-          <MutedText>
-            {t('maps.owner.noFilesToAdd', 'You have no other published files to add.')}
-          </MutedText>
-        </BodyText>
+    <Layout>
+      {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
+      <UploadRow>
+        <OutlinedButton
+          label={uploadLabel}
+          iconStart='upload'
+          disabled={!!busy}
+          onClick={() => fileInputRef.current?.click()}
+        />
+        {listing.status === 'loaded' && !hasRows ? (
+          <MutedBody>{t('maps.owner.uploadHint', 'Upload the new version to add it.')}</MutedBody>
+        ) : null}
+        <HiddenFileInput
+          ref={fileInputRef}
+          type='file'
+          accept={MAP_FILE_EXTENSIONS.map(e => `.${e}`).join(',')}
+          onChange={event => {
+            const picked = event.target.files?.[0]
+            event.target.value = ''
+            if (picked) {
+              onUpload(picked)
+            }
+          }}
+        />
+      </UploadRow>
+      <MakeRecommendedCheckBox
+        checked={makeRecommended}
+        disabled={!!busy}
+        onChange={onMakeRecommendedChange}
+      />
+      {published.length ? (
+        <FileGroup>
+          {showGroupLabels ? (
+            <GroupLabel>{t('maps.owner.publishedGroup', 'Published')}</GroupLabel>
+          ) : null}
+          {rowsOf(published, t('maps.owner.addFile', 'Add'))}
+        </FileGroup>
       ) : null}
-      {isLast && hasNextPage && endCursor ? (
+      {unpublished.length ? (
+        <FileGroup>
+          {showGroupLabels ? (
+            <GroupLabel>{t('maps.owner.unpublishedGroup', 'Not published yet')}</GroupLabel>
+          ) : null}
+          {rowsOf(unpublished, t('maps.owner.publishAndAdd', 'Publish and add'))}
+        </FileGroup>
+      ) : null}
+      {listing.status === 'failed' ? (
+        <LoadErrorRow
+          message={t('maps.owner.filesLoadError', "Couldn't load your files")}
+          onRetry={listing.onRetry}
+        />
+      ) : null}
+      {listing.status === 'loading' ? <LoadingDotsArea /> : null}
+      {listing.onLoadMore ? (
         <LoadMoreRow>
           <TextButton
             label={t('maps.owner.lookFurther', 'Look through older files')}
-            onClick={() => onLoadMore(endCursor)}
+            disabled={!!busy}
+            onClick={listing.onLoadMore}
           />
         </LoadMoreRow>
       ) : null}
-    </>
+    </Layout>
+  )
+}
+
+/** One of the viewer's files: its image, name, size, players and publish date, and a button. */
+function AddFileRow({
+  file,
+  label,
+  disabled,
+  onAdd,
+}: {
+  file: AddFileData
+  label: string
+  disabled: boolean
+  onAdd: (file: AddFileData) => void
+}) {
+  const { t } = useTranslation()
+  const publishedDate = useFormat(publishedFormat)
+  const fileName = filterColorCodes(file.name)
+  const meta = [
+    `${file.file.width}×${file.file.height}`,
+    t('maps.catalog.players', {
+      defaultValue: '{{count}} players',
+      defaultValue_one: '{{count}} player',
+      count: file.playerCount,
+    }),
+  ]
+  if (file.publishedAt) {
+    meta.push(publishedDate.format(new Date(file.publishedAt)))
+  }
+  return (
+    <FileRow>
+      <FileThumbnail>
+        <MapFileImage file={file.file} name={fileName} size={64} forceAspectRatio={1} />
+      </FileThumbnail>
+      <FileName>{fileName}</FileName>
+      <FileMeta>{meta.join(' · ')}</FileMeta>
+      <TextButton label={label} disabled={disabled} onClick={() => onAdd(file)} />
+    </FileRow>
   )
 }

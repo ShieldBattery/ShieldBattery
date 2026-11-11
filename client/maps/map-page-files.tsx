@@ -33,6 +33,7 @@ import {
   urlForMapFile,
   visibleFamilyFiles,
 } from './map-family-files'
+import { MapFamilySetDefaultMutation } from './map-make-recommended'
 
 export const MapPageFiles_FileFragment = graphql(/* GraphQL */ `
   fragment MapPageFiles_FileFragment on SbMap {
@@ -95,27 +96,6 @@ const FilesUnlinkMutation = graphql(/* GraphQL */ `
       }
       previousFamily {
         id
-      }
-    }
-  }
-`)
-
-const SetDefaultMutation = graphql(/* GraphQL */ `
-  mutation MapFamilySetDefault($fileId: SbMapId!) {
-    mapFamilySetDefault(fileId: $fileId) {
-      id
-      name
-      current {
-        id
-        name
-      }
-      defaultMap {
-        id
-      }
-      defaultSetAt
-      defaultSetBy {
-        id
-        name
       }
     }
   }
@@ -191,7 +171,7 @@ const rowBody = css<{ $withMenu: boolean }>`
   flex: 1 1 auto;
   min-width: 0;
   min-height: 40px;
-  padding: 4px ${props => (props.$withMenu ? '0' : '12px')} 4px 12px;
+  padding: 4px ${props => (props.$withMenu ? '4px' : '12px')} 4px 12px;
 
   display: flex;
   align-items: center;
@@ -229,13 +209,17 @@ const ChipTooltip = styled(Tooltip)`
   flex-shrink: 0;
 `
 
-/**
- * The button's 48px hit area is mostly empty around its 24px icon, so it overlaps the row's end
- * and extends past its right edge: the icon sits 8px inside the edge and 4px after the meta text.
- */
 const MenuTooltip = styled(Tooltip)`
   flex-shrink: 0;
-  margin-inline: -8px -4px;
+`
+
+/**
+ * Sized to the row's height, so it keeps the row one line and its hover and focus backgrounds stay
+ * clear of the row's text.
+ */
+const MenuButton = styled(IconButton)`
+  width: 40px;
+  min-height: 40px;
 `
 
 const RowChip = styled(RoomChip)`
@@ -486,7 +470,7 @@ function FileMenu({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const uploadedDate = useFormat(uploadedDateFormat)
-  const [, setDefault] = useMutation(SetDefaultMutation)
+  const [, setDefault] = useMutation(MapFamilySetDefaultMutation)
   const [, clearDefault] = useMutation(ClearDefaultMutation)
   const [, unlinkFile] = useMutation(FilesUnlinkMutation)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
@@ -599,7 +583,7 @@ function FileMenu({
     if (files.length > 1) {
       items.push({ text: 'Split into its own map', onClick: () => openAction('split') })
     }
-    items.push({ text: 'Move to another map…', onClick: () => openAction('move') })
+    items.push({ text: 'Move to another map', onClick: () => openAction('move') })
   } else if (!file.official && files.length > 1) {
     items.push({
       text: t('maps.publish.unlinkMenuItem', 'Remove from this map'),
@@ -618,7 +602,7 @@ function FileMenu({
   return (
     <>
       <MenuTooltip text={menuLabel} position='top' tabIndex={-1}>
-        <IconButton
+        <MenuButton
           ref={anchorRef}
           icon={<MaterialIcon icon='more_vert' />}
           ariaLabel={menuLabel}

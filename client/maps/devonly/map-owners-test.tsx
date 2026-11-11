@@ -11,17 +11,29 @@ import {
   Provider as UrqlProvider,
 } from 'urql'
 import { filter, map, pipe } from 'wonka'
+import { makeSbMapId, MapInfoJson } from '../../../common/maps'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
+import { makeFragmentData } from '../../gql'
 import { MapOwnerClaimStatus, MapOwnerKind } from '../../gql/graphql'
 import { IsolatedReduxProvider } from '../../lobbies/devonly/isolated-redux'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { bodySmall, titleMedium } from '../../styles/typography'
 import { ClaimRow, ClaimRowData, ClaimsTableFrame } from '../admin-map-reports'
-import { MapOwnerClaimDialog, MapOwnerEditDialog } from '../map-owner-dialogs'
+import { MapFileImage_FileFragment } from '../map-image'
+import {
+  AddFileBusy,
+  AddFileData,
+  AddFileListing,
+  MapOwnerAddFileBody,
+  MapOwnerAddFileFrame,
+  MapOwnerClaimDialog,
+  MapOwnerEditDialog,
+} from '../map-owner-dialogs'
 import { MapByline, MapBylineProps } from '../map-page'
+import { BigGameHunters, FightingSpirit } from './maps-for-testing'
 
 // Ids well above the ones a development database hands out, so background user fetches can't
 // overwrite these with whoever really holds the low ids.
@@ -49,6 +61,10 @@ type ScenarioId =
   | 'makerCredited'
   | 'makerNone'
   | 'claims'
+  | 'addFile'
+  | 'addFileEmpty'
+  | 'addFileUploading'
+  | 'addFileError'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'bylines', label: 'Bylines' },
@@ -58,6 +74,10 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'makerCredited', label: 'Maker dialog, credited' },
   { id: 'makerNone', label: 'Maker dialog, no maker' },
   { id: 'claims', label: 'Claims tab rows' },
+  { id: 'addFile', label: 'Add a file' },
+  { id: 'addFileEmpty', label: 'Add a file, nothing to list' },
+  { id: 'addFileUploading', label: 'Add a file, uploading' },
+  { id: 'addFileError', label: 'Add a file, failed' },
 ]
 
 const BYLINES: ReadonlyArray<{ label: string; props: MapBylineProps }> = [
@@ -282,10 +302,101 @@ const BylineLabel = styled.div`
 
 const noop = () => {}
 
+/** The viewer's library files the add file dialog lists in its scenarios. */
+function libraryFile(
+  n: number,
+  map: MapInfoJson,
+  {
+    name,
+    listed,
+    playerCount = 2,
+    publishedDaysAgo = 30,
+  }: { name: string; listed: boolean; playerCount?: number; publishedDaysAgo?: number },
+): AddFileData {
+  const id = makeSbMapId(`ad0f11e0-0000-4000-8000-00000000000${n}`)
+  return {
+    id,
+    name,
+    listed,
+    official: false,
+    playerCount,
+    publishedAt: listed ? new Date(NOW - publishedDaysAgo * DAY).toISOString() : null,
+    publisher: listed ? { id: VIEWER } : null,
+    moderation: { id, delistedKind: null },
+    family: { id: `ad0f-family-${n}`, name, credit: null, owner: null, files: [{ id }] },
+    file: {
+      id: `${id}-file`,
+      width: map.mapData.width,
+      height: map.mapData.height,
+      ...makeFragmentData(
+        {
+          id: `${id}-file`,
+          image256Url: map.image256Url ?? '',
+          image512Url: map.image512Url ?? '',
+          image1024Url: map.image1024Url ?? '',
+          image2048Url: map.image2048Url ?? '',
+          imageSpawnsBaked: map.imageSpawnsBaked,
+          width: map.mapData.width,
+          height: map.mapData.height,
+          umsContent: false,
+          startLocations: [],
+        },
+        MapFileImage_FileFragment,
+      ),
+    },
+  }
+}
+
+const LIBRARY_FILES: ReadonlyArray<AddFileData> = [
+  libraryFile(1, FightingSpirit, { name: 'Eclipse 1.3', listed: false, playerCount: 2 }),
+  libraryFile(2, FightingSpirit, { name: 'Eclipse 1.2 (fixed ramps)', listed: true }),
+  libraryFile(3, BigGameHunters, {
+    name: 'Eclipse 1.1',
+    listed: true,
+    playerCount: 8,
+    publishedDaysAgo: 400,
+  }),
+  libraryFile(4, BigGameHunters, { name: 'eclipse test', listed: false, playerCount: 8 }),
+]
+
+const ADD_FILE_STATES: Partial<
+  Record<ScenarioId, { files: ReadonlyArray<AddFileData>; busy?: AddFileBusy; error?: string }>
+> = {
+  addFile: { files: LIBRARY_FILES },
+  addFileEmpty: { files: [] },
+  addFileUploading: { files: LIBRARY_FILES, busy: { kind: 'uploading', progress: 0.42 } },
+  addFileError: {
+    files: LIBRARY_FILES,
+    error: "You've published a lot of maps today. Try again tomorrow.",
+  },
+}
+
+/** The add file dialog with an injected library and state, which stays as it's set. */
+function AddFileScenario({ scenarioId }: { scenarioId: ScenarioId }) {
+  const [makeRecommended, setMakeRecommended] = useState(true)
+  const state = ADD_FILE_STATES[scenarioId] ?? { files: [] }
+  const listing: AddFileListing = { files: state.files, status: 'loaded', onRetry: noop }
+  return (
+    <MapOwnerAddFileFrame mapName='Eclipse' busy={state.busy} onCancel={noop}>
+      <MapOwnerAddFileBody
+        familyId={FAMILY_ID}
+        viewerId={VIEWER}
+        listing={listing}
+        busy={state.busy}
+        errorMessage={state.error}
+        makeRecommended={makeRecommended}
+        onMakeRecommendedChange={setMakeRecommended}
+        onUpload={noop}
+        onAdd={noop}
+      />
+    </MapOwnerAddFileFrame>
+  )
+}
+
 /**
  * Renders the real map maker components against injected state: the page's byline in each of its
- * forms, the claim dialog, the staff Maker dialog (whose changes apply to the fixture), and the
- * rows of the admin Claims tab.
+ * forms, the claim dialog, the staff Maker dialog (whose changes apply to the fixture), the rows of
+ * the admin Claims tab, and the maker's add file dialog with its library and progress injected.
  */
 export function MapOwnersTest() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>('bylines')
@@ -352,6 +463,12 @@ function ScenarioView({ scenarioId }: { scenarioId: ScenarioId }) {
           ))}
         </ClaimsTableFrame>
       )
+      break
+    case 'addFile':
+    case 'addFileEmpty':
+    case 'addFileUploading':
+    case 'addFileError':
+      content = <AddFileScenario scenarioId={scenarioId} />
       break
     default:
       content = scenarioId satisfies never

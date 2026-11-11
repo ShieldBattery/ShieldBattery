@@ -25,6 +25,7 @@ type ScenarioId =
   | 'needsReview'
   | 'ownedMaps'
   | 'ownedNoSuggestion'
+  | 'ownedSuggestion'
   | 'error'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -38,6 +39,7 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'needsReview', label: 'Needs review' },
   { id: 'ownedMaps', label: 'Owns maps' },
   { id: 'ownedNoSuggestion', label: 'Owns maps, no suggestion' },
+  { id: 'ownedSuggestion', label: 'Suggested map is theirs' },
   { id: 'error', label: 'Publish failed' },
 ]
 
@@ -151,6 +153,7 @@ const PREVIEWS: Record<ScenarioId, ReturnType<typeof preview>> = {
   needsReview: preview({ needsReview: true, suggestions: [FIGHTING_SPIRIT] }),
   ownedMaps: preview({ suggestions: [FIGHTING_SPIRIT] }),
   ownedNoSuggestion: preview({}),
+  ownedSuggestion: preview({ suggestions: [FIGHTING_SPIRIT] }),
   error: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS] }),
 }
 
@@ -164,6 +167,18 @@ const OWNED_MAPS = [
   { id: 'owned-1', name: 'Eclipse 1.2' },
   { id: 'owned-2', name: 'Sylphid' },
 ]
+
+function ownedMapsFor(scenarioId: ScenarioId) {
+  switch (scenarioId) {
+    case 'ownedMaps':
+    case 'ownedNoSuggestion':
+      return OWNED_MAPS
+    case 'ownedSuggestion':
+      return OWNED_MAPS.slice(0, 1)
+    default:
+      return []
+  }
+}
 
 const Container = styled.div`
   height: 100%;
@@ -206,9 +221,7 @@ export function MapPublishTest() {
           key={scenarioId}
           preview={PREVIEWS[scenarioId]}
           file={FILE}
-          ownedMaps={
-            scenarioId === 'ownedMaps' || scenarioId === 'ownedNoSuggestion' ? OWNED_MAPS : []
-          }
+          ownedMaps={ownedMapsFor(scenarioId)}
           sending={false}
           errorMessage={
             scenarioId === 'error' ? 'That map is no longer suggested for this file.' : undefined

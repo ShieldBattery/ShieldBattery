@@ -42,6 +42,7 @@ import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
+import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -1209,7 +1210,12 @@ function MapActions({
       .catch(() => showError(ownerErrorText(t)))
   }
 
-  const menuItems: MenuEntry[] = []
+  // The menu's items in groups, shown in this order with dividers between them: the shown file,
+  // the map as a whole, the viewer's own maps, and reporting
+  const fileItems: MenuEntry[] = []
+  const mapItems: MenuEntry[] = []
+  const mineItems: MenuEntry[] = []
+  const reportItems: MenuEntry[] = []
   const openReportDialog = () =>
     dispatch(
       openMapFamilyReportDialog({
@@ -1218,7 +1224,6 @@ function MapActions({
         fileCount: family.fileCount,
       }),
     )
-  const reportItem: MenuEntry = [t('maps.report.menuItem', 'Report a problem…'), openReportDialog]
   // Staff change listings and maps with their own tools
   const isPublisher =
     !canManageMaps &&
@@ -1228,9 +1233,9 @@ function MapActions({
     !!map.publisher &&
     map.publisher.id === selfUser.id
   if (isPublisher) {
-    menuItems.push([t('maps.publish.unpublish', 'Unpublish'), () => unpublish(map.id)])
+    fileItems.push([t('maps.publish.unpublish', 'Unpublish'), () => unpublish(map.id)])
     if (family.fileCount > 1) {
-      menuItems.push([
+      fileItems.push([
         t('maps.publish.unlinkMenuItem', 'Remove from this map'),
         () =>
           dispatch(
@@ -1242,16 +1247,16 @@ function MapActions({
           ),
       ])
     } else if (family.fileCount === 1) {
-      menuItems.push([
-        t('maps.publish.linkMenuItem', 'Add to another map…'),
+      fileItems.push([
+        t('maps.publish.linkMenuItem', 'Add to another map'),
         () => dispatch(openMapFileLinkDialog({ fileId: map.id, selectedId: map.id })),
       ])
     }
   }
   const isOwner = !!selfUser && family.owner?.id === selfUser.id
   if (isOwner && !restrictedFromPublishing) {
-    menuItems.push([
-      t('maps.owner.addFileMenuItem', 'Add one of my files…'),
+    mapItems.push([
+      t('maps.owner.addFileMenuItem', 'Add a file'),
       () => dispatch(openMapOwnerAddFileDialog({ familyId: family.id, mapName: family.name })),
     ])
   }
@@ -1271,7 +1276,7 @@ function MapActions({
       case 'hidden':
         break
       case 'relinquish':
-        menuItems.push([
+        mapItems.push([
           t('maps.owner.relinquish', 'Remove me as maker'),
           () => {
             if (family.ownerKind === MapOwnerKind.Staff) {
@@ -1283,13 +1288,13 @@ function MapActions({
         ])
         break
       case 'pending':
-        menuItems.push([t('maps.owner.claimPending', 'Claim sent to staff'), () => {}, true])
+        mapItems.push([t('maps.owner.claimPending', 'Claim sent to staff'), () => {}, true])
         break
       case 'blocked':
-        menuItems.push([claimLabel, () => showError(claimBlockedText(claimState.reason, t))])
+        mapItems.push([claimLabel, () => showError(claimBlockedText(claimState.reason, t))])
         break
       case 'claim':
-        menuItems.push([
+        mapItems.push([
           claimLabel,
           claimState.instant
             ? onClaim
@@ -1304,7 +1309,7 @@ function MapActions({
     }
   }
   if (map.inLibrary) {
-    menuItems.push([
+    mineItems.push([
       t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
       () =>
         dispatch(
@@ -1329,7 +1334,7 @@ function MapActions({
   // Unlisted maps always show their file's own name and description, so only listed maps can be
   // edited
   if (canManageMaps && map.listed) {
-    menuItems.push(
+    fileItems.push(
       [t('maps.details.editName', 'Edit name'), () => onEdit('name')],
       [t('maps.details.editDescription', 'Edit description'), () => onEdit('description')],
     )
@@ -1338,35 +1343,35 @@ function MapActions({
     const delistedKind = map.moderation?.delistedKind
     // Admin-only, so not translated
     if (delistedKind !== MapDelistedKind.Staff) {
-      menuItems.push([
-        'Delist…',
+      fileItems.push([
+        'Delist',
         () => dispatch(openMapDelistDialog({ fileId: map.id, name: map.name, listed: map.listed })),
       ])
     }
     if (!map.listed && delistedKind) {
       // Relisting a file that was never published only lifts the block on publishing it
-      menuItems.push([map.moderation?.publishedAt ? 'Relist' : 'Unblock', onRelist])
+      fileItems.push([map.moderation?.publishedAt ? 'Relist' : 'Unblock', onRelist])
     }
-    menuItems.push(
+    fileItems.push([
+      t('maps.thumbnail.regenerateImage', 'Regenerate image'),
+      () =>
+        dispatch(
+          regenMapImage(map.id, {
+            onSuccess: () => {
+              snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
+              onChanged()
+            },
+            onError: () =>
+              showError(
+                t('maps.server.regenerateError', 'An error occurred while regenerating images'),
+              ),
+          }),
+        ),
+    ])
+    mapItems.push(
+      ['Maker', () => dispatch(openMapOwnerEditDialog({ familyId: family.id }))],
       [
-        t('maps.thumbnail.regenerateImage', 'Regenerate image'),
-        () =>
-          dispatch(
-            regenMapImage(map.id, {
-              onSuccess: () => {
-                snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
-                onChanged()
-              },
-              onError: () =>
-                showError(
-                  t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-                ),
-            }),
-          ),
-      ],
-      ['Maker…', () => dispatch(openMapOwnerEditDialog({ familyId: family.id }))],
-      [
-        'Merge into another map…',
+        'Merge into another map',
         () =>
           dispatch(
             openMapFamilyActionDialog({
@@ -1379,10 +1384,11 @@ function MapActions({
     )
   } else if (selfUser) {
     // Staff fix these themselves, from the Files card and this menu
-    menuItems.push(reportItem)
+    reportItems.push([t('maps.report.menuItem', 'Report a problem'), openReportDialog])
   }
+  const menuGroups = [fileItems, mapItems, mineItems, reportItems].filter(group => group.length)
   // A menu holding only the report item is shown as a button for it instead
-  const reportOnly = menuItems.length === 1 && menuItems[0] === reportItem
+  const reportOnly = menuGroups.length === 1 && menuGroups[0] === reportItems
 
   const favoriteLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
@@ -1444,7 +1450,7 @@ function MapActions({
           />
         </Tooltip>
       ) : null}
-      {!reportOnly && menuItems.length ? (
+      {!reportOnly && menuGroups.length ? (
         <>
           <Tooltip
             text={t('maps.thumbnail.mapActions', 'Map actions')}
@@ -1467,18 +1473,21 @@ function MapActions({
             originX='right'
             originY='top'>
             <MenuList dense={true}>
-              {menuItems.map(([text, handler, disabled]) => (
-                <MenuItem
-                  key={text}
-                  text={text}
-                  dense={true}
-                  disabled={disabled}
-                  onClick={() => {
-                    closeMenu()
-                    handler()
-                  }}
-                />
-              ))}
+              {menuGroups.flatMap((group, i) => [
+                ...(i > 0 ? [<Divider key={`divider-${i}`} $dense={true} />] : []),
+                ...group.map(([text, handler, disabled]) => (
+                  <MenuItem
+                    key={text}
+                    text={text}
+                    dense={true}
+                    disabled={disabled}
+                    onClick={() => {
+                      closeMenu()
+                      handler()
+                    }}
+                  />
+                )),
+              ])}
             </MenuList>
           </Popover>
         </>

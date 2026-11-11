@@ -1,9 +1,8 @@
-import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { CombinedError, useMutation, useQuery } from 'urql'
+import { useMutation, useQuery } from 'urql'
 import { Link } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { urlForMapCompare } from '../../common/map-url'
@@ -36,10 +35,13 @@ import {
   singleLine,
   titleSmall,
 } from '../styles/typography'
+import { joinedMessage } from './map-add-file'
 import { urlForMapFile } from './map-family-files'
 import { MapFileImage } from './map-image'
+import { MakeRecommendedCheckBox, useMakeRecommended } from './map-make-recommended'
 import { pickOrOnlyChoice } from './map-owner'
-import { publishEvidenceText } from './map-publish'
+import { errorCode } from './map-owner-actions'
+import { publishBlockedReasonText, publishErrorText, publishEvidenceText } from './map-publish'
 
 /** A map suggested as the one a file is a version of, and how alike their files are. */
 export const MapPublish_SuggestionFragment = graphql(/* GraphQL */ `
@@ -253,68 +255,6 @@ const OWNED_VALUE = 'owned'
 
 /** The longest map name the button joining a file to that map names it in. */
 const MAX_JOIN_LABEL_NAME_LENGTH = 24
-
-function genericErrorText(t: TFunction): string {
-  return t('maps.publish.error', 'Something went wrong. Please try again later.')
-}
-
-/** Says why the current user can't publish a file. */
-function blockedReasonText(reason: MapPublishBlockedReason, t: TFunction): string {
-  switch (reason) {
-    case MapPublishBlockedReason.AlreadyListed:
-      return t('maps.publish.alreadyListed', 'This file is already published.')
-    case MapPublishBlockedReason.Restricted:
-      return t('maps.publish.restricted', "You're restricted from publishing maps.")
-    case MapPublishBlockedReason.EmailUnverified:
-      return t('maps.publish.emailUnverified', 'Verify your email address to publish maps.')
-    case MapPublishBlockedReason.RateLimited:
-      return t(
-        'maps.publish.rateLimited',
-        "You've published a lot of maps today. Try again tomorrow.",
-      )
-    case MapPublishBlockedReason.NotInLibrary:
-      return t('maps.publish.notInLibrary', 'Add this file to your maps to publish it.')
-    case MapPublishBlockedReason.EmptyName:
-      return t('maps.publish.emptyName', "This file has no name, so it can't be published.")
-    case MapPublishBlockedReason.StaffDelisted:
-      return t(
-        'maps.publish.staffDelisted',
-        "Staff took this file out of the listings, so it can't be published.",
-      )
-    default:
-      reason satisfies never
-      return genericErrorText(t)
-  }
-}
-
-function errorCode(error: CombinedError): unknown {
-  return error.graphQLErrors[0]?.extensions?.code
-}
-
-function isBlockedReason(code: unknown): code is MapPublishBlockedReason {
-  return Object.values<unknown>(MapPublishBlockedReason).includes(code)
-}
-
-/** What a failed publish or link tells the user. The server uses blocked reasons as codes. */
-function submitErrorText(error: CombinedError, t: TFunction): string {
-  const code = errorCode(error)
-  if (code === 'NOT_SUGGESTED') {
-    return t('maps.publish.notSuggested', 'That map is no longer suggested for this file.')
-  } else if (isBlockedReason(code)) {
-    return blockedReasonText(code, t)
-  } else if (code === 'PROTECTED_MAP') {
-    return protectedMapText(t)
-  } else {
-    return genericErrorText(t)
-  }
-}
-
-function protectedMapText(t: TFunction): string {
-  return t(
-    'maps.publish.protectedMap',
-    "This file's map has a maker, so it can't be added to another map.",
-  )
-}
 
 const StyledDialog = styled(Dialog)`
   max-width: 560px;
@@ -617,7 +557,11 @@ export interface PublishDialogContentsProps {
   sending: boolean
   /** Why the last publish failed, if it did. */
   errorMessage?: string
-  onPublish: (answer: PublishAnswer) => void
+  /**
+   * Publishes the file as `answer` says. `makeRecommended` is set when the file joins a map the
+   * current user owns and they asked for it to become that map's recommended file.
+   */
+  onPublish: (answer: PublishAnswer, makeRecommended: boolean) => void
   onCancel: () => void
   close: () => void
 }
@@ -642,8 +586,11 @@ export function PublishDialogContents({
   const suggestions = useFragment(MapPublish_SuggestionFragment, preview.suggestions)
   const [chosen, setChosen] = useState<string>()
   const [ownedPick, setOwnedPick] = useState<string>()
+  const [makeRecommended, setMakeRecommended] = useState(true)
 
   const fileName = filterColorCodes(file.name)
+  const isOwned = (familyId: string | undefined) =>
+    !!familyId && !!ownedMaps?.some(m => m.id === familyId)
   const ownedChoices = ownedChoicesFor(ownedMaps, file.family.id, suggestions)
   // A choice of a suggestion that's no longer offered (after the suggestions were reloaded) is no
   // choice at all
@@ -666,19 +613,26 @@ export function PublishDialogContents({
     kind,
     family: suggestion ? { id: suggestion.family.id, name: suggestion.family.name } : undefined,
   })
+  const publishAs = (answer: PublishAnswer) =>
+    onPublish(
+      answer,
+      answer.kind === MapPublishAnswerKind.Join && isOwned(answer.family?.id) && makeRecommended,
+    )
+  /** The map the file would join, which offers making it the recommended file if it's owned. */
+  let joinTarget: string | undefined
   const button = (key: string, label: string, onClick: () => void, disabled = false) => (
     <TextButton key={key} label={label} disabled={sending || disabled} onClick={onClick} />
   )
   const cancelButton = button('cancel', t('common.actions.cancel', 'Cancel'), onCancel)
   const publishLabel = t('maps.publish.publish', 'Publish')
   const keepButton = button('publish', publishLabel, () =>
-    onPublish(answerFor(MapPublishAnswerKind.Keep)),
+    publishAs(answerFor(MapPublishAnswerKind.Keep)),
   )
 
   let body: React.ReactNode
   let buttons: React.ReactNode[]
   if (preview.blockedReason) {
-    body = <BodyText>{blockedReasonText(preview.blockedReason, t)}</BodyText>
+    body = <BodyText>{publishBlockedReasonText(preview.blockedReason, t)}</BodyText>
     buttons = [button('close', t('common.actions.close', 'Close'), onCancel)]
     if (preview.blockedReason === MapPublishBlockedReason.AlreadyListed) {
       buttons.push(
@@ -711,6 +665,7 @@ export function PublishDialogContents({
   } else if (suggestions.length === 1 && !ownedChoices.length) {
     const suggestion = suggestions[0]
     const mapName = filterColorCodes(suggestion.family.name)
+    joinTarget = suggestion.family.id
     body = (
       <>
         <BodyText>
@@ -724,20 +679,21 @@ export function PublishDialogContents({
     )
     buttons = [
       button('unsure', t('maps.publish.notSure', 'Not sure'), () =>
-        onPublish(answerFor(MapPublishAnswerKind.Unsure, suggestion)),
+        publishAs(answerFor(MapPublishAnswerKind.Unsure, suggestion)),
       ),
       button('keep', t('maps.publish.separateMap', "No, it's a separate map"), () =>
-        onPublish(answerFor(MapPublishAnswerKind.Keep)),
+        publishAs(answerFor(MapPublishAnswerKind.Keep)),
       ),
       button(
         'join',
         [...mapName].length > MAX_JOIN_LABEL_NAME_LENGTH
           ? t('maps.publish.join', 'Yes, add it')
           : t('maps.publish.joinNamed', 'Yes, add it to {{mapName}}', { mapName }),
-        () => onPublish(answerFor(MapPublishAnswerKind.Join, suggestion)),
+        () => publishAs(answerFor(MapPublishAnswerKind.Join, suggestion)),
       ),
     ]
   } else {
+    joinTarget = chosenOwned?.id ?? chosenSuggestion?.family.id
     body = (
       <>
         <BodyText>
@@ -776,7 +732,7 @@ export function PublishDialogContents({
       buttons.push(
         button('unsure', t('maps.publish.notSure', 'Not sure'), () =>
           // Without a suggestion picked, staff check the likeliest one
-          onPublish(answerFor(MapPublishAnswerKind.Unsure, chosenSuggestion ?? suggestions[0])),
+          publishAs(answerFor(MapPublishAnswerKind.Unsure, chosenSuggestion ?? suggestions[0])),
         ),
       )
     }
@@ -786,11 +742,11 @@ export function PublishDialogContents({
         publishLabel,
         () => {
           if (chosenOwned) {
-            onPublish({ kind: MapPublishAnswerKind.Join, family: chosenOwned })
+            publishAs({ kind: MapPublishAnswerKind.Join, family: chosenOwned })
           } else if (chosenSuggestion) {
-            onPublish(answerFor(MapPublishAnswerKind.Join, chosenSuggestion))
+            publishAs(answerFor(MapPublishAnswerKind.Join, chosenSuggestion))
           } else {
-            onPublish(answerFor(MapPublishAnswerKind.Keep))
+            publishAs(answerFor(MapPublishAnswerKind.Keep))
           }
         },
         !chosenValue || (chosenValue === OWNED_VALUE && !chosenOwned),
@@ -807,6 +763,13 @@ export function PublishDialogContents({
       <Layout>
         {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
         {body}
+        {isOwned(joinTarget) ? (
+          <MakeRecommendedCheckBox
+            checked={makeRecommended}
+            disabled={sending}
+            onChange={setMakeRecommended}
+          />
+        ) : null}
         {preview.needsReview && !preview.blockedReason ? (
           <MutedText>
             {t(
@@ -869,6 +832,7 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
   const file = useFragment(MapPublish_FileFragment, data?.map)
   const ownedMaps = useOwnedMaps()
   const [{ fetching: sending }, publish] = useMutation(PublishMutation)
+  const makeFileRecommended = useMakeRecommended()
   const [errorMessage, setErrorMessage] = useState<string>()
 
   const title = t('maps.publish.title', 'Publish map')
@@ -879,13 +843,14 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
     )
   }
 
-  const onPublish = (answer: PublishAnswer) => {
+  const onPublish = (answer: PublishAnswer, makeRecommended: boolean) => {
     setErrorMessage(undefined)
     publish({ fileId, answer: { kind: answer.kind, familyId: answer.family?.id } })
-      .then(result => {
+      .then(async result => {
         if (result.error || !result.data) {
-          setErrorMessage(result.error ? submitErrorText(result.error, t) : genericErrorText(t))
-          if (result.error && errorCode(result.error) === 'NOT_SUGGESTED') {
+          const code = result.error ? errorCode(result.error) : undefined
+          setErrorMessage(publishErrorText(code, t))
+          if (code === 'NOT_SUGGESTED') {
             reload()
           }
           return
@@ -893,6 +858,12 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
 
         const published = result.data.mapPublish
         const mapName = filterColorCodes(answer.family?.name ?? '')
+        close()
+        // The page showing the file follows it into the map it's in now
+        if (selectedId === fileId && published.family.id !== file.family.id) {
+          push(urlForMapFile(published.family, fileId))
+        }
+
         let message: string
         if (published.heldForReview) {
           message = t(
@@ -900,9 +871,11 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
             "Sent to staff for review. It's listed once they approve it.",
           )
         } else if (answer.kind === MapPublishAnswerKind.Join) {
-          message = t('maps.publish.publishedJoined', 'Published as part of {{mapName}}', {
-            mapName,
-          })
+          const recommended = await makeFileRecommended(
+            fileId,
+            makeRecommended && published.file.listed && published.family.id === answer.family?.id,
+          )
+          message = joinedMessage({ mapName, recommended, published: true }, t)
         } else if (answer.kind === MapPublishAnswerKind.Unsure) {
           message = t(
             'maps.publish.publishedUnsure',
@@ -912,12 +885,7 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
         } else {
           message = t('maps.publish.published', 'Published')
         }
-        close()
         snackbarController.showSnackbar(message)
-        // The page showing the file follows it into the map it's in now
-        if (selectedId === fileId && published.family.id !== file.family.id) {
-          push(urlForMapFile(published.family, fileId))
-        }
       })
       .catch(swallowNonBuiltins)
   }
@@ -959,8 +927,10 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
   const linkedFile = useFragment(MapPublish_FileFragment, data?.map)
   const ownedMaps = useOwnedMaps()
   const [{ fetching: sending }, link] = useMutation(LinkMutation)
+  const makeFileRecommended = useMakeRecommended()
   const [chosen, setChosen] = useState<string>()
   const [ownedPick, setOwnedPick] = useState<string>()
+  const [makeRecommended, setMakeRecommended] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string>()
 
   const title = t('maps.publish.linkTitle', 'Add to another map')
@@ -1013,6 +983,7 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
     chosenValue === OWNED_VALUE
       ? ownedChoices.find(m => m.id === ownedPickId)
       : suggestions.find(s => s.family.id === chosenValue)?.family
+  const targetOwned = !!target && !!ownedMaps?.some(m => m.id === target.id)
 
   const onLink = () => {
     if (!target) {
@@ -1020,34 +991,23 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
     }
     setErrorMessage(undefined)
     link({ fileId, familyId: target.id })
-      .then(result => {
+      .then(async result => {
         if (result.error || !result.data) {
           const code = result.error ? errorCode(result.error) : undefined
+          setErrorMessage(publishErrorText(code, t))
           if (code === 'NOT_SUGGESTED') {
-            setErrorMessage(
-              t('maps.publish.notSuggested', 'That map is no longer suggested for this file.'),
-            )
             reload()
-          } else if (code === MapPublishBlockedReason.Restricted) {
-            setErrorMessage(blockedReasonText(MapPublishBlockedReason.Restricted, t))
-          } else if (code === 'PROTECTED_MAP') {
-            setErrorMessage(protectedMapText(t))
-          } else {
-            setErrorMessage(genericErrorText(t))
           }
           return
         }
 
         const moved = result.data.mapFileLink
         close()
-        snackbarController.showSnackbar(
-          t('maps.publish.linked', 'Added to {{mapName}}', {
-            mapName: filterColorCodes(target.name),
-          }),
-        )
         if (selectedId === fileId) {
           push(urlForMapFile(moved.family, fileId))
         }
+        const recommended = await makeFileRecommended(fileId, targetOwned && makeRecommended)
+        snackbarController.showSnackbar(joinedMessage({ mapName: target.name, recommended }, t))
       })
       .catch(swallowNonBuiltins)
   }
@@ -1088,6 +1048,13 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
             value={target?.id}
             disabled={sending}
             onChange={setOwnedPick}
+          />
+        ) : null}
+        {targetOwned ? (
+          <MakeRecommendedCheckBox
+            checked={makeRecommended}
+            disabled={sending}
+            onChange={setMakeRecommended}
           />
         ) : null}
       </Layout>

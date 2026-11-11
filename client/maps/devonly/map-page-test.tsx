@@ -75,13 +75,14 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'credited', label: 'Credited maker' },
 ]
 
-type ViewerId = 'loggedOut' | 'player' | 'claimSent' | 'maker' | 'staff'
+type ViewerId = 'loggedOut' | 'player' | 'claimSent' | 'maker' | 'makerPublisher' | 'staff'
 
 const VIEWERS: ReadonlyArray<{ id: ViewerId; label: string }> = [
   { id: 'loggedOut', label: 'Logged out' },
   { id: 'player', label: 'Player' },
   { id: 'claimSent', label: 'Player, claim sent' },
   { id: 'maker', label: 'Maker' },
+  { id: 'makerPublisher', label: 'Maker, published it' },
   { id: 'staff', label: 'Staff' },
 ]
 
@@ -419,7 +420,7 @@ const NO_MAKER: ScenarioMaker = { owner: null, ownerKind: null, credit: null }
 
 /** Who made the scenario's map for a viewer: the viewer themselves when they view as its maker. */
 function makerFor(scenario: Scenario, viewer: ViewerId): ScenarioMaker {
-  if (viewer === 'maker') {
+  if (viewer === 'maker' || viewer === 'makerPublisher') {
     return {
       owner: { id: VIEWER, name: 'devMapViewer' },
       ownerKind: scenario.maker?.ownerKind ?? MapOwnerKind.Claim,
@@ -476,7 +477,13 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
       case 'MapPageFile': {
         const { moderation, ...rest } = scenario.map
         const family = { id: familyIdOf(scenario), name: scenario.map.name }
-        return { map: { ...(isStaff ? { ...rest, moderation } : rest), family } }
+        // The viewer published the file and keeps it in their maps, so every group of the page's
+        // menu has items
+        const published =
+          viewer === 'makerPublisher' && rest.listed
+            ? { publisher: { id: VIEWER, name: 'devMapViewer' }, inLibrary: true }
+            : {}
+        return { map: { ...(isStaff ? { ...rest, moderation } : rest), ...published, family } }
       }
       case 'MapMatchups': {
         const type = operation.variables?.matchmakingType as MatchmakingType
