@@ -1985,21 +1985,6 @@ export type MapPageFilesUnlinkMutation = {
   }
 }
 
-export type MapFamilyClearDefaultMutationVariables = Exact<{
-  familyId: string
-}>
-
-export type MapFamilyClearDefaultMutation = {
-  mapFamilyClearDefault: {
-    id: string
-    name: string
-    defaultSetAt: string | null
-    current: { id: Types.SbMapId; name: string }
-    defaultMap: { id: Types.SbMapId } | null
-    defaultSetBy: { id: Types.SbUserId; name: string } | null
-  }
-}
-
 export type MapPageStats_FamilyFragmentFragment = {
   id: string
   stats: {
@@ -12967,80 +12952,6 @@ export const MapPageFilesUnlinkDocument = {
     },
   ],
 } as unknown as DocumentNode<MapPageFilesUnlinkMutation, MapPageFilesUnlinkMutationVariables>
-export const MapFamilyClearDefaultDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'MapFamilyClearDefault' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapFamilyClearDefault' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'familyId' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'current' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                    ],
-                  },
-                },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'defaultMap' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                { kind: 'Field', name: { kind: 'Name', value: 'defaultSetAt' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'defaultSetBy' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<MapFamilyClearDefaultMutation, MapFamilyClearDefaultMutationVariables>
 export const MapMatchupsDocument = {
   kind: 'Document',
   definitions: [

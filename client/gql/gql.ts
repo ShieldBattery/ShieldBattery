@@ -102,7 +102,6 @@ type Documents = {
   '\n  fragment MapPageFiles_FileFragment on SbMap {\n    id\n    name\n    listed\n    official\n    firstSeenAt\n    stats {\n      id\n      games28d\n      gamesTotal\n    }\n  }\n': typeof types.MapPageFiles_FileFragmentFragmentDoc
   '\n  fragment MapPageFiles_FamilyFragment on MapFamily {\n    id\n    name\n    listed\n    current {\n      id\n      name\n    }\n    defaultMap {\n      id\n    }\n    defaultSetBy @include(if: $canManageMaps) {\n      id\n      name\n    }\n    owner {\n      id\n    }\n    files {\n      id\n      ...MapPageFiles_FileFragment\n    }\n  }\n': typeof types.MapPageFiles_FamilyFragmentFragmentDoc
   '\n  mutation MapPageFilesUnlink($fileId: SbMapId!) {\n    mapFileUnlink(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n': typeof types.MapPageFilesUnlinkDocument
-  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapFamilyClearDefaultDocument
   '\n  fragment MapPageStats_FamilyFragment on MapFamily {\n    id\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n': typeof types.MapPageStats_FamilyFragmentFragmentDoc
   '\n  fragment MapPageMatchups_MapFragment on SbMap {\n    id\n    kind\n    matchupSeasons {\n      id\n      seasonId\n      matchmakingType\n      games\n    }\n  }\n': typeof types.MapPageMatchups_MapFragmentFragmentDoc
   '\n  query MapMatchups($id: SbMapId!, $matchmakingType: MatchmakingType!, $seasonId: Int) {\n    map(id: $id) {\n      id\n      matchups(matchmakingType: $matchmakingType, seasonId: $seasonId) {\n        id\n        matchup\n        games\n        leftWins\n        rightWins\n        medianLength\n      }\n    }\n  }\n': typeof types.MapMatchupsDocument
@@ -341,8 +340,6 @@ const documents: Documents = {
     types.MapPageFiles_FamilyFragmentFragmentDoc,
   '\n  mutation MapPageFilesUnlink($fileId: SbMapId!) {\n    mapFileUnlink(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n':
     types.MapPageFilesUnlinkDocument,
-  '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n':
-    types.MapFamilyClearDefaultDocument,
   '\n  fragment MapPageStats_FamilyFragment on MapFamily {\n    id\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n':
     types.MapPageStats_FamilyFragmentFragmentDoc,
   '\n  fragment MapPageMatchups_MapFragment on SbMap {\n    id\n    kind\n    matchupSeasons {\n      id\n      seasonId\n      matchmakingType\n      games\n    }\n  }\n':
@@ -1006,12 +1003,6 @@ export function graphql(
 export function graphql(
   source: '\n  mutation MapPageFilesUnlink($fileId: SbMapId!) {\n    mapFileUnlink(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n',
 ): (typeof documents)['\n  mutation MapPageFilesUnlink($fileId: SbMapId!) {\n    mapFileUnlink(fileId: $fileId) {\n      id\n      file {\n        id\n        family {\n          id\n          name\n        }\n      }\n      family {\n        id\n        name\n        current {\n          id\n        }\n      }\n      previousFamily {\n        id\n      }\n    }\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
-  source: '\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n',
-): (typeof documents)['\n  mutation MapFamilyClearDefault($familyId: UUID!) {\n    mapFamilyClearDefault(familyId: $familyId) {\n      id\n      name\n      current {\n        id\n        name\n      }\n      defaultMap {\n        id\n      }\n      defaultSetAt\n      defaultSetBy {\n        id\n        name\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

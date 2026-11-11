@@ -2249,16 +2249,11 @@
       "search": "搜索地图，或粘贴地图链接"
     },
     "files": {
-      "clearRecommendation": "取消推荐",
       "compare": "比较",
       "fileActions": "文件操作",
       "games_other": "{{formattedCount}} 场游戏",
-      "keepRecommended": "保持为推荐",
-      "keepRecommendedHint": "即使其他文件的游玩次数更多",
       "makeRecommended": "设为推荐",
       "notRecommended": "不是推荐文件",
-      "recommendationCleared": "现在的推荐文件是 {{fileName}}（游玩次数最多）",
-      "recommendationKept": "{{fileName}} 仍是推荐文件",
       "recommended": "推荐",
       "recommendedChanged": "现在的推荐文件是 {{fileName}}",
       "recommendError": "无法更改推荐文件",
