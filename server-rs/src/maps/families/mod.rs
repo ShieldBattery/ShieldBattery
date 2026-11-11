@@ -1,16 +1,19 @@
 //! Map families: the maps players know ("Fighting Spirit"), each made of one or more map files.
 //! Every file is in exactly one family and a family always holds at least one file. Each family has
-//! one current file, the one players get: staff's pick while it's eligible, otherwise derived by the
-//! database function `refresh_map_families`.
+//! one current file, the one players get: the default picked by staff or the family's owner while
+//! it's eligible, otherwise derived by the database function `refresh_map_families`.
 //!
-//! Files only change families when staff move them (see [`edit`]) or when a file's publisher links
-//! it to a suggested family or unlinks it (see [`publish`]), with one exception: an unlisted file
-//! alone in its family joins another family holding a file with the same scenario (see
+//! Files only change families when staff move them (see [`edit`]), when a file's publisher links
+//! it to a suggested family or unlinks it, or when a family's owner adds their own file to it or
+//! removes a file from it (see [`publish`] and [`owners`]), with one exception: an unlisted file
+//! alone in a family nobody owns joins another family holding a file with the same scenario (see
 //! [`join_identical_files`]).
 
 pub mod edit;
 pub mod graphql;
 pub mod history;
+pub mod owners;
+pub mod owners_graphql;
 pub mod publish;
 pub mod publish_graphql;
 
@@ -19,6 +22,7 @@ use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::families::owners::RetiredOwnership;
 
 /// Takes the lock held by every transaction that changes which family a file is in, a family's
 /// default, or whether a file is listed. Must be taken before changing anything, so two writers
@@ -51,16 +55,19 @@ pub(crate) async fn refresh_families(
 
 /// Deletes the families in `from`, which must hold no files anymore, leaving each one's id (and
 /// the ids that were aliases of it) as an alias of the family at the same index in `into`. Their
-/// favorites move along, one per user and family.
+/// favorites and open owner claims move along, one per user and family. Their owners and credits
+/// are lost: returns the families that had either.
 pub(crate) async fn retire_families(
     tx: &mut Transaction<'_, Postgres>,
     from: &[Uuid],
     into: &[Uuid],
-) -> eyre::Result<()> {
+) -> eyre::Result<Vec<RetiredOwnership>> {
     debug_assert_eq!(from.len(), into.len());
     if from.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
+    let retired = owners::load_retiring(tx, from).await?;
+    owners::move_open_claims(tx, from, into).await?;
     sqlx::query!(
         r#"
             UPDATE map_family_aliases a
@@ -112,13 +119,14 @@ pub(crate) async fn retire_families(
         .execute(&mut **tx)
         .await
         .wrap_err("Failed to delete families")?;
-    Ok(())
+    Ok(retired)
 }
 
 /// Moves unlisted files that are alone in their family into another family holding a file with the
 /// same scenario (CHK). For each scenario, the files go to the family ranked first among those
-/// holding it: one with a listed file first, then the most played, then the oldest. Listed files
-/// and files that share their family with others never move. With `only`, just those files are
+/// holding it: one with a listed file first, then the most played, then the oldest. Listed files,
+/// files that share their family with others, and files of a family with an owner or a credit
+/// (which moving the file would merge away) never move. With `only`, just those files are
 /// considered. Returns how many files moved.
 pub(crate) async fn join_identical_files(
     tx: &mut Transaction<'_, Postgres>,
@@ -167,6 +175,11 @@ pub(crate) async fn join_identical_files(
                     AND NOT EXISTS (
                         SELECT 1 FROM maps o WHERE o.family_id = f.family_id AND o.id <> f.id
                     )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM map_families own
+                        WHERE own.id = f.family_id
+                            AND (own.owner_id IS NOT NULL OR own.credit IS NOT NULL)
+                    )
             )
             UPDATE maps m
             SET family_id = mv.into_id
@@ -185,7 +198,11 @@ pub(crate) async fn join_identical_files(
 
     let from: Vec<Uuid> = moved.iter().map(|m| m.from_id).collect();
     let into: Vec<Uuid> = moved.iter().map(|m| m.into_id).collect();
-    retire_families(tx, &from, &into).await?;
+    let retired = retire_families(tx, &from, &into).await?;
+    debug_assert!(
+        retired.is_empty(),
+        "families with owners or credits are never joined away"
+    );
     refresh_families(tx, &into, true).await?;
     Ok(moved.len())
 }

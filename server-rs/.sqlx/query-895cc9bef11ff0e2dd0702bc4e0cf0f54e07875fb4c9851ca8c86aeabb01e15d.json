@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO map_owner_claims (family_id, claimant, note, status, resolved_by,\n                        resolved_at)\n                    VALUES ($1, $2, $3, 'granted', $2, now())\n                    RETURNING id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_owner_claims",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "895cc9bef11ff0e2dd0702bc4e0cf0f54e07875fb4c9851ca8c86aeabb01e15d"
+}

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_families\n            SET owner_id = $2, owner_kind = $3,\n                owner_set_by = CASE WHEN $4 THEN $5::integer END,\n                owner_set_at = CASE WHEN $4 THEN now() END,\n                updated_at = now()\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "62abb47bf6baaa38e5becd8ef85dc228c748a0bc600c5067123f1ce03a1ea412"
+}

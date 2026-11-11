@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.owner_id as \"owner_id: SbUserId\", f.owner_kind, f.credit,\n                m.name as \"name!\"\n            FROM map_families f\n            INNER JOIN maps m ON m.id = f.current_map_id\n            WHERE f.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "owner_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "credit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "credit"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "042f53b1705481ea95313eeced3528a3fb7ad7b229de78d4f1d6683a14d0d49e"
+}

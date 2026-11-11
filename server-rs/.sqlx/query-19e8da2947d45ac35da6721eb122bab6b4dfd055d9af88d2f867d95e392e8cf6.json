@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.id, f.owner_id as \"owner_id: SbUserId\", f.owner_kind, f.credit,\n                m.name as \"name!\"\n            FROM map_families f\n            INNER JOIN maps m ON m.id = f.current_map_id\n            WHERE f.id = ANY($1) AND (f.owner_id IS NOT NULL OR f.credit IS NOT NULL)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "owner_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "credit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "credit"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "19e8da2947d45ac35da6721eb122bab6b4dfd055d9af88d2f867d95e392e8cf6"
+}

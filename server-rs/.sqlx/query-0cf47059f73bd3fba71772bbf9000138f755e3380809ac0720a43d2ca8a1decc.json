@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_owner_claims (family_id, claimant, note)\n            VALUES ($1, $2, $3)\n            ON CONFLICT (family_id, claimant) WHERE status = 'open'\n            DO UPDATE SET note = EXCLUDED.note\n            RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_owner_claims",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0cf47059f73bd3fba71772bbf9000138f755e3380809ac0720a43d2ca8a1decc"
+}
