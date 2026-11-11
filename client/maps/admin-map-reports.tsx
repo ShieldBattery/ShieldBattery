@@ -9,6 +9,7 @@ import {
   AdminMapFamilyReportsQuery,
   MapFamilyReportKind,
   MapFamilyReportStatus,
+  MapPublishReviewAnswer,
 } from '../gql/graphql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -37,6 +38,7 @@ const MapFamilyReportsQuery = graphql(/* GraphQL */ `
       kind
       note
       fromPublish
+      publishAnswer
       reportedAt
       status
       resolvedAt
@@ -419,6 +421,23 @@ function ReportSummary({ report }: { report: ReportRow }) {
       <span>
         {report.map ? filterColorCodes(report.map.name) : 'A file'}{' '}
         <MutedText>was held for review when published</MutedText>
+        {report.publishAnswer ? (
+          <>
+            <MutedText>
+              {report.publishAnswer === MapPublishReviewAnswer.Join
+                ? ' · version of '
+                : ' · might be a version of '}
+            </MutedText>
+            {report.otherFamily ? (
+              <Link
+                href={urlForMap(makeMapFamilyId(report.otherFamily.id), report.otherFamily.name)}>
+                {filterColorCodes(report.otherFamily.name)}
+              </Link>
+            ) : (
+              'a deleted map'
+            )}
+          </>
+        ) : null}
       </span>
     )
   }

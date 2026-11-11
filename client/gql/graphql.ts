@@ -208,6 +208,17 @@ export enum MapPublishBlockedReason {
   StaffDelisted = 'STAFF_DELISTED',
 }
 
+/**
+ * What a publisher said about the map their file may be a version of, kept on a publish review
+ * while the file is held and applied when staff approve it.
+ */
+export enum MapPublishReviewAnswer {
+  /** The file is a version of that map: approving the review moves the file into it. */
+  Join = 'JOIN',
+  /** The file might be a version of that map: approving the review files a `SAME_MAP` report. */
+  Unsure = 'UNSURE',
+}
+
 /** A size class, by the larger of a map's width and height (in tiles). */
 export enum MapSizeClass {
   /** Larger than 192. */
@@ -1064,6 +1075,7 @@ export type AdminMapFamilyReportsQuery = {
     kind: MapFamilyReportKind
     note: string | null
     fromPublish: boolean
+    publishAnswer: MapPublishReviewAnswer | null
     reportedAt: string
     status: MapFamilyReportStatus
     resolvedAt: string | null
@@ -1993,6 +2005,7 @@ export type MapReportBarQuery = {
     kind: MapFamilyReportKind
     note: string | null
     fromPublish: boolean
+    publishAnswer: MapPublishReviewAnswer | null
     reportedAt: string
     status: MapFamilyReportStatus
     resolvedAt: string | null
@@ -7332,6 +7345,7 @@ export const AdminMapFamilyReportsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'note' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'fromPublish' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'publishAnswer' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'reportedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'status' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
@@ -12703,6 +12717,7 @@ export const MapReportBarDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'note' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'fromPublish' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'publishAnswer' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'reportedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'status' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },

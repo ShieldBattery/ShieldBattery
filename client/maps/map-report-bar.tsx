@@ -5,7 +5,12 @@ import { Link } from 'wouter'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, makeMapFamilyId, SbMapId } from '../../common/maps'
 import { graphql } from '../gql'
-import { MapFamilyReportKind, MapFamilyReportStatus, MapReportBarQuery } from '../gql/graphql'
+import {
+  MapFamilyReportKind,
+  MapFamilyReportStatus,
+  MapPublishReviewAnswer,
+  MapReportBarQuery,
+} from '../gql/graphql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -55,6 +60,7 @@ const ReportQuery = graphql(/* GraphQL */ `
       kind
       note
       fromPublish
+      publishAnswer
       reportedAt
       status
       resolvedAt
@@ -235,10 +241,27 @@ function LoadedReportBar({ report }: { report: Report }) {
       </>
     )
   } else if (report.kind === MapFamilyReportKind.PublishReview) {
+    let answerSuffix: React.ReactNode = null
+    if (report.publishAnswer === MapPublishReviewAnswer.Join) {
+      answerSuffix = (
+        <>
+          {' as a version of '}
+          {mapLink(report.otherFamily)}
+        </>
+      )
+    } else if (report.publishAnswer === MapPublishReviewAnswer.Unsure) {
+      answerSuffix = (
+        <>
+          {"; its publisher wasn't sure whether it's a version of "}
+          {mapLink(report.otherFamily)}
+        </>
+      )
+    }
     claim = (
       <>
         {mapLink(report.family, report.map ?? undefined)}
         {' was held for review when published'}
+        {answerSuffix}
       </>
     )
   } else if (report.fromPublish) {
