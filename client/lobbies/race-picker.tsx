@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
+import { AssignedRaceChar, RaceChar, raceCharToLabel } from '../../common/races'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { standardEasing } from '../material/curve-constants'
@@ -95,7 +96,7 @@ export type RacePickerOnSetFunc<AllowRandom extends boolean | undefined> = Allow
 
 export interface RacePickerProps<AllowRandom extends boolean | undefined> {
   /** The currently selected race. */
-  race: AllowRandom extends false ? AssignedRaceChar : RaceChar
+  race: (AllowRandom extends false ? AssignedRaceChar : RaceChar) | null
   /** Races to hide in the picker (and make un-selectable). */
   hiddenRaces?: RaceChar[]
   size?: RacePickerSize
@@ -114,6 +115,7 @@ export function RacePicker<AllowRandom extends boolean | undefined>({
   allowInteraction = true,
   className,
 }: RacePickerProps<AllowRandom>) {
+  const { t } = useTranslation()
   const [onSetZ, onSetP, onSetT, onSetR] = useMemo(() => {
     if (!onSetRace) {
       return [undefined, undefined, undefined, undefined]
@@ -157,6 +159,8 @@ export function RacePicker<AllowRandom extends boolean | undefined>({
           <RaceButton
             key={r}
             type='button'
+            aria-label={raceCharToLabel(r, t)}
+            aria-pressed={r === race}
             $size={size}
             $race={r}
             $active={r === race}

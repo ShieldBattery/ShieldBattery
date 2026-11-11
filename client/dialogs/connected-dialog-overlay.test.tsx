@@ -4,7 +4,9 @@ import { LazyMotion } from 'motion/react'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
+import { asMockedFunction } from '../../common/testing/mocks'
 import createStore from '../create-store'
+import { isActivatingClick } from '../dom/activating-click'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { Popover, PopoverOpenState } from '../material/popover'
 import { domMax } from '../motion-features'
@@ -28,6 +30,10 @@ vi.hoisted(() => {
   globalThis.cancelAnimationFrame = () => {}
 })
 
+vi.mock('../dom/activating-click', () => ({ isActivatingClick: vi.fn(() => false) }))
+
+const isActivatingClickMock = asMockedFunction(isActivatingClick)
+
 beforeAll(async () => {
   await i18next
     .use(initReactI18next)
@@ -49,6 +55,7 @@ function setVisibility(state: DocumentVisibilityState) {
 
 afterEach(() => {
   visibilityState = 'visible'
+  isActivatingClickMock.mockReturnValue(false)
   vi.useRealTimers()
 })
 
@@ -85,6 +92,27 @@ function openDialog(store: ReturnType<typeof createStore>) {
 }
 
 describe('ConnectedDialogOverlay', () => {
+  test('a scrim click closes a dialog', async () => {
+    const store = renderOverlay()
+    openDialog(store)
+    await screen.findByRole('dialog')
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(0)
+  })
+
+  test('the click that brings the window forward leaves a dialog open', async () => {
+    const store = renderOverlay()
+    openDialog(store)
+    await screen.findByRole('dialog')
+    isActivatingClickMock.mockReturnValue(true)
+
+    fireEvent.click(screen.getByTestId('dialog-scrim'))
+
+    expect(store.getState().dialog.history).toHaveLength(1)
+  })
+
   test('the close button closes the dialog while a popover is open elsewhere', async () => {
     const onDismiss = vi.fn()
     const store = renderOverlay(

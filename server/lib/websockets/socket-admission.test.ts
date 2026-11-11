@@ -5,6 +5,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { UserErrorCode } from '../../../common/users/user-network'
 import { SiteConnectionEvent, siteConnectionPath } from '../../../common/websockets'
+import log from '../logging/logger'
 import { SessionReleaseCatalog, SessionReleaseKey } from '../netcode-v2/session-release-catalog'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import { ClientAttestation } from '../users/client-attestation'
@@ -13,6 +14,8 @@ import { RequestSessionLookup } from './session-lookup'
 import { SocketAdmission } from './socket-admission'
 import { ClientSocketsManager, UserSocketsManager } from './socket-groups'
 import { createFakeNydusServer, InspectableNydusClient, NydusConnector } from './testing/websockets'
+
+vi.mock('../logging/logger', () => ({ default: { info: vi.fn(), error: vi.fn() } }))
 
 const user = { id: makeSbUserId(1), name: 'one' } as SbUser
 const verificationFailure = expect.objectContaining({
@@ -99,7 +102,17 @@ beforeEach(() => {
   userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {}, admission)
 })
 
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.mocked(log.info).mockClear()
+})
+
+function loggedOutcomes() {
+  return vi
+    .mocked(log.info)
+    .mock.calls.filter(([, msg]) => msg === 'app socket not verified')
+    .map(([fields]) => (fields as { outcome: string }).outcome)
+}
 
 test('without client keys, app sockets are admitted without a challenge', () => {
   keys = []
@@ -126,6 +139,30 @@ describe('observing', () => {
     expect(() => answer(client, false)).not.toThrow()
     expect(client.close).not.toHaveBeenCalled()
     expect(isAdmitted()).toBe(true)
+  })
+
+  test('unverified sockets are logged with their user, client, and app version', async () => {
+    const client = connect()
+    client.conn.request.headers['user-agent'] = 'Mozilla/5.0 ShieldBattery/12.3.6 Electron/44.9.3'
+    await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+    expect(log.info).toHaveBeenCalledWith(
+      {
+        userId: user.id,
+        clientId: 'client',
+        mode: 'observe',
+        outcome: 'expired',
+        appVersion: '12.3.6',
+        socketAgeMs: expect.any(Number),
+      },
+      'app socket not verified',
+    )
+  })
+
+  test('each unverified outcome is logged, and valid ones are not', () => {
+    answer(connect('valid'))
+    answer(connect('missing'), false)
+    connect('abandoned').disconnect()
+    expect(loggedOutcomes()).toEqual(['missing', 'abandoned'])
   })
 })
 

@@ -5,17 +5,23 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { GameConfig } from '../../common/games/configuration'
-import { GameReplayDebugInfo, getGameDurationString } from '../../common/games/games'
+import {
+  GameDraftMessageJson,
+  GameReplayDebugInfo,
+  getGameDurationString,
+} from '../../common/games/games'
 import { ReplayChatPlayer } from '../../common/replays'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { IconButton, OutlinedButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
-import { bodyMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
+import { bodyMedium, labelLarge, labelMedium, titleLarge, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { loadGameChatTranscript } from './action-creators'
 import {
@@ -52,6 +58,12 @@ const TranscriptTitle = styled.div`
 const SourcesLine = styled.div`
   ${bodyMedium};
   margin-block: 4px 16px;
+  color: var(--theme-on-surface-variant);
+`
+
+const SegmentTitle = styled.div`
+  ${titleSmall};
+  margin-block: 16px 8px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -137,8 +149,51 @@ function formatFrame(frame: number): string {
   return getGameDurationString((frame * 1000) / 24)
 }
 
-function transcriptToText(transcript: ChatTranscript, t: TFunction): string {
-  return transcript.lines
+/** Formats a draft message's time as an offset from the game's start, negative if before it. */
+function formatDraftTime(sentAt: number, gameStartTime: number): string {
+  const offset = sentAt - gameStartTime
+  return (offset < 0 ? '-' : '') + getGameDurationString(Math.abs(offset))
+}
+
+function findPlayerByUserId(
+  players: ReadonlyMap<number, ReplayChatPlayer>,
+  userId: SbUserId,
+): ReplayChatPlayer | undefined {
+  for (const player of players.values()) {
+    if (player.userId === userId) {
+      return player
+    }
+  }
+  return undefined
+}
+
+function getDraftSenderName(
+  userId: SbUserId,
+  usersById: ReadonlyMap<SbUserId, SbUser>,
+  players: ReadonlyMap<number, ReplayChatPlayer>,
+  t: TFunction,
+): string {
+  return (
+    usersById.get(userId)?.name ??
+    findPlayerByUserId(players, userId)?.name ??
+    t('gameDetails.chatTranscript.unknownUser', 'User {{id}}', { id: userId })
+  )
+}
+
+function transcriptToText({
+  transcript,
+  draftMessages,
+  gameStartTime,
+  usersById,
+  t,
+}: {
+  transcript: ChatTranscript
+  draftMessages: ReadonlyArray<ReadonlyDeep<GameDraftMessageJson>>
+  gameStartTime: number
+  usersById: ReadonlyMap<SbUserId, SbUser>
+  t: TFunction
+}): string {
+  const gameText = transcript.lines
     .map(line => {
       const name = getPlayerName(transcript.players, getLineSlot(line), t)
       const text =
@@ -148,22 +203,48 @@ function transcriptToText(transcript: ChatTranscript, t: TFunction): string {
       return `[${formatFrame(line.frame)}] ${text}`
     })
     .join('\n')
+  if (!draftMessages.length) {
+    return gameText
+  }
+
+  const draftText = draftMessages
+    .map(message => {
+      const name = getDraftSenderName(message.userId, usersById, transcript.players, t)
+      return (
+        `[${formatDraftTime(message.sentAt, gameStartTime)}] ` +
+        `${getScopeLabel('team', t)} ${name}: ${message.text}`
+      )
+    })
+    .join('\n')
+  return [
+    t('gameDetails.chatTranscript.draftTitle', 'Draft'),
+    draftText,
+    '',
+    t('gameDetails.chatTranscript.gameTitle', 'Game'),
+    gameText,
+  ].join('\n')
 }
 
 /**
  * Lets an admin view a game's chat and when its players left, reconstructed from its players'
  * uploaded replays: the longest replay from each side is read and merged, with each message's
- * recipients inferred from which sides' replays recorded it (see `buildChatTranscript`).
+ * recipients inferred from which sides' replays recorded it (see `buildChatTranscript`). The chat
+ * from the game's race draft, if it had one, is shown ahead of it.
  */
 export function ChatTranscriptSection({
   config,
   replays,
+  draftMessages,
+  gameStartTime,
 }: {
   config: ReadonlyDeep<GameConfig>
   replays: ReadonlyArray<ReadonlyDeep<GameReplayDebugInfo>>
+  draftMessages: ReadonlyArray<ReadonlyDeep<GameDraftMessageJson>>
+  gameStartTime: number
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const usersById = useAppSelector(s => s.users.byId)
   const [state, setState] = useState<TranscriptState>({ status: 'idle' })
   const [hidden, setHidden] = useState(false)
   const abortControllerRef = useRef<AbortController>(undefined)
@@ -174,6 +255,7 @@ export function ChatTranscriptSection({
 
   const sides = getChatSides(config)
   const selectedReplays = selectChatTranscriptReplays(sides, replays)
+  const hasAnyChatSource = selectedReplays.length > 0 || draftMessages.length > 0
 
   const onToggle = () => {
     if (state.status === 'loaded') {
@@ -199,7 +281,8 @@ export function ChatTranscriptSection({
   }
 
   const onCopy = (transcript: ChatTranscript) => {
-    navigator.clipboard.writeText(transcriptToText(transcript, t)).catch(err => {
+    const text = transcriptToText({ transcript, draftMessages, gameStartTime, usersById, t })
+    navigator.clipboard.writeText(text).catch(err => {
       logger.error(`Error writing chat transcript to clipboard: ${getErrorStack(err)}`)
     })
   }
@@ -216,9 +299,9 @@ export function ChatTranscriptSection({
         }
         iconStart='forum'
         onClick={onToggle}
-        disabled={state.status === 'loading' || selectedReplays.length === 0}
+        disabled={state.status === 'loading' || !hasAnyChatSource}
       />
-      {selectedReplays.length === 0 ? (
+      {!hasAnyChatSource ? (
         <StatusLine>
           {t('gameDetails.chatTranscript.noReplays', 'No replays were uploaded for this game.')}
         </StatusLine>
@@ -242,15 +325,39 @@ export function ChatTranscriptSection({
               />
             </Tooltip>
           </TranscriptHeader>
-          <SourcesLine>
-            {t('gameDetails.chatTranscript.sources', 'Merged from the replays uploaded by:')}{' '}
-            {selectedReplays.map(({ replay }, i) => (
-              <span key={replay.id}>
-                {i > 0 ? ', ' : ''}
-                <ConnectedUsername userId={replay.uploadedByUserId} />
-              </span>
-            ))}
-          </SourcesLine>
+          {selectedReplays.length > 0 ? (
+            <SourcesLine>
+              {t('gameDetails.chatTranscript.sources', 'Merged from the replays uploaded by:')}{' '}
+              {selectedReplays.map(({ replay }, i) => (
+                <span key={replay.id}>
+                  {i > 0 ? ', ' : ''}
+                  <ConnectedUsername userId={replay.uploadedByUserId} />
+                </span>
+              ))}
+            </SourcesLine>
+          ) : null}
+          {draftMessages.length > 0 ? (
+            <>
+              <SegmentTitle>{t('gameDetails.chatTranscript.draftTitle', 'Draft')}</SegmentTitle>
+              <Lines>
+                {draftMessages.map((message, i) => (
+                  <DraftLine
+                    key={i}
+                    message={message}
+                    gameStartTime={gameStartTime}
+                    player={findPlayerByUserId(state.transcript.players, message.userId)}
+                    senderName={getDraftSenderName(
+                      message.userId,
+                      usersById,
+                      state.transcript.players,
+                      t,
+                    )}
+                  />
+                ))}
+              </Lines>
+              <SegmentTitle>{t('gameDetails.chatTranscript.gameTitle', 'Game')}</SegmentTitle>
+            </>
+          ) : null}
           {state.transcript.lines.length > 0 ? (
             <Lines>
               {state.transcript.lines.map((line, i) => (
@@ -264,10 +371,15 @@ export function ChatTranscriptSection({
             </Lines>
           ) : (
             <StatusLine>
-              {t(
-                'gameDetails.chatTranscript.empty',
-                'No chat or leaves were recorded in these replays.',
-              )}
+              {selectedReplays.length > 0
+                ? t(
+                    'gameDetails.chatTranscript.empty',
+                    'No chat or leaves were recorded in these replays.',
+                  )
+                : t(
+                    'gameDetails.chatTranscript.noReplays',
+                    'No replays were uploaded for this game.',
+                  )}
             </StatusLine>
           )}
         </TranscriptCard>
@@ -331,6 +443,28 @@ function TranscriptLine({
         <Scope>{scopeLabel}</Scope>
       )}{' '}
       <PlayerName style={{ color: player?.color }}>{playerName}</PlayerName>: {line.text}
+    </Line>
+  )
+}
+
+function DraftLine({
+  message,
+  gameStartTime,
+  player,
+  senderName,
+}: {
+  message: ReadonlyDeep<GameDraftMessageJson>
+  gameStartTime: number
+  player?: ReplayChatPlayer
+  senderName: string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Line>
+      <Timestamp>{formatDraftTime(message.sentAt, gameStartTime)}</Timestamp>{' '}
+      <Scope>{getScopeLabel('team', t)}</Scope>{' '}
+      <PlayerName style={{ color: player?.color }}>{senderName}</PlayerName>: {message.text}
     </Line>
   )
 }

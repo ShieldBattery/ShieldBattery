@@ -86,19 +86,26 @@ const Hint = styled(m.div)`
   text-align: center;
 `
 
+/**
+ * Why the lobby can't start at all right now. Unlike readiness, which the host can hold the button
+ * to bypass, these leave the button disabled: the server refuses the start either way.
+ */
+export type LobbyStartBlocker = 'needsOpposingSides' | 'mapNotDownloaded'
+
 /** Starts immediately when everyone is ready, or after a deliberate hold to bypass readiness. */
 export function LobbyStartButton({
   allReady,
-  disabled,
+  blocker,
   onStartGame,
   onForceStart,
 }: {
   allReady: boolean
-  disabled: boolean
+  blocker: LobbyStartBlocker | undefined
   onStartGame: () => void
   onForceStart: () => void
 }) {
   const { t } = useTranslation()
+  const disabled = blocker !== undefined
   const hintId = useId()
   const reducedMotion = useReducedMotion()
   const { isHolding, showHoldHint, buttonProps } = useStartGameHold({
@@ -114,8 +121,10 @@ export function LobbyStartButton({
       : t('lobbies.room.rail.startGame', 'Start game')
 
   let hint: string
-  if (disabled) {
+  if (blocker === 'needsOpposingSides') {
     hint = t('lobbies.room.rail.needsOpposingSides', 'Needs at least two opposing players')
+  } else if (blocker === 'mapNotDownloaded') {
+    hint = t('lobbies.room.rail.mapNotDownloaded', 'Not everyone has the map yet')
   } else if (ready) {
     hint = t('lobbies.room.rail.everyoneReady', 'Everyone is ready')
   } else {

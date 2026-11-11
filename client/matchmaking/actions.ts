@@ -1,9 +1,12 @@
+import { Immutable } from 'immer'
+import { MatchmakingResultsEvent } from '../../common/games/games'
 import {
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingSeasonJson,
   MatchmakingStatusJson,
   MatchmakingType,
+  PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
 import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -13,11 +16,13 @@ export type MatchmakingActions =
   | GetCurrentMapPoolSuccess
   | GetCurrentMapPoolFailure
   | InitPreferences
+  | UpdatePreferencesBegin
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
   | MatchmakingStatusUpdate
   | GetMatchmakingSeasons
   | GetCurrentMatchmakingSeason
+  | MatchmakingResultsReceived
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -56,11 +61,17 @@ export interface UpdatePreferencesSuccess {
   type: '@matchmaking/updatePreferences'
   payload: GetPreferencesResponse
   error?: false
-  meta: { type: MatchmakingType }
+  meta: { type: MatchmakingType; requestId: number }
 }
 
 export interface UpdatePreferencesFailure extends BaseFetchFailure<'@matchmaking/updatePreferences'> {
-  meta: { type: MatchmakingType }
+  meta: { type: MatchmakingType; requestId: number }
+}
+
+export interface UpdatePreferencesBegin {
+  type: '@matchmaking/updatePreferencesBegin'
+  payload: Immutable<PartialMatchmakingPreferences>
+  meta: { type: MatchmakingType; requestId: number }
 }
 
 /** The status (enabled/disabled) of one or more types of matchmaking has changed. */
@@ -77,4 +88,13 @@ export interface GetMatchmakingSeasons {
 export interface GetCurrentMatchmakingSeason {
   type: '@matchmaking/getCurrentMatchmakingSeason'
   payload: MatchmakingSeasonJson
+}
+
+/**
+ * The results of one of the current user's matchmaking games (their rating and points changes)
+ * have arrived. This isn't necessarily the last game they played.
+ */
+export interface MatchmakingResultsReceived {
+  type: '@matchmaking/resultsReceived'
+  payload: MatchmakingResultsEvent
 }

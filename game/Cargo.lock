@@ -280,7 +280,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
  "x11rb",
 ]
 
@@ -727,7 +727,7 @@ dependencies = [
  "bitflags 2.13.2",
  "fxhash",
  "once_cell",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1184,7 +1184,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1543,7 +1543,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4051,7 +4051,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 [[package]]
 name = "rally-point-client"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=4aa1929111dedac4652a1186bb33795b6fa767ec#4aa1929111dedac4652a1186bb33795b6fa767ec"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=3c82837f6c5ba74b687c74a53ac562a439037dd5#3c82837f6c5ba74b687c74a53ac562a439037dd5"
 dependencies = [
  "rally-point-proto",
  "rally-point-transport",
@@ -4065,7 +4065,7 @@ dependencies = [
 [[package]]
 name = "rally-point-proto"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=4aa1929111dedac4652a1186bb33795b6fa767ec#4aa1929111dedac4652a1186bb33795b6fa767ec"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=3c82837f6c5ba74b687c74a53ac562a439037dd5#3c82837f6c5ba74b687c74a53ac562a439037dd5"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -4079,7 +4079,7 @@ dependencies = [
 [[package]]
 name = "rally-point-transport"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=4aa1929111dedac4652a1186bb33795b6fa767ec#4aa1929111dedac4652a1186bb33795b6fa767ec"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=3c82837f6c5ba74b687c74a53ac562a439037dd5#3c82837f6c5ba74b687c74a53ac562a439037dd5"
 dependencies = [
  "noq",
  "noq-proto",
@@ -4464,7 +4464,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4512,7 +4512,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/tec27/samase_scarf.git?rev=32667f0f91a4c7855e0b0c7bb7826ffad7af3f40#32667f0f91a4c7855e0b0c7bb7826ffad7af3f40"
+source = "git+https://github.com/tec27/samase_scarf.git?rev=2a67da375eb91bc08b9193f9b192ea3c3e59693e#2a67da375eb91bc08b9193f9b192ea3c3e59693e"
 dependencies = [
  "array-init",
  "arrayvec",
@@ -5008,10 +5008,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6015,7 +6015,7 @@ dependencies = [
  "byteorder",
  "lde 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6040,7 +6040,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

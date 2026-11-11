@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
 import path from 'path'
 import { APP_ROOT } from './app-paths'
 import logger from './logger'
+import { showWindow } from './tray-window'
 import { getUserDataPath } from './user-data-path'
 
 const NORMAL_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-tray.png')
@@ -61,8 +62,8 @@ export default class SystemTray {
         this.mainWindow.restore()
       }
       this.mainWindow.focus()
-    } else {
-      this.mainWindow?.show()
+    } else if (this.mainWindow) {
+      showWindow(this.mainWindow)
     }
   }
 

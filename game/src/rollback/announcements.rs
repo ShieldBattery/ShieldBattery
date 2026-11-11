@@ -47,11 +47,12 @@ pub(crate) fn key(parts: impl Hash) -> u64 {
     hasher.finish()
 }
 
-/// Whether the hook making this announcement should let it through. Always true outside a tick;
-/// during one, false when an earlier simulation of the frames being re-simulated already made the
-/// same announcement.
+/// Whether the hook making this announcement should let it through. Always true while the
+/// simulation isn't running (outside a tick, or while a step waits for turns); while it runs,
+/// false when an earlier simulation of the frames being re-simulated already made the same
+/// announcement.
 pub(crate) fn should_announce(kind: Kind, key: u64) -> bool {
-    if !super::tick_running() {
+    if !super::simulation_running() {
         return true;
     }
     let frame = super::step_frame();

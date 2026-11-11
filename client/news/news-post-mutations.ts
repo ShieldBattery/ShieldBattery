@@ -7,6 +7,12 @@ export const NewsUpdatePostMutation = graphql(/* GraphQL */ `
       title
       summary
       content
+      translations {
+        language
+        title
+        summary
+        content
+      }
       publishedAt
       updatedAt
       coverImagePath

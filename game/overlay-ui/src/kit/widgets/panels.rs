@@ -1,12 +1,12 @@
 //! The pieces panels are assembled from: headers, stat rows, tags and the waiting indicator.
 
-use egui::{Align, Layout, Response, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
+use egui::{Align, Layout, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
 
 use crate::colors::{AMBER60, GREY_BLUE80};
 use crate::kit::motion;
 use crate::kit::text;
 use crate::kit::theme;
-use crate::kit::widgets::{kbd, state_overlay};
+use crate::kit::widgets::{kbd_button, state_overlay};
 
 /// Height of a panel's title row.
 const HEADER_HEIGHT: f32 = 20.0;
@@ -32,33 +32,51 @@ pub const STATUS_DOT_DIAMETER: f32 = 9.0;
 /// at the bottom of every breath.
 const STATUS_DOT_DIM: f32 = 0.65;
 
-/// A panel's title row: the title on the left, the key that opens the panel on the right.
-pub fn panel_header(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> Response {
-    header(ui, title, hotkey, false).0
+/// What a panel's title row did this frame.
+pub struct PanelHeader {
+    /// Where the row is, which a panel can lay something of its own over.
+    pub rect: Rect,
+    /// Whether the keycap on its right was clicked, which a panel takes as its key being pressed.
+    pub key_clicked: bool,
+}
+
+/// A panel's title row: the title on the left, and on the right the keycap of the key that toggles
+/// the panel, which a click works as well.
+pub fn panel_header(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> PanelHeader {
+    let (row, key_clicked, _) = header(ui, title, hotkey, false);
+    PanelHeader {
+        rect: row.rect,
+        key_clicked,
+    }
 }
 
 /// The same row with a close affordance, returning whether it was clicked.
 pub fn panel_header_with_close(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> bool {
-    header(ui, title, hotkey, true).1
+    header(ui, title, hotkey, true).2
 }
 
-fn header(ui: &mut Ui, title: &str, hotkey: Option<&str>, closable: bool) -> (Response, bool) {
+/// Draws a title row, returning it with whether its keycap and its close affordance were clicked.
+fn header(
+    ui: &mut Ui,
+    title: &str,
+    hotkey: Option<&str>,
+    closable: bool,
+) -> (Response, bool, bool) {
     let row = ui.horizontal(|ui| {
         ui.set_min_height(HEADER_HEIGHT);
         ui.label(text::panel_title().job(title));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let closed = closable && close_button(ui).clicked();
-            if let Some(key) = hotkey {
-                kbd(ui, key);
-            }
-            closed
+            let key_clicked = hotkey.is_some_and(|key| kbd_button(ui, key).clicked());
+            (key_clicked, closed)
         })
         .inner
     });
     ui.add_space(theme::SPACE_XS);
     divider(ui);
     ui.add_space(theme::SPACE_SM);
-    (row.response, row.inner)
+    let (key_clicked, closed) = row.inner;
+    (row.response, key_clicked, closed)
 }
 
 /// A hairline across the panel, for separating groups of rows.

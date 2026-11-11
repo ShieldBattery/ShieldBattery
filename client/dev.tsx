@@ -3,6 +3,7 @@ import { Link } from 'wouter'
 import { DevChat } from './chat/devonly/dev-chat'
 import { DevSection } from './debug/dev-section'
 import { DevDownload } from './download/devonly/routes'
+import { DevGames } from './games/devonly/routes'
 import { DevHome } from './home/devonly/dev-home'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
@@ -49,6 +50,7 @@ export default function Dev() {
           routes={[
             ['Chat components', 'chat', DevChat],
             ['Download components', 'download', DevDownload],
+            ['Game components', 'games', DevGames],
             ['Home components', 'home', DevHome],
             ['Ladder components', 'ladder', DevLadder],
             ['Link previews', 'page-metadata', DevPageMetadata],

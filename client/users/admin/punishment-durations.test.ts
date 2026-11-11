@@ -24,6 +24,9 @@ describe('client/users/admin/punishment-durations', () => {
     expect(presetEndTime(PunishmentDuration.OneYear, now)).toBe(
       new Date(2027, 0, 15, 10, 30).getTime(),
     )
+    expect(presetEndTime(PunishmentDuration.Permanent, now)).toBe(
+      new Date(2126, 0, 15, 10, 30).getTime(),
+    )
   })
 
   test('month lengths clamp to the last day of a shorter month', () => {

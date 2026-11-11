@@ -5,6 +5,7 @@ import { FragmentType, graphql, useFragment } from '../gql'
 import { useAppSelector } from '../redux-hooks'
 import { pickTextColor } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
+import { useLocalizedLeague } from './use-localized-league'
 
 const badgeCommon = css`
   width: 40px;
@@ -90,18 +91,25 @@ export function ReduxLeagueBadge({
   className?: string
 }) {
   const league = useAppSelector(s => s.leagues.byId.get(leagueId))
+  const localized = useLocalizedLeague(league ?? { name: '' })
 
   // TODO(tec27): Call some batch API to get this data
   if (!league) {
     return null
   }
 
-  return <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} className={className} />
+  return (
+    <LeagueBadge leagueName={localized.name} badgeUrl={league.badgePath} className={className} />
+  )
 }
 
 const Leagues_LeagueBadgeFragment = graphql(/* GraphQL */ `
   fragment Leagues_LeagueBadgeFragment on League {
     name
+    translations {
+      language
+      name
+    }
     badgeUrl
   }
 `)
@@ -114,9 +122,10 @@ export function GqlLeagueBadge({
   className?: string
 }) {
   const league = useFragment(Leagues_LeagueBadgeFragment, query)
+  const localized = useLocalizedLeague(league)
   return (
     <LeagueBadge
-      leagueName={league.name}
+      leagueName={localized.name}
       badgeUrl={league.badgeUrl ?? undefined}
       className={className}
     />

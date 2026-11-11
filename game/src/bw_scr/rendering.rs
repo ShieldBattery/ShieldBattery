@@ -12,8 +12,8 @@ use crate::game_thread;
 use crate::netcode_v2;
 
 use super::{
-    BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, image_load_pump,
-    is_minimap_mask_draw, replay_save, save_observer_panels, scr,
+    BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, is_minimap_mask_draw, load_pump,
+    replay_save, save_observer_panels, scr,
 };
 
 impl BwScr {
@@ -116,7 +116,12 @@ impl BwScr {
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
                     let wirefram = self.wirefram.map_or(null_mut(), |x| x.resolve());
-                    let replay_visions = self.replay_visions.resolve();
+                    let engine_replay_visions = self.replay_visions.resolve();
+                    let show_entire_map = self.replay_show_entire_map.resolve() != 0;
+                    let replay_visions = self
+                        .replay_vision_choice
+                        .lock()
+                        .selected_players(engine_replay_visions, show_entire_map);
                     let local_player_id = self.local_unique_player_id.resolve() as u8;
                     // The header is only a replay's, and it is only populated once one is running.
                     let replay = is_replay
@@ -274,6 +279,7 @@ impl BwScr {
                                     rgb_colors,
                                     use_rgb_colors,
                                     replay_visions,
+                                    show_entire_map,
                                     active_units,
                                     units,
                                     client_selection,
@@ -286,7 +292,7 @@ impl BwScr {
                                     wirefram,
                                     wireframe_remap,
                                     has_init_bw,
-                                    image_load_progress: image_load_pump::progress(),
+                                    image_load_progress: load_pump::progress(),
                                     countdown_start,
                                     game_started,
                                     local_player_id,
@@ -313,7 +319,22 @@ impl BwScr {
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
                             }
-                            if replay_visions != overlay_out.replay_visions {
+                            if show_entire_map != overlay_out.show_entire_map {
+                                self.replay_vision_choice
+                                    .lock()
+                                    .note_entire_map_change(overlay_out.show_entire_map);
+                                self.replay_show_entire_map
+                                    .write(u8::from(overlay_out.show_entire_map));
+                            }
+                            if replay_visions != overlay_out.replay_visions
+                                || show_entire_map != overlay_out.show_entire_map
+                                // SC:R takes vision away when a player leaves, including from
+                                // the effective mask used to draw the entire map.
+                                || (is_replay_or_obs
+                                    && overlay_out.show_entire_map
+                                    && (engine_replay_visions != 0xff
+                                        || self.local_visions.resolve() != 0xff))
+                            {
                                 self.note_replay_vision_choice(
                                     replay_visions,
                                     overlay_out.replay_visions,
@@ -734,7 +755,10 @@ impl BwScr {
                 Renderer_SwapBuffers,
                 move |renderer, orig| {
                     crate::frame_pacing::presenting_frame();
-                    let ret = orig(renderer);
+                    let ret = {
+                        let _timing = crate::frame_timing::present();
+                        orig(renderer)
+                    };
                     crate::frame_pacing::frame_presented();
                     ret
                 },

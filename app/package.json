@@ -3,7 +3,7 @@
   "productName": "ShieldBattery-Local",
   "productFilename": "ShieldBattery-Local",
   "private": true,
-  "version": "12.3.6",
+  "version": "12.4.2",
   "description": "The standalone client for ShieldBattery",
   "main": "dist/index.js",
   "license": "MIT",
@@ -11,6 +11,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
     "@shieldbattery/broodrep": "^0.6.0",
+    "@shieldbattery/danimoth": "^0.1.1",
     "@shieldbattery/stimpack": "^1.1.1",
     "@shieldbattery/windows-registry": "^1.0.0",
     "@types/yauzl": "^2.10.3",

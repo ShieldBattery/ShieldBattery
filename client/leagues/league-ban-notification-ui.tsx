@@ -5,6 +5,7 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
+import { useLocalizedLeague } from './use-localized-league'
 
 const BanIcon = styledWithAttrs(MaterialIcon, { icon: 'gavel', size: 36 })`
   flex-shrink: 0;
@@ -30,7 +31,12 @@ export function LeagueBanNotificationUi({
   notification,
 }: LeagueBanNotificationUiProps) {
   const { t } = useTranslation()
-  const leagueName = notification.leagueName
+  const { name: leagueName } = useLocalizedLeague({
+    name: notification.leagueName,
+    translations: Object.entries(notification.leagueNameTranslations ?? {}).map(
+      ([language, name]) => ({ language, name }),
+    ),
+  })
 
   return (
     <ActionlessNotification
@@ -64,7 +70,12 @@ export function LeagueUnbanNotificationUi({
   notification,
 }: LeagueUnbanNotificationUiProps) {
   const { t } = useTranslation()
-  const leagueName = notification.leagueName
+  const { name: leagueName } = useLocalizedLeague({
+    name: notification.leagueName,
+    translations: Object.entries(notification.leagueNameTranslations ?? {}).map(
+      ([language, name]) => ({ language, name }),
+    ),
+  })
 
   return (
     <ActionlessNotification

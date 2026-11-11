@@ -70,7 +70,13 @@ export class LeagueStartNotifier {
       const userIds = await getUnbannedLeagueUserIds(leagueId)
       await this.notificationService.addNotificationForUsers({
         userIds,
-        data: { type: NotificationType.LeagueStart, leagueName: league.name },
+        data: {
+          type: NotificationType.LeagueStart,
+          leagueName: league.name,
+          leagueNameTranslations: league.translations
+            ? Object.fromEntries(league.translations.map(({ language, name }) => [language, name]))
+            : undefined,
+        },
       })
       logger.info(`Sent league start notifications for ${leagueId} to ${userIds.length} users`)
     } catch (err) {

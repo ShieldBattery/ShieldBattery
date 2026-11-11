@@ -1,16 +1,41 @@
 import { net } from 'electron'
+import isDev from 'electron-is-dev'
 import fs, { promises as fsPromises } from 'fs'
 import { mkdirp } from 'mkdirp'
 import path from 'path'
-import { Readable } from 'stream'
+import { Readable, Transform } from 'stream'
 import { pipeline } from 'stream/promises'
 import HashThrough from '../../common/hash-through'
-import { MapExtension } from '../../common/maps'
+import { MapDownloadOutcome, MapExtension } from '../../common/maps'
 import log from '../logger'
+
+/** How long a map download may go without receiving any data before it's given up on. */
+const DOWNLOAD_IDLE_MS = 30_000
+
+// Dev-only stand-ins for a member on a slow or broken connection, to see how lobbies and game
+// launches treat someone who doesn't have the map yet. Dev instances share one map store, so a map
+// the host already has would otherwise be ready for everyone at once. Both apply to every map this
+// instance checks, whether or not it's already on disk.
+/** `SB_MAP_DOWNLOAD_DELAY_MS`: how long each map check waits before it starts. */
+const DEBUG_DOWNLOAD_DELAY_MS = isDev ? Number(process.env.SB_MAP_DOWNLOAD_DELAY_MS) || 0 : 0
+/** `SB_MAP_DOWNLOAD_FAIL=1`: every map check fails (after the delay, if there is one). */
+const DEBUG_DOWNLOAD_FAIL = isDev && process.env.SB_MAP_DOWNLOAD_FAIL === '1'
+
+/**
+ * The HTTP status the storage host answers a signed URL it won't honor with, which is what an
+ * expired signature looks like.
+ */
+const URL_REJECTED_STATUS = 403
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>
-  private activeDownloads = new Map<string, Promise<boolean>>()
+  private activeDownloads = new Map<string, Promise<MapDownloadOutcome>>()
+  /**
+   * The most recent URL each in-progress map was requested with. A request that joins a download
+   * already under way may carry a newer signature than the one that started it, so a rejected URL
+   * is retried with this one before the download gives up.
+   */
+  private latestUrls = new Map<string, string>()
 
   constructor(readonly basePath: string) {
     this.dirCreated = mkdirp(basePath)
@@ -45,7 +70,16 @@ export class MapStore {
     return found.filter((hash): hash is string => hash !== undefined)
   }
 
-  async downloadMap(mapHash: string, mapFormat: MapExtension, mapUrl: string): Promise<boolean> {
+  /**
+   * Makes sure the map with `mapHash` is on disk, downloading it from `mapUrl` if it isn't. Requests
+   * for a map that's already being checked or downloaded join that work rather than starting more.
+   */
+  async downloadMap(
+    mapHash: string,
+    mapFormat: MapExtension,
+    mapUrl: string,
+  ): Promise<MapDownloadOutcome> {
+    this.latestUrls.set(mapHash, mapUrl)
     if (!this.activeDownloads.has(mapHash)) {
       this.activeDownloads.set(mapHash, this.checkAndDownloadMap(mapHash, mapFormat, mapUrl))
     }
@@ -57,7 +91,7 @@ export class MapStore {
     mapHash: string,
     mapFormat: MapExtension,
     mapUrl: string,
-  ): Promise<boolean> {
+  ): Promise<MapDownloadOutcome> {
     await this.dirCreated
     const mapPath = this.getPath(mapHash, mapFormat)
 
@@ -70,6 +104,14 @@ export class MapStore {
     }
 
     try {
+      if (DEBUG_DOWNLOAD_DELAY_MS) {
+        log.verbose(`Delaying map download by ${DEBUG_DOWNLOAD_DELAY_MS} ms (debug knob)`)
+        await new Promise(resolve => setTimeout(resolve, DEBUG_DOWNLOAD_DELAY_MS))
+      }
+      if (DEBUG_DOWNLOAD_FAIL) {
+        throw new Error('Map download failed (debug knob)')
+      }
+
       if (exists) {
         const hasher = new HashThrough()
         hasher.hasher.update(mapFormat)
@@ -79,7 +121,7 @@ export class MapStore {
           await doneReading
           const hash = await hasher.hashPromise
           if (hash === mapHash) {
-            return true
+            return 'downloaded'
           }
 
           log.verbose(`Expected map to have hash '${mapHash}' but found '${hash}', redownloading`)
@@ -89,8 +131,67 @@ export class MapStore {
       }
 
       await mkdirp(path.dirname(mapPath))
-      log.verbose(`Downloading map from ${mapUrl} to ${mapPath}`)
-      const res = await net.fetch(mapUrl)
+      let url = mapUrl
+      for (;;) {
+        log.verbose(`Downloading map from ${url} to ${mapPath}`)
+        const hash = await this.fetchMapFile(url, mapPath, mapFormat)
+        if (hash === undefined) {
+          const latestUrl = this.latestUrls.get(mapHash)!
+          if (latestUrl !== url) {
+            log.verbose('Map download URL was rejected, retrying with a newer one')
+            url = latestUrl
+            continue
+          }
+
+          log.warning('Map download URL was rejected, it has likely expired')
+          return 'urlRejected'
+        }
+        if (hash !== mapHash) {
+          throw new Error(`Downloaded map has hash '${hash}' but expected '${mapHash}'`)
+        }
+
+        log.verbose(`Map download completed successfully`)
+        return 'downloaded'
+      }
+    } catch (err) {
+      log.error(`Error checking/downloading map: ${(err as any).stack ?? err}`)
+      throw err
+    } finally {
+      this.activeDownloads.delete(mapHash)
+      this.latestUrls.delete(mapHash)
+    }
+  }
+
+  /**
+   * Downloads the map at `url` to `mapPath`, returning the hash of what was written, or `undefined`
+   * if the storage host rejected the URL (in which case nothing is written).
+   */
+  private async fetchMapFile(
+    url: string,
+    mapPath: string,
+    mapFormat: MapExtension,
+  ): Promise<string | undefined> {
+    // A download that stops receiving data is given up on, rather than holding the file open
+    // (where StarCraft can't read it) and holding every later request for this map until the
+    // app restarts.
+    const idle = new AbortController()
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    const stillReceiving = () => {
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(
+        () => idle.abort(new Error(`Map download received nothing for ${DOWNLOAD_IDLE_MS} ms`)),
+        DOWNLOAD_IDLE_MS,
+      )
+    }
+    stillReceiving()
+    const hasher = new HashThrough()
+    hasher.hasher.update(mapFormat)
+    try {
+      const res = await net.fetch(url, { signal: idle.signal })
+      if (res.status === URL_REJECTED_STATUS) {
+        await res.body?.cancel()
+        return undefined
+      }
       if (!res.ok) {
         throw new Error(`Failed to download map: ${res.status} ${res.statusText}`)
       }
@@ -98,30 +199,26 @@ export class MapStore {
         throw new Error(`Failed to download map, response had no body`)
       }
 
-      const hasher = new HashThrough()
-      hasher.hasher.update(mapFormat)
       // NOTE(tec27): The type of `body` doesn't say it has asyncIterator for some reason but it
       // should? Not really sure why the types don't align here
       const doneWriting = pipeline(
         Readable.fromWeb(res.body as any),
+        new Transform({
+          transform(chunk, _encoding, callback) {
+            stillReceiving()
+            callback(null, chunk)
+          },
+        }),
         hasher,
         fs.createWriteStream(mapPath),
+        { signal: idle.signal },
       )
       hasher.resume()
       await doneWriting
-
-      const hash = await hasher.hashPromise
-      if (hash !== mapHash) {
-        throw new Error(`Downloaded map has hash '${hash}' but expected '${mapHash}'`)
-      }
-
-      log.verbose(`Map download completed successfully`)
-      return true
-    } catch (err) {
-      log.error(`Error checking/downloading map: ${(err as any).stack ?? err}`)
-      throw err
     } finally {
-      this.activeDownloads.delete(mapHash)
+      clearTimeout(idleTimer)
     }
+
+    return hasher.hashPromise
   }
 }

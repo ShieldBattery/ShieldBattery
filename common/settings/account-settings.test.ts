@@ -56,5 +56,24 @@ describe('common/settings/account-settings', () => {
         fillAccountSettingsDefaults({ replayNameTemplate: 'x'.repeat(201) }).replayNameTemplate,
       ).toBe(DEFAULT_ACCOUNT_SETTINGS.replayNameTemplate)
     })
+
+    test('Discord activity sharing defaults to not asked', () => {
+      expect(fillAccountSettingsDefaults({}).shareDiscordActivity).toBe('notAsked')
+    })
+
+    test('a stored Discord activity answer is kept', () => {
+      expect(fillAccountSettingsDefaults({ shareDiscordActivity: 'on' }).shareDiscordActivity).toBe(
+        'on',
+      )
+      expect(
+        fillAccountSettingsDefaults({ shareDiscordActivity: 'off' }).shareDiscordActivity,
+      ).toBe('off')
+    })
+
+    test('an unknown Discord activity sharing state falls back to not asked', () => {
+      expect(
+        fillAccountSettingsDefaults({ shareDiscordActivity: 'friendsOnly' }).shareDiscordActivity,
+      ).toBe('notAsked')
+    })
   })
 })

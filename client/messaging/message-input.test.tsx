@@ -195,7 +195,7 @@ describe('client/messaging/message-input', () => {
 
     press('Enter')
     expect(runChatCommand).toHaveBeenCalledWith('al', expect.anything())
-    expect(onSendChatMessage).toHaveBeenCalledWith('al')
+    expect(onSendChatMessage).toHaveBeenCalledWith('al', expect.any(Function))
     expect(textarea.value).toBe('')
   })
 
@@ -206,7 +206,7 @@ describe('client/messaging/message-input', () => {
     type('alpha')
     press('Enter')
 
-    expect(onSendChatMessage).toHaveBeenCalledWith('alpha')
+    expect(onSendChatMessage).toHaveBeenCalledWith('alpha', expect.any(Function))
     expect(textarea.value).toBe('')
   })
 
@@ -471,8 +471,48 @@ describe('client/messaging/message-input', () => {
     type('hello')
     press('Enter')
 
-    expect(onSendChatMessage).toHaveBeenCalledWith('hello')
+    expect(onSendChatMessage).toHaveBeenCalledWith('hello', expect.any(Function))
     expect(onSubmitted).toHaveBeenCalledTimes(1)
+  })
+
+  test('a failed send says so in the conversation and gives the text back', () => {
+    const { textarea, onSendChatMessage, emit, type, press } = renderInput()
+
+    type('hello')
+    press('Enter')
+    expect(textarea.value).toBe('')
+
+    act(() => {
+      onSendChatMessage.mock.calls[0][1](new Error('Failed to fetch'))
+    })
+
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error' }))
+    expect(textarea.value).toBe('hello')
+  })
+
+  test('a failed send leaves text typed since the send alone', () => {
+    const { textarea, onSendChatMessage, emit, type, press } = renderInput()
+
+    type('first')
+    press('Enter')
+    type('second')
+
+    act(() => {
+      onSendChatMessage.mock.calls[0][1](new Error('Failed to fetch'))
+    })
+
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error' }))
+    expect(textarea.value).toBe('second')
+  })
+
+  test('a successful send leaves the input empty and says nothing', () => {
+    const { textarea, emit, type, press } = renderInput()
+
+    type('hello')
+    press('Enter')
+
+    expect(textarea.value).toBe('')
+    expect(emit).not.toHaveBeenCalled()
   })
 
   test('a command that only answers locally still reports the submission', () => {

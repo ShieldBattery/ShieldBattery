@@ -1,6 +1,7 @@
 import type { BotKey, LocalBuildBot } from '../../common/bots/bot-library'
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
+import { TranslationLanguage } from '../../common/i18n'
 import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
@@ -39,12 +40,15 @@ export enum DialogType {
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
   DeletePlaylist = 'deletePlaylist',
+  DiscordActivityPrompt = 'discordActivityPrompt',
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  BattleNetSettingsCopy = 'battleNetSettingsCopy',
   GameDefaultsApply = 'gameDefaultsApply',
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
+  ImageViewer = 'imageViewer',
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
@@ -65,6 +69,7 @@ export enum DialogType {
   PracticePresetName = 'practicePresetName',
   PracticeReadiness = 'practiceReadiness',
   PrivacyPolicy = 'privacyPolicy',
+  RefundGamePoints = 'refundGamePoints',
   RemoveUserAvatar = 'removeUserAvatar',
   RenamePlaylist = 'renamePlaylist',
   ReplayInfo = 'replayInfo',
@@ -259,6 +264,7 @@ type DeletePlaylistDialogPayload = BaseDialogPayload<
     name: string
   }
 >
+type DiscordActivityPromptDialogPayload = BaseDialogPayload<typeof DialogType.DiscordActivityPrompt>
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
 type EmailVerificationDialogPayload = BaseDialogPayload<
   typeof DialogType.EmailVerification,
@@ -275,6 +281,15 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
   }
 >
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
+type BattleNetSettingsCopyDialogPayload = BaseDialogPayload<
+  typeof DialogType.BattleNetSettingsCopy,
+  {
+    /** How many StarCraft settings differ from Battle.net's, and so would be replaced. */
+    settingCount: number
+    /** How many ShieldBattery features make the game feel different from Battle.net. */
+    featureCount: number
+  }
+>
 type GameDefaultsApplyDialogPayload = BaseDialogPayload<
   typeof DialogType.GameDefaultsApply,
   {
@@ -287,6 +302,16 @@ type GameDefaultsApplyDialogPayload = BaseDialogPayload<
   }
 >
 type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.GameDefaultsFirstRun>
+type ImageViewerDialogPayload = BaseDialogPayload<
+  typeof DialogType.ImageViewer,
+  {
+    src: string
+    alt?: string
+    caption?: string
+    /** The id of the element to put back in focus when the viewer closes. */
+    returnFocusId?: string
+  }
+>
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
@@ -391,6 +416,8 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
   typeof DialogType.NewsPostSettings,
   {
     savedStatus: NewsPostStatus
+    /** The language `settings.summary` is written in. */
+    summaryLanguage: TranslationLanguage
     settings: NewsPostSettingsValues
     /**
      * Shows validation errors for the dialog's fields as soon as it opens, rather than waiting for
@@ -467,6 +494,16 @@ type ReportGameDialogPayload = BaseDialogPayload<
     initialReportedUserId?: SbUserId
   }
 >
+type RefundGamePointsDialogPayload = BaseDialogPayload<
+  typeof DialogType.RefundGamePoints,
+  {
+    gameId: string
+    /** The game's human players, by team. */
+    teams: Array<Array<{ id: SbUserId; name: string }>>
+    /** Players to start unchecked, e.g. the reported player when refunding from a report. */
+    initialPunishedIds?: SbUserId[]
+  }
+>
 type ResolveGameResultsDialogPayload = BaseDialogPayload<
   typeof DialogType.ResolveGameResults,
   {
@@ -518,12 +555,15 @@ export type DialogPayload =
   | ChannelUnbanUserDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload
+  | DiscordActivityPromptDialogPayload
   | DownloadDialogPayload
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | BattleNetSettingsCopyDialogPayload
   | GameDefaultsApplyDialogPayload
   | GameDefaultsFirstRunDialogPayload
+  | ImageViewerDialogPayload
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
@@ -544,6 +584,7 @@ export type DialogPayload =
   | PracticePresetNameDialogPayload
   | PracticeReadinessDialogPayload
   | PrivacyPolicyDialogPayload
+  | RefundGamePointsDialogPayload
   | RemoveUserAvatarDialogPayload
   | RenamePlaylistDialogPayload
   | ReplayInfoDialogPayload

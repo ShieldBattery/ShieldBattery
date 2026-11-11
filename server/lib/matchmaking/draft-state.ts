@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import { ReadonlyDeep } from 'type-fest'
 import { raceAbort } from '../../../common/async/abort-signals'
 import createDeferred from '../../../common/async/deferred'
+import { GameDraftMessage } from '../../../common/games/games'
 import { MapInfo, toMapInfoJson } from '../../../common/maps'
 import {
   AnonymizedDraftPlayer,
@@ -58,6 +59,7 @@ export class DraftState {
   private pickOrder: Array<{ team: number; slot: number }>
   private isComplete = false
   private currentPickerIndex = -1
+  private chatLog: GameDraftMessage[] = []
   readonly shuffledNames: Array<AnonymizedNameIndex[]>
 
   private pickTimeout?: NodeJS.Timeout
@@ -362,21 +364,30 @@ export class DraftState {
     return finalRaces
   }
 
+  /**
+   * The chat sent so far in this draft, in the order it was sent, with the text as its sender wrote
+   * it (rather than with mentions converted to their markup).
+   */
+  getChatLog(): ReadonlyArray<Readonly<GameDraftMessage>> {
+    return this.chatLog
+  }
+
   async sendChatMessage(userId: SbUserId, message: string) {
     const teamIndex = this.teams.findIndex(team => team.players.some(p => p.userId === userId))
     if (teamIndex === -1) {
       throw new Error(`Player ${userId} not found in any team`)
     }
 
-    const [processedText, mentions, channelMentions] = await processMessageContents(
-      filterChatMessage(message),
-    )
+    const text = filterChatMessage(message)
+    const [processedText, mentions, channelMentions] = await processMessageContents(text)
+    const time = Date.now()
+    this.chatLog.push({ userId, sentAt: new Date(time), text })
     this.publisher.publish(getMatchTeamPath(this.matchId, teamIndex), {
       type: 'draftChatMessage',
       message: {
         id: nanoid(),
         type: DraftMessageType.TextMessage,
-        time: Date.now(),
+        time,
         from: userId,
         text: processedText,
       },

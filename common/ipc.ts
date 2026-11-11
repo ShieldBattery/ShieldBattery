@@ -17,6 +17,7 @@ import {
 } from './bots/bot-library'
 import { PracticeLaunchRequest, PracticeStoreData } from './bots/practice'
 import { GameDeepLink } from './deep-links'
+import { DiscordActivity } from './discord-presence'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugInputEvent, GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
@@ -25,7 +26,7 @@ import { LocalGameRequest, LocalGameStatus } from './games/local-game'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
-import { MapExtension } from './maps'
+import { MapDownloadOutcome, MapExtension } from './maps'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -35,7 +36,12 @@ import {
   ReplayPlaylist,
   ReplayTrashResult,
 } from './replays-library'
-import { LocalSettings, ScrSettings } from './settings/local-settings'
+import {
+  BlizzardScrSettings,
+  BlizzardScrSettingsCopy,
+  LocalSettings,
+  ScrSettings,
+} from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 import { ClientProof } from './users/client-proof'
 import { SbUserId } from './users/sb-user-id'
@@ -219,7 +225,10 @@ interface IpcInvokeables {
    * the process dies; verify via the game log's `[CRASH]` lines, a fresh non-empty
    * `latest_crash.dmp`, and the crash exit code the app logs.
    */
-  activeGameDebugCrash: (gameId: string, kind: 'accessViolation' | 'stackOverflow') => void
+  activeGameDebugCrash: (
+    gameId: string,
+    kind: 'accessViolation' | 'stackOverflow' | 'exceptionExit',
+  ) => void
   /**
    * Tells the active game process to send an in-game chat message over its netcode v2 session, as
    * this client (debug game builds only). Only registered in development (`isDev`). Sends to
@@ -291,6 +300,13 @@ interface IpcInvokeables {
   /** Zips up the logs for a bug report, along with a replay file when one is given. */
   bugReportCollectFiles: (options?: { replayPath?: string }) => Promise<Uint8Array<ArrayBuffer>>
 
+  /**
+   * Returns whether Rich Presence can show right now: the Discord SDK loaded, and the Discord
+   * desktop app it goes through is running on this computer. Otherwise there's nothing to ask the
+   * user about.
+   */
+  discordCanShowActivity: () => boolean
+
   // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
   // well with the current approach for typing these invokes =/
   fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
@@ -318,10 +334,16 @@ interface IpcInvokeables {
    * has none (e.g. a development build that never ran a release build of the DLL).
    */
   licensesGetGameNotices: () => string | undefined
+  /** Returns the Discord Social SDK's license notices, or `undefined` if this build lacks the SDK. */
+  licensesGetDiscordSdkNotices: () => string | undefined
 
   logMessage: (level: string, message: string) => void
 
-  mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
+  mapStoreDownloadMap: (
+    hash: string,
+    format: MapExtension,
+    mapUrl: string,
+  ) => Promise<MapDownloadOutcome>
   /** Returns the hashes of the given maps whose files are present in the local map store. */
   mapStoreCheckMaps: (maps: Array<{ hash: string; format: MapExtension }>) => Promise<string[]>
 
@@ -447,6 +469,10 @@ interface IpcInvokeables {
   settingsScrGet: () => Promise<Partial<ScrSettings>>
   settingsLocalMerge: (settings: Readonly<Partial<LocalSettings>>) => void
   settingsScrMerge: (settings: Readonly<Partial<ScrSettings>>) => void
+  /** Reads Battle.net's own settings file for the SC:R settings ShieldBattery keeps a copy of. */
+  settingsScrGetBlizzard: () => Promise<BlizzardScrSettings>
+  /** Replaces the SC:R settings Battle.net's settings file has values for with those values. */
+  settingsScrCopyFromBlizzard: () => Promise<BlizzardScrSettingsCopy>
 
   settingsAutoPickStarcraftPath: () => Promise<boolean>
   settingsCheckStarcraftPath: (path: string) => Promise<{ path: boolean; version: boolean }>
@@ -503,6 +529,12 @@ interface IpcRendererSendables {
    * whisper (whispers are inherently directed at the user).
    */
   chatUnreadState: (data: { hasUnread: boolean; hasUnreadUrgent: boolean }) => void
+
+  /**
+   * The Rich Presence activity to show on Discord, or `null` to show none. Sent whenever it
+   * changes, including to `null` on logout.
+   */
+  discordSetActivity: (activity: DiscordActivity | null) => void
 
   gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 

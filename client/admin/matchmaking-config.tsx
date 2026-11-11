@@ -113,6 +113,11 @@ const MODE_KNOBS: KnobField[] = [
     hint: 'Rating gap that gives 10:1 win odds (100…1000)',
   },
   {
+    key: 'maxRatingSpread',
+    label: 'Max rating spread',
+    hint: 'Largest rating gap within a match, never relaxed; 0 is off (100…2000)',
+  },
+  {
     key: 'adaptiveComfortableMultiplier',
     label: 'Comfortable multiplier',
     hint: '× mode size = comfortable population (1…10)',
@@ -127,6 +132,31 @@ const MODE_KNOBS: KnobField[] = [
     key: 'populationHalfLifeSeconds',
     label: 'Population half-life (s)',
     hint: 'EWMA half-life of the population estimate (60…86400)',
+  },
+  {
+    key: 'weightRematch',
+    label: 'Rematch weight',
+    hint: 'Seconds traded to avoid an immediate rematch; 0 is off (0…600)',
+  },
+  {
+    key: 'rematchHalfLifeSeconds',
+    label: 'Rematch half-life (s)',
+    hint: 'How quickly an earlier game stops counting (60…86400)',
+  },
+  {
+    key: 'rematchDensityRadius',
+    label: 'Rematch density radius',
+    hint: 'Rating distance that counts as a nearby player (25…1000)',
+  },
+  {
+    key: 'rematchDensityReference',
+    label: 'Rematch density reference',
+    hint: 'Share of the median nearby count that gets the full penalty (0.05…2)',
+  },
+  {
+    key: 'rematchDensityFloor',
+    label: 'Rematch density floor',
+    hint: 'Smallest share of the penalty in sparse rating ranges (0…1)',
   },
 ]
 
@@ -157,10 +187,16 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightLatency
         uncertaintyK
         winProbScale
+        maxRatingSpread
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
         populationHalfLifeSeconds
+        weightRematch
+        rematchHalfLifeSeconds
+        rematchDensityRadius
+        rematchDensityReference
+        rematchDensityFloor
       }
       perMode {
         matchmakingType
@@ -170,10 +206,16 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
           weightLatency
           uncertaintyK
           winProbScale
+          maxRatingSpread
           minQuality
           adaptiveComfortableMultiplier
           adaptiveDecayPerMissing
           populationHalfLifeSeconds
+          weightRematch
+          rematchHalfLifeSeconds
+          rematchDensityRadius
+          rematchDensityReference
+          rematchDensityFloor
         }
       }
       defaults {
@@ -184,10 +226,16 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightLatency
         uncertaintyK
         winProbScale
+        maxRatingSpread
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
         populationHalfLifeSeconds
+        weightRematch
+        rematchHalfLifeSeconds
+        rematchDensityRadius
+        rematchDensityReference
+        rematchDensityFloor
       }
       modeDefaults {
         matchmakingType
@@ -197,10 +245,16 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
           weightLatency
           uncertaintyK
           winProbScale
+          maxRatingSpread
           minQuality
           adaptiveComfortableMultiplier
           adaptiveDecayPerMissing
           populationHalfLifeSeconds
+          weightRematch
+          rematchHalfLifeSeconds
+          rematchDensityRadius
+          rematchDensityReference
+          rematchDensityFloor
         }
       }
     }
@@ -264,10 +318,16 @@ function fromInputs(inputs: KnobInputs): MatchmakerModeConfigOverridesInput {
     weightLatency: num('weightLatency'),
     uncertaintyK: num('uncertaintyK'),
     winProbScale: num('winProbScale'),
+    maxRatingSpread: num('maxRatingSpread'),
     minQuality: num('minQuality'),
     adaptiveComfortableMultiplier: num('adaptiveComfortableMultiplier', true),
     adaptiveDecayPerMissing: num('adaptiveDecayPerMissing'),
     populationHalfLifeSeconds: num('populationHalfLifeSeconds'),
+    weightRematch: num('weightRematch'),
+    rematchHalfLifeSeconds: num('rematchHalfLifeSeconds'),
+    rematchDensityRadius: num('rematchDensityRadius'),
+    rematchDensityReference: num('rematchDensityReference'),
+    rematchDensityFloor: num('rematchDensityFloor'),
   }
 }
 

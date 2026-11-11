@@ -139,6 +139,9 @@ pub struct OverlayState {
     pending_look_at: Option<PendingLookAt>,
     /// The last number-key group recalled, and when, so a second press can center on it.
     last_group_recall: Option<(u8, u8, Instant)>,
+    /// Whether the "Debug" window is drawn: in debug builds, unless `SB_HIDE_DEBUG_UI=1` asks for
+    /// screenshots without it.
+    show_debug_ui: bool,
     /// The scan codes of the keys held down whose press the shell took. The rest of each keystroke
     /// (its character and its release) is kept from the game too: SC:R acts on some keys from their
     /// character, so a number key recalls the game's own group on top of the one the shell
@@ -184,6 +187,7 @@ struct ReplayUiValues {
 /// during child functions of step()
 struct OutState {
     replay_visions: u8,
+    show_entire_map: bool,
     select_unit: Option<Unit>,
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
@@ -212,6 +216,7 @@ pub struct StepOutput {
     // (draw layer, primitive data)
     pub primitives: Vec<(u16, Vec<egui::ClippedPrimitive>)>,
     pub replay_visions: u8,
+    pub show_entire_map: bool,
     pub select_unit: Option<Unit>,
     // true => show, false => hide
     pub show_hide_control: Option<(Control, bool)>,
@@ -292,6 +297,7 @@ pub struct BwVars {
     pub rgb_colors: *mut bw::RgbColors,
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
+    pub show_entire_map: bool,
     pub active_units: bw::unit::UnitIterator,
     /// Every unit slot the game has, which is the only thing a unique id can be resolved against:
     /// the units inside a transport or a bunker are named by id rather than by pointer. `None`
@@ -452,6 +458,7 @@ impl OverlayState {
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
+                show_entire_map: false,
                 select_unit: None,
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
@@ -483,6 +490,8 @@ impl OverlayState {
             last_requested_seek: None,
             pending_look_at: None,
             last_group_recall: None,
+            show_debug_ui: cfg!(debug_assertions)
+                && !std::env::var("SB_HIDE_DEBUG_UI").is_ok_and(|x| x == "1"),
             shell_held_keys: Vec::new(),
             chat_history: None,
             observer_view: None,
@@ -623,6 +632,7 @@ impl OverlayState {
         let ctx = self.ctx.clone();
         self.out_state = OutState {
             replay_visions: bw.replay_visions,
+            show_entire_map: bw.show_entire_map,
             select_unit: None,
             show_hide_control: None,
             show_hide_graphic_layer: None,
@@ -830,8 +840,7 @@ impl OverlayState {
                         capture_mouse_scroll: hit.captures_scroll,
                     });
                 }
-                let debug = cfg!(debug_assertions);
-                if debug {
+                if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
                 }
             } else {
@@ -884,6 +893,7 @@ impl OverlayState {
             textures_delta: output.textures_delta,
             primitives,
             replay_visions: self.out_state.replay_visions,
+            show_entire_map: self.out_state.show_entire_map,
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
@@ -1259,6 +1269,11 @@ impl OverlayState {
                 paused,
             }),
             Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
+            Intent::SetShowEntireMap(show) => {
+                if bw.is_replay_or_obs {
+                    self.out_state.show_entire_map = show;
+                }
+            }
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
             }
@@ -1275,6 +1290,12 @@ impl OverlayState {
                         });
                     }
                 }
+            }
+            Intent::DeselectSelectedUnit(index) => {
+                self.narrow_selection(bw, |selected| without_unit(selected, index))
+            }
+            Intent::PickSelectedKind(index) => {
+                self.narrow_selection(bw, |selected| of_same_kind(selected, index, unit_kind))
             }
             Intent::ClearSelection => self.out_state.clear_selection = true,
             Intent::FollowSelectedUnit(index) => {
@@ -1334,6 +1355,16 @@ impl OverlayState {
                 is_local: player_id == local,
             })
             .collect()
+    }
+
+    fn narrow_selection(&mut self, bw: &BwVars, narrow: impl FnOnce(&[Unit]) -> Option<Vec<Unit>>) {
+        let selected: Vec<Unit> = bw.client_selection.iter().flatten().copied().collect();
+        if let Some(units) = narrow(&selected) {
+            self.out_state.select_group = Some(GroupSelection {
+                units,
+                center: false,
+            });
+        }
     }
 
     /// Shows or stops showing the game through a player's eyes.
@@ -1798,6 +1829,40 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
     fog_style::set_fog_style(style);
 }
 
+/// Nothing where there is no unit at `index` or it is the only one: taking the last unit out of a
+/// selection is what clearing it is for.
+fn without_unit<T: Copy>(selected: &[T], index: usize) -> Option<Vec<T>> {
+    if selected.len() < 2 || index >= selected.len() {
+        return None;
+    }
+    let mut units = selected.to_vec();
+    units.remove(index);
+    Some(units)
+}
+
+/// Nothing where there is no unit at `index` or every unit is of its kind already.
+fn of_same_kind<T: Copy, K: PartialEq>(
+    selected: &[T],
+    index: usize,
+    kind: impl Fn(T) -> K,
+) -> Option<Vec<T>> {
+    let wanted = kind(*selected.get(index)?);
+    let units: Vec<T> = selected
+        .iter()
+        .copied()
+        .filter(|&unit| kind(unit) == wanted)
+        .collect();
+    (units.len() < selected.len()).then_some(units)
+}
+
+/// What the game's console tells units apart by when one is Ctrl-clicked: its unit type and its
+/// owner, and nothing else. A sieged tank is a unit type of its own, so it parts from the unsieged
+/// ones; a burrowed, cloaked or hallucinated unit, or one under any spell, keeps its unit type and
+/// so stays with the rest of its kind.
+fn unit_kind(unit: Unit) -> (bw_dat::UnitId, u8) {
+    (unit.id(), unit.player())
+}
+
 /// Yields active players `(team, player_id)`, ordered by team and then by slot.
 ///
 /// Every observer surface reads its players from here, which is what keeps a row in one panel
@@ -1962,6 +2027,11 @@ unsafe fn matchup_player_view(
             gas: game.gas(player_id),
             supply_used,
             supply_max,
+            // Every race's worker is counted, since a dark archon can take another race's.
+            workers: [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
+                .into_iter()
+                .map(|worker| game.completed_count(player_id, worker))
+                .sum(),
             apm: apm
                 .map(|stats| stats.player_recent_apm(player_id))
                 .unwrap_or(0),
@@ -2149,7 +2219,7 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use super::{numbered_from_one, scaled_mouse_pos_to_egui};
+    use super::{numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit};
 
     use egui::pos2;
 
@@ -2187,5 +2257,49 @@ mod tests {
             numbered_from_one([3, 1, 3, 1, 7, 7, 7, 7], active),
             [2, 1, 2, 1, 0, 0, 0, 0]
         );
+    }
+
+    /// A selection read as (unit type, owner) pairs, the two things `unit_kind` reads.
+    const MIXED: [(u16, u8); 5] = [(0x5, 0), (0x1e, 0), (0x5, 1), (0x5, 0), (0x0, 0)];
+
+    #[test]
+    fn deselecting_takes_out_only_that_unit_and_keeps_the_order() {
+        assert_eq!(
+            without_unit(&MIXED, 1),
+            Some(vec![(0x5, 0), (0x5, 1), (0x5, 0), (0x0, 0)])
+        );
+        assert_eq!(
+            without_unit(&MIXED, 4),
+            Some(vec![(0x5, 0), (0x1e, 0), (0x5, 1), (0x5, 0)])
+        );
+    }
+
+    #[test]
+    fn deselecting_leaves_a_unit_selected_alone_as_it_is() {
+        assert_eq!(without_unit(&[(0x5, 0)], 0), None);
+    }
+
+    #[test]
+    fn a_click_past_the_end_of_the_selection_changes_nothing() {
+        assert_eq!(without_unit(&MIXED, MIXED.len()), None);
+        assert_eq!(of_same_kind(&MIXED, MIXED.len(), |unit| unit), None);
+    }
+
+    #[test]
+    fn picking_a_kind_keeps_that_owners_units_of_that_type() {
+        // An unsieged tank keeps the same player's unsieged tanks: not the sieged one, and not the
+        // other player's.
+        assert_eq!(
+            of_same_kind(&MIXED, 0, |unit| unit),
+            Some(vec![(0x5, 0), (0x5, 0)])
+        );
+        assert_eq!(of_same_kind(&MIXED, 1, |unit| unit), Some(vec![(0x1e, 0)]));
+        assert_eq!(of_same_kind(&MIXED, 2, |unit| unit), Some(vec![(0x5, 1)]));
+    }
+
+    #[test]
+    fn picking_a_kind_changes_nothing_where_the_selection_is_all_that_kind() {
+        assert_eq!(of_same_kind(&[(0x5, 0), (0x5, 0)], 1, |unit| unit), None);
+        assert_eq!(of_same_kind(&[(0x5, 0)], 0, |unit| unit), None);
     }
 }

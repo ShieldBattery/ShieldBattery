@@ -1,3 +1,4 @@
+import { GameDraftMessage } from '../../../common/games/games'
 import {
   CURRENT_DIVISION_TABLE_VERSION,
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
@@ -11,7 +12,7 @@ import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface MatchmakingRating extends RaceStats {
@@ -720,6 +721,32 @@ export async function getMatchmakingRatingChangesForGame(
   }
 }
 
+/**
+ * Returns the ids of the games that started at or after `since` in which `userId` had their
+ * matchmaking rating changed, oldest first.
+ */
+export async function getRatedGameIdsForUser(
+  userId: SbUserId,
+  since: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ game_id: string }>(sql`
+      SELECT c.game_id
+      FROM matchmaking_rating_changes c
+      JOIN games g ON g.id = c.game_id
+      WHERE c.user_id = ${userId}
+        AND g.start_time >= ${since}
+      ORDER BY g.start_time;
+    `)
+
+    return result.rows.map(r => r.game_id)
+  } finally {
+    done()
+  }
+}
+
 type DbMatchmakingCompletion = Dbify<MatchmakingCompletion>
 
 function fromDbMatchmakingCompletion(
@@ -779,6 +806,8 @@ export type MatchmakingMatchFormation = {
   quality: number
   /** Variance of the matched players' effective ratings (raw skill-spread input to quality). */
   skillVariance: number
+  /** Multiplier applied to the configured rating-variance weight. */
+  ratingVarianceMultiplier: number
   /** Win probability of team A vs team B from the matchmaker's logistic (0.5 == balanced). */
   winProbability: number
   /** Effective team ratings used to compute `winProbability`. */
@@ -799,6 +828,8 @@ export type MatchmakingMatchFormation = {
    * latency input to quality).
    */
   maxLatency: number
+  /** Seconds subtracted from quality because opposing players played each other recently. */
+  rematchPenalty: number
 } & (
   | { gameId: string; failPhase?: never }
   | { gameId?: never; failPhase: MatchmakingMatchFailPhase }
@@ -817,16 +848,62 @@ export async function insertMatchmakingMatchFormation(
   try {
     await client.query(sql`
       INSERT INTO matchmaking_match_formations
-        (game_id, fail_phase, matchmaking_type, quality, skill_variance, win_probability,
-          team_a_rating, team_b_rating, max_latency, team_a_user_ids, team_b_user_ids,
-          team_a_player_ratings, team_b_player_ratings)
+        (game_id, fail_phase, matchmaking_type, quality, skill_variance, rating_variance_multiplier,
+          win_probability, team_a_rating, team_b_rating, max_latency, rematch_penalty,
+          team_a_user_ids, team_b_user_ids, team_a_player_ratings, team_b_player_ratings)
       VALUES
         (${formation.gameId ?? null}, ${formation.failPhase ?? null}, ${formation.matchmakingType},
-          ${formation.quality}, ${formation.skillVariance}, ${formation.winProbability},
-          ${formation.teamARating}, ${formation.teamBRating}, ${formation.maxLatency},
+          ${formation.quality}, ${formation.skillVariance}, ${formation.ratingVarianceMultiplier},
+          ${formation.winProbability}, ${formation.teamARating}, ${formation.teamBRating},
+          ${formation.maxLatency}, ${formation.rematchPenalty},
           ${formation.teamAUserIds}, ${formation.teamBUserIds}, ${formation.teamAPlayerRatings},
           ${formation.teamBPlayerRatings})
     `)
+  } finally {
+    done()
+  }
+}
+
+/** Records the chat sent during a game's race draft. Does nothing if no messages were sent. */
+export async function insertMatchmakingDraftMessages(
+  gameId: string,
+  messages: ReadonlyArray<Readonly<GameDraftMessage>>,
+  withClient?: DbClient,
+): Promise<void> {
+  if (!messages.length) {
+    return
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      INSERT INTO matchmaking_draft_messages (game_id, seq, user_id, sent_at, text)
+      VALUES ${sqlConcat(
+        ', ',
+        messages.map((m, i) => sql`(${gameId}, ${i}, ${m.userId}, ${m.sentAt}, ${m.text})`),
+      )}
+    `)
+  } finally {
+    done()
+  }
+}
+
+type DbGameDraftMessage = Dbify<GameDraftMessage>
+
+/** Returns the chat sent during a game's race draft, in the order it was sent. */
+export async function getMatchmakingDraftMessages(
+  gameId: string,
+  withClient?: DbClient,
+): Promise<GameDraftMessage[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbGameDraftMessage>(sql`
+      SELECT user_id, sent_at, text
+      FROM matchmaking_draft_messages
+      WHERE game_id = ${gameId}
+      ORDER BY seq
+    `)
+    return result.rows.map(row => ({ userId: row.user_id, sentAt: row.sent_at, text: row.text }))
   } finally {
     done()
   }

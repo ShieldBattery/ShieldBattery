@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
@@ -88,8 +89,18 @@ export function GameInputSettings() {
     grabPanInverted: localSettings.grabPanInverted,
   }
 
-  const { bindCustom, bindCheckable, getInputValue, submit, form } =
+  const { bindCustom, bindCheckable, getInputValue, setInputValue, submit, form } =
     useForm<GameInputSettingsModel>(formModel, {})
+
+  // Mouse scaling is greyed out under the hardware cursor, so it has to read as off there too: SC:R
+  // applies scaling whenever it is on, hardware cursor or not.
+  const hardwareCursorBinding = bindCheckable('hardwareCursorOn')
+  const onHardwareCursorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    hardwareCursorBinding.onChange(event)
+    if (event.target.checked) {
+      setInputValue('mouseScalingOn', false)
+    }
+  }
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
@@ -220,7 +231,8 @@ export function GameInputSettings() {
           />
           <ItemWithTooltip>
             <CheckBox
-              {...bindCheckable('hardwareCursorOn')}
+              {...hardwareCursorBinding}
+              onChange={onHardwareCursorChange}
               label={t('settings.game.input.hardwareCursor', 'Hardware cursor')}
               inputProps={{ tabIndex: 0 }}
             />

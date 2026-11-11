@@ -4,6 +4,7 @@ import { MAX_REPLAY_NAME_TEMPLATE_LENGTH } from '../../../common/replay-name-tem
 import {
   AccountSettingsResponse,
   ALL_CHAT_DISPLAY_MODES,
+  ALL_DISCORD_ACTIVITY_SHARING,
   UpdateAccountSettingsRequest,
 } from '../../../common/settings/account-settings'
 import { ALL_USER_AVAILABILITIES } from '../../../common/users/availability'
@@ -32,6 +33,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
   chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
   hideBlockedMessages: Joi.boolean(),
   replayNameTemplate: Joi.string().allow('').max(MAX_REPLAY_NAME_TEMPLATE_LENGTH),
+  shareDiscordActivity: Joi.valid(...ALL_DISCORD_ACTIVITY_SHARING),
 })
   .min(1)
   .required()

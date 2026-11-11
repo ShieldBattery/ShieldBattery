@@ -10,7 +10,13 @@ use std::time::{Duration, Instant};
 
 use crate::matchmaking::MatchmakingType;
 use crate::matchmaking::matchmaker::{Match, ModeQueueState, ModeSearchStats};
+use crate::matchmaking::rating_distribution::RatingDistribution;
+use strum::IntoEnumIterator;
 
+const RATING_SAMPLE_SIZE: &str = "matchmaker_rating_sample_size";
+const RATING_PERCENTILE: &str = "matchmaker_rating_percentile";
+const MATCH_VARIANCE_MULTIPLIER: &str = "matchmaker_match_variance_multiplier";
+const MATCH_REMATCH_PENALTY: &str = "matchmaker_match_rematch_penalty";
 const QUEUE_SIZE: &str = "matchmaker_queue_size";
 const POPULATION_ESTIMATE: &str = "matchmaker_population_estimate";
 const EFFECTIVE_MIN_QUALITY: &str = "matchmaker_effective_min_quality";
@@ -36,6 +42,23 @@ const PLAYERS_REQUEUED: &str = "matchmaker_players_requeued_total";
 pub fn describe_metrics() {
     use ::metrics::Unit;
 
+    ::metrics::describe_gauge!(
+        RATING_SAMPLE_SIZE,
+        Unit::Count,
+        "Current-season players with a rated game in the past seven days, per 2v2 mode, as of the         last successful rating snapshot (percentile scaling needs at least twenty)"
+    );
+    ::metrics::describe_gauge!(
+        RATING_PERCENTILE,
+        "Nearest-rank active-player MMR quantiles, per 2v2 mode and percentile, as of the last         successful rating snapshot"
+    );
+    ::metrics::describe_histogram!(
+        MATCH_VARIANCE_MULTIPLIER,
+        "Multiplier applied to the configured variance weight of each formed match, per mode"
+    );
+    ::metrics::describe_histogram!(
+        MATCH_REMATCH_PENALTY,
+        "Seconds of rematch penalty in each formed match's quality, per mode"
+    );
     ::metrics::describe_gauge!(
         QUEUE_SIZE,
         Unit::Count,
@@ -129,6 +152,20 @@ pub fn describe_metrics() {
     );
 }
 
+/// Records a freshly loaded rating snapshot. Called once per successful refresh, since the gauges
+/// only change when the snapshot does.
+pub(crate) fn record_rating_distribution(distribution: &RatingDistribution) {
+    for mode in MatchmakingType::iter().filter(|mode| mode.team_size() == 2) {
+        let label = mode.as_str();
+        let (count, p75, p95) = distribution.mode_stats(mode);
+        ::metrics::gauge!(RATING_SAMPLE_SIZE, "mode" => label).set(count as f64);
+        for (percentile, rating) in [("0.75", p75), ("0.95", p95)] {
+            ::metrics::gauge!(RATING_PERCENTILE, "mode" => label, "percentile" => percentile)
+                .set(rating.map_or(f64::NAN, f64::from));
+        }
+    }
+}
+
 /// Samples the per-mode queue gauges captured after population roll-forward and before the queue is
 /// drained.
 pub fn sample_queue_state(queue_state: &[ModeQueueState]) {
@@ -169,6 +206,7 @@ pub fn record_search_stats(stats: &[ModeSearchStats]) {
 
         for (reason, count) in [
             ("map", mode_stats.map_rejections),
+            ("spread", mode_stats.spread_rejections),
             ("upper_bound", mode_stats.upper_bound_rejections),
             ("quality", mode_stats.quality_rejections),
         ] {
@@ -189,6 +227,9 @@ pub fn record_match_formed(m: &Match, now: Instant) {
     ::metrics::counter!(MATCHES_FORMED, "mode" => label).increment(1);
     ::metrics::histogram!(MATCH_QUALITY, "mode" => label).record(m.quality as f64);
     ::metrics::histogram!(MATCH_SKILL_VARIANCE, "mode" => label).record(m.skill_variance as f64);
+    ::metrics::histogram!(MATCH_VARIANCE_MULTIPLIER, "mode" => label)
+        .record(m.rating_variance_multiplier as f64);
+    ::metrics::histogram!(MATCH_REMATCH_PENALTY, "mode" => label).record(m.rematch_penalty as f64);
     ::metrics::histogram!(MATCH_WINPROB_IMBALANCE, "mode" => label)
         .record((0.5 - m.win_probability).abs() as f64);
     ::metrics::histogram!(MATCH_LATENCY_MS, "mode" => label).record(m.max_latency as f64);

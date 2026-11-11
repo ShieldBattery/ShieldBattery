@@ -1,6 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
 import {
   GameReplayDebugInfo,
+  GameReplayInfo,
   GetGameResponse,
   GetGamesQueryParams,
   GetGamesResponse,
@@ -18,7 +19,7 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
-import { ensureReplayCached } from '../replays/action-creators'
+import { ensureReplayCached, startReplay } from '../replays/action-creators'
 import { buildChatTranscript, ChatTranscript } from './chat-transcript'
 import { buildGameListSearchParams } from './game-filter-url'
 import { toRouteGameId } from './route-game-id'
@@ -162,6 +163,39 @@ export function unsubscribeFromGame(gameId: string): ThunkAction {
       },
     )
   }
+}
+
+/**
+ * Starts watching a game's replay, downloading it into the local replay cache first if it isn't
+ * there. A download refetches the game for the replay's URL rather than using `replayInfo`'s:
+ * download URLs are signed to expire, so one fetched earlier in a long session may no longer work.
+ */
+export function watchGameReplay(
+  replayInfo: Pick<GameReplayInfo, 'id' | 'hash'>,
+  gameId: string,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    let path: string | null | undefined = await ipcRenderer.invoke(
+      'replayStoreGetPath',
+      replayInfo.id,
+      replayInfo.hash,
+    )
+    if (!path) {
+      const response = await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
+        signal: spec.signal,
+      })
+      dispatch({ type: '@games/getGameRecord', payload: response })
+      if (!response.replay) {
+        throw new Error(`Game ${gameId} no longer has a replay available`)
+      }
+      path = await ensureReplayCached(response.replay, spec.signal)
+    }
+
+    if (path) {
+      dispatch(startReplay({ path, name: `Replay ${gameId}` }))
+    }
+  })
 }
 
 /**

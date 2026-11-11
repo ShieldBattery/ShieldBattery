@@ -2,7 +2,9 @@ import type { NydusClient, RouteInfo } from 'nydus-client'
 import { AccountSettingsEvent } from '../../common/settings/account-settings'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { dispatch } from '../dispatch-registry'
+import { jotaiStore } from '../jotai-store'
 import { writeCachedAccountSettings } from './account-settings-cache'
+import { accountSettingsSyncedUserAtom } from './settings-atoms'
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute(
@@ -18,6 +20,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
         payload: event.settings,
       })
       writeCachedAccountSettings(userId, event.settings)
+      jotaiStore.set(accountSettingsSyncedUserAtom, userId)
     },
   )
 }

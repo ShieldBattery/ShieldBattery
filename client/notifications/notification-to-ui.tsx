@@ -196,6 +196,7 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           ref={ref}
           showDivider={showDivider}
           read={notification.read}
+          notification={notification}
         />
       )
     case NotificationType.CommendReceived:

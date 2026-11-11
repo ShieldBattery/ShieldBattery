@@ -18,7 +18,12 @@ export function matchmakingPreferencesValidator<
   return Joi.object<T>({
     userId: Joi.number().valid(forUserId).required(),
     matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-    race: maybeOptional(allowPartial, Joi.string().valid('p', 't', 'z', 'r')),
+    race: maybeOptional(
+      allowPartial,
+      allowPartial
+        ? Joi.string().valid('p', 't', 'z', 'r').allow(null)
+        : Joi.string().valid('p', 't', 'z', 'r'),
+    ),
     mapPoolId: maybeOptional(allowPartial, Joi.number().min(1)),
     mapSelections: maybeOptional(allowPartial, Joi.array().items(Joi.string()).min(0)),
     data: maybeOptional(

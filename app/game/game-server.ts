@@ -164,6 +164,9 @@ export class GameServer {
       case '/game/setupProgress':
         manager.handleSetupProgress(gameId, payload.status)
         break
+      case '/game/windowShown':
+        manager.handleGameWindowShown(gameId)
+        break
       case '/game/start':
         manager.handleGameStart(gameId)
         break
@@ -288,7 +291,7 @@ export class GameServer {
             })
           }
           if (Object.keys(change.scr).length > 0) {
-            this.scrSettings.mergeFromGame(change.scr).catch(err => {
+            this.scrSettings.merge(change.scr).catch(err => {
               log.error(`Error saving in-game SC:R settings: ${err.stack ?? err}`)
             })
           }
@@ -299,6 +302,12 @@ export class GameServer {
     }
   }
 }
+
+/**
+ * The port ClientSdk sends Battle.net Agent requests to when it can't find the Agent. The game DLL
+ * refuses every loopback connection to it, so the game server can't use it.
+ */
+const AGENT_FALLBACK_PORT = 1120
 
 export default function createGameServer(
   localSettings: LocalSettingsManager,
@@ -318,6 +327,11 @@ export default function createGameServer(
 
   httpServer.on('listening', () => {
     const { port } = httpServer.address() as AddressInfo
+    if (port === AGENT_FALLBACK_PORT) {
+      log.verbose(`Game server got port ${port}, which the game refuses to connect to, retrying`)
+      httpServer.close(() => httpServer.listen(0, '127.0.0.1'))
+      return
+    }
     log.verbose('Game server listening on port ' + port)
     container.resolve(ActiveGameManager).setServerPort(port)
   })

@@ -120,9 +120,14 @@ export interface ChannelActivity {
 const NO_ACTIVITY: ChannelActivity = { streams: [], games: [] }
 
 /**
- * Narrows the public feeds to what involves this channel: members' streams (most watched first),
- * then live games with at least one member in them (newest first). The viewer's own stream and
- * game are left out; they know what they're doing.
+ * Narrows the public feeds to what involves this channel: streams of members who are online
+ * (most watched first), then live games with at least one member in them (newest first). The
+ * viewer's own stream and game are left out; they know what they're doing.
+ *
+ * A stream is tied to the ShieldBattery account that linked the Twitch channel, so it only counts
+ * while that account is online. A streamer whose linked account is offline is broadcasting
+ * something other than their play on that account (an alt, another ladder), and listing them would
+ * point viewers at a stream that doesn't show what the channel's activity claims it does.
  */
 export function deriveActivityEntries(
   data: ChannelActivityData,
@@ -131,7 +136,7 @@ export function deriveActivityEntries(
 ): ChannelActivity {
   const streams: LiveStreamItem[] = []
   for (const stream of data.liveStreams) {
-    if (!stream.user || stream.user.id === selfUserId || !isMember(users, stream.user.id)) {
+    if (!stream.user || stream.user.id === selfUserId || !users.active.has(stream.user.id)) {
       continue
     }
     streams.push(stream)

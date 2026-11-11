@@ -492,6 +492,8 @@ const GAME_USERS: SbUser[] = [
 interface GameScenario {
   label: string
   state: GameLinkLoadState | undefined
+  /** Whether the card offers its watch action, as it does for a game with a replay. */
+  watchable?: boolean
 }
 
 const GAME_SCENARIOS: GameScenario[] = [
@@ -504,6 +506,7 @@ const GAME_SCENARIOS: GameScenario[] = [
       map: ECLIPSE_MAP,
       divisionById: RANKED_1V1_DIVISIONS,
     },
+    watchable: true,
   },
   {
     label: 'Ranked 2v2 (divisions unknown)',
@@ -512,6 +515,7 @@ const GAME_SCENARIOS: GameScenario[] = [
   {
     label: 'Custom lobby 4v4',
     state: { status: 'loaded', game: CUSTOM_4V4_GAME, map: ECLIPSE_MAP, divisionById: undefined },
+    watchable: true,
   },
   {
     label: 'Custom lobby 6v2 (collapsed side)',
@@ -537,6 +541,7 @@ const GAME_SCENARIOS: GameScenario[] = [
       map: ECLIPSE_MAP,
       divisionById: undefined,
     },
+    watchable: true,
   },
   { label: 'Not found', state: { status: 'notFound' } },
   { label: 'Error (renders nothing)', state: { status: 'error' } },
@@ -547,7 +552,11 @@ function GameRow({ scenario }: { scenario: GameScenario }) {
     <Cell>
       <RowLabel>{scenario.label}</RowLabel>
       <div>
-        <GameLinkCardContent state={scenario.state} onClick={() => {}} />
+        <GameLinkCardContent
+          state={scenario.state}
+          onClick={() => {}}
+          onWatch={scenario.watchable ? () => {} : undefined}
+        />
       </div>
     </Cell>
   )

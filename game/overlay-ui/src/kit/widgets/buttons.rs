@@ -527,6 +527,17 @@ pub fn kbd(ui: &mut Ui, key: &str) -> Response {
     response
 }
 
+/// [`kbd`] as a control, for a key that does what clicking its keycap does: washed under the pointer
+/// and while pressed, as any control is.
+pub fn kbd_button(ui: &mut Ui, key: &str) -> Response {
+    let (rect, response) = ui.allocate_exact_size(kbd_size(ui, key), Sense::click());
+    if ui.is_rect_visible(rect) {
+        paint_kbd(ui, rect, key);
+        state_overlay(ui, &response, rect, theme::radius(theme::RADIUS_CHIP));
+    }
+    response
+}
+
 /// How big the keycap chip for `key` is.
 pub fn kbd_size(ui: &Ui, key: &str) -> Vec2 {
     let galley = kbd_spec().galley(ui, key);

@@ -172,6 +172,11 @@ impl BwScr {
 
     /// Plays the specified sound. These IDs can be found in rez/sfx.json in the game files.
     /// Unknown sound IDs will cause a crash.
+    ///
+    /// Only call this on the main thread. SC:R's sound library does no locking of its own, and the
+    /// main thread updates it whenever it processes events; that update stops any channel that
+    /// isn't playing yet, so a sound another thread is partway through starting gets torn down
+    /// underneath it and the game crashes.
     pub fn play_sound(&self, id: impl Into<String>) {
         self.sound.play_sound(id);
     }

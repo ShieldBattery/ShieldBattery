@@ -824,7 +824,7 @@ impl Word {
         // Measured at rest, so a word that has to be set smaller to fit is set at one size
         // throughout its landing rather than shrinking as its letters draw together.
         let fit = (screen.width() - WORD_MARGIN * 2.0)
-            / ink_bounds(&spec(WORD_SIZE, WORD_TRACKING).galley(ui, &title)).width();
+            / text::ink_bounds(&spec(WORD_SIZE, WORD_TRACKING).galley(ui, &title)).width();
         let size = WORD_SIZE * fit.min(1.0);
         let landing = timeline.word.progress(t);
         let (scale, drop, tracking, alpha) = match result {
@@ -847,7 +847,7 @@ impl Word {
             }
         };
         let galley = spec(size, tracking).galley(ui, &title);
-        let resting_ink = ink_bounds(&galley);
+        let resting_ink = text::ink_bounds(&galley);
         let origin = center - resting_ink.center().to_vec2();
         let transform = TSTransform::new(center.to_vec2() * (1.0 - scale) + vec2(0.0, drop), scale);
         Word {
@@ -985,14 +985,6 @@ fn add_letter_grid(mesh: &mut Mesh, rect: Rect, uv: Rect, color_at: &impl Fn(Pos
             ]);
         }
     }
-}
-
-/// The extent of a laid-out line's letters relative to its origin, leaving out the room the face
-/// keeps above and below them, which is what the word is centered on the banner by.
-fn ink_bounds(galley: &Galley) -> Rect {
-    galley.rows.first().map_or(galley.rect, |row| {
-        row.visuals.mesh_bounds.translate(row.pos.to_vec2())
-    })
 }
 
 /// One number of the summary.
@@ -1262,7 +1254,7 @@ fn stat_value_layout(ui: &Ui, rect: Rect, cell: &StatCell, value: u32) -> StatVa
         )
     });
     let origin = pos2(left + glyph_room, top);
-    let digits = ink_bounds(&galley).translate(origin.to_vec2());
+    let digits = text::ink_bounds(&galley).translate(origin.to_vec2());
     let ink = match glyph {
         Some((_, glyph_rect)) => {
             Rect::from_x_y_ranges(glyph_rect.left()..=digits.right(), digits.y_range())
@@ -1392,7 +1384,7 @@ fn draw_plate(painter: &Painter, number: Rect, rank: Rank, shown: f32) {
         .with_color(Color32::PLACEHOLDER)
         .job(&rank.label());
     let galley = ctx.fonts_mut(|fonts| fonts.layout_job(job));
-    let ink = ink_bounds(&galley);
+    let ink = text::ink_bounds(&galley);
     let size = ink.size() + PLATE_PADDING * 2.0;
     let lean = size.y * PLATE_SHEAR;
     let tail = (PLATE_SLASH_GAP + PLATE_SLASH_WIDTH) * PLATE_SLASHES as f32;

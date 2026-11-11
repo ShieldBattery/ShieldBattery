@@ -287,11 +287,10 @@ export function deriveResultSubmission(
       }
     }
 
+    // A defeated player who is still connected (e.g. watching after being eliminated) is no more
+    // decided than one who left: either way their team can still carry them to an allied victory.
     for (const [sbId, result] of results) {
-      // BW never marks the local user as having quit by this point, but we treat them as quit so
-      // the logic below is uniform.
-      const quit = sbId === reporterUserId || hasQuit(sbToStorm.get(sbId))
-      if (quit && result.result === GameClientResult.Defeat) {
+      if (result.result === GameClientResult.Defeat) {
         const bwId = sbToBw.get(sbId)
         if (bwId !== undefined && liveBwIds.has(bwId)) {
           result.result = GameClientResult.Disconnected

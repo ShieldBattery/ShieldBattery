@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
-import { LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
+import {
+  LobbyMapStatus,
+  LobbyMemberMapStatusJson,
+  LobbySeriesGameJson,
+} from '../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../common/maps'
 import { RolledOutcome } from '../../common/rolled-outcomes'
@@ -132,7 +136,11 @@ function lastJoinMessage(state: CurrentLobbyState): JoinLobbyMessage {
 }
 
 function initAction(
-  extra: Partial<{ readyUsers: SbUserId[]; series: LobbySeriesGameJson[] }> = {},
+  extra: Partial<{
+    readyUsers: SbUserId[]
+    mapStatuses: LobbyMemberMapStatusJson[]
+    series: LobbySeriesGameJson[]
+  }> = {},
   lobby: Lobby = LOBBY,
 ): LobbyActions {
   return {
@@ -142,6 +150,7 @@ function initAction(
       lobby,
       userInfos: [],
       readyUsers: extra.readyUsers ?? [],
+      mapStatuses: extra.mapStatuses ?? [],
       series: extra.series ?? [],
     },
   }
@@ -810,6 +819,7 @@ describe('client/lobbies/lobby-reducer', () => {
         lobby: LOBBY,
         userInfos: [],
         readyUsers: [],
+        mapStatuses: [],
         series: [],
         runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!], elapsedMs: 0 },
       },
@@ -940,6 +950,144 @@ describe('client/lobbies/lobby-reducer', () => {
       payload: { type: 'regroup', game: { ...SERIES_GAME, gameId: 'game-1' } },
     })
     expect(state.readyUserIds).toEqual([])
+  })
+
+  describe('map statuses', () => {
+    function mapStatusAction(userId: SbUserId, status: LobbyMapStatus): LobbyActions {
+      return {
+        type: '@lobbies/updateMapStatusChange',
+        payload: { type: 'mapStatusChange', userId, status },
+      }
+    }
+
+    const BOTH_MISSING: LobbyMemberMapStatusJson[] = [
+      { userId: HOST_SLOT.userId!, status: 'downloading' },
+      { userId: SLOT_A.userId!, status: 'failed' },
+    ]
+
+    test('init seeds the members who are missing the map', () => {
+      const state = lobbyReducer(undefined, initAction({ mapStatuses: BOTH_MISSING }))
+
+      expect(state.mapStatuses).toEqual(BOTH_MISSING)
+    })
+
+    test('a status change records, replaces, and on ready forgets one member', () => {
+      let state = lobbyReducer(undefined, initAction())
+
+      state = lobbyReducer(state, mapStatusAction(SLOT_A.userId!, 'downloading'))
+      state = lobbyReducer(state, mapStatusAction(HOST_SLOT.userId!, 'downloading'))
+      expect(state.mapStatuses).toEqual([
+        { userId: SLOT_A.userId, status: 'downloading' },
+        { userId: HOST_SLOT.userId, status: 'downloading' },
+      ])
+
+      state = lobbyReducer(state, mapStatusAction(SLOT_A.userId!, 'failed'))
+      expect(state.mapStatuses).toEqual([
+        { userId: HOST_SLOT.userId, status: 'downloading' },
+        { userId: SLOT_A.userId, status: 'failed' },
+      ])
+
+      state = lobbyReducer(state, mapStatusAction(SLOT_A.userId!, 'ready'))
+      expect(state.mapStatuses).toEqual([{ userId: HOST_SLOT.userId, status: 'downloading' }])
+    })
+
+    test('a status change trailing our own leave records nothing', () => {
+      let state = lobbyReducer(undefined, initAction())
+      state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+      state = lobbyReducer(state, mapStatusAction(SLOT_A.userId!, 'failed'))
+
+      expect(state.mapStatuses).toEqual([])
+    })
+
+    test('leaving, being kicked, and being banned each drop only that member', () => {
+      for (const action of [
+        { type: '@lobbies/updateLeave', payload: { type: 'leave', player: SLOT_A } },
+        { type: '@lobbies/updateKick', payload: { type: 'kick', player: SLOT_A } },
+        { type: '@lobbies/updateBan', payload: { type: 'ban', player: SLOT_A } },
+      ] as LobbyActions[]) {
+        let state = lobbyReducer(undefined, initAction({ mapStatuses: BOTH_MISSING }))
+        state = lobbyReducer(state, action)
+
+        expect(state.mapStatuses).toEqual([{ userId: HOST_SLOT.userId, status: 'downloading' }])
+      }
+    })
+
+    test('a bench member leaving drops their status, but being seated keeps it', () => {
+      const lobby: Lobby = { ...LOBBY, bench: [BENCHED_USER] }
+      const benchedMissing: LobbyMemberMapStatusJson[] = [
+        { userId: BENCHED_USER.userId, status: 'downloading' },
+      ]
+
+      let seated = lobbyReducer(undefined, initAction({ mapStatuses: benchedMissing }, lobby))
+      seated = lobbyReducer(seated, {
+        type: '@lobbies/updateBenchRemove',
+        payload: { type: 'benchRemove', userId: BENCHED_USER.userId },
+      })
+      expect(seated.mapStatuses).toEqual(benchedMissing)
+
+      let left = lobbyReducer(undefined, initAction({ mapStatuses: benchedMissing }, lobby))
+      left = lobbyReducer(left, {
+        type: '@lobbies/updateBenchRemove',
+        payload: { type: 'benchRemove', userId: BENCHED_USER.userId, reason: 'left' },
+      })
+      expect(left.mapStatuses).toEqual([])
+    })
+
+    test('a settings change clears every status only when it changes the map', () => {
+      let state = lobbyReducer(undefined, initAction({ mapStatuses: BOTH_MISSING }))
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: {
+          type: 'settingsChange',
+          changedSettings: ['useLegacyLimits'],
+          lobby: { ...LOBBY, useLegacyLimits: true },
+        },
+      })
+      expect(state.mapStatuses).toEqual(BOTH_MISSING)
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: { type: 'settingsChange', changedSettings: ['map'], lobby: { ...LOBBY } },
+      })
+      expect(state.mapStatuses).toEqual([])
+    })
+
+    test('a map queue advance clears every status only when it lands on another map', () => {
+      const fightingSpirit = { id: 'fighting-spirit' as SbMapId } as MapInfo
+      const polypoid = { id: 'polypoid' as SbMapId } as MapInfo
+      const lobby: Lobby = { ...LOBBY, map: fightingSpirit, mapQueue: [polypoid] }
+
+      let state = lobbyReducer(undefined, initAction({ mapStatuses: BOTH_MISSING }, lobby))
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateMapQueueAdvance',
+        payload: {
+          type: 'mapQueueAdvance',
+          skippedMapIds: [polypoid.id],
+          lobby: { ...lobby, mapQueue: [] },
+        },
+      })
+      expect(state.mapStatuses).toEqual(BOTH_MISSING)
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateMapQueueAdvance',
+        payload: {
+          type: 'mapQueueAdvance',
+          skippedMapIds: [],
+          lobby: { ...lobby, map: polypoid, mapQueue: [] },
+        },
+      })
+      expect(state.mapStatuses).toEqual([])
+    })
+
+    test('leaving the lobby forgets every status', () => {
+      let state = lobbyReducer(undefined, initAction({ mapStatuses: BOTH_MISSING }))
+
+      state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+      expect(state.mapStatuses).toEqual([])
+    })
   })
 
   test('seriesGameUpdated settles the named game and leaves the rest of the series alone', () => {

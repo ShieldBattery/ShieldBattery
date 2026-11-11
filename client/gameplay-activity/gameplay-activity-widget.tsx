@@ -11,7 +11,12 @@ import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { isInLobby } from '../lobbies/lobby-reducer'
-import { cancelFindMatch, openAcceptMatchDialog } from '../matchmaking/action-creators'
+import { JsonLocalStorageValue } from '../local-storage'
+import {
+  cancelFindMatch,
+  openAcceptMatchDialog,
+  simulateMatchPop,
+} from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
 import {
@@ -23,7 +28,7 @@ import {
 } from '../matchmaking/matchmaking-atoms'
 import { useAcceptCountdown } from '../matchmaking/use-accept-countdown'
 import { useAcceptMatch } from '../matchmaking/use-accept-match'
-import { FilledButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -43,9 +48,22 @@ import {
   titleLarge,
   titleMedium,
 } from '../styles/typography'
+import { anchorWidgetPosition, parseWidgetPosition, WidgetPosition } from './widget-position'
 
-const widgetXAtom = atom(0)
-const widgetYAtom = atom(0)
+/** The widget's position, kept per machine so it comes back where the user parked it. */
+const savedWidgetPosition = new JsonLocalStorageValue<WidgetPosition>(
+  'gameplayActivityWidgetPosition',
+)
+
+const widgetPositionAtom = atom<WidgetPosition>(parseWidgetPosition(savedWidgetPosition.getValue()))
+
+/** The size the widget's placement is clamped with, as `Widget` measures it onto the element. */
+function placementSize(widget: HTMLElement) {
+  return {
+    width: parseFloat(widget.style.getPropertyValue('--_width')) || 0,
+    height: parseFloat(widget.style.getPropertyValue('--_height')) || 0,
+  }
+}
 
 const PositioningArea = styled.div`
   position: fixed;
@@ -70,8 +88,7 @@ export function GameplayActivityWidget() {
 
   const positioningAreaRef = useRef<HTMLDivElement>(null)
   const widgetRef = useRef<HTMLDivElement>(null)
-  const [x, setX] = useAtom(widgetXAtom)
-  const [y, setY] = useAtom(widgetYAtom)
+  const [position, setPosition] = useAtom(widgetPositionAtom)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -93,15 +110,28 @@ export function GameplayActivityWidget() {
       return () => {}
     }
 
+    // The position as last rendered, saved once when the drag ends rather than on every move
+    let latest: WidgetPosition | undefined
+
     function onMouseMove(e: MouseEvent) {
-      if (!positioningAreaRef.current) return
-      const areaRect = positioningAreaRef.current.getBoundingClientRect()
-      const x = e.clientX - areaRect.left - (dragOffset?.x ?? 0)
-      const y = e.clientY - areaRect.top - (dragOffset?.y ?? 0)
-      setX(x)
-      setY(y)
+      const area = positioningAreaRef.current
+      const widget = widgetRef.current
+      if (!area || !widget) return
+      const areaRect = area.getBoundingClientRect()
+      latest = anchorWidgetPosition(
+        {
+          left: e.clientX - areaRect.left - (dragOffset?.x ?? 0),
+          top: e.clientY - areaRect.top - (dragOffset?.y ?? 0),
+        },
+        areaRect,
+        placementSize(widget),
+      )
+      setPosition(latest)
     }
     function onMouseUp() {
+      if (latest) {
+        savedWidgetPosition.setValue(latest)
+      }
       setDragging(false)
     }
     window.addEventListener('mousemove', onMouseMove)
@@ -110,7 +140,7 @@ export function GameplayActivityWidget() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [dragging, dragOffset, setX, setY])
+  }, [dragging, dragOffset, setPosition])
 
   let widget: React.ReactNode | undefined
   if (isConnected && inLobby && !onLobbyRoute) {
@@ -125,8 +155,12 @@ export function GameplayActivityWidget() {
         ref={positioningAreaRef}
         style={
           {
-            '--widget-left': `${x}px`,
-            '--widget-top': `${y}px`,
+            // Only the variable for the edge the widget is anchored to is set; the widget's own
+            // placement falls back to measuring from the opposite edge when the start one is unset.
+            '--widget-left': position.x.edge === 'start' ? `${position.x.offset}px` : undefined,
+            '--widget-right': position.x.edge === 'end' ? `${position.x.offset}px` : undefined,
+            '--widget-top': position.y.edge === 'start' ? `${position.y.offset}px` : undefined,
+            '--widget-bottom': position.y.edge === 'end' ? `${position.y.offset}px` : undefined,
           } as React.CSSProperties
         }>
         <AnimatePresence>{widget}</AnimatePresence>
@@ -140,8 +174,19 @@ const WidgetRoot = styled(m.div)`
   ${elevationPlus2};
 
   position: absolute;
-  left: clamp(0px, var(--widget-left, 0px), calc(100% - var(--_width, 0px)));
-  top: clamp(0px, var(--widget-top, 0px), calc(100% - var(--_height, 0px)));
+  left: clamp(
+    0px,
+    var(--widget-left, calc(100% - var(--_width, 0px) - var(--widget-right, 0px))),
+    calc(100% - var(--_width, 0px))
+  );
+  top: clamp(
+    0px,
+    var(--widget-top, calc(100% - var(--_height, 0px) - var(--widget-bottom, 0px))),
+    calc(100% - var(--_height, 0px))
+  );
+  /* An absolutely positioned box with left set and width auto shrinks to the space beside it, so
+     its width would depend on where it is placed. */
+  width: max-content;
   max-width: 280px;
 
   padding-block: 8px;
@@ -405,6 +450,29 @@ const AcceptProgressText = styled(BodyMedium)`
   color: var(--theme-on-surface-variant);
 `
 
+const DevButtonRow = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+`
+
+/** Development tools for exercising the accept flow without a second client. */
+function SimulateMatchPopButtons() {
+  const dispatch = useAppDispatch()
+  const simulate = (opponentLeavesAfterMs?: number) => {
+    dispatch(
+      simulateMatchPop({ opponentLeavesAfterMs }, { onSuccess: () => {}, onError: () => {} }),
+    )
+  }
+
+  return (
+    <DevButtonRow>
+      <TextButton label='Pop' onClick={() => simulate()} />
+      <TextButton label='Pop (leaver)' onClick={() => simulate(10_000)} />
+    </DevButtonRow>
+  )
+}
+
 export function MatchmakingWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -499,6 +567,7 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
           }}
         />
       ) : null}
+      {import.meta.env.DEV && !isMatched ? <SimulateMatchPopButtons /> : null}
     </Widget>
   )
 }

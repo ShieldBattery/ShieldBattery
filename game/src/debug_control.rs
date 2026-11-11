@@ -229,6 +229,9 @@ pub enum DebugCrashKind {
     /// Recurse until the thread's stack is exhausted: the crash whose dump has to be written from
     /// another thread, since the faulting one has no stack left to write it with.
     StackOverflow,
+    /// End the process with an access violation's code without faulting, as code that handles
+    /// its own exceptions and then terminates does: the crash the top-level filter never sees.
+    ExceptionExit,
 }
 
 /// Raises the requested fault on the calling thread. Never returns normally.
@@ -243,6 +246,10 @@ pub fn crash(kind: DebugCrashKind) {
             let depth = exhaust_stack(0);
             warn!("debugControl: stack overflow recursion returned at depth {depth}");
         }
+        DebugCrashKind::ExceptionExit => unsafe {
+            use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
+            TerminateProcess(GetCurrentProcess(), 0xc000_0005);
+        },
     }
 }
 

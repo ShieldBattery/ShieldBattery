@@ -78,6 +78,7 @@ import { LeagueGames } from './league-games'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 import { LeaguePodium } from './league-podium'
 import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
+import { useLocalizedLeague } from './use-localized-league'
 
 const PageFrame = styled.div`
   position: relative;
@@ -527,16 +528,19 @@ function LeagueActionsMenu({ onLeave }: { onLeave: () => void }) {
 
 export interface LeagueDetailsHeaderProps {
   league: ReadonlyDeep<LeagueJson>
+  language?: string
   previewBadgeUrl?: string
   actions?: React.ReactNode
 }
 
 export function LeagueDetailsHeader({
   league,
+  language,
   previewBadgeUrl,
   actions,
 }: LeagueDetailsHeaderProps) {
   const { t } = useTranslation()
+  const localized = useLocalizedLeague(league, language)
   const monthDayFormat = useFormat(monthDay)
   const longTimestampFormat = useFormat(longTimestamp)
   // TODO(tec27): Handle cases where year differs to smartly show that info
@@ -553,10 +557,10 @@ export function LeagueDetailsHeader({
 
   return (
     <InfoRoot>
-      <InfoBadge leagueName={league.name} badgeUrl={previewBadgeUrl ?? league.badgePath} />
+      <InfoBadge leagueName={localized.name} badgeUrl={previewBadgeUrl ?? league.badgePath} />
       <TitleAndSummary>
         <TitleRow>
-          <Title>{league.name}</Title>
+          <Title>{localized.name}</Title>
           <CopyLinkButton
             tooltipPosition='right'
             startingText={t('leagues.leagueDetails.copyLink', 'Copy link to league')}
@@ -581,11 +585,13 @@ export function LeagueDetailsHeader({
 
 export interface LeagueDetailsInfoProps {
   league: ReadonlyDeep<LeagueJson>
+  language?: string
   previewImageUrl?: string
 }
 
-export function LeagueDetailsInfo({ league, previewImageUrl }: LeagueDetailsInfoProps) {
+export function LeagueDetailsInfo({ league, language, previewImageUrl }: LeagueDetailsInfoProps) {
   const { t } = useTranslation()
+  const localized = useLocalizedLeague(league, language)
   const imageUrl = previewImageUrl ?? league.imagePath
   return (
     <>
@@ -594,15 +600,15 @@ export function LeagueDetailsInfo({ league, previewImageUrl }: LeagueDetailsInfo
       </LeagueImageContainer>
       <InfoSection>
         <InfoSectionHeader>{t('leagues.leagueDetails.about', 'About')}</InfoSectionHeader>
-        <div>{league.description}</div>
+        <div>{localized.description}</div>
       </InfoSection>
-      {league.rulesAndInfo ? (
+      {localized.rulesAndInfo ? (
         <InfoSection>
           <InfoSectionHeader>
             {t('leagues.leagueDetails.rulesAndInfo', 'Rules and info')}
           </InfoSectionHeader>
           <div>
-            <Markdown source={league.rulesAndInfo} />
+            <Markdown source={localized.rulesAndInfo} />
           </div>
         </InfoSection>
       ) : undefined}

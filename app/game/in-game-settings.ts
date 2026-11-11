@@ -159,6 +159,14 @@ function pickValid<T>(
 }
 
 /**
+ * Keeps the SC:R settings in `input` whose values the app itself could have chosen, adding the keys
+ * of the rest to `rejected`.
+ */
+export function pickValidScrSettings(input: unknown, rejected: string[]): Partial<ScrSettings> {
+  return pickValid<ScrSettings>(input, SCR_SETTING_VALIDATORS, rejected)
+}
+
+/**
  * Reads a `/game/settingsChanged` payload, keeping only the settings the game's options screen is
  * allowed to change and only values the app itself could have chosen. The payload crosses a local
  * websocket, and anything accepted here flows back into the settings UI and every later launch.
@@ -177,7 +185,7 @@ export function readInGameSettingsChange(payload: unknown): {
   }
   const change: InGameSettingsChange = {
     local: pickValid<LocalSettings>(local, LOCAL_SETTING_VALIDATORS, rejected),
-    scr: pickValid<ScrSettings>(scr, SCR_SETTING_VALIDATORS, rejected),
+    scr: pickValidScrSettings(scr, rejected),
   }
   if (monitor !== undefined) {
     const bounds = readMonitor(monitor)

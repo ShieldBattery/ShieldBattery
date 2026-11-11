@@ -6,7 +6,7 @@
 //! about a native dialog the moment its spawn hook hides one. Here every one of those is a switch,
 //! so the policy the shell derives from them can be walked through without a game.
 
-use egui::Ui;
+use egui::{Align2, Context, Id, Pos2, Ui, Vec2};
 use overlay_ui::observer::GraphSeries;
 use overlay_ui::shell::{HostFrame, Mode, NativeDialog, Panel, PanelPrefs, PauseControl, Shell};
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,28 @@ pub struct Knobs {
     /// puts a tooltip or a crosshair into a rendered image, and it overrides the live pointer while
     /// it is set so the same point can be walked up to interactively.
     pub pointer: Option<(f32, f32)>,
+    /// A control to rest the pointer on wherever the layout put it, for a preset about what the
+    /// overlay shows while something is hovered. The pinned [`pointer`](Self::pointer) wins over it.
+    #[serde(skip)]
+    pub pointer_on: Option<PointerTarget>,
+}
+
+/// A point on one of the overlay's surfaces: an offset from a corner of the area it is drawn in.
+/// A surface's insides are laid out in points whatever the screen, so one offset finds the same
+/// control on every screen, wherever the layout has put the surface.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct PointerTarget {
+    pub area: Id,
+    pub corner: Align2,
+    pub offset: Vec2,
+}
+
+impl PointerTarget {
+    /// Where the target is as `ctx` last drew its area, or nothing before it has been drawn.
+    pub fn resolve(&self, ctx: &Context) -> Option<Pos2> {
+        let rect = ctx.memory(|memory| memory.area_rect(self.area))?;
+        Some(self.corner.pos_in_rect(&rect) + self.offset)
+    }
 }
 
 impl Default for Knobs {
@@ -78,6 +100,7 @@ impl Default for Knobs {
             show_hit_rects: false,
             panels: PanelPrefs::default(),
             pointer: None,
+            pointer_on: None,
         }
     }
 }

@@ -4,6 +4,7 @@ import { GameSource } from '../../../common/games/configuration'
 import { GameSourceFilter, MIN_GAME_LENGTH_MS } from '../../../common/games/game-filters'
 import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
@@ -18,6 +19,7 @@ import {
   getGamesForUser,
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
+  getRecentMatchmakingOpponents,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
   setNetcodeV2SessionMapping,
@@ -62,6 +64,67 @@ describe('games/game-models/findNetcodeV2EvidenceRecoveryCandidates', () => {
     const template = query.mock.calls[0][0]
     expect(template.text).not.toContain('AND id >')
     expect(template.values).toEqual([since, 100])
+  })
+})
+
+describe('games/game-models/getRecentMatchmakingOpponents', () => {
+  const player = (id: number, isComputer = false) => ({
+    id: makeSbUserId(id),
+    race: 'p',
+    isComputer,
+  })
+
+  test('returns only human opponents, never teammates', async () => {
+    const start = new Date('2026-11-09T10:00:00Z')
+    const query = mockDbClient([
+      {
+        config: {
+          gameSource: GameSource.Matchmaking,
+          gameSourceExtra: { type: MatchmakingType.Match2v2 },
+          teams: [
+            [player(1), player(2)],
+            [player(3), player(4, true)],
+          ],
+        },
+        // eslint-disable-next-line eslint-core/camelcase
+        start_time: start,
+      },
+      {
+        // A game the user wasn't actually on a team in contributes nobody.
+        config: {
+          gameSource: GameSource.Matchmaking,
+          gameSourceExtra: { type: MatchmakingType.Match2v2 },
+          teams: [[player(5)], [player(6)]],
+        },
+        // eslint-disable-next-line eslint-core/camelcase
+        start_time: start,
+      },
+    ])
+    const since = new Date('2026-11-09T04:00:00Z')
+    const types = [MatchmakingType.Match1v1, MatchmakingType.Match2v2]
+
+    expect(await getRecentMatchmakingOpponents(makeSbUserId(1), types, since)).toEqual([
+      {
+        matchmakingType: MatchmakingType.Match2v2,
+        opponentId: makeSbUserId(3),
+        gameStartTime: start,
+      },
+    ])
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(/u\.user_id = \$\d+/)
+    expect(template.text).toMatch(/u\.start_time >= \$\d+/)
+    expect(template.text).toContain('g.canceled_at IS NULL')
+    expect(template.text).toMatch(/g\.config->>'gameSource' = \$\d+/)
+    expect(template.text).toMatch(/g\.config->'gameSourceExtra'->>'type' = ANY\(\$\d+\)/)
+    expect(template.values).toEqual([makeSbUserId(1), since, GameSource.Matchmaking, types])
+  })
+
+  test('skips the query when no modes are asked for', async () => {
+    const query = mockDbClient([])
+    expect(await getRecentMatchmakingOpponents(makeSbUserId(1), [], new Date())).toEqual([])
+    expect(query).not.toHaveBeenCalled()
   })
 })
 
@@ -295,6 +358,31 @@ describe('games/game-models/getGames', () => {
     const template = query.mock.calls[0][0]
     expect(template.text).not.toContain('g.game_length')
     expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
+  })
+
+  test('filters on the IDs of users whose names match playerName', async () => {
+    const query = mockDbClient([])
+    query.mockResolvedValueOnce({ rows: [{ id: 5 }, { id: 9 }], rowCount: 2 })
+
+    await getGames({ limit: 10, offset: 0, playerName: 'te_st%' })
+
+    expect(query).toHaveBeenCalledTimes(2)
+    const usersTemplate = query.mock.calls[0][0]
+    expect(usersTemplate.text).toContain('FROM users')
+    expect(usersTemplate.values).toEqual(['%te\\_st\\%%'])
+    const gamesTemplate = query.mock.calls[1][0]
+    expect(gamesTemplate.text).toContain('gu2.user_id = ANY(')
+    expect(gamesTemplate.text).not.toContain('ILIKE')
+    expect(gamesTemplate.values).toContainEqual([5, 9])
+  })
+
+  test('returns no games without querying them when no user names match playerName', async () => {
+    const query = mockDbClient([])
+
+    expect(await getGames({ limit: 10, offset: 0, playerName: 'nobody' })).toEqual([])
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(query.mock.calls[0][0].text).toContain('FROM users')
   })
 })
 

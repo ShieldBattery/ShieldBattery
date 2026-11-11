@@ -10,17 +10,23 @@
 //! under each small tile: green, yellow and red as the unit's health falls through two thirds and a
 //! third.
 //!
+//! A watcher often reads this panel off a stream, in a video scaled down and with its color blurred,
+//! so what a unit has left is written and drawn at sizes that survive that.
+//!
 //! The panel reads a selection as one [`SelectionCase`] at a time:
 //!
 //! - Nothing selected is nothing drawn. A box that only says it is empty is a box in the way.
-//! - Several units are the console's grid: two rows of six, in the game's order.
-//! - One unit is drawn large beside its name, owner, a bar per pool, its upgrades and its kills.
+//! - Several units are the console's grid: two rows of six, in the game's order, with a bar under
+//!   each for every pool it has.
+//! - One unit is drawn large beside its name and kills, owner, a bar per pool, the upgrades it
+//!   fights with, and what its owner has researched for it.
 //! - One building is drawn smaller with its readouts under it, and its upgrades where it has any.
 //!   A mineral field, a geyser, or a geyser built on reads out what is left to mine in it, and a
 //!   building with others of its kind stacked on it says how many there are.
 //! - One thing making something shows the console's queue, or a single slot for anything working
 //!   through one thing alone; a building going up shows only its progress.
-//! - One transport or bunker with units inside shows them in the console's cargo slots.
+//! - One transport or bunker with units inside shows them in the console's cargo grid, each as big
+//!   as the room it takes up, with the upgrades it fights with beside them.
 //!
 //! The body is the same height whichever of those is drawn, so the panels stacked on it stay where
 //! they are as the watcher clicks from one unit to the next.
@@ -30,12 +36,12 @@ use egui::{
     Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE10, BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
+use crate::colors::{BLUE10, BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, PURPLE70, PURPLE80};
 use crate::kit::text;
 use crate::kit::widgets::{ResourceGlyph, ResourceRace};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    ProductionIcon, StackSlot, centred, paint_player_swatch, paint_text, unit_codes,
+    ProductionIcon, StackSlot, centred, paint_player_swatch, paint_text, paint_track, unit_codes,
 };
 use crate::tr;
 
@@ -83,12 +89,33 @@ pub struct SelectedUnitView {
     pub production: Option<ProductionProgressView>,
     /// The units inside it, for a transport or a bunker. Empty for anything else, and for a
     /// transport that is empty.
-    pub cargo: Vec<SelectedUnitView>,
+    pub cargo: Vec<CarriedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
     /// a unit that has any, then whatever improves its weapons and its inventory counts. Only read
-    /// out for a unit selected alone, and not under a queue or cargo, which leave no room for them,
-    /// so a host may leave it empty for any other.
+    /// out for a unit selected alone, and not under a queue, which leaves no room for them, so a
+    /// host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+    /// What its owner has finished researching that changes what it can do, beyond the upgrades it
+    /// fights with: the spells it can cast and the upgrades to its speed, range, sight, energy or
+    /// capacity. Only read out for a unit selected alone, so a host may leave it empty for any other.
+    pub research: Vec<UnitResearchView>,
+}
+
+/// One technology or upgrade a unit's owner has finished that this unit makes use of.
+pub struct UnitResearchView {
+    /// The game's own icon for it.
+    pub icon: ProductionIcon,
+    /// What the game calls it, for the card that names it under the pointer; `None` where the host
+    /// cannot say.
+    pub name: Option<String>,
+}
+
+/// One unit inside a transport or a bunker.
+pub struct CarriedUnitView {
+    pub unit: SelectedUnitView,
+    /// How much of the room in there it takes up, by the game's own count: 1, 2 or 4 of a
+    /// transport's 8. It is what decides how big the unit is drawn.
+    pub room: u32,
 }
 
 /// The line the console writes under a unit selected alone, in the game's language: what has been
@@ -173,9 +200,19 @@ pub struct ProductionProgressView {
     /// `None` for something with no queue at all: research, an upgrade, or a morph, each of which is
     /// one thing worked through alone.
     pub queue: Option<Vec<ProductionIcon>>,
-    /// Whether what is being made is the selected thing itself: a building going up, rather than
-    /// something coming out of it or something it is turning into.
-    pub is_subject: bool,
+    /// What is happening to the selected thing where what is being made is the selected thing
+    /// itself, a building going up or an archon forming, rather than something coming out of it
+    /// or something it is turning into. `None` for those.
+    pub subject: Option<SubjectProgress>,
+}
+
+/// How the selected thing is becoming itself, for a selection whose progress is its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SubjectProgress {
+    /// A building going up.
+    Construction,
+    /// Two templar merging, which are already the archon they form while the merge plays.
+    Summoning,
 }
 
 impl SelectedUnitView {
@@ -274,7 +311,7 @@ const SUBJECT_TILE: f32 = 64.0;
 const SUBJECT_COLUMN: f32 = 92.0;
 
 /// Height of one readout under the subject, and the gap between the tile and the first of them.
-const READOUT_ROW: f32 = 15.0;
+const READOUT_ROW: f32 = 20.0;
 const READOUT_LEAD: f32 = 4.0;
 
 /// The most readouts there are: shields, hit points and energy.
@@ -340,8 +377,7 @@ const TALLY_ROW: f32 = 16.0;
 const TALLY_LABEL_GAP: f32 = theme::SPACE_SM;
 
 /// Height of the line saying what is left to mine in a resource, the side of its glyph, and the
-/// gap between the two. The amount is the whole of what a resource is selected for, so it is
-/// written at the size of the name above it rather than of a readout.
+/// gap between the two. The amount is a resource's one readout, so it is written like any other.
 const RESOURCES_ROW: f32 = 22.0;
 const RESOURCES_GLYPH: f32 = 18.0;
 const RESOURCES_GAP: f32 = theme::SPACE_SM;
@@ -350,45 +386,69 @@ const RESOURCES_GAP: f32 = theme::SPACE_SM;
 const GRID_COLUMNS: usize = 6;
 const GRID_ROWS: usize = 2;
 
-/// Side of one slot of the grid, and the gap between two of them.
-const GRID_SLOT: f32 = 48.0;
+/// Side of one slot of the grid, the largest at which two rows of slots and the bars under them fit
+/// the body, and the gap between two slots.
+const GRID_SLOT: f32 = 47.0;
 const GRID_GAP: f32 = 8.0;
 
-/// The bar under a small tile saying how much of its unit is left, and its gap from the tile.
-const HEALTH_BAR: f32 = 3.0;
-const HEALTH_GAP: f32 = 2.0;
+/// The bars under a slot of the grid: one for each of a unit's pools.
+const GRID_BARS: TileBars = TileBars {
+    thickness: 5.0,
+    gap: 2.0,
+    energy: true,
+};
 
-/// The bar above the health bar for a unit with shields, and its gap from the tile. As thick as the
-/// health bar and held apart from it by a clear gap: a stream's video keeps color at half the
-/// resolution of brightness, and two bars a pixel apart blur into one striped bar there.
-const SHIELD_BAR: f32 = 3.0;
-const SHIELD_GAP: f32 = 2.0;
+/// How tall one row of the grid is, its bars included: room for all three of a unit's pools, so the
+/// rows stand in the same place whatever is selected.
+const GRID_ROW: f32 = GRID_SLOT + (GRID_BARS.gap + GRID_BARS.thickness) * READOUTS as f32;
+
+/// The bars under a unit in the cargo grid, which has no room for one for energy.
+const CARGO_BARS: TileBars = TileBars {
+    thickness: 3.0,
+    gap: 2.0,
+    energy: false,
+};
 
 /// Gap between the two rows of a grid of small tiles.
 const GRID_ROW_GAP: f32 = 6.0;
 
-/// How tall one row of a grid of small tiles of `side` is, its bars included. Every row has room
-/// for a shield bar, so a row's bars line up whichever of its units have shields.
+/// How tall one row of the cargo grid is for cells `side` tall, their bars included. Every row has
+/// room for a shield bar, so a row's bars line up whichever of its units have shields.
 const fn tile_row(side: f32) -> f32 {
-    side + HEALTH_GAP + HEALTH_BAR + SHIELD_GAP + SHIELD_BAR
+    side + (CARGO_BARS.gap + CARGO_BARS.thickness) * 2.0
 }
 
-/// The cargo slots, which are the console's own: two rows of four.
+/// The shape of the cargo grid, which is the console's own: two rows of four cells, of which a unit
+/// takes one, a whole column or two whole columns by how much room it takes up.
 const CARGO_COLUMNS: usize = 4;
 const CARGO_ROWS: usize = 2;
-const CARGO_SLOT: f32 = 31.0;
+
+/// Size of one cell of the cargo grid, and the gap between two columns of them. Wider than the
+/// console's cells, because an icon keeps its proportions and so can only be as large as its column
+/// is wide: any narrower, and a goliath would be drawn no bigger than a marine.
+const CARGO_CELL_WIDTH: f32 = 50.0;
+const CARGO_CELL_HEIGHT: f32 = 35.0;
 const CARGO_GAP: f32 = 6.0;
 
-/// How tall the cargo slots are, both rows of them.
-const CARGO_HEIGHT: f32 = tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
+/// How wide and how tall the cargo grid is, the bars under its second row included.
+const CARGO_WIDTH: f32 =
+    CARGO_CELL_WIDTH * CARGO_COLUMNS as f32 + CARGO_GAP * (CARGO_COLUMNS as f32 - 1.0);
+const CARGO_HEIGHT: f32 = tile_row(CARGO_CELL_HEIGHT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
+
+/// Gap between the cargo grid and the upgrades beside it.
+const CARGO_UPGRADES_GAP: f32 = 12.0;
+
+/// The most upgrades anything carrying units fights with: a shuttle's armor and its shields. Nothing
+/// that carries units has a weapon of its own.
+const MAX_CARGO_UPGRADES: usize = 2;
 
 /// How tall the panel's body is: its tallest reading, which is the subject's column, a full head of
-/// text over the cargo slots, or a unit's head of text over its pools and its row of upgrades.
+/// text over the cargo grid, or a unit's head of text over its pools and its row of upgrades.
 /// Every other reading is laid out in the same height, so that the panels stacked on this one stay
 /// put.
 const BODY_HEIGHT: f32 = max(
     max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT),
-    HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS + UPGRADE_CHIP,
+    HEADER_HEIGHT + POOL_LEAD + POOL_ROW * READOUTS as f32 + POOL_TAIL + UPGRADE_CHIP,
 );
 
 const fn max(a: f32, b: f32) -> f32 {
@@ -398,7 +458,7 @@ const fn max(a: f32, b: f32) -> f32 {
 /// The grid is the selection: a slot fewer than the game hands out would drop units off the end of
 /// a full selection with nothing to say it had. And it is drawn inside the body.
 const _: () = assert!(GRID_COLUMNS * GRID_ROWS == SelectionView::MAX_UNITS);
-const _: () = assert!(tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT);
+const _: () = assert!(GRID_ROW * GRID_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT);
 const _: () = assert!(
     GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0) <= CONTENT_WIDTH
 );
@@ -436,18 +496,24 @@ const _: () = assert!(HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_HEIG
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
 const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
-/// The most carried units the panel draws, which is the most the game puts inside anything.
-const MAX_CARGO: usize = CARGO_COLUMNS * CARGO_ROWS;
+/// A shuttle's upgrades fit beside the cargo grid.
+const _: () = assert!(
+    CARGO_WIDTH
+        + CARGO_UPGRADES_GAP
+        + UPGRADE_CHIP * MAX_CARGO_UPGRADES as f32
+        + UPGRADE_GAP * (MAX_CARGO_UPGRADES as f32 - 1.0)
+        <= TEXT_WIDTH
+);
 
 /// Text size of a unit's code on the subject's tile, on a small tile, and on a queue slot.
 const SUBJECT_CODE_SIZE: f32 = 16.0;
 const SLOT_CODE_SIZE: f32 = 12.0;
 const QUEUE_CODE_SIZE: f32 = 11.0;
 
-/// Text size of the subject's name, of the readouts under the subject, of the owner's name, of a
-/// tally's count, and of the name and the percentage on a progress line.
+/// Text size of the subject's name, of its pools' numbers, of the owner's name, of a tally's count,
+/// and of the name and the percentage on a progress line.
 const NAME_SIZE: f32 = 17.0;
-const READOUT_SIZE: f32 = 14.0;
+const READOUT_SIZE: f32 = 18.0;
 const OWNER_NAME_SIZE: f32 = 15.0;
 const TALLY_SIZE: f32 = 15.0;
 const PROGRESS_NAME_SIZE: f32 = 13.0;
@@ -468,12 +534,17 @@ const UNIT_CODE_SIZE: f32 = 22.0;
 const UNIT_TEXT_LEFT: f32 = UNIT_TILE + COLUMN_GAP;
 const UNIT_TEXT_WIDTH: f32 = CONTENT_WIDTH - UNIT_TEXT_LEFT;
 
-/// Height of one pool's line under the owner's, how thick its bar is, and the width of the numbers
-/// after the bar with the gap before them: wide enough for a unit's largest pool written out.
-const POOL_ROW: f32 = 16.0;
-const POOL_TRACK: f32 = 6.0;
-const POOL_VALUE_WIDTH: f32 = 64.0;
-const POOL_VALUE_GAP: f32 = 8.0;
+/// Height of one pool's line under the owner's, how thick its bar is, and the gap between the bar
+/// and the numbers after it.
+const POOL_ROW: f32 = 18.0;
+const POOL_TRACK: f32 = 8.0;
+const POOL_VALUE_GAP: f32 = 10.0;
+
+/// Gaps above a unit's pools, past the lead under the owner's line, and below them, before its
+/// upgrades. The pools are a reading of their own between the two, so they are set apart from each
+/// by more than the lines inside either are from one another.
+const POOL_LEAD: f32 = 2.0;
+const POOL_TAIL: f32 = 16.0;
 
 /// Size of one upgrade chip, and the gap between two of them. Large, as the game's console draws
 /// them: how far a unit has been upgraded decides a fight, and a watcher reads it off a stream.
@@ -483,6 +554,15 @@ const UPGRADE_GAP: f32 = 6.0;
 /// The most upgrades a unit fights with: its armor, its shields, and one for each of its two
 /// weapons.
 const MAX_UPGRADES: usize = 4;
+
+/// Gap between the upgrades a unit fights with and what has been researched for it, wider than the
+/// gap inside either run so the row reads as the two of them.
+const RESEARCH_LEAD: f32 = 14.0;
+
+/// The most chips a lone unit's row holds, its upgrades and its research together: a scout's four
+/// upgrades and two pieces of research, an arbiter's three and three, a ghost's or a hydralisk's
+/// two and four.
+const MAX_ROW_CHIPS: usize = 6;
 
 /// Text size of an upgrade's level, which sits on a dark plate of its own in the chip's corner, the
 /// way the game's console sets it, so the number reads clearly over any icon.
@@ -498,18 +578,25 @@ const UPGRADE_CODE_SIZE: f32 = 13.0;
 const UPGRADE_ROW_WIDTH: f32 =
     UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0);
 
-/// The room the tally at the row's end needs beside the upgrades: its label in the longest of our
-/// languages, a three-digit count, and a gap from the last chip.
+/// The room a tally needs: its label in the longest of our languages, a three-digit count, and a
+/// gap from whatever it stands beside.
 const TALLY_ROOM: f32 = 104.0;
 
-/// The unit's tile fits the body; its pools all fit between the owner's line and the row of
-/// upgrades along the bottom; and the upgrades leave the row's end room for the kills.
+/// The unit's tile fits the body; its pools all fit between the owner's line and the row along the
+/// bottom; that row holds the most chips a unit has; and the kills leave most of the name's line to
+/// the name.
 const _: () = assert!(UNIT_TILE <= BODY_HEIGHT);
 const _: () = assert!(
-    HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS <= BODY_HEIGHT - UPGRADE_CHIP
+    HEADER_HEIGHT + POOL_LEAD + POOL_ROW * READOUTS as f32 + POOL_TAIL
+        <= BODY_HEIGHT - UPGRADE_CHIP
 );
-const _: () = assert!(UPGRADE_ROW_WIDTH + TALLY_ROOM <= UNIT_TEXT_WIDTH);
-const _: () = assert!(POOL_VALUE_WIDTH + POOL_VALUE_GAP < UNIT_TEXT_WIDTH * 0.5);
+const _: () = assert!(
+    UPGRADE_CHIP * MAX_ROW_CHIPS as f32
+        + UPGRADE_GAP * (MAX_ROW_CHIPS as f32 - 2.0)
+        + RESEARCH_LEAD
+        <= UNIT_TEXT_WIDTH
+);
+const _: () = assert!(TALLY_ROOM < UNIT_TEXT_WIDTH * 0.5);
 
 /// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
 /// line beside it, of the progress line a building going up has in their place, and of what is left
@@ -535,8 +622,15 @@ pub struct SelectionOutcome {
 /// A click on one of the selected units, by its place in [`SelectionView::units`].
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SelectedUnitClick {
-    /// A click: select that unit alone, or for a unit already selected alone, look at it.
+    /// A click with neither Shift nor Ctrl held: select that unit alone, or for a unit already
+    /// selected alone, look at it.
     Pick(usize),
+    /// A click with Shift held, Ctrl or not: take that unit out of the selection, as the game's
+    /// console does.
+    Deselect(usize),
+    /// A click with Ctrl held: keep only the units of the selection of that unit's kind, as the
+    /// game's console does.
+    PickKind(usize),
     /// A right click: have the game's view follow that unit, as a right click on it in the game
     /// does in a replay.
     Follow(usize),
@@ -544,11 +638,14 @@ pub enum SelectedUnitClick {
 
 /// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
 /// once it is gone, and nothing while nothing is selected or the slot has no room for it.
+/// `dock_beside` is whether the observer dock stands against the panel's right edge, the two drawn
+/// as one panel with the selection's edge dividing them.
 pub fn render_selection_view(
     view: &SelectionView,
     ctx: &Context,
     shown: bool,
     slot: StackSlot,
+    dock_beside: bool,
 ) -> Option<SelectionOutcome> {
     let id = Id::new("sb_selection_panel");
     let placed = slot.place(PANEL_WIDTH);
@@ -560,8 +657,12 @@ pub fn render_selection_view(
         .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
     let shown = shown && view.case() != SelectionCase::Empty && fits(slot);
+    let joined = dock_beside.then_some(tiers::Joined {
+        edge: tiers::Edge::Right,
+        divides: true,
+    });
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
+        tiers::tier0_panel_joined(ui, joined, |ui| {
             // The body is placed by the sizes written here and by nothing else: this is a fixed
             // layout, and egui's own item spacing would add to every gap in it.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
@@ -610,7 +711,32 @@ fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
     if response.secondary_clicked() {
         Some(SelectedUnitClick::Follow(index))
     } else if response.clicked() {
-        Some(SelectedUnitClick::Pick(index))
+        // The keys held as the button came up, which the host reads off the click itself; the
+        // frame's own modifiers are read later, after a quickly let go Shift is already up.
+        // Shift wins over Ctrl, as it does on the game's console.
+        let modifiers = ui.input(|input| {
+            input
+                .events
+                .iter()
+                .rev()
+                .find_map(|event| match event {
+                    egui::Event::PointerButton {
+                        button: egui::PointerButton::Primary,
+                        pressed: false,
+                        modifiers,
+                        ..
+                    } => Some(*modifiers),
+                    _ => None,
+                })
+                .unwrap_or(input.modifiers)
+        });
+        Some(if modifiers.shift {
+            SelectedUnitClick::Deselect(index)
+        } else if modifiers.ctrl {
+            SelectedUnitClick::PickKind(index)
+        } else {
+            SelectedUnitClick::Pick(index)
+        })
     } else {
         None
     }
@@ -624,7 +750,7 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
     let mut clicked = None;
     let size = vec2(
         GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0),
-        tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP,
+        GRID_ROW * GRID_ROWS as f32 + GRID_ROW_GAP,
     );
     let grid = Rect::from_center_size(body.center(), size);
     for (index, unit) in units.iter().take(SelectionView::MAX_UNITS).enumerate() {
@@ -633,11 +759,11 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
         let tile = Rect::from_min_size(
             pos2(
                 grid.left() + column * (GRID_SLOT + GRID_GAP),
-                grid.top() + row * (tile_row(GRID_SLOT) + GRID_ROW_GAP),
+                grid.top() + row * (GRID_ROW + GRID_ROW_GAP),
             ),
             vec2(GRID_SLOT, GRID_SLOT),
         );
-        paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE);
+        paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE, GRID_BARS);
         clicked = clicked.or(unit_target(ui, tile, index));
     }
     clicked
@@ -662,19 +788,31 @@ fn draw_subject(
         pos2(column.center().x - SUBJECT_TILE * 0.5, column.top()),
         vec2(SUBJECT_TILE, SUBJECT_TILE),
     );
-    let tint = health_tint(unit.health_fraction());
     paint_unit_tile(ui, tile, unit, unit.health_edge(), SUBJECT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
-    draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
+    draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit);
 
     let text = Rect::from_min_size(
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
-    let below = draw_header(ui, text, unit);
+    let below = draw_header(ui, text, unit, None);
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
-        (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
+        (SelectionCase::Loaded, _) => {
+            draw_cargo(ui, below, &unit.cargo);
+            // Along the floor of the body like every other reading's, but beside the grid, which
+            // takes up the height of the row they would otherwise have.
+            let beside = Rect::from_min_max(
+                pos2(
+                    below.left() + CARGO_WIDTH + CARGO_UPGRADES_GAP,
+                    text.bottom() - UPGRADE_CHIP,
+                ),
+                text.max,
+            );
+            let shown = unit.upgrades.len().min(MAX_CARGO_UPGRADES);
+            draw_chips(ui, beside, &unit.upgrades[..shown], &[]);
+        }
         (SelectionCase::Building, _) => {
             if let Some(resources) = &unit.resources {
                 draw_resources_left(ui, below, resources);
@@ -684,7 +822,7 @@ fn draw_subject(
     }
     if has_upgrade_row(unit, case) {
         let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
-        draw_upgrades(ui, row, &unit.upgrades);
+        draw_chips(ui, row, &unit.upgrades, &[]);
         if let Some(stacked) = unit.stacked {
             draw_tally(
                 ui,
@@ -709,7 +847,7 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
     paint_text(
         ui,
         Rect::from_min_max(pos2(glyph.right() + RESOURCES_GAP, line.top()), line.max),
-        &text::numeral(NAME_SIZE).with_color(resources.glyph.color()),
+        &pool_number_spec().with_color(resources.glyph.color()),
         &resources.amount.to_string(),
         Align::LEFT,
     );
@@ -718,9 +856,10 @@ fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
 /// Whether the reading of a building, or of anything making or carrying something, leaves the
 /// bottom of its text column free for the row of its upgrades.
 ///
-/// A queue's progress line runs down to the floor of the body, and cargo slots fill it, so those
-/// two readings have no row; the console gives up its own icons for both. Everything else here is
-/// a header and at most one slot's line beside it, which leaves the row free: an egg's carapace
+/// A queue's progress line runs down to the floor of the body, so it has no row, and the console
+/// gives up its own icons for it. The cargo grid takes up the row's height too, but not its width,
+/// so its upgrades are drawn beside it instead (see [`draw_subject`]). Everything else here is a
+/// header and at most one slot's line beside it, which leaves the row free: an egg's carapace
 /// under what it is turning into, a cannon's shields and guns under the cannon going up.
 fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
     match case {
@@ -728,7 +867,7 @@ fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
         SelectionCase::Producing => unit
             .production
             .as_ref()
-            .is_some_and(|production| production.is_subject || production.queue.is_none()),
+            .is_some_and(|production| production.subject.is_some() || production.queue.is_none()),
         SelectionCase::Empty
         | SelectionCase::Many
         | SelectionCase::Unit
@@ -736,13 +875,13 @@ fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
     }
 }
 
-/// Draws a unit selected alone: the unit drawn large, and beside it its name and whose it is, a bar
-/// for each pool it has, and the row of its upgrades with what it has killed at that row's other
-/// end.
+/// Draws a unit selected alone: the unit drawn large, and beside it its name with what it has killed
+/// at that line's other end, whose it is, a bar for each pool it has, and the row of the upgrades it
+/// fights with followed by what its owner has researched for it.
 ///
-/// The bars are packed from the top, as many as the unit has pools, while the row of upgrades
-/// keeps to the bottom of the body, so the chips stay where the eye left them as the watcher clicks
-/// from a marine to a medic.
+/// The bars are packed from the top, as many as the unit has pools, while the row of chips keeps to
+/// the bottom of the body, so the chips stay where the eye left them as the watcher clicks from a
+/// marine to a medic.
 fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUnitClick> {
     let tile = Rect::from_center_size(
         pos2(body.left() + UNIT_TILE * 0.5, body.center().y),
@@ -755,67 +894,62 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         pos2(body.left() + UNIT_TEXT_LEFT, body.top()),
         vec2(UNIT_TEXT_WIDTH, BODY_HEIGHT),
     );
-    let below = draw_header(ui, text, unit);
-    for (index, ((current, full), color)) in pools(unit, health_tint(hit_point_fraction(unit)))
-        .into_iter()
-        .enumerate()
-    {
+    let kills = tr!("observer.selectionKills", "Kills");
+    let below = draw_header(ui, text, unit, Some((&kills, unit.kills)));
+    let pools = pools(unit);
+    let columns = PoolColumns::of(ui, &pools);
+    for (index, &(pool, color)) in pools.iter().enumerate() {
         let line = Rect::from_min_size(
-            pos2(below.left(), below.top() + index as f32 * POOL_ROW),
+            pos2(
+                below.left(),
+                below.top() + POOL_LEAD + index as f32 * POOL_ROW,
+            ),
             vec2(below.width(), POOL_ROW),
         );
         let track = centred(
             Rect::from_min_max(
                 line.left_top(),
                 pos2(
-                    line.right() - POOL_VALUE_WIDTH - POOL_VALUE_GAP,
+                    line.right() - columns.width() - POOL_VALUE_GAP,
                     line.bottom(),
                 ),
             ),
             POOL_TRACK,
         );
-        let fraction = if full == 0 {
-            1.0
-        } else {
-            current as f32 / full as f32
-        };
-        paint_track(ui, track, fraction, color);
-        paint_text(
-            ui,
-            Rect::from_min_max(pos2(line.right() - POOL_VALUE_WIDTH, line.top()), line.max),
-            &text::numeral(READOUT_SIZE).with_color(theme::TEXT_SECONDARY),
-            &format!("{current}/{full}"),
-            Align::RIGHT,
-        );
+        paint_track(ui, track, pool_fraction(pool), color);
+        // Beside its bar, each line ends against the panel's edge, where the eye finds it from the
+        // bar's end.
+        let slash = slash_ending_at(ui, line.right(), pool);
+        paint_pool_numbers(ui, line, slash, pool, color);
     }
 
     let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
-    draw_upgrades(ui, row, &unit.upgrades);
-    draw_tally(
-        ui,
-        row,
-        &tr!("observer.selectionKills", "Kills"),
-        unit.kills,
-    );
+    draw_chips(ui, row, &unit.upgrades, &unit.research);
     clicked
 }
 
-/// Draws the head of the text column: the subject's name, then whose it is, with its status at
-/// that line's right end. Returns the room left under them.
+/// Draws the head of the text column: the subject's name with `tally` at that line's right end,
+/// then whose it is, with its status at that line's right end. Returns the room left under them.
 ///
-/// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
-/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar,
-/// unless it has a status to say.
-fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
+/// A unit the host has no name for leaves no gap for one, unless it has a tally to put there: the
+/// owner's line heads the column instead. Nor does a unit nobody owns, a mineral field or a critter,
+/// whose line would be an empty bar, unless it has a status to say.
+fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView, tally: Option<(&str, u32)>) -> Rect {
     let mut top = text.top();
-    if let Some(name) = &unit.name {
-        paint_text(
-            ui,
-            Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), NAME_ROW)),
-            &text::body(NAME_SIZE, text::BodyWeight::Semibold),
-            name,
-            Align::LEFT,
-        );
+    if unit.name.is_some() || tally.is_some() {
+        let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), NAME_ROW));
+        if let Some((label, count)) = tally {
+            line.max.x -= draw_tally(ui, line, label, count) + OWNER_GAP;
+        }
+        if let Some(name) = &unit.name {
+            paint_text(
+                ui,
+                line,
+                &text::body(NAME_SIZE, text::BodyWeight::Semibold),
+                name,
+                Align::LEFT,
+            );
+        }
         top += NAME_ROW;
     }
     if unit.owner.is_some() || unit.status.is_some() {
@@ -856,52 +990,132 @@ fn draw_status(ui: &Ui, line: Rect, status: &UnitStatusView) -> f32 {
     width
 }
 
-/// The subject's pools as the console lists them: shields for a unit that has them, then hit points
-/// in `hit_point_color` for a unit that has them, then energy for a unit that has it, each in the
-/// game's color for that pool.
-fn pools(unit: &SelectedUnitView, hit_point_color: Color32) -> Vec<((u32, u32), Color32)> {
+/// The color a subject's energy is drawn and written in, which is as bright as its shields' blue
+/// rather than the grid's deeper purple: its number has to read as well as theirs does.
+const ENERGY_COLOR: Color32 = PURPLE80;
+
+/// The subject's pools as the console lists them, each in the color it is written in: shields for a
+/// unit that has them, then hit points for a unit that has them, then energy for a unit that has it.
+///
+/// Hit points are written in the color of how many of them are left, shields aside, so a building
+/// whose shields are down still reads as whole where its hit points are. The tile's edge is what
+/// counts shields in.
+fn pools(unit: &SelectedUnitView) -> Vec<((u32, u32), Color32)> {
     let mut pools = Vec::with_capacity(READOUTS);
     if let Some(shields) = unit.shields {
         pools.push((shields, BLUE80));
     }
     if let Some(hit_points) = unit.hit_points {
-        pools.push((hit_points, hit_point_color));
+        pools.push((hit_points, health_tint(pool_fraction(hit_points))));
     }
     if let Some(energy) = unit.energy {
-        pools.push((energy, PURPLE70));
+        pools.push((energy, ENERGY_COLOR));
     }
     pools
+}
+
+/// How full a pool is, from 0 to 1. A pool with no room in it at all reads as full.
+fn pool_fraction((current, full): (u32, u32)) -> f32 {
+    if full == 0 {
+        1.0
+    } else {
+        (current as f32 / full as f32).clamp(0.0, 1.0)
+    }
 }
 
 /// How much of its hit points a unit has left, from 0 to 1, shields aside: the hit point bar's own
 /// reading, where the tile's tint is of everything keeping the unit alive.
 fn hit_point_fraction(unit: &SelectedUnitView) -> f32 {
-    let Some((current, full)) = unit.hit_points else {
-        return 1.0;
-    };
-    if full == 0 {
-        return 1.0;
-    }
-    (current as f32 / full as f32).clamp(0.0, 1.0)
+    unit.hit_points.map_or(1.0, pool_fraction)
 }
 
 /// Draws what the subject has left, one line each, the way the console writes them under its
-/// wireframe: shields for a unit that has them, then hit points in the color of its health, then
-/// energy for a unit that has it, each in the color the game gives that pool.
-fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView, tint: Color32) {
-    for (index, ((current, full), color)) in pools(unit, tint).into_iter().enumerate() {
-        let rect = Rect::from_min_size(
+/// wireframe, as [`pools`] lists and colors them.
+///
+/// Each line is centered under the tile on its own, as the console centers them under its
+/// wireframe: a line set in a column sized for a longer one reads as pushed off the tile's middle.
+/// Digits are all as wide as each other, so a value ticking down leaves its line where it is until
+/// it loses a digit.
+fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView) {
+    for (index, (pool, color)) in pools(unit).into_iter().enumerate() {
+        let line = Rect::from_min_size(
             pos2(column.left(), top + index as f32 * READOUT_ROW),
             vec2(column.width(), READOUT_ROW),
         );
-        paint_text(
-            ui,
-            rect,
-            &text::numeral(READOUT_SIZE).with_color(color),
-            &format!("{current}/{full}"),
-            Align::Center,
-        );
+        let spec = pool_number_spec();
+        let current = spec.galley(ui, &pool.0.to_string()).size().x;
+        let full = spec.galley(ui, &format!("/{}", pool.1)).size().x;
+        let slash = column.center().x - (current + full) * 0.5 + current;
+        paint_pool_numbers(ui, line, slash, pool, color);
     }
+}
+
+/// How wide the two sides of a subject's pool numbers are at their largest: the current value, and
+/// the slash with the full one. Taken from the largest full value, so a value ticking down leaves
+/// the columns where they are, or from a current value past it, which only a map that writes its
+/// own pools has. Digits are all as wide as each other, so the largest value is also the widest.
+struct PoolColumns {
+    current: f32,
+    full: f32,
+}
+
+impl PoolColumns {
+    fn of(ui: &Ui, pools: &[((u32, u32), Color32)]) -> PoolColumns {
+        let spec = pool_number_spec();
+        let largest = pools
+            .iter()
+            .map(|&((current, full), _)| current.max(full))
+            .max()
+            .unwrap_or(0);
+        PoolColumns {
+            current: spec.galley(ui, &largest.to_string()).size().x,
+            full: spec.galley(ui, &format!("/{largest}")).size().x,
+        }
+    }
+
+    fn width(&self) -> f32 {
+        self.current + self.full
+    }
+}
+
+/// The style a pool's numbers are written in.
+fn pool_number_spec() -> text::TextSpec {
+    text::numeral_strong(READOUT_SIZE)
+}
+
+/// Where the slash of a pool whose numbers end at `right` goes: short of it by the slash and the
+/// `full` value after it.
+fn slash_ending_at(ui: &Ui, right: f32, (_, full): (u32, u32)) -> f32 {
+    right - pool_number_spec().galley(ui, &format!("/{full}")).size().x
+}
+
+/// Writes a pool's numbers in `line` around the slash at `slash`: the current value in `color`,
+/// which is the number being read, and the full one dim behind it.
+fn paint_pool_numbers(
+    ui: &Ui,
+    line: Rect,
+    slash: f32,
+    (current, full): (u32, u32),
+    color: Color32,
+) {
+    let spec = pool_number_spec();
+    // Each side is given the line's whole width to lay out in: `PoolColumns` has already placed the
+    // two of them, so a side measuring exactly what its column holds must not be cut short for it.
+    let room = line.width();
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(slash - room, line.top()), pos2(slash, line.bottom())),
+        &spec.clone().with_color(color),
+        &current.to_string(),
+        Align::RIGHT,
+    );
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(slash, line.top()), pos2(slash + room, line.bottom())),
+        &spec.with_color(theme::TEXT_DIM),
+        &format!("/{full}"),
+        Align::LEFT,
+    );
 }
 
 /// Draws whose the selection is: a square of their color, then their name.
@@ -923,8 +1137,8 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
 }
 
 /// Draws a count of the subject's, under `label`, against the right end of `row`, level with its
-/// middle.
-fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) {
+/// middle. Returns how wide the two are together.
+fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) -> f32 {
     let line = centred(row, TALLY_ROW);
     // The label is set against its number at the number's own width rather than in a column of its
     // own: a column wide enough for any count would leave a short one stranded from its label.
@@ -941,34 +1155,65 @@ fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) {
         label,
         Align::RIGHT,
     );
+    let label_width = text::column_label().galley(ui, label).size().x;
+    count_width + TALLY_LABEL_GAP + label_width
 }
 
-/// Draws the row of upgrades a unit fights with from the left end of `row`, and the card naming
-/// the one under the pointer.
-fn draw_upgrades(ui: &Ui, row: Rect, upgrades: &[UnitUpgradeView]) {
+/// Where each chip of a row stands, from the left end of `row`: the `upgrades` a unit fights with
+/// and then, after a wider gap, its `research`. Returns the two runs' rects, each run cut short at
+/// the most of it the row has room for, so a selection the game could not have made still keeps its
+/// chips inside the panel.
+fn chip_row(row: Rect, upgrades: usize, research: usize) -> (Vec<Rect>, Vec<Rect>) {
+    let chip = |left: f32| Rect::from_min_size(pos2(left, row.top()), Vec2::splat(UPGRADE_CHIP));
+    let fits = |rect: &Rect| rect.right() <= row.right();
+    let upgrades: Vec<Rect> = (0..upgrades.min(MAX_UPGRADES))
+        .map(|index| chip(row.left() + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP)))
+        .take_while(fits)
+        .collect();
+    let start = upgrades
+        .last()
+        .map_or(row.left(), |last| last.right() + RESEARCH_LEAD);
+    let research = (0..research)
+        .map(|index| chip(start + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP)))
+        .take_while(fits)
+        .collect();
+    (upgrades, research)
+}
+
+/// Draws the row of upgrades a unit fights with from the left end of `row`, then what its owner has
+/// researched for it, and the card naming the chip under the pointer.
+fn draw_chips(ui: &Ui, row: Rect, upgrades: &[UnitUpgradeView], research: &[UnitResearchView]) {
+    let (upgrade_rects, research_rects) = chip_row(row, upgrades.len(), research.len());
     let mut hovered = None;
-    for (index, upgrade) in upgrades.iter().take(MAX_UPGRADES).enumerate() {
-        let rect = Rect::from_min_size(
-            pos2(
-                row.left() + index as f32 * (UPGRADE_CHIP + UPGRADE_GAP),
-                row.top(),
-            ),
-            Vec2::splat(UPGRADE_CHIP),
-        );
+    for (index, (rect, upgrade)) in upgrade_rects.into_iter().zip(upgrades).enumerate() {
         let response = ui.interact(rect, ui.id().with(("upgrade_chip", index)), Sense::hover());
         draw_upgrade_chip(ui, rect, upgrade, response.hovered());
         if let Some(pointer) = response.hover_pos() {
-            hovered = Some((pointer, upgrade));
+            hovered = Some((pointer, Chip::Upgrade(upgrade)));
         }
     }
-    if let Some((pointer, upgrade)) = hovered {
-        draw_upgrade_hint(ui, pointer, upgrade);
+    for (index, (rect, research)) in research_rects.into_iter().zip(research).enumerate() {
+        let response = ui.interact(rect, ui.id().with(("research_chip", index)), Sense::hover());
+        paint_chip(ui, rect, research.icon, response.hovered());
+        if let Some(pointer) = response.hover_pos() {
+            hovered = Some((pointer, Chip::Research(research)));
+        }
+    }
+    match hovered {
+        Some((pointer, Chip::Upgrade(upgrade))) => draw_upgrade_hint(ui, pointer, upgrade),
+        Some((pointer, Chip::Research(research))) => draw_research_hint(ui, pointer, research),
+        None => {}
     }
 }
 
-/// Draws one upgrade chip: the upgrade's icon, and the level it has reached on a plate in the
-/// corner.
-fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bool) {
+/// One chip of a unit's row, for the card under the pointer to name.
+enum Chip<'a> {
+    Upgrade(&'a UnitUpgradeView),
+    Research(&'a UnitResearchView),
+}
+
+/// Paints a chip's plate and its icon, the plate's edge brought up while the pointer is over it.
+fn paint_chip(ui: &Ui, rect: Rect, icon: ProductionIcon, hovered: bool) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter()
         .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE20, 0.70));
@@ -982,20 +1227,24 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
         StrokeKind::Inside,
     ));
     let icon_rect = rect.shrink(theme::HAIRLINE);
-    match upgrade.icon.texture {
+    match icon.texture {
         Some(texture) => {
-            upgrade
-                .icon
-                .paint(ui.painter(), texture, icon_rect, Color32::WHITE);
+            icon.paint(ui.painter(), texture, icon_rect, Color32::WHITE);
         }
         None => paint_text(
             ui,
             icon_rect,
             &text::body(UPGRADE_CODE_SIZE, text::BodyWeight::Semibold).with_color(theme::TEXT_DIM),
-            &unit_codes::code_or_index(upgrade.icon.index),
+            &unit_codes::code_or_index(icon.index),
             Align::Center,
         ),
     }
+}
+
+/// Draws one upgrade chip: the upgrade's icon, and the level it has reached on a plate in the
+/// corner.
+fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bool) {
+    paint_chip(ui, rect, upgrade.icon, hovered);
 
     let galley =
         text::body(LEVEL_SIZE, text::BodyWeight::Semibold).galley(ui, &upgrade.level.to_string());
@@ -1086,6 +1335,17 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
     });
 }
 
+/// Names the research chip under the pointer. A host that cannot name it gets no card, since a card
+/// with nothing in it says nothing the icon did not.
+fn draw_research_hint(ui: &Ui, pointer: Pos2, research: &UnitResearchView) {
+    let Some(name) = &research.name else {
+        return;
+    };
+    widgets::tooltip(ui.ctx(), Id::new("sb_research_chip_hint"), pointer, |ui| {
+        ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
+    });
+}
+
 /// Writes the base stat, its upgrade bonus where present, and the number of hits per attack.
 fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
     let mut value = base.to_string();
@@ -1103,19 +1363,25 @@ fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
 /// it, with what the first one is and how far along it is under the row. Anything else is one thing
 /// worked through alone, and gets its one slot with those beside it.
 ///
-/// A subject that is itself what is being made, a building going up, is already named and drawn
-/// at the head of the panel, so it gets no slot and no name a second time: only how far along it
-/// is, under a label saying what that bar is.
+/// A subject that is itself what is being made, a building going up or an archon forming, is
+/// already named and drawn at the head of the panel, so it gets no slot and no name a second time:
+/// only how far along it is, under a label saying what that bar is.
 fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
     let progress = production.progress.clamp(0.0, 1.0);
-    if production.is_subject {
+    if let Some(subject) = production.subject {
+        let label = match subject {
+            SubjectProgress::Construction => {
+                tr!("observer.underConstruction", "Under construction")
+            }
+            SubjectProgress::Summoning => tr!("observer.summoning", "Summoning"),
+        };
         draw_progress(
             ui,
             Rect::from_min_size(
                 rect.left_top(),
                 vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_HEIGHT),
             ),
-            Some(&tr!("observer.underConstruction", "Under construction")),
+            Some(&label),
             progress,
         );
         return;
@@ -1185,56 +1451,127 @@ fn draw_progress(ui: &Ui, block: Rect, name: Option<&str>, progress: f32) {
     );
 }
 
-/// Draws the units a transport or a bunker is carrying in the console's cargo slots, each with how
-/// much of it is left.
+/// Draws the units a transport or a bunker is carrying in the cargo grid, each as big as the room it
+/// takes up, with how much of it is left.
 ///
-/// Only the units that are actually in there: the game tells the panel what is loaded and not what
-/// the room for it was, and slots padded out to eight would say a full bunker was half empty.
-fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
-    for (index, unit) in cargo.iter().take(MAX_CARGO).enumerate() {
-        let column = (index % CARGO_COLUMNS) as f32;
-        let row = (index / CARGO_COLUMNS) as f32;
-        let tile = Rect::from_min_size(
-            pos2(
-                rect.left() + column * (CARGO_SLOT + CARGO_GAP),
-                rect.top() + row * (tile_row(CARGO_SLOT) + GRID_ROW_GAP),
-            ),
-            vec2(CARGO_SLOT, CARGO_SLOT),
+/// Only the units that are actually in there: cells padded out to eight would say a full bunker was
+/// half empty.
+fn draw_cargo(ui: &Ui, grid: Rect, cargo: &[CarriedUnitView]) {
+    let rooms: Vec<u32> = cargo.iter().map(|carried| carried.room).collect();
+    for (index, place) in place_cargo(&rooms) {
+        paint_small_tile(
+            ui,
+            place.tile(grid),
+            &cargo[index].unit,
+            QUEUE_CODE_SIZE,
+            CARGO_BARS,
         );
-        paint_small_tile(ui, tile, unit, QUEUE_CODE_SIZE);
     }
 }
 
-/// Paints one unit as a small tile with the bar of its health under it, which is how the console
+/// Where a carried unit goes in the cargo grid: the cell it starts in, and how many columns and rows
+/// it takes.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct CargoPlace {
+    column: usize,
+    row: usize,
+    columns: usize,
+    rows: usize,
+}
+
+impl CargoPlace {
+    /// Its tile in `grid`. A tile of two rows also takes the bars of the first row and the gap under
+    /// them, which leaves its own bars level with the second row's.
+    fn tile(self, grid: Rect) -> Rect {
+        let row_step = tile_row(CARGO_CELL_HEIGHT) + GRID_ROW_GAP;
+        let (columns, rows) = (self.columns as f32, self.rows as f32);
+        Rect::from_min_size(
+            pos2(
+                grid.left() + self.column as f32 * (CARGO_CELL_WIDTH + CARGO_GAP),
+                grid.top() + self.row as f32 * row_step,
+            ),
+            vec2(
+                CARGO_CELL_WIDTH * columns + CARGO_GAP * (columns - 1.0),
+                CARGO_CELL_HEIGHT + row_step * (rows - 1.0),
+            ),
+        )
+    }
+}
+
+/// Places units taking up `rooms` in the cargo grid the way the console does, as each unit's index
+/// in `rooms` and its place: biggest first, in the order the game holds them within a size, each
+/// taking the next cells going column by column.
+///
+/// The game holds units in the order they were picked up, a new one taking the lowest slot left free
+/// by anything since dropped. So a unit only moves when what goes ahead of it changes: something
+/// bigger coming on board, something ahead of it leaving, or a new unit taking a slot freed ahead of
+/// it. Biggest first also means every column is whole before a smaller unit starts one, so whatever
+/// fits in the room left has a place.
+///
+/// The console only draws units of exactly these sizes, which are the only ones the game has.
+fn place_cargo(rooms: &[u32]) -> Vec<(usize, CargoPlace)> {
+    let mut places = Vec::with_capacity(rooms.len());
+    let mut next_cell = 0;
+    for size in [4, 2, 1] {
+        for (index, _) in rooms.iter().enumerate().filter(|&(_, &room)| room == size) {
+            places.push((
+                index,
+                CargoPlace {
+                    column: next_cell / CARGO_ROWS,
+                    row: next_cell % CARGO_ROWS,
+                    columns: if size == 4 { 2 } else { 1 },
+                    rows: if size == 1 { 1 } else { CARGO_ROWS },
+                },
+            ));
+            next_cell += size as usize;
+        }
+    }
+    places
+}
+
+/// The bars under a small tile: how thick they are, whether a unit's energy has one, and how far
+/// apart they stand, which is a clear gap: a stream's video keeps color at half the resolution of
+/// brightness, and two bars a pixel apart blur into one striped bar there.
+#[derive(Copy, Clone)]
+struct TileBars {
+    thickness: f32,
+    gap: f32,
+    energy: bool,
+}
+
+/// What `bars` read out of `unit`, top to bottom, each as how full it is and its color: its shields,
+/// then its hit points alone, the shields having a bar of their own, then its energy.
+fn tile_bars(unit: &SelectedUnitView, bars: TileBars) -> Vec<(f32, Color32)> {
+    // A deeper blue than the shields' number: the health bar's greens are as bright as that
+    // number's blue, and a stream that blurs color is left only brightness to tell them by.
+    let shields = unit.shields.map(|pool| (pool_fraction(pool), BLUE60));
+    let hit_points = unit.hit_points.map(|_| {
+        let health = hit_point_fraction(unit);
+        (health, health_tint(health))
+    });
+    let energy = unit
+        .energy
+        .filter(|_| bars.energy)
+        .map(|pool| (pool_fraction(pool), PURPLE70));
+    [shields, hit_points, energy]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+/// Paints one unit as a small tile with bars of what it has left under it, which is how the console
 /// draws every unit that is one of several.
-fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
+fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32, bars: TileBars) {
     paint_unit_tile(ui, tile, unit, None, code_size);
     let mut top = tile.bottom();
-    if let Some((shields, full)) = unit.shields {
-        let fraction = if full == 0 {
-            1.0
-        } else {
-            shields as f32 / full as f32
-        };
-        let shield_bar = Rect::from_min_size(
-            pos2(tile.left(), top + SHIELD_GAP),
-            vec2(tile.width(), SHIELD_BAR),
+    for (fill, color) in tile_bars(unit, bars) {
+        let bar = Rect::from_min_size(
+            pos2(tile.left(), top + bars.gap),
+            vec2(tile.width(), bars.thickness),
         );
-        // A deeper blue than the shields' number: the health bar's greens are as bright as that
-        // number's blue, and a stream that blurs color is left only brightness to tell them by.
-        paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE60);
-        top = shield_bar.bottom();
+        paint_track(ui, bar, fill, color);
+        top = bar.bottom();
     }
-    if unit.hit_points.is_none() {
-        return;
-    }
-    // Hit points alone where the shields have a bar of their own above it.
-    let health = hit_point_fraction(unit);
-    let bar = Rect::from_min_size(
-        pos2(tile.left(), top + HEALTH_GAP),
-        vec2(tile.width(), HEALTH_BAR),
-    );
-    paint_track(ui, bar, health, health_tint(health));
 }
 
 /// Paints a tile's chrome, outlined in `edge` where the tile has something to say through its edge
@@ -1422,25 +1759,23 @@ fn health_tint(fraction: f32) -> Color32 {
     }
 }
 
-/// Paints a bar: its track, and however much of it is filled.
-///
-/// The track is drawn light enough to read against the panel, as the production panel's is: a bar
-/// is read as a share of its whole, and with no whole to see, a third of a bar reads as a short
-/// full one.
-fn paint_track(ui: &Ui, rect: Rect, fraction: f32, color: Color32) {
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
-    ui.painter()
-        .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
-    let mut filled = rect;
-    filled.set_right(rect.left() + rect.width() * fraction.clamp(0.0, 1.0));
-    if filled.width() > 0.0 {
-        ui.painter().rect_filled(filled, corner_radius, color);
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use egui::{Event, Modifiers, PointerButton, RawInput};
+
     use super::*;
+
+    fn carried(
+        hit_points: (u32, u32),
+        shields: Option<(u32, u32)>,
+        index: u16,
+        room: u32,
+    ) -> CarriedUnitView {
+        CarriedUnitView {
+            unit: unit(hit_points, shields, index),
+            room,
+        }
+    }
 
     fn unit(hit_points: (u32, u32), shields: Option<(u32, u32)>, index: u16) -> SelectedUnitView {
         SelectedUnitView {
@@ -1469,6 +1804,7 @@ mod tests {
             production: None,
             cargo: Vec::new(),
             upgrades: Vec::new(),
+            research: Vec::new(),
         }
     }
 
@@ -1483,6 +1819,94 @@ mod tests {
             CONTENT_WIDTH
         );
         assert_eq!(TEXT_LEFT + TEXT_WIDTH, CONTENT_WIDTH);
+    }
+
+    #[test]
+    fn a_grid_bar_is_read_for_every_pool_and_a_cargo_bar_for_all_but_energy() {
+        let mut templar = unit((20, 40), Some((10, 40)), 0x43);
+        templar.energy = Some((50, 200));
+        let colors = |bars| {
+            tile_bars(&templar, bars)
+                .into_iter()
+                .map(|(_, color)| color)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            colors(GRID_BARS),
+            vec![BLUE60, health_tint(0.5), PURPLE70],
+            "shields, then hit points, then energy"
+        );
+        assert_eq!(colors(CARGO_BARS), vec![BLUE60, health_tint(0.5)]);
+
+        let fills = tile_bars(&templar, GRID_BARS)
+            .into_iter()
+            .map(|(fill, _)| fill)
+            .collect::<Vec<_>>();
+        assert_eq!(fills, vec![0.25, 0.5, 0.25]);
+
+        // A pool the game keeps nothing in reads as whole, and a marine has only the one bar.
+        let mut empty = unit((40, 40), None, 0x00);
+        empty.energy = Some((0, 0));
+        assert_eq!(tile_bars(&empty, GRID_BARS)[1].0, 1.0);
+        assert_eq!(tile_bars(&unit((40, 40), None, 0x00), GRID_BARS).len(), 1);
+    }
+
+    /// A context with the overlay's faces installed, handed to `read` inside a frame.
+    fn with_fonts(read: impl FnOnce(&Ui)) {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut read = Some(read);
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            if let Some(read) = read.take() {
+                read(ui);
+            }
+        })
+        .textures_delta
+        .clear();
+    }
+
+    #[test]
+    fn pool_columns_come_from_the_full_values_so_a_ticking_value_leaves_them_alone() {
+        with_fonts(|ui| {
+            let pools = |hit_points| {
+                [
+                    ((hit_points, 200), theme::TEXT_POSITIVE),
+                    ((40, 40), BLUE80),
+                ]
+            };
+            let whole = PoolColumns::of(ui, &pools(200));
+            let hurt = PoolColumns::of(ui, &pools(7));
+            assert_eq!(whole.current, hurt.current);
+            assert_eq!(whole.full, hurt.full);
+        });
+    }
+
+    #[test]
+    fn a_buildings_numbers_fit_the_column_under_it() {
+        with_fonts(|ui| {
+            // Five digits: a building in a melee game has four at most, and a map that sets its own
+            // units' pools can give one more.
+            let columns = PoolColumns::of(ui, &[((99999, 99999), theme::TEXT_POSITIVE)]);
+            assert!(columns.width() <= SUBJECT_COLUMN, "{}", columns.width());
+        });
+    }
+
+    #[test]
+    fn a_current_value_past_its_full_one_keeps_to_its_column() {
+        with_fonts(|ui| {
+            let color = theme::TEXT_POSITIVE;
+            let past = PoolColumns::of(ui, &[((6553, 135), color)]);
+            let thousands = PoolColumns::of(ui, &[((6553, 6553), color)]);
+            assert_eq!(past.current, thousands.current);
+        });
+    }
+
+    #[test]
+    fn a_pool_with_no_room_reads_as_full_and_none_reads_past_full() {
+        assert_eq!(pool_fraction((0, 0)), 1.0);
+        assert_eq!(pool_fraction((5, 0)), 1.0);
+        assert_eq!(pool_fraction((1, 4)), 0.25);
+        assert_eq!(pool_fraction((6553, 135)), 1.0);
     }
 
     #[test]
@@ -1529,7 +1953,7 @@ mod tests {
         );
 
         let mut transport = unit((150, 150), None, 0x7D);
-        transport.cargo = vec![unit((40, 40), None, 0x00)];
+        transport.cargo = vec![carried((40, 40), None, 0x00, 1)];
         assert_eq!(selection(vec![transport]).case(), SelectionCase::Loaded);
 
         let mut factory = unit((1250, 1250), None, 0x6B);
@@ -1545,16 +1969,16 @@ mod tests {
             name: None,
             progress: 0.5,
             queue: Some(Vec::new()),
-            is_subject: false,
+            subject: None,
         });
         // What is being made is read before what is being carried, for the thing doing both.
-        factory.cargo = vec![unit((40, 40), None, 0x00)];
+        factory.cargo = vec![carried((40, 40), None, 0x00, 1)];
         assert_eq!(selection(vec![factory]).case(), SelectionCase::Producing);
     }
 
     #[test]
     fn a_building_has_its_upgrades_wherever_its_reading_leaves_room() {
-        let progress = |queue: Option<Vec<ProductionIcon>>, is_subject: bool| {
+        let progress = |queue: Option<Vec<ProductionIcon>>, subject: Option<SubjectProgress>| {
             Some(ProductionProgressView {
                 icon: ProductionIcon {
                     texture: None,
@@ -1566,7 +1990,7 @@ mod tests {
                 name: None,
                 progress: 0.5,
                 queue,
-                is_subject,
+                subject,
             })
         };
         let mut cannon = unit((100, 100), Some((100, 100)), 0xA2);
@@ -1574,23 +1998,180 @@ mod tests {
         assert!(has_upgrade_row(&cannon, SelectionCase::Building));
 
         // Going up, the cannon is still read out with its shields and guns under its progress.
-        cannon.production = progress(None, true);
+        cannon.production = progress(None, Some(SubjectProgress::Construction));
         assert!(has_upgrade_row(&cannon, SelectionCase::Producing));
 
         // An egg's carapace sits under what it is turning into.
         let mut egg = unit((200, 200), None, 0x24);
-        egg.production = progress(None, false);
+        egg.production = progress(None, None);
         assert!(has_upgrade_row(&egg, SelectionCase::Producing));
 
         // A queue runs down to the floor of the body even with nothing waiting in it.
         let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
         gateway.building = true;
-        gateway.production = progress(Some(Vec::new()), false);
+        gateway.production = progress(Some(Vec::new()), None);
         assert!(!has_upgrade_row(&gateway, SelectionCase::Producing));
 
         let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
-        shuttle.cargo = vec![unit((100, 100), Some((60, 60)), 0x41)];
+        shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
         assert!(!has_upgrade_row(&shuttle, SelectionCase::Loaded));
+    }
+
+    fn place(
+        index: usize,
+        column: usize,
+        row: usize,
+        columns: usize,
+        rows: usize,
+    ) -> (usize, CargoPlace) {
+        (
+            index,
+            CargoPlace {
+                column,
+                row,
+                columns,
+                rows,
+            },
+        )
+    }
+
+    #[test]
+    fn a_carried_unit_takes_a_cell_a_column_or_two_columns_by_its_room() {
+        // Eight marines fill the grid a column at a time.
+        assert_eq!(
+            place_cargo(&[1; 8]),
+            [
+                place(0, 0, 0, 1, 1),
+                place(1, 0, 1, 1, 1),
+                place(2, 1, 0, 1, 1),
+                place(3, 1, 1, 1, 1),
+                place(4, 2, 0, 1, 1),
+                place(5, 2, 1, 1, 1),
+                place(6, 3, 0, 1, 1),
+                place(7, 3, 1, 1, 1),
+            ],
+        );
+        // Four goliaths, and two tanks.
+        assert_eq!(
+            place_cargo(&[2; 4]),
+            [
+                place(0, 0, 0, 1, 2),
+                place(1, 1, 0, 1, 2),
+                place(2, 2, 0, 1, 2),
+                place(3, 3, 0, 1, 2),
+            ],
+        );
+        assert_eq!(
+            place_cargo(&[4, 4]),
+            [place(0, 0, 0, 2, 2), place(1, 2, 0, 2, 2)],
+        );
+    }
+
+    #[test]
+    fn carried_units_go_biggest_first_and_in_the_games_order_within_a_size() {
+        // A tank picked up between two goliaths still goes first.
+        assert_eq!(
+            place_cargo(&[2, 4, 2]),
+            [
+                place(1, 0, 0, 2, 2),
+                place(0, 2, 0, 1, 2),
+                place(2, 3, 0, 1, 2),
+            ],
+        );
+        assert_eq!(
+            place_cargo(&[1, 2, 1, 4]),
+            [
+                place(3, 0, 0, 2, 2),
+                place(1, 2, 0, 1, 2),
+                place(0, 3, 0, 1, 1),
+                place(2, 3, 1, 1, 1),
+            ],
+        );
+    }
+
+    #[test]
+    fn a_carried_unit_keeps_its_place_when_something_smaller_comes_on_board() {
+        assert_eq!(
+            place_cargo(&[4, 2]),
+            [place(0, 0, 0, 2, 2), place(1, 2, 0, 1, 2)],
+        );
+        assert_eq!(
+            place_cargo(&[4, 2, 1]),
+            [
+                place(0, 0, 0, 2, 2),
+                place(1, 2, 0, 1, 2),
+                place(2, 3, 0, 1, 1),
+            ],
+        );
+    }
+
+    /// Every order of carried units whose rooms come to no more than a transport holds.
+    fn each_load(room_left: u32, load: &mut Vec<u32>, check: &mut impl FnMut(&[u32])) {
+        check(load);
+        for room in [1, 2, 4] {
+            if room <= room_left {
+                load.push(room);
+                each_load(room_left - room, load, check);
+                load.pop();
+            }
+        }
+    }
+
+    #[test]
+    fn every_load_a_transport_can_hold_has_a_place_inside_the_grid() {
+        let grid = Rect::from_min_size(Pos2::ZERO, vec2(CARGO_WIDTH, CARGO_HEIGHT));
+        let bars = tile_row(CARGO_CELL_HEIGHT) - CARGO_CELL_HEIGHT;
+        each_load(8, &mut Vec::new(), &mut |load| {
+            let places = place_cargo(load);
+            assert_eq!(places.len(), load.len(), "{load:?} lost a unit");
+            let tiles: Vec<Rect> = places.iter().map(|(_, place)| place.tile(grid)).collect();
+            for (index, tile) in tiles.iter().enumerate() {
+                let with_bars = Rect::from_min_max(tile.min, tile.max + vec2(0.0, bars));
+                assert!(grid.contains_rect(with_bars), "{load:?}: {with_bars:?}");
+                assert!(
+                    tiles[index + 1..]
+                        .iter()
+                        .all(|other| !tile.intersects(*other)),
+                    "{load:?} overlaps",
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn a_full_height_tile_leaves_its_bars_level_with_the_second_rows() {
+        let grid = Rect::from_min_size(Pos2::ZERO, vec2(CARGO_WIDTH, CARGO_HEIGHT));
+        let column = place(0, 0, 0, 1, 2).1.tile(grid);
+        let second_row = place(0, 1, 1, 1, 1).1.tile(grid);
+        let two_columns = place(0, 2, 0, 2, 2).1.tile(grid);
+        assert_eq!(column.bottom(), second_row.bottom());
+        assert_eq!(two_columns.bottom(), second_row.bottom());
+        assert_eq!(two_columns.right(), grid.right());
+    }
+
+    #[test]
+    fn research_follows_the_upgrades_in_the_row_set_apart_from_them() {
+        let row = Rect::from_min_size(pos2(100.0, 50.0), vec2(UNIT_TEXT_WIDTH, UPGRADE_CHIP));
+        // A scout's four upgrades and two pieces of research, an arbiter's three and three, and a
+        // hydralisk's two and four are each the whole of their row.
+        for (upgrades, research) in [(4, 2), (3, 3), (2, 4)] {
+            let (upgrade_rects, research_rects) = chip_row(row, upgrades, research);
+            assert_eq!(
+                (upgrade_rects.len(), research_rects.len()),
+                (upgrades, research)
+            );
+            assert_eq!(
+                research_rects[0].left() - upgrade_rects.last().unwrap().right(),
+                RESEARCH_LEAD
+            );
+            assert!(research_rects.last().unwrap().right() <= row.right());
+        }
+        // A unit with nothing to upgrade starts its row with its research.
+        let (_, research_rects) = chip_row(row, 0, 3);
+        assert_eq!(research_rects[0].left(), row.left());
+        // Research past the row's end is left off rather than drawn outside the panel.
+        let (_, research_rects) = chip_row(row, 4, 4);
+        assert_eq!(research_rects.len(), 2);
     }
 
     #[test]
@@ -1782,7 +2363,7 @@ mod tests {
             race: None,
             amount: 1500,
         });
-        assert!(pools(&minerals, theme::TEXT_POSITIVE).is_empty());
+        assert!(pools(&minerals).is_empty());
         assert_eq!(minerals.health_edge(), None);
         // Read out like a building whether or not the host calls it one.
         assert_eq!(selection(vec![minerals]).case(), SelectionCase::Building);
@@ -1791,7 +2372,23 @@ mod tests {
         let mut assimilator = unit((225, 450), Some((450, 450)), 0x9D);
         assimilator.building = true;
         assert_eq!(assimilator.health_edge(), Some(theme::TEXT_POSITIVE));
-        assert_eq!(pools(&assimilator, theme::TEXT_POSITIVE).len(), 2);
+        assert_eq!(pools(&assimilator).len(), 2);
+    }
+
+    #[test]
+    fn hit_points_are_written_in_the_color_of_hit_points_alone() {
+        // A nexus with its shields down has lost none of its hit points, though its tile edge
+        // reads it as half gone.
+        let mut nexus = unit((750, 750), Some((0, 750)), 0x9A);
+        nexus.building = true;
+        assert_eq!(
+            pools(&nexus),
+            vec![((0, 750), BLUE80), ((750, 750), theme::TEXT_POSITIVE)]
+        );
+        assert_eq!(nexus.health_edge(), Some(theme::TEXT_WARNING));
+
+        let hurt = unit((200, 750), Some((750, 750)), 0x9A);
+        assert_eq!(pools(&hurt)[1], ((200, 750), theme::TEXT_NEGATIVE));
     }
 
     #[test]
@@ -1802,12 +2399,100 @@ mod tests {
                 left: 0.0,
                 right: 1280.0,
             },
-            anchor: crate::observer::StackAnchor::Middle,
-            middle: 640.0,
+            anchor: crate::observer::StackAnchor::Right,
             ceiling,
             screen_bottom: 960.0,
         };
         assert!(fits(slot(100.0)));
         assert!(!fits(slot(960.0 - 16.0 - PANEL_HEIGHT)));
+    }
+
+    const TILE: Rect = Rect::from_min_max(pos2(40.0, 40.0), pos2(80.0, 80.0));
+
+    /// Clicks the middle of a unit's tile with `button` while `modifiers` are held, the way the
+    /// host reports them: on every pointer event and restated for the whole frame.
+    fn click_tile(button: PointerButton, modifiers: Modifiers) -> Option<SelectedUnitClick> {
+        click_tile_held(button, modifiers, modifiers)
+    }
+
+    /// [`click_tile`] with the pointer events carrying `on_click` and the frames restating
+    /// `for_frame`, as when a key comes up between the click and the frame that reads it.
+    fn click_tile_held(
+        button: PointerButton,
+        on_click: Modifiers,
+        for_frame: Modifiers,
+    ) -> Option<SelectedUnitClick> {
+        let ctx = Context::default();
+        let pos = TILE.center();
+        let press = |pressed| Event::PointerButton {
+            pos,
+            button,
+            pressed,
+            modifiers: on_click,
+        };
+        let events = [
+            vec![Event::PointerMoved(pos)],
+            vec![press(true)],
+            vec![press(false)],
+        ];
+        let mut clicked = None;
+        for (frame, mut events) in events.into_iter().enumerate() {
+            events.insert(0, Event::ModifiersChanged(for_frame));
+            let raw = RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 720.0))),
+                time: Some(frame as f64 * 0.1),
+                events,
+                ..Default::default()
+            };
+            ctx.run_ui(raw, |ui| {
+                clicked = unit_target(ui, TILE, 3);
+            })
+            .textures_delta
+            .clear();
+        }
+        clicked
+    }
+
+    #[test]
+    fn a_click_on_a_unit_reads_the_modifiers_held() {
+        let ctrl_shift = Modifiers {
+            shift: true,
+            ctrl: true,
+            ..Modifiers::NONE
+        };
+        let primary = PointerButton::Primary;
+        assert_eq!(
+            click_tile(primary, Modifiers::NONE),
+            Some(SelectedUnitClick::Pick(3))
+        );
+        assert_eq!(
+            click_tile(primary, Modifiers::SHIFT),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile(primary, Modifiers::CTRL),
+            Some(SelectedUnitClick::PickKind(3))
+        );
+        assert_eq!(
+            click_tile(primary, ctrl_shift),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile(PointerButton::Secondary, Modifiers::CTRL),
+            Some(SelectedUnitClick::Follow(3))
+        );
+    }
+
+    #[test]
+    fn a_click_reads_the_keys_held_on_the_click_rather_than_the_frames() {
+        let primary = PointerButton::Primary;
+        assert_eq!(
+            click_tile_held(primary, Modifiers::SHIFT, Modifiers::NONE),
+            Some(SelectedUnitClick::Deselect(3))
+        );
+        assert_eq!(
+            click_tile_held(primary, Modifiers::NONE, Modifiers::CTRL),
+            Some(SelectedUnitClick::Pick(3))
+        );
     }
 }

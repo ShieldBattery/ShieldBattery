@@ -16,20 +16,22 @@
 //! matchup bar, up to two a half from its stacked form, and anything wider from the corner team
 //! cards.
 
-use egui::{Color32, Rect, pos2, vec2};
+use egui::{Color32, Rect, vec2};
 use overlay_ui::observer::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
-    MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
-    ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView,
+    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    EconomyPlayerView, EconomyView, FightDegree, GraphGrouping, GraphLineView, GraphSeries,
+    GraphsView, MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
+    MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionItemView,
+    ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, Significance, StatusColor, SubjectProgress,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView,
     UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
 
+use crate::host_knobs::PointerTarget;
 use crate::knobs::Knobs as AllKnobs;
 
 /// The most players a game of Brood War has, which is as many as anything here reports on.
@@ -121,6 +123,9 @@ const ZERG_EGG: u16 = 0x24;
 /// A mineral field, for the selection that is a resource.
 const MINERAL_FIELD: u16 = 0xb0;
 
+/// What two high templar merge into, for the selection that is a unit still forming.
+const PROTOSS_ARCHON: u16 = 0x44;
+
 /// The names the game's English stat_txt gives the units and buildings above, by the same id.
 fn unit_name(id: u16) -> Option<String> {
     let name = match id {
@@ -129,6 +134,7 @@ fn unit_name(id: u16) -> Option<String> {
         5 => "Terran Siege Tank",
         7 => "Terran SCV",
         8 => "Terran Wraith",
+        SCIENCE_VESSEL => "Terran Science Vessel",
         TERRAN_TRANSPORT => "Terran Dropship",
         ZERG_EGG => "Zerg Egg",
         37 => "Zerg Zergling",
@@ -140,6 +146,7 @@ fn unit_name(id: u16) -> Option<String> {
         65 => "Protoss Zealot",
         66 => "Protoss Dragoon",
         PROTOSS_TRANSPORT => "Protoss Shuttle",
+        PROTOSS_ARCHON => "Protoss Archon",
         71 => "Protoss Arbiter",
         0x6a => "Terran Command Center",
         0x71 => "Terran Barracks",
@@ -199,9 +206,13 @@ fn event_subject(kind: TimelineEventKind, race: RaceView, index: usize) -> (u16,
     }
 }
 
-/// How many units the loaded transport is carrying, which is short of the eight one holds: a row
-/// drawn to its last slot would not say whether the panel draws the room or only what is in it.
-const CARGO_UNITS: usize = 4;
+/// What the loaded transport is carrying, as each unit and the room it takes up: one of each size,
+/// and short of the eight one holds, since a grid drawn to its last cell would not say whether the
+/// panel draws the room or only what is in it.
+const CARGO_UNITS: usize = 3;
+const ZERG_CARGO: [(u16, u32); CARGO_UNITS] = [(103, 4), (38, 2), (37, 1)];
+const TERRAN_CARGO: [(u16, u32); CARGO_UNITS] = [(5, 4), (2, 2), (0, 1)];
+const PROTOSS_CARGO: [(u16, u32); CARGO_UNITS] = [(66, 4), (65, 2), (64, 1)];
 
 /// How many more units the producing building has waiting behind the one on the way.
 const QUEUED_UNITS: usize = 2;
@@ -259,6 +270,10 @@ pub struct Knobs {
     /// has one slot of what it is turning into and its carapace under that. Takes the selection
     /// over from the count.
     pub selection_morphing: bool,
+    /// Whether what is selected is an archon its templar are still merging into, which is the
+    /// reading that has the unit's progress as its own under a label saying it is being summoned.
+    /// Takes the selection over from the count.
+    pub selection_summoning: bool,
     /// Whether what is selected is a building with guns of its own and nothing on the way, which
     /// is the reading of a building with upgrades to read out. Takes the selection over from the
     /// count.
@@ -312,6 +327,7 @@ impl Default for Knobs {
             selection_cargo: false,
             selection_constructing: false,
             selection_morphing: false,
+            selection_summoning: false,
             selection_defense: false,
             selection_resource: false,
             selection_status: false,
@@ -385,6 +401,7 @@ pub struct State {
     /// Whose vision the watcher is on, by player id. The game answers a vision toggle by changing
     /// what it shows; here there is nothing to show, so the panels' own state is the answer.
     vision: [bool; MAX_PLAYERS],
+    pub show_entire_map: bool,
     /// The last production entry a click asked to be selected, which the knob panel reads back: the
     /// preview has no units to select, so the ask is all there is to see.
     pub last_selection: Option<(u8, usize)>,
@@ -397,6 +414,7 @@ impl State {
     pub fn new() -> State {
         State {
             vision: [true; MAX_PLAYERS],
+            show_entire_map: false,
             last_selection: None,
             vision_picker_opened: false,
         }
@@ -439,6 +457,7 @@ pub fn build_view(
         is_replay,
     };
     ObserverView {
+        show_entire_map: state.show_entire_map,
         // The corner cards carry the players the bar gave up, so they are built for exactly the
         // games the bar has no halves for.
         team_cards: (matchup.form() == MatchupForm::ClockOnly)
@@ -758,6 +777,7 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
         gas: wave(index as f64 * 1.3 + 2.0, t, 0.023, 780.0),
         supply_used,
         supply_max,
+        workers: workers(index, t).0,
         apm: apm(index, t),
     }
 }
@@ -919,8 +939,8 @@ fn control_groups_player(
 ///
 /// Every reading the panel has is reachable from here, because each of them is a different layout:
 /// no units at all, an army the panel draws as its grid alone, one unit read out as numbers, a
-/// building part way through something, an egg part way through its morph, a building with guns,
-/// and a transport with an army inside it.
+/// building part way through something, an egg part way through its morph, an archon still
+/// forming, a building with guns, and a transport with an army inside it.
 ///
 /// A selection of one is the only one whose numbers are read out, so it is dealt both a shield and
 /// an energy pool: the rows only some units have are the ones a layout gets wrong.
@@ -944,6 +964,11 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
     if knobs.selection_morphing {
         return SelectionView {
             units: vec![morphing_egg(knobs, owner, t)],
+        };
+    }
+    if knobs.selection_summoning {
+        return SelectionView {
+            units: vec![summoning_archon(knobs, owner, t)],
         };
     }
     if knobs.selection_defense {
@@ -972,6 +997,8 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                 };
                 let id = if building {
                     buildings[0]
+                } else if count == 1 {
+                    lone_unit(knobs.race(owner))
                 } else {
                     units[index % units.len()]
                 };
@@ -1005,10 +1032,58 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     } else {
                         Vec::new()
                     },
+                    research: if count == 1 && !building {
+                        lone_unit_research(knobs.race(owner))
+                    } else {
+                        Vec::new()
+                    },
                 }
             })
             .collect(),
     }
+}
+
+/// The unit a selection of one is, for each race: one its owner has researched as much for as any
+/// unit gets, so the row under it is as full as a game ever fills it.
+fn lone_unit(race: RaceView) -> u16 {
+    match race {
+        RaceView::Zerg => 38,
+        RaceView::Terran => SCIENCE_VESSEL,
+        RaceView::Protoss | RaceView::Random => 71,
+    }
+}
+
+const SCIENCE_VESSEL: u16 = 9;
+
+/// What the lone unit of `race` has had researched for it: the frame its icon would be drawn from
+/// and the name the game's English stat_txt gives it. The frames are stand-ins, as the upgrades'
+/// are.
+fn lone_unit_research(race: RaceView) -> Vec<UnitResearchView> {
+    let research: &[(u16, &str)] = match race {
+        RaceView::Zerg => &[
+            (0x10b, "Burrowing"),
+            (0x13a, "Lurker Aspect"),
+            (0x119, "Muscular Augments"),
+            (0x11a, "Grooved Spines"),
+        ],
+        RaceView::Terran => &[
+            (0x0f6, "EMP Shockwave"),
+            (0x0f9, "Irradiate"),
+            (0x10f, "Titan Reactor"),
+        ],
+        RaceView::Protoss | RaceView::Random => &[
+            (0x108, "Recall"),
+            (0x109, "Stasis Field"),
+            (0x128, "Khaydarin Core"),
+        ],
+    };
+    research
+        .iter()
+        .map(|&(frame, name)| UnitResearchView {
+            icon: unit_icon(frame),
+            name: Some(name.to_string()),
+        })
+        .collect()
 }
 
 /// One upgrade of the fake game's: the frame its icon would be drawn from, the level it has
@@ -1147,10 +1222,11 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     .map(|&index| unit_icon(index))
                     .collect(),
             ),
-            is_subject: false,
+            subject: None,
         }),
         cargo: Vec::new(),
         // Dealt as the game DLL deals them, which is what proves a queue leaves no row for them.
+        research: Vec::new(),
         upgrades: building_upgrades(race, &[]),
     }
 }
@@ -1187,10 +1263,69 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             name: unit_name(building),
             progress,
             queue: None,
-            is_subject: true,
+            subject: Some(SubjectProgress::Construction),
         }),
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: building_upgrades(race, &[]),
+    }
+}
+
+/// An archon of the first player's that its two templar are still merging into. It is the archon
+/// from the moment they meet, at its full shields, so its progress is its own.
+fn summoning_archon(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let ((armor, base), (weapons, _, _, _)) = (PROTOSS_UPGRADES.armor, PROTOSS_UPGRADES.weapons);
+    let upgrade = |(frame, level, name): Upgrade, effect| UnitUpgradeView {
+        icon: unit_icon(frame),
+        level,
+        name: Some(name.to_string()),
+        effect,
+    };
+    SelectedUnitView {
+        icon: unit_icon(PROTOSS_ARCHON),
+        name: unit_name(PROTOSS_ARCHON),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: Some((10, 10)),
+        shields: Some((350, 350)),
+        energy: None,
+        kills: 0,
+        status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
+        building: false,
+        resources: None,
+        stacked: None,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(PROTOSS_ARCHON),
+            name: unit_name(PROTOSS_ARCHON),
+            progress: fraction(t * 0.08),
+            queue: None,
+            subject: Some(SubjectProgress::Summoning),
+        }),
+        cargo: Vec::new(),
+        research: Vec::new(),
+        upgrades: vec![
+            upgrade(
+                armor,
+                UpgradeEffect::Armor {
+                    base,
+                    bonus: u32::from(armor.1),
+                },
+            ),
+            upgrade(PLASMA_SHIELDS, UpgradeEffect::Shields),
+            upgrade(
+                weapons,
+                UpgradeEffect::Damage(vec![WeaponDamageView {
+                    name: Some("Psi Assault".to_string()),
+                    base: 30,
+                    bonus: 3 * u32::from(weapons.1),
+                    hits: 1,
+                }]),
+            ),
+        ],
     }
 }
 
@@ -1223,9 +1358,10 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             name: unit_name(target),
             progress: fraction(t * 0.07),
             queue: None,
-            is_subject: false,
+            subject: None,
         }),
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: vec![UnitUpgradeView {
             icon: unit_icon(frame),
             level,
@@ -1273,6 +1409,7 @@ fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         stacked: None,
         production: None,
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: building_upgrades(race, weapons),
     }
 }
@@ -1302,6 +1439,7 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
         stacked: Some(3),
         production: None,
         cargo: Vec::new(),
+        research: Vec::new(),
         upgrades: Vec::new(),
     }
 }
@@ -1312,10 +1450,18 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
 /// of the fake game runs on, because what the row is here to prove is the tints: one of them is
 /// whole, one is hurt, one is nearly dead, and the panel has to draw three different colors.
 fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
-    const CARGO_HEALTH: [f32; CARGO_UNITS] = [1.0, 0.6, 0.25, 0.85];
+    const CARGO_HEALTH: [f32; CARGO_UNITS] = [1.0, 0.6, 0.25];
 
     let race = knobs.race(owner);
-    let units = race_units(race);
+    let cargo = match race {
+        RaceView::Zerg => ZERG_CARGO,
+        RaceView::Terran => TERRAN_CARGO,
+        RaceView::Protoss | RaceView::Random => PROTOSS_CARGO,
+    };
+    let shielded = has_shields(race);
+    let mut upgrades = unit_upgrades(race, shielded);
+    // Its armor and any shields: a transport has no weapon, which is what would come next.
+    upgrades.truncate(if shielded { 2 } else { 1 });
     let full_health = 150;
     SelectedUnitView {
         icon: unit_icon(race_transport(race)),
@@ -1337,33 +1483,39 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         production: None,
         cargo: CARGO_HEALTH
             .iter()
+            .zip(cargo)
             .enumerate()
-            .map(|(slot, left)| {
+            .map(|(slot, (left, (unit, room)))| {
                 let full_health = 80 + 20 * slot as u32;
-                SelectedUnitView {
-                    icon: unit_icon(units[slot % units.len()]),
-                    name: unit_name(units[slot % units.len()]),
-                    owner_color: overlay_ui::kit::theme::player_color(owner),
-                    owner_name: player_name(knobs, owner),
-                    owner: Some(owner as u8),
-                    hit_points: Some(((full_health as f32 * left) as u32, full_health)),
-                    shields: None,
-                    energy: None,
-                    kills: 0,
-                    status: None,
-                    hallucination: spells(knobs, slot).hallucination,
-                    parasited: spells(knobs, slot).parasited,
-                    blind: spells(knobs, slot).blind,
-                    building: false,
-                    resources: None,
-                    stacked: None,
-                    production: None,
-                    cargo: Vec::new(),
-                    upgrades: Vec::new(),
+                CarriedUnitView {
+                    unit: SelectedUnitView {
+                        icon: unit_icon(unit),
+                        name: unit_name(unit),
+                        owner_color: overlay_ui::kit::theme::player_color(owner),
+                        owner_name: player_name(knobs, owner),
+                        owner: Some(owner as u8),
+                        hit_points: Some(((full_health as f32 * left) as u32, full_health)),
+                        shields: shielded.then(|| ((60.0 * (1.0 - left)) as u32, 60)),
+                        energy: None,
+                        kills: 0,
+                        status: None,
+                        hallucination: spells(knobs, slot).hallucination,
+                        parasited: spells(knobs, slot).parasited,
+                        blind: spells(knobs, slot).blind,
+                        building: false,
+                        resources: None,
+                        stacked: None,
+                        production: None,
+                        cargo: Vec::new(),
+                        research: Vec::new(),
+                        upgrades: Vec::new(),
+                    },
+                    room,
                 }
             })
             .collect(),
-        upgrades: Vec::new(),
+        research: Vec::new(),
+        upgrades,
     }
 }
 
@@ -1385,16 +1537,8 @@ fn has_shields(race: RaceView) -> bool {
 /// Where SC:R puts the minimap for a watcher: the square of the console's own minimap, in the
 /// screen's bottom-left corner, which the console scales with the screen's height.
 pub fn minimap_square(screen: Rect) -> Rect {
-    let side = MINIMAP_UNITS * screen.height() / DESIGN_HEIGHT;
-    Rect::from_min_size(
-        pos2(screen.left(), screen.bottom() - side),
-        vec2(side, side),
-    )
+    overlay_ui::observer::minimap_reserve(screen)
 }
-
-/// The side of the minimap's square at the design's 1080 points of height.
-const MINIMAP_UNITS: f32 = 348.0;
-const DESIGN_HEIGHT: f32 = 1080.0;
 
 /// Paints something where the game's minimap would be, under the overlay, so the frame the overlay
 /// draws around it is judged against a square that is there: dark ground with a few patches of
@@ -1461,10 +1605,11 @@ fn fraction(value: f64) -> f32 {
 /// How much of the overlay a preset puts on screen at once.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
-    /// The game and as little else as possible: the matchup bar, the minimap and the plate.
+    /// The game and as little else as possible: the matchup bar, the minimap and the plate, with
+    /// nothing selected for the selection panel to read out.
     Minimal,
-    /// A caster's working set: the minimal screen with the economy, production, control groups and
-    /// selection panels added.
+    /// A caster's working set: the minimal screen with the economy, production and control groups
+    /// panels added, and a unit selected.
     Standard,
     /// Every panel the overlay has.
     Analyst,
@@ -1472,9 +1617,18 @@ pub enum Screen {
     /// the wings are drawn where the wings would have been, and the right-hand ones against the
     /// edge the dock has left.
     ReflowWings,
-    /// The analyst's screen with the lower half of the centered stack hidden, so the panels over it
-    /// are drawn against the screen's own bottom edge.
+    /// The analyst's screen with the production panel hidden and nothing selected, so control groups
+    /// stand alone in the column and the selection panel's end of the bottom edge is empty.
     ReflowStack,
+    /// The analyst's screen watched from an observer slot in a live game, which has no playback
+    /// controls, so the dock stands against the selection panel.
+    Live,
+    /// The analyst's screen in a replay with the playback controls put away, which leaves the dock
+    /// the selection panel to stand against as a live game does.
+    NoPlate,
+    /// The no-plate screen with nothing selected either, which leaves the dock nothing to stand on,
+    /// so it floats on its own.
+    Floating,
 }
 
 impl Screen {
@@ -1494,7 +1648,6 @@ impl Screen {
         prefs.timeline = deep;
         prefs.production = analysis;
         prefs.control_groups = analysis;
-        prefs.selection = analysis;
         // Each reflow screen is the analyst's with a hole in it, which is what the panels around
         // the hole are meant to close up into.
         match self {
@@ -1503,10 +1656,8 @@ impl Screen {
                 prefs.military = false;
                 prefs.dock = false;
             }
-            Screen::ReflowStack => {
-                prefs.production = false;
-                prefs.selection = false;
-            }
+            Screen::ReflowStack => prefs.production = false,
+            Screen::NoPlate | Screen::Floating => prefs.playback_controls = false,
             _ => {}
         }
     }
@@ -1521,6 +1672,9 @@ impl Screen {
             // than each named after the panels it happens to hide.
             Screen::ReflowWings => "reflow-a",
             Screen::ReflowStack => "reflow-b",
+            Screen::Live => "live",
+            Screen::NoPlate => "no-plate",
+            Screen::Floating => "floating",
         }
     }
 }
@@ -1541,6 +1695,8 @@ pub enum Showcase {
     Constructing,
     /// An egg part way through its morph.
     Morphing,
+    /// An archon its templar are still merging into.
+    Summoning,
     /// A building with guns of its own, with nothing on the way.
     Defense,
     /// A mineral field with others stacked on it.
@@ -1554,15 +1710,6 @@ pub enum Showcase {
     /// button open.
     VisionPicker,
 }
-
-/// Where along the replay plate's track the marker hover rests, as the plate stands on the duel's
-/// analyst screen: on a tick well clear of the playhead, so the card is not read against its glow.
-const TRACK_MARKER_X: f32 = 1640.0;
-
-/// Where the weapon upgrade of the lone unit the selection panel reads out sits on the duel's
-/// analyst screen: the third chip, after its armor and its shields.
-const UPGRADE_CHIP_X: f32 = 1358.0;
-const UPGRADE_CHIP_Y: f32 = 1032.0;
 
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
 ///
@@ -1591,17 +1738,57 @@ pub enum Hover {
 }
 
 impl Hover {
-    /// Where the pointer rests, in the emulated screen's points.
-    fn point(self) -> Option<(f32, f32)> {
+    /// Where the pointer rests: on the control the preset is about, wherever this screen put the
+    /// surface it is on.
+    fn target(self) -> Option<PointerTarget> {
+        use overlay_ui::shell::Panel;
+
+        let on = |area: egui::Id, corner: egui::Align2, x: f32, y: f32| PointerTarget {
+            area,
+            corner,
+            offset: vec2(x, y),
+        };
+        let plate = egui::Id::new("sb_playback_controls");
         match self {
             Hover::None => None,
-            Hover::Graphs => Some((1550.0, 380.0)),
-            Hover::DockMatchup => Some((1878.0, 346.0)),
-            Hover::TimelineRow => Some((250.0, 336.0)),
-            Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
-            Hover::JumpChip => Some((1830.0, 1040.0)),
-            Hover::MinimapVision => Some((34.0, 714.0)),
-            Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
+            // Over the plot, low enough to be on it however short this screen draws it.
+            Hover::Graphs => Some(on(
+                overlay_ui::observer::wing_id(Panel::Graphs),
+                egui::Align2::LEFT_BOTTOM,
+                130.0,
+                -50.0,
+            )),
+            // The matchup's keycap, the strip's second.
+            Hover::DockMatchup => Some(on(
+                egui::Id::new("sb_obs_dock"),
+                egui::Align2::LEFT_CENTER,
+                63.0,
+                0.0,
+            )),
+            // The feed's second row, which the fewest rows it is drawn with include.
+            Hover::TimelineRow => Some(on(
+                overlay_ui::observer::wing_id(Panel::Timeline),
+                egui::Align2::LEFT_TOP,
+                234.0,
+                80.0,
+            )),
+            // A tick on the plate's track well clear of the playhead, so the card is not read
+            // against its glow.
+            Hover::TrackMarker => Some(on(plate, egui::Align2::LEFT_BOTTOM, 60.0, -68.0)),
+            Hover::JumpChip => Some(on(plate, egui::Align2::LEFT_BOTTOM, 250.0, -24.0)),
+            Hover::MinimapVision => Some(on(
+                egui::Id::new("sb_minimap_frame"),
+                egui::Align2::LEFT_TOP,
+                24.0,
+                14.0,
+            )),
+            // The lone unit's weapon upgrade: the third chip, after its armor and its shields.
+            Hover::UpgradeChip => Some(on(
+                egui::Id::new("sb_selection_panel"),
+                egui::Align2::LEFT_BOTTOM,
+                250.0,
+                -32.0,
+            )),
         }
     }
 
@@ -1668,7 +1855,18 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 35] = [
+    /// The vision menu over a team game, including the entire-map setting.
+    pub const fn vision_picker() -> Preset {
+        Preset {
+            players: 4,
+            team_size: 2,
+            panels: Screen::Analyst,
+            showcase: Showcase::VisionPicker,
+            hover: Hover::None,
+        }
+    }
+
+    pub const ALL: [Preset; 39] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1676,6 +1874,11 @@ impl Preset {
         // the move each of them is about off.
         Preset::game(2, 1, Screen::ReflowWings),
         Preset::game(2, 1, Screen::ReflowStack),
+        // The dock without the playback controls under it: in the two games that leave it the
+        // selection panel to stand against, and with nothing selected for it to stand against.
+        Preset::game(2, 1, Screen::Live),
+        Preset::game(2, 1, Screen::NoPlate),
+        Preset::game(2, 1, Screen::Floating),
         // An odd number of players, which is what leaves the stacked bar a slot short, and the
         // same three with nobody allied, which is what leaves its halves standing for no side.
         Preset::game(3, 2, Screen::Standard),
@@ -1700,18 +1903,13 @@ impl Preset {
         Preset::selection_showcase(Showcase::Loaded),
         Preset::selection_showcase(Showcase::Constructing),
         Preset::selection_showcase(Showcase::Morphing),
+        Preset::selection_showcase(Showcase::Summoning),
         Preset::selection_showcase(Showcase::Defense),
         Preset::selection_showcase(Showcase::Resource),
         Preset::selection_showcase(Showcase::Status),
         Preset::selection_showcase(Showcase::Spells),
         // The vision list is shown over a team game, which is the one with a list worth reading.
-        Preset {
-            players: 4,
-            team_size: 2,
-            panels: Screen::Analyst,
-            showcase: Showcase::VisionPicker,
-            hover: Hover::None,
-        },
+        Preset::vision_picker(),
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),
@@ -1728,6 +1926,7 @@ impl Preset {
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
             Showcase::Constructing => return "1v1-selection-constructing".to_string(),
             Showcase::Morphing => return "1v1-selection-morphing".to_string(),
+            Showcase::Summoning => return "1v1-selection-summoning".to_string(),
             Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::Resource => return "1v1-selection-resource".to_string(),
             Showcase::Status => return "1v1-selection-status".to_string(),
@@ -1763,14 +1962,20 @@ impl Preset {
 
     /// Presets the fake game, the panel set, and the vantage point the panels are watched from.
     pub fn apply(self, knobs: &mut AllKnobs) {
-        knobs.host.mode = overlay_ui::shell::Mode::Replay;
+        knobs.host.mode = match self.panels {
+            Screen::Live => overlay_ui::shell::Mode::Observing,
+            _ => overlay_ui::shell::Mode::Replay,
+        };
         self.panels.apply(&mut knobs.host.panels);
         // The dock's two forms are both worth looking at, and the screen that asks for everything
-        // is the one whose watcher wants the rail spelled out. A screen about what the pointer is
-        // over takes the strip of keycaps instead, since that is the form with anything left to say.
-        knobs.host.panels.dock_expanded =
-            self.panels == Screen::Analyst && self.hover == Hover::None;
-        knobs.host.pointer = self.hover.point();
+        // is the one whose watcher wants the table spelled out, on the plate, beside the selection
+        // panel and floating alike. A screen about what the pointer is over takes the keycaps instead,
+        // since that is the form with anything left to say.
+        knobs.host.panels.dock_expanded = matches!(
+            self.panels,
+            Screen::Analyst | Screen::NoPlate | Screen::Floating
+        ) && self.hover == Hover::None;
+        knobs.host.pointer_on = self.hover.target();
         knobs.observer = Knobs {
             players: self.players,
             team_size: self.team_size,
@@ -1778,6 +1983,7 @@ impl Preset {
             selection_cargo: self.showcase == Showcase::Loaded,
             selection_constructing: self.showcase == Showcase::Constructing,
             selection_morphing: self.showcase == Showcase::Morphing,
+            selection_summoning: self.showcase == Showcase::Summoning,
             selection_defense: self.showcase == Showcase::Defense,
             selection_resource: self.showcase == Showcase::Resource,
             selection_status: self.showcase == Showcase::Status,
@@ -1785,6 +1991,11 @@ impl Preset {
             selection_spells: self.showcase == Showcase::Spells,
             selection: if self.showcase == Showcase::Spells {
                 SelectionView::MAX_UNITS
+            } else if matches!(
+                self.panels,
+                Screen::Minimal | Screen::ReflowStack | Screen::Floating
+            ) {
+                0
             } else {
                 1
             },
@@ -1892,6 +2103,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects an egg part way through its morph, which has one slot of what it is turning \
              into and its carapace under that.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_summoning, "selection is summoning")
+        .on_hover_text(
+            "Selects an archon its templar are still merging into, which reads its progress as its \
+             own under a summoning label.",
         )
         .changed();
     changed |= ui

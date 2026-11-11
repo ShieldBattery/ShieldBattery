@@ -111,9 +111,12 @@ static VISION: AtomicI32 = AtomicI32::new(-1);
 /// restores happen under a local selection: with `SB_ROLLBACK_HARNESS_SELECT=24` every 24th frame
 /// selects one of their eggs or up to twelve of their other units (see
 /// [`BwScr::rollback_select_for_harness`]), and the frames between often select a unit of theirs
-/// the moment it appears (see [`BwScr::rollback_select_new_for_harness`]). That player also stands in as the local
-/// player while the game steps (see [`local_stand_in`]). Needs [`VISION_ENV_VAR`] and an armed
-/// harness.
+/// the moment it appears (see [`BwScr::rollback_select_new_for_harness`]). Some steps stalled at
+/// the prediction limit select some as well, or right-click the ground, as the person can while a
+/// live step waits for turns.
+/// That player also stands in as the local player while the game steps (see [`local_stand_in`]).
+/// Needs [`VISION_ENV_VAR`] and an armed harness. Each tick checks that the selection it leaves
+/// is one the status panel can draw.
 const SELECT_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_SELECT";
 
 /// The interval [`SELECT_ENV_VAR`] names, or 0 when no selecting was asked for.
@@ -784,8 +787,7 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
         *DISPLAYED_UNITS.lock() = None;
         let confirmed = LAST_CONFIRMED.load(Ordering::Relaxed);
         if settings.depth == 0 && max_delay == 0 {
-            let mut guard = SNAPSHOTS.lock();
-            if let Some(snapshots) = guard.as_mut() {
+            if let Some(mut snapshots) = SNAPSHOTS.lock() {
                 let selection = bw.rollback_local_selection();
                 bw.rollback_clear_selection_visuals();
                 let overlays = bw.rollback_detach_placement_overlays();
@@ -803,8 +805,7 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
             }
             // Rebuilt from scratch should rolling back be turned on again later, anchored wherever
             // the game has got to by then.
-            *guard = None;
-            drop(guard);
+            SNAPSHOTS.clear();
             sounds::forget_presented();
             rollback::announcements::forget();
             FINGERPRINTS.lock().clear();
@@ -948,7 +949,7 @@ fn take_arrived_commands(knowledge: &live_shapes::Knowledge) -> Option<u32> {
 /// game loop (re-)enters game init, which is how a replay seek SC:R handles itself restarts
 /// playback.
 pub fn reset_for_game_init() {
-    if SNAPSHOTS.lock().take().is_some() {
+    if SNAPSHOTS.clear() {
         debug!("Rollback harness snapshot dropped for game init");
     }
     LATE_COMMANDS.lock().clear();
@@ -1071,10 +1072,35 @@ unsafe fn select_if_due(bw: &BwScr) {
             }
             return;
         }
-        let (selected, egg) = bw.rollback_select_for_harness(player, next_select_random);
+        let (selected, egg) = bw.rollback_select_for_harness(player, false, next_select_random);
         match egg {
             true => debug!("{SELECT_ENV_VAR}: frame {frame} selected an egg"),
             false => debug!("{SELECT_ENV_VAR}: frame {frame} selected {selected} units"),
+        }
+    }
+}
+
+/// Acts for [`local_stand_in`] as the person, after a step that stalls at the prediction limit: a
+/// live step that waits that long for turns processes the person's input while it does, in the
+/// middle of a tick. A quarter of them select units, and half right-click the ground.
+unsafe fn act_while_waiting(bw: &BwScr, frame: u32) {
+    unsafe {
+        let Some(player) = local_stand_in() else {
+            return;
+        };
+        if next_select_random().is_multiple_of(4) {
+            let (selected, egg) = bw.rollback_select_for_harness(player, true, next_select_random);
+            match egg {
+                true => debug!("{SELECT_ENV_VAR}: the stalled step to {frame} selected an egg"),
+                false => debug!(
+                    "{SELECT_ENV_VAR}: the stalled step to {frame} selected {selected} units"
+                ),
+            }
+        }
+        if next_select_random().is_multiple_of(2)
+            && let Some((x, y)) = bw.rollback_right_click_for_harness(player, next_select_random)
+        {
+            debug!("{SELECT_ENV_VAR}: the stalled step to {frame} right-clicked at {x}, {y}");
         }
     }
 }
@@ -1097,11 +1123,9 @@ unsafe fn run_tick(
         select_if_due(bw);
         let tick_start = Instant::now();
         let tick_start_cycles = thread_cycles();
-        let mut guard = SNAPSHOTS.lock();
-        if guard.is_none() {
-            *guard = Snapshots::build(bw);
-        }
-        let (Some(snapshots), Some(current)) = (guard.as_mut(), bw.rollback_frame_count()) else {
+        let (Some(mut snapshots), Some(current)) =
+            (SNAPSHOTS.lock_or_build(bw), bw.rollback_frame_count())
+        else {
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         };
 
@@ -1142,7 +1166,7 @@ unsafe fn run_tick(
         *KNOWLEDGE.lock() = Some(shape.at_start);
         let mut steps_run = 0;
         let mut stalled = false;
-        let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
+        let (ret, report) = tick::run_tick(bw, &mut snapshots, current, &plan, |step| {
             if shape.deliver_after_steps != 0 && steps_run == shape.deliver_after_steps {
                 *KNOWLEDGE.lock() = Some(shape.delivered);
             }
@@ -1168,6 +1192,7 @@ unsafe fn run_tick(
                     crate::rollback_probe::run_game_logic_step(bw, param, orig)
                 });
                 STALLING_STEP.store(false, Ordering::Relaxed);
+                act_while_waiting(bw, step.frame);
                 stalled = true;
                 if ret.is_none() || bw.rollback_frame_count() != before {
                     error!(
@@ -1192,7 +1217,14 @@ unsafe fn run_tick(
             compare_displayed_units(bw);
             ret
         });
-        drop(guard);
+        drop(snapshots);
+        if local_stand_in().is_some() {
+            debug_assert!(
+                !bw.rollback_local_selection_groups_a_building(),
+                "The tick to frame {:?} left a group selected that holds a building",
+                bw.rollback_frame_count(),
+            );
+        }
         *KNOWLEDGE.lock() = Some(shape.delivered);
         let reached = bw.rollback_frame_count().unwrap_or(current);
         if live_shapes::armed() {

@@ -19,6 +19,7 @@ import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
 import { LeagueBadge } from './league-badge'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 import { LeagueSectionType } from './league-section-type'
+import { useLocalizedLeague } from './use-localized-league'
 
 const LeagueCardRoot = styled(Card)`
   position: relative;
@@ -114,6 +115,7 @@ export function LeagueCard({
   href: string
 }) {
   const { t } = useTranslation()
+  const localized = useLocalizedLeague(league)
   const narrowDurationFormat = useFormat(narrowDuration)
   const longTimestampFormat = useFormat(longTimestamp)
   const monthDayFormat = useFormat(monthDay)
@@ -171,17 +173,17 @@ export function LeagueCard({
         <LeagueImageAndBadge>
           {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
           <LeagueCardBadge>
-            <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} />
+            <LeagueBadge leagueName={localized.name} badgeUrl={league.badgePath} />
           </LeagueCardBadge>
         </LeagueImageAndBadge>
-        <LeagueName>{league.name}</LeagueName>
+        <LeagueName>{localized.name}</LeagueName>
         <LeagueFormatAndDate>
           {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
           <DateTooltip text={dateTooltip} position={'right'}>
             {dateText}
           </DateTooltip>
         </LeagueFormatAndDate>
-        <LeagueDescription>{league.description}</LeagueDescription>
+        <LeagueDescription>{localized.description}</LeagueDescription>
         <FlexSpacer />
         <LeagueActions>
           {joinedIndicator}

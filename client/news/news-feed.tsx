@@ -14,6 +14,7 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { useLastSeenNewsPost } from './last-seen-news-post'
 import { newsDateFormat, NewsImage } from './news-image'
+import { useLocalizedNewsPost } from './news-post-translations'
 import { urlForNewsPost } from './news-url'
 
 export const News_HomeFeedFragment = graphql(/* GraphQL */ `
@@ -24,6 +25,11 @@ export const News_HomeFeedFragment = graphql(/* GraphQL */ `
           id
           title
           summary
+          translations {
+            language
+            title
+            summary
+          }
           publishedAt
           coverImageUrl
           coverImageSmallUrl
@@ -311,6 +317,7 @@ function NewsPreview({
 }) {
   const [buttonProps, rippleRef] = useButtonState({})
   const newsDateFormatter = useFormat(newsDateFormat)
+  const { title, summary } = useLocalizedNewsPost(post)
 
   return (
     <LinkButton
@@ -329,9 +336,9 @@ function NewsPreview({
         <EntryPreviewDate>
           {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
         </EntryPreviewDate>
-        <EntryPreviewTitle>{post.title}</EntryPreviewTitle>
+        <EntryPreviewTitle>{title}</EntryPreviewTitle>
         <EntryPreviewSummary>
-          <EntryPreviewSummaryText>{post.summary}</EntryPreviewSummaryText>
+          <EntryPreviewSummaryText>{summary}</EntryPreviewSummaryText>
         </EntryPreviewSummary>
       </EntryPreviewText>
       <Ripple ref={rippleRef} />
@@ -373,13 +380,14 @@ const RemainingEntryTitle = styled.div`
 function RemainingEntry({ post }: { post: NewsFeedPost }) {
   const [buttonProps, rippleRef] = useButtonState({})
   const newsDateFormatter = useFormat(newsDateFormat)
+  const { title } = useLocalizedNewsPost(post)
 
   return (
     <RemainingEntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>
       <RemainingEntryDate>
         {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
       </RemainingEntryDate>
-      <RemainingEntryTitle>{post.title}</RemainingEntryTitle>
+      <RemainingEntryTitle>{title}</RemainingEntryTitle>
       <Ripple ref={rippleRef} />
     </RemainingEntryRoot>
   )

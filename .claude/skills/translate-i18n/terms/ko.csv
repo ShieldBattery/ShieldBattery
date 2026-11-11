@@ -1092,5 +1092,5 @@ location,source,target,id,fuzzy,context,translator_comments,developer_comments
 ,Desert,사막,,False,Map tileset,,
 ,Ice,얼음,,False,Map tileset,,
 ,Twilight,황혼,,False,Map tileset,,
-,Login name,로그인 이름,,False,,,
+,Login name,아이디,,False,,,
 ,Display name,표시 이름,,False,,,

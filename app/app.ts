@@ -27,6 +27,7 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
+import { DISCORD_APPLICATION_IDS } from '../common/discord-presence'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { LocalSettings } from '../common/settings/local-settings'
@@ -38,6 +39,7 @@ import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
 import { findNewestDesyncUnitTable } from './desync-unit-tables'
 import { logCrashDumps, logMachineInfo, startLocalCrashReporter } from './diagnostics'
+import { DiscordPresence, isDiscordRunning } from './discord-presence'
 import { logElevationStatus } from './elevation'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
@@ -59,6 +61,7 @@ import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-pa
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
+import { hideToTray, showWindow } from './tray-window'
 import { getUserDataPath } from './user-data-path'
 import { DEFAULT_IDLE_THRESHOLD_MS, UserIdleWatcher } from './user-idle-watcher'
 import { isRunningUnderWine } from './wine'
@@ -129,22 +132,27 @@ let updateUrl: string
  * string parsed in `handleLaunchArgs`, never as a URL loaded into a webContents.
  */
 let deepLinkScheme: string
+/** The Discord application this channel publishes Rich Presence as. */
+let discordApplicationId: string
 switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
   case 'local':
     modelId = 'net.shieldbattery.client.local'
     // We don't auto-update on this client so this doesn't really matter
     updateUrl = 'https://example.org/'
     deepLinkScheme = DEEP_LINK_SCHEMES.local
+    discordApplicationId = DISCORD_APPLICATION_IDS.local
     break
   case 'staging':
     modelId = 'net.shieldbattery.client.staging'
     updateUrl = 'https://staging-cdn.shieldbattery.net/app/'
     deepLinkScheme = DEEP_LINK_SCHEMES.staging
+    discordApplicationId = DISCORD_APPLICATION_IDS.staging
     break
   default:
     modelId = 'net.shieldbattery.client'
     updateUrl = 'https://cdn.shieldbattery.net/app/'
     deepLinkScheme = DEEP_LINK_SCHEMES.production
+    discordApplicationId = DISCORD_APPLICATION_IDS.production
     break
 }
 setAppId(modelId)
@@ -215,6 +223,7 @@ let pendingReplaysToOpen: string[] = []
 // replaces an older pending one: clicking several links in a row should open the last one clicked,
 // not queue up every click.
 let pendingDeepLink: DeepLink | undefined
+let discordPresence: DiscordPresence | undefined
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
@@ -222,19 +231,23 @@ let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
 export function notifyNewInstance(data: NewInstanceNotification) {
   logger.info('Another instance was launched, handing off to this one')
+  bringWindowForward()
+
+  if (data.args.length > 1) {
+    handleLaunchArgs(data.args.slice(1))
+  }
+}
+
+function bringWindowForward() {
   if (mainWindow) {
     if (!mainWindow.isVisible()) {
-      mainWindow.show()
+      showWindow(mainWindow)
     } else {
       if (mainWindow.isMinimized()) {
         mainWindow.restore()
       }
       mainWindow.focus()
     }
-  }
-
-  if (data.args.length > 1) {
-    handleLaunchArgs(data.args.slice(1))
   }
 }
 
@@ -250,16 +263,21 @@ function handleLaunchArgs(args: string[]) {
     } else {
       pendingReplaysToOpen.push(...replays)
     }
-    mainWindow?.show()
+    if (mainWindow) showWindow(mainWindow)
   }
 
   if (deepLink) {
-    if (rendererReady) {
-      sendDeepLink(deepLink)
-    } else {
-      pendingDeepLink = deepLink
-    }
-    mainWindow?.show()
+    openDeepLink(deepLink)
+    if (mainWindow) showWindow(mainWindow)
+  }
+}
+
+/** Opens a deep link in the renderer, holding it until the renderer is ready if it isn't yet. */
+function openDeepLink(deepLink: DeepLink) {
+  if (rendererReady) {
+    sendDeepLink(deepLink)
+  } else {
+    pendingDeepLink = deepLink
   }
 }
 
@@ -277,6 +295,24 @@ function sendDeepLink(deepLink: DeepLink) {
       break
     default:
       deepLink satisfies never
+  }
+}
+
+/**
+ * Returns the path of a file from the Discord Social SDK, which release builds ship beside the app
+ * and which goes in the checkout's `discord-sdk` folder during development.
+ */
+function discordSdkPath(fileName: string): string {
+  return path.resolve(app.getAppPath(), '../discord-sdk', fileName)
+}
+
+/** Reads a text file that ships beside the app, or returns `undefined` if this build lacks it. */
+async function readShippedFile(filePath: string): Promise<string | undefined> {
+  try {
+    return await readFile(filePath, 'utf8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw err
   }
 }
 
@@ -600,6 +636,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.error('Error merging SC:R settings: ' + err)
     })
   })
+  ipcMain.handle('settingsScrGetBlizzard', () => scrSettings.getBlizzardSettings())
+  ipcMain.handle('settingsScrCopyFromBlizzard', () => scrSettings.copyFromBlizzard())
   ipcMain.handle('windowGetStatus', async () => {
     if (!mainWindow) {
       return {
@@ -626,8 +664,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     try {
       const result = await runTwitchOauthFlow(authorizeUrl)
       // Bring the app back to the foreground now that the browser detour is done.
-      mainWindow?.show()
-      mainWindow?.focus()
+      if (mainWindow) {
+        showWindow(mainWindow)
+        mainWindow.focus()
+      }
       return result
     } finally {
       twitchOauthFlowActive = false
@@ -682,7 +722,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
           if (quitOnClose) {
             quitApp('window close button (quit on close)')
           } else if (systemTray) {
-            mainWindow.hide()
+            hideToTray(mainWindow)
             if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
           } else {
             mainWindow.close()
@@ -804,21 +844,24 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
   })
 
+  ipcMain.handle(
+    'discordCanShowActivity',
+    async () => !!discordPresence?.isLoaded && (await isDiscordRunning()),
+  )
+  ipcMain.on('discordSetActivity', (event, activity) => {
+    discordPresence?.setActivity(activity)
+  })
+
   ipcMain.handle('pathsGetDocumentsPath', async event => {
     return app.getPath('documents')
   })
 
-  ipcMain.handle('licensesGetGameNotices', async () => {
-    try {
-      return await readFile(
-        path.resolve(app.getAppPath(), '../game/dist/THIRD_PARTY_NOTICES.txt'),
-        'utf8',
-      )
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
-      throw err
-    }
-  })
+  ipcMain.handle('licensesGetGameNotices', () =>
+    readShippedFile(path.resolve(app.getAppPath(), '../game/dist/THIRD_PARTY_NOTICES.txt')),
+  )
+  ipcMain.handle('licensesGetDiscordSdkNotices', () =>
+    readShippedFile(discordSdkPath('License-Notices.txt')),
+  )
 
   ipcMain.handle('pathsShowItemInFolder', async (event, path) => {
     shell.showItemInFolder(path)
@@ -970,6 +1013,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   activeGameManager
     .on('gameProcessLaunching', gameId => {
       gameWindowMinimizer.gameLaunching(gameId)
+    })
+    .on('gameWindowShown', () => {
+      // Waiting for the game's window keeps the app on screen (and in the foreground, so the game
+      // can take the foreground from it) for as long as the game is waiting on a game server.
       // A background test instance is already behind the user's windows, and bringing it back
       // after the game would take their focus.
       if (process.env.SB_APP_BACKGROUND === '1') {
@@ -1608,6 +1655,9 @@ async function createWindow() {
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logger.error(`Renderer process gone: reason=${details.reason} exitCode=${details.exitCode}`)
     rendererReady = false
+    // Without a renderer nothing keeps the activity current (a lobby's Join button would stay up
+    // after the user's connection to it is gone). A new renderer sends its own once it loads.
+    discordPresence?.setActivity(null)
   })
   mainWindow.on('unresponsive', () => {
     logger.warning('Main window became unresponsive')
@@ -1776,10 +1826,24 @@ app.on('ready', () => {
         handleLaunchArgs(process.argv.slice(1))
       }
 
+      discordPresence = new DiscordPresence({
+        sdkPath: discordSdkPath('discord_partner_sdk.dll'),
+        applicationId: discordApplicationId,
+        // Like the deep link scheme, only packaged builds register how Discord can start the app:
+        // a dev build would point it at whichever checkout's electron.exe ran last.
+        launchCommand: isDev ? undefined : `"${process.execPath}"`,
+        onJoinLobby: lobbyId => {
+          openDeepLink({ type: 'lobby', lobbyId })
+          bringWindowForward()
+        },
+      })
+      discordPresence.start()
+
       app.on('will-quit', () => {
         botLibrary?.shutdown()
         localSettings.saveSettingsToDiskSync()
         scrSettings.saveSettingsToDiskSync()
+        discordPresence?.dispose()
       })
     })
     .catch(err => {

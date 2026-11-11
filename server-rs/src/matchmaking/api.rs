@@ -1,8 +1,9 @@
 use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt, parse_served_backbone_rtts};
 use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
-    Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
+    Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector, RecentOpponent,
 };
+use crate::matchmaking::rating_distribution::RatingDistribution;
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
     RsMatchmakerErrorCode, metrics,
@@ -20,6 +21,7 @@ use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use color_eyre::eyre::{self, Context as _, eyre};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -39,11 +41,15 @@ const PUBLISH_RETRY_DELAY: Duration = Duration::from_millis(200);
 
 /// How often [run_backbone_fetch_loop] polls the coordinator's `GET /regions` for the served backbone
 /// RTT table. Backbone RTTs are stable, so a coarse cadence is plenty.
-const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_mins(5);
 
 /// Per-request timeout for the coordinator `GET /regions` fetch, so a hung coordinator can't stall a
 /// fetch (and therefore the loop) indefinitely.
 const BACKBONE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How often [run_rating_distribution_refresh_loop] reloads the active-player rating snapshot. The
+/// query reads only the current season's rows, so a short interval is cheap.
+const RATING_DISTRIBUTION_REFRESH_INTERVAL: Duration = Duration::from_mins(5);
 
 #[derive(Serialize)]
 struct ApiError {
@@ -83,6 +89,17 @@ struct PlayerModeRatingDto {
     /// to require that matched players share at least one map. `None`/absent for veto/fixed modes.
     #[serde(default)]
     map_selections: Option<Vec<String>>,
+    /// Opponents from the player's recent games in this mode, used to discourage rematches.
+    #[serde(default)]
+    recent_opponents: Vec<RecentOpponentDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentOpponentDto {
+    user_id: usize,
+    /// How long before the player queued that game started.
+    seconds_ago: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -138,6 +155,7 @@ struct MatchmakingApiState {
     /// coordinator is configured. The search loop reads it each tick and pushes it into the
     /// matchmaker (mirroring `config`), so a refreshed served table takes effect without a restart.
     backbone: Arc<ArcSwap<BackboneRttTable>>,
+    rating_distribution: Arc<ArcSwap<RatingDistribution>>,
     process_token: Uuid,
 }
 
@@ -157,16 +175,36 @@ fn lock_matchmaker(
 }
 
 /// Builds a [`Player`] from the per-mode DTOs received over the wire (or restored from a ticket),
-/// splitting them into the rating map and the positive-map-selection map.
+/// splitting them into the rating, positive-map-selection and recent-opponent maps. Recent games are
+/// placed relative to `queued_at`, the time the player entered the queue.
 fn build_player(
     id: usize,
     mode_ratings: Vec<PlayerModeRatingDto>,
     region: Option<String>,
     rtt_ms: Option<f32>,
+    queued_at: Instant,
 ) -> Player {
     let mut ratings = HashMap::new();
     let mut map_selections = HashMap::new();
+    let mut recent_opponents = HashMap::new();
     for r in mode_ratings {
+        let opponents = r
+            .recent_opponents
+            .iter()
+            .filter(|o| o.seconds_ago.is_finite() && o.seconds_ago >= 0.0)
+            // A game too old to place on this clock is too old to matter.
+            .filter_map(|o| {
+                queued_at
+                    .checked_sub(Duration::from_secs_f64(o.seconds_ago))
+                    .map(|played_at| RecentOpponent {
+                        id: o.user_id,
+                        played_at,
+                    })
+            })
+            .collect::<Vec<_>>();
+        if !opponents.is_empty() {
+            recent_opponents.insert(r.mode, opponents);
+        }
         ratings.insert(
             r.mode,
             PlayerModeRating {
@@ -184,6 +222,7 @@ fn build_player(
         map_selections,
         region,
         rtt_ms,
+        recent_opponents,
     }
 }
 
@@ -199,6 +238,20 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
                 rating: r.rating,
                 uncertainty: r.uncertainty,
                 map_selections: entry.player.map_selections.get(&mode).cloned(),
+                recent_opponents: entry
+                    .player
+                    .recent_opponents
+                    .get(&mode)
+                    .into_iter()
+                    .flatten()
+                    .map(|o| RecentOpponentDto {
+                        user_id: o.id,
+                        seconds_ago: entry
+                            .queue_time
+                            .saturating_duration_since(o.played_at)
+                            .as_secs_f64(),
+                    })
+                    .collect(),
             })
             .collect(),
         region: entry.player.region.clone(),
@@ -270,8 +323,10 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // Proposal ordering, conflict resolution, and removal are one state transition, so a
         // cancel/requeue cannot interleave with claiming.
         let backbone = state.backbone.load_full();
+        let rating_distribution = state.rating_distribution.load_full();
         let result = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
+            matchmaker.set_rating_distribution(rating_distribution);
             matchmaker.run_tick(tick_start, config, backbone)
         };
         metrics::sample_queue_state(&result.queue_before_matching);
@@ -299,10 +354,12 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
                 quality: m.quality,
                 skill_variance: m.skill_variance,
+                rating_variance_multiplier: m.rating_variance_multiplier,
                 win_probability: m.win_probability,
                 team_a_rating: m.team_a_rating,
                 team_b_rating: m.team_b_rating,
                 max_latency: m.max_latency,
+                rematch_penalty: m.rematch_penalty,
             });
 
             publish_match_or_exit(&redis_pool, event).await;
@@ -350,6 +407,51 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
     // Datadog (stdout already has it synchronously) before terminating.
     crate::telemetry::flush_datadog_logs().await;
     std::process::exit(1);
+}
+
+/// Loads the active-player rating snapshot at startup and every
+/// [RATING_DISTRIBUTION_REFRESH_INTERVAL] after, without holding the queue mutex. A failed load
+/// keeps the last successful snapshot.
+async fn run_rating_distribution_refresh_loop(
+    db_pool: PgPool,
+    distribution: Arc<ArcSwap<RatingDistribution>>,
+) {
+    let mut interval = tokio::time::interval(RATING_DISTRIBUTION_REFRESH_INTERVAL);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut was_failing = false;
+    loop {
+        interval.tick().await;
+        was_failing = apply_rating_distribution_result(
+            RatingDistribution::load(&db_pool).await,
+            &distribution,
+            was_failing,
+        );
+    }
+}
+
+fn apply_rating_distribution_result(
+    result: eyre::Result<RatingDistribution>,
+    distribution: &ArcSwap<RatingDistribution>,
+    was_failing: bool,
+) -> bool {
+    match result {
+        Ok(snapshot) => {
+            metrics::record_rating_distribution(&snapshot);
+            distribution.store(Arc::new(snapshot));
+            if was_failing {
+                tracing::info!("active rating distribution refresh recovered");
+            }
+            false
+        }
+        Err(e) => {
+            if !was_failing {
+                tracing::error!(
+                    "active rating distribution refresh failed, retaining last snapshot: {e:?}"
+                );
+            }
+            true
+        }
+    }
 }
 
 /// Periodically fetches the rp2 coordinator's served backbone RTT table and swaps the composed
@@ -443,6 +545,7 @@ async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<Pro
 }
 
 pub fn create_matchmaking_api(
+    db_pool: PgPool,
     redis_pool: RedisPool,
     config: Arc<ArcSwap<MatchmakerConfig>>,
     coordinator_url: Option<String>,
@@ -458,6 +561,12 @@ pub fn create_matchmaking_api(
     let initial_backbone = BackboneRttTable::compose(&[], &backbone_override);
     let backbone = Arc::new(ArcSwap::from_pointee(initial_backbone.clone()));
 
+    let rating_distribution = Arc::new(ArcSwap::from_pointee(RatingDistribution::default()));
+    tokio::spawn(run_rating_distribution_refresh_loop(
+        db_pool,
+        rating_distribution.clone(),
+    ));
+
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(
             config.load_full(),
@@ -465,6 +574,7 @@ pub fn create_matchmaking_api(
         ))),
         config,
         backbone: backbone.clone(),
+        rating_distribution,
         process_token: Uuid::new_v4(),
     };
 
@@ -500,6 +610,7 @@ async fn insert_player(
         payload.mode_ratings,
         payload.region,
         payload.rtt_ms,
+        Instant::now(),
     );
     {
         let mut matchmaker = lock_matchmaker(&state.matchmaker);
@@ -557,7 +668,13 @@ async fn requeue_player(
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
-        build_player(ticket.id, ticket.mode_ratings, ticket.region, ticket.rtt_ms),
+        build_player(
+            ticket.id,
+            ticket.mode_ratings,
+            ticket.region,
+            ticket.rtt_ms,
+            queue_time,
+        ),
         queue_time,
     ) {
         Ok(_) => {
@@ -591,10 +708,83 @@ async fn cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_backbone_fetch_result, fetch_served_backbone_rtts};
+    use super::{
+        PlayerModeRatingDto, QueueTicket, RecentOpponentDto, apply_backbone_fetch_result,
+        apply_rating_distribution_result, build_player, build_ticket, fetch_served_backbone_rtts,
+    };
     use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
+    use crate::matchmaking::matchmaker::QueueEntry;
+    use crate::matchmaking::{MatchmakingType, rating_distribution::RatingDistribution};
     use arc_swap::ArcSwap;
+    use base64::Engine as _;
+    use base64::prelude::BASE64_STANDARD;
     use color_eyre::eyre::eyre;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use uuid::Uuid;
+
+    #[test]
+    fn recent_opponents_survive_a_requeue_ticket() {
+        let start = Instant::now();
+        let queued_at = start + Duration::from_secs(100);
+        let mode = MatchmakingType::Match1v1;
+        let player = build_player(
+            7,
+            vec![PlayerModeRatingDto {
+                mode,
+                rating: 1500.0,
+                uncertainty: None,
+                map_selections: None,
+                recent_opponents: vec![
+                    RecentOpponentDto {
+                        user_id: 3,
+                        seconds_ago: 40.0,
+                    },
+                    RecentOpponentDto {
+                        user_id: 4,
+                        seconds_ago: f64::NAN,
+                    },
+                ],
+            }],
+            None,
+            None,
+            queued_at,
+        );
+        let opponents = &player.recent_opponents[&mode];
+        assert_eq!(opponents.len(), 1, "invalid ages are dropped");
+        assert_eq!(opponents[0].id, 3);
+        assert_eq!(opponents[0].played_at, start + Duration::from_secs(60));
+
+        let entry = QueueEntry {
+            queue_time: queued_at,
+            modes: mode.into(),
+            player,
+        };
+        let ticket: QueueTicket = serde_json::from_slice(
+            &BASE64_STANDARD
+                .decode(build_ticket(&entry, &Uuid::nil(), start))
+                .unwrap(),
+        )
+        .unwrap();
+        let restored = &ticket.mode_ratings[0].recent_opponents;
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0].user_id, 3);
+        assert_eq!(restored[0].seconds_ago, 40.0);
+    }
+
+    #[test]
+    fn tickets_without_recent_opponents_still_parse() {
+        let ticket: QueueTicket = serde_json::from_str(
+            r#"{
+                "id": 1,
+                "modeRatings": [{"mode": "1v1", "rating": 1500, "uncertainty": null}],
+                "queueTime": 0,
+                "processToken": "00000000-0000-0000-0000-000000000000"
+            }"#,
+        )
+        .unwrap();
+        assert!(ticket.mode_ratings[0].recent_opponents.is_empty());
+    }
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
@@ -602,6 +792,30 @@ mod tests {
             b: b.to_string(),
             rtt_ms,
         }
+    }
+
+    #[test]
+    fn rating_refresh_failure_retains_snapshot_and_success_replaces_it() {
+        let mode = MatchmakingType::Match2v2;
+        let snapshot = Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, n as f32)),
+        ));
+        let distribution = ArcSwap::from(snapshot.clone());
+        assert!(apply_rating_distribution_result(
+            Err(eyre!("unavailable")),
+            &distribution,
+            false
+        ));
+        assert!(Arc::ptr_eq(&distribution.load_full(), &snapshot));
+        assert!(!apply_rating_distribution_result(
+            Ok(RatingDistribution::from_ratings(
+                (0..20).map(|n| (mode, n as f32 + 1000.0)),
+            )),
+            &distribution,
+            true,
+        ));
+        assert!(!Arc::ptr_eq(&distribution.load_full(), &snapshot));
+        assert_eq!(distribution.load().mode_stats(mode).1, Some(1014.0));
     }
 
     #[test]

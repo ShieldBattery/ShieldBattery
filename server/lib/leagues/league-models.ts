@@ -18,6 +18,7 @@ function convertLeagueFromDb(props: DbLeague): League {
     name: props.name,
     matchmakingType: props.matchmaking_type,
     description: props.description,
+    translations: props.translations ?? [],
     signupsAfter: props.signups_after,
     startAt: props.start_at,
     endAt: props.end_at,
@@ -33,6 +34,7 @@ export async function createLeague(
     name,
     matchmakingType,
     description,
+    translations,
     signupsAfter,
     startAt,
     endAt,
@@ -48,10 +50,10 @@ export async function createLeague(
     const result = await client.query<DbLeague>(sql`
       INSERT INTO leagues (
         name, matchmaking_type, description, signups_after, start_at, end_at,
-        image_path, badge_path, rules_and_info, link
+        image_path, badge_path, rules_and_info, link, translations
       ) VALUES (
         ${name}, ${matchmakingType}, ${description}, ${signupsAfter}, ${startAt}, ${endAt},
-        ${imagePath}, ${badgePath}, ${rulesAndInfo}, ${link}
+        ${imagePath}, ${badgePath}, ${rulesAndInfo}, ${link}, ${JSON.stringify(translations ?? [])}
       ) RETURNING *
     `)
     return convertLeagueFromDb(result.rows[0])
@@ -89,6 +91,8 @@ export async function updateLeague(
               return sql`matchmaking_type = ${value}`
             case 'description':
               return sql`description = ${value}`
+            case 'translations':
+              return sql`translations = ${JSON.stringify(value)}`
             case 'signupsAfter':
               return sql`signups_after = ${value}`
             case 'startAt':
@@ -636,17 +640,25 @@ export async function claimLeagueStartNotification(
   leagueId: LeagueId,
   now: Date,
   withClient?: DbClient,
-): Promise<{ name: string; endAt: Date } | undefined> {
+): Promise<Pick<League, 'name' | 'endAt' | 'translations'> | undefined> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query<{ name: string; end_at: Date }>(sql`
+    const result = await client.query<{
+      name: string
+      end_at: Date
+      translations: League['translations']
+    }>(sql`
       UPDATE leagues
       SET start_notified_at = ${now}
       WHERE id = ${leagueId} AND start_notified_at IS NULL AND start_at <= ${now}
-      RETURNING name, end_at
+      RETURNING name, end_at, translations
     `)
     return result.rows.length
-      ? { name: result.rows[0].name, endAt: result.rows[0].end_at }
+      ? {
+          name: result.rows[0].name,
+          endAt: result.rows[0].end_at,
+          translations: result.rows[0].translations ?? [],
+        }
       : undefined
   } finally {
     done()

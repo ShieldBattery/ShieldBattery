@@ -16,7 +16,8 @@ use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, Ui
 use crate::kit::text;
 use crate::kit::widgets;
 use crate::kit::{motion, theme};
-use crate::observer::{DOCK_RESERVE, EdgeCursor, WING_MARGIN, centred, paint_text};
+use crate::observer::layout;
+use crate::observer::{EdgeCursor, WING_GAP, centred, paint_text};
 use crate::tr;
 
 /// How wide the bar is where there is room for all of it, in overlay points.
@@ -25,9 +26,6 @@ pub const BAR_WIDTH: f32 = 640.0;
 /// The narrowest the bar is worth drawing. Below this the share itself is a sliver, and a sliver
 /// that has to be measured against two percentages beside it is not a bar anyone reads.
 const MIN_WIDTH: f32 = 320.0;
-
-/// Gap kept between the bar and the stats wings on either side of it.
-const WING_GAP: f32 = 8.0;
 
 /// Padding between the bar's chrome and its contents, across and down.
 const PADDING: f32 = 14.0;
@@ -87,24 +85,25 @@ pub struct MapControlView {
     pub right: MapControlSideView,
 }
 
-/// How wide the bar can be on a screen of `screen_width`, or `None` where the stats wings leave it
-/// no room worth having.
+/// How wide the bar can be on `screen`, or `None` where the stats wings leave it no room worth
+/// having.
 ///
 /// Measured against the wings whether or not they are on screen: a bar that grew every time a
 /// watcher hid a wing would move while it is being read, which is worse than being one size all
-/// game.
-fn width_for(screen_width: f32) -> Option<f32> {
-    let side = WING_MARGIN
-        + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)
+/// game. It stays on the screen's middle line, so it keeps the panels' own gap to the wider of the
+/// two wings and more to the other.
+fn width_for(screen: Rect) -> Option<f32> {
+    let side = layout::screen_margin(screen)
+        + super::economy::PANEL_WIDTH.max(super::military::PANEL_WIDTH)
         + WING_GAP;
-    let available = screen_width - side * 2.0;
+    let available = screen.width() - side * 2.0;
     let width = available.min(BAR_WIDTH);
     (width >= MIN_WIDTH).then_some(width)
 }
 
-/// Whether the bar has room between the wings on a screen `screen_width` wide.
-pub(crate) fn fits(screen_width: f32) -> bool {
-    width_for(screen_width).is_some()
+/// Whether the bar has room between the wings on `screen`.
+pub(crate) fn fits(screen: Rect) -> bool {
+    width_for(screen).is_some()
 }
 
 /// Draws the map-control bar at `top`, fading and sliding it in and out. Returns nothing at all
@@ -115,7 +114,7 @@ pub fn render_map_control_view(
     shown: bool,
     top: f32,
 ) -> Option<Rect> {
-    let width = width_for(ctx.viewport_rect().width())?;
+    let width = width_for(ctx.viewport_rect())?;
     let id = Id::new("sb_map_control_bar");
     let area = Area::new(id)
         .anchor(Align2::CENTER_TOP, vec2(0.0, top))
@@ -200,12 +199,15 @@ fn paint_share(ui: &Ui, rect: Rect, side: MapControlSideView, align: Align) {
 
 #[cfg(test)]
 mod tests {
+    use egui::Pos2;
+
     use super::*;
 
     #[test]
     fn a_screen_with_no_room_beside_the_wings_gets_no_bar() {
-        assert_eq!(width_for(1920.0), Some(BAR_WIDTH));
-        assert_eq!(width_for(1280.0), None);
+        let screen = |width: f32, height: f32| Rect::from_min_size(Pos2::ZERO, vec2(width, height));
+        assert_eq!(width_for(screen(1920.0, 1080.0)), Some(BAR_WIDTH));
+        assert_eq!(width_for(screen(1280.0, 720.0)), None);
     }
 
     #[test]

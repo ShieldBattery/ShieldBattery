@@ -14,6 +14,10 @@
 //! created it again, whether the person selected it or a step did (an egg hatching two zerglings
 //! selects the second one).
 //!
+//! The person can change the selection while a tick runs, too: a step that has waited 2.5 s for
+//! turns lets SC:R process their input until the turns come. What they select then is theirs,
+//! not a step's doing for a restore to undo (see [`note_selection_made_during_tick`]).
+//!
 //! The person's own selections are decided on predictions too: a control group recalled while a
 //! prediction had one of its units dead selects the others. The command the recall sends has the
 //! simulation work out the group's units itself, which a rollback does again with the unit alive,
@@ -43,6 +47,11 @@ struct Deselection<U> {
 /// The units steps took out of the selection that a restore can still undo, oldest first.
 static DESELECTIONS: Mutex<Vec<Deselection<SelectedUnit>>> = Mutex::new(Vec::new());
 
+/// The selection the person made, in place of the one they had, while the tick in progress ran,
+/// with whatever they added to it since.
+static REPLACED_DURING_TICK: Mutex<Option<[Option<SelectedUnit>; SELECTION_LEN]>> =
+    Mutex::new(None);
+
 /// The frame by which the simulation has run the command the person's newest selection sent,
 /// which makes the simulation's selection for them from it.
 static NEWEST_SELECTION_RUN_BY: Mutex<Option<u32>> = Mutex::new(None);
@@ -66,6 +75,32 @@ pub(crate) fn note_selection_made(
     if !adds_to(&before, &after, |x| x.unit() as usize) {
         DESELECTIONS.lock().clear();
     }
+}
+
+/// Notes that the person changed the local selection from `before` to `after` while a step of
+/// the tick in progress waited for turns. The units steps took out of a selection the person
+/// replaced are no longer theirs to get back, and the tick gives none of the units its restore
+/// took out back to it either (see [`take_selection_replaced_during_tick`]).
+pub(crate) fn note_selection_made_during_tick(
+    before: &[Option<SelectedUnit>; SELECTION_LEN],
+    after: &[Option<SelectedUnit>; SELECTION_LEN],
+) {
+    let units = |x: &[Option<SelectedUnit>]| x.iter().flatten().copied().collect::<Vec<_>>();
+    let replaces = !adds_to(&units(before), &units(after), |x| x.unit() as usize);
+    if replaces {
+        DESELECTIONS.lock().clear();
+    }
+    let mut replaced = REPLACED_DURING_TICK.lock();
+    if replaces || replaced.is_some() {
+        *replaced = Some(*after);
+    }
+}
+
+/// The selection the person made in place of the one they had while the tick that just ended ran,
+/// if they made one; the next tick starts with none.
+pub(super) fn take_selection_replaced_during_tick() -> Option<[Option<SelectedUnit>; SELECTION_LEN]>
+{
+    REPLACED_DURING_TICK.lock().take()
 }
 
 /// Whether a selection of `after` adds to one of `before` rather than replacing it: it keeps every
@@ -233,6 +268,7 @@ pub(super) fn forget_through(settled_through: u32) {
 pub(super) fn reset() {
     DESELECTIONS.lock().clear();
     *NEWEST_SELECTION_RUN_BY.lock() = None;
+    *REPLACED_DURING_TICK.lock() = None;
 }
 
 #[cfg(test)]

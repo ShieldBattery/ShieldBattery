@@ -1,3 +1,4 @@
+import { NydusClient, RouteInfo } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
@@ -5,18 +6,21 @@ import { asMockedFunction } from '../../common/testing/mocks'
 import { ReduxAction } from '../action-types'
 import dialogReducer from '../dialogs/dialog-reducer'
 import { DialogType } from '../dialogs/dialog-type'
-import { DispatchFunction } from '../dispatch-registry'
+import { DispatchFunction, registerDispatch } from '../dispatch-registry'
+import { lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { draftMatchmakingTypeAtom } from './draft-atoms'
 import {
   canceledMatchAtom,
   currentSearchInfoAtom,
   FoundMatch,
   foundMatchAtom,
   handledLobbyViolationPenaltyGamesAtom,
+  launchingMatchmakingTypeAtom,
 } from './matchmaking-atoms'
-import { eventToAction } from './socket-handlers'
+import registerModule, { eventToAction } from './socket-handlers'
 
 vi.mock('../audio/audio-manager', () => ({
   audioManager: { playSound: vi.fn() },
@@ -115,11 +119,7 @@ function runDraftStarted(dialogHistory: Array<{ type: DialogType }> = [], flashT
     draftState: { isCompleted: false } as any,
     mapInfo: { id: 'map-1' } as any,
   }
-  return runHandler(
-    eventToAction.draftStarted(MatchmakingType.Match1v1, event as any),
-    dialogHistory,
-    flashTaskbar,
-  )
+  return runHandler(eventToAction.draftStarted(event as any), dialogHistory, flashTaskbar)
 }
 
 function runMatchFound(flashTaskbar = true) {
@@ -132,25 +132,15 @@ function runMatchFound(flashTaskbar = true) {
     acceptTimeTotalMillis: 30000,
     hasAccepted: false,
   }
-  return runHandler(
-    eventToAction.matchFound(MatchmakingType.Match1v1, event as any),
-    [],
-    flashTaskbar,
-  )
+  return runHandler(eventToAction.matchFound(event as any), [], flashTaskbar)
 }
 
 function runRequeue(dialogHistory: Array<{ type: DialogType }> = []) {
-  return runHandler(
-    eventToAction.requeue(MatchmakingType.Match1v1, { type: 'requeue' } as any),
-    dialogHistory,
-  )
+  return runHandler(eventToAction.requeue({ type: 'requeue' } as any), dialogHistory)
 }
 
 function runQueueStatus(dialogHistory: Array<{ type: DialogType }> = []) {
-  return runHandler(
-    eventToAction.queueStatus(MatchmakingType.Match1v1, { type: 'queueStatus' } as any),
-    dialogHistory,
-  )
+  return runHandler(eventToAction.queueStatus({ type: 'queueStatus' } as any), dialogHistory)
 }
 
 describe('client/matchmaking/socket-handlers/matchFound', () => {
@@ -240,6 +230,44 @@ describe('client/matchmaking/socket-handlers/draftStarted', () => {
     runDraftStarted([], false)
     expect(ipcSend).not.toHaveBeenCalled()
   })
+
+  test('carries the found match type into the draft', () => {
+    jotaiStore.set(foundMatchAtom, { ...makeMatch(), matchmakingType: MatchmakingType.Match2v2 })
+
+    runDraftStarted()
+
+    expect(jotaiStore.get(draftMatchmakingTypeAtom)).toBe(MatchmakingType.Match2v2)
+  })
+})
+
+describe('client/matchmaking/socket-handlers/matchReady', () => {
+  beforeEach(() => {
+    jotaiStore.set(foundMatchAtom, undefined)
+    jotaiStore.set(launchingMatchmakingTypeAtom, undefined)
+  })
+
+  function runMatchReady() {
+    return runHandler(eventToAction.matchReady({ type: 'matchReady' }), [])
+  }
+
+  test('launches with the found match type', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+
+    runMatchReady()
+
+    expect(jotaiStore.get(launchingMatchmakingTypeAtom)).toBe(MatchmakingType.Match1v1)
+    expect(jotaiStore.get(foundMatchAtom)).toBeUndefined()
+  })
+
+  test('launches a drafted match with the type its draft carried', () => {
+    jotaiStore.set(foundMatchAtom, { ...makeMatch(), matchmakingType: MatchmakingType.Match2v2 })
+    runDraftStarted()
+
+    runMatchReady()
+
+    expect(jotaiStore.get(launchingMatchmakingTypeAtom)).toBe(MatchmakingType.Match2v2)
+    expect(jotaiStore.get(draftMatchmakingTypeAtom)).toBeUndefined()
+  })
 })
 
 describe('client/matchmaking/socket-handlers/requeue', () => {
@@ -291,7 +319,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('explains a canceled draft once the player is requeued', () => {
     runHandler(
-      eventToAction.draftCancel(MatchmakingType.Match2v2, {
+      eventToAction.draftCancel({
         type: 'draftCancel',
         reason: 'playerLeft',
       }),
@@ -308,7 +336,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('explains a canceled game load once the player is requeued', () => {
     const cancelDispatched = runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'loadTimeout',
       }),
@@ -328,7 +356,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('offers a bug report to a player removed from the queue by a failed load', () => {
     runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'playerFailedToLoad',
       }),
@@ -348,7 +376,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('shows the offender a pending-penalty anomaly dialog after queue removal', () => {
     runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'gameAnomaly',
         penalty: 'pending',
@@ -377,7 +405,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('shows a late penalty once without disrupting a later search', () => {
     const first = runHandler(
-      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+      eventToAction.lobbyViolationPenalty({
         type: 'lobbyViolationPenalty',
         gameId: 'late-game',
         penalty: 'lossAndBan',
@@ -402,7 +430,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     const laterSearch = makeSearchInfo()
     jotaiStore.set(currentSearchInfoAtom, laterSearch)
     const duplicate = runHandler(
-      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+      eventToAction.lobbyViolationPenalty({
         type: 'lobbyViolationPenalty',
         gameId: 'late-game',
         queueRemoved: true,
@@ -419,7 +447,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     jotaiStore.set(currentSearchInfoAtom, search)
 
     const dispatched = runHandler(
-      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+      eventToAction.lobbyViolationPenalty({
         type: 'lobbyViolationPenalty',
         gameId: 'warning-game',
         penalty: 'lossAndWarning',
@@ -445,7 +473,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('shows a requeued player the innocent anomaly dialog', () => {
     runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match2v2, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'gameAnomaly',
       }),
@@ -461,7 +489,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('shows the innocent anomaly dialog without a requeue claim if the player leaves the queue', () => {
     runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match2v2, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'gameAnomaly',
       }),
@@ -481,7 +509,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
   test('keeps the existing generic notification for non-anomaly load failures', () => {
     runHandler(
-      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+      eventToAction.cancelLoading({
         type: 'cancelLoading',
         reason: 'playerFailedToLoad',
       }),
@@ -496,5 +524,26 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
     // A later requeue from a different match isn't explained by the stale cancel.
     expect(openedDialogs(runRequeue())).toEqual([])
+  })
+})
+
+describe('client/matchmaking/socket-handlers/matchmaking results', () => {
+  test('passes on results for a game other than the last one played', () => {
+    jotaiStore.set(lastGameAtom, undefined)
+    const dispatched = vi.fn()
+    registerDispatch(dispatched)
+
+    const registerRoute = vi.fn()
+    registerModule({ siteSocket: { registerRoute } as unknown as NydusClient })
+    const [, receive] = registerRoute.mock.calls.find(
+      ([path]) => path === '/matchmaking-results/:userId',
+    )!
+    const event = { game: { id: 'game-1' } }
+    receive({} as RouteInfo, event)
+
+    expect(dispatched).toHaveBeenCalledWith({
+      type: '@matchmaking/resultsReceived',
+      payload: event,
+    })
   })
 })

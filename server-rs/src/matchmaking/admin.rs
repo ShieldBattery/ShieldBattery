@@ -40,10 +40,16 @@ struct MatchmakerConfigDefaults {
     weight_latency: f32,
     uncertainty_k: f32,
     win_prob_scale: f32,
+    max_rating_spread: f32,
     min_quality: f32,
     adaptive_comfortable_multiplier: i32,
     adaptive_decay_per_missing: f32,
     population_half_life_seconds: f64,
+    weight_rematch: f32,
+    rematch_half_life_seconds: f64,
+    rematch_density_radius: f32,
+    rematch_density_reference: f32,
+    rematch_density_floor: f32,
 }
 
 impl Default for MatchmakerConfigDefaults {
@@ -58,10 +64,16 @@ impl Default for MatchmakerConfigDefaults {
             weight_latency: mode.weight_latency,
             uncertainty_k: mode.uncertainty_k,
             win_prob_scale: mode.win_prob_scale,
+            max_rating_spread: mode.max_rating_spread,
             min_quality: mode.min_quality,
             adaptive_comfortable_multiplier: mode.adaptive_comfortable_multiplier as i32,
             adaptive_decay_per_missing: mode.adaptive_decay_per_missing,
             population_half_life_seconds: mode.population_half_life.as_secs_f64(),
+            weight_rematch: mode.weight_rematch,
+            rematch_half_life_seconds: mode.rematch_half_life.as_secs_f64(),
+            rematch_density_radius: mode.rematch_density_radius,
+            rematch_density_reference: mode.rematch_density_reference,
+            rematch_density_floor: mode.rematch_density_floor,
         }
     }
 }

@@ -134,6 +134,109 @@ pub fn tier0_panel<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> InnerRespo
     inner
 }
 
+/// One of a panel's four edges.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Edge {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+/// How a panel is joined to another along one of its edges, the two drawn as one panel split by a
+/// hairline.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Joined {
+    /// The edge the other panel stands against.
+    pub edge: Edge,
+    /// Whether this panel's own edge runs along the join as the hairline between the two. One of
+    /// the pair draws it and the other leaves it out, or the join would read as two edges side by
+    /// side, which is two panels.
+    pub divides: bool,
+}
+
+impl Joined {
+    /// `corner_radius` with the corners on the joined edge squared off.
+    fn corner_radius(self, corner_radius: CornerRadius) -> CornerRadius {
+        match self.edge {
+            Edge::Top => CornerRadius {
+                nw: 0,
+                ne: 0,
+                ..corner_radius
+            },
+            Edge::Bottom => CornerRadius {
+                sw: 0,
+                se: 0,
+                ..corner_radius
+            },
+            Edge::Left => CornerRadius {
+                nw: 0,
+                sw: 0,
+                ..corner_radius
+            },
+            Edge::Right => CornerRadius {
+                ne: 0,
+                se: 0,
+                ..corner_radius
+            },
+        }
+    }
+
+    /// `clip` cut off `inset` short of `rect`'s joined edge, so nothing painted under it reaches
+    /// past that edge onto the other panel.
+    fn short_of(self, clip: Rect, rect: Rect, inset: f32) -> Rect {
+        let mut clip = clip;
+        match self.edge {
+            Edge::Top => clip.min.y = clip.min.y.max(rect.top() + inset),
+            Edge::Bottom => clip.max.y = clip.max.y.min(rect.bottom() - inset),
+            Edge::Left => clip.min.x = clip.min.x.max(rect.left() + inset),
+            Edge::Right => clip.max.x = clip.max.x.min(rect.right() - inset),
+        }
+        clip
+    }
+}
+
+/// A [`tier0_panel`] that may be joined to another along one of its edges: square-cornered there,
+/// with its shadow stopped at the join rather than cast across the other panel, which would darken
+/// a band of it along the join.
+pub fn tier0_panel_joined<R>(
+    ui: &mut Ui,
+    joined: Option<Joined>,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> InnerResponse<R> {
+    let Some(joined) = joined else {
+        return tier0_panel(ui, add);
+    };
+    let corner_radius = joined.corner_radius(theme::radius(theme::RADIUS_PANEL));
+    // Painted by hand rather than by the frame, so it can be clipped; its place in the paint order
+    // is taken first, so it still lands under the fill.
+    let shadow = ui.painter().add(Shape::Noop);
+    let inner = Frame::NONE
+        .fill(theme::TIER0_FILL)
+        .corner_radius(corner_radius)
+        .inner_margin(PANEL_MARGIN)
+        .show(ui, add);
+    let rect = inner.response.rect;
+    let clip = ui.clip_rect();
+    ui.painter()
+        .with_clip_rect(joined.short_of(clip, rect, 0.0))
+        .set(shadow, PANEL_SHADOW.as_shape(rect, corner_radius));
+    let edge_clip = if joined.divides {
+        clip
+    } else {
+        joined.short_of(clip, rect, theme::HAIRLINE)
+    };
+    ui.painter()
+        .with_clip_rect(edge_clip)
+        .add(Shape::rect_stroke(
+            rect,
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+            StrokeKind::Inside,
+        ));
+    inner
+}
+
 /// A hero panel: a vertical gradient, a lit top bevel and a blue edge.
 ///
 /// `corner_radius` is a parameter because these panels hang off screen edges as often as they

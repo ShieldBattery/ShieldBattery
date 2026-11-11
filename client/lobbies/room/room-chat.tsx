@@ -878,7 +878,7 @@ export function RoomChat({
   viewerId: SbUserId
   header: React.ReactNode
   aside: React.ReactNode
-  onSendChatMessage: (msg: string) => void
+  onSendChatMessage: (msg: string, onError: (err: Error) => void) => void
 } & GameSummaryActions) {
   const chat = useAppSelector(s => s.lobby.chat)
   const lobby = useAppSelector(s => s.lobby.info)

@@ -1,21 +1,26 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
-import { GameLaunchConfig } from '../../common/games/game-launch-config'
+import { GameLaunchConfig, isReplayMapInfo } from '../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../common/games/game-loader-network'
 import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
+import {
+  addRecentReplayPathAtom,
+  gameLoadingStatusAtom,
+  lastGameAtom,
+  participatingGameAtom,
+} from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
-import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
+import { blockUser, unblockUser } from '../social/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -34,50 +39,41 @@ export default function ({
 }) {
   const eventToAction: EventToActionMap = {
     setGameConfig(_, { setup }) {
-      return (dispatch, getState) => {
+      return (_, getState) => {
         const {
           auth: { self },
         } = getState()
 
-        if ('mapUrl' in setup.map) {
-          const {
-            hash,
-            mapData: { format },
-            mapUrl,
-          } = setup.map
-          // The map should already be downloaded at this point, but just in case we trigger a check
-          // to re-download it if necessary
-          ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl!)?.catch(err => {
-            // TODO(tec27): Report this to the server so the loading is canceled immediately
+        jotaiStore.set(participatingGameAtom, {
+          gameId: setup.gameId,
+          gameType: setup.gameType,
+          mapName: isReplayMapInfo(setup.map) ? '' : setup.map.name,
+          mapImageUrl: isReplayMapInfo(setup.map)
+            ? undefined
+            : (setup.map.image1024Url ?? setup.map.image512Url),
+          matchmakingType: setup.matchmakingType,
+          slots: setup.slots.map(({ userId, race, type }) => ({ userId, race, type })),
+        })
 
-            // This is already logged to our file by the map store, so we just log it to the console
-            // for easy visibility during development
-            console.error('Error downloading map: ' + err.stack)
-          })
+        // This must reach the app synchronously: the server sends the game's netcode v2 setup right
+        // behind it, and the app drops a setup for a game it hasn't been configured for. The block
+        // list may still be loading after a reconnect; `ActiveGameBlockSync` sends the full list
+        // once it loads. The app makes sure the map is downloaded before the game process gets it.
+        const config: GameLaunchConfig = {
+          localUser: {
+            id: self!.user.id,
+            name: self!.user.name,
+            created: self!.user.created,
+          },
+          blockedUsers: Array.from(getState().relationships.blocks.keys()),
+          replayNameTemplate: getState().settings.account.replayNameTemplate,
+          serverConfig: {
+            serverUrl: makeServerUrl(''),
+          },
+          setup,
+          language: i18n.language,
         }
-
-        const buildAndSend = () => {
-          const config: GameLaunchConfig = {
-            localUser: {
-              id: self!.user.id,
-              name: self!.user.name,
-              created: self!.user.created,
-            },
-            blockedUsers: Array.from(getState().relationships.blocks.keys()),
-            replayNameTemplate: getState().settings.account.replayNameTemplate,
-            serverConfig: {
-              serverUrl: makeServerUrl(''),
-            },
-            setup,
-            language: i18n.language,
-          }
-          ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
-        }
-
-        // The game needs the block list to hide blocked players' in-game chat, and relationship
-        // state is cleared on every reconnect, so make sure it's loaded before launching (falling
-        // back to whatever's cached rather than stalling the launch).
-        dispatch(ensureRelationshipsLoaded(buildAndSend))
+        ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
       }
     },
     setNetcodeV2Setup(_, { gameId, setup }) {
@@ -122,6 +118,10 @@ export default function ({
 
       if (status.state === 'playing') {
         jotaiStore.set(lastGameAtom, { id: status.id })
+        const game = jotaiStore.get(participatingGameAtom)
+        if (game?.gameId === status.id && game.playingSince === undefined) {
+          jotaiStore.set(participatingGameAtom, { ...game, playingSince: Date.now() })
+        }
       }
 
       // A networked game's load completion reaches the server over the relay path, from the

@@ -7,7 +7,9 @@ declare module 'virtual:sb-security-impl' {
         installPath?: string,
       ) => Promise<import('../common/users/client-proof').ClientProof>)
     | undefined
-  export const verifyGame: ((filename: string) => Promise<void>) | undefined
+  export const verifyGame:
+    | ((filename: string, executable: string, logError?: (msg: string) => void) => Promise<void>)
+    | undefined
   export const verifyGameConnection:
     | ((
         directory: string,

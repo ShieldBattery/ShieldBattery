@@ -17,6 +17,8 @@ use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
 mod gamma;
+pub mod mouse_speed;
+mod raw_mouse;
 mod window_placement;
 
 use self::window_placement::{DisplayMode, Settings};
@@ -24,8 +26,8 @@ use self::window_placement::{DisplayMode, Settings};
 mod scr_hooks {
 
     use super::{
-        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, RECT, WNDCLASSEXW,
-        c_void,
+        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, RECT, TRACKMOUSEEVENT,
+        WNDCLASSEXW, c_void,
     };
 
     system_hooks!(
@@ -46,8 +48,10 @@ mod scr_hooks {
         !0 => SetActiveWindow(HWND) -> HWND;
         !0 => SetFocus(HWND) -> HWND;
         !0 => ShowWindow(HWND, i32) -> u32;
+        !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
+        !0 => SystemParametersInfoW(u32, u32, *mut c_void, u32) -> i32;
     );
 }
 
@@ -149,6 +153,7 @@ unsafe extern "system" fn wnd_proc_scr(
             // Avoid recursive locking due to panics
             return DefWindowProcA(window, msg, wparam, lparam);
         }
+        let _pump = time_game_loop_pump();
 
         let ret = with_scr_hooks_disabled(|| {
             if msg == WM_NCCREATE && is_background_game() && !is_forge_window(window) {
@@ -161,6 +166,12 @@ unsafe extern "system" fn wnd_proc_scr(
                 });
             }
             gamma::handle_window_message(window, msg, wparam);
+            if raw_mouse::drops_message(window, msg) {
+                return Some(0);
+            }
+            if is_forge_window(window) {
+                mouse_speed::window_message(msg);
+            }
             match msg {
                 WM_END_WND_PROC_WORKER => {
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
@@ -175,6 +186,10 @@ unsafe extern "system" fn wnd_proc_scr(
                 }
                 WM_GAME_STARTED => {
                     msg_game_started(window);
+                    return Some(0);
+                }
+                WM_COUNTDOWN_BEEP => {
+                    get_bw().play_sound(COUNTDOWN_BEEP);
                     return Some(0);
                 }
                 WM_FIX_CLIP_CURSOR => {
@@ -449,9 +464,6 @@ struct Forge {
     use_process_events: bool,
     game_started: bool,
 
-    /// SCR refers to the window class with ATOM returned by RegisterClassExW
-    /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
-
     /// Set to true if the event processing lock needs to be re-locked at the conclusion of the
     /// resize/move/menu loop. This ensures we don't re-lock the lock if it wasn't locked when that
     /// began (and lock everyone out forever).
@@ -562,6 +574,25 @@ pub fn game_window_handle() -> Option<HWND> {
     if raw == 0 { None } else { Some(raw as HWND) }
 }
 
+/// Whether the game window is in front, the foreground window and not minimized, as of the last
+/// time the game's message pump emptied the queue. Free to call, unlike asking Windows.
+pub fn game_window_in_front() -> bool {
+    mouse_speed::in_front().0
+}
+
+/// How many times the game window has come in front or left it, as [`game_window_in_front`] saw.
+/// A change shows the window was away from the front even when every look found it there.
+pub fn game_window_front_changes() -> u32 {
+    mouse_speed::in_front().1
+}
+
+/// Times a call on the game loop's message pump into the current frame (see
+/// [`crate::frame_timing::pump`]), when this is the game loop's thread and the loop is pumping.
+fn time_game_loop_pump() -> Option<crate::frame_timing::PumpSpan> {
+    (GAME_LOOP_PUMPING.load(Ordering::Relaxed) && raw_mouse::on_window_thread())
+        .then(crate::frame_timing::pump)
+}
+
 impl Forge {
     fn set_window(&mut self, window: Window) {
         assert!(self.window.is_none());
@@ -593,6 +624,7 @@ fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -
         debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
         return 1;
     }
+    raw_mouse::cursor_warped();
     unsafe { orig(x, y) }
 }
 
@@ -608,7 +640,21 @@ fn clip_cursor(rect: *const RECT, orig: unsafe extern "C" fn(*const RECT) -> i32
         debug!("Dropping ClipCursor while in the background");
         return 1;
     }
-    unsafe { orig(rect) }
+    if rect.is_null() {
+        return unsafe { orig(rect) };
+    }
+    // Confining the cursor moves it inside the new bounds if it's outside them.
+    with_scr_hooks_disabled(|| unsafe {
+        let mut before: POINT = mem::zeroed();
+        GetCursorPos(&mut before);
+        let result = orig(rect);
+        let mut after: POINT = mem::zeroed();
+        GetCursorPos(&mut after);
+        if (before.x, before.y) != (after.x, after.y) {
+            raw_mouse::cursor_warped();
+        }
+        result
+    })
 }
 
 /// The variant of a `ShowWindow` command that doesn't activate the window, if it has one.
@@ -654,15 +700,35 @@ fn peek_message_w(
     let removing = remove & PM_REMOVE != 0;
     let can_return_mouse_move =
         (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
-    let limit_drain =
-        removing && can_return_mouse_move && GAME_LOOP_PUMPING.load(Ordering::Relaxed);
+    // Raw mouse input leaves no legacy mouse moves to chase.
+    let limit_drain = removing
+        && can_return_mouse_move
+        && GAME_LOOP_PUMPING.load(Ordering::Relaxed)
+        && !raw_mouse::taking_input();
     if limit_drain && MOUSE_MOVE_DRAINED.get() && DRAIN_PEEKING.get() >= MAX_MOUSE_MOVE_DRAIN {
         MOUSE_MOVE_DRAINED.set(false);
         DRAIN_PEEKING.set(Duration::ZERO);
         return 0;
     }
+    let pump = time_game_loop_pump();
+    let count_removed = removing && pump.is_some();
+    let remove_one = |msg: *mut MSG| {
+        let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
+        if count_removed && result != 0 {
+            crate::frame_timing::pumped_message();
+        }
+        result
+    };
     let peek_start = Instant::now();
-    let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
+    let result = match removing && raw_mouse::converts(window, filter_min, filter_max) {
+        true => raw_mouse::remove_next_message(msg, remove_one),
+        false => remove_one(msg),
+    };
+    if result == 0 {
+        // A pump ends on an empty queue, so this catches focus changes once per pump even when
+        // SC:R misreads the messages announcing them.
+        mouse_speed::check_window();
+    }
     if !removing {
         return result;
     }
@@ -727,6 +793,10 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
             let menu = GetSystemMenu(window, FALSE);
             EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
             DrawMenuBar(window);
+            // The app waits for this to get out of the way: going away any earlier would leave
+            // nothing on screen, and would hand the foreground to some other program that the
+            // game's window then can't take it back from.
+            send_game_msg_to_async(GameThreadMessage::WindowShown);
         }
         if is_forge_window(window)
             && stay_in_background()
@@ -886,6 +956,7 @@ fn create_window_w(
             with_forge(|forge| {
                 if is_main_window {
                     debug!("Created main window {window:p}");
+                    raw_mouse::window_created();
 
                     if !is_background_game() || forge.window.is_none() {
                         forge.set_window(Window { handle: window });
@@ -1009,6 +1080,8 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         crate::native_network::init_hooks(patcher);
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
+        use self::mouse_speed::system_parameters_info_w;
+        use self::raw_mouse::track_mouse_event;
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately
         // that method doesn't work with SCR, we'll just GetProcAddress the
@@ -1036,6 +1109,8 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "SetActiveWindow", SetActiveWindow, set_active_window;
             "SetFocus", SetFocus, set_focus;
             "ShowWindow", ShowWindow, show_window;
+            "SystemParametersInfoW", SystemParametersInfoW, system_parameters_info_w;
+            "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
         );
 
         hook_winapi_exports!(patcher, "gdi32",
@@ -1074,6 +1149,8 @@ pub fn init(
         None
     };
     gamma::configure(gamma_setting);
+    mouse_speed::init_settings(scr_settings);
+    raw_mouse::init();
 
     let background = std::env::var(BACKGROUND_ENV_VAR).as_deref() == Ok("1");
     BACKGROUND.store(background, Ordering::Release);
@@ -1114,6 +1191,9 @@ const WM_END_WND_PROC_WORKER: u32 = WM_FIRST_CUSTOM;
 const WM_BRING_WINDOW_FORWARD: u32 = WM_FIRST_CUSTOM + 1;
 const WM_GAME_STARTED: u32 = WM_FIRST_CUSTOM + 2;
 const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 3;
+const WM_COUNTDOWN_BEEP: u32 = WM_FIRST_CUSTOM + 4;
+
+const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
 
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
@@ -1192,7 +1272,7 @@ pub unsafe fn run_wnd_proc() {
         }
         // Going to close everything since the window got closed / error happened.
         // TODO Ask async thread exit instead
-        crate::mouse_speed::restore();
+        mouse_speed::restore();
         std::process::exit(0);
     }
 }
@@ -1219,6 +1299,18 @@ pub fn bring_window_forward() {
     if let Some(handle) = handle {
         unsafe {
             PostMessageW(handle, WM_BRING_WINDOW_FORWARD, 0, 0);
+        }
+    }
+}
+
+/// Plays one beep of the pre-game countdown. Callable from any thread: the sound is started by the
+/// main thread, the next time it handles window messages (see
+/// [`BwScr::play_sound`](crate::bw_scr::BwScr::play_sound) for why).
+pub fn play_countdown_beep() {
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
+    if let Some(handle) = handle {
+        unsafe {
+            PostMessageW(handle, WM_COUNTDOWN_BEEP, 0, 0);
         }
     }
 }

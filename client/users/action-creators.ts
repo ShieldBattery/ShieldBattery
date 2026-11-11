@@ -1,5 +1,6 @@
 import { useSearch } from 'wouter'
 import { getErrorStack } from '../../common/errors'
+import { UserGamesRefundSummary } from '../../common/games/games'
 import {
   GetModerationActionsQuery,
   GetModerationActionsResponse,
@@ -294,6 +295,18 @@ export function adminBanUser(
     dispatch({ type: '@users/adminBanUser', payload: res })
 
     return res
+  })
+}
+
+export function adminRefundUserGames(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<UserGamesRefundSummary>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson<UserGamesRefundSummary>(apiUrl`admin/users/${userId}/refund-games`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
   })
 }
 

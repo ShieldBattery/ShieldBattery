@@ -7,10 +7,9 @@ minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
   - 'nydus'
   - 'nydus-client'
-  # security fast-track: 44.9.1 adds the SPKI blocklist for the compromised eMudhra/emSign
-  # intermediates to both Chromium's verifier and the main process's Node TLS; 44.9.3 adds a
-  # batch of Chromium/V8 security backports
-  - 'electron@44.9.3'
+  # security fast-track: 45.2.3 adds a batch of ANGLE/Chromium/Dawn/FFmpeg/PDFium/Skia/V8
+  # security backports on top of Chromium 156
+  - 'electron@45.2.3'
 
 peerDependencyRules:
   allowedVersions:

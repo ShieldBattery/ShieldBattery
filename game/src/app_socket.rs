@@ -368,6 +368,7 @@ mod tests {
     #[cfg(debug_assertions)]
     use crate::debug_control::DebugControlCommand;
 
+    #[cfg(debug_assertions)]
     #[test]
     fn leave_dispatches_to_game_state() {
         let result = handle_app_message(r#"{"command":"leave","payload":null}"#.into());
@@ -390,6 +391,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_query_state_dispatches_to_game_state() {
@@ -404,6 +406,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_force_unsynced_leave_dispatches_to_game_state() {
@@ -418,6 +421,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_leave_game_dispatches_to_game_state() {
@@ -446,6 +450,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_screenshot_dispatches_to_game_state() {
@@ -460,6 +465,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_send_chat_dispatches_to_game_state() {
@@ -474,6 +480,7 @@ mod tests {
         ));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[cfg(debug_assertions)]
     fn debug_control_request_drop_dispatches_to_game_state() {

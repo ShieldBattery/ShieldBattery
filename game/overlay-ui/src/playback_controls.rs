@@ -36,6 +36,7 @@ use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
+use crate::observer::layout;
 use crate::observer::{MapPoint, Significance, TimelineEventView};
 use crate::shell::hotkeys::{Action, Chord, Held, Hotkeys};
 use crate::{tr, tr_plural};
@@ -45,10 +46,7 @@ pub const PANEL_WIDTH: f32 = 324.0;
 
 /// How tall the plate is. Fixed rather than grown from its contents: both forms take the same
 /// footprint, so switching between them moves nothing on screen.
-pub const PANEL_HEIGHT: f32 = 114.0;
-
-/// How far the plate sits from the screen's right and bottom edges.
-const EDGE_MARGIN: f32 = 16.0;
+pub const PANEL_HEIGHT: f32 = 134.0;
 
 /// The room inside the plate's chrome. Every column below is measured against this rather than
 /// against the space left over, so no value or translation can move a control.
@@ -61,7 +59,7 @@ const TRACK_ROW: f32 = 24.0;
 /// Height of the row carrying the jumps and the play control, which is the tallest thing on it.
 const CHIP_ROW: f32 = 30.0;
 /// Gap between two rows.
-const ROW_GAP: f32 = 8.0;
+const ROW_GAP: f32 = 18.0;
 
 /// The room inside the plate's chrome, vertically.
 const CONTENT_HEIGHT: f32 = INFO_ROW + ROW_GAP + TRACK_ROW + ROW_GAP + CHIP_ROW;
@@ -74,13 +72,13 @@ const _: () = assert!(CONTENT_HEIGHT + 20.0 == PANEL_HEIGHT);
 const PLAY_SIZE: Vec2 = Vec2::new(42.0, 30.0);
 /// Width of the elapsed clock's column. Wide enough for `1:05:30`, so an hour-long replay does not
 /// widen the row.
-const CLOCK_WIDTH: f32 = 62.0;
+const CLOCK_WIDTH: f32 = 76.0;
 /// Text size of the elapsed clock, which is read all the way through a replay.
-const CLOCK_SIZE: f32 = 20.0;
+const CLOCK_SIZE: f32 = 24.0;
 /// Width of the column holding the replay's length, and the size that number is set at: it is read
 /// once, where the elapsed clock is read continuously.
-const LENGTH_WIDTH: f32 = 46.0;
-const LENGTH_SIZE: f32 = 13.0;
+const LENGTH_WIDTH: f32 = 54.0;
+const LENGTH_SIZE: f32 = 15.0;
 /// Side of one square control: an end of the speed stepper, or the eye.
 const BOX_SIZE: f32 = 24.0;
 /// Width of the column holding the rung playback is on, and the size it is set at.
@@ -277,12 +275,7 @@ pub fn current_step(speed_index: u32, multiplier: u32) -> usize {
     if let Some(index) = exact {
         return index;
     }
-    let rate = SpeedStep {
-        speed_index,
-        multiplier,
-        label: "",
-    }
-    .rate();
+    let rate = pair_rate(speed_index, multiplier);
     let mut nearest = 0;
     let mut best = f32::INFINITY;
     for (index, step) in SPEED_LADDER.iter().enumerate() {
@@ -297,12 +290,14 @@ pub fn current_step(speed_index: u32, multiplier: u32) -> usize {
     nearest
 }
 
-/// The rung `delta` steps away from where playback is, stopping at the ends of the ladder rather
-/// than wrapping: a caster holding the speed-up key must not land back on quarter speed.
-pub fn step_speed(speed_index: u32, multiplier: u32, delta: i32) -> SpeedStep {
-    let current = current_step(speed_index, multiplier) as i32;
-    let last = SPEED_LADDER.len() as i32 - 1;
-    SPEED_LADDER[current.saturating_add(delta).clamp(0, last) as usize]
+/// How fast playback runs at a speed pair, rung or not (see [`SpeedStep::rate`]).
+fn pair_rate(speed_index: u32, multiplier: u32) -> f32 {
+    SpeedStep {
+        speed_index,
+        multiplier,
+        label: "",
+    }
+    .rate()
 }
 
 /// Milliseconds one frame of a replay recorded at `game_speed` took.
@@ -403,6 +398,26 @@ impl PlaybackView {
     pub fn step(&self) -> SpeedStep {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
     }
+
+    /// The rung a step along the ladder moves playback to: the nearest one that runs `faster` (or
+    /// slower) than playback does, or `None` where the ladder has none, so there is nothing to ask
+    /// the game for and nothing to be heard. That is at either end of the ladder, and at a pair off
+    /// it that runs slower than every rung.
+    ///
+    /// Counted from the rate playback runs at rather than from the rung it reads as (see
+    /// [`Self::step`]), so from a pair between rungs a step can land on the rung the plate already
+    /// shows. That is still a change of speed, in the direction asked for.
+    pub fn next_step(&self, faster: bool) -> Option<SpeedStep> {
+        let rate = pair_rate(self.speed_index, self.multiplier);
+        if faster {
+            SPEED_LADDER.into_iter().find(|step| step.rate() > rate)
+        } else {
+            SPEED_LADDER
+                .into_iter()
+                .rev()
+                .find(|step| step.rate() < rate)
+        }
+    }
 }
 
 /// What the player asked the playback controls for this frame. Every field is what they asked for rather
@@ -435,25 +450,22 @@ impl PlaybackControlsOutcome {
     }
 }
 
-/// Where the plate stands, beyond the margin it keeps from the screen's edges.
-///
-/// The bottom-right corner, where the game's own replay controls sit, unless the observer panels
-/// need it elsewhere: stood in from the right edge while the dock's column runs down past it, and
-/// lifted up the edge while the panels along the bottom need the width it would take there.
+/// How the plate stands in the bottom-right corner, where the game's own replay controls sit, the
+/// margin it keeps from the screen's edges away: the observer panels keep the corner clear for it.
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct PlaybackControlsPlacement {
-    /// How far the plate stands in from the screen's right edge.
-    pub right_inset: f32,
-    /// How far the plate is lifted off the screen's bottom edge.
-    pub lift: f32,
+    /// Whether the observer dock stands on the plate's top edge, the two drawn as one panel with
+    /// the plate's edge dividing them.
+    pub dock_on_top: bool,
 }
 
 impl PlaybackControlsPlacement {
     /// Where the plate is on `screen` from here, which the surfaces around it are placed against
     /// before it is drawn.
     pub fn rect(self, screen: Rect) -> Rect {
-        let right = screen.right() - EDGE_MARGIN - self.right_inset;
-        let bottom = screen.bottom() - EDGE_MARGIN - self.lift;
+        let margin = layout::screen_margin(screen);
+        let right = screen.right() - margin;
+        let bottom = screen.bottom() - margin;
         Rect::from_min_max(
             pos2(right - PANEL_WIDTH, bottom - PANEL_HEIGHT),
             pos2(right, bottom),
@@ -475,17 +487,16 @@ pub fn render_playback_controls(
     hotkeys: &Hotkeys,
 ) -> Option<PlaybackControlsOutcome> {
     let id = Id::new("sb_playback_controls");
+    let margin = layout::screen_margin(ctx.viewport_rect());
     let area = Area::new(id)
-        .anchor(
-            Align2::RIGHT_BOTTOM,
-            vec2(
-                -(EDGE_MARGIN + placement.right_inset),
-                -(EDGE_MARGIN + placement.lift),
-            ),
-        )
+        .anchor(Align2::RIGHT_BOTTOM, vec2(-margin, -margin))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
+        let joined = placement.dock_on_top.then_some(tiers::Joined {
+            edge: tiers::Edge::Top,
+            divides: true,
+        });
+        tiers::tier0_panel_joined(ui, joined, |ui| {
             ui.set_width(CONTENT_WIDTH);
             draw_plate(ui, view, events, hotkeys)
         })
@@ -647,14 +658,15 @@ fn draw_speed_stepper(
     // Arrows rather than words: they read the same in every language, and a stepper whose ends
     // carried a translated verb would be a paragraph wide in some of them. The verb is on the hover
     // card, which has the room.
-    let slower = stepper_button(ui, SpeedArrow::Slower);
+    let slower_step = view.next_step(false);
+    let slower = stepper_button(ui, SpeedArrow::Slower, slower_step.is_some());
     hint.action(
         &slower,
         || tr!("playbackControls.slower", "Slower"),
         Action::SpeedDown,
     );
     if slower.clicked() {
-        outcome.speed = Some(step_speed(view.speed_index, view.multiplier, -1));
+        outcome.speed = slower_step;
     }
     ui.add_space(ITEM_GAP);
     widgets::text_cell(
@@ -669,14 +681,15 @@ fn draw_speed_stepper(
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    let faster = stepper_button(ui, SpeedArrow::Faster);
+    let faster_step = view.next_step(true);
+    let faster = stepper_button(ui, SpeedArrow::Faster, faster_step.is_some());
     hint.action(
         &faster,
         || tr!("playbackControls.faster", "Faster"),
         Action::SpeedUp,
     );
     if faster.clicked() {
-        outcome.speed = Some(step_speed(view.speed_index, view.multiplier, 1));
+        outcome.speed = faster_step;
     }
 }
 
@@ -691,8 +704,14 @@ fn draw_track_row(
 ) {
     let marked = marked_events(view, events);
     let markers: Vec<TrackMarker> = marked.iter().map(|(_, marker)| *marker).collect();
-    let track =
-        widgets::scrub_track_marked(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW), &markers);
+    // Flush, so the bar's start lines up with the clock over it and the jumps under it: the head's
+    // room at that end comes out of the plate's padding.
+    let track = widgets::scrub_track_marked_flush(
+        ui,
+        view.progress(),
+        vec2(TRACK_WIDTH, TRACK_ROW),
+        &markers,
+    );
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
     }
@@ -1040,28 +1059,47 @@ const ARROW_SIZE: f32 = 20.0;
 /// One end of the speed stepper, drawn as Material Symbols' double arrow pointing the way it moves
 /// playback: up the ladder for faster, down it for slower. Stroked rather than typed, so no font has
 /// to carry the glyph, and the strokes are tessellated at whatever scale the screen is drawn at.
-fn stepper_button(ui: &mut Ui, arrow: SpeedArrow) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), Sense::click());
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter().add(Shape::rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
-        StrokeKind::Inside,
-    ));
-    widgets::state_overlay(ui, &response, rect, corner_radius);
-    widgets::focus_ring(ui, &response, rect, corner_radius);
-    let color = if response.hovered() {
-        theme::TEXT_PRIMARY
-    } else {
-        theme::TEXT_SECONDARY
-    };
-    let square = Rect::from_center_size(rect.center(), Vec2::splat(ARROW_SIZE));
-    paint_speed_arrow(ui, square, arrow, color);
-    response
+///
+/// An end with no rung to step to (see [`PlaybackView::next_step`]) is drawn at the disabled opacity
+/// and takes no click, so pressing it neither asks for a change nor makes the click sound. It still
+/// senses the pointer resting on it, which its hover card needs.
+fn stepper_button(ui: &mut Ui, arrow: SpeedArrow, steps: bool) -> Response {
+    ui.scope(|ui| {
+        let sense = if steps {
+            Sense::click()
+        } else {
+            Sense::hover()
+        };
+        let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), sense);
+        if !ui.is_rect_visible(rect) {
+            return response;
+        }
+        if !steps {
+            // Multiplied into the opacity the plate is drawn at rather than set over it, so the
+            // end fades in and out with the rest of the plate.
+            ui.multiply_opacity(theme::DISABLED_OPACITY);
+        }
+        let corner_radius = theme::radius(theme::RADIUS_CHIP);
+        ui.painter().add(Shape::rect_stroke(
+            rect,
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
+            StrokeKind::Inside,
+        ));
+        if steps {
+            widgets::state_overlay(ui, &response, rect, corner_radius);
+            widgets::focus_ring(ui, &response, rect, corner_radius);
+        }
+        let color = if steps && response.hovered() {
+            theme::TEXT_PRIMARY
+        } else {
+            theme::TEXT_SECONDARY
+        };
+        let square = Rect::from_center_size(rect.center(), Vec2::splat(ARROW_SIZE));
+        paint_speed_arrow(ui, square, arrow, color);
+        response
+    })
+    .inner
 }
 
 /// Paints the double arrow for `arrow` into `square`.
@@ -1244,26 +1282,111 @@ mod tests {
         }
     }
 
-    #[test]
-    fn stepping_stops_at_the_ends_of_the_ladder() {
-        let slowest = SPEED_LADDER[0];
-        assert_eq!(
-            step_speed(slowest.speed_index, slowest.multiplier, -1),
-            slowest
-        );
-        let fastest = SPEED_LADDER[SPEED_LADDER.len() - 1];
-        assert_eq!(
-            step_speed(fastest.speed_index, fastest.multiplier, 1),
-            fastest
-        );
+    fn playing_at(speed_index: u32, multiplier: u32) -> PlaybackView {
+        PlaybackView {
+            speed_index,
+            multiplier,
+            ..view()
+        }
     }
 
     #[test]
-    fn stepping_from_a_pair_that_is_not_on_the_ladder_snaps_to_the_nearest_rung() {
-        // Fastest tripled is not a rung the plate offers, but the game's own plate could have left
-        // playback there; the step up from it is the rung above the one it is nearest.
-        assert_eq!(step_speed(6, 3, 0).label, "4");
-        assert_eq!(step_speed(6, 3, 1).label, "8");
+    fn a_step_past_either_end_of_the_ladder_is_no_step_at_all() {
+        let (slowest, fastest) = (SPEED_LADDER[0], SPEED_LADDER[SPEED_LADDER.len() - 1]);
+        let at_slowest = playing_at(slowest.speed_index, slowest.multiplier);
+        assert_eq!(at_slowest.next_step(false), None);
+        assert_eq!(at_slowest.next_step(true), Some(SPEED_LADDER[1]));
+        let at_fastest = playing_at(fastest.speed_index, fastest.multiplier);
+        assert_eq!(at_fastest.next_step(true), None);
+        assert_eq!(
+            at_fastest.next_step(false),
+            Some(SPEED_LADDER[SPEED_LADDER.len() - 2])
+        );
+        // The slowest classic speed with its delay doubled runs at half the bottom rung's pace: a
+        // step down from there is no step either, and a step up lands on the bottom rung.
+        let below_the_bottom = playing_at(0, 2);
+        assert_eq!(below_the_bottom.next_step(false), None);
+        assert_eq!(below_the_bottom.next_step(true), Some(slowest));
+    }
+
+    #[test]
+    fn a_step_from_a_pair_between_rungs_lands_on_the_next_rung_in_its_direction() {
+        // The classic normal speed is not a rung the plate offers. It runs between x.5 and x1 and
+        // reads as the nearer x.5, so x1 is the step up from it and x.5 itself the step down.
+        let classic_normal = playing_at(3, 1);
+        assert_eq!(classic_normal.step().label, ".5");
+        let label = |step: Option<SpeedStep>| step.map(|step| step.label);
+        assert_eq!(label(classic_normal.next_step(true)), Some("1"));
+        assert_eq!(label(classic_normal.next_step(false)), Some(".5"));
+    }
+
+    #[test]
+    fn a_stepper_end_with_no_rung_to_step_to_fades_with_the_plate() {
+        // The alpha the end's outline is painted with on a plate drawn at `plate_opacity`.
+        let outline_alpha = |plate_opacity: f32| {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
+                ..Default::default()
+            };
+            let mut output = Context::default().run_ui(raw, |ui| {
+                ui.set_opacity(plate_opacity);
+                stepper_button(ui, SpeedArrow::Faster, false);
+            });
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .find_map(|clipped| match &clipped.shape {
+                    Shape::Rect(rect) => Some(rect.stroke.color.a()),
+                    _ => None,
+                })
+                .expect("the end paints an outline")
+        };
+        assert!(outline_alpha(0.1) < outline_alpha(1.0));
+    }
+
+    /// Clicks the middle of a stepper end drawn at the top left corner, one that `steps` or not,
+    /// and reports whether it took the click, whether it asked the host for the click sound, and
+    /// whether it sensed the pointer resting on it, which is what its hover card is shown from.
+    fn click_stepper(steps: bool) -> (bool, bool, bool) {
+        let ctx = Context::default();
+        let pos = pos2(BOX_SIZE / 2.0, BOX_SIZE / 2.0);
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let events = [
+            vec![egui::Event::PointerMoved(pos)],
+            vec![button(true)],
+            vec![button(false)],
+        ];
+        let (mut clicked, mut hovered) = (false, false);
+        for (frame, events) in events.into_iter().enumerate() {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
+                time: Some(frame as f64 * 0.1),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(raw, |ui| {
+                ui.spacing_mut().item_spacing = Vec2::ZERO;
+                let response = stepper_button(ui, SpeedArrow::Faster, steps);
+                clicked |= response.clicked();
+                hovered |= response.hover_pos().is_some();
+            });
+            output.textures_delta.clear();
+        }
+        (clicked, widgets::take_activation(&ctx), hovered)
+    }
+
+    #[test]
+    fn a_stepper_end_with_no_rung_to_step_to_takes_no_click_and_makes_no_sound_but_keeps_its_card()
+    {
+        // The same click on an end that steps is taken and heard, so the one below is not a miss.
+        assert_eq!(click_stepper(true), (true, true, true));
+        assert_eq!(click_stepper(false), (false, false, true));
     }
 
     #[test]
@@ -1315,6 +1438,22 @@ mod tests {
         assert_eq!(clock_text(1068), "17:48");
         assert_eq!(clock_text(2492), "41:32");
         assert_eq!(clock_text(3930), "1:05:30");
+    }
+
+    #[test]
+    fn an_hour_long_clock_fits_its_column() {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut widths = None;
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            let width = |size| text::numeral(size).galley(ui, "1:05:30").size().x;
+            widths = Some((width(CLOCK_SIZE), width(LENGTH_SIZE)));
+        })
+        .textures_delta
+        .clear();
+        let (clock, length) = widths.unwrap();
+        assert!(clock <= CLOCK_WIDTH, "{clock}");
+        assert!(length <= LENGTH_WIDTH, "{length}");
     }
 
     #[test]
@@ -1537,7 +1676,8 @@ mod tests {
     /// a chip, counted left to right, with the play control taking the slot after the third.
     fn jump_row_point(index: usize, play: bool) -> Pos2 {
         let inset = (PANEL_WIDTH - CONTENT_WIDTH) / 2.0;
-        let left = SCREEN.x - EDGE_MARGIN - PANEL_WIDTH + inset;
+        let margin = layout::screen_margin(Rect::from_min_size(Pos2::ZERO, SCREEN));
+        let left = SCREEN.x - margin - PANEL_WIDTH + inset;
         let mut x = left + index as f32 * (CHIP_WIDTH + CHIP_GAP);
         let width = if play {
             PLAY_SIZE.x
@@ -1547,7 +1687,7 @@ mod tests {
             }
             CHIP_WIDTH
         };
-        let bottom = SCREEN.y - EDGE_MARGIN - (PANEL_HEIGHT - CONTENT_HEIGHT) / 2.0;
+        let bottom = SCREEN.y - margin - (PANEL_HEIGHT - CONTENT_HEIGHT) / 2.0;
         pos2(x + width / 2.0, bottom - CHIP_ROW / 2.0)
     }
 

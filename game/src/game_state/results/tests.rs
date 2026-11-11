@@ -700,6 +700,149 @@ fn results_2v2_left_with_ally_still_playing() {
 }
 
 #[test]
+fn results_2v2_left_while_eliminated_opponent_watches() {
+    init_logs();
+    let local_user = SbUser {
+        id: 1.into(),
+        name: "local".to_string(),
+        avatar_url: None,
+    };
+    let eliminated = JoinedPlayer {
+        name: "eliminated".to_string(),
+        storm_id: StormPlayerId(0),
+        player_id: Some(BwPlayerId(0)),
+        sb_user_id: 77.into(),
+    };
+    let eliminated_ally = JoinedPlayer {
+        name: "eliminated_ally".to_string(),
+        storm_id: StormPlayerId(1),
+        player_id: Some(BwPlayerId(1)),
+        sb_user_id: 78.into(),
+    };
+    let local = JoinedPlayer {
+        name: local_user.name.clone(),
+        storm_id: StormPlayerId(2),
+        player_id: Some(BwPlayerId(2)),
+        sb_user_id: local_user.id,
+    };
+    let ally = JoinedPlayer {
+        name: "ally".to_string(),
+        storm_id: StormPlayerId(3),
+        player_id: Some(BwPlayerId(3)),
+        sb_user_id: 79.into(),
+    };
+
+    let results = determine_game_results(
+        GameThreadResults {
+            game_type: BwGameType::melee(),
+            player_results: HashMap::from([
+                (
+                    BwPlayerId(0),
+                    PlayerResult {
+                        apm: 0,
+                        victory_state: VictoryState::Defeat,
+                        race: AssignedRace::Zerg,
+                        alliances: {
+                            let mut a = [AllianceState::Unallied; 8];
+                            a[0] = AllianceState::AlliedVictory;
+                            a[1] = AllianceState::AlliedVictory;
+                            a
+                        },
+                    },
+                ),
+                (
+                    BwPlayerId(1),
+                    PlayerResult {
+                        apm: 0,
+                        victory_state: VictoryState::Playing,
+                        race: AssignedRace::Protoss,
+                        alliances: {
+                            let mut a = [AllianceState::Unallied; 8];
+                            a[0] = AllianceState::AlliedVictory;
+                            a[1] = AllianceState::AlliedVictory;
+                            a
+                        },
+                    },
+                ),
+                (
+                    BwPlayerId(2),
+                    PlayerResult {
+                        apm: 0,
+                        victory_state: VictoryState::Playing,
+                        race: AssignedRace::Protoss,
+                        alliances: {
+                            let mut a = [AllianceState::Unallied; 8];
+                            a[2] = AllianceState::AlliedVictory;
+                            a[3] = AllianceState::AlliedVictory;
+                            a
+                        },
+                    },
+                ),
+                (
+                    BwPlayerId(3),
+                    PlayerResult {
+                        apm: 0,
+                        victory_state: VictoryState::Playing,
+                        race: AssignedRace::Terran,
+                        alliances: {
+                            let mut a = [AllianceState::Unallied; 8];
+                            a[2] = AllianceState::AlliedVictory;
+                            a[3] = AllianceState::AlliedVictory;
+                            a
+                        },
+                    },
+                ),
+            ]),
+            // The eliminated player is still connected, watching their ally play on.
+            network_results: make_standard_network_results(4),
+            local_player_lose_type: None,
+            time: Duration::from_millis(27270),
+            replay_path: None,
+        },
+        &[eliminated, eliminated_ally, local, ally],
+        &local_user,
+    );
+
+    assert_eq!(
+        results,
+        HashMap::from([
+            (
+                77.into(),
+                GamePlayerResult {
+                    result: VictoryState::Disconnected,
+                    race: AssignedRace::Zerg,
+                    apm: 0,
+                }
+            ),
+            (
+                78.into(),
+                GamePlayerResult {
+                    result: VictoryState::Playing,
+                    race: AssignedRace::Protoss,
+                    apm: 0,
+                }
+            ),
+            (
+                local_user.id,
+                GamePlayerResult {
+                    result: VictoryState::Disconnected,
+                    race: AssignedRace::Protoss,
+                    apm: 0,
+                }
+            ),
+            (
+                79.into(),
+                GamePlayerResult {
+                    result: VictoryState::Playing,
+                    race: AssignedRace::Terran,
+                    apm: 0,
+                }
+            )
+        ])
+    )
+}
+
+#[test]
 fn results_2v2_loss() {
     init_logs();
     let local_user = SbUser {

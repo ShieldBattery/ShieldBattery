@@ -27,7 +27,8 @@
         "cover": "Imagen de portada",
         "publish": "Fecha de publicación",
         "summary": "Resumen",
-        "title": "Título"
+        "title": "Título",
+        "translations": "Traducciones"
       },
       "form": {
         "content": "Contenido (Markdown)",
@@ -41,6 +42,7 @@
         "coverUpload": "Subir portada",
         "coverUploadError": "Algo salió mal al subir la imagen de portada.",
         "coverUploading": "Subiendo…",
+        "defaultLanguage": "{{language}} (predeterminado)",
         "imageInvalidType": "Elige un archivo de imagen.",
         "imageTooLarge": "Esa imagen es demasiado grande (máx. 5 MB).",
         "imageUploadError": "Algo salió mal al subir la imagen.",
@@ -49,12 +51,14 @@
         "insertImageTooltip": "Insertar imagen (hasta 5 MB)",
         "insertVideo": "Insertar video",
         "insertVideoTooltip": "Insertar video (hasta 30 MB)",
+        "language": "Idioma",
         "postSettings": "Ajustes de la noticia",
         "publish": "Publicación",
         "publishDraft": "Borrador (sin publicar)",
         "publishNow": "Publicar ahora",
         "publishPublished": "Publicada ({{date}})",
         "publishSchedule": "Programar",
+        "removeTranslation": "Quitar traducción",
         "scheduleDate": "Fecha y hora de publicación",
         "scheduleHint": "Una fecha y hora en el futuro programa la noticia; una en el pasado la publica de inmediato.",
         "scheduleRequired": "Elige una fecha y hora válidas",
@@ -62,6 +66,8 @@
         "summaryRequired": "Introduce un resumen",
         "title": "Título",
         "titleRequired": "Introduce un título",
+        "translatedSummary": "Resumen ({{language}})",
+        "translationHint": "Los lectores ven esta traducción cuando usan este idioma. Los campos vacíos, incluido el resumen de los ajustes de la noticia, usan el texto en inglés.",
         "videoInvalidType": "Elige un archivo de video mp4 o webm.",
         "videoTooLarge": "Ese video es demasiado grande (máx. 30 MB).",
         "videoUploadError": "Algo salió mal al subir el video.",
@@ -976,6 +982,10 @@
       }
     },
     "privateChannelTitle": "Canal privado",
+    "sendFailed": {
+      "chatRestricted": "Ahora mismo tienes restringido el envío de mensajes en el chat.",
+      "error": "No se envió tu mensaje: {{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",
       "body": "¿Transferir la propiedad de #{{channelName}} a {{user}}? Dejarás de ser el dueño del canal.",
@@ -1007,6 +1017,10 @@
       "showMoreStreams_one": "Mostrar {{count}} transmisión más",
       "showMoreStreams_many": "Mostrar {{count}} de transmisiones más",
       "showMoreStreams_other": "Mostrar {{count}} transmisiones más"
+    },
+    "whisperEcho": {
+      "from": "De:",
+      "to": "Para:"
     },
     "whispers": {
       "startWhisperButton": "Iniciar un susurro"
@@ -1110,6 +1124,28 @@
       "minLength_other": "Introduce al menos {{count}} caracteres",
       "required": "Requerido",
       "validatorError": "Ocurrió un error desconocido al validar este campo"
+    }
+  },
+  "discord": {
+    "activity": {
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "Observando",
+      "observing": "Observando {{mode}}",
+      "privateLobby": "Lobby privado",
+      "rankedMode": "Clasificatoria {{mode}}",
+      "replayIcon": "Replay",
+      "watchingReplay": "Viendo un replay"
+    },
+    "activityPrompt": {
+      "decline": "No, gracias",
+      "enable": "Mostrar mi actividad",
+      "footnote": "No se muestra nada mientras no estés en un lobby, una partida o un replay. Puedes cambiarlo más tarde en Ajustes › Conexiones.",
+      "intro": "ShieldBattery puede mostrar lo que estás haciendo en la cuenta de Discord con la que iniciaste sesión en la app de Discord de este equipo:",
+      "sharedGame": "El modo de juego, el enfrentamiento o tu raza, el mapa y cuánto tiempo lleva la partida",
+      "sharedLobby": "El mapa del lobby en el que estás, su nombre si está listado, y un botón Unirse (o Pedir unirse si no está listado), que sigue visible durante las partidas del lobby",
+      "sharedReplay": "Que estás viendo un replay, y su mapa",
+      "title": "¿Mostrar tu actividad en Discord?"
     }
   },
   "fileBrowser": {
@@ -1268,6 +1304,7 @@
     "buttonDismissReviewRequest": "Descartar solicitud",
     "buttonDownloadReplay": "Descargar replay",
     "buttonOpenInApp": "Abrir en ShieldBattery",
+    "buttonRefundPoints": "Devolver puntos",
     "buttonReplaySaved": "En la biblioteca",
     "buttonReport": "Reportar",
     "buttonRequestReview": "Solicitar revisión",
@@ -1279,9 +1316,11 @@
     "buttonWatchReplayLoading": "Cargando…",
     "chatTranscript": {
       "copy": "Copiar transcripción",
+      "draftTitle": "Selección de razas",
       "dropped": "<0>{{name}}</0> se desconectó",
       "droppedText": "{{name}} se desconectó",
       "empty": "No se registró chat ni salidas en estos replays.",
+      "gameTitle": "Partida",
       "hide": "Ocultar transcripción del chat",
       "left": "<0>{{name}}</0> salió de la partida",
       "leftText": "{{name}} salió de la partida",
@@ -1294,6 +1333,7 @@
       "sources": "Combinada a partir de los replays que subieron:",
       "title": "Transcripción del chat",
       "unknownSender": "Espacio {{slot}}",
+      "unknownUser": "Usuario {{id}}",
       "view": "Ver transcripción del chat"
     },
     "debugInfo": {
@@ -1369,6 +1409,21 @@
     "infoDuration": "Duración",
     "infoGameType": "Tipo",
     "notFound": "No se pudo encontrar esta partida.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "Los puntos de esta partida ya se devolvieron.",
+      "errorGameNotFound": "No se encontró la partida.",
+      "errorGeneric": "Hubo un problema al devolver los puntos de esta partida.",
+      "errorInvalidPlayers": "Uno de los jugadores no participó en esta partida.",
+      "errorNotCurrentSeason": "Solo se pueden devolver los puntos de partidas de la temporada actual.",
+      "errorNotRanked": "Esta partida no tiene puntos de clasificación que devolver (no era clasificatoria).",
+      "errorNotRefundable": "Ninguno de los jugadores marcados perdió puntos de clasificación ni bono en esta partida.",
+      "hint": "Los jugadores marcados recuperan los puntos de clasificación y de liga que perdieron en esta partida. Desmarca a quien haya causado la derrota. Los ganadores conservan sus puntos. Esto no se puede deshacer.",
+      "refundButton": "Devolver puntos",
+      "success_one": "Se devolvieron puntos a {{count}} jugador.",
+      "success_many": "Se devolvieron puntos a {{count}} de jugadores.",
+      "success_other": "Se devolvieron puntos a {{count}} jugadores.",
+      "title": "Devolver puntos de la partida"
+    },
     "resolveDialog": {
       "errorGeneric": "Algo salió mal. Inténtalo de nuevo.",
       "errorInvalidResults": "Estos resultados no son válidos para esta partida. Debe ganar exactamente un equipo.",
@@ -1481,7 +1536,8 @@
       "morePlayers_other": "+{{count}} más",
       "showResults": "Mostrar resultados",
       "versus": "vs",
-      "view": "Ver partida"
+      "view": "Ver partida",
+      "watch": "Ver"
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
@@ -1492,7 +1548,14 @@
     },
     "reporting": {
       "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa.",
-      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
+      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada.",
+      "pointsRefundedNotificationGames_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida que fue revisada.",
+      "pointsRefundedNotificationGames_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas que fueron revisadas.",
+      "pointsRefundedNotificationGames_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas que fueron revisadas.",
+      "pointsRefundedNotificationGamesWith_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationWith": "Se te han devuelto los puntos de clasificación que perdiste en una partida con <2>{{user}}</2>."
     },
     "sidePanel": {
       "empty": "Selecciona una partida para ver sus detalles",
@@ -1693,6 +1756,9 @@
     "assetAuthor": "Por {{author}}",
     "assetModifications": "Cambios: {{modifications}}",
     "assetsHeader": "Fuentes, sonidos e iconos",
+    "discordSdkDescription": "La app muestra tu actividad en Discord mediante el Discord Social SDK, que incluye otro software de código abierto.",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "Esta compilación no incluye el Discord Social SDK.",
     "electronDescription": "La app está hecha con Electron, que incluye Chromium y otro software de código abierto. Sus licencias están en LICENSE.electron.txt y LICENSES.chromium.html, en la carpeta donde instalaste ShieldBattery.",
     "electronHeader": "Electron y Chromium",
     "gameDescription": "Software y fuentes de código abierto incluidos en la parte de ShieldBattery que se ejecuta dentro de StarCraft.",
@@ -1713,6 +1779,7 @@
       "generic": "Algo salió mal. Inténtalo de nuevo.",
       "invalidSlotOperation": "Ese espacio no se puede cambiar ahora mismo",
       "invalidTeamLayout": "Los equipos no se pueden reorganizar en esta disposición",
+      "mapNotDownloaded": "Todavía no todos tienen el mapa",
       "notEnoughSides": "La partida necesita jugadores en al menos dos bandos",
       "notEveryoneReady": "Todavía no están todos listos",
       "notHost": "Solo el anfitrión puede hacer eso",
@@ -1997,6 +2064,10 @@
         "visibilityPublic": "Público",
         "visibilityUnlisted": "No listado"
       },
+      "mapStatus": {
+        "downloading": "Descargando mapa",
+        "failed": "Falló la descarga del mapa"
+      },
       "racePicker": {
         "label": "Raza"
       },
@@ -2007,9 +2078,12 @@
         "everyoneReady": "Todos están listos",
         "holdToBypassReadiness": "Mantén pulsado {{seconds}} segundos para empezar sin esperar",
         "holdToStartAnyway": "Mantén pulsado para empezar",
+        "mapDownloadFailed": "No se pudo descargar el mapa",
+        "mapNotDownloaded": "Todavía no todos tienen el mapa",
         "needsOpposingSides": "Hacen falta al menos dos jugadores rivales",
         "readyCount": "{{readyCount}} de {{readyTotal}} listos",
         "readyUp": "Listo",
+        "retryMapDownload": "Reintentar descarga",
         "startGame": "Iniciar partida",
         "startingGame": "Iniciando partida",
         "waitingForHost": "Esperando a que el anfitrión inicie"
@@ -2201,6 +2275,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "Abrir en el navegador",
+      "title": "Imagen"
+    },
     "toolbar": {
       "bold": "Negrita",
       "boldTooltip": "Negrita (Ctrl+B)",
@@ -2302,7 +2380,9 @@
     "findMatch": {
       "alternateRace": "Raza alternativa",
       "bonus": "Bonus",
+      "bonusFrozen": "¡Es la última semana de la temporada! ¡Gasta los puntos de bonus que te quedan!",
       "cancelSearch": "Cancelar búsqueda",
+      "chooseRace": "Elegir raza",
       "desc": {
         "1v1": "Individual · mapas estándar",
         "1v1fastest": "Individual · mapa Fastest",
@@ -2317,10 +2397,14 @@
       "description": "Selecciona una raza para usarla siempre que tu oponente haya seleccionado la misma raza principal.",
       "errors": {
         "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
+        "chooseMaps": "Selecciona al menos un mapa",
+        "chooseRace": "Elige una raza para continuar",
+        "completeSettings": "Completa los ajustes resaltados para buscar partido.",
         "dialogTitle": "Error al buscar un partido",
         "invalidMaps": "Debes seleccionar al menos un mapa en los ajustes para cada tipo de emparejamiento elegido.",
         "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
-        "searchAgainError": "Hubo un problema al buscar un partido",
+        "reviewSettings": "Elige una raza y revisa los mapas de cada modo seleccionado antes de buscar.",
+        "settingsLoading": "Los ajustes aún se están cargando",
         "somethingWentWrong": "Algo salió mal :(",
         "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
       },
@@ -2341,6 +2425,7 @@
       "rank": "Rango",
       "rating": "MMR",
       "readyToQueue": "Listo para buscar",
+      "reviewSettings": "Elige tu raza antes de buscar",
       "searchingMessage": "Buscando partida…",
       "selectAtLeastOne": "Selecciona al menos un tipo de emparejamiento para empezar a buscar.",
       "selectedCount": "{{selected}} / {{total}} seleccionados",
@@ -2769,6 +2854,44 @@
       "save": "Hubo un problema al guardar la configuración."
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "Colorear el texto de la alerta APM",
+        "apmAlertSound": "Reproducir sonido de alerta APM",
+        "apmAlertValue": "Umbral de alerta APM",
+        "copyButton": "Copiar de Battle.net",
+        "copyConfirm": "Copiar ajustes",
+        "copyDialogFeatures_one": "Pasar también {{count}} función de ShieldBattery al comportamiento de Battle.net",
+        "copyDialogFeatures_many": "Pasar también {{count}} de funciones de ShieldBattery al comportamiento de Battle.net",
+        "copyDialogFeatures_other": "Pasar también {{count}} funciones de ShieldBattery al comportamiento de Battle.net",
+        "copyDialogFeaturesOnly_one": "Esto pasa {{count}} función de ShieldBattery al comportamiento de Battle.net.",
+        "copyDialogFeaturesOnly_many": "Esto pasa {{count}} de funciones de ShieldBattery al comportamiento de Battle.net.",
+        "copyDialogFeaturesOnly_other": "Esto pasa {{count}} funciones de ShieldBattery al comportamiento de Battle.net.",
+        "copyDialogNotKept": "Tus valores actuales no se conservarán.",
+        "copyDialogSettings_one": "Esto reemplaza {{count}} ajuste de StarCraft en ShieldBattery por tu valor de Battle.net.",
+        "copyDialogSettings_many": "Esto reemplaza {{count}} de ajustes de StarCraft en ShieldBattery por tus valores de Battle.net.",
+        "copyDialogSettings_other": "Esto reemplaza {{count}} ajustes de StarCraft en ShieldBattery por tus valores de Battle.net.",
+        "copyDialogTitle": "¿Copiar los ajustes de Battle.net?",
+        "copyError": "No se pudieron copiar los ajustes de Battle.net. No se cambió nada.",
+        "customCursorSize": "Tamaño de cursor personalizado",
+        "differenceSummary_one": "{{count}} ajuste difiere de Battle.net. Los que ya coinciden no aparecen.",
+        "differenceSummary_many": "{{count}} de ajustes difieren de Battle.net. Los que ya coinciden no aparecen.",
+        "differenceSummary_other": "{{count}} ajustes difieren de Battle.net. Los que ya coinciden no aparecen.",
+        "featuresTitle": "Funciones de ShieldBattery",
+        "featureSummary_one": "{{count}} función de ShieldBattery hace que el juego se sienta distinto a Battle.net.",
+        "featureSummary_many": "{{count}} de funciones de ShieldBattery hacen que el juego se sienta distinto a Battle.net.",
+        "featureSummary_other": "{{count}} funciones de ShieldBattery hacen que el juego se sienta distinto a Battle.net.",
+        "intro": "ShieldBattery guarda su propia copia de tu configuración de StarCraft, así que los cambios que hagas desde Battle.net no se trasladan.",
+        "matches": "Tu configuración coincide con la de Battle.net.",
+        "notFound": "ShieldBattery no pudo leer el archivo de configuración de Battle.net. Se crea al iniciar StarCraft desde Battle.net una vez.",
+        "notSet": "Sin definir",
+        "settingsTitle": "Ajustes de StarCraft",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "Ajuste",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_one": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajuste. ¿Qué hacemos con él?",
@@ -2782,6 +2905,7 @@
           "resetToRecommendedDescription": "La niebla inicial, el tamaño del cursor, los colores de equipo y el arrastre de cámara pasan a los valores predeterminados de ShieldBattery.",
           "switchedTitle": "Cambiado a {{preset}}"
         },
+        "battleNetNote": "Para copiar el resto de tu configuración de StarCraft desde Battle.net, usa la página Battle.net.",
         "firstRun": {
           "continue": "Continuar",
           "cursorSize": "Tamaño del cursor",
@@ -2799,7 +2923,8 @@
           "title": "El mismo juego. Los detalles los decides tú."
         },
         "intro": "El preajuste decide con qué valores empiezan los ajustes de gameplay propios de ShieldBattery. También define el valor predeterminado de todo lo que se añada después.",
-        "legacyDescription": "Igual que Battle.net.",
+        "legacyDescription": "Igual que Battle.net en los ajustes de abajo.",
+        "openBattleNet": "Abrir la página Battle.net",
         "preset": {
           "legacy": "Clásico",
           "recommended": "Recomendado"
@@ -2882,7 +3007,7 @@
           "default": "Por defecto",
           "krcGold": "Oro - Orquesta 2019",
           "krcSilver": "Plata - Orquesta 2019",
-          "title": "Máscara de consola",
+          "title": "Aspecto de consola",
           "warcraft3": "Botín de WarCraft 3"
         },
         "devOnlySettings": "Configuración solo para desarrolladores",
@@ -2916,8 +3041,8 @@
         "ingameSkins": {
           "carbot": "Carbot",
           "none": "Ninguno",
-          "preorder": "Hacer un pedido",
-          "title": "Máscara dentro del juego"
+          "preorder": "Preventa",
+          "title": "Aspecto en el juego"
         },
         "interface": {
           "title": "Interfaz"
@@ -2936,10 +3061,10 @@
           "shown": "Visible",
           "title": "Terreno del minimapa"
         },
-        "showBonusSkins": "Mostrar máscaras de bonificación",
+        "showBonusSkins": "Mostrar aspectos de bonificación",
         "skins": {
           "description": "Deben comprarse a Blizzard.",
-          "title": "Máscaras"
+          "title": "Aspectos"
         },
         "startingFog": {
           "legacy": "Clásico",
@@ -3278,6 +3403,12 @@
       },
       "connections": {
         "description": "Vincula cuentas externas a tu perfil de ShieldBattery.",
+        "discord": {
+          "name": "Discord",
+          "note": "Muestra tu lobby, partida o replay actual. Necesitas la app de Discord abierta en el mismo equipo que ShieldBattery.",
+          "showActivity": "Mostrar mi actividad en Discord"
+        },
+        "linkedAccounts": "Cuentas vinculadas",
         "title": "Conexiones",
         "twitch": {
           "connect": "Conectar",
@@ -3650,7 +3781,6 @@
       "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
       "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
       "resolveMessageLink": "Error al abrir el enlace al mensaje: {{errorMessage}}",
-      "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
       "unknownError": "Error desconocido",
       "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat",
       "userNotFound": "Usuario no encontrado"

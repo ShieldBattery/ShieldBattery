@@ -1,12 +1,16 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
 import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
+  ALL_LOBBY_MAP_STATUSES,
   CreateLobbyRequest,
   CreateLobbyResponse,
+  GetLobbyMapUrlRequest,
+  GetLobbyMapUrlResponse,
   GetLobbyStateResponse,
   JoinLobbyRequest,
   LobbyClientRequest,
@@ -16,6 +20,7 @@ import {
   MoveSlotRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
+  SetLobbyMapStatusRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyCountdownRequest,
@@ -208,6 +213,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.CountingDown:
     case LobbyServiceErrorCode.GameInProgress:
     case LobbyServiceErrorCode.InvalidTeamLayout:
+    case LobbyServiceErrorCode.MapNotDownloaded:
     case LobbyServiceErrorCode.NotCountingDown:
     case LobbyServiceErrorCode.NotEveryoneReady:
     case LobbyServiceErrorCode.TargetNoActiveClient:
@@ -528,6 +534,52 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     this.lobbyService.setReady({ client, lobbyId: params.lobbyId, isReady: body.isReady })
+  }
+
+  @httpPost('/:lobbyId/map-status')
+  @httpBefore(...authedAction)
+  async setMapStatus(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<SetLobbyMapStatusRequest>({
+        clientId: clientIdSchema,
+        mapId: Joi.string().required(),
+        status: Joi.string()
+          .valid(...ALL_LOBBY_MAP_STATUSES)
+          .required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.setMapStatus({
+      client,
+      lobbyId: params.lobbyId,
+      mapId: body.mapId,
+      status: body.status,
+    })
+  }
+
+  @httpPost('/:lobbyId/map-url')
+  @httpBefore(...authedAction)
+  async getMapUrl(ctx: RouterContext): Promise<GetLobbyMapUrlResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<GetLobbyMapUrlRequest>({
+        clientId: clientIdSchema,
+        mapId: Joi.string().required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    const mapUrl = await this.lobbyService.getMapUrl({
+      client,
+      lobbyId: params.lobbyId,
+      mapId: body.mapId,
+    })
+    if (!mapUrl) {
+      throw new httpErrors.Conflict("that map isn't the lobby's current map")
+    }
+    return { mapUrl }
   }
 
   @httpPost('/:lobbyId/swap-teams')

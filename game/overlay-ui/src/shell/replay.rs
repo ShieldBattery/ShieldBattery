@@ -129,24 +129,11 @@ impl ReplayCommands {
         };
         match action {
             Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
-            Action::SpeedUp => self.request_speed(
-                Some(playback_controls::step_speed(
-                    view.speed_index,
-                    view.multiplier,
-                    1,
-                )),
-                None,
-                intents,
-            ),
-            Action::SpeedDown => self.request_speed(
-                Some(playback_controls::step_speed(
-                    view.speed_index,
-                    view.multiplier,
-                    -1,
-                )),
-                None,
-                intents,
-            ),
+            Action::SpeedUp | Action::SpeedDown => {
+                if let Some(step) = view.next_step(action == Action::SpeedUp) {
+                    self.request_speed(Some(step), None, intents);
+                }
+            }
             Action::SeekBackward | Action::SeekForward => {
                 let step = playback_controls::seek_step_secs(modifiers);
                 let step = match action {
@@ -323,6 +310,75 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn a_speed_key_at_the_end_of_the_ladder_is_taken_but_asks_for_nothing_and_makes_no_click() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let ladder = playback_controls::SPEED_LADDER;
+        let (top, below_top) = (ladder[ladder.len() - 1], ladder[ladder.len() - 2]);
+        let at = |step: SpeedStep| PlaybackView {
+            speed_index: step.speed_index,
+            multiplier: step.multiplier,
+            ..replay()
+        };
+        for (view, key) in [(at(top), Key::U), (at(ladder[0]), Key::D)] {
+            run_frame(&mut shell, &ctx, Some(&view));
+            assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
+            shell.key_repeated(key, Modifiers::NONE);
+            let time = ctx.input(|input| input.time) + 1.0;
+            let output = run_frame_at(&mut shell, &ctx, Some(&view), time);
+            assert_eq!(output.intents, [], "{key:?}");
+            assert!(!output.button_click, "{key:?}");
+        }
+        // One rung in from the top, the same key still steps and clicks.
+        let below_the_top = at(below_top);
+        run_frame(&mut shell, &ctx, Some(&below_the_top));
+        assert!(shell.key_pressed(Key::U, Modifiers::NONE));
+        let time = ctx.input(|input| input.time) + 1.0;
+        let output = run_frame_at(&mut shell, &ctx, Some(&below_the_top), time);
+        assert_eq!(
+            output.intents,
+            [Intent::SetSpeed {
+                speed_index: top.speed_index,
+                multiplier: top.multiplier,
+                paused: false,
+            }]
+        );
+        assert!(output.button_click);
+    }
+
+    #[test]
+    fn a_speed_key_below_the_ladder_steps_up_onto_it_or_not_at_all() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let bottom = playback_controls::SPEED_LADDER[0];
+        // The bottom rung's delay doubled: off the ladder, at half the bottom rung's pace.
+        let below_the_bottom = PlaybackView {
+            speed_index: bottom.speed_index,
+            multiplier: bottom.multiplier * 2,
+            ..replay()
+        };
+        let mut press = |key| {
+            run_frame(&mut shell, &ctx, Some(&below_the_bottom));
+            assert!(shell.key_pressed(key, Modifiers::NONE), "{key:?}");
+            let time = ctx.input(|input| input.time) + 1.0;
+            run_frame_at(&mut shell, &ctx, Some(&below_the_bottom), time)
+        };
+        let down = press(Key::D);
+        assert_eq!(down.intents, []);
+        assert!(!down.button_click);
+        let up = press(Key::U);
+        assert_eq!(
+            up.intents,
+            [Intent::SetSpeed {
+                speed_index: bottom.speed_index,
+                multiplier: bottom.multiplier,
+                paused: false,
+            }]
+        );
+        assert!(up.button_click);
     }
 
     #[test]

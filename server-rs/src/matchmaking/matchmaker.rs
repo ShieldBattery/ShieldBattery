@@ -11,19 +11,31 @@ use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;
 use crate::matchmaking::backbone::BackboneRttTable;
-use crate::matchmaking::config::MatchmakerConfig;
+use crate::matchmaking::config::{MatchmakerConfig, ModeConfig};
+use crate::matchmaking::rating_distribution::RatingDistribution;
 
 /*
 Match quality is expressed in seconds of wait time: a positive value means the match is good
 enough to form right now, a negative value means it needs more wait time to become acceptable.
 
     quality = wait_time − (W_var * skill_variance + W_prob * win_prob_diff
-                           + W_lat * latency_value(max_latency))
+                           + W_lat * latency_value(max_latency) + rematch_penalty)
 
 Where:
     - W_var  = "How many seconds I would wait for a 1-unit improvement in skill variance"
     - W_prob = "How many seconds I would wait for a 1-unit improvement in win-probability balance"
     - W_lat  = "How many seconds I would wait to drop a match's latency by one turn-rate step"
+
+The rematch penalty discourages pairing players who just played each other. For every pair of
+players on opposite teams it adds
+
+    W_rematch * scale * Σ 0.5^(age / rematch_half_life)
+
+summed over that pair's recent games in the mode, where `age` is how long ago each game started.
+`scale` softens the penalty for players with few active players near their rating, since waiting
+rarely finds them anyone new: each player's scale is clamp(nearby / (reference * median_nearby),
+floor, 1), and a pair uses the smaller of its two players' scales (see [`rematch_scale`]). Team
+partitions are still chosen for balance alone; the penalty is scored on the chosen split.
 
 `max_latency` is the estimated one-way latency (in milliseconds) of the candidate match's worst
 pairwise link, derived from each player's chosen region and their measured round-trip time to it
@@ -31,6 +43,10 @@ pairwise link, derived from each player's chosen region and their measured round
 a fixed turn rate / input buffer until latency crosses a threshold, so anything under ~100ms one-way
 plays identically. The quality formula therefore penalizes `latency_value(max_latency)` (a count of
 turn-rate steps) rather than raw milliseconds (see [`latency_value`]).
+
+For 2v2 modes, W_var is multiplied by 1 to 1.5 according to the highest raw-rating percentile
+in the candidate roster. The extra cost ramps from P75 to P95 of recent active players in that mode
+(see [`RatingDistribution`]). The baseline weight and adaptive threshold still apply.
 
 Skill variance is computed over each player's *effective rating* (rating − k*σ), so newly-placed
 players with high uncertainty contribute less variance and match more freely until their rating
@@ -94,6 +110,17 @@ pub struct Player {
     /// This player's measured round-trip time (ms) to `region`. Present only alongside a `region`;
     /// a player missing either carries no latency signal.
     pub rtt_ms: Option<f32>,
+    /// Per-mode opponents from this player's recent games, used to discourage rematches. Modes
+    /// with no recent games have no entry.
+    pub recent_opponents: HashMap<MatchmakingType, Vec<RecentOpponent>>,
+}
+
+/// An opponent from one of a player's recent games in a mode.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RecentOpponent {
+    pub id: usize,
+    /// When that game started.
+    pub played_at: Instant,
 }
 
 /// Returns the conservative skill estimate: the player's rating minus `uncertainty_k` standard
@@ -134,6 +161,10 @@ pub struct Matchmaker<T: QueueSelector> {
     /// coordinator-served table (or an operator override change) takes effect without a restart, like
     /// `config`.
     backbone: Arc<BackboneRttTable>,
+    /// Ratings of recently active players, used to scale 2v2 variance costs and to soften the
+    /// rematch penalty in sparse rating ranges. Replaced each search tick via
+    /// [`Matchmaker::set_rating_distribution`] with the latest snapshot.
+    rating_distribution: Arc<RatingDistribution>,
     queue: Vec<QueueEntry>,
     queued_player_ids: HashSet<usize>,
     queue_sizes: HashMap<MatchmakingType, usize>,
@@ -165,9 +196,14 @@ pub struct Match {
     pub team_b: Vec<QueueEntry>,
     pub quality: f32,
     /// Variance of the matched players' effective ratings — the raw skill-spread input to the
-    /// quality score, before `weight_rating_variance` is applied. Persisted as match-formation
-    /// telemetry so the weights can later be calibrated against real game outcomes.
+    /// quality score, before `weight_rating_variance` and `rating_variance_multiplier` are applied.
+    /// Persisted as match-formation telemetry so the weights can later be calibrated against real
+    /// game outcomes.
     pub skill_variance: f32,
+    /// Multiplier applied to `weight_rating_variance` for this roster: 1 to 1.5 by the roster's
+    /// highest raw-rating percentile among active players in 2v2 modes (see
+    /// [`RatingDistribution::variance_multiplier`]), and always 1 in other modes.
+    pub rating_variance_multiplier: f32,
     /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
     /// (uncertainty-discounted) ratings — see
     /// [`team_rating_for_indices`]/[`effective_rating`]. Uncertainty
@@ -183,6 +219,9 @@ pub struct Match {
     /// Recorded in raw milliseconds for calibration; the quality score itself penalizes
     /// `latency_value(max_latency)` weighted by `weight_latency`, not these raw ms.
     pub max_latency: f32,
+    /// Seconds of rematch penalty subtracted from `quality` (see [`rematch_penalty`]); 0 when no
+    /// opposing players have played each other recently.
+    pub rematch_penalty: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -209,6 +248,7 @@ pub struct ModeSearchStats {
     pub players_examined: usize,
     pub rosters_evaluated: u64,
     pub map_rejections: u64,
+    pub spread_rejections: u64,
     pub upper_bound_rejections: u64,
     pub team_partitions_evaluated: u64,
     pub quality_rejections: u64,
@@ -224,6 +264,7 @@ impl ModeSearchStats {
             players_examined: 0,
             rosters_evaluated: 0,
             map_rejections: 0,
+            spread_rejections: 0,
             upper_bound_rejections: 0,
             team_partitions_evaluated: 0,
             quality_rejections: 0,
@@ -238,7 +279,140 @@ struct PreparedPlayer<'a> {
     selected_index: usize,
     entry: &'a QueueEntry,
     effective_rating: f32,
+    /// This player's [`RatingDistribution::variance_multiplier`]; a roster uses its players' max.
+    rating_variance_multiplier: f32,
+    /// This player's [`rematch_scale`]; a pair of opponents uses the smaller of their two scales.
+    rematch_scale: f32,
     map_selection_bits: Option<Vec<u64>>,
+}
+
+/// The fraction of the rematch penalty a player gets, from how many recently active players are
+/// near their rating. Players at or above `rematch_density_reference` times the median player's
+/// nearby count get the full penalty; sparser players get proportionally less, down to
+/// `rematch_density_floor`. `median_nearby` is `None` (full penalty) when the mode has too few
+/// active players to judge.
+fn rematch_scale(
+    distribution: &RatingDistribution,
+    mode: MatchmakingType,
+    raw_rating: f32,
+    cfg: &ModeConfig,
+    median_nearby: Option<usize>,
+) -> f32 {
+    let (Some(median), Some(nearby)) = (
+        median_nearby,
+        distribution.nearby_count(mode, raw_rating, cfg.rematch_density_radius),
+    ) else {
+        return 1.0;
+    };
+    let reference = median as f32 * cfg.rematch_density_reference;
+    (nearby as f32 / reference).clamp(cfg.rematch_density_floor, 1.0)
+}
+
+/// Seconds of rematch penalty for every pair of selected players, were they to land on opposite
+/// teams: `weight_rematch` times the pair's smaller [`rematch_scale`] times their decayed recent
+/// games against each other, where a game one half-life ago counts as half a game. Both players
+/// normally report the same games, so the larger of their two counts is used rather than the sum.
+///
+/// Built once per mode per search so that scoring a candidate roster only reads this table: the
+/// number of rosters grows combinatorially with the players examined, while the pairs do not.
+struct PairRematchPenalties {
+    player_count: usize,
+    /// Indexed like [`PairLatencies`], by both players' `selected_index`. Empty when
+    /// `any_penalty` is false.
+    values: Vec<f32>,
+    /// Whether any pair of selected players carries a penalty.
+    any_penalty: bool,
+}
+
+impl PairRematchPenalties {
+    fn new(
+        selected: &[PreparedPlayer<'_>],
+        mode: MatchmakingType,
+        cfg: &ModeConfig,
+        now: Instant,
+    ) -> Self {
+        let player_count = selected.len();
+        let mut result = Self {
+            player_count,
+            values: Vec::new(),
+            any_penalty: false,
+        };
+        if cfg.weight_rematch <= 0.0
+            || selected
+                .iter()
+                .all(|p| !p.entry.player.recent_opponents.contains_key(&mode))
+        {
+            return result;
+        }
+
+        let index_by_id = selected
+            .iter()
+            .enumerate()
+            .map(|(index, p)| (p.entry.player.id, index))
+            .collect::<HashMap<_, _>>();
+        let half_life = cfg.rematch_half_life.as_secs_f32();
+        // decayed_games[i * player_count + j] is how many recent games player i reports against
+        // player j, each decayed by its age.
+        let mut decayed_games = vec![0.0_f32; player_count * player_count];
+        for (i, p) in selected.iter().enumerate() {
+            let Some(opponents) = p.entry.player.recent_opponents.get(&mode) else {
+                continue;
+            };
+            for opponent in opponents {
+                if let Some(&j) = index_by_id.get(&opponent.id) {
+                    let age = now.saturating_duration_since(opponent.played_at);
+                    decayed_games[i * player_count + j] +=
+                        0.5_f32.powf(age.as_secs_f32() / half_life);
+                }
+            }
+        }
+
+        result.values = vec![0.0; player_count * player_count];
+        for (i, a) in selected.iter().enumerate() {
+            for (j, b) in selected.iter().enumerate().skip(i + 1) {
+                let games =
+                    decayed_games[i * player_count + j].max(decayed_games[j * player_count + i]);
+                if games > 0.0 {
+                    let penalty = cfg.weight_rematch * a.rematch_scale.min(b.rematch_scale) * games;
+                    result.values[i * player_count + j] = penalty;
+                    result.values[j * player_count + i] = penalty;
+                    result.any_penalty = true;
+                }
+            }
+        }
+        result
+    }
+
+    fn get(&self, a: usize, b: usize) -> f32 {
+        self.values[a * self.player_count + b]
+    }
+}
+
+/// Seconds of rematch penalty for a candidate split: the sum of the pair penalties across every
+/// pair of players on opposite teams.
+fn rematch_penalty(
+    entries: &[&PreparedPlayer<'_>],
+    team_a: &TeamIds,
+    team_b: &TeamIds,
+    pairs: &PairRematchPenalties,
+) -> f32 {
+    if !pairs.any_penalty {
+        return 0.0;
+    }
+    let selected_index = |id: usize| {
+        entries
+            .iter()
+            .find(|p| p.entry.player.id == id)
+            .expect("team members come from the candidate roster")
+            .selected_index
+    };
+    let mut penalty = 0.0;
+    for a in team_a.iter().map(selected_index) {
+        for b in team_b.iter().map(selected_index) {
+            penalty += pairs.get(a, b);
+        }
+    }
+    penalty
 }
 
 struct PairLatencies {
@@ -479,10 +653,12 @@ struct MatchCandidate {
     team_b: TeamIds,
     quality: f32,
     skill_variance: f32,
+    rating_variance_multiplier: f32,
     win_probability: f32,
     team_a_rating: f32,
     team_b_rating: f32,
     max_latency: f32,
+    rematch_penalty: f32,
 }
 
 struct CandidateSearchResult {
@@ -502,10 +678,12 @@ impl MatchCandidate {
             team_b: self.team_b.clone_entries(entries),
             quality: self.quality,
             skill_variance: self.skill_variance,
+            rating_variance_multiplier: self.rating_variance_multiplier,
             win_probability: self.win_probability,
             team_a_rating: self.team_a_rating,
             team_b_rating: self.team_b_rating,
             max_latency: self.max_latency,
+            rematch_penalty: self.rematch_penalty,
         }
     }
 
@@ -516,10 +694,12 @@ impl MatchCandidate {
             team_b: self.team_b.take_entries(entries),
             quality: self.quality,
             skill_variance: self.skill_variance,
+            rating_variance_multiplier: self.rating_variance_multiplier,
             win_probability: self.win_probability,
             team_a_rating: self.team_a_rating,
             team_b_rating: self.team_b_rating,
             max_latency: self.max_latency,
+            rematch_penalty: self.rematch_penalty,
         }
     }
 }
@@ -590,6 +770,7 @@ impl<T: QueueSelector> Matchmaker<T> {
             start,
             config,
             backbone: Arc::new(BackboneRttTable::default()),
+            rating_distribution: Arc::new(RatingDistribution::default()),
             queue: Vec::new(),
             queued_player_ids: HashSet::new(),
             queue_sizes: HashMap::new(),
@@ -611,6 +792,11 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// untouched.
     pub fn set_backbone(&mut self, backbone: BackboneRttTable) {
         self.backbone = Arc::new(backbone);
+    }
+
+    /// Replaces the active-player rating snapshot used to scale 2v2 variance costs.
+    pub(crate) fn set_rating_distribution(&mut self, distribution: Arc<RatingDistribution>) {
+        self.rating_distribution = distribution;
     }
 
     /// Returns the instant at which this matchmaker was created. Queue times in serialized tickets
@@ -917,14 +1103,21 @@ impl<T: QueueSelector> Matchmaker<T> {
                 .queue_selector
                 .select(mode_queue, self.config.max_players_examined);
             mode_stats.players_examined = selected_entries.len();
+            let median_nearby = if mode_cfg.weight_rematch > 0.0 {
+                self.rating_distribution
+                    .median_nearby_count(*mode, mode_cfg.rematch_density_radius)
+            } else {
+                None
+            };
             let pair_latencies = PairLatencies::new(&selected_entries, &self.backbone);
             let map_selection_bits = prepare_map_selection_bits(&selected_entries, *mode);
             let selected = selected_entries
                 .iter()
                 .zip(map_selection_bits)
                 .enumerate()
-                .map(
-                    |(selected_index, (entry, map_selection_bits))| PreparedPlayer {
+                .map(|(selected_index, (entry, map_selection_bits))| {
+                    let raw_rating = entry.player.ratings.get(mode).map_or(0.0, |r| r.rating);
+                    PreparedPlayer {
                         selected_index,
                         entry,
                         effective_rating: effective_rating(
@@ -932,10 +1125,22 @@ impl<T: QueueSelector> Matchmaker<T> {
                             *mode,
                             mode_cfg.uncertainty_k,
                         ),
+                        rating_variance_multiplier: self
+                            .rating_distribution
+                            .variance_multiplier(*mode, raw_rating),
+                        rematch_scale: rematch_scale(
+                            &self.rating_distribution,
+                            *mode,
+                            raw_rating,
+                            mode_cfg,
+                            median_nearby,
+                        ),
                         map_selection_bits,
-                    },
-                )
+                    }
+                })
                 .collect::<Vec<_>>();
+
+            let pair_rematch = PairRematchPenalties::new(&selected, *mode, mode_cfg, now);
 
             let mode_matches = selected
                 .iter()
@@ -962,8 +1167,13 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let mut count = 0;
                     let mut mean = 0.0;
                     let mut m2 = 0.0;
+                    let mut rating_variance_multiplier = 1.0_f32;
+                    let mut lowest_rating = f32::INFINITY;
+                    let mut highest_rating = f32::NEG_INFINITY;
 
                     for q in &queue_entries {
+                        rating_variance_multiplier =
+                            rating_variance_multiplier.max(q.rating_variance_multiplier);
                         if q.entry.queue_time < oldest_queue_time {
                             oldest_queue_time = q.entry.queue_time;
                         }
@@ -973,11 +1183,22 @@ impl<T: QueueSelector> Matchmaker<T> {
                         let delta = r - mean;
                         mean += delta / count as f32;
                         m2 += delta * (r - mean);
+                        lowest_rating = lowest_rating.min(r);
+                        highest_rating = highest_rating.max(r);
                     }
+
+                    if mode_cfg.max_rating_spread > 0.0
+                        && highest_rating - lowest_rating > mode_cfg.max_rating_spread
+                    {
+                        mode_stats.spread_rejections += 1;
+                        return None;
+                    }
+
                     let variance = m2 / (count as f32 - 1.0);
                     let wait_time = now - oldest_queue_time;
                     let wait_seconds = wait_time.as_secs_f32();
-                    let variance_penalty = mode_cfg.weight_rating_variance * variance;
+                    let variance_penalty =
+                        mode_cfg.weight_rating_variance * rating_variance_multiplier * variance;
                     let latency_penalty = mode_cfg.weight_latency * latency_value(max_latency);
 
                     // Win-probability imbalance is always nonnegative. If the candidate already
@@ -1000,11 +1221,14 @@ impl<T: QueueSelector> Matchmaker<T> {
                     // Calculate the win probability for team_a vs team_b
                     let win_prob = get_win_probability(rating_a, rating_b, mode_cfg.win_prob_scale);
                     let win_prob_diff = (0.5 - win_prob).abs();
+                    let rematch_penalty =
+                        rematch_penalty(&queue_entries, &team_a, &team_b, &pair_rematch);
 
                     let quality = wait_seconds
                         - (variance_penalty
                             + mode_cfg.weight_win_prob * win_prob_diff
-                            + latency_penalty);
+                            + latency_penalty
+                            + rematch_penalty);
 
                     // Filter any matches that are too low quality
                     if quality >= effective_min {
@@ -1015,10 +1239,12 @@ impl<T: QueueSelector> Matchmaker<T> {
                             team_b,
                             quality,
                             skill_variance: variance,
+                            rating_variance_multiplier,
                             win_probability: win_prob,
                             team_a_rating: rating_a,
                             team_b_rating: rating_b,
                             max_latency,
+                            rematch_penalty,
                         })
                     } else {
                         mode_stats.quality_rejections += 1;
@@ -1089,6 +1315,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         }
     }
 
@@ -1112,6 +1339,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         }
     }
 
@@ -1196,7 +1424,7 @@ mod tests {
 
     fn match_snapshot(
         matchmaking_match: &Match,
-    ) -> (MatchmakingType, Vec<usize>, Vec<usize>, [u32; 6]) {
+    ) -> (MatchmakingType, Vec<usize>, Vec<usize>, [u32; 7]) {
         (
             matchmaking_match.mode,
             matchmaking_match
@@ -1212,12 +1440,280 @@ mod tests {
             [
                 matchmaking_match.quality.to_bits(),
                 matchmaking_match.skill_variance.to_bits(),
+                matchmaking_match.rating_variance_multiplier.to_bits(),
                 matchmaking_match.win_probability.to_bits(),
                 matchmaking_match.team_a_rating.to_bits(),
                 matchmaking_match.team_b_rating.to_bits(),
                 matchmaking_match.max_latency.to_bits(),
             ],
         )
+    }
+
+    fn percentile_test_matchmaker(ratings: &[f32]) -> Matchmaker<TestQueueSelector> {
+        let mut mm = Matchmaker::with_queue_selector(
+            Arc::new(MatchmakerConfig::from_global(ModeConfig {
+                weight_rating_variance: 0.002,
+                weight_win_prob: 0.0,
+                uncertainty_k: 0.0,
+                min_quality: 0.0,
+                adaptive_decay_per_missing: 0.0,
+                ..Default::default()
+            })),
+            TestQueueSelector,
+        );
+        for (id, &rating) in ratings.iter().enumerate() {
+            mm.requeue_player(
+                make_player(id, rating, MatchmakingType::Match2v2),
+                mm.start(),
+            )
+            .unwrap();
+        }
+        mm
+    }
+
+    #[test]
+    fn percentile_scaling_adds_soft_wait_cost_for_high_rating_rosters() {
+        let mode = MatchmakingType::Match2v2;
+        let mut mm = percentile_test_matchmaker(&[1400.0, 1600.0, 1800.0, 2000.0]);
+        let now = mm.start() + Duration::from_secs(150);
+        let baseline = mm.find_matches_for_modes(&[mode], now);
+        assert_eq!(baseline.len(), 1);
+        assert_eq!(baseline[0].rating_variance_multiplier, 1.0);
+
+        mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
+        )));
+        let search = mm.find_match_candidates_for_modes(&[mode], now);
+        assert!(search.candidates.is_empty());
+        assert_eq!(search.stats[0].upper_bound_rejections, 1);
+        let later = mm.find_matches_for_modes(&[mode], now + Duration::from_secs(60));
+        assert_eq!(later.len(), 1, "waiting still makes the roster eligible");
+        assert_eq!(later[0].rating_variance_multiplier, 1.5);
+        assert!((later[0].quality - 10.0).abs() < 0.001);
+        assert_eq!(later[0].skill_variance, baseline[0].skill_variance);
+        assert_eq!(later[0].team_a_rating, baseline[0].team_a_rating);
+        assert_eq!(later[0].team_b_rating, baseline[0].team_b_rating);
+    }
+
+    #[test]
+    fn below_p75_rosters_keep_baseline_even_with_low_rating_outliers() {
+        let mode = MatchmakingType::Match2v2;
+        let mut mm = percentile_test_matchmaker(&[800.0, 1200.0, 1200.0, 1400.0]);
+        let now = mm.start() + Duration::from_secs(1000);
+        let baseline = mm.find_matches_for_modes(&[mode], now).remove(0);
+        mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
+        )));
+        let scaled = mm.find_matches_for_modes(&[mode], now).remove(0);
+        assert_eq!(scaled.rating_variance_multiplier, 1.0);
+        assert_eq!(scaled.quality, baseline.quality);
+    }
+
+    #[test]
+    fn equal_high_ratings_add_no_variance_cost() {
+        let mode = MatchmakingType::Match2v2;
+        let mut mm = percentile_test_matchmaker(&[2000.0; 4]);
+        mm.set_rating_distribution(Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
+        )));
+        let now = mm.start() + Duration::from_secs(20);
+        let m = mm.find_matches_for_modes(&[mode], now).remove(0);
+        assert_eq!(m.rating_variance_multiplier, 1.5);
+        assert_eq!(m.skill_variance, 0.0);
+        assert_eq!(m.quality, 20.0);
+    }
+
+    /// A matchmaker where only wait time and the rematch penalty affect quality, with a fixed
+    /// threshold of 0, holding the given (id, rating, recent opponent ids) players. Every player
+    /// is queued at `start()`, and every listed opponent was played at `start()`.
+    fn rematch_test_matchmaker(
+        mode: MatchmakingType,
+        players: &[(usize, f32, &[usize])],
+    ) -> Matchmaker<TestQueueSelector> {
+        let mut mm = Matchmaker::with_queue_selector(
+            Arc::new(MatchmakerConfig::from_global(ModeConfig {
+                weight_rating_variance: 0.0,
+                weight_win_prob: 0.0,
+                uncertainty_k: 0.0,
+                min_quality: 0.0,
+                adaptive_decay_per_missing: 0.0,
+                weight_rematch: 120.0,
+                ..Default::default()
+            })),
+            TestQueueSelector,
+        );
+        let start = mm.start();
+        for &(id, rating, opponents) in players {
+            let mut player = make_player(id, rating, mode);
+            player.recent_opponents.insert(
+                mode,
+                opponents
+                    .iter()
+                    .map(|&id| RecentOpponent {
+                        id,
+                        played_at: start,
+                    })
+                    .collect(),
+            );
+            mm.requeue_player(player, start).unwrap();
+        }
+        mm
+    }
+
+    fn decay(age: Duration) -> f32 {
+        0.5_f32.powf(age.as_secs_f32() / (30.0 * 60.0))
+    }
+
+    #[test]
+    fn rematch_waits_out_the_penalty() {
+        let mode = MatchmakingType::Match1v1;
+        let mm = rematch_test_matchmaker(mode, &[(0, 1500.0, &[1]), (1, 1500.0, &[0])]);
+        let start = mm.start();
+
+        assert!(
+            mm.find_matches_for_modes(&[mode], start + Duration::from_secs(60))
+                .is_empty()
+        );
+
+        let wait = Duration::from_secs(121);
+        let matches = mm.find_matches_for_modes(&[mode], start + wait);
+        assert_eq!(matches.len(), 1);
+        let expected = 120.0 * decay(wait);
+        assert!((matches[0].rematch_penalty - expected).abs() < 0.01);
+        assert!((matches[0].quality - (121.0 - expected)).abs() < 0.01);
+    }
+
+    #[test]
+    fn rematch_penalty_prefers_a_fresh_opponent() {
+        let mode = MatchmakingType::Match1v1;
+        let mm = rematch_test_matchmaker(
+            mode,
+            &[(0, 1500.0, &[1]), (1, 1500.0, &[0]), (2, 1550.0, &[])],
+        );
+        let matches = mm.find_matches_for_modes(&[mode], mm.start() + Duration::from_secs(10));
+        assert_eq!(
+            matches.len(),
+            2,
+            "both fresh pairings qualify; the rematch doesn't"
+        );
+        for m in &matches {
+            assert_eq!(m.rematch_penalty, 0.0);
+            assert!(m.team_a.iter().chain(&m.team_b).any(|e| e.player.id == 2));
+        }
+    }
+
+    #[test]
+    fn repeated_games_against_an_opponent_add_up() {
+        let mode = MatchmakingType::Match1v1;
+        let mm = rematch_test_matchmaker(mode, &[(0, 1500.0, &[1, 1]), (1, 1500.0, &[0, 0])]);
+        let wait = Duration::from_secs(300);
+        let matches = mm.find_matches_for_modes(&[mode], mm.start() + wait);
+        assert_eq!(matches.len(), 1);
+        assert!((matches[0].rematch_penalty - 240.0 * decay(wait)).abs() < 0.01);
+    }
+
+    #[test]
+    fn one_sided_history_still_counts() {
+        let mode = MatchmakingType::Match1v1;
+        let mm = rematch_test_matchmaker(mode, &[(0, 1500.0, &[1]), (1, 1500.0, &[])]);
+        assert!(
+            mm.find_matches_for_modes(&[mode], mm.start() + Duration::from_secs(60))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn rematch_penalty_softens_in_sparse_rating_ranges() {
+        let mode = MatchmakingType::Match1v1;
+        // 20 active players from 1000 to 1760: anyone in that range has about seven nearby, and
+        // nobody is within 150 of 2400.
+        let distribution = Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)),
+        ));
+        let wait = Duration::from_secs(130);
+
+        let mut dense = rematch_test_matchmaker(mode, &[(0, 1400.0, &[1]), (1, 1400.0, &[0])]);
+        dense.set_rating_distribution(distribution.clone());
+        let dense = dense.find_matches_for_modes(&[mode], dense.start() + wait);
+        assert!((dense[0].rematch_penalty - 120.0 * decay(wait)).abs() < 0.01);
+
+        let mut sparse = rematch_test_matchmaker(mode, &[(0, 2400.0, &[1]), (1, 2400.0, &[0])]);
+        sparse.set_rating_distribution(distribution);
+        let sparse = sparse.find_matches_for_modes(&[mode], sparse.start() + wait);
+        assert!(
+            (sparse[0].rematch_penalty - 60.0 * decay(wait)).abs() < 0.01,
+            "the default floor halves the penalty"
+        );
+    }
+
+    #[test]
+    fn rematch_scale_is_proportional_between_floor_and_reference() {
+        let mode = MatchmakingType::Match1v1;
+        let distribution =
+            RatingDistribution::from_ratings((0..20).map(|n| (mode, 1000.0 + n as f32 * 40.0)));
+        let cfg = ModeConfig {
+            rematch_density_floor: 0.0,
+            ..Default::default()
+        };
+        let median = distribution.median_nearby_count(mode, cfg.rematch_density_radius);
+        assert_eq!(median, Some(7));
+        let reference = 7.0 * cfg.rematch_density_reference;
+        // 1800 has three active players within 150: 1680, 1720 and 1760.
+        let scale = rematch_scale(&distribution, mode, 1800.0, &cfg, median);
+        assert!((scale - 3.0 / reference).abs() < 0.0001);
+        assert_eq!(
+            rematch_scale(&distribution, mode, 1400.0, &cfg, median),
+            1.0
+        );
+        assert_eq!(rematch_scale(&distribution, mode, 1400.0, &cfg, None), 1.0);
+    }
+
+    #[test]
+    fn team_rematches_count_only_opponents() {
+        let mode = MatchmakingType::Match2v2;
+        let wait = Duration::from_secs(300);
+        // These ratings balance only as 0+1 against 2+3.
+        let teammates = rematch_test_matchmaker(
+            mode,
+            &[
+                (0, 1400.0, &[1]),
+                (1, 1600.0, &[0]),
+                (2, 1450.0, &[]),
+                (3, 1550.0, &[]),
+            ],
+        );
+        let m = teammates
+            .find_matches_for_modes(&[mode], teammates.start() + wait)
+            .remove(0);
+        assert_eq!(m.rematch_penalty, 0.0);
+
+        let opponents = rematch_test_matchmaker(
+            mode,
+            &[
+                (0, 1400.0, &[2]),
+                (1, 1600.0, &[]),
+                (2, 1450.0, &[0]),
+                (3, 1550.0, &[]),
+            ],
+        );
+        let m = opponents
+            .find_matches_for_modes(&[mode], opponents.start() + wait)
+            .remove(0);
+        assert!((m.rematch_penalty - 120.0 * decay(wait)).abs() < 0.01);
+    }
+
+    #[test]
+    fn rematch_penalty_off_when_weight_is_zero() {
+        let mode = MatchmakingType::Match1v1;
+        let mut mm = rematch_test_matchmaker(mode, &[(0, 1500.0, &[1]), (1, 1500.0, &[0])]);
+        mm.set_config(Arc::new(MatchmakerConfig::from_global(ModeConfig {
+            min_quality: 0.0,
+            adaptive_decay_per_missing: 0.0,
+            ..Default::default()
+        })));
+        let matches = mm.find_matches_for_modes(&[mode], mm.start() + Duration::from_secs(1));
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].rematch_penalty, 0.0);
     }
 
     #[test]
@@ -1362,6 +1858,7 @@ mod tests {
                         map_selections,
                         region: region.map(str::to_string),
                         rtt_ms,
+                        recent_opponents: HashMap::new(),
                     },
                     modes: mode.into(),
                 }
@@ -1384,6 +1881,8 @@ mod tests {
                     selected_index,
                     entry,
                     effective_rating: effective_rating(&entry.player, mode, 1.0),
+                    rating_variance_multiplier: 1.0,
+                    rematch_scale: 1.0,
                     map_selection_bits,
                 },
             )
@@ -1536,6 +2035,69 @@ mod tests {
         );
         assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1), 1);
         assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1Fastest), 1);
+    }
+
+    /// A permissive config with the given rating spread cap, so only the cap can reject a match.
+    fn spread_cap_config(max_rating_spread: f32) -> Arc<MatchmakerConfig> {
+        Arc::new(MatchmakerConfig::from_global(ModeConfig {
+            min_quality: f32::NEG_INFINITY,
+            max_rating_spread,
+            ..Default::default()
+        }))
+    }
+
+    fn matchmaker_with_2v2_ratings(
+        config: Arc<MatchmakerConfig>,
+        ratings: [f32; 4],
+    ) -> Matchmaker<TestQueueSelector> {
+        let mut matchmaker = Matchmaker::with_queue_selector(config, TestQueueSelector);
+        for (id, rating) in ratings.into_iter().enumerate() {
+            matchmaker
+                .insert_player(make_player(id, rating, MatchmakingType::Match2v2))
+                .unwrap();
+        }
+        matchmaker
+    }
+
+    #[test]
+    fn rating_spread_cap_allows_a_match_exactly_at_the_cap() {
+        let matchmaker =
+            matchmaker_with_2v2_ratings(spread_cap_config(300.0), [1300.0, 1500.0, 1500.0, 1600.0]);
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn rating_spread_cap_rejects_a_wider_match_however_long_the_wait() {
+        let config = spread_cap_config(300.0);
+        let mut matchmaker =
+            matchmaker_with_2v2_ratings(config.clone(), [1300.0, 1500.0, 1500.0, 1601.0]);
+
+        let result = matchmaker.run_tick_for_modes(
+            &[MatchmakingType::Match2v2],
+            Instant::now() + Duration::from_secs(60 * 60),
+            config,
+            Arc::new(BackboneRttTable::default()),
+        );
+
+        assert!(result.matches.is_empty());
+        let stats = &result.search_stats[0];
+        assert_eq!(stats.rosters_evaluated, 1);
+        assert_eq!(stats.spread_rejections, 1);
+        assert_eq!(stats.team_partitions_evaluated, 0);
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match2v2), 4);
+    }
+
+    #[test]
+    fn rating_spread_cap_of_zero_allows_any_spread() {
+        let matchmaker =
+            matchmaker_with_2v2_ratings(spread_cap_config(0.0), [500.0, 1500.0, 1500.0, 2500.0]);
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
+        assert_eq!(result.len(), 1);
     }
 
     #[test]
@@ -1760,6 +2322,7 @@ mod tests {
         Player {
             region: Some(region.to_string()),
             rtt_ms: Some(rtt_ms),
+            recent_opponents: HashMap::new(),
             ..make_player(id, 1000.0, mode)
         }
     }
@@ -2043,6 +2606,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         };
         let certain = Player {
             id: 1,
@@ -2056,6 +2620,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         };
 
         let mut mm = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
@@ -2100,6 +2665,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         };
         let player_b = Player {
             id: 1,
@@ -2122,6 +2688,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         };
         matchmaker.insert_player(player_a).unwrap();
         matchmaker.insert_player(player_b).unwrap();
@@ -2160,6 +2727,7 @@ mod tests {
             map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
             region: None,
             rtt_ms: None,
+            recent_opponents: HashMap::new(),
         }
     }
 

@@ -1223,7 +1223,7 @@ impl GameState {
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         use crate::game_thread::GameThreadMessage::*;
         match message {
-            WindowMove(..) => (),
+            WindowMove(..) | WindowShown => (),
             ReplaySaved(..) => (),
             SetUserBlocked { .. } | ReportPlayer(..) => (),
             MinimapSettings {
@@ -1895,8 +1895,6 @@ fn build_replay_joined_players() -> Vec<JoinedPlayer> {
 }
 
 async unsafe fn do_countdown() {
-    const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
-
     let bw = get_bw();
 
     let turn_seq = bw.snet_next_turn_sequence_number();
@@ -1935,7 +1933,7 @@ async unsafe fn do_countdown() {
                     bw.set_countdown_start(countdown_start);
                 }
 
-                bw.play_sound(COUNTDOWN_BEEP);
+                forge::play_countdown_beep();
                 beeps += 1;
 
                 if beeps == 6 {

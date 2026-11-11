@@ -1,32 +1,63 @@
-import { container } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { UserIpInfo } from '../../../common/users/user-network'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
-import type { UpsertUserIp } from '../network/user-ips-type'
+
+/** One or more times a user was seen at an IP address. */
+export interface UserIpSighting {
+  userId: SbUserId
+  ipAddress: string
+  /** How many times the user was seen at this address. */
+  count: number
+  /** When the user was most recently seen at this address. */
+  lastSeen: Date
+}
 
 /**
- * Updates information about this user's IP address stored in the database. This information is used
- * for things like identifying users with multiple accounts, avoiding bans, etc.
+ * Updates the IP addresses stored for users, creating or updating one row per user and address in
+ * a single statement. This information is used for things like identifying users with multiple
+ * accounts, avoiding bans, etc.
+ *
+ * Sightings are grouped by user and address first, since two spellings of one address are the same
+ * row and a statement may only touch a row once.
  */
-export async function upsertUserIp(userId: SbUserId, ipAddress: string): Promise<void> {
-  const { client, done } = await db()
+export async function upsertUserIpSightings(
+  sightings: ReadonlyArray<UserIpSighting>,
+  withClient?: DbClient,
+): Promise<void> {
+  if (!sightings.length) {
+    return
+  }
+
+  const { client, done } = await db(withClient)
   try {
+    // The times go through `to_timestamp` so they land in these columns the same way `NOW()`
+    // would, whatever time zones this process and the database session are in.
     await client.query(sql`
       INSERT INTO user_ips (user_id, ip_address, first_used, last_used, times_seen)
-      VALUES (${userId}, ${ipAddress}, NOW(), NOW(), 1)
+      SELECT
+        s.user_id,
+        s.ip_address,
+        to_timestamp(MAX(s.last_seen_ms) / 1000.0),
+        to_timestamp(MAX(s.last_seen_ms) / 1000.0),
+        SUM(s.times_seen)::integer
+      FROM UNNEST(
+        ${sightings.map(s => s.userId)}::integer[],
+        ${sightings.map(s => s.ipAddress)}::inet[],
+        ${sightings.map(s => s.lastSeen.getTime())}::double precision[],
+        ${sightings.map(s => s.count)}::integer[]
+      ) AS s(user_id, ip_address, last_seen_ms, times_seen)
+      GROUP BY s.user_id, s.ip_address
       ON CONFLICT (user_id, ip_address)
       DO UPDATE
-      SET last_used = NOW(),
-      times_seen = user_ips.times_seen + 1
+      SET last_used = GREATEST(user_ips.last_used, EXCLUDED.last_used),
+      times_seen = user_ips.times_seen + EXCLUDED.times_seen
     `)
   } finally {
     done()
   }
 }
-
-container.register<UpsertUserIp>('upsertUserIp', { useValue: upsertUserIp })
 
 type DbUserIpInfo = Dbify<UserIpInfo>
 

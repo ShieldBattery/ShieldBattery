@@ -13,6 +13,7 @@ pub mod config;
 pub mod history;
 pub mod matchmaker;
 mod metrics;
+pub(crate) mod rating_distribution;
 
 /// A single player's entry in a match found message.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -37,6 +38,8 @@ pub struct MatchFoundMessage {
     pub quality: f32,
     /// Variance of the matched players' effective ratings (raw skill-spread input to `quality`).
     pub skill_variance: f32,
+    /// Multiplier applied to the configured rating-variance weight (1 to 1.5, by active percentile).
+    pub rating_variance_multiplier: f32,
     /// Win probability of team A vs team B (0.5 == perfectly balanced).
     pub win_probability: f32,
     /// Effective team ratings used to compute `win_probability`.
@@ -46,6 +49,8 @@ pub struct MatchFoundMessage {
     /// player's measured RTT to their desired game server region plus the region-to-region
     /// backbone RTT (raw latency input to `quality`).
     pub max_latency: f32,
+    /// Seconds subtracted from `quality` because opposing players played each other recently.
+    pub rematch_penalty: f32,
 }
 
 /// Messages published to the Redis `"matchmaking"` channel.

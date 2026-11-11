@@ -76,11 +76,17 @@ export type MatchmakerConfigInput = {
 export type MatchmakerModeConfigOverridesInput = {
   adaptiveComfortableMultiplier?: number | null | undefined
   adaptiveDecayPerMissing?: number | null | undefined
+  maxRatingSpread?: number | null | undefined
   minQuality?: number | null | undefined
   populationHalfLifeSeconds?: number | null | undefined
+  rematchDensityFloor?: number | null | undefined
+  rematchDensityRadius?: number | null | undefined
+  rematchDensityReference?: number | null | undefined
+  rematchHalfLifeSeconds?: number | null | undefined
   uncertaintyK?: number | null | undefined
   weightLatency?: number | null | undefined
   weightRatingVariance?: number | null | undefined
+  weightRematch?: number | null | undefined
   weightWinProb?: number | null | undefined
   winProbScale?: number | null | undefined
 }
@@ -97,13 +103,21 @@ export type NewsPostCreation = {
   publishedAt?: string | null | undefined
   summary: string
   title: string
+  translations?: Array<NewsPostTranslationInput> | null | undefined
+}
+
+export type NewsPostTranslationInput = {
+  content?: string | null | undefined
+  language: string
+  summary?: string | null | undefined
+  title?: string | null | undefined
 }
 
 /**
  * Partial updates for an existing news post. Fields omitted from the input are left unchanged.
  * For `publishedAt` and `coverImagePath`, an explicit null clears the current value (e.g.
  * unpublishing a post), so a single mutation covers editing, publishing now, scheduling, and
- * unpublishing.
+ * unpublishing. `translations` replaces every translation, so an empty list removes them all.
  */
 export type NewsPostUpdates = {
   content?: string | null | undefined
@@ -111,6 +125,7 @@ export type NewsPostUpdates = {
   publishedAt?: string | null | undefined
   summary?: string | null | undefined
   title?: string | null | undefined
+  translations?: Array<NewsPostTranslationInput> | null | undefined
 }
 
 export type ReportGameInput = {
@@ -207,6 +222,12 @@ export type AdminNewsPostQuery = {
     publishedAt: string | null
     coverImagePath: string | null
     coverImageUrl: string | null
+    translations: Array<{
+      language: string
+      title: string | null
+      summary: string | null
+      content: string | null
+    }>
     author: { id: Types.SbUserId; name: string } | null
   } | null
 }
@@ -226,6 +247,12 @@ export type AdminNewsHistoryQuery = {
       publishedAt: string | null
       coverImagePath: string | null
       editedAt: string
+      translations: Array<{
+        language: string
+        title: string | null
+        summary: string | null
+        content: string | null
+      }>
       editor: { id: Types.SbUserId; name: string } | null
     }>
   } | null
@@ -268,10 +295,16 @@ export type AdminMatchmakingConfigQuery = {
       weightLatency: number | null
       uncertaintyK: number | null
       winProbScale: number | null
+      maxRatingSpread: number | null
       minQuality: number | null
       adaptiveComfortableMultiplier: number | null
       adaptiveDecayPerMissing: number | null
       populationHalfLifeSeconds: number | null
+      weightRematch: number | null
+      rematchHalfLifeSeconds: number | null
+      rematchDensityRadius: number | null
+      rematchDensityReference: number | null
+      rematchDensityFloor: number | null
     }
     perMode: Array<{
       matchmakingType: Types.MatchmakingType
@@ -281,10 +314,16 @@ export type AdminMatchmakingConfigQuery = {
         weightLatency: number | null
         uncertaintyK: number | null
         winProbScale: number | null
+        maxRatingSpread: number | null
         minQuality: number | null
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
         populationHalfLifeSeconds: number | null
+        weightRematch: number | null
+        rematchHalfLifeSeconds: number | null
+        rematchDensityRadius: number | null
+        rematchDensityReference: number | null
+        rematchDensityFloor: number | null
       }
     }>
     defaults: {
@@ -295,10 +334,16 @@ export type AdminMatchmakingConfigQuery = {
       weightLatency: number
       uncertaintyK: number
       winProbScale: number
+      maxRatingSpread: number
       minQuality: number
       adaptiveComfortableMultiplier: number
       adaptiveDecayPerMissing: number
       populationHalfLifeSeconds: number
+      weightRematch: number
+      rematchHalfLifeSeconds: number
+      rematchDensityRadius: number
+      rematchDensityReference: number
+      rematchDensityFloor: number
     }
     modeDefaults: Array<{
       matchmakingType: Types.MatchmakingType
@@ -308,10 +353,16 @@ export type AdminMatchmakingConfigQuery = {
         weightLatency: number | null
         uncertaintyK: number | null
         winProbScale: number | null
+        maxRatingSpread: number | null
         minQuality: number | null
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
         populationHalfLifeSeconds: number | null
+        weightRematch: number | null
+        rematchHalfLifeSeconds: number | null
+        rematchDensityRadius: number | null
+        rematchDensityReference: number | null
+        rematchDensityFloor: number | null
       }
     }>
   }
@@ -772,9 +823,11 @@ export type UrgentMessage_HomeDisplayFragmentFragment = {
   translations: Array<{ language: string; title: string; message: string }>
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
-export type Leagues_LeagueBadgeFragmentFragment = { name: string; badgeUrl: string | null } & {
-  ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment'
-}
+export type Leagues_LeagueBadgeFragmentFragment = {
+  name: string
+  badgeUrl: string | null
+  translations: Array<{ language: string; name: string | null }>
+} & { ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment' }
 
 export type Leagues_HomeFeedFragmentFragment = {
   activeLeagues: Array<
@@ -799,6 +852,7 @@ export type Leagues_HomeFeedEntryFragmentFragment = ({
   matchmakingType: Types.MatchmakingType
   startAt: string
   endAt: string
+  translations: Array<{ language: string; name: string | null }>
 } & {
   ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
 }) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
@@ -811,7 +865,13 @@ export type NewsArchiveQueryVariables = Exact<{
 export type NewsArchiveQuery = {
   newsPosts: {
     edges: Array<{
-      node: { id: string; title: string; summary: string; publishedAt: string | null }
+      node: {
+        id: string
+        title: string
+        summary: string
+        publishedAt: string | null
+        translations: Array<{ language: string; title: string | null; summary: string | null }>
+      }
     }>
     pageInfo: { hasNextPage: boolean; endCursor: string | null }
   }
@@ -827,6 +887,7 @@ export type News_HomeFeedFragmentFragment = {
         publishedAt: string | null
         coverImageUrl: string | null
         coverImageSmallUrl: string | null
+        translations: Array<{ language: string; title: string | null; summary: string | null }>
       }
     }>
   }
@@ -848,6 +909,12 @@ export type NewsUpdatePostMutation = {
     coverImagePath: string | null
     coverImageUrl: string | null
     coverImageSmallUrl: string | null
+    translations: Array<{
+      language: string
+      title: string | null
+      summary: string | null
+      content: string | null
+    }>
   }
 }
 
@@ -869,6 +936,7 @@ export type NewsPostQuery = {
     publishedAt: string | null
     coverImageUrl: string | null
     coverImageSmallUrl: string | null
+    translations: Array<{ language: string; title: string | null; content: string | null }>
     author: { id: Types.SbUserId; name: string } | null
   } | null
 }
@@ -1762,6 +1830,17 @@ export const Leagues_LeagueBadgeFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1780,6 +1859,17 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
@@ -1795,6 +1885,17 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1850,6 +1951,17 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -1863,6 +1975,17 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
@@ -1910,6 +2033,18 @@ export const News_HomeFeedFragmentFragmentDoc = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
@@ -2222,6 +2357,19 @@ export const AdminNewsPostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
@@ -2288,6 +2436,19 @@ export const AdminNewsHistoryDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'translations' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                          ],
+                        },
+                      },
                       { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'editedAt' } },
@@ -2468,6 +2629,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2475,6 +2637,11 @@ export const AdminMatchmakingConfigDocument = {
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityRadius' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityReference' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                     ],
                   },
                 },
@@ -2499,6 +2666,7 @@ export const AdminMatchmakingConfigDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                             {
                               kind: 'Field',
@@ -2512,6 +2680,20 @@ export const AdminMatchmakingConfigDocument = {
                               kind: 'Field',
                               name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
                             },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchHalfLifeSeconds' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityRadius' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityReference' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                           ],
                         },
                       },
@@ -2531,6 +2713,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2538,6 +2721,11 @@ export const AdminMatchmakingConfigDocument = {
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchHalfLifeSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityRadius' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityReference' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                     ],
                   },
                 },
@@ -2562,6 +2750,7 @@ export const AdminMatchmakingConfigDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'maxRatingSpread' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                             {
                               kind: 'Field',
@@ -2575,6 +2764,20 @@ export const AdminMatchmakingConfigDocument = {
                               kind: 'Field',
                               name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
                             },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightRematch' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchHalfLifeSeconds' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityRadius' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'rematchDensityReference' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'rematchDensityFloor' } },
                           ],
                         },
                       },
@@ -4176,6 +4379,17 @@ export const HomePageContentDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
@@ -4189,6 +4403,17 @@ export const HomePageContentDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
@@ -4294,6 +4519,18 @@ export const HomePageContentDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
@@ -4665,6 +4902,18 @@ export const NewsArchiveDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'translations' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                                ],
+                              },
+                            },
                             { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                           ],
                         },
@@ -4741,6 +4990,19 @@ export const NewsUpdatePostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
@@ -4826,6 +5088,18 @@ export const NewsPostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                    ],
+                  },
+                },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },

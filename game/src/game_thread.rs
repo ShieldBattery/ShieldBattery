@@ -151,6 +151,8 @@ pub enum GameThreadRequestType {
 // Game thread sends something to async tasks
 pub enum GameThreadMessage {
     WindowMove(i32, i32, i32, i32),
+    /// The game window was shown for the first time.
+    WindowShown,
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.
@@ -853,11 +855,14 @@ pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
                 let replay_visions = bw.replay_visions();
                 for unit in bw.active_units() {
                     if unit.player() == 11 && unit.is_landed_building() {
-                        // This currently adds fow sprites even for buildings that became
-                        // neutral after player left. It's probably fine, but if it wasn't
-                        // desired, checking that `sprite.player == 11` should only include
-                        // buildings that existed from map start
-                        if let Some(sprite) = unit.sprite() {
+                        // Only the map's own neutral buildings, whose sprites are drawn as
+                        // neutral too. A building that turned neutral (a player's after they
+                        // left, or an addon its building lifted off) keeps its player's sprite,
+                        // and is remembered from what the shown players saw of it (see
+                        // `remembered_buildings`), not shown whether they saw it or not.
+                        if let Some(sprite) = unit.sprite()
+                            && sprite.player() == 11
+                        {
                             let is_visible = replay_visions.show_entire_map
                                 || sprite.visibility_mask() & replay_visions.players != 0;
                             if !is_visible {
@@ -1023,53 +1028,60 @@ pub unsafe fn before_init_unit_data(bw: &BwScr) {
             if ext.team_game_main_players != [0, 0, 0, 0] {
                 (*game).team_game_main_player = ext.team_game_main_players;
                 (*game).starting_races = ext.starting_races;
-                let team_count = ext
-                    .team_game_main_players
-                    .iter()
-                    .take_while(|&&x| x != 0xff)
-                    .count();
-                let players_per_team = match team_count {
-                    2 => 4,
-                    3 => 3,
-                    4 => 2,
-                    _ => 0,
-                };
-
-                // Non-main players get 0 max supply.
-                // Clear what bw had already initialized.
-                // (Other players having unused max supply likely won't matter but you never know)
-                for race_supplies in (*game).supplies.iter_mut() {
-                    for max in race_supplies.max.iter_mut() {
-                        *max = 0;
-                    }
-                }
-
-                let mut pos = 0;
-                for i in 0..team_count {
-                    let main_player = ext.team_game_main_players[i] as usize;
-                    let first_pos = pos;
-                    let mut race_counts = [0; 3];
-                    for _ in 0..players_per_team {
-                        // The third team of 3-team game has only two slots, they
-                        // get their first slot counted twice
-                        let index = match pos < 8 {
-                            true => pos,
-                            false => first_pos,
-                        };
-                        let race = ext.starting_races[index];
-                        race_counts[race as usize] += 1;
-                        pos += 1;
-                    }
-                    for (race, &count) in race_counts.iter().enumerate() {
-                        let count = count.max(1);
-                        // This value is twice the displayed, so 200 max supply for each
-                        // player in team. (Or 200 if none)
-                        (*game).supplies[race].max[main_player] = count * 400;
-                    }
+                let num_teams = (*bw.game_data()).game_template.num_teams;
+                let max_supplies = team_game_max_supplies(
+                    num_teams,
+                    ext.team_game_main_players,
+                    ext.starting_races,
+                );
+                for (race_supplies, max) in (*game).supplies.iter_mut().zip(max_supplies) {
+                    race_supplies.max = max;
                 }
             }
         }
     }
+}
+
+/// Team game max supplies (twice the displayed value), indexed `[race][player]` like
+/// `Game::supplies[race].max`, as BW's own team game init sets them: each team's main player gets
+/// 400 per team slot holding that race, and at least 400. Every other player gets 0.
+///
+/// `num_teams` is the game template's team count (2-4), which fixes the slots per team. It can't be
+/// inferred from `main_players`, which holds 0xff for every team that had no players, wherever it
+/// is. BW counts a race by comparing each slot's `starting_races` entry against Zerg, Terran and
+/// Protoss in turn, so a slot holding anything else counts toward none of them.
+fn team_game_max_supplies(
+    num_teams: u8,
+    main_players: [u8; 4],
+    starting_races: [u8; 0xc],
+) -> [[u32; 0xc]; 3] {
+    let players_per_team = match num_teams {
+        2 => 4,
+        3 => 3,
+        4 => 2,
+        _ => 0,
+    };
+    let mut supplies = [[0; 0xc]; 3];
+    for (team, &main_player) in main_players.iter().enumerate() {
+        if main_player == 0xff || players_per_team == 0 {
+            continue;
+        }
+        let first_pos = team * players_per_team;
+        // The third team of a 3-team game has only two slots; BW counts its first slot again in
+        // place of the missing third.
+        let team_races = (first_pos..first_pos + players_per_team)
+            .filter_map(|pos| starting_races.get(if pos < 8 { pos } else { first_pos }));
+        for (race, race_supplies) in supplies.iter_mut().enumerate() {
+            let count = team_races
+                .clone()
+                .filter(|&&r| usize::from(r) == race)
+                .count() as u32;
+            if let Some(max) = race_supplies.get_mut(usize::from(main_player)) {
+                *max = count.max(1) * 400;
+            }
+        }
+    }
+    supplies
 }
 
 /// How many buildings of `unit`'s kind stand on its spot, itself among them, out of
@@ -1427,4 +1439,77 @@ fn find_walkable_position_for_gas_worker(
         }
         Some(pos)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ZERG: u8 = 0;
+    const TERRAN: u8 = 1;
+    const PROTOSS: u8 = 2;
+
+    #[test]
+    fn team_game_max_supplies_go_to_main_players() {
+        // Two teams of up to 4: players 0 and 1 (Zerg, Zerg) under main player 0, players 4
+        // and 5 (Terran, Protoss) under main player 4. Each team's other two slots are empty.
+        let mut races = [7u8; 0xc];
+        races[..2].copy_from_slice(&[ZERG, ZERG]);
+        races[4..6].copy_from_slice(&[TERRAN, PROTOSS]);
+        let supplies = team_game_max_supplies(2, [0, 4, 0xff, 0xff], races);
+        assert_eq!(supplies[ZERG as usize][0], 800);
+        assert_eq!(supplies[TERRAN as usize][0], 400);
+        assert_eq!(supplies[PROTOSS as usize][0], 400);
+        assert_eq!(supplies[ZERG as usize][4], 400);
+        assert_eq!(supplies[TERRAN as usize][4], 400);
+        assert_eq!(supplies[PROTOSS as usize][4], 400);
+        for (race, race_supplies) in supplies.iter().enumerate() {
+            for player in [1, 2, 3, 5, 6, 7] {
+                assert_eq!(race_supplies[player], 0, "race {race} player {player}");
+            }
+        }
+    }
+
+    #[test]
+    fn team_game_max_supplies_count_only_playable_races() {
+        // Slot races outside Zerg/Terran/Protoss count toward no race, the way BW counts them.
+        let mut races = [193u8; 0xc];
+        races[0] = TERRAN;
+        let supplies = team_game_max_supplies(2, [0, 4, 0xff, 0xff], races);
+        assert_eq!(supplies[TERRAN as usize][0], 400);
+        assert_eq!(supplies[ZERG as usize][4], 400);
+    }
+
+    #[test]
+    fn team_game_max_supplies_count_third_team_first_slot_twice() {
+        // 3 teams of 3: the third team only has slots 6 and 7, and BW counts slot 6 again.
+        let mut races = [7u8; 0xc];
+        races[6..8].copy_from_slice(&[PROTOSS, ZERG]);
+        let supplies = team_game_max_supplies(3, [0, 3, 6, 0xff], races);
+        assert_eq!(supplies[PROTOSS as usize][6], 800);
+        assert_eq!(supplies[ZERG as usize][6], 400);
+    }
+
+    #[test]
+    fn team_game_max_supplies_use_template_team_count_with_empty_teams() {
+        // 4 teams of 2 where only the first two teams had players (recorded from a real game):
+        // main players [3, 0, ff, ff], slots P,T | Z,Z | T,P | T,P.
+        let races = [
+            PROTOSS, TERRAN, ZERG, ZERG, TERRAN, PROTOSS, TERRAN, PROTOSS, 0, 0, 0, 0,
+        ];
+        let supplies = team_game_max_supplies(4, [3, 0, 0xff, 0xff], races);
+        assert_eq!(supplies.map(|race| race[3]), [400, 400, 400]);
+        assert_eq!(supplies.map(|race| race[0]), [800, 400, 400]);
+        // An empty team in the middle is skipped without shifting the teams after it.
+        let supplies = team_game_max_supplies(4, [3, 0xff, 5, 0xff], races);
+        assert_eq!(supplies.map(|race| race[5]), [400, 400, 400]);
+        assert_eq!(supplies.map(|race| race[0]), [0, 0, 0]);
+    }
+
+    #[test]
+    fn team_game_max_supplies_skip_out_of_range_main_players() {
+        let supplies = team_game_max_supplies(2, [0, 200, 0xff, 0xff], [ZERG; 0xc]);
+        assert_eq!(supplies[ZERG as usize][0], 1600);
+        assert!(supplies.iter().flatten().filter(|&&max| max != 0).count() == 3);
+    }
 }

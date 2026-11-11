@@ -88,8 +88,9 @@ pub(crate) struct SoundCounts {
 }
 
 /// Records a sound request the simulation makes while a tick's steps run, returning what the
-/// `play_sound` hook should answer in place of playing it, or `None` outside a tick to let the
-/// request through. Called from the `play_sound` hook with its arguments.
+/// `play_sound` hook should answer in place of playing it, or `None` to let the request through
+/// when the simulation isn't running (outside a tick, or while a step waits for turns and SC:R
+/// plays the person's sounds). Called from the `play_sound` hook with its arguments.
 ///
 /// A request tied to a unit is recorded at the unit's position as well: the sound is played only
 /// after the tick, by which point the unit may no longer exist.
@@ -100,7 +101,7 @@ pub(crate) fn intercept_play_sound(
     x: *mut i32,
     y: *mut i32,
 ) -> Option<u32> {
-    if !super::tick_running() {
+    if !super::simulation_running() {
         return None;
     }
     unsafe {

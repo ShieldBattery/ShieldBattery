@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { TranslationLanguage } from '../../../common/i18n'
 import { NotificationType } from '../../../common/notifications'
 import { FakeNotificationService } from '../notifications/testing/notification-service'
 
@@ -105,6 +106,27 @@ describe('leagues/league-start-notifier', () => {
 
     expect(getUnbannedLeagueUserIds).not.toHaveBeenCalled()
     expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
+  })
+
+  test('includes translated names for recipients to select in their app language', async () => {
+    claimLeagueStartNotification.mockResolvedValue({
+      name: 'League A',
+      endAt: new Date(NOW + 1000),
+      translations: [{ language: TranslationLanguage.Korean, name: '리그 A', description: '설명' }],
+    })
+    getUnbannedLeagueUserIds.mockResolvedValue([1, 2])
+    const { notifier, notificationService } = makeNotifier()
+
+    await notifier.notifyLeague(LEAGUE_ID)
+
+    expect(notificationService.addNotificationForUsers).toHaveBeenCalledWith({
+      userIds: [1, 2],
+      data: {
+        type: NotificationType.LeagueStart,
+        leagueName: 'League A',
+        leagueNameTranslations: { ko: '리그 A' },
+      },
+    })
   })
 
   test('does not notify for a league that has already ended', async () => {

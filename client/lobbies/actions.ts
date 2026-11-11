@@ -8,6 +8,7 @@ import {
   LobbyKickEvent,
   LobbyLeaveEvent,
   LobbyMapQueueAdvanceEvent,
+  LobbyMapStatusChangeEvent,
   LobbyMemberGameEndedEvent,
   LobbyPreferencesResponse,
   LobbyPreviewJson,
@@ -51,6 +52,7 @@ export type LobbyActions =
   | LobbyUpdateLeaveSelf
   | LobbyUpdateLoadingStart
   | LobbyUpdateLoadingCanceled
+  | LobbyUpdateMapStatusChange
   | LobbyUpdateMemberGameEnded
   | LobbyUpdateReadyChange
   | LobbyUpdateRegroup
@@ -207,6 +209,12 @@ export interface LobbyUpdateMemberGameEnded {
 export interface LobbyUpdateReadyChange {
   type: '@lobbies/updateReadyChange'
   payload: LobbyReadyChangeEvent
+}
+
+/** A member of a lobby we're in reported a change in whether they have its current map. */
+export interface LobbyUpdateMapStatusChange {
+  type: '@lobbies/updateMapStatusChange'
+  payload: LobbyMapStatusChangeEvent
 }
 
 /**

@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
@@ -12,16 +13,19 @@ import {
   GetMatchmakingBanStatusResponse,
   getMatchmakingModeInfo,
   GetMatchmakingSeasonsResponse,
+  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingSeasonsServiceErrorCode,
   MatchmakingServiceErrorCode,
   SeasonId,
   ServerAddMatchmakingSeasonRequest,
+  SimulateMatchPopRequest,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { ALL_RACE_CHARS } from '../../../common/races'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { withDbClient } from '../db'
 import transact from '../db/transaction'
+import isDev from '../env/is-dev'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -43,6 +47,15 @@ import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './mat
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
+
+/** Hides a development tool everywhere else. */
+async function ensureDevelopment(_ctx: Koa.Context, next: Koa.Next) {
+  if (!isDev) {
+    throw new httpErrors.NotFound()
+  }
+
+  await next()
+}
 
 const matchmakingThrottle = createThrottle('matchmaking', {
   rate: 20,
@@ -265,6 +278,21 @@ export class MatchmakingApi {
   @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.user.id)
+  }
+
+  @httpPost('/simulate-pop')
+  @httpBefore(
+    ensureDevelopment,
+    ensureLoggedIn,
+    throttleMiddleware(matchmakingThrottle, throttleByUser),
+  )
+  async simulateMatchPop(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<SimulateMatchPopRequest>({
+        opponentLeavesAfterMs: Joi.number().integer().min(0).max(MATCHMAKING_ACCEPT_MATCH_TIME_MS),
+      }),
+    })
+    await this.matchmakingService.simulateMatchPop(ctx.session!.user.id, body)
   }
 
   @httpPost('/draft/provisional-pick')

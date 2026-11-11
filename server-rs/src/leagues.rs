@@ -1,7 +1,8 @@
 use async_graphql::{ComplexObject, Context, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::Context as _;
-use sqlx::PgPool;
+use serde::Deserialize;
+use sqlx::{PgPool, types::Json};
 use uuid::Uuid;
 
 use crate::{file_store::FileStore, matchmaking::MatchmakingType};
@@ -18,7 +19,7 @@ impl LeaguesQuery {
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
                     signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
-                    link
+                    link, translations as "translations: Json<Vec<LeagueTranslation>>"
                 FROM leagues
                 WHERE start_at <= NOW() AND end_at > NOW()
                 ORDER BY start_at DESC
@@ -36,7 +37,7 @@ impl LeaguesQuery {
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
                     signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
-                    link
+                    link, translations as "translations: Json<Vec<LeagueTranslation>>"
                 FROM leagues
                 WHERE end_at > NOW() AND start_at > NOW() and signups_after <= NOW()
                 ORDER BY start_at DESC
@@ -54,7 +55,7 @@ impl LeaguesQuery {
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
                     signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
-                    link
+                    link, translations as "translations: Json<Vec<LeagueTranslation>>"
                 FROM leagues
                 WHERE end_at <= NOW()
                 ORDER BY end_at DESC
@@ -85,10 +86,25 @@ pub struct League {
     pub image_path: Option<String>,
     pub rules_and_info: Option<String>,
     pub link: Option<String>,
+    #[graphql(skip)]
+    pub translations: Json<Vec<LeagueTranslation>>,
+}
+
+#[derive(SimpleObject, Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeagueTranslation {
+    pub language: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub rules_and_info: Option<String>,
 }
 
 #[ComplexObject]
 impl League {
+    async fn translations(&self) -> &[LeagueTranslation] {
+        &self.translations.0
+    }
+
     async fn image_url(
         &self,
         ctx: &async_graphql::Context<'_>,

@@ -266,6 +266,7 @@ export function ConnectedGameResultsPage({
   const hasDebugPermission = !!selfPermissions?.debug
   const canManageGameReports = !!selfPermissions?.manageGameReports
   const game = useAppSelector(s => s.games.byId.get(gameId))
+  const usersById = useAppSelector(s => s.users.byId)
   const canRequestReview = useAppSelector(s => s.games.reviewRequestableIds.has(gameId))
   const snackbarController = useSnackbarController()
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
@@ -818,6 +819,27 @@ export function ConnectedGameResultsPage({
             }}
           />
         ) : null}
+        {canManageGameReports && game?.config.gameSource === GameSource.Matchmaking ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonRefundPoints', 'Refund points')}
+            iconStart='paid'
+            onClick={() => {
+              dispatch(
+                openDialog({
+                  type: DialogType.RefundGamePoints,
+                  initData: {
+                    gameId,
+                    teams: game.config.teams.map(team =>
+                      team
+                        .filter(p => !p.isComputer)
+                        .map(p => ({ id: p.id, name: usersById.get(p.id)?.name ?? '' })),
+                    ),
+                  },
+                }),
+              )
+            }}
+          />
+        ) : null}
         {hasDebugPermission ? (
           <Tooltip text={t('gameDetails.buttonCopyGameId', 'Copy ID')} position='left'>
             <IconButton
@@ -1065,6 +1087,8 @@ function SummaryPage({
           key={gameId}
           config={game.config}
           replays={debugInfo.replays ?? []}
+          draftMessages={debugInfo.draftMessages ?? []}
+          gameStartTime={game.startTime}
         />
       ) : null}
       {hasDebugPermission && debugInfo ? (

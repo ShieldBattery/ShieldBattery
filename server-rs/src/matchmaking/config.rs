@@ -45,6 +45,9 @@ pub struct ModeConfig {
     /// probability reaches 10:1 odds. Smaller values make a given gap more decisive. Fitted per mode
     /// from match outcomes, since how decisive a rating gap is varies by mode and drifts over time.
     pub win_prob_scale: f32,
+    /// Largest allowed gap between the highest and lowest effective rating in a match, or 0 for no
+    /// cap. Unlike the quality threshold, neither wait time nor low population relaxes it.
+    pub max_rating_spread: f32,
     /// Base minimum quality (seconds of wait) a match must reach; relaxed adaptively in low pop.
     pub min_quality: f32,
     /// Comfortable population = this × `mode.total_players()`; at/above it the full threshold applies.
@@ -53,6 +56,21 @@ pub struct ModeConfig {
     pub adaptive_decay_per_missing: f32,
     /// Half-life of the smoothed population estimate's EWMA.
     pub population_half_life: Duration,
+    /// Seconds of wait traded to avoid replaying an opponent from a game that just started. Each
+    /// earlier game between two opposing players adds this much, decayed by `rematch_half_life`.
+    /// 0 turns rematch avoidance off.
+    pub weight_rematch: f32,
+    /// How quickly an earlier game stops counting toward the rematch penalty.
+    pub rematch_half_life: Duration,
+    /// Rating distance within which another active player counts as nearby when judging how many
+    /// alternatives a player has (see [`ModeConfig::rematch_density_reference`]).
+    pub rematch_density_radius: f32,
+    /// Fraction of the median active player's nearby count that still gets the full rematch
+    /// penalty. Players with fewer nearby players get a proportionally smaller penalty, since
+    /// waiting rarely finds them someone new.
+    pub rematch_density_reference: f32,
+    /// Smallest fraction of the rematch penalty a player in a sparse rating range still gets.
+    pub rematch_density_floor: f32,
 }
 
 impl Default for ModeConfig {
@@ -63,10 +81,16 @@ impl Default for ModeConfig {
             weight_latency: 45.0,
             uncertainty_k: 1.0,
             win_prob_scale: 400.0,
+            max_rating_spread: 0.0,
             min_quality: -30.0,
             adaptive_comfortable_multiplier: 2,
             adaptive_decay_per_missing: 15.0,
             population_half_life: Duration::from_secs(20 * 60),
+            weight_rematch: 0.0,
+            rematch_half_life: Duration::from_secs(30 * 60),
+            rematch_density_radius: 150.0,
+            rematch_density_reference: 0.6,
+            rematch_density_floor: 0.5,
         }
     }
 }
@@ -79,6 +103,10 @@ pub fn builtin_mode_overrides(mode: MatchmakingType) -> ModeConfigOverrides {
             // Each latency step raises failed starts and sub-5-minute games about twice as much in
             // 1v1 as in team modes.
             weight_latency: Some(60.0),
+            // Both 1v1 players finish a game together and requeue while everyone else is mid-game,
+            // so without a cost they are usually each other's best match again. Two minutes is
+            // often long enough for a comparable new opponent to join outside the top ratings.
+            weight_rematch: Some(120.0),
             ..Default::default()
         }
     } else {
@@ -230,10 +258,16 @@ pub struct ModeConfigOverrides {
     pub weight_latency: Option<f32>,
     pub uncertainty_k: Option<f32>,
     pub win_prob_scale: Option<f32>,
+    pub max_rating_spread: Option<f32>,
     pub min_quality: Option<f32>,
     pub adaptive_comfortable_multiplier: Option<i32>,
     pub adaptive_decay_per_missing: Option<f32>,
     pub population_half_life_seconds: Option<f64>,
+    pub weight_rematch: Option<f32>,
+    pub rematch_half_life_seconds: Option<f64>,
+    pub rematch_density_radius: Option<f32>,
+    pub rematch_density_reference: Option<f32>,
+    pub rematch_density_floor: Option<f32>,
 }
 
 impl ModeConfigOverrides {
@@ -250,6 +284,7 @@ impl ModeConfigOverrides {
             weight_latency: clamp_f32(self.weight_latency, base.weight_latency, 0.0, 300.0),
             uncertainty_k: clamp_f32(self.uncertainty_k, base.uncertainty_k, 0.0, 3.0),
             win_prob_scale: clamp_f32(self.win_prob_scale, base.win_prob_scale, 100.0, 1000.0),
+            max_rating_spread: clamp_rating_spread(self.max_rating_spread, base.max_rating_spread),
             min_quality: clamp_f32(self.min_quality, base.min_quality, -600.0, 60.0),
             adaptive_comfortable_multiplier: self
                 .adaptive_comfortable_multiplier
@@ -267,6 +302,27 @@ impl ModeConfigOverrides {
                 24 * 60 * 60,
             )
             .unwrap_or(base.population_half_life),
+            weight_rematch: clamp_f32(self.weight_rematch, base.weight_rematch, 0.0, 600.0),
+            rematch_half_life: clamp_duration(self.rematch_half_life_seconds, 60, 24 * 60 * 60)
+                .unwrap_or(base.rematch_half_life),
+            rematch_density_radius: clamp_f32(
+                self.rematch_density_radius,
+                base.rematch_density_radius,
+                25.0,
+                1000.0,
+            ),
+            rematch_density_reference: clamp_f32(
+                self.rematch_density_reference,
+                base.rematch_density_reference,
+                0.05,
+                2.0,
+            ),
+            rematch_density_floor: clamp_f32(
+                self.rematch_density_floor,
+                base.rematch_density_floor,
+                0.0,
+                1.0,
+            ),
         }
     }
 }
@@ -277,6 +333,13 @@ fn clamp_f32(value: Option<f32>, base: f32, min: f32, max: f32) -> f32 {
         .filter(|v| v.is_finite())
         .unwrap_or(base)
         .clamp(min, max)
+}
+
+/// Resolves a rating spread cap: 0 or below turns it off, and any other value is clamped to
+/// `[100, 2000]`, since a tiny cap would leave a mode with almost no valid rosters.
+fn clamp_rating_spread(value: Option<f32>, base: f32) -> f32 {
+    let spread = clamp_f32(value, base, 0.0, 2000.0);
+    if spread > 0.0 { spread.max(100.0) } else { 0.0 }
 }
 
 /// Reads the raw stored config overrides from the database, returning an empty (all-defaults)
@@ -455,9 +518,99 @@ mod tests {
     }
 
     #[test]
+    fn rating_spread_cap_is_off_by_default_and_set_per_mode() {
+        for mode in MatchmakingType::iter() {
+            assert_eq!(parse("{}").for_mode(mode).max_rating_spread, 0.0);
+        }
+
+        let cfg = parse(r#"{"perMode": {"2v2": {"maxRatingSpread": 300}}}"#);
+        assert_eq!(
+            cfg.for_mode(MatchmakingType::Match2v2).max_rating_spread,
+            300.0
+        );
+        assert_eq!(
+            cfg.for_mode(MatchmakingType::Match1v1).max_rating_spread,
+            0.0
+        );
+    }
+
+    #[test]
+    fn per_mode_zero_turns_off_a_global_rating_spread_cap() {
+        let cfg = parse(
+            r#"{"global": {"maxRatingSpread": 300}, "perMode": {"2v2": {"maxRatingSpread": 0}}}"#,
+        );
+        assert_eq!(
+            cfg.for_mode(MatchmakingType::Match1v1).max_rating_spread,
+            300.0
+        );
+        assert_eq!(
+            cfg.for_mode(MatchmakingType::Match2v2).max_rating_spread,
+            0.0
+        );
+    }
+
+    #[test]
+    fn rating_spread_cap_is_clamped() {
+        let spread = |json: &str| {
+            parse(json)
+                .for_mode(MatchmakingType::Match2v2)
+                .max_rating_spread
+        };
+        assert_eq!(spread(r#"{"global": {"maxRatingSpread": 5}}"#), 100.0);
+        assert_eq!(spread(r#"{"global": {"maxRatingSpread": 9000}}"#), 2000.0);
+        assert_eq!(spread(r#"{"global": {"maxRatingSpread": -50}}"#), 0.0);
+    }
+
+    #[test]
     fn max_players_examined_can_fill_every_match_size() {
         let cfg = parse(r#"{"maxPlayersExamined": 2}"#);
         assert_eq!(cfg.max_players_examined, MIN_PLAYERS_EXAMINED as usize);
+    }
+
+    #[test]
+    fn rematch_penalty_is_on_for_1v1_only_by_default() {
+        let cfg = parse("{}");
+        for mode in MatchmakingType::iter() {
+            let expected = if mode.team_size() == 1 { 120.0 } else { 0.0 };
+            assert_eq!(cfg.for_mode(mode).weight_rematch, expected, "{mode:?}");
+            assert_eq!(
+                cfg.for_mode(mode).rematch_half_life,
+                Duration::from_secs(30 * 60)
+            );
+        }
+    }
+
+    #[test]
+    fn rematch_settings_parse_and_clamp() {
+        let cfg = parse(
+            r#"{
+                "global": {"rematchDensityFloor": 0.25, "rematchHalfLifeSeconds": 900},
+                "perMode": {"2v2": {"weightRematch": 45, "rematchDensityRadius": 200}}
+            }"#,
+        );
+        let one = cfg.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(one.weight_rematch, 120.0);
+        assert_eq!(one.rematch_density_floor, 0.25);
+        assert_eq!(one.rematch_half_life, Duration::from_secs(900));
+        let two = cfg.for_mode(MatchmakingType::Match2v2);
+        assert_eq!(two.weight_rematch, 45.0);
+        assert_eq!(two.rematch_density_radius, 200.0);
+
+        let clamped = parse(
+            r#"{"global": {
+                "weightRematch": 9000,
+                "rematchHalfLifeSeconds": 1,
+                "rematchDensityRadius": 1,
+                "rematchDensityReference": 0,
+                "rematchDensityFloor": 3
+            }}"#,
+        );
+        let m = clamped.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(m.weight_rematch, 600.0);
+        assert_eq!(m.rematch_half_life, Duration::from_secs(60));
+        assert_eq!(m.rematch_density_radius, 25.0);
+        assert_eq!(m.rematch_density_reference, 0.05);
+        assert_eq!(m.rematch_density_floor, 1.0);
     }
 
     #[test]

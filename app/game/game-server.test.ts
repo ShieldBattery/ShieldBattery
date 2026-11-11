@@ -92,3 +92,19 @@ test('unpackaged connections remain usable without starting the private watcher'
   expect(stopWatching).not.toHaveBeenCalled()
   expect(vi.getTimerCount()).toBe(0)
 })
+
+test('routes window visibility to the manager registered for the local game', () => {
+  const { manager, gameServer, socket } = connect()
+  const foregroundManager = Object.assign(manager, { handleGameWindowShown: vi.fn() })
+  const localManager = Object.assign(new EventEmitter(), { handleGameWindowShown: vi.fn() })
+  const unregister = gameServer.registerManager('local-game', localManager as any)
+
+  gameServer.onMessage('local-game', JSON.stringify({ command: '/game/windowShown' }))
+  expect(localManager.handleGameWindowShown).toHaveBeenCalledExactlyOnceWith('local-game')
+  expect(foregroundManager.handleGameWindowShown).not.toHaveBeenCalled()
+
+  gameServer.onMessage('test-game', JSON.stringify({ command: '/game/windowShown' }))
+  expect(foregroundManager.handleGameWindowShown).toHaveBeenCalledExactlyOnceWith('test-game')
+  unregister()
+  socket.emit('close')
+})

@@ -277,19 +277,11 @@ fn determine_game_results(
             }
         }
 
+        // A defeated player who is still connected (e.g. watching after being eliminated) is no
+        // more decided than one who left: either way their team can still carry them to an allied
+        // victory.
         for (&sb_id, result) in results.iter_mut() {
-            let storm_id = sb_to_storm
-                .get(&sb_id)
-                .expect("should have had storm id for SB user");
-            // BW never marks our local user as having quit by this point, but we want to treat them
-            // that way so the logic is easier
-            let quit = sb_id == local_user.id
-                || game_thread_results
-                    .network_results
-                    .get(storm_id)
-                    .is_none_or(|r| r.has_quit);
-
-            if quit && result.result == VictoryState::Defeat {
+            if result.result == VictoryState::Defeat {
                 let bw_id = sb_to_bw
                     .get(&sb_id)
                     .expect("should have had bw id for SB user");

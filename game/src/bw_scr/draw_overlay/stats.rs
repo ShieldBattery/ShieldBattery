@@ -11,12 +11,12 @@ use egui::Color32;
 use overlay_ui::kit::theme;
 use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, StatusColor,
-    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
-    TimelineView, UnitStatusView,
+    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
+    MapControlSideView, MapControlView, MatchupPlayerView, MatchupView, MilitaryPlayerView,
+    MilitaryView, ObserverView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView,
+    TeamCardView, TeamCardsView, TimelineEventView, TimelineView, UnitStatusView,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
@@ -165,6 +165,7 @@ impl ObserverViewCache {
             }
             None => ObserverViewCache {
                 view: ObserverView {
+                    show_entire_map: bw.show_entire_map,
                     matchup,
                     team_cards,
                     economy: EconomyView {
@@ -194,6 +195,7 @@ impl ObserverViewCache {
             },
         };
 
+        cache.view.show_entire_map = bw.show_entire_map;
         let samples = stats.map(StatsAsOf::samples_stamp);
         if stale(&cache.economy, &samples, prefs.economy) {
             cache.view.economy = build_economy_view(&cache.players, stats);
@@ -588,9 +590,9 @@ fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying, and its status, the upgrades it fights with and how many of
-/// it are stacked where it is selected `alone`: those are only read out for a unit selected alone,
-/// so they are only read for one.
+/// is making, and what it is carrying, its status, the upgrades it fights with, what its owner has
+/// researched for it and how many of it are stacked where it is selected `alone`: those are only
+/// read out for a unit selected alone, so they are only read for one.
 fn selected_unit_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -599,8 +601,8 @@ fn selected_unit_view(
 ) -> SelectedUnitView {
     let mut view = carried_unit_view(bw, players, unit);
     view.production = production::selected_production(unit, bw);
-    view.cargo = cargo_views(bw, players, unit);
     if alone {
+        view.cargo = cargo_views(bw, players, unit);
         let producing = view.production.is_some();
         // The overlay is built in the game's draw, on its main thread.
         view.status = bw.stat_txt.and_then(|stat_txt| unsafe {
@@ -611,6 +613,7 @@ fn selected_unit_view(
             })
         });
         view.upgrades = production::selected_upgrades(unit, bw);
+        view.research = production::selected_research(unit, bw);
         view.stacked = game_thread::stacked_building_count(unit, bw.active_units);
     }
     view
@@ -696,7 +699,7 @@ unsafe fn rank(stat_txt: &StatTxt, unit: Unit) -> Option<UnitStatus> {
 
 /// The units inside a transport or a bunker, in the order the game holds them, and nothing at all
 /// for anything else.
-fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<SelectedUnitView> {
+fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<CarriedUnitView> {
     let Some(units) = bw.units.as_ref() else {
         return Vec::new();
     };
@@ -704,7 +707,10 @@ fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<Selected
         return Vec::new();
     }
     unit.loaded_units(units)
-        .map(|loaded| carried_unit_view(bw, players, loaded))
+        .map(|loaded| CarriedUnitView {
+            unit: carried_unit_view(bw, players, loaded),
+            room: loaded.id().cargo_space_used(),
+        })
         .collect()
 }
 
@@ -730,7 +736,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
     let owner = players
         .iter()
         .find(|player| player.player_id == unit.player());
-    let hit_points = whole_points(unit.hitpoints());
+    let hit_points = whole_hit_points(unit.hitpoints());
     // Already the game's "never zero" maximum: the unit's own hit points stand in for a dat entry
     // of zero, and one point stands in for both being zero.
     let max_hit_points = unit.max_hp_displayed().max(0) as u32;
@@ -748,15 +754,17 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         hit_points: (!unit.is_invincible()).then_some((hit_points, max_hit_points)),
         shields: unit_id.has_shields().then(|| {
             (
-                whole_points(unit.shields()),
-                whole_points(unit_id.shields()),
+                whole_shield_or_energy_points(unit.shields()),
+                whole_shield_or_energy_points(unit_id.shields()),
             )
         }),
-        energy: is_spellcaster(unit_id).then(|| {
-            (
-                whole_points(unit.energy() as i32),
-                whole_points(max_energy(bw, unit) as i32),
-            )
+        energy: lifetime_energy(unit).or_else(|| {
+            is_spellcaster(unit_id).then(|| {
+                (
+                    whole_shield_or_energy_points(unit.energy() as i32),
+                    whole_shield_or_energy_points(max_energy(bw, unit) as i32),
+                )
+            })
         }),
         kills: unit.kills(),
         status: None,
@@ -770,6 +778,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         production: None,
         cargo: Vec::new(),
         upgrades: Vec::new(),
+        research: Vec::new(),
     }
 }
 
@@ -797,8 +806,27 @@ fn resources_left(unit: Unit) -> Option<ResourcesLeftView> {
     })
 }
 
-/// Whether units.dat marks this kind of unit a spellcaster, which is what the game draws energy
-/// for. `bw_dat` names the flags either side of this one in the same word, but not this one.
+/// Remaining lifetime as the console's energy readout: ten frames per point, rounded down.
+/// Hallucinations use their lifetime even when the copied unit is a spellcaster or a broodling.
+///
+/// The maxima are the game's default lifetimes (1350 frames for a hallucination, 1800 for a
+/// broodling), which are constants in its code rather than anything units.dat or a map can change.
+/// The console divides by those same defaults, so a timer that was never set (a broodling made by
+/// a plain Create Unit trigger, which lives forever) or that an EUD map wrote past the default
+/// reads here just as it does there.
+fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
+    let max = if unit.is_hallucination() {
+        135
+    } else if unit.id() == bw_dat::unit::BROODLING {
+        180
+    } else {
+        return None;
+    };
+    Some((u32::from(unit.death_timer()) / 10, max))
+}
+
+/// Whether units.dat marks this kind of unit a spellcaster, with an energy pool of its own.
+/// `bw_dat` names the flags either side of this one in the same word, but not this one.
 fn is_spellcaster(unit_id: UnitId) -> bool {
     const SPELLCASTER: u32 = 0x0020_0000;
     unit_id.flags() & SPELLCASTER != 0
@@ -818,13 +846,22 @@ fn max_energy(bw: &BwVars, unit: Unit) -> u32 {
     }
 }
 
-/// Whole points out of one of the game's 8.8 fixed-point health values.
+/// Whole hit points out of the game's 8.8 fixed-point value.
 ///
-/// Rounded up the way the game's own readouts round: anything left of a point is still a point, so
-/// a unit that is alive never reads as zero, and a negative value (which the game allows a dying
-/// unit to reach) reads as none rather than wrapping.
-fn whole_points(fixed: i32) -> u32 {
+/// Rounded up the way the game's own hit point readouts round: anything left of a point is still
+/// a point, so a unit that is alive never reads as zero, and a negative value (which the game
+/// allows a dying unit to reach) reads as none rather than wrapping.
+fn whole_hit_points(fixed: i32) -> u32 {
     (fixed.max(0) as u32).saturating_add(0xff) >> 8
+}
+
+/// Whole points of shields or energy out of the game's 8.8 fixed-point value.
+///
+/// Rounded down, as the game counts them: shields under one whole point absorb no damage, and a
+/// spell is refused until the caster has its whole cost, so a fraction of a point reads as none. A
+/// negative value reads as none rather than wrapping.
+fn whole_shield_or_energy_points(fixed: i32) -> u32 {
+    (fixed.max(0) as u32) >> 8
 }
 
 /// Builds the timeline's view, newest first, with its events' subjects indexed for their icons,
@@ -1088,19 +1125,81 @@ mod tests {
     }
 
     #[test]
-    fn a_part_of_a_point_still_reads_as_a_whole_one() {
-        assert_eq!(whole_points(0), 0);
-        assert_eq!(whole_points(1), 1);
-        assert_eq!(whole_points(0x80), 1);
-        assert_eq!(whole_points(0x100), 1);
-        assert_eq!(whole_points(0x101), 2);
-        assert_eq!(whole_points(40 * 256), 40);
+    fn a_part_of_a_hit_point_still_reads_as_a_whole_one() {
+        assert_eq!(whole_hit_points(0), 0);
+        assert_eq!(whole_hit_points(1), 1);
+        assert_eq!(whole_hit_points(0x80), 1);
+        assert_eq!(whole_hit_points(0x100), 1);
+        assert_eq!(whole_hit_points(0x101), 2);
+        assert_eq!(whole_hit_points(40 * 256), 40);
+    }
+
+    #[test]
+    fn a_part_of_a_shield_or_energy_point_reads_as_none() {
+        assert_eq!(whole_shield_or_energy_points(0), 0);
+        assert_eq!(whole_shield_or_energy_points(1), 0);
+        assert_eq!(whole_shield_or_energy_points(0x80), 0);
+        assert_eq!(whole_shield_or_energy_points(0xff), 0);
+        assert_eq!(whole_shield_or_energy_points(0x100), 1);
+        assert_eq!(whole_shield_or_energy_points(0x1ff), 1);
+        assert_eq!(whole_shield_or_energy_points(0x200), 2);
+        // A Comsat Station half a point short of a scan.
+        assert_eq!(whole_shield_or_energy_points(50 * 256 - 0x80), 49);
+        assert_eq!(whole_shield_or_energy_points(50 * 256), 50);
     }
 
     #[test]
     fn a_dying_units_negative_health_reads_as_none() {
-        assert_eq!(whole_points(-1), 0);
-        assert_eq!(whole_points(i32::MIN), 0);
+        assert_eq!(whole_hit_points(-1), 0);
+        assert_eq!(whole_hit_points(i32::MIN), 0);
+        assert_eq!(whole_shield_or_energy_points(-1), 0);
+        assert_eq!(whole_shield_or_energy_points(i32::MIN), 0);
+    }
+
+    #[test]
+    fn broodling_lifetime_counts_down_in_ten_frame_points() {
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.unit_id = bw_dat::unit::BROODLING.0;
+        let unit = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for (timer, current) in [(1800, 180), (1799, 179), (900, 90), (10, 1), (9, 0), (0, 0)] {
+            unsafe { (**unit).death_timer = timer };
+            assert_eq!(lifetime_energy(unit), Some((current, 180)));
+        }
+    }
+
+    #[test]
+    fn hallucinations_use_their_own_lifetime_regardless_of_copied_unit() {
+        use bw_dat::unit;
+
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.flags = 0x4000_0000;
+        raw.energy = 200 * 256;
+        let hallucination = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [unit::ZEALOT, unit::HIGH_TEMPLAR, unit::BROODLING] {
+            unsafe { (**hallucination).unit_id = id.0 };
+            for (timer, current) in [(1350, 135), (1349, 134), (670, 67), (9, 0), (0, 0)] {
+                unsafe { (**hallucination).death_timer = timer };
+                assert_eq!(lifetime_energy(hallucination), Some((current, 135)));
+            }
+        }
+    }
+
+    #[test]
+    fn other_removal_timers_do_not_supply_lifetime_energy() {
+        use bw_dat::unit;
+
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.death_timer = 100;
+        let timed = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [
+            unit::ZEALOT,
+            unit::HIGH_TEMPLAR,
+            unit::SCARAB,
+            unit::INTERCEPTOR,
+        ] {
+            unsafe { (**timed).unit_id = id.0 };
+            assert_eq!(lifetime_energy(timed), None);
+        }
     }
 
     #[test]

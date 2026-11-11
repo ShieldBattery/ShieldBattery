@@ -8,8 +8,8 @@ use crate::bw_scr::BwScr;
 
 use super::snapshot::Snapshots;
 use super::{
-    FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, TICK_RUNNING, WINDOW_START,
-    announcements, game_end, selection, ui_writes,
+    FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, STEP_WAITING_FOR_TURNS, TICK_RUNNING,
+    WINDOW_START, announcements, game_end, selection, ui_writes,
 };
 
 /// Frames between snapshots unless a debug knob says otherwise. A rollback re-simulates from the
@@ -149,6 +149,7 @@ pub(crate) unsafe fn run_tick(
                 is_resimulation: current < shown_through,
             };
             STEP_FRAME.store(info.frame, Ordering::Relaxed);
+            STEP_WAITING_FOR_TURNS.store(false, Ordering::Relaxed);
             FINAL_STEP.store(info.is_final, Ordering::Relaxed);
             RESIMULATING.store(info.is_resimulation, Ordering::Relaxed);
             game_end::begin_step(info.frame);
@@ -186,6 +187,7 @@ pub(crate) unsafe fn run_tick(
             }
         }
         TICK_RUNNING.store(false, Ordering::Relaxed);
+        STEP_WAITING_FOR_TURNS.store(false, Ordering::Relaxed);
         FINAL_STEP.store(false, Ordering::Relaxed);
         RESIMULATING.store(false, Ordering::Relaxed);
 
@@ -196,11 +198,17 @@ pub(crate) unsafe fn run_tick(
         report.retracted_announcements =
             announcements::finish_tick(report.window_start, report.settled_through);
         // The steps since the restore saw a selection holding only units the restored state has
-        // (see `selection::undo_after`); input that reads it waits for the tick.
+        // (see `selection::undo_after`). The person can only change the selection while a step
+        // waits for turns, and a selection they made then in place of the one they had is theirs
+        // as it is: nothing from before the restore goes back into it.
+        let replaced = selection::take_selection_replaced_during_tick();
         if let Some(before) = &selection_before_restore
             && let Some(restored) = report.restored
         {
-            bw.rollback_settle_local_selection(before, &dropped);
+            match &replaced {
+                Some(made) => bw.rollback_settle_local_selection(made, &[]),
+                None => bw.rollback_settle_local_selection(before, &dropped),
+            }
             selection::reconcile(bw, restored, current);
         }
         if let Some(paced_tick) = paced_tick {

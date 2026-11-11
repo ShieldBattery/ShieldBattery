@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_LOCAL_SETTINGS } from './default-settings'
 import {
+  BATTLE_NET_FEEL_VALUES,
   GAME_DEFAULTS_PRESET_KEYS,
   GAME_DEFAULTS_PRESET_VALUES,
+  getBattleNetFeelMismatches,
   getGameDefaultsMismatches,
 } from './game-defaults'
-import { GameDefaultsPreset } from './local-settings'
+import { FramePacing, GameDefaultsPreset } from './local-settings'
 
 describe('common/settings/game-defaults', () => {
   describe('GAME_DEFAULTS_PRESET_VALUES', () => {
@@ -65,6 +67,25 @@ describe('common/settings/game-defaults', () => {
         'teamColorPreset',
         'grabPanSensitivityOn',
       ])
+    })
+  })
+
+  describe('getBattleNetFeelMismatches', () => {
+    test('nothing differs once switched to how Battle.net plays', () => {
+      expect(
+        getBattleNetFeelMismatches({ ...DEFAULT_LOCAL_SETTINGS, ...BATTLE_NET_FEEL_VALUES }),
+      ).toEqual([])
+    })
+
+    test('reports the features that make the game feel different', () => {
+      expect(
+        getBattleNetFeelMismatches({
+          ...DEFAULT_LOCAL_SETTINGS,
+          ...BATTLE_NET_FEEL_VALUES,
+          framePacing: FramePacing.Display,
+          useCustomCursorSize: true,
+        }),
+      ).toEqual(['framePacing', 'useCustomCursorSize'])
     })
   })
 })

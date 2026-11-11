@@ -43,6 +43,7 @@ pub(super) fn replay() -> PlaybackView {
 /// A game with nobody in it, which is enough for the panels to be placed and drawn.
 pub(super) fn empty_game() -> ObserverView {
     ObserverView {
+        show_entire_map: false,
         matchup: MatchupView {
             players: Vec::new(),
             elapsed_secs: 0,
@@ -139,6 +140,7 @@ pub(super) fn with_a_selection(mut game: ObserverView) -> ObserverView {
         production: None,
         cargo: Vec::new(),
         upgrades: Vec::new(),
+        research: Vec::new(),
     });
     game
 }
@@ -193,6 +195,24 @@ pub(super) fn run_watched_frame_with_minimap(
         ..Views::default()
     };
     run_frame_on(shell, ctx, views, screen, minimap, time, Vec::new())
+}
+
+/// [`run_watched_frame_at`] with `events` arriving before it, such as the pointer moving.
+pub(super) fn run_watched_frame_with_events(
+    shell: &mut Shell,
+    ctx: &Context,
+    playback: &PlaybackView,
+    observer: &ObserverView,
+    screen: egui::Vec2,
+    events: Vec<egui::Event>,
+    time: f64,
+) -> FrameOutput {
+    let views = Views {
+        playback: Some(playback),
+        observer: Some(observer),
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, screen, None, time, events)
 }
 
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to

@@ -60,8 +60,13 @@ describe('RegionLatencyManager', () => {
     managers.length = 0
   })
 
+  /**
+   * Stubs the resume subscription so `start()` doesn't pay for a cold `import('electron')`, which
+   * can outlast the test timeout on a loaded CI runner.
+   */
   function makeManager(regionList = new GameServerRegionList()): RegionLatencyManager {
     const manager = new RegionLatencyManager(regionList)
+    manager.subscribeToResume = async () => () => {}
     managers.push(manager)
     return manager
   }
@@ -309,13 +314,16 @@ describe('RegionLatencyManager', () => {
 
   it('starts without throwing on plain Node, where Electron APIs are unavailable', async () => {
     const persistPath = await makeTempPersistPath()
-    const manager = makeManager(new GameServerRegionList())
+    // Built directly rather than through `makeManager` so the real resume subscription (and its
+    // `electron` import) runs; the long timeout covers that import's cold-load cost.
+    const manager = new RegionLatencyManager(new GameServerRegionList())
+    managers.push(manager)
     manager.persistFilePath = async () => persistPath
 
     await expect(manager.start()).resolves.toBeUndefined()
 
     expect(manager.getLatencies()).toEqual({})
-  })
+  }, 30_000)
 
   it('does not run the startup sweep before the settling delay elapses, and runs it after', async () => {
     vi.useFakeTimers()

@@ -14,6 +14,7 @@ import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/g
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -681,6 +682,67 @@ export async function getRecentGamesForUser(
   }
 }
 
+export interface RecentMatchmakingOpponent {
+  matchmakingType: MatchmakingType
+  opponentId: SbUserId
+  gameStartTime: Date
+}
+
+/**
+ * Returns the human opponents `userId` faced in matchmaking games of the given types that started
+ * at or after `since`, with one entry per opponent per game. Teammates and canceled games are left
+ * out.
+ */
+export async function getRecentMatchmakingOpponents(
+  userId: SbUserId,
+  matchmakingTypes: ReadonlyArray<MatchmakingType>,
+  since: Date,
+  withClient?: DbClient,
+): Promise<RecentMatchmakingOpponent[]> {
+  if (!matchmakingTypes.length) {
+    return []
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    // Filtering on games_users first keeps this to the user's own recent rows (via its
+    // (user_id, start_time) index) before any game configs are read.
+    const result = await client.query<{ config: GameConfig; start_time: Date }>(sql`
+      SELECT g.config, g.start_time
+      FROM games_users u JOIN games g ON u.game_id = g.id
+      WHERE u.user_id = ${userId}
+        AND u.start_time >= ${since}
+        AND g.canceled_at IS NULL
+        AND g.config->>'gameSource' = ${GameSource.Matchmaking}
+        AND g.config->'gameSourceExtra'->>'type' = ANY(${matchmakingTypes})
+    `)
+
+    const opponents: RecentMatchmakingOpponent[] = []
+    for (const { config, start_time: gameStartTime } of result.rows) {
+      if (config.gameSource !== GameSource.Matchmaking) {
+        continue
+      }
+      const matchmakingType = config.gameSourceExtra.type
+      if (!config.teams.some(team => team.some(p => p.id === userId))) {
+        continue
+      }
+      for (const team of config.teams) {
+        if (team.some(p => p.id === userId)) {
+          continue
+        }
+        for (const player of team) {
+          if (!player.isComputer) {
+            opponents.push({ matchmakingType, opponentId: player.id, gameStartTime })
+          }
+        }
+      }
+    }
+    return opponents
+  } finally {
+    done()
+  }
+}
+
 /** A lobby game only counts as part of the public games list once it opts into being listed. */
 const LISTED_LOBBY_VISIBILITY: LobbyVisibility = 'listed'
 
@@ -811,13 +873,20 @@ export async function getGames(
     }
 
     if (playerName) {
+      // Resolved to IDs up front so the planner sees a concrete list it can estimate from the
+      // `games_users.user_id` stats. Given the name pattern instead, it can't tell how rare a match
+      // is and walks every public game newest-first probing each one, which reads the whole index
+      // for a rarely-seen (or nonexistent) player.
+      const matchingUsers = await client.query<{ id: SbUserId }>(sql`
+        SELECT id FROM users
+        WHERE name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
+      `)
+      if (!matchingUsers.rows.length) {
+        return []
+      }
+      const playerIds = matchingUsers.rows.map(r => r.id)
       whereClauses.push(sql`
-        EXISTS (
-          SELECT 1 FROM games_users gu2
-          INNER JOIN users u ON gu2.user_id = u.id
-          WHERE gu2.game_id = g.id
-          AND u.name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
-        )
+        g.id IN (SELECT gu2.game_id FROM games_users gu2 WHERE gu2.user_id = ANY(${playerIds}))
       `)
     }
 

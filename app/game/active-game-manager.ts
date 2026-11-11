@@ -105,6 +105,16 @@ interface ActiveGameInfo {
    */
   netcodeV2Setup?: NetcodeV2Setup
   /**
+   * False while the game's map is still being checked or downloaded. The game process opens the
+   * map as soon as it gets `setupGame`, so that waits for this.
+   */
+  mapReady?: boolean
+  /**
+   * Whether the current game process has connected and been sent everything `setupGame` depends
+   * on (see {@link ActiveGameManager.handleGameConnected}).
+   */
+  processConfigured?: boolean
+  /**
    * The results of the game delivered once our local process has completed.
    */
   result?: {
@@ -186,6 +196,12 @@ export type ActiveGameManagerEvents = {
    * whether or not the game is still tracked.
    */
   gameProcessEnded: [gameId: string]
+  /**
+   * A game process announced by `gameProcessLaunching` showed its window. This can be well after
+   * launch: the window doesn't appear until the game has its setup, which can wait on a game
+   * server being started.
+   */
+  gameWindowShown: [gameId: string]
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   replayDiagnosticsRequested: [request: ReplayDiagnosticsRequest]
@@ -511,6 +527,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       // A fresh launch's transport is unknown until the new game's init reports it; this also
       // applies when relaunching the same game id, so don't carry it over from `current` either.
       networkStatus: undefined,
+      processConfigured: false,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -519,7 +536,44 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
     log.verbose(`Creating new game ${gameId}`)
     this.setStatus(this.activeGame, GameStatus.Launching)
+    this.prepareMap(this.activeGame)
     return gameId
+  }
+
+  /**
+   * Makes sure `game`'s map is on disk before its setup goes out, downloading it if it isn't (or
+   * joining a download of it that's already running). A map that can't be downloaded fails the
+   * game, which tells the server so it cancels the load right away.
+   */
+  private prepareMap(game: ActiveGameInfo) {
+    const { map } = game.config!.setup
+    if (isReplayMapInfo(map) || !map.mapUrl) {
+      game.mapReady = true
+      return
+    }
+    game.mapReady = false
+    const fail = (err: unknown) => {
+      if (this.activeGame !== game) {
+        return
+      }
+      log.error(`Couldn't download the map for game ${game.id}: ${getErrorStack(err)}`)
+      this.emit('gameCommand', game.id, 'quit')
+      this.setStatus(game, GameStatus.Error, new Error(`Map download failed`))
+      this.activeGame = null
+    }
+    this.mapStore.downloadMap(map.hash, map.mapData.format, map.mapUrl).then(outcome => {
+      if (outcome === 'urlRejected') {
+        // The setup's URL is signed as the game loads, so one that's refused anyway won't be any
+        // better on a retry
+        fail(new Error('Map download URL was rejected'))
+        return
+      }
+      if (this.gameFor(game.id) !== game) {
+        return
+      }
+      game.mapReady = true
+      this.maybeSendGameSetup(game)
+    }, fail)
   }
 
   private launchWatchOnlyGame(config: GameLaunchConfig): string | null {
@@ -610,17 +664,17 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   /**
    * Sends the game setup command (preceded by everything it depends on) once every input has
-   * arrived: the config always, plus the netcode v2 handoff for games using it. The game process
-   * consumes the netcode v2 setup when its game init starts, so it must be delivered before
-   * `setupGame`.
+   * arrived: the config and the map file always, plus the netcode v2 handoff for games using it,
+   * and only after the game process has been sent its user, settings and the rest
+   * ({@link handleGameConnected}). The game process consumes the netcode v2 setup when its game
+   * init starts, so it must be delivered before `setupGame`.
    *
-   * May fire before the game process has connected — those sends go nowhere, and
-   * `handleGameConnected` re-runs this once the process is ready. Takes the game explicitly (not
-   * `this.activeGame`) so callers that suspended across an await operate on the game they
-   * captured, not one that replaced it in the meantime.
+   * Called whenever one of those inputs arrives; the last to arrive sends. Takes the game
+   * explicitly (not `this.activeGame`) so callers that suspended across an await operate on the
+   * game they captured, not one that replaced it in the meantime.
    */
   private maybeSendGameSetup(game: ActiveGameInfo) {
-    if (!game.config) {
+    if (!game.config || !game.processConfigured || game.mapReady === false) {
       return
     }
     if (game.config.setup.useNetcodeV2 && !game.netcodeV2Setup) {
@@ -731,6 +785,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       },
     })
 
+    game.processConfigured = true
     this.maybeSendGameSetup(game)
   }
 
@@ -749,6 +804,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (game) {
       this.setStatus(game, info.state, info.extra)
     }
+  }
+
+  handleGameWindowShown(gameId: string) {
+    this.emit('gameWindowShown', gameId)
   }
 
   handleGameStart(gameId: string) {
@@ -850,7 +909,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * the DLL's crash handling can be exercised end to end. Fire-and-forget: the process dies, and
    * the usual exit handling (including the crash dump check) runs.
    */
-  debugCrashGame(gameId: string, kind: 'accessViolation' | 'stackOverflow'): void {
+  debugCrashGame(
+    gameId: string,
+    kind: 'accessViolation' | 'stackOverflow' | 'exceptionExit',
+  ): void {
     if (!this.gameFor(gameId)) {
       log.verbose(`Got debugCrashGame for ${gameId}, but it is not an active game`)
       return
@@ -1337,11 +1399,6 @@ async function doLaunch(
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`, { cause: err })
   }
-  if (app.isPackaged) {
-    const { verifyGame } = await import('virtual:sb-security-impl')
-    await verifyGame?.(injectPath)
-  }
-
   let { starcraftPath } = settings
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
@@ -1351,15 +1408,20 @@ async function doLaunch(
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
 
+  let appPath = settings.launch32Bit
+    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
+    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
+  if (app.isPackaged) {
+    const { verifyGame } = await import('virtual:sb-security-impl')
+    await verifyGame?.(injectPath, appPath, msg => log.error(msg))
+  }
+
   // Ensure that our local settings file is up-to-date with the current settings
   if (!backgroundSettings) {
     await scrSettings.writeGameSettingsFile(startsInSd(settings))
   }
 
   const userDataPath = app.getPath('userData')
-  let appPath = settings.launch32Bit
-    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
-    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
   try {
     // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
     // compat settings registry key

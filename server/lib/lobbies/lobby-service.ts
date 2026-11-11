@@ -37,6 +37,9 @@ import {
   LobbyChangedSetting,
   LobbyInitEvent,
   LobbyLifecycle,
+  LobbyMapStatus,
+  LobbyMemberMapStatusJson,
+  LobbyMissingMapStatus,
   LobbyPreviewJson,
   LobbyRunStateJson,
   LobbySeriesGameJson,
@@ -443,6 +446,13 @@ export class LobbyService {
    */
   readonly readyUsers = new Map<SbLobbyId, Set<SbUserId>>()
   /**
+   * The members of each lobby whose app reported that it doesn't have the lobby's current map yet.
+   * A member with no entry has the map: apps that predate map status reporting never report, and
+   * must not hold up a start. Entries describe the lobby's current map only, so a lobby's statuses
+   * are dropped whenever its map changes.
+   */
+  readonly mapStatuses = new Map<SbLobbyId, Map<SbUserId, LobbyMissingMapStatus>>()
+  /**
    * The games each lobby has played this session, oldest first.
    *
    * A lobby's history is bounded by the lobby's own lifetime rather than by a cap: a lobby closes
@@ -602,6 +612,14 @@ export class LobbyService {
   /** Serializes a lobby's ready members for the wire. */
   private _readyUsersJson(lobbyId: SbLobbyId): SbUserId[] {
     return [...(this.readyUsers.get(lobbyId) ?? [])]
+  }
+
+  /** Serializes the members who don't have a lobby's current map for the wire. */
+  private _mapStatusesJson(lobbyId: SbLobbyId): LobbyMemberMapStatusJson[] {
+    return [...(this.mapStatuses.get(lobbyId) ?? [])].map(([userId, status]) => ({
+      userId,
+      status,
+    }))
   }
 
   /** Serializes the games a lobby has played for the wire, oldest first. */
@@ -785,7 +803,11 @@ export class LobbyService {
   }): Promise<void> {
     const joinRegion = await this._resolveRegion(region)
 
-    if (!this.lobbies.has(id)) {
+    // Everything from this snapshot to the write-back below has to stay synchronous, or a
+    // concurrent operation on the lobby (e.g. a settings change replacing the whole layout) would be
+    // silently reverted by it.
+    const lobby = this.lobbies.get(id)
+    if (!lobby) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     if (this.lobbyClients.get(client) === id) {
@@ -793,17 +815,6 @@ export class LobbyService {
       // their own lobby (e.g. during a countdown) looks like, so it resolves as a no-op success
       // rather than reaching the checks below.
       return
-    }
-
-    // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
-    // Fetched before the lobby snapshot below: everything from the snapshot to the write-back has
-    // to stay synchronous, or a concurrent operation on the lobby (e.g. a settings change
-    // replacing the whole layout) would be silently reverted by it.
-    const refreshedMap = (await getMapInfos([this.lobbies.get(id)!.map!.id]))[0]
-
-    const lobby = this.lobbies.get(id)
-    if (!lobby) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
 
     const lifecycle = this._lifecycleOf(id)
@@ -878,12 +889,6 @@ export class LobbyService {
         LobbyServiceErrorCode.JoinAlreadyInActivity,
         'user is already active in a gameplay activity',
       )
-    }
-
-    if (refreshedMap && updated.map!.id === refreshedMap.id) {
-      // A settings change during the fetch above can have swapped the map, in which case its own
-      // freshly-fetched info stays and the stale refresh is discarded
-      updated = { ...updated, map: refreshedMap }
     }
 
     this.lobbies.set(id, updated)
@@ -982,6 +987,7 @@ export class LobbyService {
             runState: this._runStateJson(lobbyId),
             userInfos,
             readyUsers: this._readyUsersJson(lobbyId),
+            mapStatuses: this._mapStatusesJson(lobbyId),
             series: this._seriesJson(lobbyId),
           }
         } catch (err) {
@@ -994,6 +1000,7 @@ export class LobbyService {
             // just higher latency
             userInfos: [],
             readyUsers: this._readyUsersJson(lobbyId),
+            mapStatuses: this._mapStatusesJson(lobbyId),
             series: this._seriesJson(lobbyId),
           }
         }
@@ -1249,6 +1256,75 @@ export class LobbyService {
   }
 
   /**
+   * Records where a member's app stands on downloading the lobby's map. Anyone in the lobby reports,
+   * bench members included, since they need the map as soon as they're seated.
+   *
+   * A report names the map it is about, and one about any map but the lobby's current one is
+   * ignored: the host can change the map while a download of the old one is still in flight.
+   * Reporting the status a member already holds is accepted and announces nothing.
+   */
+  setMapStatus({
+    client,
+    lobbyId,
+    mapId,
+    status,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    mapId: SbMapId
+    status: LobbyMapStatus
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    if (lobby.map!.id !== mapId) {
+      return
+    }
+
+    let statuses = this.mapStatuses.get(lobby.id)
+    if (status === 'ready') {
+      if (!statuses?.delete(client.userId)) {
+        return
+      }
+    } else {
+      if (statuses?.get(client.userId) === status) {
+        return
+      }
+      if (!statuses) {
+        statuses = new Map()
+        this.mapStatuses.set(lobby.id, statuses)
+      }
+      statuses.set(client.userId, status)
+    }
+
+    this._publishTo(lobby, { type: 'mapStatusChange', userId: client.userId, status })
+  }
+
+  /**
+   * Signs a fresh download URL for the lobby's current map, for a member whose copy of it has
+   * expired. Members are already entitled to the map whatever its visibility, since the lobby hands
+   * them its URL when they join.
+   *
+   * Returns `undefined` if `mapId` is no longer the lobby's map, since the host can change the map
+   * while a download of the old one is still in flight.
+   */
+  async getMapUrl({
+    client,
+    lobbyId,
+    mapId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    mapId: SbMapId
+  }): Promise<string | undefined> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    if (lobby.map!.id !== mapId) {
+      return undefined
+    }
+
+    const [mapInfo] = await getMapInfos([mapId])
+    return mapInfo?.mapUrl
+  }
+
+  /**
    * Changes the settings of a lobby that is still gathering, reconciling everyone in it into the
    * layout the new settings describe.
    *
@@ -1385,6 +1461,11 @@ export class LobbyService {
       // gathers its ready marks again from scratch. A rename or visibility change changes nothing
       // about the game, so it leaves them alone.
       this.readyUsers.delete(updated.id)
+    }
+    if (changedSettings.includes('map')) {
+      // Every recorded status was about the old map. Members' apps download the new one and report
+      // again.
+      this.mapStatuses.delete(updated.id)
     }
 
     this.lobbies.set(updated.id, updated)
@@ -2219,6 +2300,7 @@ export class LobbyService {
       this.lobbyBannedUsers.delete(lobby.id)
       this._clearRunState(lobby.id)
       this.readyUsers.delete(lobby.id)
+      this.mapStatuses.delete(lobby.id)
       this._forgetSeries(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._deleteJoinCode(lobby.id)
@@ -2228,6 +2310,7 @@ export class LobbyService {
       // Ready marks belong to the people in the lobby, so someone who is out of it (having left,
       // been removed, or disconnected) no longer holds one.
       this.readyUsers.get(lobby.id)?.delete(client.userId)
+      this.mapStatuses.get(lobby.id)?.delete(client.userId)
       this.lobbyPlayerNetwork.deleteUser(lobby.id, client.userId)
       this._publishLobbyDiff(
         lobby,
@@ -2293,6 +2376,17 @@ export class LobbyService {
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
+
+    // Unlike readiness, this is no call of the host's to override: a game can't load for a member
+    // who doesn't have its map. Members waiting on the bench aren't in the game, so their downloads
+    // don't hold it up.
+    const mapStatuses = this.mapStatuses.get(lobby.id)
+    if (mapStatuses?.size && getHumanSlots(lobby).some(slot => mapStatuses.has(slot.userId!))) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.MapNotDownloaded,
+        'not everyone in the lobby has the map',
+      )
+    }
 
     if (!force) {
       // Everyone else the game will contain gets a say in whether it starts. The host can start
@@ -2615,6 +2709,10 @@ export class LobbyService {
     if (lobby.mapQueue.length) {
       const advanced = advanceMapQueue(lobby)
       const updated = this._seatBenchOverflow(advanced.lobby)
+      if (updated.map!.id !== lobby.map!.id) {
+        // Every recorded status was about the old map, the same as when the host picks a new one.
+        this.mapStatuses.delete(lobbyId)
+      }
       this.lobbies.set(lobbyId, updated)
       this._publishTo(updated, { type: 'regroup', game })
       this._publishTo(updated, {

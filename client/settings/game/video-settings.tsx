@@ -48,7 +48,7 @@ const GAMMA_SLIDER_MAX = 100
 // when they are saved and loaded again.
 const GAMMA_SLIDER_STEP = 5
 
-function gammaToSliderValue(gamma: number): number {
+export function gammaToSliderValue(gamma: number): number {
   const clamped = Math.max(SCR_GAMMA_MIN, Math.min(SCR_GAMMA_MAX, gamma))
   return Math.round(
     ((clamped - SCR_GAMMA_MIN) / (SCR_GAMMA_MAX - SCR_GAMMA_MIN)) * GAMMA_SLIDER_MAX,

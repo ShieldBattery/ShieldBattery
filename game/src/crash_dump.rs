@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::os::windows::io::IntoRawHandle;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
@@ -25,28 +25,36 @@ use std::time::Duration;
 use libc::c_void;
 use scopeguard::defer;
 use winapi::shared::minwindef::FARPROC;
+use winapi::shared::minwindef::HMODULE;
 use winapi::um::errhandlingapi::{
     AddVectoredExceptionHandler, GetLastError, SetUnhandledExceptionFilter,
 };
-use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, WriteFile};
+use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, DeleteFileW, WriteFile};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::libloaderapi::{
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    GetModuleFileNameW, GetModuleHandleExW, GetModuleHandleW,
+};
 use winapi::um::memoryapi::VirtualQuery;
 use winapi::um::minwinbase::EXCEPTION_ACCESS_VIOLATION;
 use winapi::um::processthreadsapi::{
-    GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, SetThreadStackGuarantee,
-    TerminateProcess,
+    GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, GetProcessId,
+    SetThreadStackGuarantee, TerminateProcess,
 };
 use winapi::um::synchapi::{CreateEventW, SetEvent, WaitForSingleObject};
 use winapi::um::tlhelp32::MODULEENTRY32W;
-use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
+use winapi::um::winbase::{INFINITE, MOVEFILE_REPLACE_EXISTING, MoveFileExW, WAIT_OBJECT_0};
 use winapi::um::winnt::{
-    EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
-    IMAGE_NT_HEADERS, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
-    PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
+    CONTEXT, EXCEPTION_NONCONTINUABLE, EXCEPTION_POINTERS, EXCEPTION_RECORD, FILE_ATTRIBUTE_NORMAL,
+    GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER, IMAGE_NT_HEADERS, MEM_COMMIT, MEM_IMAGE, MEM_MAPPED,
+    MEM_PRIVATE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
+    PAGE_EXECUTE_WRITECOPY, PAGE_GUARD, PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE,
+    PAGE_WRITECOPY, RtlCaptureContext,
 };
 use winapi::vc::excpt::EXCEPTION_CONTINUE_SEARCH;
 
 use crate::bw_scr::Thiscall;
+use crate::startup_trace;
 use crate::windows;
 
 /// Stack reserved for exception handling on threads that call
@@ -55,7 +63,15 @@ use crate::windows;
 const HANDLER_STACK_GUARANTEE: u32 = 64 * 1024;
 /// How long the faulting thread waits for the dump thread before giving up and terminating.
 const DUMP_WAIT_MS: u32 = 60_000;
+/// How long a crash waits for the lines logged before it to reach the log file, so that its
+/// breadcrumbs, which carry no time of their own, come after them.
+const CRASH_LOG_FLUSH: Duration = Duration::from_millis(200);
+/// How long the process ending waits for the last lines logged to reach the log file.
+const EXIT_LOG_FLUSH: Duration = Duration::from_secs(1);
 const MINIDUMP_WITH_DATA_SEGS: u32 = 1;
+/// Puts the type and protection of every region of the address space in the dump.
+const MINIDUMP_WITH_FULL_MEMORY_INFO: u32 = 0x800;
+const PAGE_SIZE: usize = 0x1000;
 const CPP_EXCEPTION_CODE: u32 = 0xe06d7363;
 
 /// Thread whose exception is currently being handled (0 = no crash yet). Only the first crashing
@@ -77,6 +93,9 @@ static BREADCRUMB_FILE: AtomicUsize = AtomicUsize::new(0);
 /// across reports.
 static OWN_IMAGE_START: AtomicUsize = AtomicUsize::new(0);
 static OWN_IMAGE_END: AtomicUsize = AtomicUsize::new(0);
+/// A page the crash path found worth having in the dump beyond what `MINIDUMP_WITH_DATA_SEGS`
+/// covers (0 = none). It goes in along with the pages on either side of it.
+static DUMP_EXTRA_PAGE: AtomicUsize = AtomicUsize::new(0);
 
 type MiniDumpWriteDumpFn = unsafe extern "system" fn(
     HANDLE,
@@ -92,29 +111,67 @@ type MiniDumpWriteDumpFn = unsafe extern "system" fn(
 /// or path building.
 struct Prepared {
     minidump_write_dump: MiniDumpWriteDumpFn,
-    dump_path: Vec<u16>,
+    dump_paths: DumpPaths,
+}
+
+/// Where a dump goes, as nul-terminated UTF-16. It's written to `temp` and only renamed over
+/// `dump` once complete, so a write that fails partway (a full disk, a paging file too small for
+/// MiniDumpWriteDump) leaves the previous crash's dump intact instead of a truncated file.
+struct DumpPaths {
+    dump: Vec<u16>,
+    temp: Vec<u16>,
+    /// A stack dump older builds wrote next to the minidump, removed once a new dump is in place.
+    old_crash_stack: Vec<u16>,
+}
+
+impl DumpPaths {
+    fn new() -> DumpPaths {
+        DumpPaths::in_dir(&logs_dir())
+    }
+
+    fn in_dir(dir: &Path) -> DumpPaths {
+        DumpPaths {
+            dump: windows::winapi_str(dir.join("latest_crash.dmp")),
+            temp: windows::winapi_str(dir.join("latest_crash.dmp.tmp")),
+            old_crash_stack: windows::winapi_str(dir.join("crash_stack.bin")),
+        }
+    }
 }
 
 static PREPARED: OnceLock<Prepared> = OnceLock::new();
 
 /// Initializes our own crash handler and patches over
 /// SetUnhandledExceptionFilter so that nobody can override it.
+///
+/// Also catches the process being ended over an exception by something other than this handler
+/// (see [`terminate_process`]).
 pub unsafe fn init_crash_handler() {
     unsafe {
-        use self::hooks::SetUnhandledExceptionFilterDecl;
+        use self::hooks::{ExitProcessDecl, SetUnhandledExceptionFilterDecl, TerminateProcessDecl};
 
         record_own_image_range();
+        record_system_modules();
         SetUnhandledExceptionFilter(Some(exception_handler));
         let kernel32 = windows::load_library("kernel32").unwrap();
         let address = kernel32
             .proc_address("SetUnhandledExceptionFilter")
             .unwrap();
         let mut patcher = crate::PATCHER.lock();
-        let mut patcher = patcher.patch_library("kernel32", 0);
-        patcher.hook_closure_address(
-            SetUnhandledExceptionFilterDecl,
-            |_new, _orig| null_mut(),
-            address as usize - kernel32.handle() as usize,
+        {
+            let mut patcher = patcher.patch_library("kernel32", 0);
+            patcher.hook_closure_address(
+                SetUnhandledExceptionFilterDecl,
+                |_new, _orig| null_mut(),
+                address as usize - kernel32.handle() as usize,
+            );
+        }
+        // kernel32's TerminateProcess only forwards to kernelbase's, which code linked against
+        // the API sets calls directly.
+        hook_winapi_exports!(&mut *patcher, "kernelbase",
+            "TerminateProcess", TerminateProcessDecl, terminate_process;
+        );
+        hook_winapi_exports!(&mut *patcher, "kernel32",
+            "ExitProcess", ExitProcessDecl, exit_process;
         );
     }
 }
@@ -135,8 +192,12 @@ unsafe fn record_own_image_range() {
 }
 
 mod hooks {
+    use winapi::um::winnt::HANDLE;
+
     system_hooks!(
         !0 => SetUnhandledExceptionFilterDecl(*mut libc::c_void) -> *mut libc::c_void;
+        !0 => TerminateProcessDecl(HANDLE, u32) -> i32;
+        !0 => ExitProcessDecl(u32);
     );
 }
 
@@ -183,7 +244,7 @@ pub fn start_dump_thread() {
 fn prepare() -> Result<Prepared, io::Error> {
     unsafe {
         let minidump_write_dump = load_minidump_write_dump()?;
-        let dump_path = windows::winapi_str(logs_dir().join("latest_crash.dmp"));
+        let dump_paths = DumpPaths::new();
         let request = CreateEventW(null_mut(), 0, 0, null_mut());
         if request.is_null() {
             return Err(io::Error::last_os_error());
@@ -198,7 +259,7 @@ fn prepare() -> Result<Prepared, io::Error> {
         DUMP_DONE.store(done as usize, Ordering::Release);
         Ok(Prepared {
             minidump_write_dump,
-            dump_path,
+            dump_paths,
         })
     }
 }
@@ -271,6 +332,200 @@ macro_rules! breadcrumb {
     ($($arg:tt)*) => {
         breadcrumb(format_args!($($arg)*))
     };
+}
+
+/// Whether a process exit code has the error severity of an `NTSTATUS`, as the code of an
+/// exception a process is ended over does.
+fn is_exception_exit_code(code: u32) -> bool {
+    code & 0xc000_0000 == 0xc000_0000
+}
+
+/// Turns `TerminateProcess` ending this process with an exception's code into a crash this
+/// handler reports. Something in the process that catches an exception itself (a handler of its
+/// own around its code, or a vectored one) and then ends the process this way never reaches the
+/// top-level filter, which would leave no trace of where or why. This handler's own termination
+/// happens while a crash is being handled, and passes through.
+///
+/// Whatever ends this process, the lines its threads have logged get a moment to reach the log
+/// file first.
+fn terminate_process(
+    process: HANDLE,
+    code: u32,
+    orig: unsafe extern "C" fn(HANDLE, u32) -> i32,
+) -> i32 {
+    unsafe {
+        if GetProcessId(process) == GetCurrentProcessId() {
+            if is_exception_exit_code(code) && CRASHING_THREAD.load(Ordering::Acquire) == 0 {
+                crash_on_exception_exit("TerminateProcess", code);
+            }
+            crate::log_writer::flush(EXIT_LOG_FLUSH);
+        }
+        orig(process, code)
+    }
+}
+
+/// [`terminate_process`] for `ExitProcess`, which always ends this process.
+fn exit_process(code: u32, orig: unsafe extern "C" fn(u32)) {
+    unsafe {
+        if is_exception_exit_code(code) && CRASHING_THREAD.load(Ordering::Acquire) == 0 {
+            crash_on_exception_exit("ExitProcess", code);
+        }
+        crate::log_writer::flush(EXIT_LOG_FLUSH);
+        orig(code)
+    }
+}
+
+/// Handles the process being ended by `api` with exception code `code` as a crash on this thread,
+/// at this point: breadcrumbs, a dump whose stack for this thread runs through the caller, then the
+/// usual crash dialog and termination with `code`.
+#[inline(never)]
+unsafe fn crash_on_exception_exit(api: &str, code: u32) -> ! {
+    unsafe {
+        crate::log_writer::flush(CRASH_LOG_FLUSH);
+        breadcrumb!(
+            "{api} ending the process with exception code {code:08x} on thread {:x}; code \
+             addresses on its stack: {}",
+            GetCurrentThreadId(),
+            StackCodeAddresses,
+        );
+        let mut context: AlignedContext = mem::zeroed();
+        RtlCaptureContext(&mut context.0);
+        let mut record: EXCEPTION_RECORD = mem::zeroed();
+        record.ExceptionCode = code;
+        record.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
+        #[cfg(target_arch = "x86")]
+        let place = context.0.Eip as usize;
+        #[cfg(target_arch = "x86_64")]
+        let place = context.0.Rip as usize;
+        record.ExceptionAddress = place as *mut _;
+        let mut pointers = EXCEPTION_POINTERS {
+            ExceptionRecord: &mut record,
+            ContextRecord: &mut context.0,
+        };
+        crash_dump_and_exit(&mut pointers)
+    }
+}
+
+/// A `CONTEXT` aligned as Windows requires on x64, which winapi's definition leaves out.
+/// `RtlCaptureContext` saves the vector registers with aligned stores.
+#[repr(C, align(16))]
+struct AlignedContext(CONTEXT);
+
+/// How far up the stack [`StackCodeAddresses`] looks.
+const STACK_SCAN_BYTES: usize = 0x4000;
+/// How many code addresses [`StackCodeAddresses`] lists.
+const STACK_SCAN_ADDRESSES: usize = 12;
+
+/// Windows' own DLLs that every call into the system passes through, whose addresses
+/// [`StackCodeAddresses`] leaves out: the stack is full of stale ones, and they never say whose
+/// code made the call.
+const SYSTEM_MODULE_NAMES: [&str; 3] = ["ntdll.dll", "kernelbase.dll", "kernel32.dll"];
+static SYSTEM_MODULES: [AtomicUsize; 3] = [const { AtomicUsize::new(0) }; 3];
+
+fn record_system_modules() {
+    for (name, slot) in SYSTEM_MODULE_NAMES.iter().zip(&SYSTEM_MODULES) {
+        let module = unsafe { GetModuleHandleW(windows::winapi_str(name).as_ptr()) };
+        slot.store(module as usize, Ordering::Relaxed);
+    }
+}
+
+fn is_system_module(module: HMODULE) -> bool {
+    SYSTEM_MODULES
+        .iter()
+        .any(|slot| slot.load(Ordering::Relaxed) == module as usize)
+}
+
+/// Values on the current thread's stack that point into executable code of a module other than
+/// this DLL and Windows' own (see [`SYSTEM_MODULE_NAMES`]), as `module+offset`, nearest first:
+/// mostly return addresses of the frames below this one, with stale values from earlier calls
+/// mixed in. A frame walk can't be relied on here, as the hooks' entry code has no unwind data.
+/// Formats without allocating.
+struct StackCodeAddresses;
+
+impl fmt::Display for StackCodeAddresses {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let marker = 0usize;
+        let start = (&raw const marker as usize) & !(mem::size_of::<usize>() - 1);
+        let own = OWN_IMAGE_START.load(Ordering::Relaxed)..OWN_IMAGE_END.load(Ordering::Relaxed);
+        let mut found = 0;
+        unsafe {
+            let mut region: MEMORY_BASIC_INFORMATION = mem::zeroed();
+            if VirtualQuery(start as *const _, &mut region, mem::size_of_val(&region)) == 0 {
+                return f.write_str("stack unreadable");
+            }
+            let end =
+                (region.BaseAddress as usize + region.RegionSize).min(start + STACK_SCAN_BYTES);
+            let mut pos = start;
+            while pos + mem::size_of::<usize>() <= end && found < STACK_SCAN_ADDRESSES {
+                let value = *(pos as *const usize);
+                pos += mem::size_of::<usize>();
+                if own.contains(&value) || !is_executable(value) {
+                    continue;
+                }
+                let Some(module) = module_containing(value) else {
+                    continue;
+                };
+                if is_system_module(module) {
+                    continue;
+                }
+                if found != 0 {
+                    f.write_str(", ")?;
+                }
+                write_module_name(f, module)?;
+                write!(f, "+{:x}", value - module as usize)?;
+                found += 1;
+            }
+        }
+        if found == 0 {
+            f.write_str("none")?;
+        }
+        Ok(())
+    }
+}
+
+fn is_executable(address: usize) -> bool {
+    unsafe {
+        let mut region: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        VirtualQuery(address as *const _, &mut region, mem::size_of_val(&region)) != 0
+            && region.State == MEM_COMMIT
+            && region.Protect
+                & (PAGE_EXECUTE
+                    | PAGE_EXECUTE_READ
+                    | PAGE_EXECUTE_READWRITE
+                    | PAGE_EXECUTE_WRITECOPY)
+                != 0
+    }
+}
+
+/// The module `address` is in, without taking a reference to it.
+fn module_containing(address: usize) -> Option<HMODULE> {
+    unsafe {
+        let mut module = null_mut();
+        let ok = GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            address as *const u16,
+            &mut module,
+        );
+        (ok != 0 && !module.is_null()).then_some(module)
+    }
+}
+
+/// Writes the file name of `module` without allocating.
+fn write_module_name(f: &mut fmt::Formatter<'_>, module: HMODULE) -> fmt::Result {
+    let mut path = [0u16; 260];
+    let len = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) } as usize;
+    let path = &path[..len.min(path.len())];
+    let name = match path.iter().rposition(|&c| c == u16::from(b'\\')) {
+        Some(slash) => &path[slash + 1..],
+        None => path,
+    };
+    if name.is_empty() {
+        return write!(f, "{:x}", module as usize);
+    }
+    for c in char::decode_utf16(name.iter().copied()) {
+        f.write_char(c.unwrap_or(char::REPLACEMENT_CHARACTER))?;
+    }
+    Ok(())
 }
 
 unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {
@@ -427,8 +682,140 @@ fn is_read_ok_protect(protect: u32) -> bool {
             | PAGE_READWRITE
             | PAGE_EXECUTE_READWRITE
             | PAGE_WRITECOPY
+            | PAGE_EXECUTE_WRITECOPY
             | PAGE_EXECUTE_READ)
         != 0
+}
+
+/// Whether `len` bytes at `address` can be read without faulting. They have to lie in one region.
+fn readable(address: usize, len: usize) -> bool {
+    unsafe {
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        if VirtualQuery(address as *const _, &mut info, mem::size_of_val(&info)) == 0 {
+            return false;
+        }
+        let region_end = info.BaseAddress as usize + info.RegionSize;
+        info.State == MEM_COMMIT
+            && info.Protect & (PAGE_GUARD | PAGE_NOACCESS) == 0
+            && is_read_ok_protect(info.Protect)
+            && address
+                .checked_add(len)
+                .is_some_and(|end| end <= region_end)
+    }
+}
+
+/// The pointer slot an indirect `call [slot]` (`ff 15`) reads its target from, given the call's
+/// 6 bytes and the address of the instruction after it. None if the bytes are some other
+/// instruction.
+fn indirect_call_slot(call: [u8; 6], return_address: usize) -> Option<usize> {
+    if call[..2] != [0xff, 0x15] {
+        return None;
+    }
+    let operand = i32::from_le_bytes([call[2], call[3], call[4], call[5]]);
+    if cfg!(target_arch = "x86_64") {
+        // rip-relative
+        Some(return_address.wrapping_add_signed(operand as isize))
+    } else {
+        Some(operand as u32 as usize)
+    }
+}
+
+/// Formats an address relative to the game's exe image when it's in or just past it.
+struct ExeAddress(usize);
+
+impl fmt::Display for ExeAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (base, size) = unsafe {
+            let base = GetModuleHandleW(null_mut()) as usize;
+            if base == 0 {
+                (0, 0)
+            } else {
+                let dos = base as *const IMAGE_DOS_HEADER;
+                let nt = (base + (*dos).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
+                (base, (*nt).OptionalHeader.SizeOfImage as usize)
+            }
+        };
+        match self.0.checked_sub(base) {
+            Some(offset) if base != 0 && offset < size => write!(f, "StarCraft+{offset:x}"),
+            Some(offset) if base != 0 && offset - size < 0x100_0000 => {
+                write!(f, "StarCraft end+{:x}", offset - size)
+            }
+            _ => write!(f, "{:x}", self.0),
+        }
+    }
+}
+
+fn memory_type_name(kind: u32) -> &'static str {
+    match kind {
+        MEM_IMAGE => "image",
+        MEM_MAPPED => "mapped",
+        MEM_PRIVATE => "private",
+        _ => "?",
+    }
+}
+
+/// For a crash that jumped to a bad address through `call [slot]`, as calling an import that was
+/// never resolved does: says where the call came from, what the slot and its page hold and what
+/// memory it's in, and marks the page for the dump. Writes nothing for any other crash.
+unsafe fn breadcrumb_failed_call(exception: *mut EXCEPTION_POINTERS) {
+    unsafe {
+        let record = &*(*exception).ExceptionRecord;
+        let executing = record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION
+            && record.NumberParameters >= 2
+            && record.ExceptionInformation[0] == 8;
+        if !executing {
+            return;
+        }
+        #[cfg(target_arch = "x86")]
+        let stack_pointer = (*(*exception).ContextRecord).Esp as usize;
+        #[cfg(target_arch = "x86_64")]
+        let stack_pointer = (*(*exception).ContextRecord).Rsp as usize;
+        if !readable(stack_pointer, mem::size_of::<usize>()) {
+            return;
+        }
+        let return_address = (stack_pointer as *const usize).read_unaligned();
+        let Some(call_start) = return_address.checked_sub(6) else {
+            return;
+        };
+        if !readable(call_start, 6) {
+            return;
+        }
+        let call = (call_start as *const [u8; 6]).read_unaligned();
+        let Some(slot) = indirect_call_slot(call, return_address) else {
+            return;
+        };
+        let caller = ExeAddress(call_start);
+        if !readable(slot, mem::size_of::<usize>()) {
+            breadcrumb!(
+                "Faulting call at {caller} read its target from unreadable {}",
+                ExeAddress(slot)
+            );
+            return;
+        }
+        let target = (slot as *const usize).read_unaligned();
+        breadcrumb!(
+            "Faulting call at {caller} read its target {target:x} from {}",
+            ExeAddress(slot)
+        );
+
+        let page = slot & !(PAGE_SIZE - 1);
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        VirtualQuery(page as *const _, &mut info, mem::size_of_val(&info));
+        let pointers = PAGE_SIZE / mem::size_of::<usize>();
+        let null = (0..pointers)
+            .filter(|&i| (page as *const usize).add(i).read_unaligned() == 0)
+            .count();
+        breadcrumb!(
+            "Its region: {} memory allocated at {}, {:x} bytes from {}, protect {:x}; {null} of \
+             the page's {pointers} pointers are null",
+            memory_type_name(info.Type),
+            ExeAddress(info.AllocationBase as usize),
+            info.RegionSize,
+            ExeAddress(info.BaseAddress as usize),
+            info.Protect,
+        );
+        DUMP_EXTRA_PAGE.store(page, Ordering::Relaxed);
+    }
 }
 
 unsafe fn write_stack(exception: *mut EXCEPTION_POINTERS, filename: &str) {
@@ -547,12 +934,15 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         }
         INITIAL_EXCEPTION.store(exception, Ordering::Release);
 
+        crate::log_writer::flush(CRASH_LOG_FLUSH);
         // The one line that must make it to disk, before anything that could fault again.
         breadcrumb!("Thread {thread_id:x} crashed @ {place:08x}, exception {code:08x}");
         breadcrumb!(
             "Thread {thread_id:x} crash detail: {}",
             CrashDetail(exception)
         );
+        breadcrumb_failed_call(exception);
+        startup_trace::breadcrumb_crash_before_game_init(breadcrumb);
 
         if !windows::thread_has_tls() {
             // A thread without TLS is one of the loader's workers (see `windows::thread_has_tls`),
@@ -621,7 +1011,7 @@ unsafe fn dump_thread_main() {
             .expect("dump thread started without preparation");
         let result = write_minidump(
             prepared.minidump_write_dump,
-            &prepared.dump_path,
+            &prepared.dump_paths,
             exception,
             crashing_thread,
         );
@@ -698,14 +1088,13 @@ pub unsafe fn write_minidump_to_default_path(
         match PREPARED.get() {
             Some(prepared) => write_minidump(
                 prepared.minidump_write_dump,
-                &prepared.dump_path,
+                &prepared.dump_paths,
                 exception,
                 thread_id,
             ),
             None => {
                 let minidump_write_dump = load_minidump_write_dump()?;
-                let path = windows::winapi_str(logs_dir().join("latest_crash.dmp"));
-                write_minidump(minidump_write_dump, &path, exception, thread_id)
+                write_minidump(minidump_write_dump, &DumpPaths::new(), exception, thread_id)
             }
         }
     }
@@ -716,9 +1105,37 @@ fn logs_dir() -> PathBuf {
     args.user_data_path.join("logs")
 }
 
-/// Writes a minidump to `path` (nul-terminated UTF-16). `exception` may be null; otherwise it
+/// Writes a minidump to `paths.dump` by way of `paths.temp`. `exception` may be null; otherwise it
 /// must belong to `thread_id`, which is the thread the dump's exception stream will point at.
 unsafe fn write_minidump(
+    minidump_write_dump: MiniDumpWriteDumpFn,
+    paths: &DumpPaths,
+    exception: *mut EXCEPTION_POINTERS,
+    thread_id: u32,
+) -> Result<(), io::Error> {
+    unsafe {
+        let result = write_minidump_file(minidump_write_dump, &paths.temp, exception, thread_id)
+            .and_then(|()| {
+                let moved = MoveFileExW(
+                    paths.temp.as_ptr(),
+                    paths.dump.as_ptr(),
+                    MOVEFILE_REPLACE_EXISTING,
+                );
+                match moved {
+                    0 => Err(io::Error::last_os_error()),
+                    _ => Ok(()),
+                }
+            });
+        match result {
+            Ok(()) => DeleteFileW(paths.old_crash_stack.as_ptr()),
+            Err(_) => DeleteFileW(paths.temp.as_ptr()),
+        };
+        result
+    }
+}
+
+/// Writes a minidump to `path` (nul-terminated UTF-16), closing the file before returning.
+unsafe fn write_minidump_file(
     minidump_write_dump: MiniDumpWriteDumpFn,
     path: &[u16],
     exception: *mut EXCEPTION_POINTERS,
@@ -746,22 +1163,32 @@ unsafe fn write_minidump(
             exception,
             client_pointers: 0,
         };
+        let mut extra = ExtraDumpMemory::new(
+            DUMP_EXTRA_PAGE.load(Ordering::Relaxed),
+            !startup_trace::game_init_reached(),
+        );
+        let mut callback = MinidumpCallbackInformation {
+            routine: add_extra_dump_memory,
+            param: &mut extra as *mut ExtraDumpMemory as *mut c_void,
+        };
+        // Dumps with nothing extra to add are written without a callback, leaving all of
+        // dbghelp's choices to it.
+        let callback = match extra.count {
+            0 => null_mut(),
+            _ => &mut callback as *mut MinidumpCallbackInformation as *mut c_void,
+        };
         let ok = minidump_write_dump(
             GetCurrentProcess(),
             GetCurrentProcessId(),
             file,
-            MINIDUMP_WITH_DATA_SEGS,
+            MINIDUMP_WITH_DATA_SEGS | MINIDUMP_WITH_FULL_MEMORY_INFO,
             &mut exception_param,
             null_mut(),
-            null_mut(),
+            callback,
         );
-        if ok == 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            // Remove old crash_stack.bin if such exists from older crash
-            let path = logs_dir().join("crash_stack.bin");
-            let _ = std::fs::remove_file(path);
-            Ok(())
+        match ok {
+            0 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
         }
     }
 }
@@ -771,6 +1198,148 @@ struct MinidumpExceptionInfo {
     thread_id: u32,
     exception: *mut EXCEPTION_POINTERS,
     client_pointers: u32,
+}
+
+#[repr(C, packed(4))]
+struct MinidumpCallbackInformation {
+    routine: MinidumpCallbackFn,
+    param: *mut c_void,
+}
+
+/// Leading fields of MINIDUMP_CALLBACK_INPUT, all a callback here needs.
+#[repr(C, packed(4))]
+struct MinidumpCallbackInput {
+    process_id: u32,
+    process_handle: HANDLE,
+    callback_type: u32,
+}
+
+/// MINIDUMP_CALLBACK_OUTPUT is a union; each callback type writes its own fields at its start.
+type MinidumpCallbackFn =
+    unsafe extern "system" fn(*mut c_void, *const MinidumpCallbackInput, *mut u8) -> i32;
+
+const MINIDUMP_CALLBACK_INCLUDE_MODULE: u32 = 4;
+const MINIDUMP_CALLBACK_MEMORY: u32 = 5;
+const MINIDUMP_CALLBACK_READ_MEMORY_FAILURE: u32 = 14;
+
+/// Most memory ranges a dump adds beyond what dbghelp writes on its own.
+const MAX_EXTRA_RANGES: usize = 128;
+
+/// Most bytes of executable private memory a dump adds (see
+/// [`ExtraDumpMemory::add_executable_private_memory`]).
+const MAX_EXECUTABLE_PRIVATE_BYTES: usize = 0x10_0000;
+
+/// Memory ranges to add to a dump, handed to dbghelp one per memory callback.
+struct ExtraDumpMemory {
+    ranges: [(usize, usize); MAX_EXTRA_RANGES],
+    count: usize,
+    next: usize,
+}
+
+impl ExtraDumpMemory {
+    /// `page` and its neighbours, as far as they're readable (none if `page` is 0), and with
+    /// `executable_private`, the process's executable private memory as well.
+    fn new(page: usize, executable_private: bool) -> ExtraDumpMemory {
+        let mut extra = ExtraDumpMemory {
+            ranges: [(0, 0); MAX_EXTRA_RANGES],
+            count: 0,
+            next: 0,
+        };
+        if page != 0 {
+            let candidates = [
+                page.wrapping_sub(PAGE_SIZE),
+                page,
+                page.wrapping_add(PAGE_SIZE),
+            ];
+            for candidate in candidates {
+                if readable(candidate, PAGE_SIZE) {
+                    extra.push(candidate, PAGE_SIZE);
+                }
+            }
+        }
+        if executable_private {
+            extra.add_executable_private_memory();
+        }
+        extra
+    }
+
+    /// Adds a range, returning false once there's no room left.
+    fn push(&mut self, base: usize, size: usize) -> bool {
+        if self.count == MAX_EXTRA_RANGES {
+            return false;
+        }
+        self.ranges[self.count] = (base, size);
+        self.count += 1;
+        true
+    }
+
+    /// Adds committed private memory that can run code, up to [`MAX_EXECUTABLE_PRIVATE_BYTES`].
+    /// Before game init that is mostly SC:R's exe packer at work: the imports it resolves point
+    /// at stubs it writes into pages like these, so a dump of a crash on an import the packer
+    /// never filled in shows how far it got and which DLL each filled import belongs to.
+    fn add_executable_private_memory(&mut self) {
+        let mut address = 0usize;
+        let mut remaining = MAX_EXECUTABLE_PRIVATE_BYTES;
+        loop {
+            let mut info: MEMORY_BASIC_INFORMATION = unsafe { mem::zeroed() };
+            let queried =
+                unsafe { VirtualQuery(address as *const _, &mut info, mem::size_of_val(&info)) };
+            if queried == 0 {
+                return;
+            }
+            let base = info.BaseAddress as usize;
+            let executable =
+                info.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE) != 0
+                    && info.Protect & PAGE_GUARD == 0;
+            if info.State == MEM_COMMIT && info.Type == MEM_PRIVATE && executable {
+                let size = info.RegionSize.min(remaining);
+                if !self.push(base, size) {
+                    return;
+                }
+                remaining -= size;
+                if remaining == 0 {
+                    return;
+                }
+            }
+            match base.checked_add(info.RegionSize) {
+                Some(next) if next > address => address = next,
+                _ => return,
+            }
+        }
+    }
+}
+
+/// Minidump callback that adds `ExtraDumpMemory` (its `param`) to the dump. The module and thread
+/// callbacks (types 0 through 4) return TRUE to keep everything dbghelp would write anyway; FALSE
+/// for the other types leaves them to dbghelp's defaults.
+unsafe extern "system" fn add_extra_dump_memory(
+    param: *mut c_void,
+    input: *const MinidumpCallbackInput,
+    output: *mut u8,
+) -> i32 {
+    unsafe {
+        match (*input).callback_type {
+            0..=MINIDUMP_CALLBACK_INCLUDE_MODULE => 1,
+            MINIDUMP_CALLBACK_MEMORY => {
+                let extra = &mut *(param as *mut ExtraDumpMemory);
+                if extra.next == extra.count {
+                    return 0;
+                }
+                let (base, size) = extra.ranges[extra.next];
+                extra.next += 1;
+                // MemoryBase: u64, then MemorySize: u32
+                (output as *mut u64).write_unaligned(base as u64);
+                (output.add(8) as *mut u32).write_unaligned(size as u32);
+                1
+            }
+            MINIDUMP_CALLBACK_READ_MEMORY_FAILURE => {
+                // Status = S_OK: leave out the unreadable memory instead of failing the dump.
+                (output as *mut i32).write_unaligned(0);
+                1
+            }
+            _ => 0,
+        }
+    }
 }
 
 unsafe fn load_minidump_write_dump() -> Result<MiniDumpWriteDumpFn, io::Error> {
@@ -785,6 +1354,71 @@ unsafe fn load_minidump_write_dump() -> Result<MiniDumpWriteDumpFn, io::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn indirect_call_slot_is_rip_relative() {
+        // call [rip-0x10], ending at 0x1000
+        let call = [0xff, 0x15, 0xf0, 0xff, 0xff, 0xff];
+        assert_eq!(indirect_call_slot(call, 0x1000), Some(0xff0));
+        // mov rax, [rip+0x10]
+        let not_call = [0x48, 0x8b, 0x05, 0x10, 0x00, 0x00];
+        assert_eq!(indirect_call_slot(not_call, 0x1000), None);
+    }
+
+    /// A uniquely named directory under the system temp directory, removed on drop.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> TempDir {
+            static COUNTER: AtomicU32 = AtomicU32::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "sb-crash-dump-{}-{}",
+                std::process::id(),
+                COUNTER.fetch_add(1, Ordering::Relaxed),
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            TempDir(path)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn minidump_replaces_previous_dump_once_complete() {
+        let dir = TempDir::new();
+        std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
+        std::fs::write(dir.0.join("crash_stack.bin"), b"stale").unwrap();
+        unsafe {
+            let write_dump = load_minidump_write_dump().unwrap();
+            let paths = DumpPaths::in_dir(&dir.0);
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId()).unwrap();
+        }
+        let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
+        assert_eq!(&dump[..4], b"MDMP");
+        assert!(!dir.0.join("latest_crash.dmp.tmp").exists());
+        assert!(!dir.0.join("crash_stack.bin").exists());
+    }
+
+    #[test]
+    fn failed_minidump_keeps_previous_dump() {
+        let dir = TempDir::new();
+        std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
+        // A directory in the temp file's place makes creating it fail.
+        std::fs::create_dir(dir.0.join("latest_crash.dmp.tmp")).unwrap();
+        let result = unsafe {
+            let write_dump = load_minidump_write_dump().unwrap();
+            let paths = DumpPaths::in_dir(&dir.0);
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId())
+        };
+        assert!(result.is_err());
+        let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
+        assert_eq!(dump, b"previous");
+    }
 
     #[test]
     fn stack_buf_truncates_instead_of_overflowing() {

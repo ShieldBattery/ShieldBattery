@@ -1,9 +1,13 @@
-import { lazy, Suspense } from 'react'
+import type { ReactNode } from 'react'
+import { createContext, lazy, Suspense, useContext, useId } from 'react'
 import type { Components, ExtraProps } from 'react-markdown'
 import styled, { css } from 'styled-components'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { ExternalLink } from '../navigation/external-link'
 import { makePublicAssetUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
+import { useAppDispatch } from '../redux-hooks'
 import {
   bodyMedium,
   headlineLarge,
@@ -229,6 +233,29 @@ const Image = styled.img`
   ${mediaStyle};
 `
 
+/** Wraps an image that opens in the viewer when activated, taking over the image's own margins. */
+const ZoomButton = styled.button`
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 16px auto 20px;
+  padding: 0;
+
+  background: none;
+  border: none;
+  cursor: zoom-in;
+`
+
+const ZoomableImage = styled(Image)`
+  margin: 0;
+`
+
+/**
+ * Whether the media being rendered sits inside a markdown link, in which case clicking it follows
+ * the link rather than opening a viewer.
+ */
+const InLinkContext = createContext(false)
+
 const StyledYoutubeEmbed = styled(YoutubeEmbed)`
   ${mediaStyle};
   /* The frame's height follows its width, so the width is what has to respect the height cap. */
@@ -279,6 +306,10 @@ function getTrustedOrigin(): string | undefined {
 }
 
 function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
+  const dispatch = useAppDispatch()
+  const inLink = useContext(InLinkContext)
+  const buttonId = useId()
+
   if (!src) {
     return null
   }
@@ -301,23 +332,50 @@ function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?
     return <ExternalLink href={src}>{alt || src}</ExternalLink>
   }
 
+  let media: ReactNode
+  if (isVideoUrl(src)) {
+    // Inline videos only play once clicked. Playing one makes the browser draw every frame for
+    // as long as it's on screen, and fetches what can be tens of megabytes, so it's the
+    // viewer's call; once they've chosen to, it loops like the gifs these replace.
+    media = (
+      <Video
+        src={src}
+        loop={true}
+        muted={true}
+        playsInline={true}
+        controls={true}
+        preload='metadata'
+      />
+    )
+  } else if (inLink) {
+    media = <Image src={src} alt={alt ?? ''} loading='lazy' draggable={false} />
+  } else {
+    media = (
+      <ZoomButton
+        id={buttonId}
+        type='button'
+        aria-label={alt || title || src}
+        onClick={() =>
+          dispatch(
+            openDialog({
+              type: DialogType.ImageViewer,
+              initData: {
+                src,
+                alt: alt || undefined,
+                caption: title || undefined,
+                returnFocusId: buttonId,
+              },
+            }),
+          )
+        }>
+        <ZoomableImage src={src} alt={alt ?? ''} loading='lazy' draggable={false} />
+      </ZoomButton>
+    )
+  }
+
   return (
     <>
-      {isVideoUrl(src) ? (
-        // Inline videos only play once clicked. Playing one makes the browser draw every frame for
-        // as long as it's on screen, and fetches what can be tens of megabytes, so it's the
-        // viewer's call; once they've chosen to, it loops like the gifs these replace.
-        <Video
-          src={src}
-          loop={true}
-          muted={true}
-          playsInline={true}
-          controls={true}
-          preload='metadata'
-        />
-      ) : (
-        <Image src={src} alt={alt ?? ''} loading='lazy' draggable={false} />
-      )}
+      {media}
       {title ? <Caption>{title}</Caption> : null}
     </>
   )
@@ -334,7 +392,11 @@ const MEDIA_COMPONENTS: Components = {
     if (imgSrcs.some(src => !trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin))) {
       return <>{children}</>
     }
-    return <ExternalLink href={href!}>{children}</ExternalLink>
+    return (
+      <ExternalLink href={href!}>
+        <InLinkContext value={true}>{children}</InLinkContext>
+      </ExternalLink>
+    )
   },
   img: ({ alt, src, title }) => <MarkdownMedia src={src} alt={alt} title={title} />,
 }

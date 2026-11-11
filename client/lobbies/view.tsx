@@ -50,6 +50,7 @@ import {
 import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
+import { retryLobbyMapDownload } from './lobby-map-download'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
@@ -237,12 +238,13 @@ function ConnectedLobby() {
   return (
     <LobbyRoom
       viewerId={selfUser.id}
-      onSendChatMessage={message => {
+      onSendChatMessage={(message, onError) => {
         dispatch(
           sendChat(message, {
             onSuccess: () => {},
             onError: err => {
               logger.error(`Error while sending a lobby chat message: ${getErrorStack(err)}`)
+              onError(err)
             },
           }),
         )
@@ -297,6 +299,9 @@ function ConnectedLobby() {
           default:
             assertUnreachable(action)
         }
+      }}
+      onRetryMapDownload={() => {
+        dispatch(retryLobbyMapDownload())
       }}
       onArrangeTeams={arrangement => {
         switch (arrangement) {

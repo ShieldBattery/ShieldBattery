@@ -69,5 +69,20 @@ describe('settings/account-settings-api', () => {
       ).toBeDefined()
       expect(updateAccountSettingsSchema.validate({ replayNameTemplate: 5 }).error).toBeDefined()
     })
+
+    test('accepts each Discord activity sharing state', () => {
+      for (const shareDiscordActivity of ['notAsked', 'on', 'off']) {
+        expect(updateAccountSettingsSchema.validate({ shareDiscordActivity }).error).toBeUndefined()
+      }
+    })
+
+    test('rejects an unknown Discord activity sharing state', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ shareDiscordActivity: 'friendsOnly' }).error,
+      ).toBeDefined()
+      expect(
+        updateAccountSettingsSchema.validate({ shareDiscordActivity: true }).error,
+      ).toBeDefined()
+    })
   })
 })

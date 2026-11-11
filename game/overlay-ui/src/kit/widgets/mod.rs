@@ -14,30 +14,30 @@ mod tooltip;
 
 pub use buttons::{
     ButtonPlate, ButtonVariant, HoldState, button, button_sized, button_with_kbd, chip_button,
-    hold_to_confirm, hold_to_confirm_by_key, kbd, kbd_size, paint_button_kbd, paint_kbd,
-    plate_button, plate_button_aligned,
+    hold_to_confirm, hold_to_confirm_by_key, kbd, kbd_button, kbd_size, paint_button_kbd,
+    paint_kbd, plate_button, plate_button_aligned,
 };
 pub use charts::{
     PlotResponse, Series, line_plot, line_plot_clickable, progress_bar, share_bar, sparkline,
     sparkline_to,
 };
 pub use controls::{
-    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked, segmented,
-    segmented_sized, segmented_width, slider, slider_sized, stepper, switch, tab_strip,
-    tab_strip_width,
+    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked,
+    scrub_track_marked_flush, segmented, segmented_sized, segmented_width, slider, slider_sized,
+    stepper, switch, tab_strip, tab_strip_width,
 };
 pub use icons::{
-    IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
-    paint_resource_icon, set_resource_icons,
+    ColumnGlyph, IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_column_glyph,
+    paint_resource_glyph, paint_resource_icon, set_resource_icons,
 };
 pub use menus::{
     Glyph, ICON_BUTTON_SIZE, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone,
     dropdown_button, icon_button, menu_separator, paint_glyph, popup_menu,
 };
 pub use panels::{
-    PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
-    panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
-    tag_sized, text_cell,
+    PANEL_HEADER_HEIGHT, PanelHeader, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider,
+    panel_header, panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact,
+    tag_height, tag_sized, text_cell,
 };
 pub use tooltip::{hint_card, tooltip, tooltip_above};
 
@@ -49,12 +49,16 @@ use crate::kit::theme;
 
 /// Draws the rest of this `Ui` as disabled: inert, and at the design's disabled opacity.
 ///
-/// egui's own disabling fades to its style's alpha, so the opacity is set afterwards rather than
-/// multiplied on top of it, and one token decides how a disabled control looks everywhere.
+/// The disabled opacity is multiplied into whatever opacity the `Ui` is already drawn at, so a
+/// disabled control fades in and out with the surface it is on. egui's own disabling fades by its
+/// style's alpha as well, which is dropped rather than stacked on top: one token decides how a
+/// disabled control looks everywhere. A `Ui` that is already disabled is already dimmed, and is
+/// left as it is.
 pub fn set_disabled(ui: &mut Ui, disabled: bool) {
-    if disabled {
+    if disabled && ui.is_enabled() {
+        let opacity = ui.opacity();
         ui.disable();
-        ui.set_opacity(theme::DISABLED_OPACITY);
+        ui.set_opacity(opacity * theme::DISABLED_OPACITY);
     }
 }
 
@@ -144,5 +148,49 @@ pub(crate) fn active_halo(ui: &Ui, rect: Rect, corner_radius: CornerRadius, colo
             Stroke::new(theme::HAIRLINE, color.gamma_multiply(alpha)),
             StrokeKind::Outside,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{RawInput, pos2, vec2};
+
+    use super::*;
+
+    /// The color an opaque white fill comes out as on a `Ui` drawn at `surface_opacity` and then
+    /// disabled as many times as `disables`.
+    fn disabled_fill(surface_opacity: f32, disables: usize) -> Color32 {
+        let raw = RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(100.0, 100.0))),
+            ..Default::default()
+        };
+        let mut output = Context::default().run_ui(raw, |ui| {
+            ui.set_opacity(surface_opacity);
+            for _ in 0..disables {
+                set_disabled(ui, true);
+            }
+            let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(10.0, 10.0));
+            ui.painter().rect_filled(rect, 0.0, Color32::WHITE);
+        });
+        output.textures_delta.clear();
+        output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                Shape::Rect(rect) => Some(rect.fill),
+                _ => None,
+            })
+            .expect("the fill is painted")
+    }
+
+    #[test]
+    fn a_disabled_ui_is_dimmed_by_the_disabled_opacity_alone_whatever_its_surface_is_drawn_at() {
+        let dimmed = |opacity: f32| Color32::WHITE.gamma_multiply(opacity);
+        // Without egui's own disabled fade stacked on top.
+        assert_eq!(disabled_fill(1.0, 1), dimmed(theme::DISABLED_OPACITY));
+        // A surface halfway through fading in takes its disabled controls with it.
+        assert_eq!(disabled_fill(0.5, 1), dimmed(0.5 * theme::DISABLED_OPACITY));
+        // Disabling what is already disabled dims it no further.
+        assert_eq!(disabled_fill(1.0, 2), dimmed(theme::DISABLED_OPACITY));
     }
 }

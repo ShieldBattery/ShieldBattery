@@ -1,7 +1,13 @@
 import { TFunction } from 'i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
-import { GameDefaultsPreset, LocalSettings, StartingFog, TeamColorPreset } from './local-settings'
+import {
+  FramePacing,
+  GameDefaultsPreset,
+  LocalSettings,
+  StartingFog,
+  TeamColorPreset,
+} from './local-settings'
 
 /** The local settings whose values a {@link GameDefaultsPreset} decides. */
 export const GAME_DEFAULTS_PRESET_KEYS = [
@@ -46,6 +52,34 @@ export function getGameDefaultsMismatches(
 ): GameDefaultsPresetKey[] {
   const values = GAME_DEFAULTS_PRESET_VALUES[preset]
   return GAME_DEFAULTS_PRESET_KEYS.filter(key => settings[key] !== values[key])
+}
+
+/**
+ * ShieldBattery's own settings that change how the game feels to play, each with the value that
+ * plays the way Battle.net does. Settings that only change how the game looks are left out, since
+ * the difference is plain to see.
+ */
+export const BATTLE_NET_FEEL_VALUES: Readonly<
+  Pick<
+    LocalSettings,
+    'framePacing' | 'grabPanSensitivityOn' | 'useCustomCursorSize' | 'legacyCursorSizing'
+  >
+> = {
+  framePacing: FramePacing.Off,
+  grabPanSensitivityOn: GAME_DEFAULTS_PRESET_VALUES[GameDefaultsPreset.Legacy].grabPanSensitivityOn,
+  useCustomCursorSize: false,
+  legacyCursorSizing: GAME_DEFAULTS_PRESET_VALUES[GameDefaultsPreset.Legacy].legacyCursorSizing,
+}
+
+export type BattleNetFeelKey = keyof typeof BATTLE_NET_FEEL_VALUES
+
+export const BATTLE_NET_FEEL_KEYS = Object.keys(BATTLE_NET_FEEL_VALUES) as BattleNetFeelKey[]
+
+/** Returns the settings that make the game feel different from how Battle.net plays. */
+export function getBattleNetFeelMismatches(
+  settings: Readonly<Pick<LocalSettings, BattleNetFeelKey>>,
+): BattleNetFeelKey[] {
+  return BATTLE_NET_FEEL_KEYS.filter(key => settings[key] !== BATTLE_NET_FEEL_VALUES[key])
 }
 
 export function getGameDefaultsPresetLabel(preset: GameDefaultsPreset, t: TFunction): string {

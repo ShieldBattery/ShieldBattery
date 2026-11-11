@@ -118,16 +118,16 @@ export function MatchDialogsTest() {
   const showCanceledMatch = (phase: 'draft' | 'load') => {
     const cancelAction =
       phase === 'draft'
-        ? eventToAction.draftCancel(matchmakingType, {
+        ? eventToAction.draftCancel({
             type: 'draftCancel',
             reason: canceledReason,
           })
-        : eventToAction.cancelLoading(matchmakingType, {
+        : eventToAction.cancelLoading({
             type: 'cancelLoading',
             reason: canceledReason,
           })
     if (cancelAction) dispatch(cancelAction)
-    const requeueAction = eventToAction.requeue(matchmakingType, { type: 'requeue' })
+    const requeueAction = eventToAction.requeue({ type: 'requeue' })
     if (requeueAction) dispatch(requeueAction)
   }
 

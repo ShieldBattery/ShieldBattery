@@ -12,6 +12,7 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 
 #[cfg(debug_assertions)]
 use super::SelectedUnit;
+use super::load_pump::{self, Load};
 use super::network::{TurnReceiveOutcome, TurnSendOutcome};
 use super::selection::flash_target_sprite;
 
@@ -118,6 +119,7 @@ impl BwScr {
                         slice,
                         are_recorded_replay_commands != 0,
                         is_observer,
+                        self.unit_array().map(|units| units.len()),
                         &self.game_command_lengths,
                     );
                     let strip_sync = native_sync_disabled() && !is_replay;
@@ -364,6 +366,20 @@ impl BwScr {
                         && byte == bw::LOBBY_GAME_INIT_COMMAND
                         && player == 0
                     {
+                        // A peer whose relay link opens late can get the host's record while it
+                        // is still joining, before ready_lobby_for_start puts the lobby in the
+                        // state the native handler takes records in. Seeing it now would start
+                        // the game without the record's seed, so maybe_receive_turns hands it to
+                        // the native handler once the lobby is ready.
+                        let lobby_state = self.lobby_state.resolve();
+                        if lobby_state < 8 {
+                            debug!(
+                                "Deferring the lobby game init command until the lobby is ready \
+                                 (lobby_state {lobby_state})"
+                            );
+                            *self.deferred_lobby_game_init.lock() = Some(slice.to_vec());
+                            return;
+                        }
                         let seq = self.snet_next_turn_sequence_number();
                         // I think that the sequence number for next turn gets incremented
                         // before reaching this point, so subtract one to get current
@@ -422,7 +438,9 @@ impl BwScr {
                         let frame = self.current_game_frame();
                         self.chat_history.lock().begin_replay_step(frame);
                     }
+                    crate::remembered_buildings::begin_step(self);
                     orig();
+                    crate::remembered_buildings::after_step(self);
                     if replay {
                         self.chat_history.lock().finish_replay_step();
                     }
@@ -438,6 +456,29 @@ impl BwScr {
                 },
                 address,
             );
+            match self
+                .update_unit_visibility
+                .filter(|_| self.replay_skins.is_some())
+            {
+                Some(address) => {
+                    exe.hook_closure_address(
+                        UpdateUnitVisibility,
+                        move |unit, orig| {
+                            let before =
+                                crate::remembered_buildings::visibility_before_update(unit);
+                            orig(unit);
+                            crate::remembered_buildings::after_visibility_update(
+                                self, unit, before,
+                            );
+                        },
+                        address.0 as usize - base,
+                    );
+                    crate::remembered_buildings::set_hooked();
+                }
+                None => info!(
+                    "Remembered buildings aren't kept: visibility or skin map analysis missing"
+                ),
+            }
             let address = self.step_network_addr.0 as usize - base;
             exe.hook_closure_address(
                 StepNetwork,
@@ -486,12 +527,20 @@ impl BwScr {
                 exe.hook_closure_address(
                     ReceiveStormTurns,
                     move |a1, a2, a3, a4, a5, orig| {
+                        // A step that finds no turns waits for them, and from 2.5 s on BW's
+                        // network step processes the person's input while it does. It waits
+                        // until its turns are flushed into the pipe, which only happens once
+                        // they are all in.
                         if game_thread::replay_harness_stalls_step() {
+                            crate::rollback::note_step_waiting_for_turns(true);
                             return 0;
                         }
                         match self.netcode_v2_receive_turns() {
                             TurnReceiveOutcome::Ready => 1,
-                            TurnReceiveOutcome::Stall => 0,
+                            TurnReceiveOutcome::Stall => {
+                                crate::rollback::note_step_waiting_for_turns(true);
+                                0
+                            }
                             TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
                         }
                     },
@@ -502,6 +551,7 @@ impl BwScr {
                 exe.hook_closure_address(
                     FlushLocalTurns,
                     move |a1, a2, orig| {
+                        crate::rollback::note_step_waiting_for_turns(false);
                         if self.netcode_v2_flush_pipe() {
                             0
                         } else {
@@ -676,7 +726,9 @@ impl BwScr {
             exe.hook_closure_address(
                 InitGameData,
                 move |orig| {
-                    let ok = log_time("init_game_data", || orig());
+                    let ok = log_time("init_game_data", || {
+                        load_pump::run(Load::GameData, || orig())
+                    });
                     if ok == 0 {
                         error!("init_game_data failed");
                         return 0;
@@ -736,6 +788,7 @@ impl BwScr {
             exe.hook_closure_address(
                 InitUnitData,
                 move |orig| {
+                    self.clear_map_tiles_before_map_load();
                     game_thread::before_init_unit_data(self);
                     log_time("init_unit_data", || orig());
                 },
@@ -1050,26 +1103,36 @@ impl BwScr {
                 // A step takes a unit that dies, changes owner or boards a transport out of the
                 // local selection, which the rollback engine puts back if a restore undoes that;
                 // and the person's own selections make the simulation's selection for them, which
-                // the local selection catches up with after a rollback.
+                // the local selection catches up with after a rollback. The person selects between
+                // ticks, and inside one while a step waits for turns.
                 exe.hook_closure_address(
                     SelectUnits,
                     move |count, units, play_sound, send_command, orig| {
-                        if !crate::rollback::tick_running() {
-                            // The person selecting, which sends a command that makes the
-                            // simulation's selection for them a few steps later.
-                            let person_selecting = crate::rollback_live::native_sync_off()
-                                && !self.selection.engine_selecting.load(Ordering::Relaxed);
-                            let before = person_selecting.then(|| self.rollback_local_selection());
+                        if !crate::rollback::simulation_running() {
+                            let person_selecting =
+                                !self.selection.engine_selecting.load(Ordering::Relaxed);
+                            let during_tick = crate::rollback::tick_running();
+                            let before = (person_selecting
+                                && (during_tick || crate::rollback_live::native_sync_off()))
+                            .then(|| self.rollback_local_selection());
                             orig(count, units, play_sound, send_command);
-                            if let Some(before) = before
+                            let Some(before) = before else {
+                                return;
+                            };
+                            let after = self.rollback_local_selection();
+                            if during_tick {
+                                crate::rollback::selection::note_selection_made_during_tick(
+                                    &before, &after,
+                                );
+                            }
+                            // The person's selection sends a command that makes the simulation's
+                            // selection for them a few steps later.
+                            if crate::rollback_live::native_sync_off()
                                 && let Some(frame) = crate::rollback::position(self)
                                 && let Some(pipe) = netcode_v2::with_turn_state(|s| s.pipe_depth())
                             {
                                 crate::rollback::selection::note_selection_made(
-                                    frame,
-                                    pipe,
-                                    &before,
-                                    &self.rollback_local_selection(),
+                                    frame, pipe, &before, &after,
                                 );
                             }
                             return;

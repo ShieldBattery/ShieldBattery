@@ -4,6 +4,7 @@ import * as m from 'motion/react-m'
 import React, { useEffect, useEffectEvent, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
+import { isActivatingClick } from '../dom/activating-click'
 import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
@@ -88,6 +89,9 @@ const DownloadDialog = React.lazy(() => import('../download/download-dialog'))
 const ReportGameDialog = React.lazy(async () => ({
   default: (await import('../games/report-game-dialog')).ReportGameDialog,
 }))
+const RefundGamePointsDialog = React.lazy(async () => ({
+  default: (await import('../games/refund-game-points-dialog')).RefundGamePointsDialog,
+}))
 const ResolveGameResultsDialog = React.lazy(async () => ({
   default: (await import('../games/resolve-game-dialog')).ResolveGameResultsDialog,
 }))
@@ -105,6 +109,9 @@ const LobbyLeaveAndCreateDialog = React.lazy(async () => ({
 }))
 const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
   default: (await import('../lobbies/lobby-leave-and-join-dialog')).LobbyLeaveAndJoinDialog,
+}))
+const ImageViewerDialog = React.lazy(async () => ({
+  default: (await import('../markdown/image-viewer-dialog')).ImageViewerDialog,
 }))
 const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
 const MapDownloadDialog = React.lazy(async () => ({
@@ -152,6 +159,9 @@ const CreatePlaylistDialog = React.lazy(async () => ({
 const DeletePlaylistDialog = React.lazy(async () => ({
   default: (await import('../replays/playlist-dialogs')).DeletePlaylistDialog,
 }))
+const DiscordActivityPromptDialog = React.lazy(async () => ({
+  default: (await import('../discord/discord-activity-prompt')).DiscordActivityPromptDialog,
+}))
 const RenamePlaylistDialog = React.lazy(async () => ({
   default: (await import('../replays/playlist-dialogs')).RenamePlaylistDialog,
 }))
@@ -160,6 +170,9 @@ const ReplayInfoDialog = React.lazy(async () => ({
 }))
 const ReplayLoadDialog = React.lazy(async () => ({
   default: (await import('../replays/replay-load-dialog')).ReplayLoadDialog,
+}))
+const BattleNetSettingsCopyDialog = React.lazy(async () => ({
+  default: (await import('../settings/game/battle-net-copy-dialog')).BattleNetSettingsCopyDialog,
 }))
 const GameDefaultsApplyDialog = React.lazy(async () => ({
   default: (await import('../settings/game/game-defaults-apply-dialog')).GameDefaultsApplyDialog,
@@ -258,6 +271,10 @@ function getDialog(dialogType: DialogType): {
       return { component: CreatePlaylistDialog }
     case DialogType.DeletePlaylist:
       return { component: DeletePlaylistDialog }
+    case DialogType.DiscordActivityPrompt:
+      // Modal, so a click outside it can't close it without going through its own cancel, which
+      // records the closing as declining.
+      return { component: DiscordActivityPromptDialog, modal: true }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.EmailVerification:
@@ -266,6 +283,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ExternalLinkDialog }
     case DialogType.FailedToAcceptMatch:
       return { component: FailedToAcceptMatchDialog }
+    case DialogType.BattleNetSettingsCopy:
+      return { component: BattleNetSettingsCopyDialog }
     case DialogType.GameDefaultsApply:
       return { component: GameDefaultsApplyDialog }
     case DialogType.GameDefaultsFirstRun:
@@ -282,6 +301,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndCreateDialog }
     case DialogType.LobbyLeaveAndJoin:
       return { component: LobbyLeaveAndJoinDialog }
+    case DialogType.ImageViewer:
+      return { component: ImageViewerDialog }
     case DialogType.LocalBuildBot:
       return { component: LocalBuildDialog }
     case DialogType.MapDetails:
@@ -314,6 +335,8 @@ function getDialog(dialogType: DialogType): {
       return { component: RemoveUserAvatarDialog }
     case DialogType.RenamePlaylist:
       return { component: RenamePlaylistDialog }
+    case DialogType.RefundGamePoints:
+      return { component: RefundGamePointsDialog }
     case DialogType.ReplayInfo:
       return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:
@@ -348,8 +371,9 @@ export const ConnectedDialogOverlay = () => {
       onCancel={id => dispatch(closeDialogById(id))}
       onScrimClick={(id, event) => {
         // A click outside of a popover dismisses that popover, so a scrim click that did so is not
-        // also a request to close the dialog
-        if (!isHandledDismissalEvent(event.nativeEvent)) {
+        // also a request to close the dialog. Neither is the click that brings an unfocused window
+        // forward, which also reaches the page: the player may only be coming back to the dialog.
+        if (!isHandledDismissalEvent(event.nativeEvent) && !isActivatingClick()) {
           dispatch(closeDialogById(id))
         }
       }}
@@ -504,6 +528,7 @@ function DialogDisplay({
         {isTopDialog && (
           <Scrim
             key='scrim'
+            data-testid='dialog-scrim'
             variants={scrimVariants}
             initial={isDocVisible ? 'initial' : false}
             animate='animate'

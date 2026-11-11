@@ -1,9 +1,11 @@
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { InGameReportRequest } from '../../common/ipc'
+import { MapDownloadOutcome } from '../../common/maps'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -60,9 +62,30 @@ function makeManagerWithSettings() {
   return { manager, localSettings, scrSettings }
 }
 
+/**
+ * A manager whose settings reads resolve, so a game process can connect and be configured
+ * ({@link ActiveGameManager.handleGameConnected}). Its launches still never spawn a process (see
+ * the `checkStarcraftPath` mock note above).
+ */
+function makeConnectableManager(mapStore: object = {}): ActiveGameManager {
+  const localSettings = Object.assign(new EventEmitter(), {
+    get: async () => ({ starcraftPath: 'StarCraft' }),
+  })
+  const scrSettings = { get: async () => ({}), syncWithGameSettingsFile: vi.fn(async () => {}) }
+  return new ActiveGameManager(
+    { getPath: () => 'map.scx', ...mapStore } as any,
+    localSettings as any,
+    scrSettings as any,
+  )
+}
+
 function configFor(gameId: string): GameLaunchConfig {
-  // `map` must exist for the replay-config checks status reporting runs through.
-  return { setup: { gameId, useNetcodeV2: true, map: {} } } as unknown as GameLaunchConfig
+  // `map` must exist for the replay-config checks status reporting runs through, and the rest for
+  // configuring a connected game process.
+  return {
+    localUser: { id: 1 },
+    setup: { gameId, useNetcodeV2: true, map: { mapData: { format: 'scx' } }, slots: [] },
+  } as unknown as GameLaunchConfig
 }
 
 function replayConfigFor(gameId: string): GameLaunchConfig {
@@ -98,20 +121,26 @@ describe('ActiveGameManager packaged launch checks', () => {
     return { manager, statuses }
   }
 
-  it('checks a packaged DLL before proceeding to StarCraft setup', async () => {
+  it('checks packaged game files after validating the StarCraft path', async () => {
     electronApp.isPackaged = true
+    vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
     launch()
-    await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
-    expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
-      expect.stringMatching(/shieldbattery_64\.dll$/),
+    await vi.waitFor(() =>
+      expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
+        expect.stringMatching(/shieldbattery_64\.dll$/),
+        path.join('C:\\StarCraft', 'x86_64', 'StarCraft.exe'),
+        expect.any(Function),
+      ),
     )
-    expect(verifyGame.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0],
+    expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft')
+    expect(vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0]).toBeLessThan(
+      verifyGame.mock.invocationCallOrder[0],
     )
   })
 
   it('fails a packaged launch when the DLL check rejects', async () => {
     electronApp.isPackaged = true
+    vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
     const failure = new Error('DLL check failed')
     verifyGame.mockRejectedValue(failure)
     const { manager, statuses } = launch()
@@ -124,7 +153,7 @@ describe('ActiveGameManager packaged launch checks', () => {
       ),
     )
     expect(manager.getStatus()).toBeNull()
-    expect(checkStarcraftPath).not.toHaveBeenCalled()
+    expect(checkStarcraftPath).toHaveBeenCalledOnce()
   })
 
   it('allows unpackaged DLLs even when electron-is-dev is false', async () => {
@@ -141,7 +170,7 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
   let commands: Array<[string, string, ...any[]]>
 
   beforeEach(() => {
-    manager = makeManager()
+    manager = makeConnectableManager()
     commands = []
     manager.on('gameCommand', (gameId, command, ...args) => {
       commands.push([gameId, command, ...args])
@@ -162,7 +191,7 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     return delivered[delivered.length - 1]
   }
 
-  it('resolves the echoed pubkey again for a requeued match under a new game id', () => {
+  it('resolves the echoed pubkey again for a requeued match under a new game id', async () => {
     // The failed-load requeue flow: the player queues once (one generated keypair), the first
     // match adopts it, loading fails, and the server requeues the player with the SAME pubkey
     // (its queue entry survives) -- so the next match's handoff echoes that pubkey under a brand
@@ -170,6 +199,7 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const pubkey = manager.generateNetcodeV2SessionKeys()
 
     manager.setGameConfig(configFor('game-1'))
+    await manager.handleGameConnected('game-1')
     manager.setNetcodeV2Setup('game-1', setupFor(pubkey))
     expect(deliveredSetup('game-1').clientPrivateKey).toBeDefined()
 
@@ -177,6 +207,7 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     manager.clearGameConfig('game-1')
 
     manager.setGameConfig(configFor('game-2'))
+    await manager.handleGameConnected('game-2')
     manager.setNetcodeV2Setup('game-2', setupFor(pubkey))
 
     const second = deliveredSetup('game-2')
@@ -184,10 +215,11 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     expect(manager.getStatus()?.state).not.toBe('error')
   })
 
-  it('a relaunch of the same game id reuses the adopted keypair without a fresh handoff lookup', () => {
+  it('a relaunch of the same game id reuses the adopted keypair without a fresh handoff lookup', async () => {
     const pubkey = manager.generateNetcodeV2SessionKeys()
 
     manager.setGameConfig(configFor('game-1'))
+    await manager.handleGameConnected('game-1')
     manager.setNetcodeV2Setup('game-1', setupFor(pubkey))
     const first = deliveredSetup('game-1')
 
@@ -196,6 +228,8 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     // second delivery -- a single delivery re-read would vacuously "match" itself.
     manager.setGameConfig(configFor('game-1'))
     manager.setNetcodeV2Setup('game-1', setupFor(pubkey))
+    expect(deliveredSetups('game-1').length, 'the relaunched process has yet to connect').toBe(1)
+    await manager.handleGameConnected('game-1')
     const setups = deliveredSetups('game-1')
     expect(setups.length).toBe(2)
     expect(setups[1].clientPrivateKey).toBe(first.clientPrivateKey)
@@ -213,6 +247,87 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const errorStatus = statuses.find(status => status.state === 'error')
     expect(errorStatus, 'an error status was emitted').toBeDefined()
     expect(String(errorStatus!.extra)).toContain('no adoptable keypair (noKeysGenerated)')
+  })
+})
+
+describe('ActiveGameManager game setup', () => {
+  let commands: Array<[string, string, ...any[]]>
+
+  function managerWithMapDownload(download: Promise<MapDownloadOutcome>) {
+    const downloadMap = vi.fn(() => download)
+    const manager = makeConnectableManager({ downloadMap })
+    commands = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+    return { manager, downloadMap }
+  }
+
+  function configWithMap(gameId: string): GameLaunchConfig {
+    return {
+      localUser: { id: 1 },
+      setup: {
+        gameId,
+        slots: [],
+        useNetcodeV2: false,
+        map: { hash: 'abcd', mapData: { format: 'scx' }, mapUrl: 'https://maps/abcd' },
+      },
+    } as unknown as GameLaunchConfig
+  }
+
+  const setupsSent = () => commands.filter(([, command]) => command === 'setupGame')
+
+  it('waits for both the map download and the connected process', async () => {
+    let finishDownload!: (outcome: MapDownloadOutcome) => void
+    const { manager, downloadMap } = managerWithMapDownload(
+      new Promise(resolve => (finishDownload = resolve)),
+    )
+
+    manager.setGameConfig(configWithMap('game-1'))
+    expect(downloadMap).toHaveBeenCalledWith('abcd', 'scx', 'https://maps/abcd')
+    await manager.handleGameConnected('game-1')
+    expect(setupsSent(), 'the map is still downloading').toEqual([])
+
+    finishDownload('downloaded')
+    await vi.waitFor(() => expect(setupsSent()).toHaveLength(1))
+  })
+
+  it('sends the setup only after everything it depends on', async () => {
+    const { manager } = managerWithMapDownload(Promise.resolve('downloaded'))
+    manager.setGameConfig(configWithMap('game-1'))
+    // Lets the finished download be taken in.
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(setupsSent(), 'the process has yet to connect').toEqual([])
+
+    await manager.handleGameConnected('game-1')
+    const order = commands.map(([, command]) => command)
+    expect(order.indexOf('settings')).toBeLessThan(order.indexOf('setupGame'))
+    expect(setupsSent()).toHaveLength(1)
+  })
+
+  it('fails the game when its map download fails', async () => {
+    const { manager } = managerWithMapDownload(Promise.reject(new Error('stalled')))
+    const statuses: Array<{ state: string; extra?: unknown }> = []
+    manager.on('gameStatus', status => statuses.push(status))
+
+    manager.setGameConfig(configWithMap('game-1'))
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(commands).toContainEqual(['game-1', 'quit'])
+    expect(statuses.at(-1)?.state).toBe('error')
+    expect(setupsSent()).toEqual([])
+  })
+
+  it('fails the game when its map download URL is rejected', async () => {
+    const { manager } = managerWithMapDownload(Promise.resolve('urlRejected'))
+    const statuses: Array<{ state: string; extra?: unknown }> = []
+    manager.on('gameStatus', status => statuses.push(status))
+
+    manager.setGameConfig(configWithMap('game-1'))
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+    expect(commands).toContainEqual(['game-1', 'quit'])
+    expect(statuses.at(-1)?.state).toBe('error')
+    expect(setupsSent()).toEqual([])
   })
 })
 

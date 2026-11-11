@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names (screenshotting visible UI changes for the developer), and open a PR with `Fixes #N`. Never comments on the issue or edits a body a person wrote; keeps the assignee accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
+description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names (screenshotting visible UI changes), and open a PR with `Fixes #N` and those screenshots attached. Never comments on the issue or edits a body a person wrote; keeps the assignee accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
 ---
 
 # Implementing an issue
@@ -130,8 +130,8 @@ One to three shots is the norm; each should earn its place.
   the layout is the point.
 - Save under `.claude-scratch/screenshots/<branch>/` with names that say what they show
   (`empty-state.png`, `before-dialog.png`). Under `MSYS_NO_PATHCONV=1`, pass `C:/...` paths to
-  `--filename` or nothing is written. Screenshots stay local: they are for the developer (step 7),
-  never committed, uploaded or linked from the PR.
+  `--filename` or nothing is written. They are never committed. Step 6 uploads them to the PR body
+  with `gh --attach`, and step 7 shows them to the developer.
 - **Look at every shot with Read before using it**: confirm it shows the change, the right state
   and no unrelated debris (devtools, half-finished animations, another client's window). The
   Read tool caches images by path, so a retake needs a new filename.
@@ -150,7 +150,8 @@ Commit with the repo's message style (one imperative subject sentence ending in 
 if warranted, no attribution lines). Then:
 
 ```bash
-gh pr create --title "<subject>" --body-file <body.md>
+gh pr create --title "<subject>" --body-file <body.md> \
+  --attach .claude-scratch/screenshots/<branch>/empty-state.png  # one --attach per step 5 shot
 ```
 
 PR body:
@@ -164,6 +165,28 @@ PR body:
 - **Calls made**, when step 1 flagged open decisions: each one, the option you built and the ones
   you passed on.
 - Verification performed, tier and outcome.
+- **Screenshots**, when step 5 kept any: a `## Screenshots` section with a one-line caption per
+  shot, then the image as a local markdown reference (`![Empty state](.claude-scratch/screenshots/<branch>/empty-state.png)`).
+  Put before/after pairs next to each other.
+
+#### Attaching screenshots
+
+`--attach` (gh ≥ 2.99.0; check with `gh --version`) uploads each file to GitHub's
+`user-attachments` CDN and replaces the matching local reference in the body with the uploaded
+URL. It also works on `gh pr edit`, which covers a PR opened before the shots existed.
+
+- Pass exactly one `--attach` per shot, and run `gh` from the repo root. Write each reference in
+  the body as the same repo-relative, forward-slash path you pass to `--attach`. A shot that has
+  no matching reference gets appended to the end of the body. A body reference with no matching
+  `--attach` stays a broken local link.
+- Uploads are public and permanent, even if the PR is closed. Before attaching a shot, check that
+  it shows no real user data from prod or a personal account (emails, tokens, private channels or
+  whispers). Dev-stack test accounts are fine.
+- If `gh` is older than 2.99.0, open the PR without the Screenshots section and say in step 7's
+  report that the shots weren't attached because `gh` needs upgrading
+  (`winget upgrade GitHub.cli`).
+- After creating the PR, check it with `gh pr view --json body`. Every image should point at
+  `https://github.com/user-attachments/assets/...`, with no `.claude-scratch` paths left.
 
 Draft PR if verification is incomplete. After pushing, the `pr-fix` skill
 (`.claude/skills/pr-fix/SKILL.md`) handles CI and review comments.

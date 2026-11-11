@@ -6,7 +6,11 @@
 //! rolls back) before it draws again. Each frame's record splits its time between those, and notes
 //! what kind of tick ran in it and what the tick before its draw was, since a tick's cost shows up
 //! in the frame it runs in while whatever it leaves rendering to do shows up in the frames after.
+//!
+//! A frame longer than [`LONG_FRAME`] anywhere in a game is logged on its own with that split, as
+//! the game seen from outside has frozen for it.
 
+use std::cell::Cell;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -36,6 +40,13 @@ pub struct FrameRecord {
     pub render_us: u32,
     /// Logic steps run after the draw, before the next one.
     pub tick_us: u32,
+    /// Pumping window messages outside logic steps: the game loop's `PeekMessageW` calls and the
+    /// window procedure handling what they return.
+    pub pump_us: u32,
+    /// Messages those calls took off the queue, counting each raw mouse report.
+    pub pump_messages: u32,
+    /// Handing the rendered frame to the swap chain.
+    pub present_us: u32,
     /// What the step after the draw did.
     pub tick: TickKind,
     /// Frames the tick after the draw simulated again, when it rolled back.
@@ -71,6 +82,13 @@ struct State {
     tick_started: Option<Instant>,
     draw_started: Option<Instant>,
     render_started: Option<Instant>,
+    present_started: Option<Instant>,
+    /// Whether the game window was in front when the frame in progress started, and
+    /// [`crate::forge::game_window_front_changes`] then.
+    in_front_at_start: bool,
+    front_changes_at_start: u32,
+    /// Frames over [`LONG_FRAME`] logged this game.
+    long_frames_logged: u32,
     stats: FrameStats,
     #[cfg(debug_assertions)]
     records: Vec<FrameRecord>,
@@ -164,6 +182,9 @@ static STATE: Mutex<State> = Mutex::new(State {
         draw_us: 0,
         render_us: 0,
         tick_us: 0,
+        pump_us: 0,
+        pump_messages: 0,
+        present_us: 0,
         tick: TickKind::None,
         resimulated: 0,
         steps: 0,
@@ -182,6 +203,10 @@ static STATE: Mutex<State> = Mutex::new(State {
     tick_started: None,
     draw_started: None,
     render_started: None,
+    present_started: None,
+    in_front_at_start: false,
+    front_changes_at_start: 0,
+    long_frames_logged: 0,
     stats: FrameStats::new(),
     #[cfg(debug_assertions)]
     records: Vec::new(),
@@ -191,6 +216,96 @@ static STATE: Mutex<State> = Mutex::new(State {
 
 /// A frame that takes longer than this shows as a stutter at the frame rates the game runs at.
 pub const SLOW_FRAME: Duration = Duration::from_millis(20);
+
+/// A frame that takes longer than this is a freeze, which gets a log line of its own.
+const LONG_FRAME: Duration = Duration::from_millis(250);
+
+/// How many frames over [`LONG_FRAME`] a game logs one by one. A game that keeps freezing has
+/// shown what it's doing by then, and the log stays readable.
+const LONG_FRAMES_LOGGED: u32 = 20;
+
+thread_local! {
+    /// The pump time and messages of the frame in progress, kept on the game loop's thread so that
+    /// every `PeekMessageW` call doesn't take the state's lock.
+    static PUMP: Cell<PumpTally> = const { Cell::new(PumpTally::new()) };
+    /// How deeply logic steps are nested on this thread. A step waiting for turns pumps messages
+    /// itself, and that time is the step's.
+    static STEP_DEPTH: Cell<u32> = const { Cell::new(0) };
+}
+
+#[derive(Clone, Copy)]
+struct PumpTally {
+    /// How deeply pump spans are nested: the window procedure runs inside `PeekMessageW` for sent
+    /// messages, and only the outermost span is timed.
+    depth: u32,
+    started: Option<Instant>,
+    us: u32,
+    messages: u32,
+}
+
+impl PumpTally {
+    const fn new() -> PumpTally {
+        PumpTally {
+            depth: 0,
+            started: None,
+            us: 0,
+            messages: 0,
+        }
+    }
+}
+
+/// Ends a pump span when dropped.
+pub struct PumpSpan(());
+
+impl Drop for PumpSpan {
+    fn drop(&mut self) {
+        PUMP.with(|pump| {
+            let mut tally = pump.get();
+            tally.depth -= 1;
+            if tally.depth == 0
+                && let Some(started) = tally.started.take()
+            {
+                tally.us = tally.us.saturating_add(micros(started.elapsed()));
+            }
+            pump.set(tally);
+        });
+    }
+}
+
+/// Times the game loop pumping messages until the returned value is dropped. Only for the thread
+/// running the game loop, once it runs; the time goes to the frame the pump ends in.
+pub fn pump() -> PumpSpan {
+    PUMP.with(|pump| {
+        let mut tally = pump.get();
+        if tally.depth == 0 && STEP_DEPTH.get() == 0 {
+            tally.started = Some(Instant::now());
+        }
+        tally.depth += 1;
+        pump.set(tally);
+    });
+    PumpSpan(())
+}
+
+/// Counts a message the game loop's pump took off the queue. Same thread rules as [`pump`].
+pub fn pumped_message() {
+    PUMP.with(|pump| {
+        let mut tally = pump.get();
+        tally.messages = tally.messages.saturating_add(1);
+        pump.set(tally);
+    });
+}
+
+/// Takes the pump time and messages counted since the last call.
+fn take_pump() -> (u32, u32) {
+    PUMP.with(|pump| {
+        let mut tally = pump.get();
+        let taken = (tally.us, tally.messages);
+        tally.us = 0;
+        tally.messages = 0;
+        pump.set(tally);
+        taken
+    })
+}
 
 /// Running totals over the frames since they were last taken.
 #[derive(Clone, Copy, Debug, Default)]
@@ -274,6 +389,12 @@ pub fn render() -> Finish {
     Finish(render_finished)
 }
 
+/// Times handing a frame to the swap chain until the returned value is dropped.
+pub fn present() -> Finish {
+    STATE.lock().present_started = Some(Instant::now());
+    Finish(present_finished)
+}
+
 /// Times a logic step until the returned value is dropped. Until [`note_tick`] says otherwise, it
 /// is a plain step.
 pub fn step() -> Finish {
@@ -283,14 +404,41 @@ pub fn step() -> Finish {
 
 fn draw_started() {
     let now = Instant::now();
+    let (pump_us, pump_messages) = take_pump();
+    let in_front = crate::forge::game_window_in_front();
+    let front_changes = crate::forge::game_window_front_changes();
+    let mut long_frame = None;
     let mut state = STATE.lock();
     if let Some(started) = state.started {
         let mut record = state.current;
         record.interval_us = micros(now - started);
+        record.pump_us = pump_us;
+        record.pump_messages = pump_messages;
         state.stats.add(&record);
         if let Some(first) = state.first_step {
             let at = started.saturating_duration_since(first);
             state.startup.note(at, &record, now - first);
+            if started >= first
+                && u128::from(record.interval_us) > LONG_FRAME.as_micros()
+                && state.long_frames_logged < LONG_FRAMES_LOGGED
+            {
+                state.long_frames_logged += 1;
+                let window = match (state.in_front_at_start, in_front) {
+                    (true, true) if state.front_changes_at_start != front_changes => {
+                        "window left the front and came back"
+                    }
+                    (true, true) => "window in front",
+                    (false, false) => "window not in front",
+                    (true, false) => "window left the front",
+                    (false, true) => "window came to the front",
+                };
+                long_frame = Some(describe_long_frame(
+                    &record,
+                    at,
+                    window,
+                    state.long_frames_logged == LONG_FRAMES_LOGGED,
+                ));
+            }
         }
         #[cfg(debug_assertions)]
         if state.records.len() < MAX_RECORDS {
@@ -317,6 +465,8 @@ fn draw_started() {
     state.current = current;
     state.started = Some(now);
     state.draw_started = Some(now);
+    state.in_front_at_start = in_front;
+    state.front_changes_at_start = front_changes;
     #[cfg(debug_assertions)]
     {
         let due = DUMP.lock().as_ref().and_then(|(after, path)| {
@@ -327,8 +477,49 @@ fn draw_started() {
             let records = std::mem::take(&mut state.records);
             drop(state);
             dump(&path, &records);
+            return;
         }
     }
+    drop(state);
+    if let Some(line) = long_frame {
+        info!("{line}");
+    }
+}
+
+/// The log line for a frame over [`LONG_FRAME`] that started `at` into the game. Whatever the split
+/// doesn't account for is time between those parts: SC:R's own work in the loop, or the thread not
+/// running at all.
+fn describe_long_frame(
+    record: &FrameRecord,
+    at: Duration,
+    window: &str,
+    last_logged: bool,
+) -> String {
+    let ms = |us: u32| f64::from(us) / 1000.0;
+    let accounted = record
+        .pump_us
+        .saturating_add(record.tick_us)
+        .saturating_add(record.draw_us)
+        .saturating_add(record.render_us)
+        .saturating_add(record.present_us);
+    format!(
+        "Long frame: {:.1} ms at {:.2} s into the game: pump {:.1} ms ({} messages), tick {:.1} ms \
+         ({:?}), draw {:.1} ms, render {:.1} ms, present {:.1} ms, unaccounted {:.1} ms; {window}{}",
+        ms(record.interval_us),
+        at.as_secs_f64(),
+        ms(record.pump_us),
+        record.pump_messages,
+        ms(record.tick_us),
+        record.tick,
+        ms(record.draw_us),
+        ms(record.render_us),
+        ms(record.present_us),
+        ms(record.interval_us.saturating_sub(accounted)),
+        match last_logged {
+            true => " (further long frames this game go unlogged)",
+            false => "",
+        },
+    )
 }
 
 /// Environment variable that has a debug build write every frame's timings to a JSON file once
@@ -437,7 +628,18 @@ fn render_finished() {
     }
 }
 
+fn present_finished() {
+    let mut state = STATE.lock();
+    if let Some(started) = state.present_started.take() {
+        state.current.present_us = state
+            .current
+            .present_us
+            .saturating_add(micros(started.elapsed()));
+    }
+}
+
 fn step_started() {
+    STEP_DEPTH.set(STEP_DEPTH.get() + 1);
     let mut state = STATE.lock();
     let now = Instant::now();
     state.tick_started = Some(now);
@@ -450,6 +652,7 @@ fn step_started() {
 }
 
 fn step_finished() {
+    STEP_DEPTH.set(STEP_DEPTH.get().saturating_sub(1));
     let mut state = STATE.lock();
     if let Some(started) = state.tick_started.take() {
         state.current.tick_us = state
@@ -513,6 +716,7 @@ pub fn reset() {
     state.stats = FrameStats::new();
     state.first_step = None;
     state.startup = StartupFrames::new();
+    state.long_frames_logged = 0;
     #[cfg(debug_assertions)]
     state.records.clear();
 }

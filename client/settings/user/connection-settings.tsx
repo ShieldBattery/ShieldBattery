@@ -4,18 +4,29 @@ import styled from 'styled-components'
 import { CombinedError, useMutation, useQuery } from 'urql'
 import { getErrorStack } from '../../../common/errors'
 import { graphql } from '../../gql'
+import DiscordIcon from '../../icons/brands/discord.svg?react'
 import TwitchIcon from '../../icons/brands/twitch.svg?react'
 import logger from '../../logging/logger'
 import { FilledButton, TextButton } from '../../material/button'
 import { Card } from '../../material/card'
+import { CheckBox } from '../../material/check-box'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import { bodyLarge, labelMedium, singleLine, TitleMedium } from '../../styles/typography'
+import {
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
+  singleLine,
+  TitleMedium,
+} from '../../styles/typography'
 import {
   cancelTwitchOAuthFlow,
   openTwitchOAuthPopup,
   runTwitchOAuthFlow,
   TwitchOAuthResult,
 } from '../../twitch/twitch-oauth'
+import { mergeAccountSettings } from '../action-creators'
+import { SettingsSectionHeader } from '../settings-content'
 
 // graphcache skips its "no cache key" warning for any type whose name ends in `Connection`,
 // treating it as Relay pagination plumbing. `TwitchConnection` is a real entity that trips that
@@ -288,6 +299,9 @@ export function ConnectionSettings() {
   return (
     <Root>
       <Section>
+        <SettingsSectionHeader>
+          {t('settings.user.connections.linkedAccounts', 'Linked accounts')}
+        </SettingsSectionHeader>
         <SectionDescription>
           {t(
             'settings.user.connections.description',
@@ -310,6 +324,68 @@ export function ConnectionSettings() {
           {connectionAction}
         </ServiceCard>
       </Section>
+
+      <DiscordActivitySection />
     </Root>
+  )
+}
+
+const DiscordHeader = styled(SettingsSectionHeader)`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
+const StyledDiscordIcon = styled(DiscordIcon)`
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+`
+
+const ServiceNote = styled.div`
+  ${bodyMedium};
+  /* Lines up with the checkbox label rather than the box. */
+  padding-left: 30px;
+  color: var(--theme-on-surface-variant);
+  text-wrap: pretty;
+`
+
+/**
+ * Whether to show the user's lobbies and games as Rich Presence on Discord. Nothing gets linked: the
+ * desktop app shows it through the Discord desktop app on the same computer.
+ */
+function DiscordActivitySection() {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const sharing = useAppSelector(s => s.settings.account.shareDiscordActivity)
+
+  return (
+    <Section>
+      <DiscordHeader>
+        <StyledDiscordIcon />
+        {t('settings.user.connections.discord.name', 'Discord')}
+      </DiscordHeader>
+
+      <CheckBox
+        checked={sharing === 'on'}
+        onChange={event =>
+          dispatch(
+            mergeAccountSettings(
+              { shareDiscordActivity: event.target.checked ? 'on' : 'off' },
+              { onSuccess: () => {}, onError: () => {} },
+            ),
+          )
+        }
+        name='shareDiscordActivity'
+        label={t('settings.user.connections.discord.showActivity', 'Show my activity on Discord')}
+      />
+      <ServiceNote>
+        {t(
+          'settings.user.connections.discord.note',
+          'Shows your current lobby, game or replay. Needs the Discord app running on the same ' +
+            'computer as ShieldBattery.',
+        )}
+      </ServiceNote>
+    </Section>
   )
 }

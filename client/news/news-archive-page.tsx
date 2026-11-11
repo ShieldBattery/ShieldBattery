@@ -19,6 +19,7 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { newsDateFormat } from './news-image'
+import { useLocalizedNewsPost } from './news-post-translations'
 import { urlForNewsPost } from './news-url'
 
 const NewsArchiveQuery = graphql(/* GraphQL */ `
@@ -29,6 +30,11 @@ const NewsArchiveQuery = graphql(/* GraphQL */ `
           id
           title
           summary
+          translations {
+            language
+            title
+            summary
+          }
           publishedAt
         }
       }
@@ -166,14 +172,15 @@ function NewsArchiveChunk({
 function NewsArchiveEntry({ post }: { post: NewsArchivePost }) {
   const [buttonProps, rippleRef] = useButtonState({})
   const newsDateFormatter = useFormat(newsDateFormat)
+  const { title, summary } = useLocalizedNewsPost(post)
 
   return (
     <EntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>
       <EntryDate>
         {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
       </EntryDate>
-      <EntryTitle>{post.title}</EntryTitle>
-      <EntrySummary>{post.summary}</EntrySummary>
+      <EntryTitle>{title}</EntryTitle>
+      <EntrySummary>{summary}</EntrySummary>
       <Ripple ref={rippleRef} />
     </EntryRoot>
   )

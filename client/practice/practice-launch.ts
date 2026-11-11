@@ -142,7 +142,15 @@ export async function ensureMapsDownloaded(maps: ReadonlyArray<MapInfoJson>): Pr
       if (!map.mapUrl) {
         continue
       }
-      await ipcRenderer.invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl)
+      const outcome = await ipcRenderer.invoke(
+        'mapStoreDownloadMap',
+        map.hash,
+        map.mapData.format,
+        map.mapUrl,
+      )
+      if (outcome === 'urlRejected') {
+        throw new Error('Map download URL expired; refresh the map pool and try again')
+      }
     }
   } finally {
     setDownloading(hashes, false)

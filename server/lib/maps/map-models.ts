@@ -88,10 +88,23 @@ function addImageVersion(url: string | undefined, imageVersion: number): string 
   }
 }
 
-async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
+/**
+ * Options for creating a `MapInfo`.
+ *
+ * `mapUrlExpiresSec` is how long the signed map download URL stays valid, defaulting to the file
+ * store's default. Signing is what lets a privacy change take effect on already-shared links, so a
+ * longer lifetime only suits maps that are already broadly visible.
+ */
+export interface MapInfoOptions {
+  mapUrlExpiresSec?: number
+}
+
+async function createMapInfo(info: DbMapInfo, options: MapInfoOptions = {}): Promise<MapInfo> {
   const hashString = info.map_hash.toString('hex')
 
-  const mapUrl = await getSignedUrl(mapPath(hashString, info.extension))
+  const mapUrl = await getSignedUrl(mapPath(hashString, info.extension), {
+    expires: options.mapUrlExpiresSec,
+  })
   const image256Url = getUrl(imagePath(hashString, 256))
   const image512Url = getUrl(imagePath(hashString, 512))
   const image1024Url = getUrl(imagePath(hashString, 1024))
@@ -326,11 +339,15 @@ export async function mapExists(hash: string) {
  * Retrieves information for the specified maps
  *
  * @param mapIds an array of map IDs to retrieve info for
+ * @param options options applied to every returned `MapInfo`
  *
  * @returns a Promise for an array of `MapInfo`s, ordered in the way they were passed. If a
  *   specified map ID could not be found, it will not be included in the result
  */
-export async function getMapInfos(mapIds: SbMapId[]): Promise<MapInfo[]> {
+export async function getMapInfos(
+  mapIds: SbMapId[],
+  options: MapInfoOptions = {},
+): Promise<MapInfo[]> {
   const query = sql`
     SELECT
       um.*,
@@ -358,7 +375,7 @@ export async function getMapInfos(mapIds: SbMapId[]): Promise<MapInfo[]> {
 
     if (result.rows.length < 1) return []
 
-    const mapInfos = await Promise.all(result.rows.map(d => createMapInfo(d)))
+    const mapInfos = await Promise.all(result.rows.map(d => createMapInfo(d, options)))
     const idToMapInfo = new Map<SbMapId, MapInfo>()
     for (const mapInfo of mapInfos) {
       idToMapInfo.set(mapInfo.id, mapInfo)

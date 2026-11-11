@@ -17,6 +17,7 @@ import { newsDateFormat, NewsImage } from './news-image'
 import { NewsMarkdown } from './news-markdown'
 import { NewsPostAdminMenu } from './news-post-admin-menu'
 import { getPostStatus } from './news-post-status'
+import { useLocalizedNewsPost } from './news-post-translations'
 import { fromRouteNewsPostId, RouteNewsPostId, urlForNewsPost } from './news-url'
 
 const NewsPostQuery = graphql(/* GraphQL */ `
@@ -25,6 +26,11 @@ const NewsPostQuery = graphql(/* GraphQL */ `
       id
       title
       content
+      translations {
+        language
+        title
+        content
+      }
       publishedAt
       coverImageUrl
       coverImageSmallUrl
@@ -191,6 +197,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
   })
 
   const post = data?.newsPost
+  const localizedPost = useLocalizedNewsPost(post)
   const now = Math.max(useNow(60_000), minNow)
 
   useEffect(() => {
@@ -213,7 +220,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
   if (error) {
     return <ErrorText>{t('news.unavailable', 'News is unavailable right now.')}</ErrorText>
   }
-  if (!post) {
+  if (!post || !localizedPost) {
     return <LoadingDotsArea />
   }
 
@@ -232,12 +239,12 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
         <TitleRow>
           {status.kind !== 'published' ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
           <TitleAndActions $hasAdminMenu={!!perms?.manageNews}>
-            <Title data-testid='news-post-title'>{post.title}</Title>
+            <Title data-testid='news-post-title'>{localizedPost.title}</Title>
             <TitleActions>
               {perms?.manageNews ? (
                 <NewsPostAdminMenu
                   postId={post.id}
-                  postTitle={post.title}
+                  postTitle={localizedPost.title}
                   status={status}
                   onPublishStateChanged={() => setMinNow(Date.now())}
                 />
@@ -260,7 +267,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
             })}
           </PostAuthor>
         ) : null}
-        <StyledMarkdown source={post.content} allowMedia={true} />
+        <StyledMarkdown source={localizedPost.content} allowMedia={true} />
       </Content>
 
       <BottomLinks />

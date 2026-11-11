@@ -21,12 +21,11 @@ use egui::{
     pos2, vec2,
 };
 
-use crate::colors::GREY_BLUE60;
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     StackSlot, fit_icon, owner_tint, paint_icon_glow, paint_owner_wash, paint_player_swatch_in,
-    paint_text, paint_tile_chrome, unit_codes,
+    paint_text, paint_tile_chrome, paint_track, unit_codes,
 };
 
 /// How wide the panel is, in overlay points.
@@ -351,6 +350,17 @@ impl ProductionFit {
         })
     }
 
+    /// The size the panel settles at in this fit, chrome included: as wide as its columns and as
+    /// tall as the taller of them.
+    pub(crate) fn size(self, view: &ProductionView) -> Vec2 {
+        let [left, right] = view.columns(self.split);
+        vec2(
+            tiers::PANEL_MARGIN_WIDTH + self.column_widths(view).total(),
+            tiers::PANEL_MARGIN_HEIGHT
+                + column_height(rows_drawn(left, self.rows).max(rows_drawn(right, self.rows))),
+        )
+    }
+
     /// How wide each column's rows and the gap between the columns settle at: each column as wide
     /// as the longest of its rows that are drawn, and no gap beside a column with no rows in it.
     fn column_widths(self, view: &ProductionView) -> ColumnWidths {
@@ -373,6 +383,16 @@ impl ProductionFit {
             right,
         }
     }
+}
+
+/// How many of `players` have a row drawn in a column that holds at most `rows`: those making
+/// something, from the first.
+fn rows_drawn(players: &[ProductionPlayerView], rows: usize) -> usize {
+    players
+        .iter()
+        .filter(|player| player.has_row())
+        .take(rows)
+        .count()
 }
 
 /// Where the second of two columns starts among players on `teams`, listed side by side, with
@@ -488,20 +508,13 @@ fn draw_columns(
     fit: ProductionFit,
     columns: ColumnWidths,
 ) -> Option<(u8, usize)> {
-    let drawn = |players: &[ProductionPlayerView]| {
-        players
-            .iter()
-            .filter(|player| player.has_row())
-            .take(fit.rows)
-            .count()
-    };
     let [left, right] = view.columns(fit.split);
     // As tall as the taller column and no taller, so the panel is exactly as tall as the players
     // producing anything.
     let (rect, _) = ui.allocate_exact_size(
         vec2(
             columns.total(),
-            column_height(drawn(left).max(drawn(right))),
+            column_height(rows_drawn(left, fit.rows).max(rows_drawn(right, fit.rows))),
         ),
         Sense::hover(),
     );
@@ -609,15 +622,7 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
         pos2(rect.left(), rect.bottom() + PROGRESS_GAP),
         vec2(rect.width(), PROGRESS_HEIGHT),
     );
-    let corner_radius = theme::radius(2);
-    ui.painter()
-        .rect_filled(track, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
-    let mut filled = track;
-    filled.set_right(track.left() + track.width() * item.progress.clamp(0.0, 1.0));
-    if filled.width() > 0.0 {
-        ui.painter()
-            .rect_filled(filled, corner_radius, theme::ACCENT);
-    }
+    paint_track(ui, track, item.progress, theme::ACCENT);
 }
 
 #[cfg(test)]
@@ -663,7 +668,6 @@ mod tests {
                 right: 365.0 + width,
             },
             anchor: crate::observer::StackAnchor::Left,
-            middle: 960.0,
             ceiling: 1080.0 - 16.0 - crate::observer::WING_GAP - room,
             screen_bottom: 1080.0,
         }

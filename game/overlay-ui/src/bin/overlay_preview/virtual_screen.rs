@@ -13,9 +13,6 @@ use serde::{Deserialize, Serialize};
 /// How much the compact ramp shrinks everything relative to the comfort ramp.
 const COMPACT_RAMP_DIVISOR: f32 = 1.25;
 
-/// The side of the square the minimap occupies in the bottom-left corner, in units.
-const MINIMAP_RESERVE_UNITS: f32 = 348.0;
-
 /// The height of the bottom console band (the unit panel and command card), in units.
 const CONSOLE_BAND_UNITS: f32 = 200.0;
 
@@ -210,16 +207,7 @@ pub fn fit_aspect(available: Rect, aspect: f32) -> Rect {
 /// screen whatever scale ramp the overlay is on, and the screen is 1080 units tall by definition.
 pub fn paint_reserve_guides(painter: &Painter, viewport: Rect) {
     let unit = viewport.height() / REFERENCE_HEIGHT;
-    let minimap = Rect::from_min_max(
-        pos2(
-            viewport.left(),
-            viewport.bottom() - MINIMAP_RESERVE_UNITS * unit,
-        ),
-        pos2(
-            viewport.left() + MINIMAP_RESERVE_UNITS * unit,
-            viewport.bottom(),
-        ),
-    );
+    let minimap = overlay_ui::observer::minimap_reserve(viewport);
     let console = Rect::from_min_max(
         pos2(
             minimap.right(),

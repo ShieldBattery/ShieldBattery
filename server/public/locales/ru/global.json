@@ -27,7 +27,8 @@
         "cover": "Обложка",
         "publish": "Дата публикации",
         "summary": "Краткое описание",
-        "title": "Заголовок"
+        "title": "Заголовок",
+        "translations": "Переводы"
       },
       "form": {
         "content": "Текст (Markdown)",
@@ -41,6 +42,7 @@
         "coverUpload": "Загрузить обложку",
         "coverUploadError": "Не удалось загрузить обложку.",
         "coverUploading": "Загрузка…",
+        "defaultLanguage": "{{language}} (по умолчанию)",
         "imageInvalidType": "Выберите файл изображения.",
         "imageTooLarge": "Изображение слишком большое (макс. 5 МБ).",
         "imageUploadError": "Не удалось загрузить изображение.",
@@ -49,12 +51,14 @@
         "insertImageTooltip": "Вставить изображение (до 5 МБ)",
         "insertVideo": "Вставить видео",
         "insertVideoTooltip": "Вставить видео (до 30 МБ)",
+        "language": "Язык",
         "postSettings": "Настройки новости",
         "publish": "Публикация",
         "publishDraft": "Черновик (не опубликовано)",
         "publishNow": "Опубликовать сейчас",
         "publishPublished": "Опубликовано ({{date}})",
         "publishSchedule": "Запланировать",
+        "removeTranslation": "Удалить перевод",
         "scheduleDate": "Дата и время публикации",
         "scheduleHint": "Будущие дата и время запланируют новость; прошедшие — опубликуют её сразу.",
         "scheduleRequired": "Выберите корректные дату и время",
@@ -62,6 +66,8 @@
         "summaryRequired": "Введите краткое описание",
         "title": "Заголовок",
         "titleRequired": "Введите заголовок",
+        "translatedSummary": "Краткое описание ({{language}})",
+        "translationHint": "Читатели видят этот перевод, если у них выбран этот язык. Пустые поля, включая краткое описание в настройках новости, показывают текст на английском.",
         "videoInvalidType": "Выберите видеофайл mp4 или webm.",
         "videoTooLarge": "Видео слишком большое (макс. 30 МБ).",
         "videoUploadError": "Не удалось загрузить видео.",
@@ -987,6 +993,10 @@
       }
     },
     "privateChannelTitle": "Приватный канал",
+    "sendFailed": {
+      "chatRestricted": "Сейчас Вам запрещено отправлять сообщения в чат.",
+      "error": "Сообщение не отправлено: {{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "Сделать {{user}} владельцем этого канала? Текущий владелец лишится прав владельца.",
       "body": "Передать владение каналом #{{channelName}} пользователю {{user}}? Вы больше не будете владельцем.",
@@ -1020,6 +1030,10 @@
       "showMoreStreams_few": "Показать ещё {{count}} трансляции",
       "showMoreStreams_many": "Показать ещё {{count}} трансляций",
       "showMoreStreams_other": "Показать ещё {{count}} трансляции"
+    },
+    "whisperEcho": {
+      "from": "От:",
+      "to": "Кому:"
     },
     "whispers": {
       "startWhisperButton": "Отправить личное сообщение"
@@ -1125,6 +1139,28 @@
       "minLength_other": "Введите не менее {{count}} символа",
       "required": "Необходимый",
       "validatorError": "При проверке этого поля произошла неизвестная ошибка"
+    }
+  },
+  "discord": {
+    "activity": {
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "Зритель",
+      "observing": "Зритель: {{mode}}",
+      "privateLobby": "Приватное лобби",
+      "rankedMode": "Рейтинговый {{mode}}",
+      "replayIcon": "Реплей",
+      "watchingReplay": "Смотрит реплей"
+    },
+    "activityPrompt": {
+      "decline": "Нет, спасибо",
+      "enable": "Показывать мою активность",
+      "footnote": "Когда Вы не в лобби, не в игре и не смотрите реплей, ничего не показывается. Изменить это можно позже в Настройки › Подключения.",
+      "intro": "ShieldBattery может показывать, чем Вы заняты, в аккаунте Discord, в который выполнен вход в приложении Discord на этом компьютере:",
+      "sharedGame": "Режим игры, матчап или Ваша раса, карта и сколько уже идёт игра",
+      "sharedLobby": "Карта лобби, в котором Вы находитесь, его название, если лобби есть в списке, и кнопка «Присоединиться» (или «Попросить присоединиться», если его нет в списке), которая остаётся и во время игр этого лобби",
+      "sharedReplay": "Что Вы смотрите реплей, и его карта",
+      "title": "Показывать Вашу активность в Discord?"
     }
   },
   "fileBrowser": {
@@ -1283,6 +1319,7 @@
     "buttonDismissReviewRequest": "Отклонить запрос",
     "buttonDownloadReplay": "Скачать реплей",
     "buttonOpenInApp": "Открыть в ShieldBattery",
+    "buttonRefundPoints": "Вернуть очки",
     "buttonReplaySaved": "В библиотеке",
     "buttonReport": "Пожаловаться",
     "buttonRequestReview": "Запросить проверку",
@@ -1294,9 +1331,11 @@
     "buttonWatchReplayLoading": "Загрузка…",
     "chatTranscript": {
       "copy": "Скопировать лог",
+      "draftTitle": "Выбор рас",
       "dropped": "<0>{{name}}</0>: обрыв соединения",
       "droppedText": "{{name}}: обрыв соединения",
       "empty": "В этих реплеях не записано ни чата, ни выходов из игры.",
+      "gameTitle": "Игра",
       "hide": "Скрыть лог чата",
       "left": "<0>{{name}}</0>: выход из игры",
       "leftText": "{{name}}: выход из игры",
@@ -1309,6 +1348,7 @@
       "sources": "Собран из реплеев, загруженных игроками:",
       "title": "Лог чата",
       "unknownSender": "Слот {{slot}}",
+      "unknownUser": "Пользователь {{id}}",
       "view": "Открыть лог чата"
     },
     "debugInfo": {
@@ -1384,6 +1424,22 @@
     "infoDuration": "Продолжительность",
     "infoGameType": "Тип",
     "notFound": "Не удалось найти эту игру.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "Очки за эту игру уже возвращены.",
+      "errorGameNotFound": "Игра не найдена.",
+      "errorGeneric": "Не удалось вернуть очки за эту игру.",
+      "errorInvalidPlayers": "Один из игроков не участвовал в этой игре.",
+      "errorNotCurrentSeason": "Вернуть очки можно только за игры текущего сезона.",
+      "errorNotRanked": "В этой игре нет рейтинговых очков для возврата (это была не рейтинговая игра).",
+      "errorNotRefundable": "Никто из отмеченных игроков не потерял в этой игре рейтинговых очков или бонуса.",
+      "hint": "Отмеченным игрокам вернутся рейтинговые очки и очки лиги, потерянные в этой игре. Снимите отметку с тех, кто стал причиной поражения. Победители сохранят свои очки. Это действие нельзя отменить.",
+      "refundButton": "Вернуть очки",
+      "success_one": "Очки возвращены {{count}} игроку.",
+      "success_few": "Очки возвращены {{count}} игрокам.",
+      "success_many": "Очки возвращены {{count}} игрокам.",
+      "success_other": "Очки возвращены {{count}} игрока.",
+      "title": "Вернуть очки за игру"
+    },
     "resolveDialog": {
       "errorGeneric": "Что-то пошло не так. Попробуйте ещё раз.",
       "errorInvalidResults": "Эти результаты недопустимы для этой игры. Победить должна ровно одна команда.",
@@ -1497,7 +1553,8 @@
       "morePlayers_other": "+{{count}} ещё",
       "showResults": "Показать итоги",
       "versus": "vs",
-      "view": "Открыть игру"
+      "view": "Открыть игру",
+      "watch": "Смотреть"
     },
     "list": {
       "noMatchingGames": "Нет подходящих игр.",
@@ -1508,7 +1565,16 @@
     },
     "reporting": {
       "actionedNotification": "К игроку, на которого Вы пожаловались, были приняты меры. Спасибо, что помогаете поддерживать честность сообщества.",
-      "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча."
+      "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча.",
+      "pointsRefundedNotificationGames_one": "Рейтинговые очки, которые Вы потеряли в {{count}} матче, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_few": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_many": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_other": "Рейтинговые очки, которые Вы потеряли в {{count}} матча, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGamesWith_one": "Рейтинговые очки, которые Вы потеряли в {{count}} матче с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_few": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_many": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_other": "Рейтинговые очки, которые Вы потеряли в {{count}} матча с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationWith": "Рейтинговые очки, которые Вы потеряли в матче с <2>{{user}}</2>, были возвращены Вам."
     },
     "sidePanel": {
       "empty": "Выберите игру, чтобы увидеть подробности",
@@ -1709,6 +1775,9 @@
     "assetAuthor": "Автор: {{author}}",
     "assetModifications": "Изменения: {{modifications}}",
     "assetsHeader": "Шрифты, звуки и иконки",
+    "discordSdkDescription": "Приложение показывает Вашу активность в Discord через Discord Social SDK, который включает другое открытое ПО.",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "Эта сборка не включает Discord Social SDK.",
     "electronDescription": "Приложение построено на Electron, который включает Chromium и другое открытое ПО. Их лицензии находятся в файлах LICENSE.electron.txt и LICENSES.chromium.html в папке, куда установлен ShieldBattery.",
     "electronHeader": "Electron и Chromium",
     "gameDescription": "Открытое ПО и шрифты, входящие в ту часть ShieldBattery, которая работает внутри StarCraft.",
@@ -1729,6 +1798,7 @@
       "generic": "Что-то пошло не так. Попробуйте ещё раз.",
       "invalidSlotOperation": "Этот слот сейчас нельзя изменить",
       "invalidTeamLayout": "В этой расстановке команды нельзя переставить",
+      "mapNotDownloaded": "Ещё не у всех есть карта",
       "notEnoughSides": "Для игры нужны игроки минимум с двух сторон",
       "notEveryoneReady": "Ещё не все готовы",
       "notHost": "Это может сделать только хост",
@@ -2025,6 +2095,10 @@
         "visibilityPublic": "Публичное",
         "visibilityUnlisted": "Скрытое"
       },
+      "mapStatus": {
+        "downloading": "Загрузка карты",
+        "failed": "Ошибка загрузки карты"
+      },
       "racePicker": {
         "label": "Раса"
       },
@@ -2035,9 +2109,12 @@
         "everyoneReady": "Все готовы",
         "holdToBypassReadiness": "Удерживайте {{seconds}} сек., чтобы начать не дожидаясь",
         "holdToStartAnyway": "Удерживайте, чтобы начать",
+        "mapDownloadFailed": "Не удалось загрузить карту",
+        "mapNotDownloaded": "Ещё не у всех есть карта",
         "needsOpposingSides": "Нужны минимум два игрока на разных сторонах",
         "readyCount": "Готовы {{readyCount}} из {{readyTotal}}",
         "readyUp": "Готов",
+        "retryMapDownload": "Повторить загрузку",
         "startGame": "Начать игру",
         "startingGame": "Запуск игры",
         "waitingForHost": "Ожидание, пока хост начнёт игру"
@@ -2231,6 +2308,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "Открыть в браузере",
+      "title": "Изображение"
+    },
     "toolbar": {
       "bold": "Жирный",
       "boldTooltip": "Жирный (Ctrl+B)",
@@ -2333,7 +2414,9 @@
     "findMatch": {
       "alternateRace": "Альтернативная раса",
       "bonus": "Бонус",
+      "bonusFrozen": "Последняя неделя сезона! Потратьте оставшиеся бонусные очки!",
       "cancelSearch": "Отменить поиск",
+      "chooseRace": "Выберите расу",
       "desc": {
         "1v1": "Соло · стандартные карты",
         "1v1fastest": "Соло · карта Fastest",
@@ -2348,10 +2431,14 @@
       "description": "Выберите альтернативную расу на случай, если противник выберет ту же основную.",
       "errors": {
         "alreadyInGame": "Вы уже находитесь в игре, ищете матч или находитесь в пользовательском лобби",
+        "chooseMaps": "Выберите хотя бы одну карту",
+        "chooseRace": "Выберите расу, чтобы продолжить",
+        "completeSettings": "Заполните выделенные настройки, чтобы найти матч.",
         "dialogTitle": "Ошибка при поиске матча",
         "invalidMaps": "Вы должны выбрать хотя бы одну карту в настройках для каждого выбранного типа матчмейкинга.",
         "matchmakingDisabled": "Матчмейкинг сейчас отключён",
-        "searchAgainError": "Возникла проблема с поиском матча",
+        "reviewSettings": "Перед поиском выберите расу и проверьте карты для каждого выбранного режима.",
+        "settingsLoading": "Настройки ещё загружаются",
         "somethingWentWrong": "Что-то пошло не так :(",
         "userOffline": "Соединение с сервером прервано. Пожалуйста, переподключитесь и попробуйте снова."
       },
@@ -2372,6 +2459,7 @@
       "rank": "Ранг",
       "rating": "Рейтинг",
       "readyToQueue": "Готов к поиску",
+      "reviewSettings": "Выберите расу перед поиском",
       "searchingMessage": "Поиск матча…",
       "selectAtLeastOne": "Выберите хотя бы один тип матчмейкинга, чтобы начать поиск.",
       "selectedCount": "{{selected}} / {{total}} выбрано",
@@ -2809,6 +2897,49 @@
       "save": "Не удалось сохранить настройки."
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "Цветной текст оповещения APM",
+        "apmAlertSound": "Звук оповещения APM",
+        "apmAlertValue": "Порог оповещения APM",
+        "copyButton": "Скопировать из Battle.net",
+        "copyConfirm": "Скопировать настройки",
+        "copyDialogFeatures_one": "Также переключить {{count}} функцию ShieldBattery на поведение Battle.net",
+        "copyDialogFeatures_few": "Также переключить {{count}} функции ShieldBattery на поведение Battle.net",
+        "copyDialogFeatures_many": "Также переключить {{count}} функций ShieldBattery на поведение Battle.net",
+        "copyDialogFeatures_other": "Также переключить {{count}} функции ShieldBattery на поведение Battle.net",
+        "copyDialogFeaturesOnly_one": "Это переключит {{count}} функцию ShieldBattery на поведение Battle.net.",
+        "copyDialogFeaturesOnly_few": "Это переключит {{count}} функции ShieldBattery на поведение Battle.net.",
+        "copyDialogFeaturesOnly_many": "Это переключит {{count}} функций ShieldBattery на поведение Battle.net.",
+        "copyDialogFeaturesOnly_other": "Это переключит {{count}} функции ShieldBattery на поведение Battle.net.",
+        "copyDialogNotKept": "Текущие значения не сохранятся.",
+        "copyDialogSettings_one": "Это заменит {{count}} настройку StarCraft в ShieldBattery на Ваше значение из Battle.net.",
+        "copyDialogSettings_few": "Это заменит {{count}} настройки StarCraft в ShieldBattery на Ваши значения из Battle.net.",
+        "copyDialogSettings_many": "Это заменит {{count}} настроек StarCraft в ShieldBattery на Ваши значения из Battle.net.",
+        "copyDialogSettings_other": "Это заменит {{count}} настройки StarCraft в ShieldBattery на Ваши значения из Battle.net.",
+        "copyDialogTitle": "Скопировать настройки Battle.net?",
+        "copyError": "Не удалось скопировать настройки Battle.net. Ничего не изменилось.",
+        "customCursorSize": "Свой размер курсора",
+        "differenceSummary_one": "{{count}} настройка отличается от Battle.net. Совпадающие настройки не показаны.",
+        "differenceSummary_few": "{{count}} настройки отличаются от Battle.net. Совпадающие настройки не показаны.",
+        "differenceSummary_many": "{{count}} настроек отличаются от Battle.net. Совпадающие настройки не показаны.",
+        "differenceSummary_other": "{{count}} настройки отличается от Battle.net. Совпадающие настройки не показаны.",
+        "featuresTitle": "Функции ShieldBattery",
+        "featureSummary_one": "Из-за {{count}} функции ShieldBattery игра ощущается иначе, чем в Battle.net.",
+        "featureSummary_few": "Из-за {{count}} функций ShieldBattery игра ощущается иначе, чем в Battle.net.",
+        "featureSummary_many": "Из-за {{count}} функций ShieldBattery игра ощущается иначе, чем в Battle.net.",
+        "featureSummary_other": "Из-за {{count}} функции ShieldBattery игра ощущается иначе, чем в Battle.net.",
+        "intro": "ShieldBattery хранит собственную копию Ваших настроек StarCraft, поэтому изменения, сделанные через Battle.net, сюда не переносятся.",
+        "matches": "Ваши настройки совпадают с Battle.net.",
+        "notFound": "ShieldBattery не удалось прочитать файл настроек Battle.net. Он появится, если один раз запустить StarCraft из Battle.net.",
+        "notSet": "Не задано",
+        "settingsTitle": "Настройки StarCraft",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "Настройка",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_one": "Новые функции теперь будут использовать пресет «{{preset}}». Что сделать с {{count}} настройкой, которую он охватывает?",
@@ -2823,6 +2954,7 @@
           "resetToRecommendedDescription": "Начальный туман, размер курсора, цвета команд и перетаскивание камеры переключатся на значения по умолчанию ShieldBattery.",
           "switchedTitle": "Выбран пресет «{{preset}}»"
         },
+        "battleNetNote": "Чтобы скопировать остальные настройки StarCraft из Battle.net, откройте страницу Battle.net.",
         "firstRun": {
           "continue": "Продолжить",
           "cursorSize": "Размер курсора",
@@ -2840,7 +2972,8 @@
           "title": "Та же игра. Детали решаете Вы."
         },
         "intro": "Пресет определяет, с каких значений начинаются собственные настройки геймплея ShieldBattery. Он же задаёт значения по умолчанию для всего, что появится позже.",
-        "legacyDescription": "Как в Battle.net.",
+        "legacyDescription": "Как в Battle.net для настроек ниже.",
+        "openBattleNet": "Страница Battle.net",
         "preset": {
           "legacy": "Классический",
           "recommended": "Рекомендуемый"
@@ -2957,7 +3090,7 @@
         "ingameSkins": {
           "carbot": "Carbot",
           "none": "Нет",
-          "preorder": "Предварительный заказ",
+          "preorder": "Предзаказ",
           "title": "Внутриигровой скин"
         },
         "interface": {
@@ -3321,6 +3454,12 @@
       },
       "connections": {
         "description": "Привяжите внешние аккаунты к своему профилю ShieldBattery.",
+        "discord": {
+          "name": "Discord",
+          "note": "Показывает Ваше текущее лобби, игру или реплей. Нужно запущенное приложение Discord на том же компьютере, что и ShieldBattery.",
+          "showActivity": "Показывать мою активность в Discord"
+        },
+        "linkedAccounts": "Привязанные аккаунты",
         "title": "Подключения",
         "twitch": {
           "connect": "Подключить",
@@ -3700,7 +3839,6 @@
       "noSelfMessaging": "Нельзя отправлять сообщения самому себе",
       "openSession": "Ошибка открытия сообщения пользователю: {{errorMessage}}",
       "resolveMessageLink": "Ошибка при открытии ссылки на сообщение: {{errorMessage}}",
-      "sendingMessage": "Ошибка отправки сообщения: {{errorMessage}}",
       "unknownError": "Неизвестная ошибка",
       "userChatRestricted": "Вам временно запрещено отправлять сообщения в чат",
       "userNotFound": "Пользователь не найден"

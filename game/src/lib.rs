@@ -67,12 +67,13 @@ mod http;
 mod http_proxy;
 #[cfg(debug_assertions)]
 mod input_latency_probe;
+mod log_writer;
 mod machine_info;
-mod mouse_speed;
 mod native_network;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
+mod remembered_buildings;
 mod replay;
 mod replay_name;
 mod replay_seek;
@@ -88,6 +89,7 @@ mod rollback_probe;
 mod rollback_soak;
 mod scr_stdout;
 mod snp;
+mod startup_trace;
 mod sync;
 mod team_colors;
 mod windows;
@@ -219,7 +221,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
         "Shieldbattery crash :(",
         &format!("{location}\n{panic_msg}\nPlease submit a bug report in the launcher."),
     );
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
     }
@@ -251,6 +253,7 @@ pub extern "C" fn OnInject() {
     // The crash path writes to the log through its own duplicate of the handle, since the logger
     // itself can't be trusted from a crashing thread.
     let breadcrumb_file = log_file.try_clone();
+    log_writer::init(log_file);
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -269,15 +272,16 @@ pub extern "C" fn OnInject() {
         .level_for("noq", log::LevelFilter::Warn)
         .level_for("noq_proto", log::LevelFilter::Warn)
         .level_for("noq_udp", log::LevelFilter::Warn)
-        .chain(log_file)
+        .chain(fern::Output::call(|record| log_writer::log(*record.args())))
         .apply();
     match breadcrumb_file {
         Ok(file) => crash_dump::set_breadcrumb_file(file),
         Err(e) => error!("Couldn't duplicate the log handle for crash breadcrumbs: {e}"),
     }
+    startup_trace::init();
     // SC:R reports renderer failures only on stdout, so this has to happen before its CRT starts.
     scr_stdout::init();
-    mouse_speed::capture();
+    forge::mouse_speed::capture();
 
     let args = parse_args();
     let process_id = unsafe { GetCurrentProcessId() };
@@ -346,9 +350,11 @@ fn spawn_oninject_threads_from_env() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
+    startup_trace::finish();
     // The game's own startup doesn't tolerate other threads running alongside it, so this is the
     // earliest point at which the DLL can start any.
     crash_dump::start_dump_thread();
+    log_writer::start_thread();
     scr_stdout::start_forwarding();
     companion::initialize(parse_args().server_port);
     #[cfg(debug_assertions)]
@@ -453,7 +459,7 @@ fn initialize() {
 fn wait_async_exit() -> ! {
     std::thread::sleep(Duration::from_millis(5000));
     warn!("Async thread exit timed out");
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     std::process::exit(0);
 }
 
@@ -503,6 +509,12 @@ async fn handle_messages_from_game_thread(
                         let mut lock = latest_window_move.lock();
                         *lock = Some(WindowMove { x, y, w, h });
                         debouncer.trigger();
+                    }
+                    GameThreadMessage::WindowShown => {
+                        let msg = app_socket::encode_message("/game/windowShown", ());
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
                     }
                     GameThreadMessage::ReplaySaved(path) => {
                         let Ok(path) = path.into_os_string().into_string() else {
@@ -639,7 +651,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     }));
     drop(runtime);
     info!("Async thread end");
-    mouse_speed::restore();
+    forge::mouse_speed::restore();
     std::process::exit(0);
 }
 

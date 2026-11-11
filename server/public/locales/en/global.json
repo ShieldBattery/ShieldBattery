@@ -27,7 +27,8 @@
         "cover": "Cover image",
         "publish": "Publish date",
         "summary": "Summary",
-        "title": "Title"
+        "title": "Title",
+        "translations": "Translations"
       },
       "form": {
         "content": "Content (Markdown)",
@@ -41,6 +42,7 @@
         "coverUpload": "Upload cover",
         "coverUploadError": "Something went wrong uploading the cover image.",
         "coverUploading": "Uploading…",
+        "defaultLanguage": "{{language}} (default)",
         "imageInvalidType": "Please choose an image file.",
         "imageTooLarge": "That image is too large (max 5 MB).",
         "imageUploadError": "Something went wrong uploading the image.",
@@ -49,12 +51,14 @@
         "insertImageTooltip": "Insert image (up to 5 MB)",
         "insertVideo": "Insert video",
         "insertVideoTooltip": "Insert video (up to 30 MB)",
+        "language": "Language",
         "postSettings": "Post settings",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
         "publishPublished": "Published ({{date}})",
         "publishSchedule": "Schedule",
+        "removeTranslation": "Remove translation",
         "scheduleDate": "Publish date and time",
         "scheduleHint": "A future date/time schedules the post; a past date/time publishes it immediately.",
         "scheduleRequired": "Choose a valid date and time",
@@ -62,6 +66,8 @@
         "summaryRequired": "Summary is required",
         "title": "Title",
         "titleRequired": "Title is required",
+        "translatedSummary": "Summary ({{language}})",
+        "translationHint": "Readers see this translation when using this language. Blank fields, including the summary in post settings, use the English text.",
         "videoInvalidType": "Please choose an mp4 or webm video file.",
         "videoTooLarge": "That video is too large (max 30 MB).",
         "videoUploadError": "Something went wrong uploading the video.",
@@ -965,6 +971,10 @@
       }
     },
     "privateChannelTitle": "Private channel",
+    "sendFailed": {
+      "chatRestricted": "You're currently restricted from sending chat messages.",
+      "error": "Your message was not sent: {{errorMessage}}"
+    },
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
       "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
@@ -994,6 +1004,10 @@
       "showMoreGames_other": "Show {{count}} more games",
       "showMoreStreams_one": "Show {{count}} more stream",
       "showMoreStreams_other": "Show {{count}} more streams"
+    },
+    "whisperEcho": {
+      "from": "From:",
+      "to": "To:"
     },
     "whispers": {
       "startWhisperButton": "Start a whisper"
@@ -1095,6 +1109,28 @@
       "minLength_other": "Enter at least {{count}} characters",
       "required": "Required",
       "validatorError": "An unknown error occurred while validating this field"
+    }
+  },
+  "discord": {
+    "activity": {
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "Observing",
+      "observing": "Observing {{mode}}",
+      "privateLobby": "Private lobby",
+      "rankedMode": "Ranked {{mode}}",
+      "replayIcon": "Replay",
+      "watchingReplay": "Watching a replay"
+    },
+    "activityPrompt": {
+      "decline": "No thanks",
+      "enable": "Show my activity",
+      "footnote": "Nothing shows while you’re not in a lobby, a game or a replay. You can change this later in Settings › Connections.",
+      "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
+      "sharedGame": "The game mode, the matchup or your race, the map, and how long the game has been going",
+      "sharedLobby": "The map of the lobby you’re in, its name if it’s listed, and a Join button, or Ask to Join if it’s unlisted, which stays up during the lobby’s games",
+      "sharedReplay": "That you’re watching a replay, and its map",
+      "title": "Show your activity on Discord?"
     }
   },
   "fileBrowser": {
@@ -1253,6 +1289,7 @@
     "buttonDismissReviewRequest": "Dismiss request",
     "buttonDownloadReplay": "Download replay",
     "buttonOpenInApp": "Open in ShieldBattery",
+    "buttonRefundPoints": "Refund points",
     "buttonReplaySaved": "In library",
     "buttonReport": "Report",
     "buttonRequestReview": "Request review",
@@ -1264,9 +1301,11 @@
     "buttonWatchReplayLoading": "Loading…",
     "chatTranscript": {
       "copy": "Copy transcript",
+      "draftTitle": "Draft",
       "dropped": "<0>{{name}}</0> was dropped",
       "droppedText": "{{name}} was dropped",
       "empty": "No chat or leaves were recorded in these replays.",
+      "gameTitle": "Game",
       "hide": "Hide chat transcript",
       "left": "<0>{{name}}</0> left the game",
       "leftText": "{{name}} left the game",
@@ -1279,6 +1318,7 @@
       "sources": "Merged from the replays uploaded by:",
       "title": "Chat transcript",
       "unknownSender": "Slot {{slot}}",
+      "unknownUser": "User {{id}}",
       "view": "View chat transcript"
     },
     "debugInfo": {
@@ -1354,6 +1394,20 @@
     "infoDuration": "Duration",
     "infoGameType": "Type",
     "notFound": "This game could not be found.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "This game's points have already been refunded.",
+      "errorGameNotFound": "Game not found.",
+      "errorGeneric": "There was a problem refunding points for this game.",
+      "errorInvalidPlayers": "One of the players did not participate in this game.",
+      "errorNotCurrentSeason": "Only current-season games can have their points refunded.",
+      "errorNotRanked": "This game has no ranked points to refund (it was not a ranked game).",
+      "errorNotRefundable": "None of the checked players lost ranked points or bonus in this game.",
+      "hint": "Checked players get back the ranked and league points they lost in this game. Uncheck anyone who caused the loss. Winners keep their points. This can't be undone.",
+      "refundButton": "Refund points",
+      "success_one": "Refunded points to {{count}} player.",
+      "success_other": "Refunded points to {{count}} players.",
+      "title": "Refund game points"
+    },
     "resolveDialog": {
       "errorGeneric": "Something went wrong. Please try again.",
       "errorInvalidResults": "These results aren't valid for this game. Exactly one team must win.",
@@ -1465,7 +1519,8 @@
       "morePlayers_other": "+{{count}} more",
       "showResults": "Show results",
       "versus": "vs",
-      "view": "View game"
+      "view": "View game",
+      "watch": "Watch"
     },
     "list": {
       "noMatchingGames": "No matching games.",
@@ -1476,7 +1531,12 @@
     },
     "reporting": {
       "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair.",
-      "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
+      "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed.",
+      "pointsRefundedNotificationGames_one": "Ranked points you lost in {{count}} games have been refunded to you after they were reviewed.",
+      "pointsRefundedNotificationGames_other": "Ranked points you lost in {{count}} games have been refunded to you after they were reviewed.",
+      "pointsRefundedNotificationGamesWith_one": "Ranked points you lost in {{count}} games with <4>{{user}}</4> have been refunded to you.",
+      "pointsRefundedNotificationGamesWith_other": "Ranked points you lost in {{count}} games with <4>{{user}}</4> have been refunded to you.",
+      "pointsRefundedNotificationWith": "Ranked points you lost in a game with <2>{{user}}</2> have been refunded to you."
     },
     "sidePanel": {
       "empty": "Select a game to see its details",
@@ -1677,6 +1737,9 @@
     "assetAuthor": "By {{author}}",
     "assetModifications": "Changes: {{modifications}}",
     "assetsHeader": "Fonts, sounds, and icons",
+    "discordSdkDescription": "The app shows your activity on Discord through the Discord Social SDK, which includes other open source software.",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "This build doesn't include the Discord Social SDK.",
     "electronDescription": "The app is built on Electron, which includes Chromium and other open source software. Their licenses are in LICENSE.electron.txt and LICENSES.chromium.html, in the folder ShieldBattery is installed to.",
     "electronHeader": "Electron and Chromium",
     "gameDescription": "Open source software and fonts included in the part of ShieldBattery that runs inside StarCraft.",
@@ -1697,6 +1760,7 @@
       "generic": "Something went wrong. Please try again.",
       "invalidSlotOperation": "That seat cannot be changed right now",
       "invalidTeamLayout": "The teams cannot be rearranged in this layout",
+      "mapNotDownloaded": "Not everyone has the map yet",
       "notEnoughSides": "The game needs players on at least two sides",
       "notEveryoneReady": "Not everyone is ready yet",
       "notHost": "Only the host can do that",
@@ -1969,6 +2033,10 @@
         "visibilityPublic": "Public",
         "visibilityUnlisted": "Unlisted"
       },
+      "mapStatus": {
+        "downloading": "Downloading map",
+        "failed": "Map download failed"
+      },
       "racePicker": {
         "label": "Race"
       },
@@ -1979,9 +2047,12 @@
         "everyoneReady": "Everyone is ready",
         "holdToBypassReadiness": "Hold for {{seconds}} seconds to start without waiting",
         "holdToStartAnyway": "Hold to start anyway",
+        "mapDownloadFailed": "The map failed to download",
+        "mapNotDownloaded": "Not everyone has the map yet",
         "needsOpposingSides": "Needs at least two opposing players",
         "readyCount": "{{readyCount}} of {{readyTotal}} ready",
         "readyUp": "Ready up",
+        "retryMapDownload": "Retry download",
         "startGame": "Start game",
         "startingGame": "Starting game",
         "waitingForHost": "Waiting for the host to start"
@@ -2171,6 +2242,10 @@
     }
   },
   "markdown": {
+    "imageViewer": {
+      "openInBrowser": "Open in browser",
+      "title": "Image"
+    },
     "toolbar": {
       "bold": "Bold",
       "boldTooltip": "Bold (Ctrl+B)",
@@ -2271,7 +2346,9 @@
     "findMatch": {
       "alternateRace": "Alternate race",
       "bonus": "Bonus",
+      "bonusFrozen": "This is the last week of the season! Spend your remaining bonus points!",
       "cancelSearch": "Cancel search",
+      "chooseRace": "Choose race",
       "desc": {
         "1v1": "Solo · Standard maps",
         "1v1fastest": "Solo · Fastest Map",
@@ -2286,10 +2363,14 @@
       "description": "Select a race to be used whenever your opponent has selected the same primary race.",
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
+        "chooseMaps": "Select at least one map",
+        "chooseRace": "Choose a race to continue",
+        "completeSettings": "Complete the highlighted settings to find a match.",
         "dialogTitle": "Error searching for a match",
         "invalidMaps": "You must select at least one map in the settings for each chosen matchmaking type.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
-        "searchAgainError": "There was a problem searching for a match",
+        "reviewSettings": "Choose a race and review the maps for each selected mode before searching.",
+        "settingsLoading": "Settings are still loading",
         "somethingWentWrong": "Something went wrong :(",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
@@ -2310,6 +2391,7 @@
       "rank": "Rank",
       "rating": "Rating",
       "readyToQueue": "Ready to queue",
+      "reviewSettings": "Choose your race before searching",
       "searchingMessage": "Searching for a match…",
       "selectAtLeastOne": "Select at least one matchmaking type to start searching.",
       "selectedCount": "{{selected}} / {{total}} selected",
@@ -3218,6 +3300,39 @@
       "save": "There was an issue saving the settings."
     },
     "game": {
+      "battleNet": {
+        "apmAlertColor": "Color APM alert text",
+        "apmAlertSound": "Play APM alert sound",
+        "apmAlertValue": "APM alert threshold",
+        "copyButton": "Copy from Battle.net",
+        "copyConfirm": "Copy settings",
+        "copyDialogFeatures_one": "Also switch {{count}} ShieldBattery feature to how Battle.net plays",
+        "copyDialogFeatures_other": "Also switch {{count}} ShieldBattery features to how Battle.net plays",
+        "copyDialogFeaturesOnly_one": "This switches {{count}} ShieldBattery feature to how Battle.net plays.",
+        "copyDialogFeaturesOnly_other": "This switches {{count}} ShieldBattery features to how Battle.net plays.",
+        "copyDialogNotKept": "Your current values won't be kept.",
+        "copyDialogSettings_one": "This replaces {{count}} StarCraft setting in ShieldBattery with your Battle.net value.",
+        "copyDialogSettings_other": "This replaces {{count}} StarCraft settings in ShieldBattery with your Battle.net values.",
+        "copyDialogTitle": "Copy Battle.net settings?",
+        "copyError": "Couldn't copy the Battle.net settings. Nothing was changed.",
+        "customCursorSize": "Custom cursor size",
+        "differenceSummary_one": "{{count}} setting differs from Battle.net. Settings that already match aren't listed.",
+        "differenceSummary_other": "{{count}} settings differ from Battle.net. Settings that already match aren't listed.",
+        "featuresTitle": "ShieldBattery features",
+        "featureSummary_one": "{{count}} ShieldBattery feature makes the game feel different from Battle.net.",
+        "featureSummary_other": "{{count}} ShieldBattery features make the game feel different from Battle.net.",
+        "intro": "ShieldBattery keeps its own copy of your StarCraft settings, so changes made through Battle.net don't carry over.",
+        "matches": "Your settings match Battle.net.",
+        "notFound": "ShieldBattery couldn't read the Battle.net settings file. Launching StarCraft from Battle.net once creates it.",
+        "notSet": "Not set",
+        "settingsTitle": "StarCraft settings",
+        "table": {
+          "battleNet": "Battle.net",
+          "setting": "Setting",
+          "shieldBattery": "ShieldBattery"
+        },
+        "title": "Battle.net"
+      },
       "defaults": {
         "apply": {
           "explanation_one": "New features will use {{preset}} defaults from now on. What about the {{count}} setting this preset covers?",
@@ -3230,6 +3345,7 @@
           "resetToRecommendedDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the ShieldBattery defaults.",
           "switchedTitle": "Switched to {{preset}}"
         },
+        "battleNetNote": "To copy your other StarCraft settings from Battle.net, use the Battle.net page.",
         "firstRun": {
           "continue": "Continue",
           "cursorSize": "Cursor size",
@@ -3247,7 +3363,8 @@
           "title": "Same game. Your call on the details."
         },
         "intro": "The preset decides which values ShieldBattery's own gameplay settings start on. It also picks the default for anything added later.",
-        "legacyDescription": "Matches Battle.net.",
+        "legacyDescription": "Matches Battle.net behavior for the settings below.",
+        "openBattleNet": "Open Battle.net page",
         "preset": {
           "legacy": "Legacy",
           "recommended": "Recommended"
@@ -3724,6 +3841,12 @@
       },
       "connections": {
         "description": "Link external accounts to your ShieldBattery profile.",
+        "discord": {
+          "name": "Discord",
+          "note": "Shows your current lobby, game or replay. Needs the Discord app running on the same computer as ShieldBattery.",
+          "showActivity": "Show my activity on Discord"
+        },
+        "linkedAccounts": "Linked accounts",
         "title": "Connections",
         "twitch": {
           "connect": "Connect",
@@ -4089,7 +4212,6 @@
       "noSelfMessaging": "Cannot send messages to yourself",
       "openSession": "Error opening whisper to user: {{errorMessage}}",
       "resolveMessageLink": "Error opening message link: {{errorMessage}}",
-      "sendingMessage": "Error sending message: {{errorMessage}}",
       "unknownError": "Unknown error",
       "userChatRestricted": "You are currently restricted from sending chat messages",
       "userNotFound": "User not found"
