@@ -768,10 +768,10 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         }),
         kills: reads_out_kills(KillsKind {
             building: unit_id.is_building(),
-            armed: unit_id.is_building() && can_attack(unit_id),
+            armed: can_attack(unit_id),
             transport: unit_id.cargo_space_provided() != 0,
             resource: unit_id.is_resource_container(),
-            harmless: never_kills(unit_id) && !can_attack(unit_id),
+            harmless: never_kills(unit_id),
         })
         .then(|| unit.kills()),
         status: None,
@@ -843,39 +843,34 @@ fn is_spellcaster(unit_id: UnitId) -> bool {
 #[derive(Clone, Copy)]
 struct KillsKind {
     building: bool,
-    /// Has a weapon of its own (see [`can_attack`]). Only decides anything for a building, so a
-    /// host need only look it up for one.
+    /// Has a weapon of its own (see [`can_attack`]), read from units.dat as it stands, which a map
+    /// may have changed.
     armed: bool,
     /// Has room for other units inside it: a transport, or a bunker.
     transport: bool,
     /// A mineral field or a geyser.
     resource: bool,
-    /// Has no way to kill anything, by weapon or by spell (see [`never_kills`]), and no weapon a
-    /// map's own units.dat gave it either.
+    /// Has no spell that kills (see [`never_kills`]).
     harmless: bool,
 }
 
 /// Whether the panels read out the kills of this kind of unit.
 ///
-/// The game counts kills for everything, a building's too though its console reads none out. A
-/// building has any to read out only if it can attack, and a transport has none of its own: a
-/// bunker's or a transport's passengers make its kills, and keep them. Any other unit has its count
-/// read out, armed or not, since some kill with a spell rather than a weapon, unless nothing it can
-/// do kills at all.
+/// The game counts kills for everything, a building's too though its console reads none out.
+/// Anything with a weapon reads its count out, whatever else it is. Without one, a building kills
+/// nothing, and neither does a transport, whose passengers make its kills and keep them, a resource,
+/// or a unit with no spell that kills; any other unit reads out its count, since some kill with a
+/// spell rather than a weapon.
 fn reads_out_kills(kind: KillsKind) -> bool {
-    if kind.building {
-        kind.armed
-    } else {
-        !kind.transport && !kind.resource && !kind.harmless
-    }
+    kind.armed || !(kind.building || kind.transport || kind.resource || kind.harmless)
 }
 
-/// Whether this kind of unit has no way to kill anything, by weapon or by spell:
+/// Whether this kind of unit has no spell that kills, so that it kills nothing without a weapon:
 ///
 /// - a defiler, whose plague stops at one hit point, whose dark swarm deals no damage, and whose
 ///   consume only takes its own side's units, which the game counts no kill for;
 /// - a medic, whose heal, optical flare and restoration deal no damage;
-/// - an observer, which has neither a weapon nor a spell.
+/// - an observer, which has no spell at all.
 fn never_kills(unit_id: UnitId) -> bool {
     use bw_dat::unit;
 
@@ -1155,10 +1150,26 @@ mod tests {
             ..unit
         }));
         // A defiler, a medic or an observer.
-        assert!(!reads_out_kills(KillsKind {
+        let harmless = KillsKind {
             harmless: true,
             ..unit
-        }));
+        };
+        assert!(!reads_out_kills(harmless));
+
+        // A map that arms any of these makes it one that kills: a transport, a defiler, a building.
+        for kind in [
+            KillsKind {
+                transport: true,
+                ..unit
+            },
+            harmless,
+            building,
+        ] {
+            assert!(reads_out_kills(KillsKind {
+                armed: true,
+                ..kind
+            }));
+        }
     }
 
     #[test]
