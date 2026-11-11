@@ -1,6 +1,7 @@
 use crate::{
     game_commends::PublishedGameCommendMessage, game_reports::PublishedGameReportMessage,
     maps::families::graphql::PublishedMapFamilyReportMessage,
+    maps::families::publish_graphql::PublishedMapPublishMessage,
     matchmaking::PublishedMatchmakingMessage, news::PublishedNewsMessage,
     users::PublishedUserMessage,
 };
@@ -17,6 +18,7 @@ pub enum PublishedMessage {
     GameReport(PublishedGameReportMessage),
     GameCommend(PublishedGameCommendMessage),
     MapFamilyReport(PublishedMapFamilyReportMessage),
+    MapPublish(PublishedMapPublishMessage),
 }
 
 impl PublishedMessage {
@@ -29,6 +31,7 @@ impl PublishedMessage {
             Self::GameReport(_) => "gameReport",
             Self::GameCommend(_) => "gameCommend",
             Self::MapFamilyReport(_) => "mapFamilyReport",
+            Self::MapPublish(_) => "mapPublish",
         }
     }
 }
@@ -66,5 +69,11 @@ impl From<PublishedGameCommendMessage> for PublishedMessage {
 impl From<PublishedMapFamilyReportMessage> for PublishedMessage {
     fn from(value: PublishedMapFamilyReportMessage) -> Self {
         Self::MapFamilyReport(value)
+    }
+}
+
+impl From<PublishedMapPublishMessage> for PublishedMessage {
+    fn from(value: PublishedMapPublishMessage) -> Self {
+        Self::MapPublish(value)
     }
 }

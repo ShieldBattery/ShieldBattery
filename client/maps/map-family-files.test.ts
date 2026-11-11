@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { MapPageSubPage, mapSlug, urlForMapCompare } from '../../common/map-url'
-import { makeSbMapId, SbMapId } from '../../common/maps'
+import { MapPageSubPage, mapSlug, urlForMap, urlForMapCompare } from '../../common/map-url'
+import { makeMapFamilyId, makeSbMapId, SbMapId } from '../../common/maps'
 import { encodePrettyId } from '../../common/pretty-id'
 import {
   correctedMapPageUrl,
@@ -179,6 +179,26 @@ describe('maps/map-family-files/correctedMapPageUrl', () => {
         pathFileId: fileId(1),
       }),
     ).toBe(`${FAMILY_PATH}?other=1&file=${encodePrettyId(fileId(1))}`)
+  })
+
+  test('keeps the report param when correcting the URL', () => {
+    expect(
+      correctedMapPageUrl({
+        ...base,
+        pathname: `/maps/${encodePrettyId(fileId(1))}/whatever`,
+        search: '?report=r1',
+        pathFileId: fileId(1),
+      }),
+    ).toBe(`${FAMILY_PATH}?report=r1&file=${encodePrettyId(fileId(1))}`)
+    const reviewUrl = urlForMap(makeMapFamilyId(FAMILY.id), FAMILY.name, undefined, fileId(1), 'r1')
+    expect(
+      correctedMapPageUrl({
+        ...base,
+        pathname: FAMILY_PATH,
+        search: reviewUrl.slice(FAMILY_PATH.length),
+        paramFile: { kind: 'found', id: fileId(1), family: FAMILY },
+      }),
+    ).toBeUndefined()
   })
 
   test('waits for the file param to load', () => {

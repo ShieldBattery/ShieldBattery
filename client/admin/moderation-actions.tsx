@@ -192,6 +192,8 @@ function restrictionKindToLabel(kind: RestrictionKind): string {
       return 'Matchmaking'
     case RestrictionKind.AvatarUpload:
       return 'Avatar upload'
+    case RestrictionKind.MapPublishing:
+      return 'Map publishing'
     default:
       return kind satisfies never
   }

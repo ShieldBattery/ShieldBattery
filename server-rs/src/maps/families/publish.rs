@@ -541,13 +541,12 @@ fn held_answer_target(
 /// be) a version of another map, the answer is applied as publishing would have, on the
 /// publisher's behalf: the file is moved into that map, or a `same_map` report is filed about it.
 /// The answer is skipped when that map no longer exists, when the file is already in it, or when
-/// the file no longer is the only file of its own map. Returns the `same_map` report filed, if
-/// any.
+/// the file no longer is the only file of its own map.
 pub async fn approve_review(
     db: &PgPool,
     report_id: Uuid,
     actor: SbUserId,
-) -> Result<Option<Uuid>, PublishError> {
+) -> Result<ApprovedReview, PublishError> {
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
     let report = sqlx::query!(
@@ -573,8 +572,10 @@ pub async fn approve_review(
     };
 
     let file = load_file(&mut tx, file_id).await?;
+    let listed_now = !file.listed;
+    let mut family_id = file.family_id;
     let mut same_map_report_id = None;
-    if !file.listed {
+    if listed_now {
         let publisher = report.reported_by;
         list_file(&mut tx, file_id, file.family_id, publisher, actor).await?;
         if let (Some(answer), Some(other_family_id)) =
@@ -586,6 +587,7 @@ pub async fn approve_review(
                     MapPublishReviewAnswer::Join => {
                         edit::move_file(&mut tx, file_id, target, publisher, MoveBy::Publisher)
                             .await?;
+                        family_id = target;
                     }
                     MapPublishReviewAnswer::Unsure => {
                         let id = edit::insert_report(
@@ -609,7 +611,44 @@ pub async fn approve_review(
     tx.commit()
         .await
         .wrap_err("Failed to commit publish review")?;
-    Ok(same_map_report_id)
+    Ok(ApprovedReview {
+        file_id,
+        family_id,
+        name: file.name,
+        publisher: report.reported_by,
+        listed_now,
+        same_map_report_id,
+    })
+}
+
+/// What approving a publish review did.
+#[derive(Debug, Clone)]
+pub struct ApprovedReview {
+    pub file_id: SbMapId,
+    /// The family the file is in once the review is approved.
+    pub family_id: Uuid,
+    /// The file's name.
+    pub name: String,
+    /// The user who published the file, and whom it was listed for.
+    pub publisher: SbUserId,
+    /// Whether this approval listed the file. False when the file was already listed.
+    pub listed_now: bool,
+    /// The `same_map` report filed on the publisher's behalf, if approving filed one.
+    pub same_map_report_id: Option<Uuid>,
+}
+
+/// A file as it was when it was delisted.
+#[derive(Debug, Clone)]
+pub struct DelistedFile {
+    pub family_id: Uuid,
+    /// The file's name.
+    pub name: String,
+    /// Who published the file, if anyone did.
+    pub published_by: Option<SbUserId>,
+    /// Whether the file was listed just before it was delisted.
+    pub was_listed: bool,
+    /// The trimmed note stored with a staff delisting, if there was one.
+    pub note: Option<String>,
 }
 
 /// Delisting a file: by its publisher, or by staff with an optional note. See [`unpublish`] and
@@ -624,7 +663,7 @@ async fn delist_file(
     file_id: SbMapId,
     actor: SbUserId,
     delisting: Delisting<'_>,
-) -> Result<(), PublishError> {
+) -> Result<DelistedFile, PublishError> {
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
     let file = load_file(&mut tx, file_id).await?;
@@ -681,13 +720,21 @@ async fn delist_file(
     )
     .await?;
     tx.commit().await.wrap_err("Failed to commit delisting")?;
-    Ok(())
+    Ok(DelistedFile {
+        family_id: file.family_id,
+        name: file.name,
+        published_by: file.published_by,
+        was_listed: file.listed,
+        note: note.map(str::to_string),
+    })
 }
 
 /// Takes a listed file out of the listings at its publisher's request. Anyone may publish it again.
 /// Official files can only be delisted by staff.
 pub async fn unpublish(db: &PgPool, file_id: SbMapId, user: SbUserId) -> Result<(), PublishError> {
-    delist_file(db, file_id, user, Delisting::Publisher).await
+    delist_file(db, file_id, user, Delisting::Publisher)
+        .await
+        .map(|_| ())
 }
 
 /// Blocks a file as staff, with an optional note saying why: only staff can list it from then on
@@ -700,7 +747,7 @@ pub async fn delist(
     file_id: SbMapId,
     note: Option<&str>,
     actor: SbUserId,
-) -> Result<(), PublishError> {
+) -> Result<DelistedFile, PublishError> {
     let note = note.map(str::trim).filter(|n| !n.is_empty());
     if note.is_some_and(|n| n.chars().count() > MAX_DELIST_NOTE_LENGTH) {
         return Err(PublishError::NoteTooLong);

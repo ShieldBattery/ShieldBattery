@@ -105,6 +105,9 @@ const GameVerificationFailedDialog = React.lazy(async () => ({
   default: (await import('../starcraft/game-verification-failed-dialog'))
     .GameVerificationFailedDialog,
 }))
+const MapDelistDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-delist-dialog')).MapDelistDialog,
+}))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
 }))
@@ -113,6 +116,15 @@ const MapFamilyActionDialog = React.lazy(async () => ({
 }))
 const MapFamilyReportDialog = React.lazy(async () => ({
   default: (await import('../maps/map-family-report-dialog')).MapFamilyReportDialog,
+}))
+const MapFileLinkDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapFileLinkDialog,
+}))
+const MapFileUnlinkDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapFileUnlinkDialog,
+}))
+const MapPublishDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapPublishDialog,
 }))
 const MapPreviewDialog = React.lazy(async () => ({
   default: (await import('../maps/map-preview')).MapPreviewDialog,
@@ -298,14 +310,22 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.ImageViewer:
       return { component: ImageViewerDialog }
+    case DialogType.MapDelist:
+      return { component: MapDelistDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
     case DialogType.MapFamilyAction:
       return { component: MapFamilyActionDialog }
     case DialogType.MapFamilyReport:
       return { component: MapFamilyReportDialog }
+    case DialogType.MapFileLink:
+      return { component: MapFileLinkDialog }
+    case DialogType.MapFileUnlink:
+      return { component: MapFileUnlinkDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
+    case DialogType.MapPublish:
+      return { component: MapPublishDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
     case DialogType.GameVerificationFailed:
