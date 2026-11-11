@@ -794,9 +794,16 @@ impl OverlayState {
         let mut option_lists_view = option_lists.lock().clone();
         // Rollback balance only means anything in a game that rolls back, which the session decides
         // after the lists were built, so the lists learn it here.
+        // What applies brightness depends on the renderer SC:R picked, which shows with its first
+        // frame, so that is learned here as well.
         let rolls_back = crate::rollback_live::native_sync_off();
-        if option_lists_view.rollback_game != rolls_back {
-            Arc::make_mut(&mut option_lists_view).rollback_game = rolls_back;
+        let brightness_fullscreen_only = crate::forge::gamma::fullscreen_only();
+        if option_lists_view.rollback_game != rolls_back
+            || option_lists_view.brightness_fullscreen_only != brightness_fullscreen_only
+        {
+            let lists = Arc::make_mut(&mut option_lists_view);
+            lists.rollback_game = rolls_back;
+            lists.brightness_fullscreen_only = brightness_fullscreen_only;
             *option_lists.lock() = option_lists_view.clone();
         }
         let mut views = Views {

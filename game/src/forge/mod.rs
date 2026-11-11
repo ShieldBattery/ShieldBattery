@@ -16,7 +16,7 @@ use winapi::um::winuser::*;
 use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
-mod gamma;
+pub mod gamma;
 pub mod mouse_speed;
 mod raw_mouse;
 mod window_placement;
@@ -47,6 +47,7 @@ mod scr_hooks {
         !0 => SetForegroundWindow(HWND) -> i32;
         !0 => SetActiveWindow(HWND) -> HWND;
         !0 => SetFocus(HWND) -> HWND;
+        !0 => SetWindowLongW(HWND, i32, i32) -> i32;
         !0 => ShowWindow(HWND, i32) -> u32;
         !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
@@ -821,6 +822,36 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
     }
 }
 
+/// Keeps `WS_POPUP` out of the styles SC:R gives its window.
+///
+/// SC:R makes its fullscreen window a popup. Chromium-based programs (this project's app, browsers,
+/// chat clients) stop drawing a window of theirs once other windows cover all of it, but they don't
+/// count popups among the windows that can cover it, so one left open behind a fullscreen game
+/// keeps drawing for the whole game. A borderless window covers the screen the same way without
+/// the style, as SC:R's windowed fullscreen mode does.
+///
+/// Wine keeps SC:R's styles: its window managers pick how to treat a window from them, and nothing
+/// there is known to gain from the change.
+fn set_window_long_w(
+    window: HWND,
+    index: i32,
+    value: i32,
+    orig: unsafe extern "C" fn(HWND, i32, i32) -> i32,
+) -> i32 {
+    let style = value as u32;
+    let drop_popup = index == GWL_STYLE
+        && style & WS_POPUP != 0
+        && !scr_hooks_disabled()
+        && is_forge_window(window)
+        && !crate::machine_info::running_under_wine();
+    if !drop_popup {
+        return unsafe { orig(window, index, value) };
+    }
+    let without_popup = style & !WS_POPUP;
+    debug!("Setting window style {without_popup:#x} in place of {style:#x}");
+    unsafe { orig(window, index, without_popup as i32) }
+}
+
 fn register_class_w(
     class: *const WNDCLASSEXW,
     orig: unsafe extern "C" fn(*const WNDCLASSEXW) -> ATOM,
@@ -1108,6 +1139,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "SetForegroundWindow", SetForegroundWindow, set_foreground_window;
             "SetActiveWindow", SetActiveWindow, set_active_window;
             "SetFocus", SetFocus, set_focus;
+            "SetWindowLongW", SetWindowLongW, set_window_long_w;
             "ShowWindow", ShowWindow, show_window;
             "SystemParametersInfoW", SystemParametersInfoW, system_parameters_info_w;
             "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
@@ -1140,15 +1172,18 @@ pub fn init(
 ) {
     let settings = Settings::from_config(local_settings, scr_settings, monitor_bounds);
     let display_mode = settings.display_mode();
-    let gamma_setting = if !is_background_game() && display_mode == DisplayMode::Fullscreen {
-        scr_settings
-            .get("gamma")
-            .and_then(|v| v.as_u64())
-            .and_then(|v| u32::try_from(v).ok())
-    } else {
-        None
-    };
-    gamma::configure(gamma_setting);
+    let gamma_setting = scr_settings
+        .get("gamma")
+        .and_then(|v| v.as_u64())
+        .and_then(|v| u32::try_from(v).ok());
+    if let Some(setting) = gamma_setting {
+        gamma::set_brightness(setting);
+    }
+    // The gamma ramp SC:R is going to set on the renderers that use one, which it only does in
+    // fullscreen.
+    gamma::configure(
+        gamma_setting.filter(|_| !is_background_game() && display_mode == DisplayMode::Fullscreen),
+    );
     mouse_speed::init_settings(scr_settings);
     raw_mouse::init();
 

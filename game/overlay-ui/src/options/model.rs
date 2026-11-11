@@ -433,6 +433,9 @@ pub struct OptionsLists {
     /// Whether the game being played rolls back. The rollback balance means nothing to one that
     /// does not, so its row is only shown in one that does.
     pub rollback_game: bool,
+    /// Whether brightness only shows in exclusive fullscreen, as it does where the game leaves it
+    /// to the display's gamma ramp. The row is turned off in the other display modes then.
+    pub brightness_fullscreen_only: bool,
 }
 
 /// Everything the options screen shows, as the game currently holds it.

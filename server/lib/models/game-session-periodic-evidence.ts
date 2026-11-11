@@ -1,5 +1,5 @@
 import { NetcodeV2SlotEvidence } from '../../../common/games/netcode-v2'
-import db from '../db'
+import db, { withDbClient } from '../db'
 import { sql } from '../db/sql'
 import log from '../logging/logger'
 
@@ -115,4 +115,29 @@ export async function insertGameSessionPeriodicEvidence(
   } finally {
     done()
   }
+}
+
+/**
+ * Deletes one bounded batch of observations received before the cutoff, without waiting on rows an
+ * ingestion is touching.
+ */
+export async function deleteExpiredGameSessionPeriodicEvidence(before: Date): Promise<void> {
+  await withDbClient(client =>
+    client.query(sql`
+      WITH expired AS (
+        SELECT tenant, session, slot, connection_id, sample_id FROM game_session_periodic_evidence
+        WHERE received_at < ${before}
+        ORDER BY received_at
+        LIMIT 1000
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM game_session_periodic_evidence
+      USING expired
+      WHERE game_session_periodic_evidence.tenant = expired.tenant
+        AND game_session_periodic_evidence.session = expired.session
+        AND game_session_periodic_evidence.slot = expired.slot
+        AND game_session_periodic_evidence.connection_id = expired.connection_id
+        AND game_session_periodic_evidence.sample_id = expired.sample_id
+    `),
+  )
 }

@@ -9,8 +9,35 @@ use anyhow::{Context, Error};
 
 use compile_shaders::{ShaderModel, ShaderType};
 
-#[allow(clippy::type_complexity)]
-static SOURCES: &[(&str, &str, &[(&str, &str)])] = &[("mask", "mask.hlsl", &[])];
+/// A pixel shader replacement to compile: output name, source file, defines, and the shader model
+/// of its SM4 entry (see `shader_replaces.rs`).
+struct Source {
+    name: &'static str,
+    file: &'static str,
+    defines: &'static [(&'static str, &'static str)],
+    sm4_model: ShaderModel,
+}
+
+static SOURCES: &[Source] = &[
+    Source {
+        name: "mask",
+        file: "mask.hlsl",
+        defines: &[],
+        sm4_model: ShaderModel::Sm4,
+    },
+    Source {
+        name: "texture",
+        file: "texture.hlsl",
+        defines: &[],
+        sm4_model: ShaderModel::Sm4Level9,
+    },
+    Source {
+        name: "vertex_colored",
+        file: "vertex_colored.hlsl",
+        defines: &[],
+        sm4_model: ShaderModel::Sm4Level9,
+    },
+];
 
 fn main() {
     configure_companion();
@@ -18,8 +45,10 @@ fn main() {
     let out_path = Path::new(&out_path);
     assert!(out_path.exists());
     let shader_dir = Path::new("src/bw_scr/shaders");
-    for &(out_name, source, defines) in SOURCES.iter() {
-        let source_path = shader_dir.join(source);
+    for source in SOURCES {
+        let out_name = source.name;
+        let defines = source.defines;
+        let source_path = shader_dir.join(source.file);
         println!("cargo:rerun-if-changed={}", source_path.to_str().unwrap());
         let bin_path = out_path.join(format!("{out_name}.sm5.bin"));
         let asm_path = out_path.join(format!("{out_name}.sm5.asm"));
@@ -43,7 +72,7 @@ fn main() {
             defines,
             shader_dir,
             ShaderType::Pixel,
-            ShaderModel::Sm4,
+            source.sm4_model,
         )
         .unwrap_or_else(|e| panic!("Failed to compile {out_name}: {e:?}"));
     }
@@ -105,7 +134,7 @@ fn compile_prism_shader(
         println!("cargo:rerun-if-changed={path}");
     }
     let shader_bytes = result.shader;
-    let wrapped = compile_shaders::wrap_prism_shader(&shader_bytes);
+    let wrapped = compile_shaders::wrap_prism_shader(&shader_bytes)?;
     fs::write(out_path, wrapped)
         .with_context(|| format!("Failed to write {}", out_path.display()))?;
     disasm_shader(&shader_bytes, disasm_path).context("Failed to disassemble the result")?;

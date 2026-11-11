@@ -1,6 +1,16 @@
+//! SC:R's brightness setting.
+//!
+//! SC:R applies brightness only through the display's gamma ramp, and only sets one in exclusive
+//! fullscreen. On its Prism renderer, ShieldBattery's replacement pixel shaders apply the same
+//! curve to everything drawn to the backbuffer instead (see [`shader_brightness_exponent`]), in
+//! every display mode, and SC:R's ramp is kept off the display. The legacy renderers keep SC:R's
+//! ramp, which is put back whenever the window is activated again, as Windows drops it when the
+//! game loses the foreground.
+
 use std::mem;
 use std::ptr::{self, null};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -17,6 +27,95 @@ use super::{
     game_window_handle, is_background_game, is_forge_window, scr_hooks_disabled,
     with_scr_hooks_disabled,
 };
+
+/// The exponent of the brightness curve for SC:R's gamma setting, a percentage: the display's
+/// output for an input `x` in 0..=1 is `x ^ exponent` for each RGB channel.
+fn curve_exponent(setting: u32) -> f32 {
+    GAMMA_NEUTRAL_SUM - (setting as f32 / 100.0).clamp(GAMMA_MIN, GAMMA_MAX)
+}
+
+/// [`curve_exponent`] for the replacement shaders, with 0 standing for a curve that leaves colors
+/// as they are.
+fn shader_exponent(setting: u32) -> f32 {
+    let exponent = curve_exponent(setting);
+    if exponent == 1.0 { 0.0 } else { exponent }
+}
+
+/// [`shader_exponent`] of the current setting, as `f32` bits.
+static SHADER_EXPONENT: AtomicU32 = AtomicU32::new(0);
+
+/// Sets the brightness the shaders draw at, from SC:R's gamma setting.
+pub fn set_brightness(setting: u32) {
+    SHADER_EXPONENT.store(shader_exponent(setting).to_bits(), Ordering::Relaxed);
+}
+
+/// The exponent of the brightness curve that draws to the backbuffer take, or 0 when the curve
+/// leaves colors as they are. Only for SC:R's Prism renderer: SC:R's gamma ramp covers the legacy
+/// renderers.
+pub fn shader_brightness_exponent() -> f32 {
+    f32::from_bits(SHADER_EXPONENT.load(Ordering::Relaxed))
+}
+
+/// What applies brightness, which depends on the renderer SC:R picked.
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+enum BrightnessPath {
+    /// No frame has been drawn yet. Ramps SC:R sets are held back until it is known whether they
+    /// belong on the display.
+    Unknown,
+    /// The Prism renderer's shaders; SC:R's gamma ramps never reach the display.
+    Shaders,
+    /// SC:R's gamma ramp, on the legacy renderers.
+    GammaRamp,
+}
+
+static BRIGHTNESS_PATH: AtomicU8 = AtomicU8::new(BrightnessPath::Unknown as u8);
+
+fn brightness_path() -> BrightnessPath {
+    match BRIGHTNESS_PATH.load(Ordering::Acquire) {
+        x if x == BrightnessPath::Shaders as u8 => BrightnessPath::Shaders,
+        x if x == BrightnessPath::GammaRamp as u8 => BrightnessPath::GammaRamp,
+        _ => BrightnessPath::Unknown,
+    }
+}
+
+/// Whether brightness only shows in exclusive fullscreen: SC:R sets its gamma ramp in no other
+/// display mode.
+pub fn fullscreen_only() -> bool {
+    brightness_path() == BrightnessPath::GammaRamp
+}
+
+/// Settles how brightness is applied once a frame shows which renderer SC:R draws with. Must be
+/// called on the game window's thread. SC:R picks its renderer once per launch, so only the first
+/// call decides.
+pub fn renderer_identified(is_prism: bool) {
+    if brightness_path() != BrightnessPath::Unknown {
+        return;
+    }
+    let path = if is_prism {
+        BrightnessPath::Shaders
+    } else {
+        BrightnessPath::GammaRamp
+    };
+    let settled = BRIGHTNESS_PATH.compare_exchange(
+        BrightnessPath::Unknown as u8,
+        path as u8,
+        Ordering::AcqRel,
+        Ordering::Acquire,
+    );
+    if settled.is_err() {
+        return;
+    }
+    if path == BrightnessPath::Shaders {
+        info!("Brightness is applied by the shaders, keeping SC:R's gamma ramps off the display");
+    } else {
+        info!("Brightness is applied through SC:R's gamma ramp");
+        // A ramp SC:R set before now was held back.
+        if let Some(window) = game_window_handle() {
+            unsafe { schedule_reapply(window) };
+        }
+    }
+}
 
 const GAMMA_RAMP_WORDS: usize = 3 * 256;
 const GAMMA_MIN: f32 = 0.6;
@@ -51,8 +150,7 @@ impl GammaRamp {
     }
 
     fn from_setting(value: u32) -> GammaRamp {
-        let gamma = (value as f32 / 100.0).clamp(GAMMA_MIN, GAMMA_MAX);
-        let exponent = GAMMA_NEUTRAL_SUM - gamma;
+        let exponent = curve_exponent(value);
         let mut ramp = [0; GAMMA_RAMP_WORDS];
         for i in 0..256 {
             let input = i as f32 / 255.0;
@@ -222,7 +320,7 @@ pub(super) fn get_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
         let Some(window) = game_window_for_dc(hdc) else {
             return orig(hdc, ramp);
         };
-        if ramp.is_null() {
+        if ramp.is_null() || brightness_path() == BrightnessPath::Shaders {
             return orig(hdc, ramp);
         }
 
@@ -261,6 +359,10 @@ pub(super) fn set_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
         if ramp.is_null() {
             return orig(hdc, ramp);
         }
+        let path = brightness_path();
+        if path == BrightnessPath::Shaders {
+            return 1;
+        }
 
         let ramp = GammaRamp::read(ramp);
         let (cached_device, observation) = {
@@ -274,6 +376,10 @@ pub(super) fn set_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
                 debug!("SC:R restored desktop gamma while active; clearing the desired ramp")
             }
             RampObservation::Unchanged => (),
+        }
+        if path == BrightnessPath::Unknown {
+            // Applied once the renderer turns out to need it, if SC:R still wants it then.
+            return 1;
         }
 
         let display_dc = create_display_dc(window, cached_device);
@@ -314,7 +420,10 @@ unsafe fn cancel_reapply(window: HWND) {
 
 unsafe fn reapply_desired_ramp(window: HWND) {
     unsafe {
-        if IsIconic(window) != 0 || GetForegroundWindow() != window {
+        if brightness_path() != BrightnessPath::GammaRamp
+            || IsIconic(window) != 0
+            || GetForegroundWindow() != window
+        {
             return;
         }
 
@@ -353,7 +462,7 @@ pub(super) unsafe fn handle_window_message(window: HWND, msg: u32, wparam: usize
         if is_background_game() {
             return;
         }
-        if !is_forge_window(window) {
+        if !is_forge_window(window) || brightness_path() == BrightnessPath::Shaders {
             return;
         }
 
@@ -411,7 +520,7 @@ pub(super) fn window_created() {
 
 #[cfg(test)]
 mod tests {
-    use super::{GammaRamp, GammaState, RampObservation};
+    use super::{GammaRamp, GammaState, RampObservation, shader_exponent};
 
     fn ramp(value: u16) -> GammaRamp {
         GammaRamp([value; super::GAMMA_RAMP_WORDS])
@@ -502,6 +611,18 @@ mod tests {
     fn gamma_setting_clamps_to_scr_range() {
         assert!(GammaRamp::from_setting(0) == GammaRamp::from_setting(60));
         assert!(GammaRamp::from_setting(u32::MAX) == GammaRamp::from_setting(140));
+    }
+
+    #[test]
+    fn shader_curve_matches_the_ramp_and_is_off_when_neutral() {
+        assert_eq!(shader_exponent(100), 0.0);
+        assert!((shader_exponent(60) - 1.4).abs() < 1e-6);
+        assert!((shader_exponent(140) - 0.6).abs() < 1e-6);
+        assert_eq!(shader_exponent(0), shader_exponent(60));
+        assert_eq!(shader_exponent(u32::MAX), shader_exponent(140));
+        let ramp = GammaRamp::from_setting(120);
+        let shaded = (128.0f32 / 255.0).powf(shader_exponent(120)) * u16::MAX as f32;
+        assert_eq!(ramp.0[128], shaded as u16);
     }
 
     #[test]

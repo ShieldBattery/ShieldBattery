@@ -93,6 +93,9 @@ impl BwScr {
                         return;
                     }
                     let renderer = self.renderer.resolve();
+                    if !renderer.is_null() {
+                        crate::forge::gamma::renderer_identified(self.is_prism_renderer(renderer));
+                    }
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
                     let players = self.players();
@@ -198,8 +201,7 @@ impl BwScr {
                     // draws to the UI target at that target's resolution, and the game's final
                     // pass scales it onto the backbuffer. The backbuffer's backend target can't
                     // tell the renderers apart, being null under Prism's DX11 as well.
-                    let backbuffer_drawable = (*renderer).vtable
-                        == self.prism_renderer_vtable.0 as *const scr::V_Renderer;
+                    let backbuffer_drawable = self.is_prism_renderer(renderer);
                     let render_target = if backbuffer_drawable {
                         draw_inject::RenderTarget::backbuffer(backbuffer, ui_target)
                     } else {
@@ -715,8 +717,24 @@ impl BwScr {
                     let fog_style = fog_style::fog_style();
                     let tileset = (*self.game()).tileset;
                     let vertex_buffer = self.vertex_buffer.resolve();
+                    let brightness_exponent = crate::forge::gamma::shader_brightness_exponent();
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
+                        if BRIGHTNESS_SHADER_IDS.contains(&(*cmd).shader_id) {
+                            // Everything drawn to the backbuffer, and nothing drawn anywhere else,
+                            // so the curve applies once to what is shown, whatever composited it.
+                            (*cmd).shader_constants[SHADER_CONSTANT_BRIGHTNESS] =
+                                if (*cmd).render_target_id == 0 {
+                                    brightness_exponent
+                                } else {
+                                    0.0
+                                };
+                        } else if (*cmd).render_target_id == 0 {
+                            warn_once!(
+                                "Shader {:#x} draws to the backbuffer without the brightness curve",
+                                (*cmd).shader_id
+                            );
+                        }
                         if (*cmd).shader_id == SHADER_ID_MASK {
                             let is_minimap = is_minimap_mask_draw(&*cmd, vertex_buffer);
                             let (origin, span) = if is_minimap {
@@ -790,6 +808,23 @@ impl BwScr {
                 }
             }
         }
+    }
+}
+
+/// The pixel shaders that draw to the backbuffer, whose replacements apply the brightness curve:
+/// `Texture`, which SC:R's final pass and its software cursor draw with, and `VertexColored`, the
+/// overlay's.
+const BRIGHTNESS_SHADER_IDS: [u32; 2] = [0x00, 0x04];
+
+/// The shader constant holding the exponent of the brightness curve, `cb0[4].x`, which SC:R's own
+/// versions of [`BRIGHTNESS_SHADER_IDS`] don't read. 0 leaves colors as they are.
+const SHADER_CONSTANT_BRIGHTNESS: usize = 16;
+
+impl BwScr {
+    /// Whether `renderer` is SC:R's Prism renderer, the one that draws the brightness curve and
+    /// lets draws other than its own final pass reach the backbuffer.
+    unsafe fn is_prism_renderer(&self, renderer: *mut scr::Renderer) -> bool {
+        unsafe { (*renderer).vtable == self.prism_renderer_vtable.0 as *const scr::V_Renderer }
     }
 }
 

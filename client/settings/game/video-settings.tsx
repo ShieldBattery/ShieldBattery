@@ -354,23 +354,13 @@ export function GameVideoSettings() {
             )}
             <SettingsStackedRow
               label={t('settings.game.video.brightness', 'Brightness')}
-              readout={String(getInputValue('gamma'))}
-              disabled={displayMode !== DisplayMode.Fullscreen}
-              helperText={
-                displayMode !== DisplayMode.Fullscreen
-                  ? t(
-                      'settings.game.video.brightnessFullscreenOnly',
-                      'Only available in Fullscreen',
-                    )
-                  : undefined
-              }>
+              readout={String(getInputValue('gamma'))}>
               {labelId => (
                 <RowSlider
                   {...bindCustom('gamma')}
                   min={GAMMA_SLIDER_MIN}
                   max={GAMMA_SLIDER_MAX}
                   step={GAMMA_SLIDER_STEP}
-                  disabled={displayMode !== DisplayMode.Fullscreen}
                   ariaLabelledBy={labelId}
                 />
               )}

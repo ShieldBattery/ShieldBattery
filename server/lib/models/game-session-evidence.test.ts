@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { NetcodeV2SlotEvidence } from '../../../common/games/netcode-v2'
-import db from '../db'
-import { insertGameSessionEvidence } from './game-session-evidence'
+import db, { withDbClient } from '../db'
+import {
+  deleteExpiredGameSessionEvidence,
+  insertGameSessionEvidence,
+} from './game-session-evidence'
 
-vi.mock('../db', () => ({ default: vi.fn() }))
+vi.mock('../db', () => ({ default: vi.fn(), withDbClient: vi.fn() }))
 afterEach(() => vi.clearAllMocks())
 
 const SESSION = {
@@ -81,5 +84,18 @@ describe('models/game-session-evidence', () => {
     query.mockRejectedValueOnce(new Error('offline'))
     await expect(insertGameSessionEvidence(SESSION, [entry(0)])).rejects.toThrow('offline')
     expect(done).toHaveBeenCalledTimes(1)
+  })
+
+  test('deletes one locked, bounded batch of rows received before the cutoff by primary key', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] })
+    vi.mocked(withDbClient).mockImplementation(fn => fn({ query } as any))
+    const before = new Date(Date.UTC(2026, 9, 17))
+    await deleteExpiredGameSessionEvidence(before)
+    expect(query).toHaveBeenCalledTimes(1)
+    const { text, values } = query.mock.calls[0][0]
+    expect(values).toEqual([before])
+    expect(text).toContain('LIMIT 1000')
+    expect(text).toContain('FOR UPDATE SKIP LOCKED')
+    expect(text).toContain('game_session_evidence.connection_id = expired.connection_id')
   })
 })

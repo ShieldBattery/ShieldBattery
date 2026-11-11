@@ -55,18 +55,20 @@ pub(super) fn draw(
         // The display is chosen as the game's window is created, long before the overlay exists.
         hint(ui, &tr!("options.monitorHint", "Takes effect next game"));
     }
-    // Outside of fullscreen the desktop's own gamma is what the game is shown at.
-    let fullscreen = view.display_mode == DisplayMode::Fullscreen;
+    // Where the display's gamma ramp is what applies brightness, a game outside of fullscreen is
+    // shown at the desktop's own gamma.
+    let brightness_off =
+        lists.brightness_fullscreen_only && view.display_mode != DisplayMode::Fullscreen;
     slider_row(
         ui,
         &tr!("options.brightness", "Brightness"),
         view.brightness,
         BRIGHTNESS,
-        !fullscreen,
+        brightness_off,
         outcome,
         SettingChange::Brightness,
     );
-    if !fullscreen {
+    if brightness_off {
         hint(
             ui,
             &tr!(

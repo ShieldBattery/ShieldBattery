@@ -3128,7 +3128,6 @@
         "alwaysStartSd": "始终以旧版图像启动游戏",
         "alwaysStartSdNote": "即使开启了高清版图像，游戏也会以旧版图像启动。您仍可在游戏中切换到高清版。",
         "brightness": "亮度",
-        "brightnessFullscreenOnly": "仅在全屏模式下可用",
         "customFpsLimit": "自定义帧率上限",
         "displayMode": {
           "fullscreen": "全屏",

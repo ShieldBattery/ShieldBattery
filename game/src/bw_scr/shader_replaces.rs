@@ -33,22 +33,74 @@ const fn pixel_sm5(wrapper: &[u8]) -> scr::PrismShader {
     }
 }
 
-static MASK_SM4_BIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/mask.sm4.bin"));
-static MASK_SM5_BIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/mask.sm5.bin"));
-static MASK: &[scr::PrismShader] = &[pixel_sm4(MASK_SM4_BIN), pixel_sm5(MASK_SM5_BIN)];
+/// A pixel shader set replacing SC:R's own for one shader id.
+struct PatchedShader {
+    id: u8,
+    /// The entries the build script compiled.
+    shaders: &'static [scr::PrismShader],
+    #[cfg(debug_assertions)]
+    source: ShaderSource,
+}
 
-static PATCHED_SHADERS: &[(u8, &[scr::PrismShader], &str)] = &[(0x1c, MASK, "mask")];
+/// Where a replacement is compiled from, for rereading it as it changes.
+#[cfg(debug_assertions)]
+#[derive(Clone, Copy)]
+struct ShaderSource {
+    /// The HLSL file's name in `src/bw_scr/shaders`, without its extension.
+    name: &'static str,
+    /// What the SM4 entry is compiled as. A device below Direct3D feature level 10 can only run
+    /// one that is a level-9 container, as SC:R's own are.
+    sm4_model: compile_shaders::ShaderModel,
+}
+
+/// The replacement for shader `$id` compiled from `src/bw_scr/shaders/$name.hlsl`, with its SM4
+/// entry built as `$sm4_model`, which `SOURCES` in `build.rs` has to list the same way.
+macro_rules! patched {
+    ($id:literal, $name:literal, $sm4_model:ident) => {
+        PatchedShader {
+            id: $id,
+            shaders: &[
+                pixel_sm4(include_bytes!(concat!(
+                    env!("OUT_DIR"),
+                    "/",
+                    $name,
+                    ".sm4.bin"
+                ))),
+                pixel_sm5(include_bytes!(concat!(
+                    env!("OUT_DIR"),
+                    "/",
+                    $name,
+                    ".sm5.bin"
+                ))),
+            ],
+            #[cfg(debug_assertions)]
+            source: ShaderSource {
+                name: $name,
+                sm4_model: compile_shaders::ShaderModel::$sm4_model,
+            },
+        }
+    };
+}
+
+static PATCHED_SHADERS: &[PatchedShader] = &[
+    patched!(0x00, "texture", Sm4Level9),
+    patched!(0x04, "vertex_colored", Sm4Level9),
+    patched!(0x1c, "mask", Sm4),
+];
+
+/// A replacement as currently compiled from its source, which is reread whenever the file changes.
+#[cfg(debug_assertions)]
+struct LiveShader {
+    id: u8,
+    shaders: &'static [scr::PrismShader],
+    /// The source file, when it exists on this system, with the modification time it was last
+    /// compiled at.
+    source: Option<(PathBuf, SystemTime, compile_shaders::ShaderModel)>,
+}
 
 #[cfg(debug_assertions)]
 pub struct ShaderReplaces {
-    #[allow(clippy::type_complexity)]
-    shaders: Mutex<
-        Vec<(
-            u8,
-            &'static [scr::PrismShader],
-            Option<(PathBuf, SystemTime)>,
-        )>,
-    >,
+    shaders: Mutex<Vec<LiveShader>>,
     // Update checking requires windows i/o for every shader file, doing that every
     // rendered frame is likely a bit excessive.
     update_throttle: Mutex<Instant>,
@@ -63,12 +115,23 @@ impl ShaderReplaces {
         let shaders_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/bw_scr/shaders");
         let shaders = PATCHED_SHADERS
             .iter()
-            .map(|&(id, default_source, name)| {
-                let path = shaders_root.join(format!("{name}.hlsl"));
-                if let Some((shader, timestamp)) = compile_shader_retry_on_err(&path) {
-                    (id, shader, Some((path, timestamp)))
+            .map(|patched| {
+                let source = patched.source;
+                let path = shaders_root.join(format!("{}.hlsl", source.name));
+                if let Some((shader, timestamp)) =
+                    compile_shader_retry_on_err(&path, source.sm4_model)
+                {
+                    LiveShader {
+                        id: patched.id,
+                        shaders: shader,
+                        source: Some((path, timestamp, source.sm4_model)),
+                    }
                 } else {
-                    (id, default_source, None)
+                    LiveShader {
+                        id: patched.id,
+                        shaders: patched.shaders,
+                        source: None,
+                    }
                 }
             })
             .collect();
@@ -82,20 +145,20 @@ impl ShaderReplaces {
     pub fn iter_shaders(&self) -> impl Iterator<Item = (u8, &'static [scr::PrismShader])> + use<> {
         let result = {
             let mut shaders = self.shaders.lock();
-            for &mut (_, ref mut data, ref mut path_time) in shaders.iter_mut() {
-                if let Some((ref path, ref mut time)) = *path_time
+            for live in shaders.iter_mut() {
+                if let Some((ref path, ref mut time, sm4_model)) = live.source
                     && let Some(new_time) = file_changed_time(path)
                     && new_time != *time
-                    && let Some((shader, new_time)) = compile_shader_retry_on_err(path)
+                    && let Some((shader, new_time)) = compile_shader_retry_on_err(path, sm4_model)
                 {
                     debug!("Recompiled shader {}", path.display());
-                    *data = shader;
+                    live.shaders = shader;
                     *time = new_time;
                 }
             }
             shaders
                 .iter()
-                .map(|&(id, data, _)| (id, data))
+                .map(|live| (live.id, live.shaders))
                 .collect::<Vec<_>>()
         };
         result.into_iter()
@@ -111,8 +174,8 @@ impl ShaderReplaces {
         let shaders = self.shaders.lock();
         shaders
             .iter()
-            .filter_map(|x| x.2.as_ref())
-            .any(|(path, time)| {
+            .filter_map(|live| live.source.as_ref())
+            .any(|(path, time, _)| {
                 if let Some(new_time) = file_changed_time(path) {
                     new_time != *time
                 } else {
@@ -127,7 +190,10 @@ impl ShaderReplaces {
 /// On compile errors shows the error with a message box and rereads the until
 /// the shader compiles
 #[cfg(debug_assertions)]
-fn compile_shader_retry_on_err(path: &Path) -> Option<(&'static [scr::PrismShader], SystemTime)> {
+fn compile_shader_retry_on_err(
+    path: &Path,
+    sm4_model: compile_shaders::ShaderModel,
+) -> Option<(&'static [scr::PrismShader], SystemTime)> {
     use compile_shaders::{ShaderModel, ShaderType};
     use std::fs;
     use std::io::Read;
@@ -141,8 +207,7 @@ fn compile_shader_retry_on_err(path: &Path) -> Option<(&'static [scr::PrismShade
             let modified = metadata.modified()?;
             let mut buffer = Vec::new();
             file.read_to_end(&mut buffer)?;
-            let sm4 =
-                compile_shaders::compile(&buffer, &[], dir, ShaderType::Pixel, ShaderModel::Sm4)?;
+            let sm4 = compile_shaders::compile(&buffer, &[], dir, ShaderType::Pixel, sm4_model)?;
             let sm5 =
                 compile_shaders::compile(&buffer, &[], dir, ShaderType::Pixel, ShaderModel::Sm5)?;
 
@@ -151,8 +216,8 @@ fn compile_shader_retry_on_err(path: &Path) -> Option<(&'static [scr::PrismShade
             // some handles to them for a while or something.
             // And the memory leaked isn't that many bytes.
             let result = vec![
-                pixel_sm4(compile_shaders::wrap_prism_shader(&sm4.shader).leak()),
-                pixel_sm5(compile_shaders::wrap_prism_shader(&sm5.shader).leak()),
+                pixel_sm4(compile_shaders::wrap_prism_shader(&sm4.shader)?.leak()),
+                pixel_sm5(compile_shaders::wrap_prism_shader(&sm5.shader)?.leak()),
             ];
             Ok((&*result.leak(), modified))
         });
@@ -184,7 +249,9 @@ impl ShaderReplaces {
     }
 
     pub fn iter_shaders(&self) -> impl Iterator<Item = (u8, &'static [scr::PrismShader])> {
-        PATCHED_SHADERS.iter().map(|x| (x.0, x.1))
+        PATCHED_SHADERS
+            .iter()
+            .map(|patched| (patched.id, patched.shaders))
     }
 
     pub fn has_changed(&self) -> bool {

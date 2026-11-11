@@ -3226,7 +3226,6 @@
         "alwaysStartSd": "Iniciar siempre las partidas con gráficos SD",
         "alwaysStartSdNote": "Las partidas empiezan con gráficos SD aunque los gráficos HD estén activados. Puedes cambiar a HD durante la partida.",
         "brightness": "Brillo",
-        "brightnessFullscreenOnly": "Solo disponible en pantalla completa",
         "customFpsLimit": "Límite de FPS personalizado",
         "displayMode": {
           "fullscreen": "Pantalla completa",
