@@ -4,6 +4,7 @@ use std::time::Duration;
 use arc_swap::ArcSwap;
 use async_graphql::extensions::Tracing;
 use async_graphql::http::ALL_WEBSOCKET_PROTOCOLS;
+use async_graphql::parser::types::{OperationType, Selection};
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
 use axum::body::Body;
 use axum::extract::{State, WebSocketUpgrade};
@@ -299,6 +300,86 @@ fn record_response_fields<B>(response: &Response<B>, latency: Duration, span: &S
     record_response_header_fields(span, response.headers());
 }
 
+/// A response extension marking the answer to a request that arrives constantly and looks the same
+/// every time, so that a log line for each one that succeeds says nothing. A marked response is
+/// logged only when it reports an error. Metrics still count every request.
+#[derive(Clone, Copy)]
+struct RoutineRequest;
+
+/// Returns whether a completed request is left out of the log.
+fn is_unlogged_response<B>(response: &Response<B>) -> bool {
+    let status = response.status();
+    response.extensions().get::<RoutineRequest>().is_some()
+        && !status.is_client_error()
+        && !status.is_server_error()
+}
+
+/// Marks every response that passes through as routine.
+async fn mark_routine(mut response: Response) -> Response {
+    response.extensions_mut().insert(RoutineRequest);
+    response
+}
+
+/// Marks the answers to CORS preflights as routine: browsers send one ahead of most requests, and
+/// each is immediately followed by the request it asked about. Must be layered outside of the CORS
+/// layer, which answers preflights itself without calling anything inside of it.
+async fn mark_cors_preflights(request: Request<Body>, next: Next) -> Response {
+    let is_preflight = request.method() == Method::OPTIONS
+        && request
+            .headers()
+            .contains_key(header::ACCESS_CONTROL_REQUEST_METHOD);
+    let mut response = next.run(request).await;
+    if is_preflight {
+        response.extensions_mut().insert(RoutineRequest);
+    }
+    response
+}
+
+/// Returns whether a GraphQL request does nothing but read the set of live-streaming users, which
+/// every open client polls. This looks at what the document selects rather than its operation
+/// name, since the name is whatever the sender chooses to call it.
+fn is_live_stream_poll(request: &mut async_graphql::Request) -> bool {
+    let Ok(document) = request.parsed_query() else {
+        return false;
+    };
+    if !document.fragments.is_empty() {
+        return false;
+    }
+    let mut operations = document.operations.iter();
+    let (Some((_, operation)), None) = (operations.next(), operations.next()) else {
+        return false;
+    };
+    if operation.node.ty != OperationType::Query {
+        return false;
+    }
+    match operation.node.selection_set.node.items.as_slice() {
+        [selection] => match &selection.node {
+            Selection::Field(field) => field.node.name.node == "liveStreamUserIds",
+            Selection::FragmentSpread(_) | Selection::InlineFragment(_) => false,
+        },
+        _ => false,
+    }
+}
+
+fn cors_layer() -> cors::CorsLayer {
+    cors::CorsLayer::new()
+        // NOTE(tec27): We do this instead of `Any` because browsers will preflight every request
+        // with an Authorization header for `*`, but not if we specify that this specific origin is
+        // allowed
+        .allow_origin(AllowOrigin::predicate(|_, _| true))
+        .allow_headers([CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_methods([
+            Method::DELETE,
+            Method::GET,
+            Method::HEAD,
+            Method::PATCH,
+            Method::POST,
+            Method::PUT,
+        ])
+        .allow_credentials(AllowCredentials::yes())
+        .max_age(Duration::from_secs(60 * 60 * 24))
+}
+
 async fn graphql_handler(
     ip: ClientIp,
     user_agent: Option<TypedHeader<UserAgent>>,
@@ -306,17 +387,25 @@ async fn graphql_handler(
     current_user: Option<CurrentUser>,
     State(schema): State<SbSchema>,
     req: GraphQLRequest,
-) -> GraphQLResponse {
-    schema
+) -> Response {
+    let mut request = req.into_inner();
+    let is_routine = is_live_stream_poll(&mut request);
+    let result = schema
         .execute(
-            req.into_inner()
+            request
                 .data(ip)
                 .data(user_agent)
                 .data(session)
                 .data(current_user),
         )
-        .await
-        .into()
+        .await;
+
+    let is_routine = is_routine && result.is_ok();
+    let mut response = GraphQLResponse::from(result).into_response();
+    if is_routine {
+        response.extensions_mut().insert(RoutineRequest);
+    }
+    response
 }
 
 async fn graphql_ws_handler(
@@ -473,6 +562,9 @@ pub async fn create_app(
         matchmaker_config,
         settings.rp2_coordinator_url.clone(),
     )
+    // Every call here comes from the Node server, nearly always on behalf of a client request
+    // that it logs itself.
+    .layer(middleware::map_response(mark_routine))
     .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
@@ -518,7 +610,9 @@ pub async fn create_app(
                         .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
                             record_response_fields(response, latency, span);
 
-                            tracing::info!("request completed");
+                            if !is_unlogged_response(response) {
+                                tracing::info!("request completed");
+                            }
                         })
                         .on_failure(
                             |error: ServerErrorsFailureClass, latency: Duration, span: &Span| {
@@ -540,24 +634,8 @@ pub async fn create_app(
                             .and(NotForContentType::SSE),
                     ),
                 )
-                .layer(
-                    cors::CorsLayer::new()
-                        // NOTE(tec27): We do this instead of `Any` because browsers will preflight
-                        // every request with an Authorization header for `*`, but not if we specify
-                        // that this specific origin is allowed
-                        .allow_origin(AllowOrigin::predicate(|_, _| true))
-                        .allow_headers([CONTENT_TYPE, header::AUTHORIZATION])
-                        .allow_methods([
-                            Method::DELETE,
-                            Method::GET,
-                            Method::HEAD,
-                            Method::PATCH,
-                            Method::POST,
-                            Method::PUT,
-                        ])
-                        .allow_credentials(AllowCredentials::yes())
-                        .max_age(Duration::from_secs(60 * 60 * 24)),
-                )
+                .layer(middleware::from_fn(mark_cors_preflights))
+                .layer(cors_layer())
                 .layer(middleware::from_fn_with_state(
                     app_state.clone(),
                     jwt_middleware,
@@ -579,6 +657,7 @@ mod tests {
 
     use axum::http::HeaderValue;
     use serde_json::{Value, json};
+    use tower::ServiceExt;
     use tracing::{Event, Subscriber};
     use tracing_bunyan_formatter::{JsonStorage, JsonStorageLayer};
     use tracing_subscriber::Layer;
@@ -831,5 +910,114 @@ mod tests {
 
         assert!(!fields.contains_key("http.request.headers.origin"));
         assert!(!fields.contains_key("http.request.headers.content-type"));
+    }
+
+    fn is_live_stream_poll_query(query: &str) -> bool {
+        is_live_stream_poll(&mut async_graphql::Request::new(query))
+    }
+
+    #[test]
+    fn live_stream_poll_is_recognized_by_what_it_selects() {
+        assert!(is_live_stream_poll_query(
+            "query LiveUserIds {
+  liveStreamUserIds
+}"
+        ));
+        assert!(is_live_stream_poll_query("{ ids: liveStreamUserIds }"));
+    }
+
+    #[test]
+    fn other_documents_are_not_live_stream_polls() {
+        for query in [
+            // Borrowing the operation name or aliasing to the field's name changes nothing.
+            "query LiveUserIds { currentUser { id } }",
+            "query LiveUserIds { liveStreamUserIds: currentUser { id } }",
+            "query LiveUserIds { liveStreamUserIds currentUser { id } }",
+            "query LiveUserIds { ...Fields } fragment Fields on Query { liveStreamUserIds }",
+            "query LiveUserIds { ... on Query { liveStreamUserIds } }",
+            "query LiveUserIds { liveStreamUserIds } query Other { currentUser { id } }",
+            "mutation LiveUserIds { liveStreamUserIds }",
+            "query LiveUserIds {",
+            "",
+        ] {
+            assert!(!is_live_stream_poll_query(query), "{query}");
+        }
+    }
+
+    /// Builds a router with the layers that mark routine requests, inside of the others that
+    /// rebuild responses on their way out to the logging layer.
+    fn routine_marking_app() -> Router {
+        Router::new()
+            .route("/plain", get(|| async { "plain" }))
+            .route(
+                "/routine",
+                get(|| async { "routine" }).layer(middleware::map_response(mark_routine)),
+            )
+            .route(
+                "/routine-failure",
+                get(|| async { StatusCode::NOT_FOUND })
+                    .layer(middleware::map_response(mark_routine)),
+            )
+            .layer(
+                ServiceBuilder::new()
+                    .layer(TimeoutLayer::with_status_code(
+                        StatusCode::REQUEST_TIMEOUT,
+                        Duration::from_secs(15),
+                    ))
+                    .layer(CompressionLayer::new())
+                    .layer(middleware::from_fn(mark_cors_preflights))
+                    .layer(cors_layer()),
+            )
+    }
+
+    async fn is_unlogged(request: Request<Body>) -> bool {
+        let response = routine_marking_app().oneshot(request).await.unwrap();
+        is_unlogged_response(&response)
+    }
+
+    fn request_to(method: Method, uri: &str) -> axum::http::request::Builder {
+        Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::ORIGIN, "https://example.test")
+            .header(header::ACCEPT_ENCODING, "gzip")
+    }
+
+    #[tokio::test]
+    async fn ordinary_requests_are_logged() {
+        let request = request_to(Method::GET, "/plain")
+            .body(Body::empty())
+            .unwrap();
+        assert!(!is_unlogged(request).await);
+    }
+
+    #[tokio::test]
+    async fn cors_preflights_are_not_logged() {
+        let request = request_to(Method::OPTIONS, "/plain")
+            .header(header::ACCESS_CONTROL_REQUEST_METHOD, "POST")
+            .body(Body::empty())
+            .unwrap();
+        assert!(is_unlogged(request).await);
+    }
+
+    #[tokio::test]
+    async fn options_requests_that_are_not_preflights_are_logged() {
+        let request = request_to(Method::OPTIONS, "/plain")
+            .body(Body::empty())
+            .unwrap();
+        assert!(!is_unlogged(request).await);
+    }
+
+    #[tokio::test]
+    async fn routine_requests_are_logged_only_when_they_fail() {
+        let request = request_to(Method::GET, "/routine")
+            .body(Body::empty())
+            .unwrap();
+        assert!(is_unlogged(request).await);
+
+        let request = request_to(Method::GET, "/routine-failure")
+            .body(Body::empty())
+            .unwrap();
+        assert!(!is_unlogged(request).await);
     }
 }
