@@ -752,10 +752,11 @@ fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
     }
 }
 
-/// Draws the grid of small tiles, filling each column from top to bottom in the game's order.
+/// Draws the grid of small tiles, filling each column from top to bottom in the game's order, and
+/// what the selection has killed between them where a unit selected alone has its kills.
 ///
 /// Centered in the body: with no column of text beside it the grid is the whole of what the panel has
-/// to say.
+/// to say, but for that one number.
 fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<SelectedUnitClick> {
     let mut clicked = None;
     let size = vec2(
@@ -775,6 +776,18 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
         );
         paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE, GRID_BARS);
         clicked = clicked.or(unit_target(ui, tile, index));
+    }
+    // Only from the units with kills of their own to read out, and none at all for a selection
+    // without any, such as a row of gateways.
+    let kills = units
+        .iter()
+        .take(SelectionView::MAX_UNITS)
+        .filter_map(|unit| unit.kills)
+        .reduce(u32::saturating_add);
+    // Where a unit selected alone has its kills read out: the right end of the line its name heads.
+    if let Some(kills) = kills {
+        let line = Rect::from_min_size(body.left_top(), vec2(body.width(), NAME_ROW));
+        draw_tally(ui, line, &tr!("observer.selectionKills", "Kills"), kills);
     }
     clicked
 }
@@ -2040,6 +2053,43 @@ mod tests {
         })));
         shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
         assert!(!has_kills(&subject_texts(&shuttle, SelectionCase::Loaded)));
+    }
+
+    #[test]
+    fn a_selection_reads_out_what_its_units_killed_between_them() {
+        let body = Rect::from_min_size(pos2(0.0, 0.0), vec2(CONTENT_WIDTH, BODY_HEIGHT));
+        let grid_texts = |units: &[SelectedUnitView]| {
+            rendered_texts(|ui| {
+                draw_grid(ui, body, units);
+            })
+        };
+        let with_kills = |kills: Option<u32>| {
+            let mut unit = unit((40, 40), None, 0x00);
+            unit.kills = kills;
+            unit
+        };
+
+        // A transport in the selection has no kills to add.
+        let drawn = grid_texts(&[with_kills(Some(3)), with_kills(None), with_kills(Some(4))]);
+        assert!(
+            drawn
+                .iter()
+                .any(|(text, _)| text.eq_ignore_ascii_case("Kills"))
+        );
+        assert!(drawn.iter().any(|(text, _)| text == "7"));
+
+        // Each unit's count is a byte in the game, but a selection's add up past what one holds.
+        let full: Vec<SelectedUnitView> = (0..12).map(|_| with_kills(Some(255))).collect();
+        let drawn = grid_texts(&full);
+        assert!(drawn.iter().any(|(text, _)| text == "3060"));
+
+        // Nor does a row of gateways have any to read out between them.
+        let drawn = grid_texts(&[with_kills(None), with_kills(None)]);
+        assert!(
+            !drawn
+                .iter()
+                .any(|(text, _)| text.eq_ignore_ascii_case("Kills"))
+        );
     }
 
     fn place(
