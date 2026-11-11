@@ -489,24 +489,36 @@ function FileMenu({
       : name
   }
 
-  const changeDefault = (request: Promise<DefaultChangeResult>, cleared: boolean) => {
+  // With no file picked, the current file is derived (most played, then newest); picking it pins it
+  const isDerivedCurrent = !isPicked && !family.defaultMap && family.current.id === file.id
+
+  const changeDefault = (
+    request: Promise<DefaultChangeResult>,
+    outcome: 'changed' | 'cleared' | 'kept',
+  ) => {
     request
       .then(result => {
         if (result.error || !result.data) {
           throw new Error(result.error?.graphQLErrors[0]?.message ?? result.error?.message)
         }
         const fileName = labelOf(result.data.current)
-        snackbarController.showSnackbar(
-          cleared
-            ? t(
-                'maps.files.recommendationCleared',
-                'Recommended file is now {{fileName}} (most played)',
-                { fileName },
-              )
-            : t('maps.files.recommendedChanged', 'Recommended file is now {{fileName}}', {
-                fileName,
-              }),
-        )
+        let message: string
+        if (outcome === 'cleared') {
+          message = t(
+            'maps.files.recommendationCleared',
+            'Recommended file is now {{fileName}} (most played)',
+            { fileName },
+          )
+        } else if (outcome === 'kept') {
+          message = t('maps.files.recommendationKept', '{{fileName}} stays the recommended file', {
+            fileName,
+          })
+        } else {
+          message = t('maps.files.recommendedChanged', 'Recommended file is now {{fileName}}', {
+            fileName,
+          })
+        }
+        snackbarController.showSnackbar(message)
       })
       .catch((err: Error) => {
         snackbarController.showSnackbar(
@@ -558,15 +570,24 @@ function FileMenu({
             data: r.data?.mapFamilyClearDefault,
             error: r.error,
           })),
-          true,
+          'cleared',
         ),
     })
   } else {
+    let makeSecondary: string | undefined
+    if (!canBeDefault) {
+      makeSecondary = t(
+        'maps.files.unlistedCantBeRecommended',
+        'Unlisted files can’t be recommended',
+      )
+    } else if (isDerivedCurrent) {
+      makeSecondary = t('maps.files.keepRecommendedHint', 'Even if another file gets more plays')
+    }
     items.push({
-      text: t('maps.files.makeRecommended', 'Make recommended'),
-      secondaryText: canBeDefault
-        ? undefined
-        : t('maps.files.unlistedCantBeRecommended', 'Unlisted files can’t be recommended'),
+      text: isDerivedCurrent
+        ? t('maps.files.keepRecommended', 'Keep as recommended')
+        : t('maps.files.makeRecommended', 'Make recommended'),
+      secondaryText: makeSecondary,
       disabled: !canBeDefault,
       onClick: () =>
         changeDefault(
@@ -574,7 +595,7 @@ function FileMenu({
             data: r.data?.mapFamilySetDefault,
             error: r.error,
           })),
-          false,
+          isDerivedCurrent ? 'kept' : 'changed',
         ),
     })
   }
