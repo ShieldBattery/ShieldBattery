@@ -957,6 +957,7 @@ impl BwScr {
             turn_rate_readout_at: Mutex::new(None),
             print_text_hooks_disabled: AtomicI32::new(0),
             chat_injection: AtomicU8::new(ChatInjection::Live as u8),
+            chat_observer_tag: AtomicU8::new(chat::ObserverChatTag::None as u8),
             chat_shown_while_stalled: Mutex::new(Vec::new()),
             chat_manager: Mutex::new(chat::ChatManager::new()),
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
