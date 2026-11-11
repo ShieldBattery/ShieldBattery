@@ -41,6 +41,22 @@ export function protectedMapText(t: TFunction): string {
   )
 }
 
+/** Says why a file in a ladder map pool can't be taken out of the listings or out of its map. */
+export function inLadderPoolText(t: TFunction): string {
+  return t(
+    'maps.publish.inLadderPool',
+    "This file is in a current or upcoming ladder map pool, so it can't be taken out of the listings or out of its map.",
+  )
+}
+
+/**
+ * What a failed unpublish, delist, unlink, move or split tells the user, given the error code the
+ * server sent and the text to show for any other failure.
+ */
+export function fileChangeErrorText(code: unknown, fallback: string, t: TFunction): string {
+  return code === 'IN_LADDER_POOL' ? inLadderPoolText(t) : fallback
+}
+
 function isBlockedReason(code: unknown): code is MapPublishBlockedReason {
   return Object.values<unknown>(MapPublishBlockedReason).includes(code)
 }

@@ -154,8 +154,6 @@ export type MapFilter = {
   lens?: MapLens
   /** Only maps with at least this many player slots. */
   minPlayers?: number | null | undefined
-  /** Only official maps (`true`) or only maps that aren't official (`false`). */
-  official?: boolean | null | undefined
   /** Only maps (families) this user owns. */
   owner?: Types.SbUserId | null | undefined
   /** Exact player counts to include. */
@@ -168,10 +166,12 @@ export type MapFilter = {
    */
   search?: string | null | undefined
   sizes?: Array<MapSizeClass> | null | undefined
+  /** Only staff picks (`true`) or only maps that aren't staff picks (`false`). */
+  staffPick?: boolean | null | undefined
   /** Tileset ids to include. */
   tilesets?: Array<number> | null | undefined
   /**
-   * Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+   * Only verified maps (`true`): staff picks, and maps whose ownership staff granted. With
    * `false`, only the other maps.
    */
   verified?: boolean | null | undefined
@@ -1219,7 +1219,7 @@ export type MapSearchTest_MapFragment = {
   kind: MapKind
   playerCount: number
   listed: boolean
-  official: boolean
+  staffPick: boolean
   publishedAt: string | null
   favoriteCount: number
   isFavorited: boolean
@@ -1860,7 +1860,6 @@ export type MapOwnerAddFileLibraryQuery = {
           id: Types.SbMapId
           name: string
           listed: boolean
-          official: boolean
           playerCount: number
           publishedAt: string | null
           publisher: { id: Types.SbUserId } | null
@@ -1894,7 +1893,6 @@ export type MapOwnerAddFileUploadedQuery = {
     id: Types.SbMapId
     name: string
     listed: boolean
-    official: boolean
     playerCount: number
     publishedAt: string | null
     publisher: { id: Types.SbUserId } | null
@@ -1963,7 +1961,6 @@ export type MapPageFiles_FileFragmentFragment = {
   id: Types.SbMapId
   name: string
   listed: boolean
-  official: boolean
   firstSeenAt: string
   stats: { id: string; games28d: number; gamesTotal: number } | null
 } & { ' $fragmentName'?: 'MapPageFiles_FileFragmentFragment' }
@@ -2127,7 +2124,7 @@ export type MapPage_HeaderFragmentFragment = {
   description: string
   kind: MapKind
   listed: boolean
-  official: boolean
+  staffPick: boolean
   publishedAt: string | null
   publisher: { id: Types.SbUserId; name: string } | null
   file: { id: string; originalName: string; originalDescription: string }
@@ -2144,7 +2141,6 @@ export type MapPage_ActionsFragmentFragment = {
   id: Types.SbMapId
   name: string
   listed: boolean
-  official: boolean
   isFavorited: boolean
   inLibrary: boolean
   publisher: { id: Types.SbUserId } | null
@@ -2259,7 +2255,7 @@ export type MapPublishPreviewQuery = {
         id: Types.SbMapId
         listed: boolean
         publishedAt: string | null
-        official: boolean
+        staffPick: boolean
         publisher: { id: Types.SbUserId; name: string } | null
       } & {
         ' $fragmentRefs'?: { MapPublish_FileFragmentFragment: MapPublish_FileFragmentFragment }
@@ -2416,7 +2412,7 @@ export type MapTile_SbMapFragmentFragment = {
   name: string
   kind: MapKind
   playerCount: number
-  official: boolean
+  staffPick: boolean
   listed: boolean
   publishedAt: string | null
   isFavorited: boolean
@@ -3649,7 +3645,7 @@ export const MapSearchTest_MapFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -3995,7 +3991,6 @@ export const MapPageFiles_FileFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -4105,7 +4100,6 @@ export const MapPageFiles_FamilyFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -4285,7 +4279,7 @@ export const MapPage_HeaderFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'description' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           {
             kind: 'Field',
@@ -4365,7 +4359,6 @@ export const MapPage_ActionsFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           { kind: 'Field', name: { kind: 'Name', value: 'inLibrary' } },
           {
@@ -4742,7 +4735,7 @@ export const MapTile_SbMapFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8281,7 +8274,7 @@ export const MapSearchTestMapsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8457,7 +8450,7 @@ export const MapSearchTestLibraryDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8633,7 +8626,7 @@ export const MapSearchTestFavoritesDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8738,7 +8731,7 @@ export const MapSearchTestMapDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8843,7 +8836,7 @@ export const MapSearchTestAddFavoriteDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -8951,7 +8944,7 @@ export const MapSearchTestRemoveFavoriteDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'favoriteCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -9384,7 +9377,7 @@ export const MapCatalogAllDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -9657,7 +9650,7 @@ export const MapCatalogLibraryDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -9929,7 +9922,7 @@ export const MapCatalogFavoritesDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
@@ -12101,7 +12094,6 @@ export const MapOwnerAddFileLibraryDocument = {
                                   { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                                  { kind: 'Field', name: { kind: 'Name', value: 'official' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
                                   { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                                   {
@@ -12295,7 +12287,6 @@ export const MapOwnerAddFileUploadedDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'official' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 {
@@ -13161,7 +13152,6 @@ export const MapPageFamilyDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -13450,7 +13440,7 @@ export const MapPageFileDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'description' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           {
             kind: 'Field',
@@ -13525,7 +13515,6 @@ export const MapPageFileDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           { kind: 'Field', name: { kind: 'Name', value: 'inLibrary' } },
           {
@@ -13682,7 +13671,6 @@ export const MapPageFileDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
           { kind: 'Field', name: { kind: 'Name', value: 'firstSeenAt' } },
           {
             kind: 'Field',
@@ -13983,7 +13971,7 @@ export const MapPublishPreviewDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'publisher' },
@@ -16737,7 +16725,7 @@ export const UserProfileOwnedMapsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },

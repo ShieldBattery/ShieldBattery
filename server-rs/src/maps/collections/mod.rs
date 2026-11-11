@@ -1,16 +1,19 @@
 //! Map collections: named, ordered lists of maps. Players make their own (`user`), each player has
-//! one Starred collection holding the maps they starred (favorited), and staff make collections
-//! everyone sees (`staff`).
+//! one Starred collection holding the maps they starred (favorited), staff make collections
+//! everyone sees (`staff`), and every ladder map pool is a collection of its files
+//! (`ladder_pool`, see [`pools`]). One staff collection, Staff picks, gives its maps the "Staff
+//! pick" badge.
 //!
 //! An entry is a map, stored as its family, so it plays the map's current file and follows the map
 //! through merges (see [`retire_family_entries`]). Entries can also name an exact file, which
-//! follows that file wherever it goes; nothing here creates those, but listings show them.
+//! follows that file wherever it goes; ladder pools hold only those.
 //!
 //! A player's collection is private until they make it public, and staff can hide a public one.
 //! Who can see what is decided by [`CollectionRow::can_read`] and
 //! [`CollectionRow::sees_all_entries`].
 
 pub mod graphql;
+pub mod pools;
 
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
@@ -59,6 +62,8 @@ pub struct Viewer {
     pub id: Option<SbUserId>,
     /// Whether the viewer can manage maps.
     pub staff: bool,
+    /// Whether the viewer can manage ladder map pools.
+    pub manage_map_pools: bool,
 }
 
 /// A collection as stored.
@@ -75,42 +80,63 @@ pub struct CollectionRow {
     pub hidden_note: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Whether this is Staff picks, whose maps get the "Staff pick" badge.
+    pub grants_staff_pick: bool,
+    /// When the ladder map pool this collection is starts. Set exactly for `ladder_pool`.
+    pub pool_starts_at: Option<DateTime<Utc>>,
+    /// How many files the ladder map pool this collection is holds. 0 for other kinds.
+    pub pool_file_count: i64,
 }
 
 /// The columns of [`CollectionRow`], read from `collections c`.
 pub(crate) const COLLECTION_COLUMNS: &str = "c.id, c.kind, c.owner_id, c.title, c.description, \
-    c.published_at, c.hidden_at, c.hidden_by, c.hidden_note, c.created_at, c.updated_at";
+    c.published_at, c.hidden_at, c.hidden_by, c.hidden_note, c.created_at, c.updated_at, \
+    c.grants_staff_pick, \
+    (SELECT p.start_date AT TIME ZONE 'UTC' FROM matchmaking_map_pools p \
+        WHERE p.collection_id = c.id) AS pool_starts_at, \
+    CASE WHEN c.kind = 'ladder_pool' THEN \
+        (SELECT count(*) FROM collection_maps pcm WHERE pcm.collection_id = c.id) \
+        ELSE 0 END AS pool_file_count";
 
 impl CollectionRow {
     pub fn is_owner(&self, viewer: Viewer) -> bool {
         viewer.id.is_some() && self.owner_id == viewer.id
     }
 
-    /// Whether everyone can see the collection: a staff collection, or a player's collection that
-    /// is public and not hidden.
+    /// Whether everyone can see the collection: a staff collection, a player's collection that is
+    /// public and not hidden, or a ladder map pool that has started and holds at least
+    /// [`pools::MIN_PUBLIC_POOL_FILES`] files.
     pub fn is_public(&self) -> bool {
         match self.kind {
             CollectionKind::Staff => true,
             CollectionKind::User => self.published_at.is_some() && self.hidden_at.is_none(),
-            CollectionKind::Starred | CollectionKind::LadderPool => false,
+            CollectionKind::LadderPool => {
+                pools::is_open(self.pool_starts_at, self.pool_file_count, Utc::now())
+            }
+            CollectionKind::Starred => false,
         }
     }
 
     /// Whether `viewer` can see the collection. Its owner always can; users who can manage maps can
-    /// also see a player's collection that is public or hidden. Starred collections and private
-    /// collections that were never hidden are for their owner alone.
+    /// also see a player's collection that is public or hidden, and users who can manage map pools
+    /// can see every ladder map pool. Starred collections and private collections that were never
+    /// hidden are for their owner alone.
     pub fn can_read(&self, viewer: Viewer) -> bool {
         self.is_owner(viewer)
             || self.is_public()
             || (viewer.staff
                 && self.kind == CollectionKind::User
                 && (self.published_at.is_some() || self.hidden_at.is_some()))
+            || (viewer.manage_map_pools && self.kind == CollectionKind::LadderPool)
     }
 
     /// Whether `viewer` sees every entry of the collection. Everyone else sees only the entries
-    /// whose map is listed.
+    /// whose map is listed. Everyone who can see a ladder map pool sees all of it, since the ladder
+    /// plays its files whether they're listed or not.
     pub fn sees_all_entries(&self, viewer: Viewer) -> bool {
-        self.is_owner(viewer) || (self.kind == CollectionKind::Staff && viewer.staff)
+        self.is_owner(viewer)
+            || (self.kind == CollectionKind::Staff && viewer.staff)
+            || self.kind == CollectionKind::LadderPool
     }
 
     /// Whether `viewer` can add, remove and move the collection's maps: the owner of a player's
@@ -149,6 +175,8 @@ pub enum CollectionError {
     NotStaff,
     #[error("Starred can't be changed that way")]
     Starred,
+    #[error("Staff picks can't be deleted")]
+    StaffPicks,
     #[error("the title must be {MIN_TITLE_LENGTH} to {MAX_TITLE_LENGTH} characters on one line")]
     InvalidTitle,
     #[error("the description must be at most {MAX_DESCRIPTION_LENGTH} characters")]
@@ -217,6 +245,7 @@ impl CollectionError {
             Self::TooManySaves => "TOO_MANY_SAVES",
             Self::TooManyReports => "RATE_LIMITED",
             Self::Starred
+            | Self::StaffPicks
             | Self::NotInCollection
             | Self::NotPublishable
             | Self::NotHideable
@@ -283,7 +312,13 @@ pub async fn load(db: &PgPool, id: Uuid) -> eyre::Result<Option<CollectionRow>> 
         r#"
             SELECT id, kind as "kind: CollectionKind", owner_id as "owner_id: SbUserId", title,
                 description, published_at, hidden_at, hidden_by as "hidden_by: SbUserId",
-                hidden_note, created_at, updated_at
+                hidden_note, created_at, updated_at, grants_staff_pick,
+                (SELECT p.start_date AT TIME ZONE 'UTC' FROM matchmaking_map_pools p
+                    WHERE p.collection_id = collections.id) as pool_starts_at,
+                CASE WHEN kind = 'ladder_pool' THEN
+                    (SELECT count(*) FROM collection_maps pcm
+                        WHERE pcm.collection_id = collections.id)
+                    ELSE 0 END as "pool_file_count!"
             FROM collections
             WHERE id = $1
         "#,
@@ -306,7 +341,13 @@ async fn lock(
         r#"
             SELECT id, kind as "kind: CollectionKind", owner_id as "owner_id: SbUserId", title,
                 description, published_at, hidden_at, hidden_by as "hidden_by: SbUserId",
-                hidden_note, created_at, updated_at
+                hidden_note, created_at, updated_at, grants_staff_pick,
+                (SELECT p.start_date AT TIME ZONE 'UTC' FROM matchmaking_map_pools p
+                    WHERE p.collection_id = collections.id) as pool_starts_at,
+                CASE WHEN kind = 'ladder_pool' THEN
+                    (SELECT count(*) FROM collection_maps pcm
+                        WHERE pcm.collection_id = collections.id)
+                    ELSE 0 END as "pool_file_count!"
             FROM collections
             WHERE id = $1
             FOR UPDATE
@@ -620,7 +661,8 @@ pub async fn update(
     Ok(())
 }
 
-/// Deletes a player's or staff collection, with its entries, saves and reports.
+/// Deletes a player's or staff collection, with its entries, saves and reports. Staff picks can't
+/// be deleted.
 pub async fn delete(db: &PgPool, id: Uuid, viewer: Viewer) -> Result<(), CollectionError> {
     let mut tx = db.begin().await?;
     let row = lock(&mut tx, id, viewer).await?;
@@ -629,6 +671,9 @@ pub async fn delete(db: &PgPool, id: Uuid, viewer: Viewer) -> Result<(), Collect
     }
     if row.kind == CollectionKind::Starred {
         return Err(CollectionError::Starred);
+    }
+    if row.grants_staff_pick {
+        return Err(CollectionError::StaffPicks);
     }
     sqlx::query!("DELETE FROM collections WHERE id = $1", id)
         .execute(&mut *tx)
@@ -984,6 +1029,7 @@ pub async fn hide(
     let viewer = Viewer {
         id: Some(staff),
         staff: true,
+        manage_map_pools: false,
     };
     let note = clean_note(note)?;
     let mut tx = db.begin().await?;
@@ -1026,6 +1072,7 @@ pub async fn unhide(db: &PgPool, id: Uuid, staff: SbUserId) -> Result<(), Collec
     let viewer = Viewer {
         id: Some(staff),
         staff: true,
+        manage_map_pools: false,
     };
     let mut tx = db.begin().await?;
     let row = lock(&mut tx, id, viewer).await?;
@@ -1162,24 +1209,31 @@ mod tests {
             hidden_note: None,
             created_at: now,
             updated_at: now,
+            grants_staff_pick: false,
+            pool_starts_at: None,
+            pool_file_count: 0,
         }
     }
 
     const OWNER: Viewer = Viewer {
         id: Some(SbUserId(1)),
         staff: false,
+        manage_map_pools: false,
     };
     const OTHER: Viewer = Viewer {
         id: Some(SbUserId(2)),
         staff: false,
+        manage_map_pools: false,
     };
     const STAFF: Viewer = Viewer {
         id: Some(SbUserId(3)),
         staff: true,
+        manage_map_pools: false,
     };
     const LOGGED_OUT: Viewer = Viewer {
         id: None,
         staff: false,
+        manage_map_pools: false,
     };
 
     #[test]

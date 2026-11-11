@@ -22,6 +22,7 @@ import {
   addMapPool,
   getMapPoolById,
   getMapPoolHistory,
+  MapPoolMapsError,
   removeMapPool,
 } from './matchmaking-map-pools-models'
 
@@ -91,7 +92,7 @@ export class MatchmakingMapPoolsApi {
       body: { maps, maxVetoCount, startDate },
     } = validateRequest(ctx, {
       body: Joi.object<CreateMatchmakingMapPoolRequest>({
-        maps: Joi.array().items(Joi.string()).single().required(),
+        maps: Joi.array().items(Joi.string()).single().min(1).required(),
         maxVetoCount: Joi.number().min(0).required(),
         startDate: Joi.date().timestamp().min(Date.now()).required(),
       }),
@@ -100,12 +101,22 @@ export class MatchmakingMapPoolsApi {
     // TODO(2Pac): Validate maps based on matchmaking type (e.g. so a 2-player map can't be used in
     // a 2v2 map pool)
 
-    const mapPool = await addMapPool({
-      matchmakingType,
-      maps: (await resolveMapIdSets([maps]))[0],
-      maxVetoCount,
-      startDate: new Date(startDate),
-    })
+    let mapPool
+    try {
+      mapPool = await addMapPool({
+        matchmakingType,
+        maps: (await resolveMapIdSets([maps]))[0],
+        maxVetoCount,
+        startDate: new Date(startDate),
+      })
+    } catch (err) {
+      if (err instanceof MapPoolMapsError) {
+        throw new httpErrors.BadRequest(
+          `these maps don't exist or aren't published: ${err.mapIds.join(', ')}`,
+        )
+      }
+      throw err
+    }
     this.currentMapPoolCache.invalidate(matchmakingType)
     const mapInfos = await getMapInfos(mapPool.maps)
 

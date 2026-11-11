@@ -29,7 +29,7 @@ describe('client/maps/map-catalog-params', () => {
     expect(
       parse(
         'q=bound&sort=name&lens=ums&players=5%2B&size=large,tiny&tileset=ice,jungle&eud=hide' +
-          '&official=1&verified=1',
+          '&staff-pick=1&verified=1',
       ),
     ).toEqual({
       search: 'bound',
@@ -39,7 +39,7 @@ describe('client/maps/map-catalog-params', () => {
       sizes: [MapSizeClass.Tiny, MapSizeClass.Large],
       tilesets: [Tileset.Jungle, Tileset.Ice],
       eud: EudFilter.Exclude,
-      official: true,
+      staffPick: true,
       verified: true,
     })
   })
@@ -49,7 +49,7 @@ describe('client/maps/map-catalog-params', () => {
     expect(parse('')).toEqual(defaults)
     expect(
       parse(
-        'sort=popular&lens=melee2&players=9&size=enormous&tileset=space&eud=x&official=yes' +
+        'sort=popular&lens=melee2&players=9&size=enormous&tileset=space&eud=x&staff-pick=yes' +
           '&verified=true',
       ),
     ).toEqual(defaults)
@@ -64,7 +64,7 @@ describe('client/maps/map-catalog-params', () => {
       parse('lens=melee&players=2&size=small,huge&tileset=badlands,twilight&eud=only'),
     )
     expect(serializeCatalogParams(parse(''))).toBe('')
-    expect(serializeCatalogParams(parse('verified=1&official=1'))).toBe('official=1&verified=1')
+    expect(serializeCatalogParams(parse('verified=1&staff-pick=1'))).toBe('staff-pick=1&verified=1')
   })
 
   test('keeps unrelated params and drops cleared ones', () => {
@@ -75,9 +75,9 @@ describe('client/maps/map-catalog-params', () => {
   test('detects catalog params', () => {
     expect(hasCatalogParams(new URLSearchParams(''))).toBe(false)
     expect(hasCatalogParams(new URLSearchParams('other=1'))).toBe(false)
-    expect(hasCatalogParams(new URLSearchParams('official=1'))).toBe(true)
+    expect(hasCatalogParams(new URLSearchParams('staff-pick=1'))).toBe(true)
     expect(hasNonDefaultFilters(DEFAULT_CATALOG_FILTERS)).toBe(false)
-    expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, official: true })).toBe(true)
+    expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, staffPick: true })).toBe(true)
     expect(hasCatalogParams(new URLSearchParams('verified=1'))).toBe(true)
     expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, verified: true })).toBe(true)
   })
@@ -145,7 +145,9 @@ describe('client/maps/map-catalog-params', () => {
   test('builds the local map index query', () => {
     expect(
       toLocalMapQuery(
-        parse('q=+Bound+&lens=ums&players=5%2B&size=tiny,huge&tileset=jungle&eud=hide&official=1'),
+        parse(
+          'q=+Bound+&lens=ums&players=5%2B&size=tiny,huge&tileset=jungle&eud=hide&staff-pick=1',
+        ),
         CatalogSort.Players,
         { path: 'documents/UMS', recursive: true },
       ),
@@ -184,11 +186,11 @@ describe('client/maps/map-catalog-params', () => {
       sizes: undefined,
       tilesets: undefined,
       eud: EudFilter.Any,
-      official: undefined,
+      staffPick: undefined,
       verified: undefined,
     })
     expect(
-      toMapFilter(parse('q=%20bound%20&players=5%2B&official=1&tileset=ice&verified=1')),
+      toMapFilter(parse('q=%20bound%20&players=5%2B&staff-pick=1&tileset=ice&verified=1')),
     ).toEqual({
       search: 'bound',
       lens: MapLens.All,
@@ -196,7 +198,7 @@ describe('client/maps/map-catalog-params', () => {
       sizes: undefined,
       tilesets: [Tileset.Ice],
       eud: EudFilter.Any,
-      official: true,
+      staffPick: true,
       verified: true,
     })
   })
@@ -211,7 +213,7 @@ describe('client/maps/map-catalog-params', () => {
         sizes: ['HUGE', 'BOGUS'],
         tilesets: [7, 99],
         eud: 'ONLY',
-        official: 'true',
+        staffPick: 'true',
         verified: true,
       }),
     ).toEqual({
@@ -220,7 +222,7 @@ describe('client/maps/map-catalog-params', () => {
       sizes: [MapSizeClass.Huge],
       tilesets: [Tileset.Twilight],
       eud: EudFilter.Only,
-      official: false,
+      staffPick: false,
       verified: true,
     })
     expect(validateSavedSort('name')).toBe(CatalogSort.Name)

@@ -20,7 +20,7 @@ const MapFieldsFragment = graphql(/* GraphQL */ `
     kind
     playerCount
     listed
-    official
+    staffPick
     publishedAt
     favoriteCount
     isFavorited
@@ -479,7 +479,7 @@ function MapRow({
       <Thumb src={map.file.image256Url} alt='' />
       <div>
         <div>
-          {map.name} {map.official ? '(official)' : ''} {map.listed ? '' : '(unlisted)'}
+          {map.name} {map.staffPick ? '(staff pick)' : ''} {map.listed ? '' : '(unlisted)'}
         </div>
         <Details>
           {map.kind} · {map.playerCount} players · {map.file.width}x{map.file.height} · tileset{' '}
