@@ -82,6 +82,7 @@ fn publish_error(error: PublishError) -> async_graphql::Error {
                 | PublishError::ReportNotFound => "NOT_FOUND",
                 PublishError::Blocked(block) => block.code(),
                 PublishError::NotSuggested => "NOT_SUGGESTED",
+                PublishError::ProtectedMap => "PROTECTED_MAP",
                 PublishError::NotPublisher | PublishError::NotPublisherOrOwner => "FORBIDDEN",
                 _ => "BAD_REQUEST",
             };

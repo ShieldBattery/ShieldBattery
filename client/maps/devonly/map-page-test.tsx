@@ -15,9 +15,9 @@ import { makeMapFamilyId, makeSbMapId, SbMapId, Tileset } from '../../../common/
 import { MatchmakingType } from '../../../common/matchmaking'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
-import { MapDelistedKind, MapKind } from '../../gql/graphql'
+import { MapDelistedKind, MapKind, MapOwnerClaimStatus, MapOwnerKind } from '../../gql/graphql'
 import { IsolatedReduxProvider } from '../../lobbies/devonly/isolated-redux'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { titleMedium } from '../../styles/typography'
@@ -29,11 +29,13 @@ import { FightingSpirit } from './maps-for-testing'
 const VIEWER = makeSbUserId(90030)
 const PUBLISHER = makeSbUserId(90031)
 const MODERATOR = makeSbUserId(90032)
+const MAKER = makeSbUserId(90033)
 
 const USERS: SbUser[] = [
   { id: VIEWER, name: 'devMapViewer', created: 0 },
   { id: PUBLISHER, name: 'tec27_the_sequel', created: 0 },
   { id: MODERATOR, name: 'modMercy', created: 0 },
+  { id: MAKER, name: 'LancerMapper', created: 0 },
 ]
 
 /**
@@ -55,6 +57,9 @@ type ScenarioId =
   | 'delisted'
   | 'neverPlayed'
   | 'noImage'
+  | 'verifiedMaker'
+  | 'publisherMaker'
+  | 'credited'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'meleePool', label: 'Melee pool map' },
@@ -65,13 +70,18 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'delisted', label: 'Delisted' },
   { id: 'neverPlayed', label: 'Never played' },
   { id: 'noImage', label: 'Render fallback' },
+  { id: 'verifiedMaker', label: 'Verified maker' },
+  { id: 'publisherMaker', label: 'Publisher is maker' },
+  { id: 'credited', label: 'Credited maker' },
 ]
 
-type ViewerId = 'loggedOut' | 'player' | 'staff'
+type ViewerId = 'loggedOut' | 'player' | 'claimSent' | 'maker' | 'staff'
 
 const VIEWERS: ReadonlyArray<{ id: ViewerId; label: string }> = [
   { id: 'loggedOut', label: 'Logged out' },
   { id: 'player', label: 'Player' },
+  { id: 'claimSent', label: 'Player, claim sent' },
+  { id: 'maker', label: 'Maker' },
   { id: 'staff', label: 'Staff' },
 ]
 
@@ -83,9 +93,17 @@ interface MatchupRow {
   medianLength: number | null
 }
 
+/** Who made a scenario's map, as its map's owner fields say. */
+interface ScenarioMaker {
+  owner: { id: SbUserId; name: string } | null
+  ownerKind: MapOwnerKind | null
+  credit: string | null
+}
+
 interface Scenario {
   map: Record<string, unknown> & { id: SbMapId; name: string }
   matchups: Partial<Record<MatchmakingType, MatchupRow[]>>
+  maker?: ScenarioMaker
 }
 
 function weeklyActivity(id: SbMapId, games: (week: number) => [lobby: number, ranked: number]) {
@@ -361,6 +379,54 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
     }),
     matchups: {},
   }),
+  verifiedMaker: () => ({
+    map: makeMap({
+      id: makeSbMapId('00000000-0000-4000-8000-00000000f008'),
+      name: 'Eclipse 1.2',
+      playerCount: 2,
+    }),
+    matchups: {},
+    maker: {
+      owner: { id: MAKER, name: 'LancerMapper' },
+      ownerKind: MapOwnerKind.Staff,
+      credit: null,
+    },
+  }),
+  publisherMaker: () => ({
+    map: makeMap({
+      id: makeSbMapId('00000000-0000-4000-8000-00000000f009'),
+      name: 'Sylphid',
+      playerCount: 2,
+    }),
+    matchups: {},
+    maker: {
+      owner: { id: PUBLISHER, name: 'tec27_the_sequel' },
+      ownerKind: MapOwnerKind.Claim,
+      credit: null,
+    },
+  }),
+  credited: () => ({
+    map: makeMap({
+      id: makeSbMapId('00000000-0000-4000-8000-00000000f00a'),
+      name: 'Python 1.3',
+    }),
+    matchups: {},
+    maker: { owner: null, ownerKind: null, credit: 'Rose.of.Sharon (KeSPA)' },
+  }),
+}
+
+const NO_MAKER: ScenarioMaker = { owner: null, ownerKind: null, credit: null }
+
+/** Who made the scenario's map for a viewer: the viewer themselves when they view as its maker. */
+function makerFor(scenario: Scenario, viewer: ViewerId): ScenarioMaker {
+  if (viewer === 'maker') {
+    return {
+      owner: { id: VIEWER, name: 'devMapViewer' },
+      ownerKind: scenario.maker?.ownerKind ?? MapOwnerKind.Claim,
+      credit: null,
+    }
+  }
+  return scenario.maker ?? NO_MAKER
 }
 
 /** The id of the single-file map a scenario's file is in. */
@@ -371,7 +437,9 @@ function familyIdOf(scenario: Scenario): string {
 /**
  * Answers the map page's GraphQL operations from a scenario's fixtures, in place of the server.
  */
-function fixtureExchange(scenario: Scenario, isStaff: boolean): Exchange {
+function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
+  const isStaff = viewer === 'staff'
+  const maker = makerFor(scenario, viewer)
   const resolve = (operation: Operation): object | undefined => {
     switch (getOperationName(operation.query)) {
       case 'MapPageFamily': {
@@ -385,6 +453,7 @@ function fixtureExchange(scenario: Scenario, isStaff: boolean): Exchange {
               name,
               listed,
               current: { id, name },
+              ...maker,
               defaultMap: null,
               ...(isStaff ? { defaultSetBy: null } : {}),
               files: [
@@ -392,6 +461,7 @@ function fixtureExchange(scenario: Scenario, isStaff: boolean): Exchange {
                   id,
                   name,
                   listed,
+                  official: scenario.map.official,
                   firstSeenAt,
                   stats,
                   file: { id: file.id, width: file.width, height: file.height },
@@ -432,6 +502,18 @@ function fixtureExchange(scenario: Scenario, isStaff: boolean): Exchange {
           },
         }
       }
+      case 'MapPageClaimPreview':
+        return {
+          mapOwnerClaimPreview: {
+            id: `map-owner-claim-preview:${familyIdOf(scenario)}`,
+            blockedReason: null,
+            instant: !maker.owner && !maker.credit,
+            openClaim:
+              viewer === 'claimSent'
+                ? { id: 'c1a1c1a1-0000-4000-8000-000000000001', status: MapOwnerClaimStatus.Open }
+                : null,
+          },
+        }
       case 'MapLiveGames':
         return { liveGames: [] }
       case 'MapPageAddFavorite':
@@ -541,7 +623,7 @@ export function MapPageTest() {
     url: 'http://localhost/devonly-map-page',
     // The document cache keeps a query's result for re-renders that ask for it again, as the app's
     // normalized cache does.
-    exchanges: [cacheExchange, fixtureExchange(scenario, viewer === 'staff')],
+    exchanges: [cacheExchange, fixtureExchange(scenario, viewer)],
   })
   const key = `${scenarioId}-${viewer}`
 

@@ -26,8 +26,9 @@ import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { openMapFamilyActionDialog } from './action-creators'
-import { useChangeReportStatus } from './map-report-status'
+import { openMapDelistDialog, openMapFamilyActionDialog } from './action-creators'
+import { useRemoveMapOwner } from './map-owner-actions'
+import { useChangeReportStatus, useSetReportStatus } from './map-report-status'
 
 // Only staff review reports, so this isn't translated.
 
@@ -48,6 +49,28 @@ const ApproveMutation = graphql(/* GraphQL */ `
           id
           name
         }
+      }
+    }
+  }
+`)
+
+/** Selects what the map's views show about its default, so they update from the result. */
+const ReportSetDefaultMutation = graphql(/* GraphQL */ `
+  mutation MapReportBarSetDefault($fileId: SbMapId!) {
+    mapFamilySetDefault(fileId: $fileId) {
+      id
+      name
+      current {
+        id
+        name
+      }
+      defaultMap {
+        id
+      }
+      defaultSetAt
+      defaultSetBy {
+        id
+        name
       }
     }
   }
@@ -79,11 +102,18 @@ const ReportQuery = graphql(/* GraphQL */ `
         files {
           id
         }
+        owner {
+          id
+        }
       }
       map {
         id
         name
+        listed
         firstSeenAt
+        family {
+          id
+        }
         stats {
           id
           gamesTotal
@@ -128,6 +158,14 @@ const Details = styled.div`
 const Claim = styled.div`
   ${bodyLarge};
   overflow-wrap: anywhere;
+`
+
+/** A claim with a username in it, which renders as a block of its own. */
+const ClaimParts = styled(Claim)`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 4px;
 `
 
 const MutedLine = styled.div`
@@ -228,8 +266,43 @@ function LoadedReportBar({ report }: { report: Report }) {
       deletedMap
     )
 
+  /** The reported file as a sentence names it, telling it apart from the map's other files. */
+  const fileLabel = (file: Report['map']) =>
+    file
+      ? `${filterColorCodes(file.name)} (${uploadedDate.format(new Date(file.firstSeenAt))} · ${pluralize(file.stats?.gamesTotal ?? 0, 'game', 'games')})`
+      : deletedMap
+
   let claim: React.ReactNode
-  if (report.kind === MapFamilyReportKind.WrongMap) {
+  if (report.kind === MapFamilyReportKind.WrongOwner) {
+    claim = (
+      <>
+        {report.family?.owner ? (
+          <ConnectedUsername userId={report.family.owner.id} />
+        ) : (
+          <MutedText>Its maker (since removed)</MutedText>
+        )}
+        <span>didn&apos;t make</span>
+        {mapLink(report.family)}
+      </>
+    )
+  } else if (report.kind === MapFamilyReportKind.WrongDefault) {
+    claim = (
+      <>
+        {fileLabel(report.map)}
+        {' should be the recommended file of '}
+        {mapLink(report.family, report.map ?? undefined)}
+      </>
+    )
+  } else if (report.kind === MapFamilyReportKind.Inappropriate) {
+    claim = (
+      <>
+        {fileLabel(report.map)}
+        {' in '}
+        {mapLink(report.family, report.map ?? undefined)}
+        {' has an inappropriate name, description or content'}
+      </>
+    )
+  } else if (report.kind === MapFamilyReportKind.WrongMap) {
     const file = report.map
     claim = (
       <>
@@ -285,7 +358,11 @@ function LoadedReportBar({ report }: { report: Report }) {
   return (
     <StyledCard>
       <Details>
-        <Claim>{claim}</Claim>
+        {report.kind === MapFamilyReportKind.WrongOwner ? (
+          <ClaimParts>{claim}</ClaimParts>
+        ) : (
+          <Claim>{claim}</Claim>
+        )}
         <InlineParts>
           {/* A file held for review is reported by publishing it */}
           <span>
@@ -375,15 +452,93 @@ function PublishReviewActions({ report }: { report: Report }) {
   )
 }
 
+/**
+ * Runs a fix for a report and then resolves the report, telling staff how both went with a
+ * snackbar. `fix` rejects with the reason it failed.
+ */
+function useFixAndResolve() {
+  const snackbarController = useSnackbarController()
+  const setReportStatus = useSetReportStatus()
+  return (reportId: string, fix: () => Promise<void>, doneText: string, failText: string) => {
+    fix()
+      .then(async () => {
+        try {
+          await setReportStatus(reportId, MapFamilyReportStatus.Resolved)
+          snackbarController.showSnackbar(`${doneText} and resolved the report`)
+        } catch (err) {
+          snackbarController.showSnackbar(
+            `${doneText}, but couldn't resolve the report: ${(err as Error).message}`,
+          )
+        }
+      })
+      .catch((err: Error) => snackbarController.showSnackbar(`${failText}: ${err.message}`))
+  }
+}
+
 function FixActions({ report }: { report: Report }) {
   const dispatch = useAppDispatch()
   const changeStatus = useChangeReportStatus()
+  const fixAndResolve = useFixAndResolve()
+  const [removeOwner, removingOwner] = useRemoveMapOwner()
+  const [{ fetching: settingDefault }, setDefault] = useMutation(ReportSetDefaultMutation)
+  const fixing = removingOwner || settingDefault
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   const { family, map, otherFamily } = report
+  // The reported file, while it's still in the reported map
+  const familyFile = family && map && map.family.id === family.id ? map : undefined
   const fixes: Array<{ label: string; tooltip: string; onClick: () => void }> = []
-  if (report.kind === MapFamilyReportKind.WrongMap) {
+  if (report.kind === MapFamilyReportKind.WrongOwner) {
+    if (family?.owner) {
+      fixes.push({
+        label: 'Remove maker',
+        tooltip: `Remove the maker of ${filterColorCodes(family.name)}`,
+        onClick: () =>
+          fixAndResolve(
+            report.id,
+            () => removeOwner(family.id),
+            'Removed the maker',
+            "Couldn't remove the maker",
+          ),
+      })
+    }
+  } else if (report.kind === MapFamilyReportKind.WrongDefault) {
+    if (family && familyFile && familyFile.listed && family.current.id !== familyFile.id) {
+      fixes.push({
+        label: 'Make recommended',
+        tooltip: `Make ${filterColorCodes(familyFile.name)} the recommended file`,
+        onClick: () =>
+          fixAndResolve(
+            report.id,
+            async () => {
+              const result = await setDefault({ fileId: familyFile.id })
+              if (result.error) {
+                throw new Error(result.error.graphQLErrors[0]?.message ?? result.error.message)
+              }
+            },
+            'Changed the recommended file',
+            "Couldn't change the recommended file",
+          ),
+      })
+    }
+  } else if (report.kind === MapFamilyReportKind.Inappropriate) {
+    if (map) {
+      fixes.push({
+        label: 'Delist…',
+        tooltip: `Take ${filterColorCodes(map.name)} out of the listings`,
+        onClick: () =>
+          dispatch(
+            openMapDelistDialog({
+              fileId: map.id,
+              name: map.name,
+              listed: map.listed,
+              reportId: report.id,
+            }),
+          ),
+      })
+    }
+  } else if (report.kind === MapFamilyReportKind.WrongMap) {
     if (family && map) {
       const openAction = (action: 'split' | 'move') =>
         dispatch(
@@ -427,11 +582,12 @@ function FixActions({ report }: { report: Report }) {
     <>
       <TextButton
         label='Dismiss'
+        disabled={fixing}
         onClick={() => changeStatus(report.id, MapFamilyReportStatus.Dismissed)}
       />
       {fixes.map(fix => (
         <Tooltip key={fix.label} text={fix.tooltip} position='bottom' tabIndex={-1}>
-          <OutlinedButton label={fix.label} onClick={fix.onClick} />
+          <OutlinedButton label={fix.label} disabled={fixing} onClick={fix.onClick} />
         </Tooltip>
       ))}
       <IconButton

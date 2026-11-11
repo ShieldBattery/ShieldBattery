@@ -116,6 +116,18 @@ const MapFileLinkDialog = React.lazy(async () => ({
 const MapFileUnlinkDialog = React.lazy(async () => ({
   default: (await import('../maps/map-publish-dialog')).MapFileUnlinkDialog,
 }))
+const MapOwnerAddFileDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerAddFileDialog,
+}))
+const MapOwnerClaimDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerClaimDialog,
+}))
+const MapOwnerEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerEditDialog,
+}))
+const MapOwnerRelinquishDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerRelinquishDialog,
+}))
 const MapPublishDialog = React.lazy(async () => ({
   default: (await import('../maps/map-publish-dialog')).MapPublishDialog,
 }))
@@ -315,6 +327,14 @@ function getDialog(dialogType: DialogType): {
       return { component: MapFileLinkDialog }
     case DialogType.MapFileUnlink:
       return { component: MapFileUnlinkDialog }
+    case DialogType.MapOwnerAddFile:
+      return { component: MapOwnerAddFileDialog }
+    case DialogType.MapOwnerClaim:
+      return { component: MapOwnerClaimDialog }
+    case DialogType.MapOwnerEdit:
+      return { component: MapOwnerEditDialog }
+    case DialogType.MapOwnerRelinquish:
+      return { component: MapOwnerRelinquishDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
     case DialogType.MapPublish:

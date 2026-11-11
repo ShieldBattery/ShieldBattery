@@ -312,9 +312,37 @@ export function openMapFileUnlinkDialog(initData: {
   return openDialog({ type: DialogType.MapFileUnlink, initData })
 }
 
-/** Opens the dialog for staff to take a file out of the listings, or block it from them. */
-export function openMapDelistDialog(initData: { fileId: SbMapId; name: string; listed: boolean }) {
+/**
+ * Opens the dialog for staff to take a file out of the listings, or block it from them. A report
+ * given as `reportId` is resolved once the file is delisted.
+ */
+export function openMapDelistDialog(initData: {
+  fileId: SbMapId
+  name: string
+  listed: boolean
+  reportId?: string
+}) {
   return openDialog({ type: DialogType.MapDelist, initData })
+}
+
+/** Opens the dialog that sends staff a user's claim to be the maker of a map. */
+export function openMapOwnerClaimDialog(initData: { familyId: string; ownerName?: string }) {
+  return openDialog({ type: DialogType.MapOwnerClaim, initData })
+}
+
+/** Opens the dialog that confirms giving up a map that staff confirmed the user made. */
+export function openMapOwnerRelinquishDialog(initData: { onConfirm: () => void }) {
+  return openDialog({ type: DialogType.MapOwnerRelinquish, initData })
+}
+
+/** Opens the dialog for staff to change who made a map: its owner and its credit. */
+export function openMapOwnerEditDialog(initData: { familyId: string }) {
+  return openDialog({ type: DialogType.MapOwnerEdit, initData })
+}
+
+/** Opens the dialog that adds files a map's owner published to that map. */
+export function openMapOwnerAddFileDialog(initData: { familyId: string; mapName: string }) {
+  return openDialog({ type: DialogType.MapOwnerAddFile, initData })
 }
 
 export function openMapDownloadDialog(mapId: SbMapId) {

@@ -4,11 +4,13 @@ import { useMutation } from 'urql'
 import { filterColorCodes, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { graphql } from '../gql'
+import { MapFamilyReportStatus } from '../gql/graphql'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
+import { useSetReportStatus } from './map-report-status'
 
 // Only staff delist files, so this dialog isn't translated.
 
@@ -72,14 +74,24 @@ export interface MapDelistDialogProps extends CommonDialogProps {
   name: string
   /** Whether the file is listed right now. */
   listed: boolean
+  /** A map report to resolve once the file is delisted. */
+  reportId?: string
 }
 
 /**
  * Takes a file out of the listings as staff, or keeps an unlisted file from being published, with
- * an optional note for its publisher.
+ * an optional note for its publisher. When opened for a report, delisting also resolves the report.
  */
-export function MapDelistDialog({ fileId, name, listed, onCancel, close }: MapDelistDialogProps) {
+export function MapDelistDialog({
+  fileId,
+  name,
+  listed,
+  reportId,
+  onCancel,
+  close,
+}: MapDelistDialogProps) {
   const snackbarController = useSnackbarController()
+  const setReportStatus = useSetReportStatus()
   const [note, setNote] = useState('')
   const [errorMessage, setErrorMessage] = useState<string>()
   const [{ fetching: sending }, delist] = useMutation(DelistMutation)
@@ -87,7 +99,7 @@ export function MapDelistDialog({ fileId, name, listed, onCancel, close }: MapDe
   const onDelist = () => {
     setErrorMessage(undefined)
     delist({ fileId, note: note.trim() || undefined })
-      .then(result => {
+      .then(async result => {
         if (result.error || !result.data) {
           setErrorMessage(
             result.error?.graphQLErrors[0]?.message ??
@@ -96,8 +108,17 @@ export function MapDelistDialog({ fileId, name, listed, onCancel, close }: MapDe
           )
           return
         }
+        let message = 'Delisted'
+        if (reportId) {
+          try {
+            await setReportStatus(reportId, MapFamilyReportStatus.Resolved)
+            message = 'Delisted and resolved the report'
+          } catch (err) {
+            message = `Delisted, but couldn't resolve the report: ${(err as Error).message}`
+          }
+        }
         close()
-        snackbarController.showSnackbar('Delisted')
+        snackbarController.showSnackbar(message)
       })
       .catch((err: Error) => setErrorMessage(err.message))
   }

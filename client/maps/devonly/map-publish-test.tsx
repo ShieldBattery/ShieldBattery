@@ -23,6 +23,8 @@ type ScenarioId =
   | 'oneLongName'
   | 'threeSuggestions'
   | 'needsReview'
+  | 'ownedMaps'
+  | 'ownedNoSuggestion'
   | 'error'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -34,6 +36,8 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'oneLongName', label: 'One suggestion, long name' },
   { id: 'threeSuggestions', label: 'Three suggestions' },
   { id: 'needsReview', label: 'Needs review' },
+  { id: 'ownedMaps', label: 'Owns maps' },
+  { id: 'ownedNoSuggestion', label: 'Owns maps, no suggestion' },
   { id: 'error', label: 'Publish failed' },
 ]
 
@@ -145,8 +149,21 @@ const PREVIEWS: Record<ScenarioId, ReturnType<typeof preview>> = {
   oneLongName: preview({ suggestions: [LONG_NAME] }),
   threeSuggestions: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS, UMS] }),
   needsReview: preview({ needsReview: true, suggestions: [FIGHTING_SPIRIT] }),
+  ownedMaps: preview({ suggestions: [FIGHTING_SPIRIT] }),
+  ownedNoSuggestion: preview({}),
   error: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS] }),
 }
+
+/**
+ * Maps the viewer owns. The suggested map among them stays a suggestion, and the file's own map
+ * isn't offered.
+ */
+const OWNED_MAPS = [
+  { id: 'family-1', name: 'Fighting Spirit 1.3' },
+  { id: 'f00d-family', name: 'Fighting Spirit 1.4 (fixed ramps)' },
+  { id: 'owned-1', name: 'Eclipse 1.2' },
+  { id: 'owned-2', name: 'Sylphid' },
+]
 
 const Container = styled.div`
   height: 100%;
@@ -189,6 +206,9 @@ export function MapPublishTest() {
           key={scenarioId}
           preview={PREVIEWS[scenarioId]}
           file={FILE}
+          ownedMaps={
+            scenarioId === 'ownedMaps' || scenarioId === 'ownedNoSuggestion' ? OWNED_MAPS : []
+          }
           sending={false}
           errorMessage={
             scenarioId === 'error' ? 'That map is no longer suggested for this file.' : undefined
