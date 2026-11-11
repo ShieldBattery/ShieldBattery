@@ -1,13 +1,6 @@
-import { TFunction } from 'i18next'
 import { ReadonlyDeep } from 'type-fest'
-import { GameUserStatsMode, GameUserStatsResult } from '../../common/ipc'
-import {
-  matchmakingDivisionToLabel,
-  MatchmakingSeasonJson,
-  MatchmakingType,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { raceCharToLabel } from '../../common/races'
+import { GameUserStanding, GameUserStatsResult } from '../../common/ipc'
+import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserErrorCode, UserProfileJson } from '../../common/users/user-network'
 import { ThunkAction } from '../dispatch-registry'
@@ -16,20 +9,18 @@ import { findUserByName, viewUserProfile } from '../users/action-creators'
 import { getMainRace, getRankedModes, RankedMode } from '../users/user-card'
 
 /**
- * Builds the answer to a `/stats` command typed in game from the user's profile: their record and
- * main race, the mode they have their highest MMR in, and their standing in `currentType` (the mode
- * of the game being played, if it's a matchmaking game). Every label is localized for the game to
- * show as it is.
+ * Builds the stats the game shows for a user from their profile: their record and main race, the
+ * mode they have their highest MMR in, and their standing in `currentType` (the mode of the game
+ * being played, if it's a matchmaking game). The game labels everything itself, in its own
+ * language, so nothing here is localized.
  */
 export function toGameUserStats(
   name: string,
   profile: ReadonlyDeep<UserProfileJson>,
   season: ReadonlyDeep<MatchmakingSeasonJson> | undefined,
   currentType: MatchmakingType | undefined,
-  t: TFunction,
 ): Extract<GameUserStatsResult, { kind: 'found' }> {
   const { pWins, tWins, zWins, rWins, pLosses, tLosses, zLosses, rLosses } = profile.userStats
-  const race = getMainRace(profile.userStats)
 
   const modes = getRankedModes(profile, season).map(mode => ({
     mode,
@@ -41,43 +32,39 @@ export function toGameUserStats(
   )
   const current = modes.find(({ mode }) => mode.type === currentType)
 
-  const toStatsMode = (mode: RankedMode, rating: number): GameUserStatsMode => ({
-    label: matchmakingTypeToLabel(mode.type, t),
-    division:
-      mode.division !== undefined
-        ? matchmakingDivisionToLabel(mode.division, t)
-        : t('users.card.divisionUnknown', 'Division unknown'),
+  const toStanding = (mode: RankedMode, rating: number): GameUserStanding => ({
+    matchmakingType: mode.type,
+    division: mode.division,
     rating: Math.round(rating),
   })
 
-  let currentMode: GameUserStatsMode | undefined
+  let currentStanding: GameUserStanding | undefined
   if (current) {
-    currentMode = toStatsMode(current.mode, current.rating)
+    currentStanding = toStanding(current.mode, current.rating)
   } else if (currentType !== undefined) {
-    currentMode = { label: matchmakingTypeToLabel(currentType, t) }
+    currentStanding = { matchmakingType: currentType }
   }
 
   return {
     kind: 'found',
     name,
-    race: race ? raceCharToLabel(race, t) : undefined,
+    mainRace: getMainRace(profile.userStats),
     wins: pWins + tWins + zWins + rWins,
     losses: pLosses + tLosses + zLosses + rLosses,
-    bestMode: best ? toStatsMode(best.mode, best.rating) : undefined,
-    currentMode,
+    best: best ? toStanding(best.mode, best.rating) : undefined,
+    current: currentStanding,
   }
 }
 
 /**
- * Looks up the stats a `/stats` command typed in game asked for: those of the user named `name`,
- * or of the local user when no name was typed, including their standing in `currentType` (the
- * game's mode, if it's a matchmaking game). `onResult` is always called, with a failure result if
- * the user doesn't exist or their profile couldn't be loaded.
+ * Looks up the stats the game asked for: those of the user named `name`, or of the local user when
+ * no name was given, including their standing in `currentType` (the game's mode, if it's a
+ * matchmaking game). `onResult` is always called, with a failure result if the user doesn't exist
+ * or their profile couldn't be loaded.
  */
 export function lookUpGameUserStats(
   name: string | undefined,
   currentType: MatchmakingType | undefined,
-  t: TFunction,
   onResult: (result: GameUserStatsResult) => void,
 ): ThunkAction {
   return (dispatch, getState) => {
@@ -92,7 +79,7 @@ export function lookUpGameUserStats(
               return
             }
             const season = state.matchmakingSeasons.byId.get(profile.seasonId)
-            onResult(toGameUserStats(userName, profile, season, currentType, t))
+            onResult(toGameUserStats(userName, profile, season, currentType))
           },
           onError: () => onResult({ kind: 'error', name: name ?? '' }),
         }),

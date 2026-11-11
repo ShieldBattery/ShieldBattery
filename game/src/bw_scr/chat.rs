@@ -6,7 +6,7 @@ use hashbrown::{HashMap, HashSet};
 use crate::{
     app_messages::{
         BlockFailureReason, BlockRequestFailed, ReportOutcome, ReportResult, SbUserId,
-        UserStatsMode, UserStatsResult,
+        UserStatsAnswer, UserStatsPurpose,
     },
     bw::{get_bw, players::BwPlayerId},
     bw_scr::get_exe_build,
@@ -77,6 +77,9 @@ pub struct ChatManager {
     /// Text to print in the game's chat area, queued by code running off the game thread (which
     /// can't print directly). Drained by [`Self::take_pending_notices`] on the game thread.
     pending_notices: Vec<CString>,
+    /// Stats the app has answered with, which the overlay shows. Queued here by the thread that
+    /// receives them and drained by [`Self::take_user_stats`] where the overlay is drawn.
+    user_stats: Vec<UserStatsAnswer>,
     /// The reports the local user has made about players this game, by player.
     reports: HashMap<SbUserId, Report>,
 }
@@ -126,49 +129,6 @@ enum BlockCommandOutcome {
     PlayerNotFound,
 }
 
-/// The chat lines answering a `/stats` command.
-fn user_stats_lines(result: &UserStatsResult) -> Vec<String> {
-    let stats = match result {
-        UserStatsResult::Found(stats) => stats,
-        UserStatsResult::NotFound { name } => return vec![format!("\x06No user named \x07{name}")],
-        UserStatsResult::Error { name } if name.is_empty() => {
-            return vec!["\x06Couldn't load your stats".into()];
-        }
-        UserStatsResult::Error { name } => {
-            return vec![format!("\x06Couldn't load stats for \x07{name}")];
-        }
-    };
-
-    let race = match &stats.race {
-        Some(race) => format!(" \x04(Main: \x07{race}\x04)"),
-        None => String::new(),
-    };
-    let mut lines = vec![format!(
-        "\x07{}\x04: \x07{}\x04W \x07{}\x04L{race}",
-        stats.name, stats.wins, stats.losses
-    )];
-
-    lines.push(match &stats.best_mode {
-        Some(mode) => format!("\x04Best Mode: \x07{} {}", mode.label, mode_standing(mode)),
-        None => "\x04Best Mode: Unranked".to_string(),
-    });
-    if let Some(mode) = &stats.current_mode {
-        lines.push(format!("\x04{}: {}", mode.label, mode_standing(mode)));
-    }
-
-    lines
-}
-
-/// A mode's division and MMR (e.g. "Gold 2 (1820)"), or that the user isn't rated in it. Starts in
-/// the color the text before it is in.
-fn mode_standing(mode: &UserStatsMode) -> String {
-    match (&mode.division, mode.rating) {
-        (Some(division), Some(rating)) => format!("\x07{division} \x04(\x07{rating}\x04)"),
-        (Some(division), None) => format!("\x07{division}"),
-        (None, _) => "Unranked".to_string(),
-    }
-}
-
 /// What a `/muteenemy` command did.
 #[derive(Debug, PartialEq, Eq)]
 enum MuteEnemiesOutcome {
@@ -187,6 +147,7 @@ impl ChatManager {
             local_user_id: None,
             is_chat_restricted: false,
             pending_notices: Vec::new(),
+            user_stats: Vec::new(),
             reports: HashMap::new(),
         }
     }
@@ -280,13 +241,13 @@ impl ChatManager {
         self.pending_notices.push(msg);
     }
 
-    /// Queues the lines answering a `/stats` command.
-    pub fn user_stats_received(&mut self, result: &UserStatsResult) {
-        self.pending_notices.extend(
-            user_stats_lines(result)
-                .into_iter()
-                .map(|line| CString::new(line).unwrap_or_default()),
-        );
+    /// Queues stats the app answered with, for the overlay to show.
+    pub fn user_stats_received(&mut self, answer: UserStatsAnswer) {
+        self.user_stats.push(answer);
+    }
+
+    pub fn take_user_stats(&mut self) -> Vec<UserStatsAnswer> {
+        std::mem::take(&mut self.user_stats)
     }
 
     pub fn take_pending_notices(&mut self) -> Vec<CString> {
@@ -581,6 +542,7 @@ impl ChatManager {
                 }
                 send_game_msg_to_async(GameThreadMessage::RequestUserStats {
                     name: name.map(String::from),
+                    purpose: UserStatsPurpose::Command,
                 });
             }
             "/unmute" | "/um" => {
@@ -618,7 +580,9 @@ impl ChatManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app_messages::{UserStats, UserStatsMode};
+    use crate::app_messages::{
+        MatchmakingDivision, MatchmakingType, StatsRace, UserStanding, UserStats, UserStatsResult,
+    };
     use crate::bw::players::{BwPlayerId, StormPlayerId};
 
     fn joined(name: &str, index: u8, user: u32) -> JoinedPlayer {
@@ -874,135 +838,58 @@ mod tests {
         assert!(manager.take_pending_notices().is_empty());
     }
 
-    fn rated(label: &str, division: &str, rating: u32) -> UserStatsMode {
-        UserStatsMode {
-            label: label.into(),
-            division: Some(division.into()),
-            rating: Some(rating),
-        }
-    }
-
-    fn unrated(label: &str) -> UserStatsMode {
-        UserStatsMode {
-            label: label.into(),
-            division: None,
-            rating: None,
-        }
-    }
-
     #[test]
-    fn user_stats_show_record_best_mode_and_current_mode() {
-        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
-            name: "tec27".into(),
-            race: Some("Protoss".into()),
-            wins: 120,
-            losses: 80,
-            best_mode: Some(rated("1v1", "Gold 2", 1820)),
-            current_mode: Some(rated("2v2", "Silver 1", 1550)),
-        }));
-        assert_eq!(
-            lines,
-            [
-                "\x07tec27\x04: \x07120\x04W \x0780\x04L \x04(Main: \x07Protoss\x04)",
-                "\x04Best Mode: \x071v1 \x07Gold 2 \x04(\x071820\x04)",
-                "\x042v2: \x07Silver 1 \x04(\x071550\x04)",
-            ],
-        );
-    }
-
-    #[test]
-    fn user_stats_outside_matchmaking_leave_out_the_current_mode() {
-        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
-            name: "tec27".into(),
-            race: Some("Zerg".into()),
-            wins: 3,
-            losses: 1,
-            best_mode: Some(rated("1v1", "Gold 2", 1820)),
-            current_mode: None,
-        }));
-        assert_eq!(
-            lines,
-            [
-                "\x07tec27\x04: \x073\x04W \x071\x04L \x04(Main: \x07Zerg\x04)",
-                "\x04Best Mode: \x071v1 \x07Gold 2 \x04(\x071820\x04)",
-            ],
-        );
-    }
-
-    #[test]
-    fn user_stats_without_games_or_ranks() {
-        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
-            name: "newbie".into(),
-            race: None,
-            wins: 0,
-            losses: 0,
-            best_mode: None,
-            current_mode: Some(unrated("1v1")),
-        }));
-        assert_eq!(
-            lines,
-            [
-                "\x07newbie\x04: \x070\x04W \x070\x04L",
-                "\x04Best Mode: Unranked",
-                "\x041v1: Unranked",
-            ],
-        );
-    }
-
-    #[test]
-    fn user_stats_failures_name_who_was_asked_for() {
-        assert_eq!(
-            user_stats_lines(&UserStatsResult::NotFound {
-                name: "nobody".into()
-            }),
-            ["\x06No user named \x07nobody"],
-        );
-        assert_eq!(
-            user_stats_lines(&UserStatsResult::Error {
-                name: "tec27".into()
-            }),
-            ["\x06Couldn't load stats for \x07tec27"],
-        );
-        assert_eq!(
-            user_stats_lines(&UserStatsResult::Error {
-                name: String::new()
-            }),
-            ["\x06Couldn't load your stats"],
-        );
-    }
-
-    #[test]
-    fn user_stats_results_are_queued_as_notices() {
+    fn user_stats_answers_are_queued_for_the_overlay() {
         let mut manager = manager_with_players();
-        manager.user_stats_received(&UserStatsResult::NotFound {
-            name: "nobody".into(),
-        });
-        assert_eq!(manager.take_pending_notices().len(), 1);
+        let answer = UserStatsAnswer {
+            purpose: UserStatsPurpose::Command,
+            result: UserStatsResult::NotFound {
+                name: "nobody".into(),
+            },
+        };
+        manager.user_stats_received(answer);
+        assert_eq!(manager.take_user_stats().len(), 1);
+        assert!(manager.take_user_stats().is_empty());
+        assert!(manager.take_pending_notices().is_empty());
     }
 
     #[test]
-    fn user_stats_results_deserialize_from_the_app() {
-        let found: UserStatsResult = serde_json::from_str(
-            r#"{"kind":"found","name":"tec27","wins":1,"losses":2,
-                "bestMode":{"label":"1v1","division":"Gold 2","rating":1820},
-                "currentMode":{"label":"2v2"}}"#,
+    fn user_stats_answers_deserialize_from_the_app() {
+        let found: UserStatsAnswer = serde_json::from_str(
+            r#"{"purpose":"roster","result":{"kind":"found","name":"tec27","mainRace":"p",
+                "wins":1,"losses":2,
+                "best":{"matchmakingType":"1v1","division":"gold2","rating":1820},
+                "current":{"matchmakingType":"2v2"}}}"#,
         )
         .unwrap();
         assert_eq!(
             found,
-            UserStatsResult::Found(UserStats {
-                name: "tec27".into(),
-                race: None,
-                wins: 1,
-                losses: 2,
-                best_mode: Some(rated("1v1", "Gold 2", 1820)),
-                current_mode: Some(unrated("2v2")),
-            }),
+            UserStatsAnswer {
+                purpose: UserStatsPurpose::Roster,
+                result: UserStatsResult::Found(UserStats {
+                    name: "tec27".into(),
+                    main_race: Some(StatsRace::Protoss),
+                    wins: 1,
+                    losses: 2,
+                    best: Some(UserStanding {
+                        matchmaking_type: MatchmakingType::OneVOne,
+                        division: Some(MatchmakingDivision::Gold2),
+                        rating: Some(1820),
+                    }),
+                    current: Some(UserStanding {
+                        matchmaking_type: MatchmakingType::TwoVTwo,
+                        division: None,
+                        rating: None,
+                    }),
+                }),
+            },
         );
-        let not_found: UserStatsResult =
-            serde_json::from_str(r#"{"kind":"notFound","name":"nobody"}"#).unwrap();
+        let not_found: UserStatsAnswer = serde_json::from_str(
+            r#"{"purpose":"command","result":{"kind":"notFound","name":"nobody"}}"#,
+        )
+        .unwrap();
         assert_eq!(
-            not_found,
+            not_found.result,
             UserStatsResult::NotFound {
                 name: "nobody".into()
             },

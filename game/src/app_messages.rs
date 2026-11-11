@@ -487,15 +487,33 @@ pub enum BlockFailureReason {
     Error,
 }
 
-/// Asks the app for a user's stats, for the `/stats` in-game chat command. The app answers with a
-/// [`UserStatsResult`].
-#[derive(Serialize)]
-pub struct RequestUserStats {
-    /// The name the user typed, or `None` for the local user's own stats.
-    pub name: Option<String>,
+/// What the game wants a user's stats for.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UserStatsPurpose {
+    /// The card answering a `/stats` chat command.
+    Command,
+    /// A row of the roster of the other players in the game.
+    Roster,
 }
 
-/// The app's answer to a [`RequestUserStats`]. Labels arrive already localized by the app.
+/// Asks the app for a user's stats. The app answers with a [`UserStatsAnswer`] for the same
+/// purpose.
+#[derive(Serialize)]
+pub struct RequestUserStats {
+    /// The name asked about, or `None` for the local user's own stats.
+    pub name: Option<String>,
+    pub purpose: UserStatsPurpose,
+}
+
+/// The app's answer to a [`RequestUserStats`].
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+pub struct UserStatsAnswer {
+    pub purpose: UserStatsPurpose,
+    pub result: UserStatsResult,
+}
+
+/// A user's stats, or why there are none. The game labels them itself.
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum UserStatsResult {
@@ -515,25 +533,61 @@ pub enum UserStatsResult {
 pub struct UserStats {
     pub name: String,
     /// The user's main race over all their games, if they have one.
-    pub race: Option<String>,
+    pub main_race: Option<StatsRace>,
     pub wins: u32,
     pub losses: u32,
     /// The mode the user has their highest MMR in, if they're rated in any.
-    pub best_mode: Option<UserStatsMode>,
+    pub best: Option<UserStanding>,
     /// The user's standing in the mode of the game being played, if it's a matchmaking game.
-    pub current_mode: Option<UserStatsMode>,
+    pub current: Option<UserStanding>,
 }
 
-/// A user's standing in one matchmaking mode. `division` and `rating` are `None` if the user isn't
-/// rated in the mode.
-#[derive(Debug, PartialEq, Eq, Deserialize)]
-pub struct UserStatsMode {
-    /// The mode's name, e.g. "1v1".
-    pub label: String,
-    /// The user's division in the mode, e.g. "Gold 2".
-    pub division: Option<String>,
-    /// The user's MMR in the mode.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum StatsRace {
+    #[serde(rename = "z")]
+    Zerg,
+    #[serde(rename = "t")]
+    Terran,
+    #[serde(rename = "p")]
+    Protoss,
+    #[serde(rename = "r")]
+    Random,
+}
+
+/// A user's standing in one matchmaking mode. `rating` is `None` if the user isn't rated in it,
+/// and `division` also if the app couldn't work it out.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserStanding {
+    pub matchmaking_type: MatchmakingType,
+    pub division: Option<MatchmakingDivision>,
     pub rating: Option<u32>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum MatchmakingType {
+    #[serde(rename = "1v1")]
+    OneVOne,
+    #[serde(rename = "1v1fastest")]
+    OneVOneFastest,
+    #[serde(rename = "2v2")]
+    TwoVTwo,
+    #[serde(rename = "2v2bgh")]
+    TwoVTwoBgh,
+    #[serde(rename = "2v2hunters")]
+    TwoVTwoHunters,
+    #[serde(rename = "2v2fastest")]
+    TwoVTwoFastest,
+    #[serde(rename = "3v3bgh")]
+    ThreeVThreeBgh,
+    #[serde(rename = "3v3hunters")]
+    ThreeVThreeHunters,
+    #[serde(rename = "3v3fastest")]
+    ThreeVThreeFastest,
+    /// A mode added on the server after this build, which still has to deserialize so the rest
+    /// of the stats show.
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Deserialize)]
