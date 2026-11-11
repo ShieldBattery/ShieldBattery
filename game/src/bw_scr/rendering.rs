@@ -1,6 +1,6 @@
 //! Renderer, shader, and overlay hooks.
 
-use std::ffi::c_void;
+use std::ffi::{CString, c_void};
 use std::ptr::{NonNull, null, null_mut};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
@@ -13,10 +13,57 @@ use crate::netcode_v2;
 
 use super::{
     BwScr, SHADER_ID_MASK, draw_inject, draw_overlay, fog_style, is_minimap_mask_draw, load_pump,
-    replay_save, save_observer_panels, scr,
+    replay_save, save_observer_panels, scr, terrain_color,
 };
 
 impl BwScr {
+    /// Reads the bottom rows of the scenario's terrain as it is loaded, before simulation
+    /// changes the map. The game's classic palette provides a color for each base tile in
+    /// either graphics mode without sampling a frame or any of its sprites.
+    pub(super) unsafe fn load_bottom_edge_colors(&self) {
+        if self.bottom_overpan.is_none() || !self.is_replay_or_obs() || game_thread::is_ums() {
+            return;
+        }
+        let colors = unsafe { self.read_bottom_edge_colors() };
+        if colors.is_none() {
+            warn_once!("Could not load bottom edge terrain colors");
+        }
+        if let Some(mut state) = self.render_state.lock() {
+            state.render.set_bottom_edge_colors(colors);
+        }
+    }
+
+    unsafe fn read_bottom_edge_colors(&self) -> Option<Vec<[u8; 4]>> {
+        const TILESET_FILES: [&str; 8] = [
+            "badlands", "platform", "install", "AshWorld", "Jungle", "Desert", "Ice", "Twilight",
+        ];
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return None;
+            }
+            let width = usize::from((*game).map_width_tiles);
+            let height = usize::from((*game).map_height_tiles);
+            if !(1..=256).contains(&width) || !(1..=256).contains(&height) {
+                return None;
+            }
+            let name = TILESET_FILES.get(usize::from((*game).tileset))?;
+            let tiles = NonNull::new(self.tileset_indexed_map_tiles.as_ref()?.resolve())?;
+            let rows = terrain_color::EDGE_ROWS.min(height);
+            let start = tiles.as_ptr().add((height - rows) * width);
+            let tiles = std::slice::from_raw_parts(start, rows * width).to_vec();
+            let read_tileset = |extension| {
+                let path = CString::new(format!("Tileset\\{name}.{extension}")).ok()?;
+                self.read_game_file(&path)
+            };
+            let cv5 = read_tileset("cv5")?;
+            let vx4ex = read_tileset("vx4ex")?;
+            let vr4 = read_tileset("vr4")?;
+            let wpe = read_tileset("wpe")?;
+            terrain_color::edge_colors(&tiles, width, &cv5, &vx4ex, &vr4, &wpe)
+        }
+    }
+
     pub(super) unsafe fn rendering_patches(
         &'static self,
         exe: &mut whack::ModulePatcher<'_>,
@@ -675,7 +722,8 @@ impl BwScr {
                         };
 
                     // Leave unexplored area in UMS maps black
-                    let use_new_mask = if crate::game_thread::is_ums()
+                    let is_ums = game_thread::is_ums();
+                    let use_new_mask = if is_ums
                         || self.starting_fog.load(Ordering::Relaxed) != StartingFog::Transparent
                     {
                         0.0
@@ -683,11 +731,8 @@ impl BwScr {
                         1.0
                     };
                     // BW's fog curve caps unexplored darkness at 218/255 for observers/replays.
-                    let unexplored_mask = if self.is_replay_or_obs() {
-                        218.0 / 255.0
-                    } else {
-                        1.0
-                    };
+                    let is_replay_or_obs = self.is_replay_or_obs();
+                    let unexplored_mask = if is_replay_or_obs { 218.0 / 255.0 } else { 1.0 };
                     // Where each mask texture sits on the map, in map pixels: the minimap's
                     // covers the whole map, the main view's the game screen.
                     let screen_origin = [
@@ -704,7 +749,19 @@ impl BwScr {
                     ];
                     let fog_style = fog_style::fog_style();
                     let tileset = (*self.game()).tileset;
+                    let bottom_edge = if is_replay_or_obs
+                        && !is_ums
+                        && map_span[1] > 0.0
+                        && screen_origin[1] + screen_span[1] > map_span[1]
+                    {
+                        self.render_state
+                            .lock()
+                            .and_then(|mut state| state.render.bottom_edge_texture(renderer))
+                    } else {
+                        None
+                    };
                     let vertex_buffer = self.vertex_buffer.resolve();
+                    let mut edge_bindings = smallvec::SmallVec::<[(*mut usize, usize); 2]>::new();
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
                         if (*cmd).shader_id == SHADER_ID_MASK {
@@ -721,6 +778,12 @@ impl BwScr {
                             c[4..6].copy_from_slice(&origin);
                             c[6..8].copy_from_slice(&span);
                             c[17..19].copy_from_slice(&map_span);
+                            c[19] = 0.0;
+                            if !is_minimap && let Some(texture) = bottom_edge {
+                                c[19] = 1.0;
+                                let slot = &raw mut (*cmd).texture_ids[1];
+                                edge_bindings.push((slot, slot.replace(texture)));
+                            }
                             fog_style.write_shader_constants(c, is_minimap, tileset);
                         }
                     }
@@ -728,6 +791,11 @@ impl BwScr {
                         let _timing = crate::frame_timing::render();
                         orig(renderer, commands, width, height)
                     };
+                    // The strip belongs to ShieldBattery's renderer state, which replaces it
+                    // when the scenario reloads. Keep its binding within this renderer call.
+                    for (slot, previous) in edge_bindings {
+                        slot.write(previous);
+                    }
                     #[cfg(debug_assertions)]
                     crate::input_latency_probe::on_rendered();
                     if let Some(mut render_state) = self.render_state.lock() {

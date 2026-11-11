@@ -712,6 +712,9 @@ impl BwScr {
             exe.hook_closure_address(
                 InitGameData,
                 move |orig| {
+                    if let Some(mut state) = self.render_state.lock() {
+                        state.render.set_bottom_edge_colors(None);
+                    }
                     let ok = log_time("init_game_data", || {
                         load_pump::run(Load::GameData, || orig())
                     });
@@ -723,6 +726,7 @@ impl BwScr {
                         (*anti_troll.resolve()).active = 0;
                     }
                     self.restore_observer_id_mappings();
+                    log_time("load_bottom_edge_colors", || self.load_bottom_edge_colors());
                     game_thread::after_init_game_data();
                     // Not in replays: they show no loading screen to hold up, and a replay seek
                     // re-runs init mid-replay. Their first steps wait on no other player either.
