@@ -3275,7 +3275,6 @@
         "alwaysStartSd": "Всегда запускать игры с SD-графикой",
         "alwaysStartSdNote": "Игры запускаются с SD-графикой, даже если HD-графика включена. Переключиться на HD можно прямо в игре.",
         "brightness": "Яркость",
-        "brightnessFullscreenOnly": "Доступно только в полноэкранном режиме",
         "customFpsLimit": "Пользовательский лимит FPS",
         "displayMode": {
           "fullscreen": "Полноэкранный",
