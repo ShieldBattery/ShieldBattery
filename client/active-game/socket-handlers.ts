@@ -241,10 +241,12 @@ export default function ({
         }),
       )
     })
-    .on('activeGameRequestUserStats', (_, gameId, name, matchmakingType) => {
+    .on('activeGameRequestUserStats', (_, gameId, name, purpose, matchmakingType) => {
       dispatch(
-        lookUpGameUserStats(name, matchmakingType, i18n.t, result => {
-          ipcRenderer.invoke('activeGameUserStats', gameId, result)?.catch(swallowNonBuiltins)
+        lookUpGameUserStats(name, matchmakingType, result => {
+          ipcRenderer
+            .invoke('activeGameUserStats', gameId, purpose, result)
+            ?.catch(swallowNonBuiltins)
         }),
       )
     })

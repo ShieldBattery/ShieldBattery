@@ -1,10 +1,9 @@
-import { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   getDivisionContext,
   makeSeasonId,
-  matchmakingDivisionToLabel,
+  MatchmakingDivision,
   MatchmakingSeasonJson,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
@@ -13,9 +12,6 @@ import { RaceStats } from '../../common/races'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { toGameUserStats } from './game-user-stats'
-
-const t = ((key: string, options?: string | { defaultValue?: string }) =>
-  typeof options === 'string' ? options : (options?.defaultValue ?? key)) as unknown as TFunction
 
 const USER_ID = makeSbUserId(1)
 
@@ -77,11 +73,8 @@ function makeProfile(
   }
 }
 
-function divisionLabel(player: LadderPlayer): string {
-  return matchmakingDivisionToLabel(
-    ladderPlayerToMatchmakingDivision(player, getDivisionContext(new Date(), SEASON)),
-    t,
-  )
+function divisionOf(player: LadderPlayer): MatchmakingDivision {
+  return ladderPlayerToMatchmakingDivision(player, getDivisionContext(new Date(), SEASON))
 }
 
 describe('client/active-game/game-user-stats toGameUserStats', () => {
@@ -99,53 +92,51 @@ describe('client/active-game/game-user-stats toGameUserStats', () => {
   const profile = makeProfile(ladder, { pWins: 40, pLosses: 20, zWins: 5, zLosses: 5 })
 
   test('totals the record and picks the highest-rated mode as the best', () => {
-    expect(toGameUserStats('tec27', profile, SEASON, undefined, t)).toEqual({
+    expect(toGameUserStats('tec27', profile, SEASON, undefined)).toEqual({
       kind: 'found',
       name: 'tec27',
-      race: 'Protoss',
+      mainRace: 'p',
       wins: 45,
       losses: 25,
-      bestMode: {
-        label: '2v2',
-        division: divisionLabel(ladder[MatchmakingType.Match2v2]),
+      best: {
+        matchmakingType: MatchmakingType.Match2v2,
+        division: divisionOf(ladder[MatchmakingType.Match2v2]),
         rating: 1821,
       },
-      currentMode: undefined,
+      current: undefined,
     })
   })
 
   test("includes the standing in the game's mode", () => {
-    expect(
-      toGameUserStats('tec27', profile, SEASON, MatchmakingType.Match1v1, t).currentMode,
-    ).toEqual({
-      label: '1v1',
-      division: divisionLabel(ladder[MatchmakingType.Match1v1]),
+    expect(toGameUserStats('tec27', profile, SEASON, MatchmakingType.Match1v1).current).toEqual({
+      matchmakingType: MatchmakingType.Match1v1,
+      division: divisionOf(ladder[MatchmakingType.Match1v1]),
       rating: 1640,
     })
   })
 
   test("a game's mode the user isn't rated in has no standing", () => {
-    expect(
-      toGameUserStats('tec27', profile, SEASON, MatchmakingType.Match2v2Bgh, t).currentMode,
-    ).toEqual({ label: '2v2 BGH' })
-  })
-
-  test('a user rated in no mode has no best mode', () => {
-    expect(toGameUserStats('newbie', makeProfile({}, {}), SEASON, undefined, t)).toEqual({
-      kind: 'found',
-      name: 'newbie',
-      race: undefined,
-      wins: 0,
-      losses: 0,
-      bestMode: undefined,
-      currentMode: undefined,
+    expect(toGameUserStats('tec27', profile, SEASON, MatchmakingType.Match2v2Bgh).current).toEqual({
+      matchmakingType: MatchmakingType.Match2v2Bgh,
     })
   })
 
-  test('without a known season, divisions are labeled unknown', () => {
-    expect(toGameUserStats('tec27', profile, undefined, undefined, t).bestMode).toEqual({
-      label: '2v2',
-      division: 'Division unknown',
+  test('a user rated in no mode has no best mode', () => {
+    expect(toGameUserStats('newbie', makeProfile({}, {}), SEASON, undefined)).toEqual({
+      kind: 'found',
+      name: 'newbie',
+      mainRace: undefined,
+      wins: 0,
+      losses: 0,
+      best: undefined,
+      current: undefined,
+    })
+  })
+
+  test('without a known season, divisions are left out', () => {
+    expect(toGameUserStats('tec27', profile, undefined, undefined).best).toEqual({
+      matchmakingType: MatchmakingType.Match2v2,
+      division: undefined,
       rating: 1821,
     })
   })

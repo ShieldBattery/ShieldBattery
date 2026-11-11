@@ -28,6 +28,7 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import {
   GameBlockRequestFailure,
+  GameUserStatsPurpose,
   GameUserStatsResult,
   InGameReportRequest,
   InGameReportResult,
@@ -201,6 +202,7 @@ export type ActiveGameManagerEvents = {
   requestUserStats: [
     gameId: string,
     name: string | undefined,
+    purpose: GameUserStatsPurpose,
     matchmakingType: MatchmakingType | undefined,
   ]
 }
@@ -1045,20 +1047,26 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'blockRequestFailed', failure)
   }
 
-  handleRequestUserStats(gameId: string, name: string | undefined) {
+  handleRequestUserStats(gameId: string, name: string | undefined, purpose: GameUserStatsPurpose) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    this.emit('requestUserStats', gameId, name, this.activeGame.config?.setup.matchmakingType)
+    this.emit(
+      'requestUserStats',
+      gameId,
+      name,
+      purpose,
+      this.activeGame.config?.setup.matchmakingType,
+    )
   }
 
-  userStatsResult(gameId: string, result: GameUserStatsResult) {
+  userStatsResult(gameId: string, purpose: GameUserStatsPurpose, result: GameUserStatsResult) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    this.emit('gameCommand', gameId, 'userStats', result)
+    this.emit('gameCommand', gameId, 'userStats', { purpose, result })
   }
 
   handleReplaySaved(gameId: string, path: string) {

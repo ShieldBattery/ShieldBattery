@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages::{
     BlockRequestFailed, GAME_STATUS_ERROR, GameResults, GameSetupInfo, GameType, MapForce, MapInfo,
     NetcodeV2Setup, NetworkStallInfo, NetworkStatus, NetworkTransport, PlayerInfo, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace, UserStatsResult,
+    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace, UserStatsAnswer,
 };
 use crate::app_socket;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -114,7 +114,7 @@ pub enum GameStateMessage {
     BlockRequestFailed(BlockRequestFailed),
     ReportResult(crate::app_messages::ReportResult),
     /// The app's answer to a `/stats` in-game chat command.
-    UserStats(UserStatsResult),
+    UserStats(UserStatsAnswer),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     /// The fully-known joined-player set, built directly from the session roster + slot layout.
@@ -911,8 +911,8 @@ impl GameState {
             ReportResult(result) => {
                 get_bw().report_result(&result);
             }
-            UserStats(result) => {
-                get_bw().user_stats_received(&result);
+            UserStats(answer) => {
+                get_bw().user_stats_received(answer);
             }
             SetNetcodeV2Setup(setup) => {
                 // SECURITY: `setup` holds the per-session private key; never log its contents.

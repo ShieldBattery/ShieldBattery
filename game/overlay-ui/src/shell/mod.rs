@@ -47,6 +47,7 @@ use crate::observer::{self, ObserverView};
 use crate::options::{OptionsLists, OptionsSection, OptionsView, SettingChange};
 use crate::playback_controls::{PlaybackControlsPlacement, PlaybackView, render_playback_controls};
 use crate::setting_toast::SettingToast;
+use crate::stats_card::{RosterView, StatsCard, StatsCardContent, draw_roster};
 
 pub use capture::{InputCapture, KeyboardCapture, PointerCapture};
 pub use hotkeys::{Action, Chord, Hotkeys};
@@ -315,6 +316,12 @@ pub struct Shell {
     alliances_draft: AlliancesDraft,
     /// The notice of a setting the game changed on its own keys, while one is on screen.
     setting_toast: Option<SettingToast>,
+    /// The answer to the player's last `/stats` command, while it is on screen.
+    stats_card: Option<StatsCard>,
+    /// Every other player's stats, as far as the host has them.
+    roster: Option<RosterView>,
+    /// Whether the key that holds up the roster is down.
+    roster_held: bool,
     /// A spectator hotkey activated a control between frames.
     hotkey_activation: bool,
     intents: Vec<Intent>,
@@ -343,6 +350,9 @@ impl Shell {
             alliances_menu: None,
             alliances_draft: AlliancesDraft::default(),
             setting_toast: None,
+            stats_card: None,
+            roster: None,
+            roster_held: false,
             hotkey_activation: false,
             intents: Vec::new(),
         }
@@ -404,6 +414,29 @@ impl Shell {
         if let Some(toast) = SettingToast::for_change(change) {
             self.setting_toast = Some(toast);
         }
+    }
+
+    /// Shows the answer to a `/stats` command the player typed. A card already on screen gives way
+    /// to the new one, which holds for its full time again.
+    pub fn show_stats_card(&mut self, content: StatsCardContent) {
+        self.stats_card = Some(StatsCard::new(content));
+    }
+
+    /// Hands over every other player's stats, for the roster to show while its key is held. The
+    /// host updates it as each player's stats come in.
+    pub fn set_roster(&mut self, roster: Option<RosterView>) {
+        self.roster = roster;
+    }
+
+    /// Holds the roster up, or lets it go, for a host that decides itself when it is held.
+    pub fn set_roster_held(&mut self, held: bool) {
+        self.roster_held = held;
+    }
+
+    /// Whether the roster's key is held down, which is when the host should have the roster's
+    /// stats on hand.
+    pub fn roster_held(&self) -> bool {
+        self.roster_held
     }
 
     pub fn set_options_section(&mut self, section: OptionsSection) {
@@ -569,6 +602,11 @@ impl Shell {
             }
             return false;
         }
+        // Taken whenever it would hold the roster up, so the game never also sees the key; the
+        // roster itself follows the key being down, which `update_held_keys` reads.
+        if hotkeys::is_roster_key(key, modifiers) && self.roster_key_active() {
+            return true;
+        }
         if !self.hotkeys_active() {
             return false;
         }
@@ -702,7 +740,19 @@ impl Shell {
             );
             self.apply_modal_outcome(id, outcome);
         }
-        // Over everything else, and taking nothing: it registers no hit rect.
+        // Over everything else, and taking nothing: none registers a hit rect. The roster and the
+        // card share the top-left corner, so the roster held up stands in for the card, whose time runs
+        // on underneath. The setting notice is drawn last, over both, since it answers a key
+        // pressed after either came up.
+        let roster_shown = self.roster.as_ref().is_some_and(|roster| {
+            draw_roster(ctx, roster, self.roster_held, self.host.minimap_rect)
+        });
+        if !roster_shown
+            && let Some(card) = &mut self.stats_card
+            && !card.draw(ctx, self.host.minimap_rect)
+        {
+            self.stats_card = None;
+        }
         if let Some(toast) = &mut self.setting_toast
             && !toast.draw(ctx, self.host.minimap_rect)
         {
@@ -822,6 +872,17 @@ impl Shell {
         {
             self.held_button_key = None;
         }
+        self.roster_held = self.roster_key_active() && is_down(hotkeys::ROSTER_KEY);
+    }
+
+    /// Whether the roster's key is the roster's: in a player's own game, while the keyboard is the
+    /// game's. In the chat box it types, and a watcher has the observer panels instead.
+    fn roster_key_active(&self) -> bool {
+        self.host.game_started
+            && self.host.mode == Mode::Playing
+            && !self.host.native_textbox_open
+            && !self.host.native_dialog_open
+            && !self.modals.captures_input()
     }
 
     /// Carries out what `key` does to the buttons of the modal on top, the keys their keycaps name

@@ -228,6 +228,16 @@ pub fn is_save_chord(key: Key, modifiers: Modifiers) -> bool {
     Chord::alt(Key::S).matches(key, modifiers)
 }
 
+/// The key a player holds to see the roster of the other players in the game: the key left of `1`,
+/// which SC:R leaves unbound in a player's game, and which sits under the hand already on the
+/// control group keys.
+pub const ROSTER_KEY: Key = Key::Backtick;
+
+/// Whether this keypress is the roster's key, pressed on its own.
+pub fn is_roster_key(key: Key, modifiers: Modifiers) -> bool {
+    Chord::new(ROSTER_KEY).matches(key, modifiers) && !modifiers.shift
+}
+
 /// Whether this keypress is one of SC:R's own menu keys, which the shell answers whatever has the
 /// keyboard: the game menu, quitting, options and saving.
 pub fn is_game_menu_key(key: Key, modifiers: Modifiers) -> bool {

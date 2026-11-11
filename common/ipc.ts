@@ -17,7 +17,8 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapDownloadOutcome, MapExtension } from './maps'
-import { MatchmakingType } from './matchmaking'
+import { MatchmakingDivision, MatchmakingType } from './matchmaking'
+import { RaceChar } from './races'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -127,32 +128,38 @@ export interface InGameReportResult {
 }
 
 /**
- * A user's standing in one matchmaking mode, for a {@link GameUserStatsResult}, with its labels
- * already localized. `division` and `rating` are unset if the user isn't rated in the mode.
+ * What the game wants a user's stats for: the card answering a `/stats` command, or a row of the
+ * roster of the other players in the game.
  */
-export interface GameUserStatsMode {
-  label: string
-  division?: string
+export type GameUserStatsPurpose = 'command' | 'roster'
+
+/**
+ * A user's standing in one matchmaking mode, for a {@link GameUserStatsResult}. `rating` is unset
+ * if the user isn't rated in the mode, and `division` also if it couldn't be worked out (no season).
+ */
+export interface GameUserStanding {
+  matchmakingType: MatchmakingType
+  division?: MatchmakingDivision
   /** The user's MMR in the mode, rounded. */
   rating?: number
 }
 
 /**
- * The answer to a `/stats` command typed in game, with labels already localized (the game shows
- * them as they are). `name` on a failure is the name that was asked for, empty for the local user.
+ * A user's stats as the game shows them, which it labels itself, in its own language. `name` on a
+ * failure is the name that was asked for, empty for the local user.
  */
 export type GameUserStatsResult =
   | {
       kind: 'found'
       name: string
       /** The user's main race over all their games, if they have one. */
-      race?: string
+      mainRace?: RaceChar
       wins: number
       losses: number
       /** The mode the user has their highest MMR in, if they're rated in any. */
-      bestMode?: GameUserStatsMode
+      best?: GameUserStanding
       /** The user's standing in the mode of the game being played, if it's a matchmaking game. */
-      currentMode?: GameUserStatsMode
+      current?: GameUserStanding
     }
   | { kind: 'notFound'; name: string }
   | { kind: 'error'; name: string }
@@ -170,10 +177,14 @@ interface IpcInvokeables {
    */
   activeGameReportResult: (gameId: string, result: InGameReportResult) => void
   /**
-   * Answers a `/stats` command the active game (if `gameId` is still the active game) asked about
-   * via `activeGameRequestUserStats`.
+   * Answers a request for a user's stats the active game (if `gameId` is still the active game)
+   * made via `activeGameRequestUserStats`, for the `purpose` it gave.
    */
-  activeGameUserStats: (gameId: string, result: GameUserStatsResult) => void
+  activeGameUserStats: (
+    gameId: string,
+    purpose: GameUserStatsPurpose,
+    result: GameUserStatsResult,
+  ) => void
   /**
    * Clears the current game config (e.g. cancels a game launch) provided the current game is
    * `gameId`.
@@ -583,13 +594,14 @@ interface IpcMainSendables {
    */
   activeGameReportPlayer: (gameId: string, request: InGameReportRequest) => void
   /**
-   * The local user typed `/stats` in game, naming `name` (or nobody, for their own stats).
-   * `matchmakingType` is the game's mode if it's a matchmaking game. The renderer looks the user up
-   * and answers with `activeGameUserStats`.
+   * The active game wants the stats of the user named `name` (or the local user's own, for no
+   * name), for `purpose`. `matchmakingType` is the game's mode if it's a matchmaking game. The
+   * renderer looks the user up and answers with `activeGameUserStats`.
    */
   activeGameRequestUserStats: (
     gameId: string,
     name: string | undefined,
+    purpose: GameUserStatsPurpose,
     matchmakingType: MatchmakingType | undefined,
   ) => void
   activeGameStatus: (status: ReportedGameStatus) => void

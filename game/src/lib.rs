@@ -541,10 +541,10 @@ async fn handle_messages_from_game_thread(
                             let _ = ws_send.send(msg).await;
                         }
                     }
-                    GameThreadMessage::RequestUserStats { name } => {
+                    GameThreadMessage::RequestUserStats { name, purpose } => {
                         let msg = app_socket::encode_message(
                             "/game/requestUserStats",
-                            RequestUserStats { name },
+                            RequestUserStats { name, purpose },
                         );
                         if let Some(msg) = msg {
                             let _ = ws_send.send(msg).await;
