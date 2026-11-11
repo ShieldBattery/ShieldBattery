@@ -1,7 +1,7 @@
 //! Listing map files. Any player can publish a file they hold (list it in the catalog) and take it
 //! out again; staff can delist any file, which keeps players from listing it again, and relist it.
-//! A file's publisher can also link it to a map the server suggests it's a version of, or unlink it
-//! into a map of its own.
+//! A file's publisher can also link it to a map the server suggests it's a version of (or to a map
+//! they own), or unlink it into a map of its own; a map's owner can unlink any file from it.
 //!
 //! Like the edits in [`edit`], every change takes the families lock before touching anything,
 //! recomputes the current file of the families it touched before its transaction commits, and
@@ -19,6 +19,7 @@ use crate::maps::families::edit::{
     MapFamilyReportStatus, MapPublishReviewAnswer, MoveBy, ReportRequest,
 };
 use crate::maps::families::history::{self, HistoryDetails, HistoryEntry, MapFamilyHistoryKind};
+use crate::maps::families::owners;
 use crate::maps::families::{lock_families, refresh_families, resolve_family_id};
 use crate::maps::parse::filter_color_codes;
 use crate::maps::similarity::{PublishSuggestion, publish_suggestions};
@@ -105,6 +106,13 @@ pub enum PublishError {
     Official,
     #[error("only the file's publisher can do that")]
     NotPublisher,
+    #[error("only the file's publisher or its map's owner can do that")]
+    NotPublisherOrOwner,
+    #[error(
+        "this file's map has an owner or a credit, so the file can't be moved into another map; \
+         ask staff"
+    )]
+    ProtectedMap,
     #[error("the file already shares its map with other files")]
     NotAlone,
     #[error("the file is already the only file of its map")]
@@ -151,6 +159,20 @@ struct PublishFile {
     delisted_kind: Option<String>,
     /// How many files the file's family holds, including the file itself.
     family_size: i64,
+    /// The owner of the file's family, if it has one.
+    family_owner_id: Option<SbUserId>,
+    /// Whether staff credited the file's family to a maker.
+    family_has_credit: bool,
+}
+
+impl PublishFile {
+    /// Whether `user` moving the file into another map would merge its own map away (it's the
+    /// map's only file) while that map has a credit or an owner other than `user`. Only staff may
+    /// drop those; an owner may give up their own map this way.
+    fn move_erases_protected_map(&self, user: SbUserId) -> bool {
+        self.family_size == 1
+            && (self.family_has_credit || self.family_owner_id.is_some_and(|owner| owner != user))
+    }
 }
 
 async fn load_file(conn: &mut PgConnection, file_id: SbMapId) -> Result<PublishFile, PublishError> {
@@ -160,8 +182,11 @@ async fn load_file(conn: &mut PgConnection, file_id: SbMapId) -> Result<PublishF
             SELECT m.family_id, m.listed as "listed!", m.official, m.name as "name!",
                 COALESCE(m.public_description, m.description) as "description!",
                 m.published_by as "published_by: SbUserId", m.delisted_kind,
-                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as "family_size!"
+                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as "family_size!",
+                f.owner_id as "family_owner_id: SbUserId",
+                f.credit IS NOT NULL as "family_has_credit!"
             FROM maps m
+            INNER JOIN map_families f ON f.id = m.family_id
             WHERE m.id = $1
         "#,
         file_id as _,
@@ -301,7 +326,9 @@ pub struct PublishPreview {
     pub blocked: Option<PublishBlock>,
     /// The file's family, when it already holds other files: the file is listed with it.
     pub existing_family: Option<Uuid>,
-    /// The maps the file may be a version of. Empty when `existing_family` is set.
+    /// The maps the file may be a version of. Empty when `existing_family` is set, and when the
+    /// file's own map has a credit or an owner other than the user, which joining another map
+    /// would merge away.
     pub suggestions: Vec<PublishSuggestion>,
     /// Whether publishing will hold the file for staff instead of listing it.
     pub needs_review: bool,
@@ -330,9 +357,10 @@ pub async fn preview(
         false => Some(load_publisher(&mut conn, user, file_id).await?),
     };
     let existing_family = (file.family_size > 1).then_some(file.family_id);
-    let suggestions = match existing_family {
-        Some(_) => Vec::new(),
-        None => publish_suggestions(&mut conn, file_id).await?,
+    let suggestions = if existing_family.is_some() || file.move_erases_protected_map(user) {
+        Vec::new()
+    } else {
+        publish_suggestions(&mut conn, file_id).await?
     };
     drop(conn);
     let needs_review = !staff && hits_restricted_names(names, &file).await?;
@@ -368,7 +396,7 @@ impl PublishAnswer {
 }
 
 /// What publishing a file did.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishOutcome {
     /// The family the file is in now.
     pub family_id: Uuid,
@@ -376,13 +404,16 @@ pub struct PublishOutcome {
     pub held_for_review: bool,
     /// The report filed for staff, if publishing filed one.
     pub report_id: Option<Uuid>,
+    /// The move into the map the publisher joined the file to, if they did.
+    pub moved: Option<FileMove>,
 }
 
 /// Publishes `file_id` as `user`, who is staff if `staff`. A file that's already listed is left as
 /// it is. Otherwise the file is listed and `answer` applied, unless its name or description hits
 /// the restricted names list (checked for everyone but staff): then it's held for staff, who list
 /// it or dismiss it. The publish review keeps `answer`, which is applied if staff list the file
-/// (see [`approve_review`]).
+/// (see [`approve_review`]). A `Join` answer may name a suggested map or one `user` owns; an
+/// `Unsure` answer only a suggested map.
 pub async fn publish(
     db: &PgPool,
     names: &NameChecker,
@@ -410,6 +441,7 @@ pub async fn publish(
             family_id: file.family_id,
             held_for_review: false,
             report_id: None,
+            moved: None,
         });
     }
     if !staff {
@@ -422,9 +454,16 @@ pub async fn publish(
         if file.family_size > 1 {
             return Err(PublishError::HasExistingMap);
         }
-        let suggestions = publish_suggestions(&mut tx, file_id).await?;
-        if !suggestions.iter().any(|s| s.family_id == family_id) {
-            return Err(PublishError::NotSuggested);
+        if matches!(answer, PublishAnswer::Join(_)) && file.move_erases_protected_map(user) {
+            return Err(PublishError::ProtectedMap);
+        }
+        let owned = matches!(answer, PublishAnswer::Join(_))
+            && owners::owns(&mut tx, family_id, user).await?;
+        if !owned {
+            let suggestions = publish_suggestions(&mut tx, file_id).await?;
+            if !suggestions.iter().any(|s| s.family_id == family_id) {
+                return Err(PublishError::NotSuggested);
+            }
         }
     }
 
@@ -446,6 +485,7 @@ pub async fn publish(
             family_id: file.family_id,
             held_for_review: true,
             report_id: Some(report_id),
+            moved: None,
         });
     }
 
@@ -455,13 +495,16 @@ pub async fn publish(
             family_id: file.family_id,
             held_for_review: false,
             report_id: None,
+            moved: None,
         },
         PublishAnswer::Join(family_id) => {
-            edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
+            let moved =
+                edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
             PublishOutcome {
                 family_id,
                 held_for_review: false,
                 report_id: None,
+                moved: Some(moved),
             }
         }
         PublishAnswer::Unsure(family_id) => {
@@ -480,6 +523,7 @@ pub async fn publish(
                 family_id: file.family_id,
                 held_for_review: false,
                 report_id: Some(report_id),
+                moved: None,
             }
         }
     };
@@ -541,7 +585,9 @@ fn held_answer_target(
 /// be) a version of another map, the answer is applied as publishing would have, on the
 /// publisher's behalf: the file is moved into that map, or a `same_map` report is filed about it.
 /// The answer is skipped when that map no longer exists, when the file is already in it, or when
-/// the file no longer is the only file of its own map.
+/// the file no longer is the only file of its own map. A `Join` answer is also skipped when the
+/// file's own map has a credit or an owner other than the publisher, which moving the file would
+/// merge away.
 pub async fn approve_review(
     db: &PgPool,
     report_id: Uuid,
@@ -575,6 +621,7 @@ pub async fn approve_review(
     let listed_now = !file.listed;
     let mut family_id = file.family_id;
     let mut same_map_report_id = None;
+    let mut moved = None;
     if listed_now {
         let publisher = report.reported_by;
         list_file(&mut tx, file_id, file.family_id, publisher, actor).await?;
@@ -584,9 +631,12 @@ pub async fn approve_review(
             let target = resolve_family_id(&mut *tx, other_family_id).await?;
             if let Some(target) = held_answer_target(target, file.family_id, file.family_size) {
                 match MapPublishReviewAnswer::from_db(answer) {
+                    MapPublishReviewAnswer::Join if file.move_erases_protected_map(publisher) => {}
                     MapPublishReviewAnswer::Join => {
-                        edit::move_file(&mut tx, file_id, target, publisher, MoveBy::Publisher)
-                            .await?;
+                        moved = Some(
+                            edit::move_file(&mut tx, file_id, target, publisher, MoveBy::Publisher)
+                                .await?,
+                        );
                         family_id = target;
                     }
                     MapPublishReviewAnswer::Unsure => {
@@ -618,6 +668,7 @@ pub async fn approve_review(
         publisher: report.reported_by,
         listed_now,
         same_map_report_id,
+        moved,
     })
 }
 
@@ -635,6 +686,9 @@ pub struct ApprovedReview {
     pub listed_now: bool,
     /// The `same_map` report filed on the publisher's behalf, if approving filed one.
     pub same_map_report_id: Option<Uuid>,
+    /// The move into the map the publisher answered their file is a version of, if approving
+    /// applied that answer.
+    pub moved: Option<FileMove>,
 }
 
 /// A file as it was when it was delisted.
@@ -793,7 +847,9 @@ pub async fn relist(db: &PgPool, file_id: SbMapId, actor: SbUserId) -> Result<()
     Ok(())
 }
 
-/// The maps `file_id` may be a version of, for its publisher (or staff) to link it to.
+/// The maps `file_id` may be a version of, for its publisher (or staff) to link it to. None while
+/// linking it would merge away a map of its own that has a credit or an owner other than its
+/// publisher.
 pub async fn link_suggestions(
     db: &PgPool,
     file_id: SbMapId,
@@ -805,15 +861,20 @@ pub async fn link_suggestions(
     if !staff && file.published_by != Some(user) {
         return Err(PublishError::NotPublisher);
     }
+    // Only the publisher can link the file, so whether it's protected is up to them
+    if file.move_erases_protected_map(file.published_by.unwrap_or(user)) {
+        return Ok(Vec::new());
+    }
     Ok(publish_suggestions(&mut conn, file_id).await?)
 }
 
-/// Checks that `user` may link or unlink `file`: they aren't restricted from publishing, they
-/// published it, and it isn't official.
+/// Checks that `user` may link or unlink `file`: they aren't restricted from publishing, it isn't
+/// official, and they published it or (with `owner_may`) own its family.
 async fn check_publisher_move(
     tx: &mut Transaction<'_, Postgres>,
     file: &PublishFile,
     user: SbUserId,
+    owner_may: bool,
 ) -> Result<(), PublishError> {
     if is_publishing_restricted(tx, user).await? {
         return Err(PublishError::Blocked(PublishBlock::Restricted));
@@ -821,14 +882,22 @@ async fn check_publisher_move(
     if file.official {
         return Err(PublishError::Official);
     }
-    if file.published_by != Some(user) {
+    if file.published_by == Some(user) {
+        return Ok(());
+    }
+    if !owner_may {
         return Err(PublishError::NotPublisher);
     }
-    Ok(())
+    if file.family_owner_id == Some(user) {
+        Ok(())
+    } else {
+        Err(PublishError::NotPublisherOrOwner)
+    }
 }
 
-/// Moves a listed file, alone in its family, into one of the maps suggested for it, at its
-/// publisher's request.
+/// Moves a listed file, alone in its family, into one of the maps suggested for it or a map its
+/// publisher owns, at its publisher's request. Refused when the file's own map, which the move
+/// would merge away, has a credit or an owner other than the publisher.
 pub async fn link(
     db: &PgPool,
     file_id: SbMapId,
@@ -838,24 +907,29 @@ pub async fn link(
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
     let file = load_file(&mut tx, file_id).await?;
-    check_publisher_move(&mut tx, &file, user).await?;
+    check_publisher_move(&mut tx, &file, user, false).await?;
     if !file.listed {
         return Err(PublishError::NotListed);
     }
     if file.family_size > 1 {
         return Err(PublishError::NotAlone);
     }
-    let suggestions = publish_suggestions(&mut tx, file_id).await?;
-    if !suggestions.iter().any(|s| s.family_id == family_id) {
-        return Err(PublishError::NotSuggested);
+    if file.move_erases_protected_map(user) {
+        return Err(PublishError::ProtectedMap);
+    }
+    if !owners::owns(&mut tx, family_id, user).await? {
+        let suggestions = publish_suggestions(&mut tx, file_id).await?;
+        if !suggestions.iter().any(|s| s.family_id == family_id) {
+            return Err(PublishError::NotSuggested);
+        }
     }
     let moved = edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
     tx.commit().await.wrap_err("Failed to commit link")?;
     Ok(moved)
 }
 
-/// Moves a file out of a family holding other files into a new family of its own, at its
-/// publisher's request.
+/// Moves a file out of a family holding other files into a new family of its own, at the request
+/// of its publisher or its family's owner.
 pub async fn unlink(
     db: &PgPool,
     file_id: SbMapId,
@@ -864,7 +938,7 @@ pub async fn unlink(
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
     let file = load_file(&mut tx, file_id).await?;
-    check_publisher_move(&mut tx, &file, user).await?;
+    check_publisher_move(&mut tx, &file, user, true).await?;
     if file.family_size == 1 {
         return Err(PublishError::AlreadyAlone);
     }
@@ -887,6 +961,8 @@ mod tests {
             published_by: None,
             delisted_kind: None,
             family_size: 1,
+            family_owner_id: None,
+            family_has_credit: false,
         }
     }
 
@@ -1018,6 +1094,38 @@ mod tests {
         assert!(hits_restricted_names(&names, &profane).await.unwrap());
         let both = with("staffname", "badword");
         assert!(hits_restricted_names(&names, &both).await.unwrap());
+    }
+
+    #[test]
+    fn only_a_lone_file_of_a_map_with_someone_elses_owner_or_a_credit_is_protected() {
+        let me = SbUserId(1);
+        let alone = file("Map");
+        assert!(!alone.move_erases_protected_map(me));
+        let owned_by_me = PublishFile {
+            family_owner_id: Some(me),
+            ..file("Map")
+        };
+        assert!(!owned_by_me.move_erases_protected_map(me));
+        let owned_by_other = PublishFile {
+            family_owner_id: Some(SbUserId(2)),
+            ..file("Map")
+        };
+        assert!(owned_by_other.move_erases_protected_map(me));
+        let credited = PublishFile {
+            family_has_credit: true,
+            ..owned_by_me.clone()
+        };
+        assert!(credited.move_erases_protected_map(me));
+        let shared = PublishFile {
+            family_size: 2,
+            ..credited.clone()
+        };
+        assert!(!shared.move_erases_protected_map(me));
+        let shared = PublishFile {
+            family_size: 2,
+            ..owned_by_other
+        };
+        assert!(!shared.move_erases_protected_map(me));
     }
 
     #[test]

@@ -200,6 +200,82 @@ export type PublishedMapFamilyReportMessage =
     }
 
 /**
+ * Messages published to Node (via Redis pub/sub) about changes to who owns a map, for the users
+ * they concern. Node turns them into notifications. `name` is the map's name (its current file's
+ * name) when the change was made.
+ */
+export type PublishedMapOwnerMessage =
+  /**
+   * Staff granted a claim, making the claimant the map's owner. Not sent for claims granted at
+   * once, nor to staff granting their own claim.
+   */
+  | {
+      type: 'claimGranted'
+      data: {
+        claimId: string
+        familyId: string
+        claimantId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Staff rejected a claim. Not sent to staff rejecting their own claim. */
+  | {
+      type: 'claimRejected'
+      data: {
+        claimId: string
+        familyId: string
+        claimantId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Staff made a user the map's owner directly (or verified them as its owner). */
+  | {
+      type: 'ownerSet'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /**
+   * The owner lost the map through someone else's action: staff removed or replaced them, or
+   * the map was merged into another one (`familyId` is then an old id of that map). Not sent
+   * when the owner gave the map up or made the change themselves.
+   */
+  | {
+      type: 'ownershipRemoved'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Someone other than the owner moved a file into their map. */
+  | {
+      type: 'fileAdded'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        fileId: TypeshareTypes.SbMapId
+        fileName: string
+        name: string
+        actorId: TypeshareTypes.SbUserId
+      }
+    }
+  /** Someone other than the owner moved a file out of their map. */
+  | {
+      type: 'fileRemoved'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        fileId: TypeshareTypes.SbMapId
+        fileName: string
+        name: string
+        actorId: TypeshareTypes.SbUserId
+      }
+    }
+
+/**
  * Messages published to Node (via Redis pub/sub) about publishing outcomes that concern the
  * file's publisher. Node turns them into notifications.
  */
@@ -240,6 +316,7 @@ export type PublishedMessage =
   | { type: 'gameCommend'; data: PublishedGameCommendMessage }
   | { type: 'mapFamilyReport'; data: PublishedMapFamilyReportMessage }
   | { type: 'mapPublish'; data: PublishedMapPublishMessage }
+  | { type: 'mapOwner'; data: PublishedMapOwnerMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

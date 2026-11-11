@@ -100,10 +100,19 @@ export enum MapDelistedKind {
 
 /** A user's report about a map. */
 export type MapFamilyReportInput = {
-  /** The map that is the same as `otherFamilyId`. Required for `SAME_MAP`, ignored otherwise. */
+  /**
+   * The map that is the same as `otherFamilyId` (`SAME_MAP`), or whose owner didn't make it
+   * (`WRONG_OWNER`; the reporter can't be its owner). Required for those. For `WRONG_DEFAULT`
+   * and `INAPPROPRIATE`, optionally the map the reporter saw `mapId` in, which it must still be
+   * in. Ignored otherwise.
+   */
   familyId?: string | null | undefined
   kind: MapFamilyReportKind
-  /** The file that isn't part of its map. Required for `WRONG_MAP`, ignored otherwise. */
+  /**
+   * The file that isn't part of its map (`WRONG_MAP`), should be the default of its map, which
+   * has no owner (`WRONG_DEFAULT`; a listed file that isn't the current one), or is
+   * inappropriate (`INAPPROPRIATE`). Required for those, ignored otherwise.
+   */
   mapId?: Types.SbMapId | null | undefined
   note?: string | null | undefined
   /** The map that is the same as `familyId`. Required for `SAME_MAP`, ignored otherwise. */
@@ -112,6 +121,8 @@ export type MapFamilyReportInput = {
 
 /** What a user is telling staff about a map. */
 export enum MapFamilyReportKind {
+  /** A file's name, description or content is inappropriate. */
+  Inappropriate = 'INAPPROPRIATE',
   /**
    * A file's name or description hit the restricted names list when it was published, so it
    * waits for staff to list it or dismiss the report. Only filed by the server.
@@ -119,8 +130,12 @@ export enum MapFamilyReportKind {
   PublishReview = 'PUBLISH_REVIEW',
   /** A map is the same as another map. */
   SameMap = 'SAME_MAP',
+  /** A map with no owner should have another file as its default. */
+  WrongDefault = 'WRONG_DEFAULT',
   /** A file isn't part of the map it's in. */
   WrongMap = 'WRONG_MAP',
+  /** A map's owner didn't make it. */
+  WrongOwner = 'WRONG_OWNER',
 }
 
 /** How staff closed a family report. */
@@ -141,6 +156,8 @@ export type MapFilter = {
   minPlayers?: number | null | undefined
   /** Only official maps (`true`) or only maps that aren't official (`false`). */
   official?: boolean | null | undefined
+  /** Only maps (families) this user owns. */
+  owner?: Types.SbUserId | null | undefined
   /** Exact player counts to include. */
   players?: Array<number> | null | undefined
   /** Only maps published at or after this time. */
@@ -153,6 +170,11 @@ export type MapFilter = {
   sizes?: Array<MapSizeClass> | null | undefined
   /** Tileset ids to include. */
   tilesets?: Array<number> | null | undefined
+  /**
+   * Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+   * `false`, only the other maps.
+   */
+  verified?: boolean | null | undefined
 }
 
 /** Whether a map is played as a regular melee map or with its own Use Map Settings rules. */

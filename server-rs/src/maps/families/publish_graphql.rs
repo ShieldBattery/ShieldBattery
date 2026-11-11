@@ -16,6 +16,7 @@ use crate::maps::families::graphql::{
     MapFamily, MapFamilyFileMove, MapFamilyReport, PublishedMapFamilyReportMessage, edit_error,
     load_family, load_report, publish_report_message, resolve_existing_family_id,
 };
+use crate::maps::families::owners_graphql::notify_file_move;
 use crate::maps::families::publish::{
     self, PublishAnswer, PublishBlock, PublishError, PublishPreview,
 };
@@ -81,7 +82,7 @@ fn publish_error(error: PublishError) -> async_graphql::Error {
                 | PublishError::ReportNotFound => "NOT_FOUND",
                 PublishError::Blocked(block) => block.code(),
                 PublishError::NotSuggested => "NOT_SUGGESTED",
-                PublishError::NotPublisher => "FORBIDDEN",
+                PublishError::NotPublisher | PublishError::NotPublisherOrOwner => "FORBIDDEN",
                 _ => "BAD_REQUEST",
             };
             graphql_error(code, error.to_string())
@@ -176,7 +177,9 @@ impl MapPublishPreview {
         }
     }
 
-    /// The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set.
+    /// The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set,
+    /// and when the file's own map has a credit or an owner other than the current user: joining
+    /// another map would merge it away, which only staff may do.
     async fn suggestions(&self) -> Vec<MapPublishSuggestion> {
         suggestion_objects(self.file_id, self.preview.suggestions.clone())
     }
@@ -259,7 +262,9 @@ impl MapPublishingQuery {
     }
 
     /// The maps a file may be a version of, the likeliest first, which its publisher can link it
-    /// to. Only available to the file's publisher and users who can manage maps.
+    /// to. Empty when the file's own map has a credit or an owner other than its publisher: linking
+    /// would merge it away, which only staff may do. Only available to the file's publisher and
+    /// users who can manage maps.
     async fn map_link_suggestions(
         &self,
         ctx: &Context<'_>,
@@ -282,8 +287,10 @@ pub struct MapPublishingMutation;
 #[Object]
 impl MapPublishingMutation {
     /// Publishes a file from the current user's library: lists it in the catalog, in the map
-    /// `answer` says. A file that's already listed is left as it is. A file whose name or
-    /// description needs a look is held for staff instead (`heldForReview`), who list it or not.
+    /// `answer` says. `JOIN` takes one of the suggested maps or a map the current user owns, and is
+    /// refused when the file's own map has a credit or an owner other than the current user. A
+    /// file that's already listed is left as it is. A file whose name or description needs a look
+    /// is held for staff instead (`heldForReview`), who list it or not.
     async fn map_publish(
         &self,
         ctx: &Context<'_>,
@@ -317,6 +324,9 @@ impl MapPublishingMutation {
         )
         .await
         .map_err(publish_error)?;
+        if let Some(moved) = &outcome.moved {
+            notify_file_move(ctx, file_id, moved, user.id).await;
+        }
         if let Some(report_id) = outcome.report_id {
             publish_report_message(
                 ctx,
@@ -336,7 +346,9 @@ impl MapPublishingMutation {
     /// applied on the publisher's behalf: `JOIN` moves the file into `otherFamily`, `UNSURE` files a
     /// `SAME_MAP` report about the file's map and `otherFamily`. The answer is skipped when
     /// `otherFamily` no longer exists, already holds the file, or the file no longer is the only
-    /// file of its map. Only available to users who can manage maps.
+    /// file of its map; a `JOIN` answer is also skipped when the file's map has a credit or an
+    /// owner other than the publisher, which moving the file would merge away. Only available to
+    /// users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_publish_review_approve(
         &self,
@@ -348,6 +360,9 @@ impl MapPublishingMutation {
         let approved = publish::approve_review(db, report_id, user.id)
             .await
             .map_err(publish_error)?;
+        if let Some(moved) = &approved.moved {
+            notify_file_move(ctx, approved.file_id, moved, approved.publisher).await;
+        }
         if approved.listed_now && approved.publisher != user.id {
             publish_map_publish_message(
                 ctx,
@@ -441,8 +456,9 @@ impl MapPublishingMutation {
     }
 
     /// Moves a listed file the current user published, while it's the only file of its map, into
-    /// one of the maps suggested for it (see `mapLinkSuggestions`). Its old map is merged into
-    /// that map.
+    /// one of the maps suggested for it (see `mapLinkSuggestions`) or a map the current user owns.
+    /// Its old map is merged into that map, so this is refused when that map has a credit or an
+    /// owner other than the current user.
     async fn map_file_link(
         &self,
         ctx: &Context<'_>,
@@ -456,11 +472,12 @@ impl MapPublishingMutation {
         let moved = publish::link(db, file_id, family_id, user.id)
             .await
             .map_err(publish_error)?;
+        notify_file_move(ctx, file_id, &moved, user.id).await;
         Ok(MapFamilyFileMove { file_id, moved })
     }
 
-    /// Moves a file the current user published out of a map holding other files, into a new map
-    /// of its own.
+    /// Moves a file out of a map holding other files, into a new map of its own. Only available to
+    /// the file's publisher and the map's owner (while they aren't restricted from publishing).
     async fn map_file_unlink(
         &self,
         ctx: &Context<'_>,
@@ -472,6 +489,7 @@ impl MapPublishingMutation {
         let moved = publish::unlink(db, file_id, user.id)
             .await
             .map_err(publish_error)?;
+        notify_file_move(ctx, file_id, &moved, user.id).await;
         Ok(MapFamilyFileMove { file_id, moved })
     }
 }

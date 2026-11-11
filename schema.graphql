@@ -702,19 +702,42 @@ type MapFamily {
 	"""
 	listed: Boolean!
 	"""
-	The file players get when they pick this map: staff's pick while it's eligible, otherwise
-	the most played (listed files before unlisted ones), then the newest. A listed map's
-	current file is always listed.
+	The file players get when they pick this map: the picked default while it's eligible,
+	otherwise the most played (listed files before unlisted ones), then the newest. A listed
+	map's current file is always listed.
 	"""
 	current: SbMap!
 	"""
-	The file staff picked as the map's default, even while it isn't eligible (it's unlisted
-	while another file is listed). Null when the default is derived, or when the viewer can't
-	see the picked file (see `files`).
+	The map's owner: its original maker, who picks its default file. Null when nobody owns it.
+	"""
+	owner: SbUser
+	"""
+	How the owner became the owner: by claiming a map whose every listed file they published,
+	or by staff granting it (shown as verified). Null when nobody owns the map.
+	"""
+	ownerKind: MapOwnerKind
+	"""
+	When the owner became the owner, or was last verified by staff. Null when nobody owns the
+	map.
+	"""
+	ownerSetAt: DateTime
+	"""
+	The user who made the owner the owner: the owner themselves for a claim, otherwise staff.
+	Only available to users who can manage maps.
+	"""
+	ownerSetBy: SbUser
+	"""
+	The maker's name staff credited the map to, for a maker who has no account.
+	"""
+	credit: String
+	"""
+	The file staff or the map's owner picked as its default, even while it isn't eligible (it's
+	unlisted while another file is listed). Null when the default is derived, or when the viewer
+	can't see the picked file (see `files`).
 	"""
 	defaultMap: SbMap
 	"""
-	When staff picked the default. Null when the default is derived.
+	When the default was picked. Null when the default is derived.
 	"""
 	defaultSetAt: DateTime
 	"""
@@ -828,6 +851,40 @@ type MapFamilyHistory {
 	The note staff left when delisting the file. Only for `DELIST`.
 	"""
 	note: String
+	"""
+	The map's owner before the change. Only for `SET_OWNER` and `REMOVE_OWNER`.
+	"""
+	ownerBefore: SbUser
+	"""
+	The map's owner after the change. Only for `SET_OWNER`.
+	"""
+	ownerAfter: SbUser
+	"""
+	How the owner after the change became the owner. Only for `SET_OWNER`.
+	"""
+	ownerKindAfter: MapOwnerKind
+	"""
+	The claim that made the owner the owner, when a claim did. Only for `SET_OWNER`.
+	"""
+	claimId: UUID
+	"""
+	The maker's name the map was credited to before the change. Only for `SET_CREDIT`.
+	"""
+	creditBefore: String
+	"""
+	The maker's name the map is credited to after the change. Only for `SET_CREDIT`.
+	"""
+	creditAfter: String
+	"""
+	The owner of the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away (`otherFamilyId`),
+	who lost it with the map.
+	"""
+	retiredOwner: SbUser
+	"""
+	The maker's name the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away
+	(`otherFamilyId`) was credited to, lost with it.
+	"""
+	retiredCredit: String
 	createdAt: DateTime!
 }
 
@@ -848,11 +905,11 @@ enum MapFamilyHistoryKind {
 	"""
 	SPLIT
 	"""
-	Staff picked a family's default file.
+	Staff or the family's owner picked its default file.
 	"""
 	SET_DEFAULT
 	"""
-	Staff cleared their pick of a family's default file.
+	Staff or the family's owner cleared the pick of its default file.
 	"""
 	CLEAR_DEFAULT
 	"""
@@ -876,13 +933,26 @@ enum MapFamilyHistoryKind {
 	"""
 	RELIST
 	"""
-	A file's publisher moved it into a suggested map, while publishing it or later.
+	A file's publisher moved it into a suggested map or one they own, while publishing it or
+	later.
 	"""
 	LINK
 	"""
-	A file's publisher moved it out of a map into a new map of its own.
+	A file's publisher, or its map's owner, moved it out of the map into a new map of its own.
 	"""
 	UNLINK
+	"""
+	A map's owner was set: by a claim, or by staff.
+	"""
+	SET_OWNER
+	"""
+	A map's owner was removed, or gave the map up.
+	"""
+	REMOVE_OWNER
+	"""
+	Staff set or cleared the maker's name a map is credited to.
+	"""
+	SET_CREDIT
 }
 
 """
@@ -901,20 +971,21 @@ type MapFamilyLookup {
 }
 
 """
-A user's report that a file isn't part of its map, or that a map is the same as another one; or
-a file held for staff when it was published.
+A user's report about a map or one of its files, or a file held for staff when it was published.
 """
 type MapFamilyReport {
 	id: UUID!
 	kind: MapFamilyReportKind!
 	"""
-	The map the report is about: the map the file was in when it was reported, or the map said
-	to be the same as `otherFamily`. If it has since been merged, the map it was merged into.
+	The map the report is about: the map the file was in when it was reported, the map said to
+	be the same as `otherFamily`, or the map whose owner is said not to have made it. If it has
+	since been merged, the map it was merged into.
 	"""
 	family: MapFamily
 	"""
-	The file said not to be part of `family`, or the file held for review. Only for `WRONG_MAP`
-	and `PUBLISH_REVIEW`.
+	The file said not to be part of `family` (`WRONG_MAP`), held for review (`PUBLISH_REVIEW`),
+	said to be the better default (`WRONG_DEFAULT`) or said to be inappropriate
+	(`INAPPROPRIATE`). Null for the other kinds.
 	"""
 	map: SbMap
 	"""
@@ -954,11 +1025,16 @@ A user's report about a map.
 input MapFamilyReportInput {
 	kind: MapFamilyReportKind!
 	"""
-	The file that isn't part of its map. Required for `WRONG_MAP`, ignored otherwise.
+	The file that isn't part of its map (`WRONG_MAP`), should be the default of its map, which
+	has no owner (`WRONG_DEFAULT`; a listed file that isn't the current one), or is
+	inappropriate (`INAPPROPRIATE`). Required for those, ignored otherwise.
 	"""
 	mapId: SbMapId
 	"""
-	The map that is the same as `otherFamilyId`. Required for `SAME_MAP`, ignored otherwise.
+	The map that is the same as `otherFamilyId` (`SAME_MAP`), or whose owner didn't make it
+	(`WRONG_OWNER`; the reporter can't be its owner). Required for those. For `WRONG_DEFAULT`
+	and `INAPPROPRIATE`, optionally the map the reporter saw `mapId` in, which it must still be
+	in. Ignored otherwise.
 	"""
 	familyId: UUID
 	"""
@@ -985,6 +1061,18 @@ enum MapFamilyReportKind {
 	waits for staff to list it or dismiss the report. Only filed by the server.
 	"""
 	PUBLISH_REVIEW
+	"""
+	A map's owner didn't make it.
+	"""
+	WRONG_OWNER
+	"""
+	A map with no owner should have another file as its default.
+	"""
+	WRONG_DEFAULT
+	"""
+	A file's name, description or content is inappropriate.
+	"""
+	INAPPROPRIATE
 }
 
 """
@@ -1101,6 +1189,15 @@ input MapFilter {
 	Only official maps (`true`) or only maps that aren't official (`false`).
 	"""
 	official: Boolean
+	"""
+	Only maps (families) this user owns.
+	"""
+	owner: SbUserId
+	"""
+	Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+	`false`, only the other maps.
+	"""
+	verified: Boolean
 }
 
 type MapForce {
@@ -1264,6 +1361,117 @@ type MapModeration {
 	delistedBy: SbUser
 }
 
+"""
+A user's claim to be the maker of a map. Visible to staff and to the claimant.
+"""
+type MapOwnerClaim {
+	id: UUID!
+	"""
+	The claimed map. If it has since been merged, the map it was merged into.
+	"""
+	family: MapFamily
+	claimant: SbUser
+	"""
+	What the claimant told staff. Null for a claim granted at once.
+	"""
+	note: String
+	status: MapOwnerClaimStatus!
+	createdAt: DateTime!
+	"""
+	Who granted or rejected the claim: staff, or the claimant for a claim granted at once. Only
+	available to users who can manage maps.
+	"""
+	resolvedBy: SbUser
+	resolvedAt: DateTime
+}
+
+"""
+Why a user can't claim a map.
+"""
+enum MapOwnerClaimBlockedReason {
+	"""
+	The user is restricted from publishing maps.
+	"""
+	RESTRICTED
+	"""
+	The user hasn't verified their email address.
+	"""
+	EMAIL_UNVERIFIED
+	"""
+	The user already owns the map.
+	"""
+	ALREADY_OWNER
+	"""
+	The map has no listed file.
+	"""
+	NOT_LISTED
+	"""
+	The user made too many claims recently.
+	"""
+	RATE_LIMITED
+}
+
+type MapOwnerClaimPreview {
+	id: String!
+	"""
+	Why the current user can't claim the map. Null when they can.
+	"""
+	blockedReason: MapOwnerClaimBlockedReason
+	"""
+	Whether claiming would make them the owner at once: nobody owns the map or is credited with
+	it, and they published every one of its listed files. Otherwise a claim needs a note and
+	waits for staff.
+	"""
+	instant: Boolean!
+	"""
+	The current user's claim on the map that is waiting for staff, if they have one.
+	"""
+	openClaim: MapOwnerClaim
+}
+
+type MapOwnerClaimResult {
+	id: String!
+	claim: MapOwnerClaim!
+	family: MapFamily!
+	"""
+	Whether the current user became the map's owner at once. Otherwise the claim waits for
+	staff.
+	"""
+	granted: Boolean!
+}
+
+"""
+Where a claim to own a map stands.
+"""
+enum MapOwnerClaimStatus {
+	"""
+	Waiting for staff.
+	"""
+	OPEN
+	"""
+	The claimant was made the owner, by staff or at once.
+	"""
+	GRANTED
+	"""
+	Staff turned it down.
+	"""
+	REJECTED
+}
+
+"""
+How a map's owner became its owner.
+"""
+enum MapOwnerKind {
+	"""
+	They claimed the map themselves, having published every listed file of it.
+	"""
+	CLAIM
+	"""
+	Staff granted their claim or set them as the owner.
+	"""
+	STAFF
+}
+
 input MapPublishAnswerInput {
 	kind: MapPublishAnswerKind!
 	"""
@@ -1337,7 +1545,9 @@ type MapPublishPreview {
 	"""
 	existingMap: MapFamily
 	"""
-	The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set.
+	The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set,
+	and when the file's own map has a credit or an owner other than the current user: joining
+	another map would merge it away, which only staff may do.
 	"""
 	suggestions: [MapPublishSuggestion!]!
 	"""
@@ -1767,25 +1977,28 @@ type Mutation {
 	mapFamilySplitFile(fileId: SbMapId!): MapFamilyFileMove!
 	"""
 	Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
-	alias of `intoFamilyId`, its favorites move along, and its default pick is dropped. Returns
-	the map merged into. Only available to users who can manage maps.
+	alias of `intoFamilyId`, its favorites and open owner claims move along, and its default
+	pick, owner and credit are dropped (`intoFamilyId` keeps its own). Returns the map merged
+	into. Only available to users who can manage maps.
 	"""
 	mapFamilyMerge(familyId: UUID!, intoFamilyId: UUID!): MapFamily!
 	"""
 	Makes a file its map's default, the file players get. Only a listed file can be the default
-	of a map with listed files. Returns the file's map. Only available to users who can manage
-	maps.
+	of a map with listed files. Returns the file's map. Only available to the map's owner (while
+	they aren't restricted from publishing) and users who can manage maps.
 	"""
 	mapFamilySetDefault(fileId: SbMapId!): MapFamily!
 	"""
-	Clears staff's pick of a map's default, so its default is derived again: the most played
-	file, then the newest. Only available to users who can manage maps.
+	Clears the pick of a map's default, so its default is derived again: the most played file,
+	then the newest. Only available to the map's owner (while they aren't restricted from
+	publishing) and users who can manage maps.
 	"""
 	mapFamilyClearDefault(familyId: UUID!): MapFamily!
 	"""
-	Tells staff that a file isn't part of its map, or that a map is the same as another one.
-	Changes nothing by itself. Reporting the same thing again while a report is open updates
-	that report.
+	Tells staff something about a map: that a file isn't part of it, that it's the same as
+	another map, that its owner didn't make it, that another file should be its default, or
+	that a file is inappropriate. Changes nothing by itself. Reporting the same thing again
+	while a report is open updates that report.
 	"""
 	mapFamilyReport(input: MapFamilyReportInput!): MapFamilyReport!
 	"""
@@ -1794,8 +2007,10 @@ type Mutation {
 	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
 	"""
 	Publishes a file from the current user's library: lists it in the catalog, in the map
-	`answer` says. A file that's already listed is left as it is. A file whose name or
-	description needs a look is held for staff instead (`heldForReview`), who list it or not.
+	`answer` says. `JOIN` takes one of the suggested maps or a map the current user owns, and is
+	refused when the file's own map has a credit or an owner other than the current user. A
+	file that's already listed is left as it is. A file whose name or description needs a look
+	is held for staff instead (`heldForReview`), who list it or not.
 	"""
 	mapPublish(fileId: SbMapId!, answer: MapPublishAnswerInput!): MapPublishResult!
 	"""
@@ -1804,7 +2019,9 @@ type Mutation {
 	applied on the publisher's behalf: `JOIN` moves the file into `otherFamily`, `UNSURE` files a
 	`SAME_MAP` report about the file's map and `otherFamily`. The answer is skipped when
 	`otherFamily` no longer exists, already holds the file, or the file no longer is the only
-	file of its map. Only available to users who can manage maps.
+	file of its map; a `JOIN` answer is also skipped when the file's map has a credit or an
+	owner other than the publisher, which moving the file would merge away. Only available to
+	users who can manage maps.
 	"""
 	mapPublishReviewApprove(reportId: UUID!): MapFamilyReport!
 	"""
@@ -1828,15 +2045,53 @@ type Mutation {
 	mapRelist(fileId: SbMapId!): SbMap!
 	"""
 	Moves a listed file the current user published, while it's the only file of its map, into
-	one of the maps suggested for it (see `mapLinkSuggestions`). Its old map is merged into
-	that map.
+	one of the maps suggested for it (see `mapLinkSuggestions`) or a map the current user owns.
+	Its old map is merged into that map, so this is refused when that map has a credit or an
+	owner other than the current user.
 	"""
 	mapFileLink(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
 	"""
-	Moves a file the current user published out of a map holding other files, into a new map
-	of its own.
+	Moves a file out of a map holding other files, into a new map of its own. Only available to
+	the file's publisher and the map's owner (while they aren't restricted from publishing).
 	"""
 	mapFileUnlink(fileId: SbMapId!): MapFamilyFileMove!
+	"""
+	Claims to be the maker of a map. Someone who published every listed file of a map nobody
+	owns or is credited with becomes its owner at once (`granted`). Any other claim needs a
+	`note` (at most 500 characters) telling staff why the map is theirs, and waits for staff;
+	claiming again while it waits updates its note. A map that already has an owner can be
+	claimed this way too.
+	"""
+	mapOwnerClaim(familyId: UUID!, note: String): MapOwnerClaimResult!
+	"""
+	Gives up the current user's ownership of a map.
+	"""
+	mapOwnerRelinquish(familyId: UUID!): MapFamily!
+	"""
+	Makes a user a map's owner, as granted by staff, replacing any owner it has. Setting a map's
+	self-claimed owner again verifies them. The user's claim on the map waiting for staff, if
+	any, is granted along with it. Only available to users who can manage maps.
+	"""
+	mapFamilySetOwner(familyId: UUID!, userId: SbUserId!): MapFamily!
+	"""
+	Removes a map's owner. Only available to users who can manage maps.
+	"""
+	mapFamilyRemoveOwner(familyId: UUID!): MapFamily!
+	"""
+	Credits a map to a maker's name (at most 100 characters), for a maker who has no account.
+	Null or blank text clears it. Only available to users who can manage maps.
+	"""
+	mapFamilySetCredit(familyId: UUID!, credit: String): MapFamily!
+	"""
+	Grants a claim waiting for staff: the claimant becomes the claimed map's owner (through any
+	merges since), as granted by staff, replacing any owner it has. Other claims on the map stay
+	open. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimGrant(claimId: UUID!): MapOwnerClaim!
+	"""
+	Rejects a claim waiting for staff. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimReject(claimId: UUID!): MapOwnerClaim!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -2118,9 +2373,24 @@ type Query {
 	mapPublishPreview(fileId: SbMapId!): MapPublishPreview!
 	"""
 	The maps a file may be a version of, the likeliest first, which its publisher can link it
-	to. Only available to the file's publisher and users who can manage maps.
+	to. Empty when the file's own map has a credit or an owner other than its publisher: linking
+	would merge it away, which only staff may do. Only available to the file's publisher and
+	users who can manage maps.
 	"""
 	mapLinkSuggestions(fileId: SbMapId!): [MapPublishSuggestion!]!
+	"""
+	What claiming a map would do for the current user: whether they can, whether it would make
+	them the owner at once, and their claim on it that's waiting for staff. Changes nothing.
+	"""
+	mapOwnerClaimPreview(familyId: UUID!): MapOwnerClaimPreview!
+	"""
+	Claims with a status, oldest first. Only available to users who can manage maps.
+	"""
+	mapOwnerClaims(status: MapOwnerClaimStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapOwnerClaim!]!
+	"""
+	How many claims have a status. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimCount(status: MapOwnerClaimStatus! = OPEN): Int!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
