@@ -1272,7 +1272,7 @@ function MapActions({
         break
       case 'relinquish':
         menuItems.push([
-          t('maps.owner.relinquish', 'Give up ownership'),
+          t('maps.owner.relinquish', 'Remove me as maker'),
           () => {
             if (family.ownerKind === MapOwnerKind.Staff) {
               dispatch(openMapOwnerRelinquishDialog({ onConfirm: onRelinquish }))

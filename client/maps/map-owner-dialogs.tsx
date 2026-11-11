@@ -182,7 +182,7 @@ export function MapOwnerRelinquishDialog({
     <TextButton key='cancel' label={t('common.actions.cancel', 'Cancel')} onClick={onCancel} />,
     <TextButton
       key='confirm'
-      label={t('maps.owner.relinquishConfirm', 'Give up')}
+      label={t('maps.owner.relinquishConfirm', 'Remove')}
       onClick={() => {
         close()
         onConfirm()
@@ -192,7 +192,7 @@ export function MapOwnerRelinquishDialog({
 
   return (
     <StyledDialog
-      title={t('maps.owner.relinquish', 'Give up ownership')}
+      title={t('maps.owner.relinquish', 'Remove me as maker')}
       buttons={buttons}
       onCancel={onCancel}>
       <BodyText>
