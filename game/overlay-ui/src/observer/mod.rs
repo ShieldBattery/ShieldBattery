@@ -69,8 +69,8 @@ pub use unit_codes::unit_code;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Rect, Stroke, StrokeKind, Ui, Vec2, pos2,
-    vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Painter, Rect, Stroke, StrokeKind, Ui, Vec2,
+    pos2, vec2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -442,10 +442,15 @@ pub(crate) const PLAYER_SWATCH: f32 = 12.0;
 /// to tell a color by. A faint light edge keeps the dark colors (blue, navy) reading as a square
 /// against the panel rather than sinking into it.
 pub(crate) fn paint_player_swatch(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
+    paint_player_swatch_with(ui.painter(), rect, color, alpha);
+}
+
+/// [`paint_player_swatch`] for a surface that paints straight onto a painter rather than laying
+/// itself out in a `Ui`.
+pub(crate) fn paint_player_swatch_with(painter: &Painter, rect: Rect, color: Color32, alpha: f32) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter()
-        .rect_filled(rect, corner_radius, color.gamma_multiply(alpha));
-    ui.painter().rect_stroke(
+    painter.rect_filled(rect, corner_radius, color.gamma_multiply(alpha));
+    painter.rect_stroke(
         rect,
         corner_radius,
         Stroke::new(
