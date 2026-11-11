@@ -24,6 +24,8 @@ use crate::maps::families::edit::{
     MapPublishReviewAnswer, MoveBy, ReportRequest,
 };
 use crate::maps::families::history::{self, MapFamilyHistory};
+use crate::maps::families::owners::MapOwnerKind;
+use crate::maps::families::owners_graphql::{notify_file_move, notify_ownership_removed};
 use crate::maps::families::{resolve_family_id, resolve_map_page_id};
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::{self, SimilarFile};
@@ -44,6 +46,11 @@ pub struct MapFamilyRow {
     pub default_set_at: Option<DateTime<Utc>>,
     pub current_map_id: SbMapId,
     pub listed: bool,
+    pub owner_id: Option<SbUserId>,
+    pub owner_kind: Option<String>,
+    pub owner_set_by: Option<SbUserId>,
+    pub owner_set_at: Option<DateTime<Utc>>,
+    pub credit: Option<String>,
 }
 
 /// Loads families by id. Aliases aren't resolved here: see [`resolve_family_id`].
@@ -67,7 +74,9 @@ impl Loader<Uuid> for MapFamilyLoader {
             r#"
                 SELECT id, default_map_id as "default_map_id: SbMapId",
                     default_set_by as "default_set_by: SbUserId", default_set_at,
-                    current_map_id as "current_map_id: SbMapId", listed
+                    current_map_id as "current_map_id: SbMapId", listed,
+                    owner_id as "owner_id: SbUserId", owner_kind,
+                    owner_set_by as "owner_set_by: SbUserId", owner_set_at, credit
                 FROM map_families
                 WHERE id = ANY($1)
             "#,
@@ -237,16 +246,45 @@ impl MapFamily {
         self.0.listed
     }
 
-    /// The file players get when they pick this map: staff's pick while it's eligible, otherwise
-    /// the most played (listed files before unlisted ones), then the newest. A listed map's
-    /// current file is always listed.
+    /// The file players get when they pick this map: the picked default while it's eligible,
+    /// otherwise the most played (listed files before unlisted ones), then the newest. A listed
+    /// map's current file is always listed.
     async fn current(&self, ctx: &Context<'_>) -> Result<SbMap> {
         load_sb_map(ctx, self.0.current_map_id).await
     }
 
-    /// The file staff picked as the map's default, even while it isn't eligible (it's unlisted
-    /// while another file is listed). Null when the default is derived, or when the viewer can't
-    /// see the picked file (see `files`).
+    /// The map's owner: its original maker, who picks its default file. Null when nobody owns it.
+    async fn owner(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        load_user(ctx, self.0.owner_id).await
+    }
+
+    /// How the owner became the owner: by claiming a map whose every listed file they published,
+    /// or by staff granting it (shown as verified). Null when nobody owns the map.
+    async fn owner_kind(&self) -> Option<MapOwnerKind> {
+        self.0.owner_kind.as_deref().map(MapOwnerKind::from_db)
+    }
+
+    /// When the owner became the owner, or was last verified by staff. Null when nobody owns the
+    /// map.
+    async fn owner_set_at(&self) -> Option<DateTime<Utc>> {
+        self.0.owner_set_at
+    }
+
+    /// The user who made the owner the owner: the owner themselves for a claim, otherwise staff.
+    /// Only available to users who can manage maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn owner_set_by(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        load_user(ctx, self.0.owner_set_by).await
+    }
+
+    /// The maker's name staff credited the map to, for a maker who has no account.
+    async fn credit(&self) -> Option<&str> {
+        self.0.credit.as_deref()
+    }
+
+    /// The file staff or the map's owner picked as its default, even while it isn't eligible (it's
+    /// unlisted while another file is listed). Null when the default is derived, or when the viewer
+    /// can't see the picked file (see `files`).
     async fn default_map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
         let Some(id) = self.0.default_map_id else {
             return Ok(None);
@@ -264,7 +302,7 @@ impl MapFamily {
             .then_some(map))
     }
 
-    /// When staff picked the default. Null when the default is derived.
+    /// When the default was picked. Null when the default is derived.
     async fn default_set_at(&self) -> Option<DateTime<Utc>> {
         self.0.default_set_at
     }
@@ -447,7 +485,10 @@ pub struct MapFamilyReport {
 }
 
 /// Loads a family by an id that may since have been merged into another family.
-async fn load_family_through_aliases(ctx: &Context<'_>, id: Uuid) -> Result<Option<MapFamily>> {
+pub(crate) async fn load_family_through_aliases(
+    ctx: &Context<'_>,
+    id: Uuid,
+) -> Result<Option<MapFamily>> {
     let db = ctx.data::<MapSearchRepo>()?.db();
     match resolve_family_id(db, id).await? {
         Some(id) => load_family(ctx, id).await.map(Some),
@@ -455,8 +496,7 @@ async fn load_family_through_aliases(ctx: &Context<'_>, id: Uuid) -> Result<Opti
     }
 }
 
-/// A user's report that a file isn't part of its map, or that a map is the same as another one; or
-/// a file held for staff when it was published.
+/// A user's report about a map or one of its files, or a file held for staff when it was published.
 #[Object]
 impl MapFamilyReport {
     async fn id(&self) -> Uuid {
@@ -467,14 +507,16 @@ impl MapFamilyReport {
         MapFamilyReportKind::from_db(&self.kind)
     }
 
-    /// The map the report is about: the map the file was in when it was reported, or the map said
-    /// to be the same as `otherFamily`. If it has since been merged, the map it was merged into.
+    /// The map the report is about: the map the file was in when it was reported, the map said to
+    /// be the same as `otherFamily`, or the map whose owner is said not to have made it. If it has
+    /// since been merged, the map it was merged into.
     async fn family(&self, ctx: &Context<'_>) -> Result<Option<MapFamily>> {
         load_family_through_aliases(ctx, self.family_id).await
     }
 
-    /// The file said not to be part of `family`, or the file held for review. Only for `WRONG_MAP`
-    /// and `PUBLISH_REVIEW`.
+    /// The file said not to be part of `family` (`WRONG_MAP`), held for review (`PUBLISH_REVIEW`),
+    /// said to be the better default (`WRONG_DEFAULT`) or said to be inappropriate
+    /// (`INAPPROPRIATE`). Null for the other kinds.
     async fn map(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
         match self.map_id {
             Some(id) => load_sb_map(ctx, id).await.map(Some),
@@ -562,7 +604,10 @@ pub(crate) fn edit_error(error: FamilyEditError) -> async_graphql::Error {
         FamilyEditError::MapNotFound
         | FamilyEditError::FamilyNotFound
         | FamilyEditError::ReportNotFound => "NOT_FOUND",
-        FamilyEditError::ReportingRestricted => "RESTRICTED",
+        FamilyEditError::ReportingRestricted | FamilyEditError::PublishingRestricted => {
+            "RESTRICTED"
+        }
+        FamilyEditError::NotOwner => "FORBIDDEN",
         FamilyEditError::TooManyReports => "RATE_LIMITED",
         FamilyEditError::Other(e) => return async_graphql::Error::new(format!("{e:?}")),
         _ => "BAD_REQUEST",
@@ -713,9 +758,14 @@ impl MapFamiliesQuery {
 #[derive(InputObject, Clone, Debug)]
 pub struct MapFamilyReportInput {
     pub kind: MapFamilyReportKind,
-    /// The file that isn't part of its map. Required for `WRONG_MAP`, ignored otherwise.
+    /// The file that isn't part of its map (`WRONG_MAP`), should be the default of its map, which
+    /// has no owner (`WRONG_DEFAULT`; a listed file that isn't the current one), or is
+    /// inappropriate (`INAPPROPRIATE`). Required for those, ignored otherwise.
     pub map_id: Option<SbMapId>,
-    /// The map that is the same as `otherFamilyId`. Required for `SAME_MAP`, ignored otherwise.
+    /// The map that is the same as `otherFamilyId` (`SAME_MAP`), or whose owner didn't make it
+    /// (`WRONG_OWNER`; the reporter can't be its owner). Required for those. For `WRONG_DEFAULT`
+    /// and `INAPPROPRIATE`, optionally the map the reporter saw `mapId` in, which it must still be
+    /// in. Ignored otherwise.
     pub family_id: Option<Uuid>,
     /// The map that is the same as `familyId`. Required for `SAME_MAP`, ignored otherwise.
     pub other_family_id: Option<Uuid>,
@@ -746,6 +796,7 @@ impl MapFamiliesMutation {
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
+        notify_file_move(ctx, file_id, &moved, user.id).await;
         Ok(MapFamilyFileMove { file_id, moved })
     }
 
@@ -765,12 +816,14 @@ impl MapFamiliesMutation {
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
+        notify_file_move(ctx, file_id, &moved, user.id).await;
         Ok(MapFamilyFileMove { file_id, moved })
     }
 
     /// Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
-    /// alias of `intoFamilyId`, its favorites move along, and its default pick is dropped. Returns
-    /// the map merged into. Only available to users who can manage maps.
+    /// alias of `intoFamilyId`, its favorites and open owner claims move along, and its default
+    /// pick, owner and credit are dropped (`intoFamilyId` keeps its own). Returns the map merged
+    /// into. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_merge(
         &self,
@@ -783,17 +836,17 @@ impl MapFamiliesMutation {
         let family_id = resolve_existing_family_id(db, family_id).await?;
         let into_family_id = resolve_existing_family_id(db, into_family_id).await?;
         let mut tx = db.begin().await?;
-        edit::merge(&mut tx, family_id, into_family_id, user.id)
+        let dropped_owner = edit::merge(&mut tx, family_id, into_family_id, user.id)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
+        notify_ownership_removed(ctx, dropped_owner, user.id).await;
         load_family(ctx, into_family_id).await
     }
 
     /// Makes a file its map's default, the file players get. Only a listed file can be the default
-    /// of a map with listed files. Returns the file's map. Only available to users who can manage
-    /// maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// of a map with listed files. Returns the file's map. Only available to the map's owner (while
+    /// they aren't restricted from publishing) and users who can manage maps.
     async fn map_family_set_default(
         &self,
         ctx: &Context<'_>,
@@ -802,17 +855,18 @@ impl MapFamiliesMutation {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let file_id = resolve_existing_map_id(db, file_id).await?;
+        let staff = is_staff(ctx).await;
         let mut tx = db.begin().await?;
-        let family_id = edit::set_default(&mut tx, file_id, user.id)
+        let family_id = edit::set_default(&mut tx, file_id, user.id, staff)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
         load_family(ctx, family_id).await
     }
 
-    /// Clears staff's pick of a map's default, so its default is derived again: the most played
-    /// file, then the newest. Only available to users who can manage maps.
-    #[graphql(guard = RequiredPermission::ManageMaps)]
+    /// Clears the pick of a map's default, so its default is derived again: the most played file,
+    /// then the newest. Only available to the map's owner (while they aren't restricted from
+    /// publishing) and users who can manage maps.
     async fn map_family_clear_default(
         &self,
         ctx: &Context<'_>,
@@ -821,17 +875,19 @@ impl MapFamiliesMutation {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
         let family_id = resolve_existing_family_id(db, family_id).await?;
+        let staff = is_staff(ctx).await;
         let mut tx = db.begin().await?;
-        edit::clear_default(&mut tx, family_id, user.id)
+        edit::clear_default(&mut tx, family_id, user.id, staff)
             .await
             .map_err(edit_error)?;
         tx.commit().await?;
         load_family(ctx, family_id).await
     }
 
-    /// Tells staff that a file isn't part of its map, or that a map is the same as another one.
-    /// Changes nothing by itself. Reporting the same thing again while a report is open updates
-    /// that report.
+    /// Tells staff something about a map: that a file isn't part of it, that it's the same as
+    /// another map, that its owner didn't make it, that another file should be its default, or
+    /// that a file is inappropriate. Changes nothing by itself. Reporting the same thing again
+    /// while a report is open updates that report.
     async fn map_family_report(
         &self,
         ctx: &Context<'_>,
@@ -865,6 +921,29 @@ impl MapFamiliesMutation {
                     "BAD_REQUEST",
                     "files are only held for review by publishing them",
                 ));
+            }
+            MapFamilyReportKind::WrongOwner => {
+                let family_id = input
+                    .family_id
+                    .ok_or_else(|| edit_error(FamilyEditError::MissingFamily))?;
+                ReportRequest::WrongOwner {
+                    family_id: resolve_existing_family_id(db, family_id).await?,
+                }
+            }
+            MapFamilyReportKind::WrongDefault | MapFamilyReportKind::Inappropriate => {
+                let file_id = input
+                    .map_id
+                    .ok_or_else(|| edit_error(FamilyEditError::MissingMap))?;
+                let file_id = resolve_existing_map_id(db, file_id).await?;
+                let family_id = match input.family_id {
+                    Some(id) => Some(resolve_existing_family_id(db, id).await?),
+                    None => None,
+                };
+                if input.kind == MapFamilyReportKind::WrongDefault {
+                    ReportRequest::WrongDefault { file_id, family_id }
+                } else {
+                    ReportRequest::Inappropriate { file_id, family_id }
+                }
             }
         };
         let mut tx = db.begin().await?;

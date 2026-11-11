@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.owner_id as \"owner_id: SbUserId\", f.credit IS NOT NULL as \"has_credit!\",\n                (\n                    SELECT count(*) FROM maps m WHERE m.family_id = f.id AND m.listed\n                ) as \"listed_files!\",\n                (\n                    SELECT count(*) FROM maps m\n                    WHERE m.family_id = f.id AND m.listed AND m.published_by IS DISTINCT FROM $2\n                ) as \"others_listed!\",\n                COALESCE((SELECT email_verified FROM users WHERE id = $2), false)\n                    as \"email_verified!\",\n                EXISTS (\n                    SELECT 1 FROM user_restrictions\n                    WHERE user_id = $2 AND kind = 'map_publishing'::restriction_kind\n                        AND start_time <= now() AND end_time > now()\n                ) as \"restricted!\",\n                (\n                    SELECT count(*) FROM map_owner_claims\n                    WHERE claimant = $2 AND created_at > now() - interval '24 hours'\n                ) as \"recent_claims!\",\n                (\n                    SELECT c.id FROM map_owner_claims c\n                    WHERE c.family_id = f.id AND c.claimant = $2 AND c.status = 'open'\n                ) as \"open_claim\"\n            FROM map_families f\n            WHERE f.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "has_credit!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "listed_files!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "others_listed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "email_verified!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "restricted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "recent_claims!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "open_claim",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e7770f6c84f76cc362232023f660412606f87101a450001d8484183d87e29dca"
+}

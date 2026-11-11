@@ -1,5 +1,5 @@
-//! The record of every change made to families, family reports and file listings, one entry per
-//! action.
+//! The record of every change made to families, family reports, file listings and map owners, one
+//! entry per action.
 
 use async_graphql::{Context, Enum, Object, Result};
 use chrono::{DateTime, Utc};
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::maps::SbMapId;
 use crate::maps::catalog::{SbMap, load_sb_map, load_user};
 use crate::maps::families::edit::MapFamilyReportStatus;
+use crate::maps::families::owners::{MapOwnerKind, RetiredOwner};
 use crate::users::{SbUser, SbUserId};
 
 /// What kind of change a history entry records.
@@ -23,9 +24,9 @@ pub enum MapFamilyHistoryKind {
     Merge,
     /// A file was split out into a family of its own.
     Split,
-    /// Staff picked a family's default file.
+    /// Staff or the family's owner picked its default file.
     SetDefault,
-    /// Staff cleared their pick of a family's default file.
+    /// Staff or the family's owner cleared the pick of its default file.
     ClearDefault,
     /// A family report was resolved, dismissed or reopened.
     ReportStatus,
@@ -37,10 +38,17 @@ pub enum MapFamilyHistoryKind {
     Delist,
     /// Staff listed a delisted file again.
     Relist,
-    /// A file's publisher moved it into a suggested map, while publishing it or later.
+    /// A file's publisher moved it into a suggested map or one they own, while publishing it or
+    /// later.
     Link,
-    /// A file's publisher moved it out of a map into a new map of its own.
+    /// A file's publisher, or its map's owner, moved it out of the map into a new map of its own.
     Unlink,
+    /// A map's owner was set: by a claim, or by staff.
+    SetOwner,
+    /// A map's owner was removed, or gave the map up.
+    RemoveOwner,
+    /// Staff set or cleared the maker's name a map is credited to.
+    SetCredit,
 }
 
 impl MapFamilyHistoryKind {
@@ -58,6 +66,9 @@ impl MapFamilyHistoryKind {
             Self::Relist => "relist",
             Self::Link => "link",
             Self::Unlink => "unlink",
+            Self::SetOwner => "set_owner",
+            Self::RemoveOwner => "remove_owner",
+            Self::SetCredit => "set_credit",
         }
     }
 
@@ -74,6 +85,9 @@ impl MapFamilyHistoryKind {
             "relist" => Self::Relist,
             "link" => Self::Link,
             "unlink" => Self::Unlink,
+            "set_owner" => Self::SetOwner,
+            "remove_owner" => Self::RemoveOwner,
+            "set_credit" => Self::SetCredit,
             _ => Self::MoveFile,
         }
     }
@@ -117,6 +131,21 @@ pub struct HistoryDetails {
     /// The note staff left when delisting a file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// The family's owner before and after the change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Change<Option<SbUserId>>>,
+    /// How the owner after the change became the owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_kind: Option<MapOwnerKind>,
+    /// The maker's name the family was credited to before and after the change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credit: Option<Change<Option<String>>>,
+    /// The claim that made the owner the owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim_id: Option<Uuid>,
+    /// The owner and credit of the family the change merged away, lost with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retired_owner: Option<RetiredOwner>,
 }
 
 /// One change to record.
@@ -313,6 +342,68 @@ impl MapFamilyHistory {
         self.details.0.note.as_deref()
     }
 
+    /// The map's owner before the change. Only for `SET_OWNER` and `REMOVE_OWNER`.
+    async fn owner_before(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        let before = self.details.0.owner.as_ref().and_then(|c| c.before);
+        load_user(ctx, before).await
+    }
+
+    /// The map's owner after the change. Only for `SET_OWNER`.
+    async fn owner_after(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        let after = self.details.0.owner.as_ref().and_then(|c| c.after);
+        load_user(ctx, after).await
+    }
+
+    /// How the owner after the change became the owner. Only for `SET_OWNER`.
+    async fn owner_kind_after(&self) -> Option<MapOwnerKind> {
+        self.details.0.owner_kind
+    }
+
+    /// The claim that made the owner the owner, when a claim did. Only for `SET_OWNER`.
+    async fn claim_id(&self) -> Option<Uuid> {
+        self.details.0.claim_id
+    }
+
+    /// The maker's name the map was credited to before the change. Only for `SET_CREDIT`.
+    async fn credit_before(&self) -> Option<&str> {
+        self.details
+            .0
+            .credit
+            .as_ref()
+            .and_then(|c| c.before.as_deref())
+    }
+
+    /// The maker's name the map is credited to after the change. Only for `SET_CREDIT`.
+    async fn credit_after(&self) -> Option<&str> {
+        self.details
+            .0
+            .credit
+            .as_ref()
+            .and_then(|c| c.after.as_deref())
+    }
+
+    /// The owner of the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away (`otherFamilyId`),
+    /// who lost it with the map.
+    async fn retired_owner(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        let owner = self
+            .details
+            .0
+            .retired_owner
+            .as_ref()
+            .and_then(|r| r.owner_id);
+        load_user(ctx, owner).await
+    }
+
+    /// The maker's name the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away
+    /// (`otherFamilyId`) was credited to, lost with it.
+    async fn retired_credit(&self) -> Option<&str> {
+        self.details
+            .0
+            .retired_owner
+            .as_ref()
+            .and_then(|r| r.credit.as_deref())
+    }
+
     async fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
@@ -396,5 +487,46 @@ mod tests {
         let back: HistoryDetails = serde_json::from_value(json).unwrap();
         assert_eq!(back.files, details.files);
         assert_eq!(back.defaults, details.defaults);
+    }
+
+    #[test]
+    fn owner_details_round_trip_and_older_entries_still_parse() {
+        let details = HistoryDetails {
+            owner: Some(Change {
+                before: None,
+                after: Some(SbUserId(7)),
+            }),
+            owner_kind: Some(MapOwnerKind::Staff),
+            credit: Some(Change {
+                before: Some("Maker".into()),
+                after: None,
+            }),
+            claim_id: Some(Uuid::nil()),
+            retired_owner: Some(RetiredOwner {
+                family_id: Uuid::nil(),
+                owner_id: Some(SbUserId(8)),
+                owner_kind: Some(MapOwnerKind::Claim),
+                credit: None,
+            }),
+            ..Default::default()
+        };
+        let json = serde_json::to_value(&details).unwrap();
+        assert_eq!(
+            json["owner"],
+            serde_json::json!({ "before": null, "after": 7 })
+        );
+        assert_eq!(json["ownerKind"], "staff");
+        assert_eq!(json["credit"]["before"], "Maker");
+        assert_eq!(json["retiredOwner"]["ownerKind"], "claim");
+        assert!(json["retiredOwner"].get("credit").is_none());
+        let back: HistoryDetails = serde_json::from_value(json).unwrap();
+        assert_eq!(back.owner, details.owner);
+        assert_eq!(back.retired_owner, details.retired_owner);
+
+        let older: HistoryDetails =
+            serde_json::from_value(serde_json::json!({ "note": "spam" })).unwrap();
+        assert_eq!(older.owner, None);
+        assert_eq!(older.retired_owner, None);
+        assert!(serde_json::to_value(&older).unwrap().get("owner").is_none());
     }
 }

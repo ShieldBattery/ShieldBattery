@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_owner_claims\n            SET status = $2, resolved_by = $3, resolved_at = now()\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "311e5acd2b289590a360885649d1a2dfcc3a62d7e0ee83f831732a6b6b85af50"
+}
