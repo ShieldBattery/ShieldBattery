@@ -778,7 +778,7 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
         clicked = clicked.or(unit_target(ui, tile, index));
     }
     // Only from the units with kills of their own to read out, and none at all for a selection
-    // without any, such as a row of gateways.
+    // without any, such as a group of shuttles and observers.
     let kills = units
         .iter()
         .take(SelectionView::MAX_UNITS)
@@ -2100,7 +2100,7 @@ mod tests {
         let drawn = grid_texts(&full);
         assert!(drawn.iter().any(|(text, _)| text == "3060"));
 
-        // Nor does a row of gateways have any to read out between them.
+        // Nor do shuttles and observers have any to read out between them.
         let drawn = grid_texts(&[with_kills(None), with_kills(None)]);
         assert!(
             !drawn
