@@ -141,30 +141,18 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
      this env (works for both 1v1 and 2v2). For **2v2**, the whole losing *team* must
      leave: have the user leave both of one team's windows.
-   - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
-     game-control surface over CDP — `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)`
-     injects a **local, non-consensus** drop of `slot` on the calling client only (it deliberately
-     bypasses the synced-leave machinery — that's its testing purpose), so the caller takes the
-     allied-victory path and the game **ends with no human at the keyboard**; `forceQuit(gameId)`
-     then hard-tears-down any window still sitting on a result/victory dialog (see verify-app for
-     the whole surface + details). This needs the **debug DLL** (which this tier already builds —
-     the surface compiles out of release) and a dev app session (`isDev`-gated senders).
-     **Never rely on it for a scored result on a netcode-v2 matchmaking game** — but note its
-     desync behavior is NOT guaranteed either, in either direction: the unsynced injection forks
-     the calling client's simulation, but whether the relay's checksum comparator ever *sees* the
-     divergence depends on a diverged checksum crossing the wire before the caller's link ends.
-     Even targeting the caller's **own** slot usually desyncs: in a 1v1 matchmaking game the
-     diverged checksum crosses, the relay logs `voided by relay desync policy (no-majority)`,
-     and the two clients report contradictory results — so expect a **void, no MMR**. (A team
-     game discards the diverged minority instead.) **If the test needs a desync, use `forceDesync(gameId)` instead**
-     (see verify-app) — it diverges the sim while both clients keep playing, so the comparator
-     reliably fires within seconds. Further caveats on `forceUnsyncedLeave`: it's a
-     **per-client trigger, not consensus** (a 3+ player game needs the slot injected on *every*
-     remaining client on the same turn), and a one-sided drop makes the two clients report
-     contradictory results, so the game can reconcile **disputed → no MMR delta**, same as the
-     kill path. So this is the tool for driving the **netcode leave/reconnect paths** and
-     getting a game to *end* unattended — not for a guaranteed clean MMR delta (use the human
-     path for that) and not for a guaranteed desync (use `forceDesync`).
+   - **Debug graceful leave (unattended, debug DLL builds).** Call
+     `window.__sbDebugGame.leaveGame(gameId)`. It opens SC:R's native Quit dialog and confirms the
+     affirmative button, so the native game loop, replay autosave, and result reporting finish
+     normally. Live tested on 32-bit and 64-bit local bot games. For ranked matches, still verify
+     the server's reconciled result and rating delta; local testing alone does not establish MMR
+     behavior. Poll for `finished` and process exit instead of treating IPC dispatch as completion.
+   - **Debug remote-player drop (fault injection).**
+     `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)` injects a non-consensus departure of
+     a **remote** slot on the calling client. Its own slot is rejected: the native participant
+     handler removes units without running local disconnect/quit UI. Do not use this to end the
+     client. A one-sided injection can desync continuing peers or produce contradictory results;
+     use `forceDesync(gameId)` when the test specifically needs a desync.
    - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is *supposed* to be
      credited the win, but in practice the survivor often hangs on BW's dropped-player dialog with no
      human to dismiss it → both report `unknown` → game reconciles **disputed**, no MMR (see Known
@@ -441,9 +429,7 @@ path before treating one as real; delete it once resolved.
   So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
-  On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
-  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceUnsyncedLeave` can
-  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish");
-  `forceUnsyncedLeave` usually trips the desync policy too (a 1v1 voids, see T4).
-  `forceDesync(gameId)` is the deliberate, reliable desync trigger when a test wants the void
-  path (see verify-app).
+  On a **debug DLL build**, use `window.__sbDebugGame.leaveGame(gameId)` to request a normal exit
+  and confirm the native Quit dialog. `forceQuit(gameId)` remains the hard-stop fallback.
+  `forceUnsyncedLeave` is remote-player fault injection and rejects the caller's own slot;
+  `forceDesync(gameId)` is the deliberate desync trigger (see verify-app).

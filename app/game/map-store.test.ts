@@ -42,6 +42,7 @@ describe('MapStore', () => {
     await expect(store.downloadMap(HASH, FORMAT, 'https://maps/a')).resolves.toBe('downloaded')
     expect(fetchMock).toHaveBeenCalledWith('https://maps/a', expect.anything())
     await expect(fsPromises.readFile(store.getPath(HASH, FORMAT), 'utf8')).resolves.toBe(CONTENTS)
+    await expect(store.checkMaps([{ hash: HASH, format: FORMAT }])).resolves.toEqual([HASH])
   })
 
   it('reports a rejected URL without writing anything', async () => {
@@ -51,6 +52,7 @@ describe('MapStore', () => {
       'urlRejected',
     )
     await expect(fsPromises.stat(store.getPath(HASH, FORMAT))).rejects.toThrow()
+    await expect(store.checkMaps([{ hash: HASH, format: FORMAT }])).resolves.toEqual([])
   })
 
   it('retries a rejected URL with a newer one from a request that joined the download', async () => {

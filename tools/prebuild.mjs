@@ -1,5 +1,5 @@
-// Builds an optional companion package before the app is bundled, when the build environment points
-// at one. With none configured this does nothing, so a plain checkout builds unchanged.
+// Builds an optional companion package before bundling.
+// Release builds require a valid companion configuration.
 //
 // Usage: node tools/prebuild.mjs [--release]
 import { spawnSync } from 'node:child_process'

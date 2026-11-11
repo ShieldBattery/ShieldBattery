@@ -49,6 +49,21 @@ You can update the Rust toolchain by running `rustup update`. We generally try t
 with the current stable version (and some CI runs may fail if your local version is older than this,
 due to changes in `rust fmt` and various warnings/errors).
 
+### Local-game shutdown
+
+The app uses the published, unmodified `@shieldbattery/stimpack` package for process
+launch and exit observation. App prebuild does not compile a custom launcher.
+
+Local games stop through game IPC. If exit cannot be confirmed within the shutdown
+deadline, the session remains available for **Retry cleanup / Cancel quit**, and a
+replacement local session cannot start. An unresponsive StarCraft game may need to
+be closed manually before retrying cleanup.
+
+The published launcher cannot cancel pending native injection or forcibly terminate a
+hung game. Late connections from cancelled launches receive `quit`. Injection failures
+use the launcher's own error cleanup; the app has no process handle with which to
+independently confirm that cleanup. These limits preclude a no-orphan guarantee.
+
 ### Rust utilities
 
 - We use `sqlx` for our database interaction in Rust, which has a CLI utility.

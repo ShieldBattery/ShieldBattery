@@ -534,7 +534,12 @@ pub unsafe fn spawn_dialog_hook(
         } else {
             event_handler
         };
-        orig(raw, unk, event_handler)
+        let is_quit = name == "Quit";
+        let result = orig(raw, unk, event_handler);
+        if is_quit {
+            crate::game_exit::confirm_leave_dialog(dialog);
+        }
+        result
     }
 }
 

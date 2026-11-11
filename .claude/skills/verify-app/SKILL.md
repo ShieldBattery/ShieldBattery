@@ -291,7 +291,7 @@ Poll both instances in the same loop for a two-client game. If the session does 
   Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
   `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
-  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
+  `queryGameState(gameId)`, `leaveGame(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
   `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
   `forceQuit(gameId)`, `crash(gameId, kind)`, `screenshot(gameId)` and
   `setRollback(gameId, depth, { [stormPlayer]: frames })` for driving/inspecting a running game
@@ -306,7 +306,7 @@ Poll both instances in the same loop for a two-client game. If the session does 
   `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
   exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty
   `latest_crash.dmp` in the logs dir, a "Shieldbattery crash :(" message box (close it, or kill
-  `StarCraft.exe`), and a crash-code exit + "Crash dump written" line in the app log. The three
+  `StarCraft.exe`), and a crash-code exit + "Crash dump written" line in the app log. The four
   game-enders differ in ways that matter — pick deliberately:
   - **`forceDesync(gameId)` is THE desync trigger.** It perturbs the calling client's own sim
     state (local player's minerals), so **both clients keep playing** while their sync checksums
@@ -314,17 +314,19 @@ Poll both instances in the same loop for a two-client game. If the session does 
     ~10s after the call), a 1v1 **voids** (no-majority), team games discard the caller as the
     diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
     flight-recorder pin).
-  - **`forceUnsyncedLeave(gameId, slot)` ends a game unattended but usually desyncs it.** It
-    injects a local, non-consensus leave of `slot` on the calling client. `slot` is **required**
-    (the DLL rejects the command with `missing field 'slot'` if omitted); pass the caller's own
-    storm slot (`localSlot` in `queryGameState`) to end the caller. Even on the caller's own
-    slot the forked sim's checksum typically reaches the relay, so a 1v1 is **voided**
-    (`no-majority`) and the clients report contradictory results — no win/loss, no MMR. Use it
-    to get a game to *end* (see verify-pr T4), never for a scored result.
+  - **`leaveGame(gameId)`** exits through SC:R's native Quit confirmation, automatically selecting
+    its affirmative button. Use this for unattended normal game exit and replay-save checks. It
+    routes to either the visible client or a local bot client by game ID. Verify `finished`, the
+    saved replay, and process exit; the command itself only acknowledges dispatch. Live tested on
+    32-bit and 64-bit local bot games; ranked result reconciliation still needs separate validation.
+  - **`forceUnsyncedLeave(gameId, slot)`** injects a non-consensus **remote-player** departure on
+    the calling client. The DLL rejects its own slot: the native participant-departure handler
+    removes units but does not initiate the local disconnect/quit flow. This is fault injection,
+    not a way to exit the client or simulate its connection loss. A one-sided injection can diverge
+    simulation and produce contradictory results; use `forceDesync` for a deliberate desync test.
   - **`forceQuit(gameId)`** is the reliable teardown between checks — a hard process-level end
     that works even mid-game or at the native victory dialog. The opponent sees a drop.
-  None of the three produces a clean MMR-scored finish on its own; a human leaving via the
-  in-game menu is the clean path when the test needs a real scored result (verify-pr T4).
+  For an MMR check, validate the resulting game and rating changes in the database (verify-pr T4).
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
 - **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app-<session>.0.log`, one file per
   `SB_SESSION` (`app-session1.0.log` for instance 1). `app.0.log` is the no-session/prod name.

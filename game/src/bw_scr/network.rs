@@ -1,10 +1,11 @@
 //! Native turn dispatch and Storm session setup for the relay transport.
 
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::ffi::CStr;
 use std::mem;
 use std::ptr;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 use scr_analysis::{VirtualAddress, scarf};
@@ -35,6 +36,9 @@ pub(super) struct NetcodeV2Bw {
     pub(super) receive_storm_turns: VirtualAddress,
     /// PIPE hook target: `flush_local_turns_to_latency_depth(...)`, replaced wholesale.
     pub(super) flush_local_turns: VirtualAddress,
+    /// `get_outstanding_turn_count(out) -> success`, answered from the turn state in-game. Its only
+    /// in-game caller is `send_command`'s overflow guard (the PIPE, its other caller, is replaced).
+    pub(super) get_outstanding_turn_count: VirtualAddress,
     /// Native checksum recorder, invoked once per executed network step while sync is active.
     pub(super) record_turn_sync_slot: VirtualAddress,
     /// Enables native checksum generation after the initialized-game prelude.
@@ -154,6 +158,9 @@ impl NetcodeV2Bw {
         let flush_outgoing_command_turn = analysis
             .flush_outgoing_command_turn()
             .ok_or("flush_outgoing_command_turn")?;
+        let get_outstanding_turn_count = analysis
+            .get_outstanding_turn_count()
+            .ok_or("get_outstanding_turn_count")?;
         let apply_pending_player_leaves = analysis
             .apply_pending_player_leaves()
             .ok_or("apply_pending_player_leaves")?;
@@ -189,6 +196,7 @@ impl NetcodeV2Bw {
             send_turn_message,
             receive_storm_turns,
             flush_local_turns,
+            get_outstanding_turn_count,
             record_turn_sync_slot,
             sync_active: Value::new(ctx, sync_active),
             sync_slot_index: Value::new(ctx, sync_slot_index),
@@ -274,6 +282,18 @@ impl BwScr {
             }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
+            if !IN_TURN_FLUSH.with(|flag| flag.get()) {
+                // `send_command` ends the turn early when a command won't fit in it, which is
+                // native behavior: the turn is complete (one sync record, like any other) and the
+                // pipe sends one fewer later. See `netcode_v2_outstanding_turns` for its cap.
+                static LOGGED: AtomicU32 = AtomicU32::new(0);
+                if LOGGED.fetch_add(1, Ordering::Relaxed) < 20 {
+                    let in_flight = netcode_v2::with_turn_state(|s| s.outstanding_turns());
+                    debug!(
+                        "netcode v2: turn filled before the pipe flush: frame {frame} len {len}                          in_flight {in_flight:?}"
+                    );
+                }
+            }
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
             let filtered: Cow<'_, [u8]> = match native_sync_disabled() {
@@ -521,9 +541,7 @@ impl BwScr {
                         s.turns_to_send_while_stalled(Instant::now())
                     })
                     .unwrap_or(0);
-                    for _ in 0..owed {
-                        (nc.flush_outgoing_command_turn)();
-                    }
+                    flush_outgoing_turns(nc, owed);
                     TurnReceiveOutcome::Stall
                 }
                 Some(true) => {
@@ -661,13 +679,28 @@ impl BwScr {
             match to_flush {
                 None => false,
                 Some(n) => {
-                    for _ in 0..n {
-                        (nc.flush_outgoing_command_turn)();
-                    }
+                    flush_outgoing_turns(nc, n);
                     true
                 }
             }
         }
+    }
+
+    /// Hook body for `get_outstanding_turn_count`: in-game, the local turns in flight per the turn
+    /// state, standing in for Storm's own count (which goes degenerate once its send/ack sequence
+    /// stops advancing). The count gates `send_command`'s early flush: when a command won't fit in
+    /// the turn being built, BW sends that turn early unless the count is already at
+    /// `16 - builtin_turn_latency`, in which case it drops the command. That cap keeps every sync
+    /// record in flight inside BW's 16-entry checksum ring; past it, peers check records against
+    /// ring entries that have been overwritten and drop this client despite identical sims.
+    /// Returns `None` (let Storm answer) before the game starts, with no turn state, or with native
+    /// sync off, where no peer checks the ring and a predicting session keeps more turns in flight
+    /// by design.
+    pub(super) fn netcode_v2_outstanding_turns(&self) -> Option<u32> {
+        if !self.game_started.load(Ordering::Acquire) || native_sync_disabled() {
+            return None;
+        }
+        netcode_v2::with_turn_state(|s| s.outstanding_turns())
     }
 
     /// Seeds the turn state's pipe at the lobby→game transition. The lobby is gated native, so nothing
@@ -1051,4 +1084,20 @@ impl BwScr {
             leaving
         }
     }
+}
+
+thread_local! {
+    /// Set while SB asks BW to flush turns (the PIPE replacement, or a stalled client sending the
+    /// turns it owes), so a turn send that arrives on the OUT hook from any other native path can be
+    /// told apart and logged.
+    static IN_TURN_FLUSH: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Has BW flush `count` local turns, each re-entering the OUT hook.
+unsafe fn flush_outgoing_turns(nc: &NetcodeV2Bw, count: u32) {
+    IN_TURN_FLUSH.with(|flag| flag.set(true));
+    for _ in 0..count {
+        unsafe { (nc.flush_outgoing_command_turn)() };
+    }
+    IN_TURN_FLUSH.with(|flag| flag.set(false));
 }

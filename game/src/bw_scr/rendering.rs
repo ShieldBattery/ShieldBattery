@@ -87,6 +87,11 @@ impl BwScr {
                         callbacks.len(),
                         second_draw,
                     );
+                    // Background clients still run native draw-command lifecycle code, but have
+                    // no interactive overlay to update or render.
+                    if crate::is_background_game() {
+                        return;
+                    }
                     let renderer = self.renderer.resolve();
                     if !renderer.is_null() {
                         crate::forge::gamma::renderer_identified(self.is_prism_renderer(renderer));
@@ -565,6 +570,11 @@ impl BwScr {
                         // saves the upload replay, so it has to happen here while the recording is
                         // still this game's. A no-op if the result was already reported.
                         game_thread::send_game_results();
+                        if crate::is_background_game() {
+                            // Skip path creation and deletion as well as the writer itself.
+                            debug!("Suppressing replay autosave for background game");
+                            return 1;
+                        }
                         replay_save::sanitize_recording(
                             self.replay_data(),
                             (*self.game()).frame_count,
@@ -742,6 +752,8 @@ impl BwScr {
                             fog_style.write_shader_constants(c, is_minimap, tileset);
                         }
                     }
+                    #[cfg(debug_assertions)]
+                    crate::debug_control::record_render_call();
                     let ret = {
                         let _timing = crate::frame_timing::render();
                         orig(renderer, commands, width, height)
