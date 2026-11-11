@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, kind, family_id, map_id as \"map_id: SbMapId\", other_family_id, note,\n                reported_by as \"reported_by: SbUserId\", reported_at, status,\n                resolved_by as \"resolved_by: SbUserId\", resolved_at\n            FROM map_family_reports\n            WHERE id = $1\n        ",
+  "query": "\n            SELECT id, kind, family_id, map_id as \"map_id: SbMapId\", other_family_id, note,\n                reported_by as \"reported_by: SbUserId\", reported_at, status,\n                resolved_by as \"resolved_by: SbUserId\", resolved_at, from_publish,\n                publish_answer\n            FROM map_family_reports\n            WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,28 @@
             "name": "resolved_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "from_publish",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "from_publish"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "publish_answer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_reports",
+            "name": "publish_answer"
+          }
+        }
       }
     ],
     "parameters": {
@@ -141,8 +163,10 @@
       false,
       false,
       true,
+      true,
+      false,
       true
     ]
   },
-  "hash": "cc50e02b0963a71a8479e8f97e47434eb465ea3e026f801ac49886b8366c81ee"
+  "hash": "a79a0edf42952e0f22df0c0d672ed703caa78e450ef847b103439dc5ac3192e2"
 }

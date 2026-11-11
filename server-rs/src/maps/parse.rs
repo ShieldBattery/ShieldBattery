@@ -16,7 +16,6 @@ use broodmap_analysis::{
 };
 use broodmap_formats::{Cv5, UnitsDat, Vf4, parse_cv5, parse_units_dat, parse_vf4};
 use color_eyre::eyre::{self, WrapErr};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -26,7 +25,7 @@ use crate::maps::{LobbyInitData, MapForce, MapForcePlayer, MapForcePlayerRace};
 /// written by one parser version, kept in `maps.parser_version`. Bump this whenever any stored
 /// output would change (a broodmap upgrade that changes parse results, or a change to the
 /// derivations here), and the reparse job rewrites every map's values.
-pub const MAP_PARSER_VERSION: i32 = 5;
+pub const MAP_PARSER_VERSION: i32 = 6;
 
 /// The version of [`terrain_fingerprint`]'s encoding, stored beside each fingerprint so
 /// fingerprints are only compared with ones of the same version.
@@ -162,6 +161,10 @@ pub struct MapBase {
     pub start_slots: Vec<u8>,
 }
 
+/// How many times each trigger action kind (an [`action_kind_name`], e.g. `CreateUnit`) occurs
+/// across a map's triggers.
+pub type TriggerProfile = BTreeMap<String, u32>;
+
 #[derive(Debug, Clone)]
 pub struct MapAnalysis {
     pub format_version: i32,
@@ -175,7 +178,9 @@ pub struct MapAnalysis {
     pub mineral_total: i64,
     pub geysers: i32,
     pub bases: Option<Vec<MapBase>>,
-    pub author_suggestions: Vec<String>,
+    /// How many times each trigger action kind occurs across the map's triggers, leaving out empty
+    /// action slots. `None` when the triggers couldn't be read.
+    pub trigger_profile: Option<TriggerProfile>,
     pub anomalies: Vec<String>,
     pub protection_detected: bool,
     pub terrain_fingerprint: Option<Vec<u8>>,
@@ -251,19 +256,15 @@ pub fn parse_map(
     let mut anomalies = file_anomalies(&mpq, &chk, bytes);
     let protection_detected = anomalies.iter().any(|a| is_protection_anomaly(a));
 
-    let (trigger_count, ums_action_kinds) = match chk.raw_triggers() {
+    let (trigger_count, ums_action_kinds, trigger_profile) = match chk.raw_triggers() {
         Ok(triggers) => {
-            let mut kinds = BTreeSet::new();
-            for action in triggers.iter().flat_map(|t| &t.actions) {
-                if !is_melee_compatible_action(&action.action) {
-                    kinds.insert(action_kind_name(&action.action));
-                }
-            }
-            (triggers.len(), kinds.into_iter().collect::<Vec<_>>())
+            let (kinds, profile) =
+                summarize_actions(triggers.iter().flat_map(|t| &t.actions).map(|a| &a.action));
+            (triggers.len(), kinds, Some(profile))
         }
         Err(e) => {
             anomalies.push(format!("triggers_unreadable: {e}"));
-            (0, Vec::new())
+            (0, Vec::new(), None)
         }
     };
     let ums_content =
@@ -286,7 +287,7 @@ pub fn parse_map(
         mineral_total: i64::try_from(unit_counts.mineral_total).unwrap_or(i64::MAX),
         geysers: saturating_i32(unit_counts.geysers),
         bases,
-        author_suggestions: author_suggestions(&[&title, &description]),
+        trigger_profile,
         anomalies,
         protection_detected,
         terrain_fingerprint,
@@ -477,6 +478,26 @@ fn is_melee_compatible_action(action: &RawTriggerAction) -> bool {
     )
 }
 
+/// The action kinds outside the melee-compatible set (sorted), and how many times each action kind
+/// occurs. Empty action slots aren't counted: every trigger has 64 of them, used or not.
+fn summarize_actions<'a>(
+    actions: impl Iterator<Item = &'a RawTriggerAction>,
+) -> (Vec<String>, TriggerProfile) {
+    let mut ums_kinds = BTreeSet::new();
+    let mut profile = TriggerProfile::new();
+    for action in actions {
+        if matches!(action, RawTriggerAction::NoAction) {
+            continue;
+        }
+        let name = action_kind_name(action);
+        if !is_melee_compatible_action(action) {
+            ums_kinds.insert(name.clone());
+        }
+        *profile.entry(name).or_default() += 1;
+    }
+    (ums_kinds.into_iter().collect(), profile)
+}
+
 /// The action's variant name (e.g. `CreateUnit`), from its `Debug` output, which starts with it.
 fn action_kind_name(action: &RawTriggerAction) -> String {
     let debug = format!("{action:?}");
@@ -604,44 +625,6 @@ pub fn terrain_fingerprint(grid: &TerrainGrid) -> Vec<u8> {
         }
     }
     out
-}
-
-static AUTHOR_PATTERNS: LazyLock<[Regex; 2]> = LazyLock::new(|| {
-    [
-        // "Made by X", "Map by: X", "Author - X", "제작자 : X". A bare label needs a separator, so
-        // "author of the map" doesn't count.
-        Regex::new(
-            r"(?i)(?:\b(?:made|created|designed|edited|remade|map)\s+by\s*[:\-]?|\b(?:author|maker)\s*[:\-]|(?:제작자|제작|만든이)\s*[:\-])\s*([^\r\n,()\[\]|]{2,32})",
-        )
-        .expect("author pattern compiles"),
-        // "X 제작"
-        Regex::new(r"([^\s:]{2,24})\s*제작(?:\s|$)").expect("author suffix pattern compiles"),
-    ]
-});
-
-/// Credits named in the map's own text ("Made by X", "제작자: X"), in order of appearance. These
-/// are only hints: a bare "by X" is left out, since in map descriptions it usually names a
-/// sponsor or tournament.
-pub fn author_suggestions(texts: &[&str]) -> Vec<String> {
-    let mut found = Vec::new();
-    for text in texts {
-        for pattern in AUTHOR_PATTERNS.iter() {
-            for captures in pattern.captures_iter(text) {
-                // Names end at a run of spaces, which separates columns of credits.
-                let name = captures[1]
-                    .split("  ")
-                    .next()
-                    .unwrap_or_default()
-                    .trim()
-                    .trim_end_matches(['.', '!', '~', '*', '-', ':'])
-                    .trim();
-                if name.chars().count() >= 2 && !found.iter().any(|f: &String| f == name) {
-                    found.push(name.to_string());
-                }
-            }
-        }
-    }
-    found
 }
 
 /// Whether `name` is `title` decoded with the wrong code page: Korean (CP949) or UTF-8 bytes read
@@ -809,33 +792,6 @@ mod tests {
     }
 
     #[test]
-    fn finds_strong_author_credits_only() {
-        assert_eq!(
-            author_suggestions(&[
-                "Polypoid",
-                "Usually harmless.\r\n Created by KM-\r\n Special Thanks to Testbug\r\n sponsored by AfreecaTV"
-            ]),
-            vec!["KM"]
-        );
-        assert_eq!(
-            author_suggestions(&["", "Map by: LatiAs (v1.2)\r\nAuthor - Waldstein"]),
-            vec!["LatiAs", "Waldstein"]
-        );
-        assert_eq!(
-            author_suggestions(&["", "제작자 : 홍길동\n"]),
-            vec!["홍길동"]
-        );
-        assert_eq!(author_suggestions(&["", "홍길동 제작\n"]), vec!["홍길동"]);
-        assert!(author_suggestions(&["", "by KeSPA"]).is_empty());
-        assert!(author_suggestions(&["", "Unauthorized modification is prohibited"]).is_empty());
-        assert!(author_suggestions(&["", "I'm the author of the map"]).is_empty());
-        assert_eq!(
-            author_suggestions(&["", "Map by Rose.of.Dream      Presented by X"]),
-            vec!["Rose.of.Dream"]
-        );
-    }
-
-    #[test]
     fn detects_mojibake_names() {
         assert!(is_mojibake_of(
             "\u{b3}\u{bb}\u{b0}\u{a1} \u{c4}\u{c4}\u{c7}\u{bb}\u{c5}\u{cd}\u{c0}\u{c7} \u{c1}\u{fa}\u{b7}\u{b5} 2",
@@ -906,7 +862,7 @@ mod tests {
                     "ums_action_kinds": parsed.analysis.ums_action_kinds,
                     "player_units": parsed.analysis.player_units,
                     "bases": parsed.analysis.bases,
-                    "author_suggestions": parsed.analysis.author_suggestions,
+                    "trigger_profile": parsed.analysis.trigger_profile,
                     "anomalies": parsed.analysis.anomalies,
                     "protection_detected": parsed.analysis.protection_detected,
                     "string_encoding": parsed.analysis.string_encoding,
@@ -917,6 +873,31 @@ mod tests {
             };
             writeln!(out, "{line}").unwrap();
         }
+    }
+
+    #[test]
+    fn trigger_profile_counts_every_action_but_empty_slots() {
+        let actions = [
+            RawTriggerAction::Victory,
+            RawTriggerAction::NoAction,
+            RawTriggerAction::PauseGame,
+            RawTriggerAction::PauseGame,
+            RawTriggerAction::NoAction,
+            RawTriggerAction::LeaderboardGreed(5),
+        ];
+        let (ums_kinds, profile) = summarize_actions(actions.iter());
+        assert_eq!(ums_kinds, vec!["LeaderboardGreed", "PauseGame"]);
+        assert_eq!(
+            profile,
+            TriggerProfile::from([
+                ("LeaderboardGreed".to_string(), 1),
+                ("PauseGame".to_string(), 2),
+                ("Victory".to_string(), 1),
+            ])
+        );
+        let (ums_kinds, profile) = summarize_actions([RawTriggerAction::NoAction].iter());
+        assert!(ums_kinds.is_empty());
+        assert!(profile.is_empty());
     }
 
     #[test]

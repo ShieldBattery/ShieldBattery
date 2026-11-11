@@ -43,6 +43,7 @@ pub use catalog::{
     load_favorite_maps, load_map_library,
 };
 pub use families::graphql::{MapFamiliesMutation, MapFamiliesQuery};
+pub use families::publish_graphql::{MapPublishingMutation, MapPublishingQuery};
 
 pub struct MapsModule {
     db_pool: PgPool,

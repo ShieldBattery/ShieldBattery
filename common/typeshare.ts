@@ -181,7 +181,10 @@ export type PublishedGameReportMessage =
  * the open-report counts it pushes to staff.
  */
 export type PublishedMapFamilyReportMessage =
-  /** A report was filed, or an open report was updated by its reporter. */
+  /**
+   * A report was filed, or an open report was updated by its reporter. Also sent for reports
+   * the server files when a file is published.
+   */
   | {
       type: 'reportCreated'
       data: {

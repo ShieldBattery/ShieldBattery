@@ -3,16 +3,19 @@
 //! one current file, the one players get: staff's pick while it's eligible, otherwise derived by the
 //! database function `refresh_map_families`.
 //!
-//! Files only change families when staff move them (see [`edit`]), with one exception: an unlisted
-//! file alone in its family joins another family holding a file with the same scenario (see
+//! Files only change families when staff move them (see [`edit`]) or when a file's publisher links
+//! it to a suggested family or unlinks it (see [`publish`]), with one exception: an unlisted file
+//! alone in its family joins another family holding a file with the same scenario (see
 //! [`join_identical_files`]).
 
 pub mod edit;
 pub mod graphql;
 pub mod history;
+pub mod publish;
+pub mod publish_graphql;
 
 use color_eyre::eyre::{self, WrapErr};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
@@ -247,8 +250,12 @@ pub async fn resolve_map_page_id(db: &PgPool, id: Uuid) -> eyre::Result<Option<R
     }))
 }
 
-/// Resolves a family id that may be an alias of a family that was merged into another one.
-pub async fn resolve_family_id(db: &PgPool, id: Uuid) -> eyre::Result<Option<Uuid>> {
+/// Resolves a family id that may be an alias of a family that was merged into another one. Takes
+/// the pool, or a transaction's connection to resolve the id as that transaction sees it.
+pub async fn resolve_family_id<'e>(
+    db: impl PgExecutor<'e>,
+    id: Uuid,
+) -> eyre::Result<Option<Uuid>> {
     sqlx::query_scalar!(
         r#"
             SELECT COALESCE(

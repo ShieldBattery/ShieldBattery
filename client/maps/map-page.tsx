@@ -2,9 +2,10 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useQuery } from 'urql'
+import { useMutation, useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
 import { useLocationProperty } from 'wouter/use-browser-location'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
   ALL_MAP_PAGE_SUB_PAGES,
@@ -61,7 +62,6 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
-  delistMap,
   openMapDownloadDialog,
   openMapFamilyActionDialog,
   openMapFamilyReportDialog,
@@ -822,6 +822,16 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
   }
 `)
 
+const MapPageDelistMutation = graphql(/* GraphQL */ `
+  mutation MapPageDelist($fileId: SbMapId!) {
+    mapDelist(fileId: $fileId) {
+      id
+      listed
+      publishedAt
+    }
+  }
+`)
+
 const ActionRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -885,6 +895,7 @@ function MapActions({
   const { isLobbyHost, play } = useMapHostAction()
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
+  const [, delistFile] = useMutation(MapPageDelistMutation)
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -939,19 +950,18 @@ function MapActions({
       [t('maps.details.editDescription', 'Edit description'), () => onEdit('description')],
       [
         t('maps.thumbnail.delistMap', 'Delist'),
-        () =>
-          dispatch(
-            delistMap(map.id, {
-              onSuccess: () => {
+        () => {
+          delistFile({ fileId: map.id })
+            .then(result => {
+              if (result.error) {
+                showError(t('maps.server.delistError', 'An error occurred while delisting the map'))
+              } else {
                 snackbarController.showSnackbar(t('maps.server.delisted', 'Map delisted'))
                 onChanged()
-              },
-              onError: () =>
-                showError(
-                  t('maps.server.delistError', 'An error occurred while delisting the map'),
-                ),
-            }),
-          ),
+              }
+            })
+            .catch(swallowNonBuiltins)
+        },
       ],
     )
   }
