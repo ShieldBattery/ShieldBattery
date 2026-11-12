@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                EXISTS (\n                    SELECT 1 FROM collection_reports\n                    WHERE collection_id = $1 AND reporter_id = $2 AND resolved_at IS NULL\n                ) as \"open!\",\n                (\n                    SELECT count(*) FROM collection_reports\n                    WHERE reporter_id = $2 AND created_at > now() - interval '1 hour'\n                ) as \"recent!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "open!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "recent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "9f2225319735af7ca496c138cf8d02ef56661d26f12a053862f2538f33200c46"
+}

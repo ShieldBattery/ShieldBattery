@@ -38,7 +38,8 @@ use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::maps::search::{MapFilter, MapSort};
 use crate::maps::{
-    FavoriteMapConnection, MapLibraryConnection, load_favorite_maps, load_map_library,
+    FavoriteMapConnection, MapCollection, MapLibraryConnection, load_favorite_maps,
+    load_map_library, viewer_collections,
 };
 use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
@@ -304,6 +305,13 @@ impl CurrentUser {
         first: Option<i32>,
     ) -> Result<FavoriteMapConnection> {
         load_favorite_maps(ctx, self.id, filter, sort, after, first).await
+    }
+
+    /// This user's own list of collections: their Starred collection (made now if they have
+    /// none), then their own collections, most recently changed first, then the collections they
+    /// saved and can still see, most recently saved first.
+    async fn map_collections(&self, ctx: &Context<'_>) -> Result<Vec<MapCollection>> {
+        viewer_collections(ctx, self.id).await
     }
 }
 

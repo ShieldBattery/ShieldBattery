@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import {
   ALL_MAP_CATALOG_TABS,
+  MAP_COLLECTIONS_SEGMENT,
   MAP_COMPARE_SEGMENT,
   MapCatalogTab,
+  mapCollectionIdFromSegment,
   MapCompareView,
   mapFileIdFromSegment,
   mapIdFromRouteSegment,
@@ -10,15 +12,18 @@ import {
   mapSlug,
   urlForMap,
   urlForMapCatalog,
+  urlForMapCollection,
+  urlForMapCollections,
   urlForMapCompare,
 } from './map-url'
-import { makeMapFamilyId, makeSbMapId } from './maps'
+import { makeMapCollectionId, makeMapFamilyId, makeSbMapId } from './maps'
 import { encodePrettyId } from './pretty-id'
 
 const MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
 const OTHER_MAP_ID = makeSbMapId('5eed0000-0000-0000-0000-00000000bbbb')
 const REPORT_ID = '5eed0000-0000-0000-0000-00000000cccc'
 const FAMILY_ID = makeMapFamilyId('5eed0000-0000-0000-0000-00000000ffff')
+const COLLECTION_ID = makeMapCollectionId('5eed0000-0000-0000-0000-00000000eeee')
 
 describe('common/map-url', () => {
   test('slugs names, keeping version numbers readable', () => {
@@ -80,11 +85,29 @@ describe('common/map-url', () => {
     expect(mapIdFromRouteSegment('5eed0000-0000-0000-0000')).toBeUndefined()
   })
 
-  test('never reads a catalog tab or the compare segment as a map id', () => {
+  test('never reads a catalog tab or the compare or collections segment as a map id', () => {
     for (const tab of ALL_MAP_CATALOG_TABS) {
       expect(mapIdFromRouteSegment(tab)).toBeUndefined()
     }
     expect(mapIdFromRouteSegment(MAP_COMPARE_SEGMENT)).toBeUndefined()
+    expect(mapIdFromRouteSegment(MAP_COLLECTIONS_SEGMENT)).toBeUndefined()
+  })
+
+  test('builds collection URLs from a pretty id and slug', () => {
+    expect(urlForMapCollections()).toBe('/maps/collections')
+    expect(urlForMapCollection(COLLECTION_ID, 'UMS night: 4.0 starters')).toBe(
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}/ums-night-4-0-starters`,
+    )
+    expect(urlForMapCollection(COLLECTION_ID)).toBe(
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}/_`,
+    )
+  })
+
+  test('reads collection ids from pretty ids and raw UUIDs', () => {
+    expect(mapCollectionIdFromSegment(encodePrettyId(COLLECTION_ID))).toBe(COLLECTION_ID)
+    expect(mapCollectionIdFromSegment(COLLECTION_ID.toUpperCase())).toBe(COLLECTION_ID)
+    expect(mapCollectionIdFromSegment('ums-night')).toBeUndefined()
+    expect(mapCollectionIdFromSegment('')).toBeUndefined()
   })
 
   test('builds compare URLs, leaving the default view out', () => {

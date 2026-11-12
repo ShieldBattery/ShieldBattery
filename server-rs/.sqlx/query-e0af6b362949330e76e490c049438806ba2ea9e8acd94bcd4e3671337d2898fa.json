@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO collection_maps (collection_id, family_id, position, added_at)\n            SELECT $1, family_id, 0, now() FROM maps WHERE id = $2\n            ON CONFLICT (collection_id, family_id) WHERE family_id IS NOT NULL DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0af6b362949330e76e490c049438806ba2ea9e8acd94bcd4e3671337d2898fa"
+}

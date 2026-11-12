@@ -22,6 +22,7 @@ use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::collections::retire_family_entries;
 use crate::maps::families::owners::RetiredOwnership;
 
 /// Takes the lock held by every transaction that changes which family a file is in, a family's
@@ -55,8 +56,8 @@ pub(crate) async fn refresh_families(
 
 /// Deletes the families in `from`, which must hold no files anymore, leaving each one's id (and
 /// the ids that were aliases of it) as an alias of the family at the same index in `into`. Their
-/// favorites and open owner claims move along, one per user and family. Their owners and credits
-/// are lost: returns the families that had either.
+/// collection entries (including stars) and open owner claims move along, one per collection or
+/// user and family. Their owners and credits are lost: returns the families that had either.
 pub(crate) async fn retire_families(
     tx: &mut Transaction<'_, Postgres>,
     from: &[Uuid],
@@ -93,28 +94,7 @@ pub(crate) async fn retire_families(
     .execute(&mut **tx)
     .await
     .wrap_err("Failed to add family aliases")?;
-    sqlx::query!(
-        r#"
-            INSERT INTO favorited_maps (family_id, favorited_by, favorited_date)
-            SELECT DISTINCT ON (v.into_id, f.favorited_by) v.into_id, f.favorited_by,
-                f.favorited_date
-            FROM favorited_maps f
-            INNER JOIN unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)
-                ON v.from_id = f.family_id
-            ORDER BY v.into_id, f.favorited_by, f.favorited_date NULLS LAST
-            ON CONFLICT (family_id, favorited_by) DO UPDATE
-            SET favorited_date = LEAST(favorited_maps.favorited_date, EXCLUDED.favorited_date)
-        "#,
-        from,
-        into,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to move favorites")?;
-    sqlx::query!("DELETE FROM favorited_maps WHERE family_id = ANY($1)", from)
-        .execute(&mut **tx)
-        .await
-        .wrap_err("Failed to delete moved favorites")?;
+    retire_family_entries(tx, from, into).await?;
     sqlx::query!("DELETE FROM map_families WHERE id = ANY($1)", from)
         .execute(&mut **tx)
         .await

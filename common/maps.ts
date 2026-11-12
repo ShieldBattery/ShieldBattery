@@ -38,6 +38,18 @@ export function makeMapFamilyId(id: string): MapFamilyId {
   return id as MapFamilyId
 }
 
+/** The ID of a map collection: a named, ordered list of maps. */
+export type MapCollectionId = Tagged<string, 'MapCollectionId'>
+
+/**
+ * Converts a map collection ID string into a properly typed version. Alternative methods of
+ * retrieving a MapCollectionId should be preferred, such as using a value retrieved from the
+ * database.
+ */
+export function makeMapCollectionId(id: string): MapCollectionId {
+  return id as MapCollectionId
+}
+
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
   Badlands = 0,
