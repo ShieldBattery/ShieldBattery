@@ -102,7 +102,8 @@ export function AddToCollectionButton({ fileId }: { fileId: SbMapId }) {
 
   return (
     <>
-      <Tooltip text={label} position='bottom' tabIndex={-1}>
+      {/* The menu opens where the tooltip shows, so the tooltip would cover its first item */}
+      <Tooltip text={label} position='bottom' tabIndex={-1} disabled={open}>
         <IconButton
           ref={anchorRef}
           icon={<MaterialIcon icon='add' />}
