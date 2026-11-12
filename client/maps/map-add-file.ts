@@ -19,6 +19,8 @@ export interface AddFileFacts {
     name: string
     /** How many of the map's files the viewer can see. */
     fileCount: number
+    /** Whether any of the map's files is listed. */
+    listed: boolean
     ownerId?: SbUserId
     /** Whether staff credited the map to a maker. */
     credited: boolean
@@ -83,7 +85,7 @@ export function planAddFile(file: AddFileFacts, familyId: string, viewerId: SbUs
     return unavailable('noName')
   } else if (file.family.id === familyId) {
     return { kind: 'publish', answer: MapPublishAnswerKind.Keep }
-  } else if (!alone) {
+  } else if (!alone && file.family.listed) {
     return unavailable('inOtherMap')
   } else if (isProtected) {
     return unavailable('protected')

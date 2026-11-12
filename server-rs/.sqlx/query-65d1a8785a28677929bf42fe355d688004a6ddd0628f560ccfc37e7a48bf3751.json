@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.official, m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\",\n                f.owner_id as \"family_owner_id: SbUserId\",\n                f.credit IS NOT NULL as \"family_has_credit!\"\n            FROM maps m\n            INNER JOIN map_families f ON f.id = m.family_id\n            WHERE m.id = $1\n        ",
+  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.official, m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\",\n                EXISTS (\n                    SELECT 1 FROM maps o WHERE o.family_id = m.family_id AND o.listed\n                ) as \"family_listed!\",\n                f.owner_id as \"family_owner_id: SbUserId\",\n                f.credit IS NOT NULL as \"family_has_credit!\"\n            FROM maps m\n            INNER JOIN map_families f ON f.id = m.family_id\n            WHERE m.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -83,6 +83,12 @@
       },
       {
         "ordinal": 8,
+        "name": "family_listed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
         "name": "family_owner_id: SbUserId",
         "type_info": "Int4",
         "origin": {
@@ -93,7 +99,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "family_has_credit!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -113,9 +119,10 @@
       true,
       true,
       null,
+      null,
       true,
       null
     ]
   },
-  "hash": "131caf087b5ac71468d46f45aebceaa950614bf812e23b1005372171ef4f8823"
+  "hash": "65d1a8785a28677929bf42fe355d688004a6ddd0628f560ccfc37e7a48bf3751"
 }

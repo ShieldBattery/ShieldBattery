@@ -517,6 +517,7 @@ const AddFileLibraryQuery = graphql(/* GraphQL */ `
             family {
               id
               name
+              listed
               credit
               owner {
                 id
@@ -558,6 +559,7 @@ const AddFileUploadedQuery = graphql(/* GraphQL */ `
       family {
         id
         name
+        listed
         credit
         owner {
           id
@@ -714,6 +716,7 @@ function addFileFacts(file: AddFileData): AddFileFacts {
       id: file.family.id,
       name: file.family.name,
       fileCount: file.family.files.length,
+      listed: file.family.listed,
       ownerId: file.family.owner?.id,
       credited: !!file.family.credit,
     },
