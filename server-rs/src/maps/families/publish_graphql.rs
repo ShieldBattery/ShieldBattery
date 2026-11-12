@@ -171,7 +171,8 @@ impl MapPublishPreview {
     }
 
     /// The map the file is already in along with other files, because it's the same as one of
-    /// them. Publishing lists the file in this map, and asks nothing.
+    /// them. Publishing lists the file in this map, and asks nothing. While none of this map's
+    /// files is listed, a `JOIN` into a map the current user owns takes the file out of it instead.
     async fn existing_map(&self, ctx: &Context<'_>) -> Result<Option<MapFamily>> {
         match self.preview.existing_family {
             Some(id) => load_family(ctx, id).await.map(Some),
@@ -290,7 +291,9 @@ pub struct MapPublishingMutation;
 impl MapPublishingMutation {
     /// Publishes a file from the current user's library: lists it in the catalog, in the map
     /// `answer` says. `JOIN` takes one of the suggested maps or a map the current user owns, and is
-    /// refused when the file's own map has a credit or an owner other than the current user. A
+    /// refused when the file's own map has a credit or an owner other than the current user.
+    /// `JOIN` and `UNSURE` are refused for a file with an `existingMap`, except a `JOIN` into a map
+    /// the current user owns while none of the `existingMap`'s files is listed. A
     /// file that's already listed is left as it is. A file whose name or description needs a look
     /// is held for staff instead (`heldForReview`), who list it or not.
     async fn map_publish(
@@ -347,8 +350,9 @@ impl MapPublishingMutation {
     /// it, and resolves the report. If this lists the file, the report's `publishAnswer` is then
     /// applied on the publisher's behalf: `JOIN` moves the file into `otherFamily`, `UNSURE` files a
     /// `SAME_MAP` report about the file's map and `otherFamily`. The answer is skipped when
-    /// `otherFamily` no longer exists, already holds the file, or the file no longer is the only
-    /// file of its map; a `JOIN` answer is also skipped when the file's map has a credit or an
+    /// `otherFamily` no longer exists, already holds the file, or the file shares its map with
+    /// other files, unless the answer is a `JOIN` into a map the publisher owns and none of those
+    /// files is listed; a `JOIN` answer is also skipped when the file's map has a credit or an
     /// owner other than the publisher, which moving the file would merge away. Only available to
     /// users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
