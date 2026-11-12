@@ -2,8 +2,8 @@ import { ReactNode, useState } from 'react'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
-import { urlForMap } from '../../common/map-url'
-import { filterColorCodes, makeMapFamilyId } from '../../common/maps'
+import { urlForMap, urlForMapCollection } from '../../common/map-url'
+import { filterColorCodes, makeMapCollectionId, makeMapFamilyId } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { graphql } from '../gql'
 import {
@@ -83,6 +83,7 @@ const MapFamilyReportCountsQuery = graphql(/* GraphQL */ `
     resolved: mapFamilyReportCount(status: RESOLVED)
     dismissed: mapFamilyReportCount(status: DISMISSED)
     openClaims: mapOwnerClaimCount(status: OPEN)
+    openCollectionReports: mapCollectionReportCount
   }
 `)
 
@@ -202,6 +203,7 @@ const LoadMoreRow = styled.div`
 enum MapReportsTab {
   Reports = 'reports',
   Claims = 'claims',
+  Collections = 'collections',
 }
 
 const ALL_MAP_REPORTS_TABS: ReadonlyArray<MapReportsTab> = Object.values(MapReportsTab)
@@ -212,10 +214,11 @@ function tabText(label: string, count: number | undefined) {
 
 /**
  * Players' reports about maps and their files, files held for review when they were published,
- * and players' claims to be the maker of a map. Each report row opens the report where staff
+ * players' claims to be the maker of a map, and players' reports about public collections. Each report row opens the report where staff
  * settle it: on the comparison of the files involved, or on the page of the map or file it's
  * about. A report with nowhere to settle it opens the map's page instead, and is resolved or
- * dismissed from its row's menu. Claims are granted or rejected from their rows.
+ * dismissed from its row's menu. Claims are granted or rejected from their rows. A collection
+ * report opens the collection's page, where staff dismiss it or hide the collection.
  */
 export function AdminMapReports() {
   const [, params] = useRoute<{ tab?: string }>('/admin/maps/reports/:tab?')
@@ -252,17 +255,21 @@ export function AdminMapReports() {
         }>
         <TabItem value={MapReportsTab.Reports} text={tabText('Reports', counts?.open)} />
         <TabItem value={MapReportsTab.Claims} text={tabText('Claims', counts?.openClaims)} />
+        <TabItem
+          value={MapReportsTab.Collections}
+          text={tabText('Collections', counts?.openCollectionReports)}
+        />
       </StyledTabs>
-      {tab === MapReportsTab.Claims ? (
-        <ClaimsTable key={refreshToken} />
-      ) : (
+      {tab === MapReportsTab.Claims ? <ClaimsTable key={refreshToken} /> : null}
+      {tab === MapReportsTab.Collections ? <CollectionReportsTable key={refreshToken} /> : null}
+      {tab === MapReportsTab.Reports ? (
         <ReportsTab
           status={status}
           counts={counts}
           refreshToken={refreshToken}
           onStatusChange={setStatusParam}
         />
-      )}
+      ) : null}
     </Content>
   )
 }
@@ -807,5 +814,127 @@ export function ClaimRow({
         <FilledButton label='Grant' disabled={disabled} onClick={onGrant} />
       </ClaimActions>
     </ClaimTableRow>
+  )
+}
+
+const MapCollectionReportsQuery = graphql(/* GraphQL */ `
+  query AdminMapCollectionReports($after: String, $first: Int!) {
+    mapCollectionReports(open: true, after: $after, first: $first) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          id
+          note
+          createdAt
+          reporter {
+            id
+          }
+          collection {
+            id
+            title
+            owner {
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+`)
+
+/** How many collection reports each page of the table loads. */
+const COLLECTION_REPORTS_PAGE_SIZE = 50
+
+/** The open reports about collections, oldest first, each opening the collection's page. */
+function CollectionReportsTable() {
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
+  return (
+    <Table>
+      <TableHeader>
+        <Cell $width={104}>Reported</Cell>
+        <Cell $width={240}>Collection</Cell>
+        <Cell $width={140}>Owner</Cell>
+        <Cell>Note</Cell>
+        <Cell $width={140}>Reporter</Cell>
+      </TableHeader>
+      {pageCursors.map((cursor, i) => (
+        <CollectionReportsPage
+          key={cursor ?? 'first'}
+          after={cursor}
+          isLastPage={i === pageCursors.length - 1}
+          onLoadMore={endCursor =>
+            setPageCursors(prev => (prev.includes(endCursor) ? prev : [...prev, endCursor]))
+          }
+        />
+      ))}
+    </Table>
+  )
+}
+
+function CollectionReportsPage({
+  after,
+  isLastPage,
+  onLoadMore,
+}: {
+  after: string | null
+  isLastPage: boolean
+  onLoadMore: (endCursor: string) => void
+}) {
+  const [{ data, fetching, error }] = useQuery({
+    query: MapCollectionReportsQuery,
+    variables: { after: after ?? undefined, first: COLLECTION_REPORTS_PAGE_SIZE },
+    requestPolicy: 'cache-and-network',
+  })
+  const connection = data?.mapCollectionReports
+  const reports = connection?.edges.map(e => e.node) ?? []
+  const endCursor = connection?.pageInfo.endCursor
+
+  return (
+    <>
+      {reports.map(r => {
+        const { collection } = r
+        const url = collection
+          ? urlForMapCollection(
+              makeMapCollectionId(collection.id),
+              collection.title ?? undefined,
+              r.id,
+            )
+          : undefined
+        return (
+          <TableRow key={r.id} onClick={url ? () => push(url) : undefined}>
+            <Cell $width={104}>
+              <NarrowDuration to={new Date(r.createdAt)} />
+            </Cell>
+            <Cell $width={240}>
+              {collection ? collection.title : <MutedText>Made private by its owner</MutedText>}
+            </Cell>
+            <Cell $width={140} onClick={e => e.stopPropagation()}>
+              {collection?.owner ? <ConnectedUsername userId={collection.owner.id} /> : null}
+            </Cell>
+            <WrappingCell>{r.note}</WrappingCell>
+            <Cell $width={140} onClick={e => e.stopPropagation()}>
+              {r.reporter ? (
+                <ConnectedUsername userId={r.reporter.id} />
+              ) : (
+                <MutedText>Unknown user</MutedText>
+              )}
+            </Cell>
+          </TableRow>
+        )
+      })}
+      {!after && data && !reports.length ? (
+        <EmptyText>No open collection reports.</EmptyText>
+      ) : null}
+      {fetching && !data ? <LoadingDotsArea /> : null}
+      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+      {isLastPage && connection?.pageInfo.hasNextPage && endCursor ? (
+        <LoadMoreRow>
+          <OutlinedButton label='Load more' onClick={() => onLoadMore(endCursor)} />
+        </LoadMoreRow>
+      ) : null}
+    </>
   )
 }

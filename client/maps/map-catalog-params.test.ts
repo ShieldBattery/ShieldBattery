@@ -1,18 +1,18 @@
 import { describe, expect, test } from 'vitest'
 import { LocalMapKind, LocalMapSize, LocalMapSort } from '../../common/map-library'
-import { MapCatalogTab } from '../../common/map-url'
 import { Tileset } from '../../common/maps'
 import { EudFilter, MapLens, MapSizeClass } from '../gql/graphql'
 import {
   CatalogPlayers,
   CatalogSort,
   DEFAULT_CATALOG_FILTERS,
-  defaultPickerSortForTab,
-  defaultSortForTab,
+  defaultPickerSortForListing,
+  defaultSortForListing,
   effectiveSort,
   hasCatalogParams,
   hasNonDefaultFilters,
   LOCAL_SORTS,
+  MapListing,
   parseCatalogParams,
   serializeCatalogParams,
   toLocalMapQuery,
@@ -82,9 +82,9 @@ describe('client/maps/map-catalog-params', () => {
     expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, verified: true })).toBe(true)
   })
 
-  test('picks the sort from the URL, then searching, then saved, then the tab default', () => {
-    const all = defaultSortForTab(MapCatalogTab.All)
-    const yours = defaultSortForTab(MapCatalogTab.Yours)
+  test('picks the sort from the URL, then searching, then saved, then the listing default', () => {
+    const all = defaultSortForListing(MapListing.All)
+    const yours = defaultSortForListing(MapListing.Yours)
     expect(effectiveSort({ search: '', sort: undefined }, undefined, all)).toBe(
       CatalogSort.Trending,
     )
@@ -106,9 +106,9 @@ describe('client/maps/map-catalog-params', () => {
   })
 
   test('defaults the picker to the most played maps', () => {
-    expect(defaultPickerSortForTab(MapCatalogTab.All)).toBe(CatalogSort.MostPlayed)
-    expect(defaultPickerSortForTab(MapCatalogTab.Yours)).toBe(CatalogSort.Newest)
-    expect(defaultPickerSortForTab(MapCatalogTab.Favorites)).toBe(CatalogSort.Newest)
+    expect(defaultPickerSortForListing(MapListing.All)).toBe(CatalogSort.MostPlayed)
+    expect(defaultPickerSortForListing(MapListing.Yours)).toBe(CatalogSort.Newest)
+    expect(defaultPickerSortForListing(MapListing.Starred)).toBe(CatalogSort.Newest)
   })
 
   test('switches to and from Best match as a search starts and ends', () => {
@@ -124,8 +124,8 @@ describe('client/maps/map-catalog-params', () => {
     expect(withSearch(base, '').sort).toBe(CatalogSort.Name)
   })
 
-  test('only uses sorts the tab offers', () => {
-    const local = defaultSortForTab(MapCatalogTab.Local)
+  test('only uses sorts the listing offers', () => {
+    const local = defaultSortForListing(MapListing.Local)
     expect(local).toBe(CatalogSort.Name)
     expect(
       effectiveSort({ search: '', sort: CatalogSort.Trending }, undefined, local, LOCAL_SORTS),

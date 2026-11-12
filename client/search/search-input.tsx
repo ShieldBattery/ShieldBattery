@@ -19,6 +19,8 @@ interface SearchInputProps {
   onSearchChange: (value: string) => void
   /** The field's label. Defaults to "Search". */
   label?: string
+  /** The most characters that can be typed. */
+  maxLength?: number
   className?: string
   ref?: React.Ref<SearchInputHandle>
 }
@@ -27,6 +29,7 @@ export function SearchInput({
   searchQuery,
   onSearchChange,
   label,
+  maxLength,
   className,
   ref,
 }: SearchInputProps) {
@@ -96,6 +99,7 @@ export function SearchInput({
       onBlur={onInputBlur}
       leadingIcons={[<MaterialIcon icon='search' key='search' />]}
       hasClearButton={true}
+      inputProps={maxLength !== undefined ? { maxLength } : undefined}
     />
   )
 }

@@ -101,7 +101,7 @@ function UploadMaps() {
   )
   return (
     <SectionContainer>
-      <SectionTitle>Select maps to upload</SectionTitle>
+      <SectionTitle>Upload and publish maps</SectionTitle>
 
       <form noValidate={true} onSubmit={onSubmit}>
         <MultiFileInput {...bindCustom('maps')} inputProps={{ accept: '.scm,.scx' }} />
@@ -126,7 +126,11 @@ function UploadMaps() {
       )}
 
       {maps.length > 0 ? (
-        <FilledButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
+        <FilledButton
+          label='Upload and publish'
+          disabled={disableUploadButton}
+          onClick={() => onSubmit()}
+        />
       ) : null}
     </SectionContainer>
   )
