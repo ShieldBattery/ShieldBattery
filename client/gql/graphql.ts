@@ -1859,6 +1859,7 @@ export type MapOwnerAddFileLibraryQuery = {
           family: {
             id: string
             name: string
+            listed: boolean
             credit: string | null
             owner: { id: Types.SbUserId } | null
             files: Array<{ id: Types.SbMapId }>
@@ -1892,6 +1893,7 @@ export type MapOwnerAddFileUploadedQuery = {
     family: {
       id: string
       name: string
+      listed: boolean
       credit: string | null
       owner: { id: Types.SbUserId } | null
       files: Array<{ id: Types.SbMapId }>
@@ -12141,6 +12143,7 @@ export const MapOwnerAddFileLibraryDocument = {
                                       selections: [
                                         { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                                         { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                                        { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
                                         { kind: 'Field', name: { kind: 'Name', value: 'credit' } },
                                         {
                                           kind: 'Field',
@@ -12329,6 +12332,7 @@ export const MapOwnerAddFileUploadedDocument = {
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'credit' } },
                       {
                         kind: 'Field',

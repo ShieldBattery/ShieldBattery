@@ -29,6 +29,7 @@ function file({
       id: 'own-family',
       name: 'Eclipse 1.3',
       fileCount: 1,
+      listed: false,
       credited: false,
       ...family,
     },
@@ -109,7 +110,7 @@ describe('maps/map-add-file/planAddFile', () => {
     })
   })
 
-  test("won't publish a file staff delisted, one without a name, or one sharing a map", () => {
+  test("won't publish a file staff delisted, one without a name, or one sharing a listed map", () => {
     expect(planAddFile(file({ staffDelisted: true }), TARGET, VIEWER)).toMatchObject({
       reason: 'staffDelisted',
     })
@@ -117,8 +118,24 @@ describe('maps/map-add-file/planAddFile', () => {
       reason: 'noName',
     })
     expect(
-      planAddFile(file({ family: { fileCount: 2, name: 'Eclipse' } }), TARGET, VIEWER),
+      planAddFile(
+        file({ family: { fileCount: 2, listed: true, name: 'Eclipse' } }),
+        TARGET,
+        VIEWER,
+      ),
     ).toEqual({ kind: 'unavailable', reason: 'inOtherMap', mapName: 'Eclipse' })
+  })
+
+  test("publishes a file out of a map it shares while none of that map's files is listed", () => {
+    const join = { kind: 'publish', answer: MapPublishAnswerKind.Join }
+    expect(planAddFile(file({ family: { fileCount: 2 } }), TARGET, VIEWER)).toEqual(join)
+    // Its map stays, so the file moving out merges nothing away
+    expect(
+      planAddFile(file({ family: { fileCount: 2, ownerId: SOMEONE_ELSE } }), TARGET, VIEWER),
+    ).toEqual(join)
+    expect(planAddFile(file({ family: { fileCount: 2, credited: true } }), TARGET, VIEWER)).toEqual(
+      join,
+    )
   })
 })
 

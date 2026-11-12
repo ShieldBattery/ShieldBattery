@@ -323,7 +323,7 @@ function libraryFile(
     publishedAt: listed ? new Date(NOW - publishedDaysAgo * DAY).toISOString() : null,
     publisher: listed ? { id: VIEWER } : null,
     moderation: { id, delistedKind: null },
-    family: { id: `ad0f-family-${n}`, name, credit: null, owner: null, files: [{ id }] },
+    family: { id: `ad0f-family-${n}`, name, listed, credit: null, owner: null, files: [{ id }] },
     file: {
       id: `${id}-file`,
       width: map.mapData.width,
