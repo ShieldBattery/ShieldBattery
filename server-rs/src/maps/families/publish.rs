@@ -159,6 +159,8 @@ struct PublishFile {
     delisted_kind: Option<String>,
     /// How many files the file's family holds, including the file itself.
     family_size: i64,
+    /// Whether any file of the file's family is listed.
+    family_listed: bool,
     /// The owner of the file's family, if it has one.
     family_owner_id: Option<SbUserId>,
     /// Whether staff credited the file's family to a maker.
@@ -173,6 +175,14 @@ impl PublishFile {
         self.family_size == 1
             && (self.family_has_credit || self.family_owner_id.is_some_and(|owner| owner != user))
     }
+
+    /// Whether a `Join` or `Unsure` answer about `target` is refused because the file shares its
+    /// family with other files, so it's listed with that family. A `Join` into another map the
+    /// publisher owns (`owns_target`) may still take the file out of a family none of whose files
+    /// is listed: that family isn't a map players see, and its other files stay in it.
+    fn has_existing_map(&self, target: Uuid, owns_target: bool) -> bool {
+        self.family_size > 1 && !(owns_target && target != self.family_id && !self.family_listed)
+    }
 }
 
 async fn load_file(conn: &mut PgConnection, file_id: SbMapId) -> Result<PublishFile, PublishError> {
@@ -183,6 +193,9 @@ async fn load_file(conn: &mut PgConnection, file_id: SbMapId) -> Result<PublishF
                 COALESCE(m.public_description, m.description) as "description!",
                 m.published_by as "published_by: SbUserId", m.delisted_kind,
                 (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as "family_size!",
+                EXISTS (
+                    SELECT 1 FROM maps o WHERE o.family_id = m.family_id AND o.listed
+                ) as "family_listed!",
                 f.owner_id as "family_owner_id: SbUserId",
                 f.credit IS NOT NULL as "family_has_credit!"
             FROM maps m
@@ -324,7 +337,8 @@ async fn hits_restricted_names(names: &NameChecker, file: &PublishFile) -> eyre:
 pub struct PublishPreview {
     /// Why the user can't publish the file, if they can't.
     pub blocked: Option<PublishBlock>,
-    /// The file's family, when it already holds other files: the file is listed with it.
+    /// The file's family, when it already holds other files: the file is listed with it, unless
+    /// none of its files is listed and the user joins the file to a map they own (see [`publish`]).
     pub existing_family: Option<Uuid>,
     /// The maps the file may be a version of. Empty when `existing_family` is set, and when the
     /// file's own map has a credit or an owner other than the user, which joining another map
@@ -413,7 +427,10 @@ pub struct PublishOutcome {
 /// the restricted names list (checked for everyone but staff): then it's held for staff, who list
 /// it or dismiss it. The publish review keeps `answer`, which is applied if staff list the file
 /// (see [`approve_review`]). A `Join` answer may name a suggested map or one `user` owns; an
-/// `Unsure` answer only a suggested map.
+/// `Unsure` answer only a suggested map. Neither is taken for a file that shares its family with
+/// other files, except a `Join` into another map `user` owns while none of that family's files is
+/// listed: the file then leaves the family, whose other files stay in it. A joined file is moved
+/// before it's listed, so it's only ever listed in the map it joins.
 pub async fn publish(
     db: &PgPool,
     names: &NameChecker,
@@ -451,14 +468,14 @@ pub async fn publish(
         }
     }
     if let PublishAnswer::Join(family_id) | PublishAnswer::Unsure(family_id) = answer {
-        if file.family_size > 1 {
+        let owned = matches!(answer, PublishAnswer::Join(_))
+            && owners::owns(&mut tx, family_id, user).await?;
+        if file.has_existing_map(family_id, owned) {
             return Err(PublishError::HasExistingMap);
         }
         if matches!(answer, PublishAnswer::Join(_)) && file.move_erases_protected_map(user) {
             return Err(PublishError::ProtectedMap);
         }
-        let owned = matches!(answer, PublishAnswer::Join(_))
-            && owners::owns(&mut tx, family_id, user).await?;
         if !owned {
             let suggestions = publish_suggestions(&mut tx, file_id).await?;
             if !suggestions.iter().any(|s| s.family_id == family_id) {
@@ -489,17 +506,20 @@ pub async fn publish(
         });
     }
 
-    list_file(&mut tx, file_id, file.family_id, user, user).await?;
     let outcome = match answer {
-        PublishAnswer::Keep => PublishOutcome {
-            family_id: file.family_id,
-            held_for_review: false,
-            report_id: None,
-            moved: None,
-        },
+        PublishAnswer::Keep => {
+            list_file(&mut tx, file_id, file.family_id, user, user).await?;
+            PublishOutcome {
+                family_id: file.family_id,
+                held_for_review: false,
+                report_id: None,
+                moved: None,
+            }
+        }
         PublishAnswer::Join(family_id) => {
             let moved =
                 edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
+            list_file(&mut tx, file_id, family_id, user, user).await?;
             PublishOutcome {
                 family_id,
                 held_for_review: false,
@@ -508,6 +528,7 @@ pub async fn publish(
             }
         }
         PublishAnswer::Unsure(family_id) => {
+            list_file(&mut tx, file_id, file.family_id, user, user).await?;
             let report_id = edit::insert_report(
                 &mut tx,
                 &ReportRequest::SameMap {
@@ -570,24 +591,23 @@ async fn list_file(
 
 /// The family a publisher's held answer still applies to when staff list their file: the family
 /// they answered about (`target`, through any merges, `None` if it no longer exists), unless the
-/// file has since ended up in that family or shares its own family with other files. The file is
-/// then left listed where it is.
-fn held_answer_target(
-    target: Option<Uuid>,
-    file_family_id: Uuid,
-    family_size: i64,
-) -> Option<Uuid> {
-    target.filter(|&target| target != file_family_id && family_size == 1)
+/// file has since ended up in that family, or shares its own family with other files. A file
+/// sharing its family still leaves it for a `Join` into a map the publisher owns (`owns_target`)
+/// while none of that family's files is listed (see [`PublishFile::has_existing_map`]). When the
+/// answer doesn't apply, the file is left listed where it is.
+fn held_answer_target(target: Option<Uuid>, file: &PublishFile, owns_target: bool) -> Option<Uuid> {
+    target.filter(|&target| target != file.family_id && !file.has_existing_map(target, owns_target))
 }
 
 /// Lists the file of an open publish review, as published by the user it was held for, and
 /// resolves the review. If this lists the file and the publisher answered that it is (or might
 /// be) a version of another map, the answer is applied as publishing would have, on the
-/// publisher's behalf: the file is moved into that map, or a `same_map` report is filed about it.
-/// The answer is skipped when that map no longer exists, when the file is already in it, or when
-/// the file no longer is the only file of its own map. A `Join` answer is also skipped when the
-/// file's own map has a credit or an owner other than the publisher, which moving the file would
-/// merge away.
+/// publisher's behalf: the file is moved into that map before it's listed, or a `same_map` report
+/// is filed about it. The answer is skipped when that map no longer exists, when the file is
+/// already in it, or when the file shares its own map with other files, unless the answer is a
+/// `Join` into a map the publisher owns and none of those files is listed. A `Join` answer is also
+/// skipped when the file's own map has a credit or an owner other than the publisher, which moving
+/// the file would merge away.
 pub async fn approve_review(
     db: &PgPool,
     report_id: Uuid,
@@ -624,13 +644,20 @@ pub async fn approve_review(
     let mut moved = None;
     if listed_now {
         let publisher = report.reported_by;
-        list_file(&mut tx, file_id, file.family_id, publisher, actor).await?;
+        let mut unsure_target = None;
         if let (Some(answer), Some(other_family_id)) =
             (report.publish_answer.as_deref(), report.other_family_id)
         {
+            let answer = MapPublishReviewAnswer::from_db(answer);
             let target = resolve_family_id(&mut *tx, other_family_id).await?;
-            if let Some(target) = held_answer_target(target, file.family_id, file.family_size) {
-                match MapPublishReviewAnswer::from_db(answer) {
+            let owns_target = match (answer, target) {
+                (MapPublishReviewAnswer::Join, Some(target)) => {
+                    owners::owns(&mut tx, target, publisher).await?
+                }
+                _ => false,
+            };
+            if let Some(target) = held_answer_target(target, &file, owns_target) {
+                match answer {
                     MapPublishReviewAnswer::Join if file.move_erases_protected_map(publisher) => {}
                     MapPublishReviewAnswer::Join => {
                         moved = Some(
@@ -639,22 +666,24 @@ pub async fn approve_review(
                         );
                         family_id = target;
                     }
-                    MapPublishReviewAnswer::Unsure => {
-                        let id = edit::insert_report(
-                            &mut tx,
-                            &ReportRequest::SameMap {
-                                family_id: file.family_id,
-                                other_family_id: target,
-                                from_publish: true,
-                            },
-                            None,
-                            publisher,
-                        )
-                        .await?;
-                        same_map_report_id = Some(id);
-                    }
+                    MapPublishReviewAnswer::Unsure => unsure_target = Some(target),
                 }
             }
+        }
+        list_file(&mut tx, file_id, family_id, publisher, actor).await?;
+        if let Some(target) = unsure_target {
+            let id = edit::insert_report(
+                &mut tx,
+                &ReportRequest::SameMap {
+                    family_id: file.family_id,
+                    other_family_id: target,
+                    from_publish: true,
+                },
+                None,
+                publisher,
+            )
+            .await?;
+            same_map_report_id = Some(id);
         }
     }
     edit::set_report_status(&mut tx, report_id, MapFamilyReportStatus::Resolved, actor).await?;
@@ -961,6 +990,7 @@ mod tests {
             published_by: None,
             delisted_kind: None,
             family_size: 1,
+            family_listed: false,
             family_owner_id: None,
             family_has_credit: false,
         }
@@ -1129,14 +1159,69 @@ mod tests {
     }
 
     #[test]
-    fn held_answers_apply_only_to_a_lone_file_and_another_existing_map() {
+    fn held_answers_apply_to_a_lone_file_and_another_existing_map() {
         let own = Uuid::from_u128(1);
         let other = Uuid::from_u128(2);
-        assert_eq!(held_answer_target(Some(other), own, 1), Some(other));
-        assert_eq!(held_answer_target(None, own, 1), None);
-        assert_eq!(held_answer_target(Some(own), own, 1), None);
-        assert_eq!(held_answer_target(Some(other), own, 2), None);
-        assert_eq!(held_answer_target(Some(own), own, 2), None);
+        let alone = PublishFile {
+            family_id: own,
+            ..file("Map")
+        };
+        assert_eq!(held_answer_target(Some(other), &alone, false), Some(other));
+        assert_eq!(held_answer_target(Some(other), &alone, true), Some(other));
+        assert_eq!(held_answer_target(None, &alone, false), None);
+        assert_eq!(held_answer_target(Some(own), &alone, false), None);
+        assert_eq!(held_answer_target(Some(own), &alone, true), None);
+    }
+
+    #[test]
+    fn held_answers_take_a_file_out_of_its_family_only_into_an_owned_map_while_none_is_listed() {
+        let own = Uuid::from_u128(1);
+        let other = Uuid::from_u128(2);
+        let grouped = PublishFile {
+            family_id: own,
+            family_size: 2,
+            ..file("Map")
+        };
+        assert_eq!(held_answer_target(Some(other), &grouped, true), Some(other));
+        assert_eq!(held_answer_target(Some(other), &grouped, false), None);
+        assert_eq!(held_answer_target(Some(own), &grouped, true), None);
+        assert_eq!(held_answer_target(None, &grouped, true), None);
+        let listed_group = PublishFile {
+            family_listed: true,
+            ..grouped
+        };
+        assert_eq!(held_answer_target(Some(other), &listed_group, true), None);
+        assert_eq!(held_answer_target(Some(other), &listed_group, false), None);
+    }
+
+    #[test]
+    fn a_shared_family_refuses_answers_except_an_owned_join_while_none_of_its_files_is_listed() {
+        let own = Uuid::from_u128(1);
+        let other = Uuid::from_u128(2);
+        let alone = PublishFile {
+            family_id: own,
+            family_listed: true,
+            ..file("Map")
+        };
+        assert!(!alone.has_existing_map(other, false));
+        assert!(!alone.has_existing_map(other, true));
+        let grouped = PublishFile {
+            family_size: 3,
+            family_listed: false,
+            ..alone.clone()
+        };
+        assert!(grouped.has_existing_map(other, false));
+        assert!(!grouped.has_existing_map(other, true));
+        assert!(
+            grouped.has_existing_map(own, true),
+            "a join into its own family"
+        );
+        let listed_group = PublishFile {
+            family_listed: true,
+            ..grouped
+        };
+        assert!(listed_group.has_existing_map(other, true));
+        assert!(listed_group.has_existing_map(other, false));
     }
 
     #[test]
