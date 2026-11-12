@@ -334,7 +334,9 @@ rather than in a panel. Every unit in the main view gets the health bar SC:R dra
 unit. The overlay only says which units get one (`FrameOutput::health_bars`); the host has the game
 draw them, each in with its unit's sprite as a selected unit's is, so a bar is covered by whatever
 stands in front of its unit. Buildings get none, and a unit in the watcher's selection keeps the
-game's own. Each player's units are split into the groups they stand in, every group getting a label
+game's own. Pointing at a group's label shows which units it counts: a veil darkens the game view
+but for a soft spot of light left on each of them, and their ids are handed to the host
+(`FrameOutput::highlighted_units`) to brighten the units themselves where its renderer can. Each player's units are split into the groups they stand in, every group getting a label
 hung just above it: the player's name on a thin band of their own color, over a tile per kind of
 unit in the group (its icon, or its code without an atlas, and how many), highest rank first
 (units.dat's rank, the one that decides whose portrait and voice a mixed selection gets), six to a

@@ -286,6 +286,9 @@ pub struct FrameOutput {
     /// The units the on-screen count wants a health bar under this frame, by the ids the host gave
     /// them, sorted. None while the count is not up.
     pub health_bars: Vec<u32>,
+    /// The units of the on-screen count's group the pointer is over the label of, by the same
+    /// ids, sorted, for the host to light up.
+    pub highlighted_units: Vec<u32>,
 }
 
 /// The overlay's per-frame state machine. See the module docs.
@@ -698,6 +701,7 @@ impl Shell {
         // minimap moves the view without the game taking it for a ping; the wheel stays the
         // game's, which zooms with it.
         let mut health_bars = Vec::new();
+        let mut highlighted_units = Vec::new();
         if let Some(view) = views.observer.filter(|_| observing) {
             let screen = ctx.viewport_rect();
             let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
@@ -713,6 +717,7 @@ impl Shell {
                 self.intents.push(Intent::LookAtMinimapPoint(point));
             }
             health_bars = outcome.health_bars;
+            highlighted_units = outcome.highlighted;
             if counting_on_screen {
                 hit_rects.push(HitRect::new(screen));
             }
@@ -760,6 +765,7 @@ impl Shell {
             playback_controls_shown,
             button_click: widgets::take_activation(ctx) || hotkey_activation,
             health_bars,
+            highlighted_units,
         }
     }
 

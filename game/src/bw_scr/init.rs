@@ -920,6 +920,7 @@ impl BwScr {
             hd_switching: AtomicBool::new(false),
             overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             unit_health_bars: super::unit_health_bars::UnitHealthBars::new(),
+            unit_highlights: super::unit_highlights::UnitHighlights::new(),
             software_cursor_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),

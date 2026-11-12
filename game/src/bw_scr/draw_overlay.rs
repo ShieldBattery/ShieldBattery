@@ -266,6 +266,8 @@ pub struct StepOutput {
     pub bottom_overpan_share: f32,
     /// The units the game is to draw health bars under though they are not selected.
     pub health_bar_units: Vec<Unit>,
+    /// The units to light up on the map: those of the group the watcher is pointing at.
+    pub highlighted_units: Vec<Unit>,
 }
 
 /// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
@@ -923,6 +925,7 @@ impl OverlayState {
         let mut setting_changes = Vec::new();
         let mut game_commands = Vec::new();
         let health_bars = std::mem::take(&mut frame_output.health_bars);
+        let highlighted_units = std::mem::take(&mut frame_output.highlighted_units);
         for intent in frame_output.intents {
             match intent {
                 // The overlay holds what the player moved, so the screen keeps showing it for the
@@ -1001,7 +1004,8 @@ impl OverlayState {
             } else {
                 0.0
             },
-            health_bar_units: stats::health_bar_units(bw, &health_bars),
+            health_bar_units: stats::on_screen_units(bw, &health_bars),
+            highlighted_units: stats::on_screen_units(bw, &highlighted_units),
         }
     }
 
@@ -1950,6 +1954,8 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
     use overlay_ui::observer::CountTuning;
     use stats::BuilderGrouping;
 
+    use super::unit_highlights::{self, HighlightLook};
+
     let mut builders = stats::builder_grouping();
     ui.label("Workers putting up buildings are grouped");
     for (grouping, text) in [
@@ -1974,13 +1980,22 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
         Slider::new(&mut motion.same_orders_reach, 96.0..=1024.0)
             .text("Reach on the same orders (map px)"),
     );
+    ui.separator();
+    ui.label("Units of the group pointed at");
+    let mut look = unit_highlights::look();
+    ui.add(Slider::new(&mut look.lit, 1.0..=3.0).text("Their brightness (no real-time lighting)"));
+    ui.add(Slider::new(&mut motion.veil, 0.0..=1.0).text("Veil over everything else"));
+    ui.add(Slider::new(&mut motion.spot_margin, 0.0..=96.0).text("Light past a unit (map px)"));
+    ui.add(Slider::new(&mut motion.spot_fade, 1.0..=192.0).text("Light's fade (map px)"));
     if ui.button("Reset").clicked() {
         motion = CountTuning::DEFAULT;
         builders = BuilderGrouping::Apart;
+        look = HighlightLook::DEFAULT;
     }
     if ui.button("Log values").clicked() {
-        info!("On-screen count: builders {builders:?}, {motion:?}");
+        info!("On-screen count: builders {builders:?}, {motion:?}, {look:?}");
     }
+    unit_highlights::set_look(look);
     stats::set_count_tuning(motion);
     stats::set_builder_grouping(builders);
 }

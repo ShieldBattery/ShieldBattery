@@ -57,12 +57,22 @@ impl BwScr {
             }
 
             // Every image of every sprite in view goes through this, so it does nothing but
-            // read a flag unless the on-screen count has health bars to draw.
+            // read two flags unless the on-screen count has health bars to draw or units to light
+            // up.
             let address = self.draw_image.0 as usize - base;
             exe.hook_closure_address(
                 DrawImage,
                 move |image, orig| {
+                    let commands = self.draw_commands.resolve();
+                    let lit = self
+                        .unit_highlights
+                        .gain_for(image)
+                        .filter(|_| !commands.is_null())
+                        .map(|gain| (gain, (*commands).draw_command_count));
                     orig(image);
+                    if let Some((gain, first)) = lit {
+                        super::unit_highlights::multiply_colors(commands, first, gain);
+                    }
                     self.unit_health_bars.image_drawn(image, |bar| orig(bar));
                 },
                 address,
@@ -95,12 +105,14 @@ impl BwScr {
                         self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
                     let callbacks = with_tooltip_layer_hider(extra_funcs, extra_func_len);
                     self.unit_health_bars.set_drawing(second_draw == 0);
+                    self.unit_highlights.set_drawing(second_draw == 0);
                     orig(
                         callbacks.as_ptr() as *mut c_void,
                         callbacks.len(),
                         second_draw,
                     );
                     self.unit_health_bars.set_drawing(false);
+                    self.unit_highlights.set_drawing(false);
                     let renderer = self.renderer.resolve();
                     if !renderer.is_null() {
                         crate::forge::gamma::renderer_identified(self.is_prism_renderer(renderer));
@@ -345,6 +357,8 @@ impl BwScr {
                             }
                             self.unit_health_bars
                                 .set_wanted(overlay_out.health_bar_units.iter().copied());
+                            self.unit_highlights
+                                .set_units(overlay_out.highlighted_units.iter().copied());
                             if show_entire_map != overlay_out.show_entire_map {
                                 self.replay_vision_choice
                                     .lock()

@@ -33,6 +33,10 @@
 //! at its own pace. A label that does have to move covers the distance quickly and stops (see
 //! [`settle`]). While it moves, it is drawn where it is rather than on the nearest whole pixels,
 //! which would step it along out of time with the units it follows.
+//!
+//! Pointing at a group's label shows which units it counts: a veil darkens the game view but for
+//! a spot of light left on each of them (see [`veil_mesh`]), and their ids are handed to the host
+//! to light the units themselves up where it can.
 
 mod grouping;
 
@@ -40,8 +44,8 @@ use std::collections::HashMap;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2,
-    pos2, vec2,
+    Align, Area, Color32, Context, Id, Mesh, Order, Pos2, Rect, Sense, Shape, Stroke, StrokeKind,
+    Ui, Vec2, pos2, vec2,
 };
 
 use crate::kit::motion;
@@ -214,6 +218,13 @@ pub struct CountTuning {
     /// How far apart two units on the same orders can stand and still be together, which is
     /// further than units are otherwise (see [`grouping`]).
     pub same_orders_reach: f32,
+    /// How dark the veil over the game view is while a group's label is pointed at, from 0, no
+    /// veil at all, to 1, black.
+    pub veil: f32,
+    /// How far past a unit of the group pointed at the spot of light on it reaches before the veil
+    /// starts to come back, and how far it takes to come back in full.
+    pub spot_margin: f32,
+    pub spot_fade: f32,
 }
 
 impl CountTuning {
@@ -224,6 +235,9 @@ impl CountTuning {
         least_speed: 192.0,
         regroup_secs: 1.0,
         same_orders_reach: 220.0,
+        veil: 0.56,
+        spot_margin: 12.0,
+        spot_fade: 28.0,
     };
 }
 
@@ -261,6 +275,26 @@ struct Memory {
     groups: grouping::Groups,
     labels: HashMap<u32, Kept>,
     leaving: Vec<Leaving>,
+    /// How far in the veil is, from 0 to 1, and the units it leaves lit, by id, sorted: those of
+    /// the group last pointed at, kept while the veil goes so that it goes as it stood.
+    veil: f32,
+    lit: Vec<u32>,
+}
+
+/// How long, in seconds, the veil takes to cover most of the way in or out.
+const VEIL_SECS: f32 = 0.04;
+
+/// How big the squares the veil is made of are, in points. Its darkness is set at their corners
+/// and runs evenly between, so they are small beside the fade at the edge of a spot of light.
+const VEIL_CELL: f32 = 12.0;
+
+/// A place the veil leaves lit: a circle on the screen, and how far past its edge the veil takes
+/// to come back in full.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Spot {
+    center: Pos2,
+    radius: f32,
+    fade: f32,
 }
 
 /// A group's label as it was the frame before: where it was, and what was on it, which is what is
@@ -398,6 +432,10 @@ pub struct OnScreenOutcome {
     /// is up, or the ones picked. Drawn by the host, in among the units as the game draws a
     /// selected unit's, where a bar drawn here would lie over whatever stands in front of it.
     pub health_bars: Vec<u32>,
+    /// The units of the group whose label the pointer is over, by id, sorted, for the host to
+    /// light up on the map: which units a label is counting is not always plain from where it
+    /// hangs. None while the pointer is over no label.
+    pub highlighted: Vec<u32>,
 }
 
 /// Draws the labels, fading them in and out together, and says which units get health bars.
@@ -427,6 +465,7 @@ pub fn render_on_screen_view(
         .order(Order::Background)
         .interactable(false);
     let mut drawn = false;
+    let mut highlighted = Vec::new();
     // Pinned to the units they count, so they fade in and out where they stand rather than
     // sliding, and quickly: the count is up for as long as a key is held and no longer.
     motion::presence_area_quick(
@@ -466,15 +505,56 @@ pub fn render_on_screen_view(
             let placed = place_labels(ui, labels, screen, &panels);
             let (placed, labels) = settle(placed, &before.labels, on_map, view.tuning, seconds);
             let leaving = leaving_labels(&before, &groups, &labels, view.tuning, seconds);
+            // Nothing is pointed at while a box is being dragged, or once the count is going.
+            let pointing = shown && !matches!(pick, Pick::Dragging { .. });
+            let pointer = ui
+                .input(|input| input.pointer.hover_pos())
+                .filter(|_| pointing);
+            let hovered = pointer.and_then(|pointer| label_under(&placed, &panels, pointer));
+            if let Some(key) = hovered {
+                highlighted = groups
+                    .group_of
+                    .iter()
+                    .filter(|&(_, group)| *group == key)
+                    .map(|(unit, _)| *unit)
+                    .collect();
+                highlighted.sort_unstable();
+            }
+            // The veil comes and goes quickly rather than at once, and goes with the spots it had.
+            let veil = {
+                let target = if hovered.is_some() { 1.0 } else { 0.0 };
+                let now =
+                    before.veil + (target - before.veil) * (1.0 - (-seconds / VEIL_SECS).exp());
+                if (target - now).abs() < 0.02 {
+                    target
+                } else {
+                    ui.ctx().request_repaint();
+                    now
+                }
+            };
+            let lit = match hovered {
+                Some(_) => highlighted.clone(),
+                None if veil > 0.0 => before.lit.clone(),
+                None => Vec::new(),
+            };
+            let darkness = view.tuning.veil * veil;
+            if darkness > 0.0 {
+                let spots = lit_spots(view, &lit, on_map);
+                ui.painter()
+                    .add(Shape::mesh(veil_mesh(screen, &spots, darkness)));
+            }
             let pixels_per_point = ui.ctx().pixels_per_point();
             let paint = |ui: &Ui, label: &Label, rect: Rect, moving: bool| {
                 // Laid out on whole pixels, as it is drawn when it stands still.
                 let still =
                     Rect::from_min_size(rect.min.round_to_pixels(pixels_per_point), rect.size());
+                let hovered = label.key.is_some() && label.key == hovered;
                 if moving {
-                    paint_off_grid(ui, rect.min - still.min, || draw_label(ui, label, still));
+                    paint_off_grid(ui, rect.min - still.min, || {
+                        draw_label(ui, label, still, hovered)
+                    });
                 } else {
-                    draw_label(ui, label, still);
+                    draw_label(ui, label, still, hovered);
                 }
             };
             // Under the labels that are staying, each fading into the one it is joining.
@@ -518,6 +598,8 @@ pub fn render_on_screen_view(
                         groups,
                         labels,
                         leaving,
+                        veil,
+                        lit,
                     },
                 )
             });
@@ -532,7 +614,105 @@ pub fn render_on_screen_view(
             }
         });
     }
-    OnScreenOutcome { look, health_bars }
+    OnScreenOutcome {
+        look,
+        health_bars,
+        highlighted,
+    }
+}
+
+/// The spots of light the veil leaves on the units `lit` (by id, sorted): a circle around what is
+/// drawn of each, with the margin and fade the view's tuning gives. A unit that is not on the map
+/// to be seen, a worker inside a refinery, has none.
+fn lit_spots(view: &OnScreenView, lit: &[u32], on_map: OnMap) -> Vec<Spot> {
+    let screen = on_map.screen;
+    let scale = on_map.points_per_pixel().x;
+    view.units
+        .iter()
+        .filter(|unit| unit.bounds.is_finite() && lit.binary_search(&unit.id).is_ok())
+        .map(|unit| {
+            let body = body_on_screen(unit, screen);
+            let top = on_screen(pos2(unit.position.x, unit.top), screen).y;
+            let drawn = Rect::from_min_max(pos2(body.left(), top.min(body.top())), body.max);
+            Spot {
+                center: drawn.center(),
+                radius: drawn.width().max(drawn.height()) / 2.0 + view.tuning.spot_margin * scale,
+                fade: view.tuning.spot_fade * scale,
+            }
+        })
+        .collect()
+}
+
+/// The veil over `screen`: black at `darkness` (0 to 1) everywhere but in `spots`, where there is
+/// none of it, and coming back in full over each spot's fade past its edge.
+///
+/// A veil over the whole view rather than a darkening of the things in it, so that everything
+/// that is not being pointed out goes back together: the ground and the water with the units on
+/// them, under any graphics setting, since it is drawn over what the game has drawn.
+fn veil_mesh(screen: Rect, spots: &[Spot], darkness: f32) -> Mesh {
+    let columns = (screen.width() / VEIL_CELL).ceil().max(1.0) as usize;
+    let rows = (screen.height() / VEIL_CELL).ceil().max(1.0) as usize;
+    let step = vec2(
+        screen.width() / columns as f32,
+        screen.height() / rows as f32,
+    );
+    let across = columns + 1;
+    let corner =
+        |column: usize, row: usize| screen.min + vec2(column as f32 * step.x, row as f32 * step.y);
+    // How much light each corner of the squares is in, from 0 to 1.
+    let mut light = vec![0.0f32; across * (rows + 1)];
+    for spot in spots {
+        let reach = spot.radius + spot.fade;
+        let cells = |from: f32, step: f32, most: usize| {
+            let first = ((from - reach) / step).floor().clamp(0.0, most as f32) as usize;
+            let last = ((from + reach) / step).ceil().clamp(0.0, most as f32) as usize;
+            first..=last
+        };
+        for row in cells(spot.center.y - screen.top(), step.y, rows) {
+            for column in cells(spot.center.x - screen.left(), step.x, columns) {
+                let past = corner(column, row).distance(spot.center) - spot.radius;
+                let back = (past / spot.fade.max(f32::EPSILON)).clamp(0.0, 1.0);
+                // Eased at both ends, so a spot has no edge to it.
+                let lit = 1.0 - back * back * (3.0 - 2.0 * back);
+                let at = &mut light[row * across + column];
+                *at = at.max(lit);
+            }
+        }
+    }
+    let mut mesh = Mesh::default();
+    mesh.reserve_vertices(light.len());
+    mesh.reserve_triangles(columns * rows * 2);
+    for row in 0..=rows {
+        for column in 0..=columns {
+            let dark = darkness.clamp(0.0, 1.0) * (1.0 - light[row * across + column]);
+            mesh.colored_vertex(
+                corner(column, row),
+                Color32::from_black_alpha((dark * 255.0).round() as u8),
+            );
+        }
+    }
+    for row in 0..rows {
+        for column in 0..columns {
+            let first = (row * across + column) as u32;
+            let below = first + across as u32;
+            mesh.add_triangle(first, first + 1, below);
+            mesh.add_triangle(first + 1, below + 1, below);
+        }
+    }
+    mesh
+}
+
+/// The key of the group whose label `pointer` is over: the last drawn of those it is over, which
+/// is the one on top. None where one of `panels` covers the label there.
+fn label_under(placed: &[Settled], panels: &[Rect], pointer: Pos2) -> Option<u32> {
+    if panels.iter().any(|panel| panel.contains(pointer)) {
+        return None;
+    }
+    placed
+        .iter()
+        .rev()
+        .find(|settled| settled.label.key.is_some() && settled.rect.contains(pointer))
+        .and_then(|settled| settled.label.key)
 }
 
 /// The units `pick` gives health bars, by id, sorted.
@@ -1192,8 +1372,8 @@ fn paint_box(ui: &Ui, dragged: Rect) {
 
 /// Draws one label into `rect`: the owner's name on a band of their color as wide as the label,
 /// then a tile for each kind, wrapping onto as many lines as it takes, the band and every tile
-/// edged with a dark line.
-fn draw_label(ui: &Ui, label: &Label, rect: Rect) {
+/// edged with a dark line, or a light one while the pointer is over the label.
+fn draw_label(ui: &Ui, label: &Label, rect: Rect, hovered: bool) {
     let player = label.player;
     let scale = label.scale;
     let alpha = vision_alpha(player.vision);
@@ -1205,7 +1385,11 @@ fn draw_label(ui: &Ui, label: &Label, rect: Rect) {
             corner_radius,
             Stroke::new(
                 theme::HAIRLINE,
-                Color32::BLACK.gamma_multiply(EDGE_ALPHA * alpha),
+                if hovered {
+                    theme::TEXT_PRIMARY.gamma_multiply(alpha)
+                } else {
+                    Color32::BLACK.gamma_multiply(EDGE_ALPHA * alpha)
+                },
             ),
             StrokeKind::Outside,
         );
@@ -1951,7 +2135,7 @@ mod tests {
         let before = Memory {
             groups: groups_of(&[(1, 7), (2, 8), (3, 8)]),
             labels: HashMap::from([(7, label_at(100.0)), (8, label_at(300.0))]),
-            leaving: Vec::new(),
+            ..Default::default()
         };
         let joined = groups_of(&[(1, 8), (2, 8), (3, 8)]);
         let now = HashMap::from([(8, label_at(300.0))]);
@@ -1965,6 +2149,7 @@ mod tests {
             groups: joined.clone(),
             labels: now.clone(),
             leaving,
+            ..Default::default()
         };
         let going = leaving_labels(&before, &joined, &now, motion, 0.1);
         assert_eq!(going.len(), 1);
@@ -1978,10 +2163,88 @@ mod tests {
         let before = Memory {
             groups: groups_of(&[(1, 7), (2, 8)]),
             labels: HashMap::from([(7, label_at(100.0)), (8, label_at(300.0))]),
-            leaving: Vec::new(),
+            ..Default::default()
         };
         let left = groups_of(&[(2, 8)]);
         assert!(leaving_labels(&before, &left, &now, motion, 0.016).is_empty());
+    }
+
+    #[test]
+    fn the_veil_is_dark_everywhere_but_in_the_spots_and_comes_back_past_their_edges() {
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(480.0, 240.0));
+        let spot = Spot {
+            center: pos2(120.0, 120.0),
+            radius: 24.0,
+            fade: 48.0,
+        };
+        let mesh = veil_mesh(screen, &[spot], 0.5);
+        // A corner for every 12 points either way, the whole screen covered.
+        assert_eq!(mesh.vertices.len(), 41 * 21);
+        assert_eq!(mesh.indices.len(), 40 * 20 * 6);
+        let dark_at = |x: f32, y: f32| {
+            let at = pos2(x, y);
+            let vertex = mesh.vertices.iter().find(|vertex| vertex.pos == at);
+            vertex.map(|vertex| vertex.color.a())
+        };
+        // None of it in the spot, all of it well away, and part of it in between.
+        assert_eq!(dark_at(120.0, 120.0), Some(0));
+        assert_eq!(dark_at(132.0, 120.0), Some(0));
+        assert_eq!(dark_at(480.0, 240.0), Some(128));
+        assert_eq!(dark_at(120.0, 204.0), Some(128));
+        let between = dark_at(168.0, 120.0).unwrap();
+        assert!(between > 0 && between < 128, "{between}");
+        // No spots: dark all over. A spot off the screen changes nothing on it.
+        let off = Spot {
+            center: pos2(-500.0, -500.0),
+            ..spot
+        };
+        for mesh in [veil_mesh(screen, &[], 0.5), veil_mesh(screen, &[off], 0.5)] {
+            assert!(mesh.vertices.iter().all(|vertex| vertex.color.a() == 128));
+        }
+    }
+
+    #[test]
+    fn a_spot_of_light_is_left_around_what_is_drawn_of_each_unit_pointed_out() {
+        let mut tall = unit_at(1, 0.5, 0.5);
+        tall.top = 0.46;
+        let mut inside = unit_at(3, 0.2, 0.2);
+        inside.bounds = Rect::NOTHING;
+        let view = OnScreenView {
+            units: vec![tall, unit_at(2, 0.7, 0.7), inside],
+            ..Default::default()
+        };
+        // Two points to a pixel of the map: a margin of 12 pixels is 24 points.
+        let spots = lit_spots(&view, &[1, 3], on_map());
+        assert_eq!(spots.len(), 1);
+        // From the top of what is drawn of it, 460, to the bottom of its body, 505.
+        assert_close(spots[0].center, pos2(500.0, 482.5));
+        assert!((spots[0].radius - (22.5 + 24.0)).abs() < 1e-2);
+        assert!((spots[0].fade - 56.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn the_label_pointed_at_is_the_one_on_top_and_none_under_a_panel() {
+        let player = nobody();
+        let settled = |key, min: Pos2| Settled {
+            label: label_of(&player, key),
+            rect: Rect::from_min_size(min, vec2(80.0, 60.0)),
+            moving: false,
+        };
+        // Two labels overlapping, the second drawn over the first, and a dragged box's label.
+        let placed = [
+            settled(Some(1), pos2(100.0, 100.0)),
+            settled(Some(2), pos2(150.0, 120.0)),
+            settled(None, pos2(400.0, 400.0)),
+        ];
+        assert_eq!(label_under(&placed, &[], pos2(110.0, 110.0)), Some(1));
+        assert_eq!(label_under(&placed, &[], pos2(160.0, 130.0)), Some(2));
+        assert_eq!(label_under(&placed, &[], pos2(300.0, 300.0)), None);
+        // A box's label counts no group.
+        assert_eq!(label_under(&placed, &[], pos2(410.0, 410.0)), None);
+        // A panel over a label is what the pointer is on there.
+        let panel = Rect::from_min_size(pos2(90.0, 90.0), vec2(40.0, 40.0));
+        assert_eq!(label_under(&placed, &[panel], pos2(110.0, 110.0)), None);
+        assert_eq!(label_under(&placed, &[panel], pos2(200.0, 150.0)), Some(2));
     }
 
     #[test]

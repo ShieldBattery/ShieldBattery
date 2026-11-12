@@ -410,9 +410,9 @@ fn workers_inside_refineries(bw: &BwVars, players: &[StatsPlayer]) -> Vec<Unit> 
     inside
 }
 
-/// The units to draw health bars under, of those the on-screen count asked for by the ids
-/// [`build_on_screen_view`] gave them (`ids`, sorted).
-pub(super) fn health_bar_units(bw: &BwVars, ids: &[u32]) -> Vec<Unit> {
+/// The units on the map that the on-screen count named by the ids [`build_on_screen_view`] gave
+/// them (`ids`, sorted), to draw health bars under or to light up.
+pub(super) fn on_screen_units(bw: &BwVars, ids: &[u32]) -> Vec<Unit> {
     let Some(units) = bw.units.as_ref().filter(|_| !ids.is_empty()) else {
         return Vec::new();
     };

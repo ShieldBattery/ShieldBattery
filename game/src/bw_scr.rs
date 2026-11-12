@@ -104,6 +104,7 @@ mod stat_txt;
 pub(crate) mod thiscall;
 mod tick_gates;
 mod unit_health_bars;
+mod unit_highlights;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -499,6 +500,8 @@ pub struct BwScr {
     overlay_draw_commands: (AtomicU32, AtomicU32),
     /// The units the on-screen count has the game draw health bars under.
     unit_health_bars: unit_health_bars::UnitHealthBars,
+    /// The units of the on-screen count's group the watcher is pointing at, lit up as drawn.
+    unit_highlights: unit_highlights::UnitHighlights,
     /// The span of this frame's draw commands that are the software cursor's, which goes to the
     /// backbuffer as well and must be stepped past the same way.
     software_cursor_draw_commands: (AtomicU32, AtomicU32),
