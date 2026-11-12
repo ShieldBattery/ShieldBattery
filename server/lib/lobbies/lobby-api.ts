@@ -122,6 +122,9 @@ const lobbyOutcomeBody = Joi.object<SendLobbyOutcomeRequest>({
   ...ROLLED_OUTCOME_REQUEST_KEYS,
 })
 
+/** The maps a lobby plays after its current one: a bounded, ordered list that may repeat a map. */
+export const mapQueueSchema = Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE)
+
 /** The body every operation on a single slot shares. */
 const lobbySlotBody = Joi.object<LobbySlotRequest>({
   clientId: clientIdSchema,
@@ -146,7 +149,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   useLegacyLimits: Joi.boolean(),
   starcraftCompatibleReplays: Joi.boolean(),
   lockedAlliances: Joi.boolean(),
-  mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
+  mapQueue: mapQueueSchema,
 })
   .or(
     'name',
@@ -284,6 +287,7 @@ export class LobbyApi {
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         leaveCurrentLobby: Joi.boolean(),
+        mapQueue: mapQueueSchema,
       }),
     })
 
@@ -304,6 +308,7 @@ export class LobbyApi {
       regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
       leaveCurrentLobby: body.leaveCurrentLobby,
+      mapQueue: body.mapQueue !== undefined ? await resolveMapIds(body.mapQueue) : undefined,
       user,
       client,
     })
