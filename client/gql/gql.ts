@@ -89,7 +89,6 @@ type Documents = {
   '\n  query MapCollectionReportBar($open: Boolean!, $first: Int!) {\n    mapCollectionReports(open: $open, first: $first) {\n      edges {\n        node {\n          id\n          note\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          resolvedBy {\n            id\n          }\n          collection {\n            id\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapCollectionReportBarDocument
   '\n  mutation MapCollectionReportDismiss($reportId: UUID!) {\n    mapCollectionReportDismiss(reportId: $reportId) {\n      id\n      resolvedAt\n      resolution\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.MapCollectionReportDismissDocument
   '\n  query MapCollectionsTab($search: String, $loggedIn: Boolean!, $first: Int!) {\n    currentUser @include(if: $loggedIn) {\n      id\n      mapCollections {\n        id\n        kind\n        title\n        ...MapCollectionCard_CollectionFragment\n      }\n    }\n    ladder: mapCollections(section: LADDER, search: $search, first: $first) {\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n    staff: mapCollections(section: STAFF, search: $search, first: $first) {\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n': typeof types.MapCollectionsTabDocument
-  '\n  query MapCollectionsPlayers($search: String, $after: String, $first: Int!, $withCount: Boolean!) {\n    mapCollections(section: PLAYERS, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n': typeof types.MapCollectionsPlayersDocument
   '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n': typeof types.MapCompareDocument
   '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image2048Url\n      imageSpawnsBaked\n      umsContent\n      startLocations {\n        id\n        slot\n        x\n        y\n      }\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n    }\n  }\n': typeof types.MapCompare_SideFragmentDoc
   '\n  query MapDefaultNudge($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        current {\n          id\n          name\n          listed\n        }\n      }\n    }\n  }\n': typeof types.MapDefaultNudgeDocument
@@ -158,6 +157,7 @@ type Documents = {
   '\n  mutation MapUnpublish($fileId: SbMapId!) {\n    mapUnpublish(fileId: $fileId) {\n      id\n      listed\n      publishedAt\n      publisher {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapUnpublishDocument
   '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n': typeof types.MapUploadKnownMapDocument
   '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.MapUploadAddToLibraryDocument
+  '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n': typeof types.PlayersCollectionsDocument
   '\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n': typeof types.MapFamilyViewerCollectionIdsFragmentFragmentDoc
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.NewsArchiveDocument
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n': typeof types.News_HomeFeedFragmentFragmentDoc
@@ -186,7 +186,7 @@ type Documents = {
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      useDevelopmentClient\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n      manageLiveStreams\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
   '\n  query UserProfileOwnedMaps($owner: SbUserId!, $after: String, $first: Int) {\n    maps(filter: { owner: $owner }, sort: NEWEST, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          id\n          ...MapTile_SbMapFragment\n        }\n      }\n    }\n  }\n': typeof types.UserProfileOwnedMapsDocument
-  '\n  query UserProfileOwnsMaps($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n': typeof types.UserProfileOwnsMapsDocument
+  '\n  query UserProfileHasMapsTab($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n    mapCollections(section: PLAYERS, owner: $owner, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n': typeof types.UserProfileHasMapsTabDocument
   '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n': typeof types.UserRankedModesDocument
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n': typeof types.UserRatingHistoryDocument
@@ -343,8 +343,6 @@ const documents: Documents = {
     types.MapCollectionReportDismissDocument,
   '\n  query MapCollectionsTab($search: String, $loggedIn: Boolean!, $first: Int!) {\n    currentUser @include(if: $loggedIn) {\n      id\n      mapCollections {\n        id\n        kind\n        title\n        ...MapCollectionCard_CollectionFragment\n      }\n    }\n    ladder: mapCollections(section: LADDER, search: $search, first: $first) {\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n    staff: mapCollections(section: STAFF, search: $search, first: $first) {\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n':
     types.MapCollectionsTabDocument,
-  '\n  query MapCollectionsPlayers($search: String, $after: String, $first: Int!, $withCount: Boolean!) {\n    mapCollections(section: PLAYERS, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n':
-    types.MapCollectionsPlayersDocument,
   '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n':
     types.MapCompareDocument,
   '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image2048Url\n      imageSpawnsBaked\n      umsContent\n      startLocations {\n        id\n        slot\n        x\n        y\n      }\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n    }\n  }\n':
@@ -481,6 +479,8 @@ const documents: Documents = {
     types.MapUploadKnownMapDocument,
   '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n':
     types.MapUploadAddToLibraryDocument,
+  '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n':
+    types.PlayersCollectionsDocument,
   '\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n':
     types.MapFamilyViewerCollectionIdsFragmentFragmentDoc,
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
@@ -536,8 +536,8 @@ const documents: Documents = {
     types.AdminUpdateUserPermissionsDocument,
   '\n  query UserProfileOwnedMaps($owner: SbUserId!, $after: String, $first: Int) {\n    maps(filter: { owner: $owner }, sort: NEWEST, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          id\n          ...MapTile_SbMapFragment\n        }\n      }\n    }\n  }\n':
     types.UserProfileOwnedMapsDocument,
-  '\n  query UserProfileOwnsMaps($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n':
-    types.UserProfileOwnsMapsDocument,
+  '\n  query UserProfileHasMapsTab($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n    mapCollections(section: PLAYERS, owner: $owner, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n':
+    types.UserProfileHasMapsTabDocument,
   '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
     types.UserProfileOverlayLiveDocument,
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n':
@@ -1016,12 +1016,6 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query MapCollectionsPlayers($search: String, $after: String, $first: Int!, $withCount: Boolean!) {\n    mapCollections(section: PLAYERS, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query MapCollectionsPlayers($search: String, $after: String, $first: Int!, $withCount: Boolean!) {\n    mapCollections(section: PLAYERS, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n']
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(
   source: '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n',
 ): (typeof documents)['\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n']
 /**
@@ -1430,6 +1424,12 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
+  source: '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
   source: '\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n',
 ): (typeof documents)['\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n']
 /**
@@ -1598,8 +1598,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileOwnsMaps($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileOwnsMaps($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n']
+  source: '\n  query UserProfileHasMapsTab($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n    mapCollections(section: PLAYERS, owner: $owner, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileHasMapsTab($owner: SbUserId!) {\n    maps(filter: { owner: $owner }, first: 1) {\n      edges {\n        cursor\n      }\n    }\n    mapCollections(section: PLAYERS, owner: $owner, first: 1) {\n      edges {\n        cursor\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
