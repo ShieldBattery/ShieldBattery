@@ -73,6 +73,8 @@ export interface CreateLobbyParams {
   lockedAlliances?: boolean
   allowObservers?: boolean
   visibility?: LobbyVisibility
+  /** The maps the lobby plays after `map`, in order. */
+  mapQueue?: SbMapId[]
   /**
    * When set, a client currently in a different lobby is removed from it in the same operation
    * before hosting this one. Without it, being in any gameplay activity fails the create.
@@ -91,6 +93,7 @@ export function createLobby(
     lockedAlliances,
     allowObservers,
     visibility,
+    mapQueue,
     leaveCurrentLobby,
   }: CreateLobbyParams,
   spec: RequestHandlingSpec<CreateLobbyResponse>,
@@ -100,7 +103,9 @@ export function createLobby(
 
     return await fetchJson<CreateLobbyResponse>(apiUrl`lobbies`, {
       method: 'POST',
-      body: encodeBodyAsParams<CreateLobbyRequest>({
+      // Sent as JSON rather than form params so that a one-map queue arrives as a list instead of a
+      // lone string.
+      body: JSON.stringify({
         clientId,
         name,
         map,
@@ -111,9 +116,10 @@ export function createLobby(
         lockedAlliances,
         allowObservers,
         visibility,
+        mapQueue,
         leaveCurrentLobby,
         ...network,
-      }),
+      } satisfies CreateLobbyRequest),
       signal: spec.signal,
     })
   })
