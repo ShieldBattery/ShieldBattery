@@ -143,6 +143,11 @@ export interface GameSetupPageProps {
    * map's info is in the store by then.
    */
   onMapPicked: (mapId: SbMapId) => void
+  /**
+   * Called with maps to add to the end of the queue all at once, in order, from the picker's
+   * Queue mode. The queue takes as many as it has room for.
+   */
+  onMapsQueued?: (mapIds: ReadonlyArray<SbMapId>) => void
   /** The game type the form currently has, which decides the maps the picker starts on. */
   gameType: GameType
   /** The lobby's current map, marked in the picker. */
@@ -170,6 +175,7 @@ export function GameSetupPage({
   onBack,
   picker,
   onMapPicked,
+  onMapsQueued,
   gameType,
   selectedMapId,
   queuedMapIds,
@@ -206,6 +212,7 @@ export function GameSetupPage({
           queuedMapIds={queuedMapIds}
           canQueueMore={canQueueMore}
           onPick={onMapPicked}
+          onQueueMaps={onMapsQueued}
           onUploadFiles={uploadFiles}
           onClose={picker.close}
         />

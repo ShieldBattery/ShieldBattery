@@ -49,6 +49,7 @@ type Documents = {
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    translations {\n      language\n      name\n    }\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
+  '\n  query HostGameCollectionMaps($id: UUID!, $first: Int!) {\n    mapCollection(id: $id) {\n      id\n      maps(first: $first) {\n        edges {\n          node {\n            id\n          }\n        }\n      }\n    }\n  }\n': typeof types.HostGameCollectionMapsDocument
   '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      fromPublish\n      publishAnswer\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyReportsDocument
   '\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n    openClaims: mapOwnerClaimCount(status: OPEN)\n    openCollectionReports: mapCollectionReportCount\n  }\n': typeof types.AdminMapFamilyReportCountsDocument
   '\n  query AdminMapOwnerClaims($limit: Int!, $offset: Int!) {\n    mapOwnerClaims(status: OPEN, limit: $limit, offset: $offset) {\n      id\n      note\n      status\n      createdAt\n      claimant {\n        id\n      }\n      family {\n        id\n        name\n        owner {\n          id\n        }\n      }\n    }\n  }\n': typeof types.AdminMapOwnerClaimsDocument
@@ -266,6 +267,8 @@ const documents: Documents = {
     types.Leagues_HomeFeedFragmentFragmentDoc,
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
     types.Leagues_HomeFeedEntryFragmentFragmentDoc,
+  '\n  query HostGameCollectionMaps($id: UUID!, $first: Int!) {\n    mapCollection(id: $id) {\n      id\n      maps(first: $first) {\n        edges {\n          node {\n            id\n          }\n        }\n      }\n    }\n  }\n':
+    types.HostGameCollectionMapsDocument,
   '\n  query AdminMapFamilyReports($status: MapFamilyReportStatus!, $limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: $status, limit: $limit, offset: $offset) {\n      id\n      kind\n      note\n      fromPublish\n      publishAnswer\n      reportedAt\n      status\n      resolvedAt\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n        }\n      }\n      map {\n        id\n        name\n      }\n      otherFamily {\n        id\n        name\n        current {\n          id\n        }\n      }\n      reportedBy {\n        id\n      }\n      resolvedBy {\n        id\n      }\n    }\n  }\n':
     types.AdminMapFamilyReportsDocument,
   '\n  query AdminMapFamilyReportCounts {\n    open: mapFamilyReportCount(status: OPEN)\n    resolved: mapFamilyReportCount(status: RESOLVED)\n    dismissed: mapFamilyReportCount(status: DISMISSED)\n    openClaims: mapOwnerClaimCount(status: OPEN)\n    openCollectionReports: mapCollectionReportCount\n  }\n':
@@ -781,6 +784,12 @@ export function graphql(
 export function graphql(
   source: '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n',
 ): (typeof documents)['\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    translations {\n      language\n      name\n    }\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query HostGameCollectionMaps($id: UUID!, $first: Int!) {\n    mapCollection(id: $id) {\n      id\n      maps(first: $first) {\n        edges {\n          node {\n            id\n          }\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query HostGameCollectionMaps($id: UUID!, $first: Int!) {\n    mapCollection(id: $id) {\n      id\n      maps(first: $first) {\n        edges {\n          node {\n            id\n          }\n        }\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
