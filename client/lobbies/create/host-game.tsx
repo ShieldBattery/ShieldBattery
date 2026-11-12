@@ -28,6 +28,8 @@ import {
 } from '../action-creators'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
+import { useMapQueueEditor } from '../map-queue-editor'
+import { MapQueueSection } from '../room/room-map-queue'
 import {
   GameSetupForm,
   GameSetupFormHandle,
@@ -266,11 +268,17 @@ function HostGameContent({
 
   const formRef = useRef<GameSetupFormHandle>(null)
   const picker = useMapPickerState()
+  const { queue, setQueue, queueIds, canQueueMore, addMap } = useMapQueueEditor()
 
+  // Maps added to the queue keep the picker open, so several can be added in one go
   const pick = (mapId: SbMapId) => {
-    setRecentMaps(maps => updateRecentMaps(mapId, maps))
-    formRef.current?.setMap(mapId)
-    picker.close()
+    if (picker.mode === MapPickerMode.Queue) {
+      addMap(mapId)
+    } else {
+      setRecentMaps(maps => updateRecentMaps(mapId, maps))
+      formRef.current?.setMap(mapId)
+      picker.close()
+    }
   }
 
   const showErrorDialog = () => {
@@ -340,6 +348,8 @@ function HostGameContent({
       onMapPicked={pick}
       gameType={setup.gameType}
       selectedMapId={setup.mapId}
+      queuedMapIds={queueIds}
+      canQueueMore={canQueueMore}
       summary={summary}
       footerActions={
         <FilledButton
@@ -390,6 +400,13 @@ function HostGameContent({
             />
           </Section>
         }
+        mapQueueSection={
+          <MapQueueSection
+            queue={queue}
+            onChange={setQueue}
+            onAddMap={() => picker.open(MapPickerMode.Queue, setup.gameType)}
+          />
+        }
         onChangeMap={() => picker.open(MapPickerMode.Map, setup.gameType)}
         onValidatedChange={model => {
           setSetup(model)
@@ -408,6 +425,7 @@ function HostGameContent({
             lockedAlliances: model.lockedAlliances,
             allowObservers: model.allowObservers,
             visibility,
+            mapQueue: queueIds.length ? queueIds : undefined,
             leaveCurrentLobby: inCurrentLobby,
           }
 

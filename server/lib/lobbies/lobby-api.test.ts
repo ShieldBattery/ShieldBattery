@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
+import { MAX_MAP_QUEUE } from '../../../common/lobbies'
 import { LobbyJoinErrorCode, LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
-import { convertLobbyServiceError } from './lobby-api'
+import { convertLobbyServiceError, mapQueueSchema } from './lobby-api'
 import { LobbyServiceError } from './lobby-service'
 
 /**
@@ -82,5 +83,21 @@ describe('lobbies/lobby-api/convertLobbyServiceError', () => {
   test('passes non-service errors through untouched', () => {
     const err = new Error('something else entirely')
     expect(convert(err)).toBe(err)
+  })
+})
+
+describe('lobbies/lobby-api/mapQueueSchema', () => {
+  test('accepts an empty queue, repeated maps and a full queue', () => {
+    expect(mapQueueSchema.validate([]).error).toBeUndefined()
+    expect(mapQueueSchema.validate(['a', 'b', 'a']).error).toBeUndefined()
+    expect(mapQueueSchema.validate(Array(MAX_MAP_QUEUE).fill('a')).error).toBeUndefined()
+  })
+
+  test('rejects a queue longer than the maximum', () => {
+    expect(mapQueueSchema.validate(Array(MAX_MAP_QUEUE + 1).fill('a')).error).toBeDefined()
+  })
+
+  test('rejects entries that are not strings', () => {
+    expect(mapQueueSchema.validate([1]).error).toBeDefined()
   })
 })

@@ -107,6 +107,8 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
+  /** The maps the lobby plays after `map`, in order. Omitted for a lobby that starts with none. */
+  mapQueue?: SbMapId[]
   /**
    * When set, a client currently in a different lobby is removed from it in the same operation
    * before hosting this one. Without it, being in any gameplay activity (including another lobby)

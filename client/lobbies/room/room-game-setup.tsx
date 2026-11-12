@@ -1,9 +1,8 @@
-import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { hasObservers, LobbyVisibility, MAX_MAP_QUEUE } from '../../../common/lobbies'
+import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
   changesGameSettings,
   LobbyChangedSetting,
@@ -27,7 +26,8 @@ import {
 } from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, useMapPickerState } from '../create/game-setup-page'
 import { VisibilityPicker } from '../create/visibility-picker'
-import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
+import { useMapQueueEditor } from '../map-queue-editor'
+import { MapQueueSection } from './room-map-queue'
 
 /**
  * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
@@ -62,9 +62,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
   const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
-  const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
-    initialQueue.map(mapId => ({ key: nanoid(), mapId })),
-  )
+  const { queue, setQueue, queueIds, canQueueMore, addMap } = useMapQueueEditor(initialQueue)
 
   const selectedMapInfo = useAppSelector(s =>
     setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
@@ -76,7 +74,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   // Maps added to the queue keep the picker open, so several can be added in one go
   const pick = (mapId: SbMapId) => {
     if (picker.mode === MapPickerMode.Queue) {
-      setQueue(q => (q.length < MAX_MAP_QUEUE ? [...q, { key: nanoid(), mapId }] : q))
+      addMap(mapId)
     } else {
       formRef.current?.setMap(mapId)
       picker.close()
@@ -97,8 +95,8 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
       onMapPicked={pick}
       gameType={setup.gameType}
       selectedMapId={setup.mapId}
-      queuedMapIds={queue.map(entry => entry.mapId)}
-      canQueueMore={queue.length < MAX_MAP_QUEUE}
+      queuedMapIds={queueIds}
+      canQueueMore={canQueueMore}
       summary={summary}
       footerActions={
         <>
@@ -174,7 +172,6 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
           }
-          const queueIds = queue.map(entry => entry.mapId)
           if (
             queueIds.length !== initialQueue.length ||
             queueIds.some((id, i) => id !== initialQueue[i])
