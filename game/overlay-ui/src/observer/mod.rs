@@ -43,7 +43,10 @@ pub use matchup::{
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
-pub use on_screen::{OnScreenPlayerView, OnScreenUnitView, OnScreenView, render_on_screen_view};
+pub use on_screen::{
+    CountTuning, OnScreenBaseView, OnScreenOutcome, OnScreenPlayerView, OnScreenUnitView,
+    OnScreenView, WorkerJob, render_on_screen_view,
+};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,

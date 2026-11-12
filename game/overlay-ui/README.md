@@ -331,24 +331,36 @@ built leaves the game's own behavior alone.
 **Holding `Alt`** (pressed without Ctrl, which with it is AltGr on many keyboards) brings up the
 **on-screen count** (`observer::on_screen`) for as long as it is held, drawn on the map itself
 rather than in a panel. Every unit in the main view gets the health bar SC:R draws under a selected
-unit, where it draws it, worked out from sprites.dat (the circle's offset, half the circle's height
-and 8 pixels down; its width): a solid bar colored by how hurt the unit is over grey, with a blue
-one for shields above it. Buildings get none, and a unit in the watcher's selection keeps only the
+unit. The overlay only says which units get one (`FrameOutput::health_bars`); the host has the game
+draw them, each in with its unit's sprite as a selected unit's is, so a bar is covered by whatever
+stands in front of its unit. Buildings get none, and a unit in the watcher's selection keeps the
 game's own. Each player's units are split into the groups they stand in, every group getting a label
 hung just above it: the player's name on a thin band of their own color, over a tile per kind of
 unit in the group (its icon, or its code without an atlas, and how many), highest rank first
 (units.dat's rank, the one that decides whose portrait and voice a mixed selection gets), six to a
 line. A group is every unit a chain of near pairs joins (`observer::on_screen::grouping`): two units
-are near within three tiles on the map, or four between two workers, so a base's workers spread over
-its mineral line are one group, and always near within 96 points on the screen, so groups merge as
-the view zooms out. Whether two units are joined depends only on where those two stand, so panning
-the view never regroups anything. Two units that were together the frame before stay together out to
-a quarter past their reach, and each group's label eases toward its place on the map over a few
-frames, so neither flickers nor jumps as units move about. A label needs no room of its own, since
-it goes where its units are; one that would cover another moves up out of the way, one under a panel
-steps just past the panel's nearest edge where there is room within a short way, and every label is
-kept on screen. Each label sits on a dark plate that sets it apart from units of its player's color,
-and each count is on a dark badge hanging off its tile's corner, sized to read on a 720p stream. The
+are near within three tiles on the map, or about seven where both are on the same orders (sent to the
+same place or at the same target, as units strung out on their way somewhere are), and always near
+within 96 points on the screen, so groups merge as the view zooms out. A base's own workers, gathering there or standing idle there, are one
+group however far apart, never joined with anything else and labelled over the base's town hall,
+where the label stays put as they go back and forth (a worker inside a refinery is still counted): an army standing in a mineral line is counted apart
+from the workers mining it. Workers putting up buildings, or on their way to, make groups of their
+own as well; a worker pulled to fight groups as any other unit does. Whether two units are joined
+depends only on where those two stand, so panning the view never regroups anything. Two units that
+were together the frame before stay together out to a quarter past their reach, and units have to
+have stood apart from their group, or with another, for a second before they are counted that way,
+so units that drift apart and close up again as they move are never split and joined (a worker gone
+to work at a base is counted with its workers at once). The label of a group that joins another
+goes into that one's label, fading. A group's label keeps its place on the map while its
+units mill about under it, and is moved only once the group has got out from under it, no further
+than puts it back over the group, so a group on the march draws its label along at its own pace; a
+label that has to move is quick about it and then still, and while it moves it is drawn where it is
+rather than on whole pixels. A label hangs clear of the top of what is drawn of its units and needs
+no room of its own, since it goes where its units are; one that would cover another moves up out of
+the way, one under a panel steps just past the panel's nearest edge where there is room within a
+short way, and every label is kept on screen. A label's band and tiles are each edged with a dark
+line that sets them apart from units of its player's color, and nothing else of the map is covered;
+each count is on a dark badge hanging off its tile's corner, sized to read on a 720p stream. The
 count is drawn under every panel and dialog, and labels over a dragged box are drawn 1.3 times as
 large. With Alt held, units are picked as the game selects them, and once picked only they are
 counted and given bars, labelled where they go, until Alt is let go: dragging a box picks the units

@@ -2,15 +2,16 @@
 //! shown for as long as Alt is held.
 //!
 //! A fight on screen is read as who has what there, and the stats wings only answer that for the
-//! whole map. This answers it on the map itself. Every unit in view, short of buildings, gets the
-//! health bar SC:R draws under a selected unit, where it draws it, and every group of a player's
-//! units gets a label hung just above it: their name on a thin band of their own color over a tile
+//! whole map. This answers it on the map itself. Every unit in view, short of buildings, gets a
+//! health bar, which is the host's to draw among the units (the count only says which units get
+//! one), and every group of a player's units gets a label hung just above it: their name on a thin band of their own color over a tile
 //! for every kind of unit in the group with how many of it, in the order the host ranks the kinds.
 //! A label goes where its units are, so it needs no room of its own on the screen; where two would
 //! cover each other, the later one moves up out of the way, and one that would stand under a panel
 //! steps out from under it where it can. Every count is set on a dark badge hanging off its tile's
-//! corner, the largest thing on the label, so it reads on a small stream. All of it is drawn under
-//! the panels and dialogs.
+//! corner, the largest thing on the label, so it reads on a small stream. A label covers no more of
+//! the map than its band and tiles do, each edged with a dark line that sets it apart from units of
+//! its player's color. All of it is drawn under the panels and dialogs.
 //!
 //! Units are picked with the mouse much as the game selects them, and once picked they are the only
 //! ones counted and given bars, labelled where they go, until Alt is let go. Dragging a box picks
@@ -22,20 +23,29 @@
 //! What makes a group is how near its units stand on the map, so a group is the same units in a
 //! window of any size, but never nearer on the screen than two labels need to stand apart: zoomed
 //! out, groups apart on the map come close together on the screen and share a label (see
-//! [`grouping`]). A group's label eases toward where it is placed over a few frames, on the map
-//! rather than the screen, so it doesn't jump as its group changes and doesn't trail its units as
-//! the view pans.
+//! [`grouping`]). The workers gathering at a base are one group of their own, apart from an army
+//! standing among them and labelled over the base's town hall, where the label stays put as they
+//! go back and forth. Workers putting up buildings make groups of their own too.
+//!
+//! A group's label keeps its place on the map while its units mill about under it, as workers
+//! mining do, and is only moved once the group has got out from under it, and then no further than
+//! it takes to be over the group again (see [`hold`]): a group on the march draws its label along
+//! at its own pace. A label that does have to move covers the distance quickly and stops (see
+//! [`settle`]). While it moves, it is drawn where it is rather than on the nearest whole pixels,
+//! which would step it along out of time with the units it follows.
 
 mod grouping;
 
 use std::collections::HashMap;
 
+use egui::emath::GuiRounding;
 use egui::{
     Align, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2,
     pos2, vec2,
 };
 
 use crate::kit::motion;
+use crate::kit::off_grid::paint_off_grid;
 use crate::kit::text;
 use crate::kit::theme;
 use crate::observer::{
@@ -82,16 +92,15 @@ const BADGE_OVERHANG: f32 = 6.0;
 /// it, and there is only ever one of it for each player.
 const BOX_LABEL_SCALE: f32 = 1.3;
 
-/// How far the dark plate under a label reaches past it, and how dark it is: what sets the label
-/// apart from the units it stands over, which may be its own player's color.
-const PLATE_MARGIN: f32 = 3.0;
-const PLATE_ALPHA: f32 = 0.6;
+/// How dark the line around a label's band and each of its tiles is: what sets the label apart from
+/// the units it stands over, which may be its own player's color.
+const EDGE_ALPHA: f32 = 0.85;
 
 /// How far above the top of a group's units its label's bottom edge sits.
 const LIFT: f32 = 8.0;
 
 /// Room kept between a label and the screen's edges, and between two labels or a label and a
-/// panel, which leaves room for the plates under them.
+/// panel.
 const EDGE_MARGIN: f32 = 4.0;
 const LABEL_GAP: f32 = 8.0;
 
@@ -99,15 +108,6 @@ const LABEL_GAP: f32 = 8.0;
 /// so the name reads the same on any color and over any terrain.
 const BAND_COLOR_ALPHA: f32 = 0.6;
 const BAND_BASE_ALPHA: f32 = 0.7;
-
-/// The colors SC:R fills a selected unit's bars with: its shields, its health while two thirds of
-/// it or more is left, a third or more, and less, and what of either is gone. Read off the bars it
-/// draws, but for the middle one, which is the yellow between the other two.
-const BAR_SHIELDS: Color32 = Color32::from_rgb(12, 72, 204);
-const BAR_HEALTHY: Color32 = Color32::from_rgb(35, 150, 35);
-const BAR_HURT: Color32 = Color32::from_rgb(200, 180, 10);
-const BAR_DYING: Color32 = Color32::from_rgb(166, 8, 8);
-const BAR_EMPTY: Color32 = Color32::from_gray(127);
 
 /// The smallest box, in points either way, that counts as one dragged rather than a click.
 const MIN_BOX: f32 = 6.0;
@@ -135,20 +135,44 @@ pub struct OnScreenUnitView {
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
     /// health bar but is not counted (a larva or an egg).
     pub kind: Option<usize>,
-    /// Whether it is a worker, which mining spreads further from the next one than an army spreads.
-    pub worker: bool,
+    /// The work it is at, for a worker at work, which is grouped with the others at that work and
+    /// never with an army standing among them. `None` for anything else, a worker pulled to fight
+    /// included.
+    pub job: Option<WorkerJob>,
+    /// The orders it is on, as a number that is the same for two units on the same orders: told to
+    /// go to the same place, or to do the same thing to the same target. Units sent somewhere
+    /// together are grouped from further apart than others are. `None` for a unit with nothing
+    /// to do.
+    pub orders: Option<u64>,
     /// Where it stands, in shares of the game view (0 to 1 across and down it).
     pub position: Pos2,
-    /// The box its body fills, in the same shares.
+    /// The box its body fills, in the same shares, which is what a click on it lands in. Nothing
+    /// ([`Rect::NOTHING`]) for a unit that is counted but not on the map to be clicked, a worker
+    /// inside a refinery.
     pub bounds: Rect,
-    /// The box the game draws its health bar in when it is selected, in the same shares, which its
-    /// bar here is drawn in too. `None` where it gets no bar here, which is where the game draws
-    /// its own already, for a unit in the watcher's selection.
-    pub bar: Option<Rect>,
-    /// How much of its health it has left, from 0 to 1, or `None` for one that cannot be hurt.
-    pub health: Option<f32>,
-    /// How much of its shields it has left, for a unit that has shields.
-    pub shields: Option<f32>,
+    /// How far down the game view the top of what is drawn of it is, in the same shares: higher
+    /// than the top of its body for most units, whose art stands taller than the box they take up
+    /// on the ground. A label is hung clear of it.
+    pub top: f32,
+}
+
+/// A base with workers of its own.
+pub struct OnScreenBaseView {
+    /// The middle of the top of what is drawn of its town hall, in shares of the game view, which
+    /// is outside 0 to 1 for a town hall out of view. The label of the base's workers hangs over
+    /// it: the one thing at a base that stays where it is while they go back and
+    /// forth.
+    pub top: Pos2,
+}
+
+/// The work a worker is at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkerJob {
+    /// One of a base's own workers, gathering minerals or gas there or standing idle there. The
+    /// base is the one at this index of [`OnScreenView::bases`].
+    AtBase { base: usize },
+    /// On its way to put up a building, or putting one up.
+    Building,
 }
 
 /// Everything the on-screen count draws from.
@@ -158,37 +182,167 @@ pub struct OnScreenView {
     /// The icon of every kind of unit counted, in the order their tiles are drawn.
     pub kinds: Vec<ProductionIcon>,
     pub units: Vec<OnScreenUnitView>,
+    /// The bases that have workers of their own.
+    pub bases: Vec<OnScreenBaseView>,
     /// The part of the map the game view shows, in the map's pixels, which is what tells how far
     /// apart units stand on the map, and where on it a label stands as the view moves. `None` where
     /// it is not known.
     pub map_view: Option<Rect>,
+    /// How the labels keep their places and move between them.
+    pub tuning: CountTuning,
 }
 
-/// One label to draw: whose units it counts, how many of each kind (in drawing order), the top
-/// middle of what it labels, which it is hung over, how much bigger than a group's it is, and the
-/// group it labels, if it labels one.
+/// What of the count can be tuned: how its groups are made, and how a group's label keeps its
+/// place and moves to a new one. Lengths are in the map's pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CountTuning {
+    /// How far the middle of a group's top can get from where its label hangs before the label
+    /// follows, as a share of half the group's width across and half its height down. A group
+    /// spread wide can shift further under its label than a tight one before the label is off it.
+    pub slack_share: f32,
+    /// How far it can get whatever the group's size, added to the share.
+    pub slack_least: f32,
+    /// How long, in seconds, a label takes to cover most of the way to a new place.
+    pub settle_secs: f32,
+    /// The slowest a label moves to a new place, in pixels a second, so that it gets there and
+    /// stops rather than creeping up on it.
+    pub least_speed: f32,
+    /// How long, in seconds, units have to have stood apart from their group, or with another,
+    /// before they are counted that way: what keeps units that drift apart and close up again as
+    /// they move from being split and joined, and their labels moved, each time.
+    pub regroup_secs: f32,
+    /// How far apart two units on the same orders can stand and still be together, which is
+    /// further than units are otherwise (see [`grouping`]).
+    pub same_orders_reach: f32,
+}
+
+impl CountTuning {
+    pub const DEFAULT: CountTuning = CountTuning {
+        slack_share: 0.75,
+        slack_least: 12.0,
+        settle_secs: 0.03,
+        least_speed: 192.0,
+        regroup_secs: 1.0,
+        same_orders_reach: 220.0,
+    };
+}
+
+impl Default for CountTuning {
+    fn default() -> CountTuning {
+        CountTuning::DEFAULT
+    }
+}
+
+/// One label to draw: whose units it counts, how many of each kind (in drawing order), the point
+/// on the screen it is hung over, how much bigger than a group's it is, and the group it labels, if
+/// it labels one.
 struct Label<'a> {
     player: &'a OnScreenPlayerView,
-    kinds: Vec<(usize, u32)>,
+    /// Which of the view's players that is.
+    owner: usize,
+    kinds: Vec<(ProductionIcon, u32)>,
+    /// The middle of the top of what it labels, until [`hold`] makes it where the label hangs.
     anchor: Pos2,
+    /// How far across and down `anchor` can be from where the label hung the frame before without
+    /// the label being moved, in points.
+    slack: Vec2,
     scale: f32,
-    /// The group's key: the lowest id of the units in it, which stays the group's for as long as
-    /// that unit stays in it. `None` for a dragged box's label.
+    /// The group's key, which is its for as long as it lasts. `None` for a dragged box's label.
     key: Option<u32>,
+    /// The key of the group most of its units were in the frame before, whose label this one
+    /// carries on from. Not `key` for a group new this frame, whose units left another's.
+    was: Option<u32>,
 }
 
-/// What the count keeps of the frame before, while it is up: which group each unit was in, by id
-/// and group key, and where on the map each group's label stood.
+/// What the count keeps of the frame before, while it is drawn: the groups, each one's label by
+/// the group's key, and the labels on their way out.
 #[derive(Clone, Default)]
 struct Memory {
-    group_of: HashMap<u32, u32>,
-    label_at: HashMap<u32, Pos2>,
+    groups: grouping::Groups,
+    labels: HashMap<u32, Kept>,
+    leaving: Vec<Leaving>,
 }
 
-/// How long, in seconds, a label takes to cover most of the way to where it is placed: long enough
-/// that it doesn't jump as its group gains or loses a unit or a label it stacks over comes and goes,
-/// short enough that it keeps up with units on the move.
-const LABEL_SETTLE_SECS: f32 = 0.08;
+/// A group's label as it was the frame before: where it was, and what was on it, which is what is
+/// drawn of it once its group has joined another (see [`Leaving`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Kept {
+    /// The point on the map it hung over.
+    hung: Pos2,
+    /// Where on the map the middle of its bottom edge was drawn, which is still on its way to
+    /// where the label was placed while the label is moving.
+    at: Pos2,
+    /// Where on the screen that was.
+    drawn: Pos2,
+    /// Whose it was, as an index into the view's players, what it counted, and its size.
+    owner: usize,
+    kinds: Vec<(ProductionIcon, u32)>,
+    size: Vec2,
+}
+
+/// The label of a group that has joined another, on its way into the label of the group it joined:
+/// drawn fading as it goes, so that two counts are seen to become one rather than one of them
+/// going out.
+#[derive(Clone, Debug, PartialEq)]
+struct Leaving {
+    owner: usize,
+    kinds: Vec<(ProductionIcon, u32)>,
+    size: Vec2,
+    /// Where on the map the middle of its bottom edge is.
+    at: Pos2,
+    /// The key of the group its own joined.
+    into: u32,
+    /// How long, in seconds, it has been going.
+    gone: f32,
+}
+
+/// How long, in seconds, a label takes to go once its group has joined another.
+const LEAVE_SECS: f32 = 0.2;
+
+/// The screen's points on the map and the map's pixels on the screen, for what is kept from frame
+/// to frame to be kept on the map, where it stays put as the view pans. Without the part of the map
+/// the view shows, the screen stands in for the map, a point to a pixel.
+#[derive(Clone, Copy)]
+struct OnMap {
+    map_view: Option<Rect>,
+    screen: Rect,
+}
+
+impl OnMap {
+    fn new(map_view: Option<Rect>, screen: Rect) -> OnMap {
+        OnMap {
+            map_view: map_view.filter(|map_view| map_view.width() > 0.0 && map_view.height() > 0.0),
+            screen,
+        }
+    }
+
+    /// Where on the map a point of the screen is.
+    fn map_point(self, point: Pos2) -> Pos2 {
+        match self.map_view {
+            Some(map_view) => {
+                map_view.min + (point - self.screen.min) / self.screen.size() * map_view.size()
+            }
+            None => point,
+        }
+    }
+
+    /// Where on the screen a point of the map is.
+    fn screen_point(self, point: Pos2) -> Pos2 {
+        match self.map_view {
+            Some(map_view) => {
+                self.screen.min + (point - map_view.min) / map_view.size() * self.screen.size()
+            }
+            None => point,
+        }
+    }
+
+    /// How many points across and down the screen one of the map's pixels takes up.
+    fn points_per_pixel(self) -> Vec2 {
+        self.map_view.map_or(Vec2::splat(1.0), |map_view| {
+            self.screen.size() / map_view.size()
+        })
+    }
+}
 
 /// What the count is about this frame.
 enum Pick {
@@ -222,24 +376,36 @@ fn in_box(unit: &OnScreenUnitView, dragged: Rect, screen: Rect) -> bool {
 
 /// The box being dragged, as where it started and where the pointer is, the units picked, and
 /// whether the button went down on the minimap and has not come up, kept from frame to frame while
-/// the count is up.
+/// the count is up, and, of what was picked, while it fades out after.
 #[derive(Clone, Default)]
 struct PickState {
     drag: Option<(Pos2, Pos2)>,
     picked: Option<Vec<u32>>,
     steering: bool,
+    /// Whether the count has gone since this was picked, which leaves it to be forgotten when the
+    /// count next comes up.
+    gone: bool,
 }
 
-/// Draws the health bars and labels, fading them all in and out together. `screen` is the rect the
-/// game view fills, `panels` the rects of the overlay's panels, and `minimap` the minimap's square
-/// where it is up.
+/// What a frame of the on-screen count asks of the host.
+#[derive(Default)]
+pub struct OnScreenOutcome {
+    /// Where on the minimap the watcher is pressing this frame, for the game's view to be moved to
+    /// as a press there moves it without Alt. With Alt, the game would take a press there for a
+    /// ping, which says nothing to anyone from a watcher.
+    pub look: Option<Pos2>,
+    /// The units to draw a health bar under, by id, sorted: every unit in view while the count
+    /// is up, or the ones picked. Drawn by the host, in among the units as the game draws a
+    /// selected unit's, where a bar drawn here would lie over whatever stands in front of it.
+    pub health_bars: Vec<u32>,
+}
+
+/// Draws the labels, fading them in and out together, and says which units get health bars.
+/// `screen` is the rect the game view fills, `panels` the rects of the overlay's panels, and
+/// `minimap` the minimap's square where it is up.
 ///
 /// Drawn under every panel and dialog, which cover what they stand over of the map anyway, with
 /// each label moved out from under the panels where it can be.
-///
-/// Returns where on the minimap the watcher is pressing this frame, for the game's view to be
-/// moved to as a press there moves it without Alt. With Alt, the game would take a press there for
-/// a ping, which says nothing to anyone from a watcher.
 pub fn render_on_screen_view(
     view: &OnScreenView,
     ctx: &Context,
@@ -247,69 +413,146 @@ pub fn render_on_screen_view(
     screen: Rect,
     panels: &[Rect],
     minimap: Option<Rect>,
-) -> Option<Pos2> {
+) -> OnScreenOutcome {
     let id = Id::new("sb_on_screen_units");
     let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, minimap);
+    let health_bars = if shown {
+        health_bars(view, &pick, screen)
+    } else {
+        Vec::new()
+    };
     let memory_id = id.with("memory");
-    if !shown {
-        ctx.data_mut(|data| data.remove::<Memory>(memory_id));
-    }
     let area = Area::new(id)
         .fixed_pos(screen.min)
         .order(Order::Background)
         .interactable(false);
-    // Pinned to the units they count, so they fade in and out where they stand rather than sliding.
-    motion::presence_area_along(
+    let mut drawn = false;
+    // Pinned to the units they count, so they fade in and out where they stand rather than
+    // sliding, and quickly: the count is up for as long as a key is held and no longer.
+    motion::presence_area_quick(
         ctx,
         id.with("presence"),
         shown && !view.units.is_empty(),
         area,
-        Vec2::ZERO,
         |ui| {
+            drawn = true;
             ui.set_clip_rect(screen);
             ui.allocate_exact_size(screen.size(), Sense::hover());
-            for unit in view.units.iter().filter(|unit| pick.includes(unit, screen)) {
-                draw_bars(ui, view, unit, screen);
-            }
             let before = ui
                 .ctx()
                 .data(|data| data.get_temp::<Memory>(memory_id))
                 .unwrap_or_default();
-            let (labels, group_of) = match &pick {
+            let on_map = OnMap::new(view.map_view, screen);
+            let seconds = ui.input(|input| input.stable_dt);
+            let (mut labels, groups) = match &pick {
                 Pick::Dragging { dragged, adding_to } => {
                     paint_box(ui, *dragged);
                     let mut labels = box_labels(view, *dragged, screen);
-                    let (groups, group_of) = group_labels(view, screen, &before.group_of, |unit| {
-                        !in_box(unit, *dragged, screen) && adding_to.binary_search(&unit.id).is_ok()
-                    });
-                    labels.extend(groups);
-                    (labels, group_of)
+                    let (grouped, groups) =
+                        group_labels(view, on_map, &before.groups, seconds, |unit| {
+                            !in_box(unit, *dragged, screen)
+                                && adding_to.binary_search(&unit.id).is_ok()
+                        });
+                    labels.extend(grouped);
+                    (labels, groups)
                 }
-                _ => group_labels(view, screen, &before.group_of, |unit| {
+                _ => group_labels(view, on_map, &before.groups, seconds, |unit| {
                     pick.includes(unit, screen)
                 }),
             };
+            hold(&mut labels, &before.labels, on_map);
             // The minimap is the game's own, and no panel of the overlay's covers it.
             let panels: Vec<Rect> = panels.iter().copied().chain(minimap).collect();
             let placed = place_labels(ui, labels, screen, &panels);
-            let seconds = ui.input(|input| input.stable_dt);
-            let (placed, label_at) =
-                settle(placed, &before.label_at, view.map_view, screen, seconds);
-            ui.ctx()
-                .data_mut(|data| data.insert_temp(memory_id, Memory { group_of, label_at }));
-            for (label, rect) in placed {
-                draw_label(ui, view, &label, rect);
+            let (placed, labels) = settle(placed, &before.labels, on_map, view.tuning, seconds);
+            let leaving = leaving_labels(&before, &groups, &labels, view.tuning, seconds);
+            let pixels_per_point = ui.ctx().pixels_per_point();
+            let paint = |ui: &Ui, label: &Label, rect: Rect, moving: bool| {
+                // Laid out on whole pixels, as it is drawn when it stands still.
+                let still =
+                    Rect::from_min_size(rect.min.round_to_pixels(pixels_per_point), rect.size());
+                if moving {
+                    paint_off_grid(ui, rect.min - still.min, || draw_label(ui, label, still));
+                } else {
+                    draw_label(ui, label, still);
+                }
+            };
+            // Under the labels that are staying, each fading into the one it is joining.
+            for label in &leaving {
+                let Some(player) = view.players.get(label.owner) else {
+                    continue;
+                };
+                let going = Label {
+                    player,
+                    owner: label.owner,
+                    kinds: label.kinds.clone(),
+                    anchor: Pos2::ZERO,
+                    slack: Vec2::ZERO,
+                    scale: 1.0,
+                    key: None,
+                    was: None,
+                };
+                let bottom = on_map.screen_point(label.at);
+                let rect = Rect::from_min_size(
+                    bottom - vec2(label.size.x / 2.0, label.size.y),
+                    label.size,
+                );
+                ui.scope(|ui| {
+                    let left = 1.0 - label.gone / LEAVE_SECS;
+                    ui.multiply_opacity(left * left);
+                    paint(ui, &going, rect, true);
+                });
             }
+            for Settled {
+                label,
+                rect,
+                moving,
+            } in &placed
+            {
+                paint(ui, label, *rect, *moving);
+            }
+            ui.ctx().data_mut(|data| {
+                data.insert_temp(
+                    memory_id,
+                    Memory {
+                        groups,
+                        labels,
+                        leaving,
+                    },
+                )
+            });
         },
     );
-    look
+    // Kept until the last of the count has faded, so that it fades as it stood.
+    if !drawn {
+        ctx.data_mut(|data| {
+            data.remove::<Memory>(memory_id);
+            if !shown {
+                data.remove::<PickState>(id.with("pick"));
+            }
+        });
+    }
+    OnScreenOutcome { look, health_bars }
+}
+
+/// The units `pick` gives health bars, by id, sorted.
+fn health_bars(view: &OnScreenView, pick: &Pick, screen: Rect) -> Vec<u32> {
+    let mut ids: Vec<u32> = view
+        .units
+        .iter()
+        .filter(|unit| pick.includes(unit, screen))
+        .map(|unit| unit.id)
+        .collect();
+    ids.sort_unstable();
+    ids
 }
 
 /// Follows what the watcher picks with the primary button while the count is up (see the module's
 /// own docs), taking Ctrl and Shift as they are held when the button is let go, as the game does,
 /// and a double-click as a Ctrl-click, as the game does too. A box too small to be one is a click.
 /// A press on the minimap picks nothing, and the place on it the pointer is at is returned for as
-/// long as the button stays down. All of it is dropped with the count.
+/// long as the button stays down. All of it is dropped with the count, but for what was picked,
+/// which is what is counted while the count fades out.
 fn follow_pick(
     ctx: &Context,
     id: Id,
@@ -318,9 +561,22 @@ fn follow_pick(
     screen: Rect,
     minimap: Option<Rect>,
 ) -> (Pick, Option<Pos2>) {
+    let mut state = ctx
+        .data(|data| data.get_temp::<PickState>(id))
+        .unwrap_or_default();
     if !shown {
-        ctx.data_mut(|data| data.remove::<PickState>(id));
-        return (Pick::Everything, None);
+        state.drag = None;
+        state.steering = false;
+        state.gone = true;
+        let pick = match &state.picked {
+            Some(ids) => Pick::Picked(ids.clone()),
+            None => Pick::Everything,
+        };
+        ctx.data_mut(|data| data.insert_temp(id, state));
+        return (pick, None);
+    }
+    if state.gone {
+        state = PickState::default();
     }
     let (pressed, down, origin, latest, modifiers, double_clicked) = ctx.input(|input| {
         (
@@ -334,9 +590,6 @@ fn follow_pick(
                 .button_double_clicked(egui::PointerButton::Primary),
         )
     });
-    let mut state = ctx
-        .data(|data| data.get_temp::<PickState>(id))
-        .unwrap_or_default();
     if pressed && let Some(origin) = origin {
         if minimap.is_some_and(|minimap| minimap.contains(origin)) {
             state.steering = true;
@@ -462,20 +715,26 @@ fn body_on_screen(unit: &OnScreenUnitView, screen: Rect) -> Rect {
 }
 
 /// The labels for every group of every player's counted units that `included` lets through (see
-/// the module's own docs for what makes a group), and the key of the group each of those units is
-/// in. `before` is the key of the group each unit was in the frame before.
+/// the module's own docs for what makes a group), and the groups themselves, to be kept for the
+/// next frame. `before` is the groups of the frame before, `seconds` ago.
 fn group_labels<'a>(
     view: &'a OnScreenView,
-    screen: Rect,
-    before: &HashMap<u32, u32>,
+    on_map: OnMap,
+    before: &grouping::Groups,
+    seconds: f32,
     included: impl Fn(&OnScreenUnitView) -> bool,
-) -> (Vec<Label<'a>>, HashMap<u32, u32>) {
-    let points_per_map_pixel = view
+) -> (Vec<Label<'a>>, grouping::Groups) {
+    let screen = on_map.screen;
+    let points_per_map_pixel = on_map
         .map_view
-        .filter(|map_view| map_view.width() > 0.0)
         .map_or(0.0, |map_view| screen.width() / map_view.width());
+    let motion = view.tuning;
+    let slack_least = on_map.points_per_pixel() * motion.slack_least;
     let mut labels = Vec::new();
-    let mut group_of = HashMap::new();
+    let mut groups = grouping::Groups {
+        next_key: before.next_key,
+        ..Default::default()
+    };
     for (index, player) in view.players.iter().enumerate() {
         let units: Vec<&OnScreenUnitView> = view
             .units
@@ -486,37 +745,187 @@ fn group_labels<'a>(
             .iter()
             .map(|unit| grouping::Member {
                 at: on_screen(unit.position, screen),
-                worker: unit.worker,
+                job: unit.job,
+                orders: unit.orders,
             })
             .collect();
         let were_together = |a: usize, b: usize| {
-            let group = |i: usize| before.get(&units[i].id);
+            let group = |i: usize| before.group_of.get(&units[i].id);
             group(a).is_some_and(|group_a| group(b) == Some(group_a))
         };
-        for members in grouping::stand_together(&members, points_per_map_pixel, were_together) {
+        let stand = grouping::stand_together(
+            &members,
+            points_per_map_pixel,
+            motion.same_orders_reach,
+            were_together,
+        );
+        let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();
+        let at_a_base: Vec<bool> = stand
+            .iter()
+            .map(|standing| {
+                let first = standing.first().and_then(|&member| units[member].job);
+                matches!(first, Some(WorkerJob::AtBase { .. }))
+            })
+            .collect();
+        let settled = grouping::settle_into_groups(
+            &stand,
+            &at_a_base,
+            &ids,
+            before,
+            &mut groups,
+            seconds,
+            motion.regroup_secs,
+        );
+        for (key, members) in settled {
             let members: Vec<&OnScreenUnitView> = members.into_iter().map(|i| units[i]).collect();
-            let key = members.iter().map(|unit| unit.id).min().unwrap_or(0);
-            group_of.extend(members.iter().map(|unit| (unit.id, key)));
             let top = members
                 .iter()
-                .map(|unit| on_screen(unit.bounds.min, screen).y)
+                .map(|unit| on_screen(pos2(unit.position.x, unit.top), screen).y)
                 .fold(f32::INFINITY, f32::min);
-            let (left, right) = members
-                .iter()
-                .map(|unit| on_screen(unit.position, screen).x)
-                .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), x| {
-                    (lo.min(x), hi.max(x))
-                });
+            // Where the group's units stand: what the label is to stay over.
+            let stand = Rect::from_points(
+                &members
+                    .iter()
+                    .map(|unit| on_screen(unit.position, screen))
+                    .collect::<Vec<_>>(),
+            );
+            // A base's workers are labelled at the base, which leaves the label nowhere to go.
+            let base = match work_of(&members) {
+                Some(WorkerJob::AtBase { base }) => view.bases.get(base),
+                _ => None,
+            };
+            let (anchor, slack) = match base {
+                Some(base) => (on_screen(base.top, screen), Vec2::ZERO),
+                None => (
+                    pos2(stand.center().x, top),
+                    stand.size() / 2.0 * motion.slack_share + slack_least,
+                ),
+            };
             labels.push(Label {
                 player,
-                kinds: count_kinds(view, members),
-                anchor: pos2((left + right) / 2.0, top),
+                owner: index,
+                anchor,
+                slack,
                 scale: 1.0,
                 key: Some(key),
+                was: carried_on_from(&members, &before.group_of),
+                kinds: count_kinds(view, members),
             });
         }
     }
-    (labels, group_of)
+    (labels, groups)
+}
+
+/// The work most of `members` are at, or `None` where most are at none. A group is all at one
+/// work but for the units that have yet to be counted out of it or into another.
+fn work_of(members: &[&OnScreenUnitView]) -> Option<WorkerJob> {
+    let mut at: Vec<(Option<WorkerJob>, usize)> = Vec::new();
+    for unit in members {
+        match at.iter_mut().find(|(job, _)| *job == unit.job) {
+            Some((_, count)) => *count += 1,
+            None => at.push((unit.job, 1)),
+        }
+    }
+    // The first of two with as many, which is the one the group's first unit is at.
+    let most = at.iter().map(|&(_, count)| count).max()?;
+    at.into_iter()
+        .find(|&(_, count)| count == most)
+        .and_then(|(job, _)| job)
+}
+
+/// The key of the group most of `members` were in the frame before, given each unit's then. The
+/// lower key where two had as many, so that the answer is the same from frame to frame.
+fn carried_on_from(members: &[&OnScreenUnitView], before: &HashMap<u32, u32>) -> Option<u32> {
+    most_of(
+        members
+            .iter()
+            .filter_map(|unit| before.get(&unit.id).copied()),
+    )
+}
+
+/// The key most of `keys` are, and the lower one where two come as often.
+fn most_of(keys: impl Iterator<Item = u32>) -> Option<u32> {
+    let mut counted: Vec<(u32, usize)> = Vec::new();
+    for key in keys {
+        match counted.iter_mut().find(|(counted, _)| *counted == key) {
+            Some((_, count)) => *count += 1,
+            None => counted.push((key, 1)),
+        }
+    }
+    counted
+        .into_iter()
+        .max_by_key(|&(key, count)| (count, std::cmp::Reverse(key)))
+        .map(|(key, _)| key)
+}
+
+/// The labels on their way out this frame, `seconds` after `before`: those that were then, moved
+/// on toward the labels they are joining and nearer gone, less the ones that have gone, and the
+/// label of every group that has joined another since. A group has joined another when it had a
+/// label the frame before and has none in `now`, and most of what is still in view of its units is
+/// in a group (as `groups` has them) that has one. One whose units have left the view, or died,
+/// has joined nothing, and its label goes at once.
+fn leaving_labels(
+    before: &Memory,
+    groups: &grouping::Groups,
+    now: &HashMap<u32, Kept>,
+    motion: CountTuning,
+    seconds: f32,
+) -> Vec<Leaving> {
+    let mut leaving: Vec<Leaving> = before
+        .leaving
+        .iter()
+        .map(|label| Leaving {
+            gone: label.gone + seconds,
+            ..label.clone()
+        })
+        .filter(|label| label.gone < LEAVE_SECS)
+        .collect();
+    for (key, kept) in &before.labels {
+        if now.contains_key(key) {
+            continue;
+        }
+        let units = before.groups.group_of.iter();
+        let were_in_it = units.filter(|&(_, group)| group == key);
+        let joined = most_of(were_in_it.filter_map(|(unit, _)| groups.group_of.get(unit).copied()));
+        if let Some(into) = joined.filter(|into| now.contains_key(into)) {
+            leaving.push(Leaving {
+                owner: kept.owner,
+                kinds: kept.kinds.clone(),
+                size: kept.size,
+                at: kept.at,
+                into,
+                gone: 0.0,
+            });
+        }
+    }
+    for label in &mut leaving {
+        if let Some(joining) = now.get(&label.into) {
+            label.at = approach(label.at, joining.at, motion, seconds);
+        }
+    }
+    leaving
+}
+
+/// Leaves every group's label hanging where it hung the frame before, `before` by group, for as
+/// long as that is still over its group: within the label's slack of the middle of the group's
+/// top. One whose group has got further out from under it is moved only as far as it takes to be
+/// within that again. A group whose units mill about, as workers mining do, moves the middle of its
+/// top with every step they take, and its label would otherwise never be still; one on the march
+/// keeps pushing its label on by as much as it moves, which is its label following it at its own
+/// pace. A label new this frame, or one over a dragged box, hangs over the middle of the top of
+/// what it labels.
+fn hold(labels: &mut [Label], before: &HashMap<u32, Kept>, on_map: OnMap) {
+    for label in labels {
+        let Some(kept) = label.was.and_then(|key| before.get(&key)) else {
+            continue;
+        };
+        let hung = on_map.screen_point(kept.hung);
+        let (over, slack) = (label.anchor, label.slack);
+        label.anchor = pos2(
+            hung.x.clamp(over.x - slack.x, over.x + slack.x),
+            hung.y.clamp(over.y - slack.y, over.y + slack.y),
+        );
+    }
 }
 
 /// One label for each player with counted units inside `dragged`, all hung over its top edge.
@@ -532,20 +941,23 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
             let kinds = count_kinds(view, inside);
             (!kinds.is_empty()).then(|| Label {
                 player,
+                owner: index,
                 kinds,
                 anchor: dragged.center_top(),
+                slack: Vec2::ZERO,
                 scale: BOX_LABEL_SCALE,
                 key: None,
+                was: None,
             })
         })
         .collect()
 }
 
-/// How many of `units` there are of each kind, in the kinds' drawing order.
+/// How many of `units` there are of each kind, with the kind's icon, in the kinds' drawing order.
 fn count_kinds<'a>(
     view: &OnScreenView,
     units: impl IntoIterator<Item = &'a OnScreenUnitView>,
-) -> Vec<(usize, u32)> {
+) -> Vec<(ProductionIcon, u32)> {
     let mut counts = vec![0u32; view.kinds.len()];
     for kind in units.into_iter().filter_map(|unit| unit.kind) {
         if let Some(count) = counts.get_mut(kind) {
@@ -554,8 +966,9 @@ fn count_kinds<'a>(
     }
     counts
         .into_iter()
-        .enumerate()
-        .filter(|&(_, count)| count > 0)
+        .zip(&view.kinds)
+        .filter(|&(count, _)| count > 0)
+        .map(|(count, icon)| (*icon, count))
         .collect()
 }
 
@@ -668,44 +1081,88 @@ fn out_from_under(rect: Rect, panels: &[Rect], labels: &[Rect], screen: Rect) ->
         .unwrap_or(rect)
 }
 
-/// The labels `placed`, each moved from where it stood the frame before, `before` by group on the
-/// map, only part of the way to where it is placed, as far as [`LABEL_SETTLE_SECS`] has it go in
-/// `seconds`, and where each group's label now stands. Kept on the map, given the part of it the
-/// view shows (`map_view`), so a label pinned to its units doesn't trail them as the view pans. A
-/// label new this frame, or one over a dragged box, stands where it is placed.
+/// The labels `placed`, each drawn on its way from where it was drawn the frame before, `before` by
+/// group, to where it is placed, with whether it moved on the screen since then, and where each
+/// group's label now is. A label goes most of the way in [`CountTuning::settle_secs`] and never
+/// slower than [`CountTuning::least_speed`], so it is quick about a move and then still. Where it
+/// was is kept on the map, so a label doesn't trail its units as the view pans. A label new this
+/// frame, or one over a dragged box, is drawn where it is placed.
 fn settle<'a>(
     placed: Vec<(Label<'a>, Rect)>,
-    before: &HashMap<u32, Pos2>,
-    map_view: Option<Rect>,
-    screen: Rect,
+    before: &HashMap<u32, Kept>,
+    on_map: OnMap,
+    motion: CountTuning,
     seconds: f32,
-) -> (Vec<(Label<'a>, Rect)>, HashMap<u32, Pos2>) {
-    let map_view = map_view.filter(|map_view| map_view.width() > 0.0 && map_view.height() > 0.0);
-    let to_map = |point: Pos2| match map_view {
-        Some(map_view) => map_view.min + (point - screen.min) / screen.size() * map_view.size(),
-        None => point,
-    };
-    let to_screen = |point: Pos2| match map_view {
-        Some(map_view) => screen.min + (point - map_view.min) / map_view.size() * screen.size(),
-        None => point,
-    };
-    let share = 1.0 - (-seconds / LABEL_SETTLE_SECS).exp();
-    let mut label_at = HashMap::new();
+) -> (Vec<Settled<'a>>, HashMap<u32, Kept>) {
+    let mut kept = HashMap::new();
     let settled = placed
         .into_iter()
         .map(|(label, rect)| {
             let Some(key) = label.key else {
-                return (label, rect);
+                return Settled {
+                    label,
+                    rect,
+                    moving: false,
+                };
             };
-            let wanted = to_map(rect.min);
-            let at = before
-                .get(&key)
-                .map_or(wanted, |&from| from + (wanted - from) * share);
-            label_at.insert(key, at);
-            (label, Rect::from_min_size(to_screen(at), rect.size()))
+            let was = label.was.and_then(|key| before.get(&key));
+            let wanted = on_map.map_point(rect.center_bottom());
+            let at = was.map_or(wanted, |was| approach(was.at, wanted, motion, seconds));
+            let bottom = on_map.screen_point(at);
+            // Panning can take what was on the screen a frame ago off it.
+            let rect = keep_on_screen(
+                Rect::from_min_size(
+                    bottom - vec2(rect.width() / 2.0, rect.height()),
+                    rect.size(),
+                ),
+                on_map.screen,
+            );
+            let drawn = rect.center_bottom();
+            let moving = was.is_some_and(|was| was.drawn.distance(drawn) > STILL);
+            let hung = on_map.map_point(label.anchor);
+            kept.insert(
+                key,
+                Kept {
+                    hung,
+                    at,
+                    drawn,
+                    owner: label.owner,
+                    kinds: label.kinds.clone(),
+                    size: rect.size(),
+                },
+            );
+            Settled {
+                label,
+                rect,
+                moving,
+            }
         })
         .collect();
-    (settled, label_at)
+    (settled, kept)
+}
+
+/// A label where it is drawn this frame, and whether it moved on the screen since the frame before.
+struct Settled<'a> {
+    label: Label<'a>,
+    rect: Rect,
+    moving: bool,
+}
+
+/// How far a label can be drawn from where it was the frame before, in points, and still count as
+/// standing still: what the arithmetic of putting it on the map and back leaves.
+const STILL: f32 = 0.01;
+
+/// Where something at `from` that is making for `to` is `seconds` later.
+fn approach(from: Pos2, to: Pos2, motion: CountTuning, seconds: f32) -> Pos2 {
+    let gap = to - from;
+    let distance = gap.length();
+    let share = 1.0 - (-seconds / motion.settle_secs.max(f32::EPSILON)).exp();
+    let step = (distance * share).max(motion.least_speed * seconds);
+    if step >= distance {
+        to
+    } else {
+        from + gap * (step / distance)
+    }
 }
 
 /// `rect` moved the least it takes to sit inside `screen`, short of its edges.
@@ -733,65 +1190,28 @@ fn paint_box(ui: &Ui, dragged: Rect) {
     );
 }
 
-/// Draws a unit's bars where and as SC:R draws them under a selected unit: in the box the classic
-/// bar fills, a solid bar of what it has left in the color of how hurt it is over grey for what is
-/// gone, and where it has shields, one of them in blue above it, a pixel of the game's between.
-fn draw_bars(ui: &Ui, view: &OnScreenView, unit: &OnScreenUnitView, screen: Rect) {
-    let (Some(health), Some(bar)) = (unit.health, unit.bar) else {
-        return;
-    };
-    let alpha = view
-        .players
-        .get(unit.player)
-        .map_or(1.0, |player| vision_alpha(player.vision));
-    let rect = Rect::from_min_max(on_screen(bar.min, screen), on_screen(bar.max, screen));
-    // One of the game's pixels: the box is 5 of them tall, or 7 with shields.
-    let pixel = rect.height() / if unit.shields.is_some() { 7.0 } else { 5.0 };
-    let painter = ui.painter();
-    let paint = |top: f32, fraction: f32, color: Color32| {
-        let track = Rect::from_min_size(
-            pos2(rect.left(), rect.top() + top * pixel),
-            vec2(rect.width(), BAR_HEIGHT * pixel),
-        );
-        painter.rect_filled(track, 0.0, BAR_EMPTY.gamma_multiply(alpha));
-        let mut filled = track;
-        filled.set_right(track.left() + track.width() * fraction.clamp(0.0, 1.0));
-        painter.rect_filled(filled, 0.0, color.gamma_multiply(alpha));
-    };
-    let health_color = if health >= 2.0 / 3.0 {
-        BAR_HEALTHY
-    } else if health >= 1.0 / 3.0 {
-        BAR_HURT
-    } else {
-        BAR_DYING
-    };
-    match unit.shields {
-        Some(shields) => {
-            paint(0.0, shields, BAR_SHIELDS);
-            paint(BAR_HEIGHT + 1.0, health, health_color);
-        }
-        None => paint(1.0, health, health_color),
-    }
-}
-
-/// How tall each of a unit's bars is, in the game's pixels.
-const BAR_HEIGHT: f32 = 3.0;
-
-/// Draws one label into `rect`: a dark plate under it all, then the owner's name on a band of
-/// their color as wide as the label, then a tile for each kind, wrapping onto as many lines as it
-/// takes.
-fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
+/// Draws one label into `rect`: the owner's name on a band of their color as wide as the label,
+/// then a tile for each kind, wrapping onto as many lines as it takes, the band and every tile
+/// edged with a dark line.
+fn draw_label(ui: &Ui, label: &Label, rect: Rect) {
     let player = label.player;
     let scale = label.scale;
     let alpha = vision_alpha(player.vision);
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     let painter = ui.painter();
-    painter.rect_filled(
-        rect.expand(PLATE_MARGIN),
-        theme::radius(theme::RADIUS_CHIP + PLATE_MARGIN as u8),
-        Color32::BLACK.gamma_multiply(PLATE_ALPHA * alpha),
-    );
+    let edge = |rect: Rect| {
+        painter.rect_stroke(
+            rect,
+            corner_radius,
+            Stroke::new(
+                theme::HAIRLINE,
+                Color32::BLACK.gamma_multiply(EDGE_ALPHA * alpha),
+            ),
+            StrokeKind::Outside,
+        );
+    };
     let band = Rect::from_min_size(rect.min, vec2(rect.width(), NAME_BAND_HEIGHT * scale));
+    edge(band);
     painter.rect_filled(
         band,
         corner_radius,
@@ -817,10 +1237,7 @@ fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
     // The tiles are centered under the band, which is wider than them where the name is.
     let left = rect.center().x - tiles_width / 2.0;
     let top = band.bottom() + BAND_GAP * scale;
-    for (i, &(kind, count)) in label.kinds.iter().enumerate() {
-        let Some(icon) = view.kinds.get(kind) else {
-            continue;
-        };
+    for (i, (icon, count)) in label.kinds.iter().enumerate() {
         let (line, column) = (i / TILES_PER_LINE, i % TILES_PER_LINE);
         let tile = Rect::from_min_size(
             pos2(
@@ -829,8 +1246,9 @@ fn draw_label(ui: &Ui, view: &OnScreenView, label: &Label, rect: Rect) {
             ),
             vec2(tile_width, tile_height),
         );
+        edge(tile);
         draw_tile(ui, tile, icon, player.color, alpha, scale);
-        draw_badge(ui, tile, count, alpha, scale);
+        draw_badge(ui, tile, *count, alpha, scale);
     }
 }
 
@@ -902,12 +1320,11 @@ mod tests {
             id,
             player: 0,
             kind: Some(0),
-            worker: false,
+            job: None,
+            orders: None,
             position,
             bounds: Rect::from_center_size(position, vec2(0.01, 0.01)),
-            bar: None,
-            health: Some(1.0),
-            shields: None,
+            top: y - 0.005,
         }
     }
 
@@ -1087,11 +1504,12 @@ mod tests {
         pick_frame(&ctx, &view, true, vec![button(end, true)]);
         let clicked = pick_frame(&ctx, &view, true, vec![button(end, false)]);
         assert!(matches!(clicked, Pick::Everything));
-        // And letting go of Alt forgets a pick.
+        // And letting go of Alt forgets a pick, once the count has faded out counting it.
         pick_frame(&ctx, &view, true, vec![button(start, true)]);
         pick_frame(&ctx, &view, true, vec![egui::Event::PointerMoved(end)]);
         pick_frame(&ctx, &view, true, vec![button(end, false)]);
-        pick_frame(&ctx, &view, false, vec![]);
+        let fading = pick_frame(&ctx, &view, false, vec![]);
+        assert!(matches!(&fading, Pick::Picked(ids) if ids == &[7]));
         assert!(matches!(
             pick_frame(&ctx, &view, true, vec![]),
             Pick::Everything
@@ -1268,64 +1686,341 @@ mod tests {
         assert_eq!(out_from_under(clear, &[bottom, top], &[], screen), clear);
     }
 
-    #[test]
-    fn a_label_settles_toward_its_place_on_the_map_and_keeps_to_it_as_the_view_pans() {
-        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
-        let map_view = Rect::from_min_size(pos2(2000.0, 3000.0), vec2(500.0, 500.0));
-        let player = OnScreenPlayerView {
+    /// A view of the screen 1000 points square onto 500 pixels of the map: two points to a pixel.
+    fn on_map() -> OnMap {
+        OnMap::new(
+            Some(Rect::from_min_size(
+                pos2(2000.0, 3000.0),
+                vec2(500.0, 500.0),
+            )),
+            Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0)),
+        )
+    }
+
+    fn nobody() -> OnScreenPlayerView {
+        OnScreenPlayerView {
             name: String::new(),
             color: Color32::WHITE,
             vision: true,
-        };
-        let label = |key| Label {
-            player: &player,
+        }
+    }
+
+    /// The label of the group `key`, which was the same group the frame before.
+    fn label_of(player: &OnScreenPlayerView, key: Option<u32>) -> Label<'_> {
+        Label {
+            player,
+            owner: 0,
             kinds: Vec::new(),
             anchor: Pos2::ZERO,
+            slack: Vec2::ZERO,
             scale: 1.0,
             key,
+            was: key,
+        }
+    }
+
+    fn assert_close(a: Pos2, b: Pos2) {
+        assert!(a.distance(b) < 1e-2, "{a:?} is not {b:?}");
+    }
+
+    #[test]
+    fn a_label_stays_put_over_a_group_milling_about_and_is_drawn_along_by_one_on_the_march() {
+        let on_map = on_map();
+        let player = nobody();
+        // Where group 1's label hangs, with the middle of the group's top `x` across the screen
+        // and the label free to be 20 points off it either way.
+        let held = |x: f32, before: &HashMap<u32, Kept>, on_map: OnMap| {
+            let mut labels = [label_of(&player, Some(1))];
+            labels[0].anchor = pos2(x, 300.0);
+            labels[0].slack = vec2(20.0, 10.0);
+            hold(&mut labels, before, on_map);
+            labels[0].anchor
         };
+        let hung_at = |anchor: Pos2, on_map: OnMap| {
+            let kept = Kept {
+                hung: on_map.map_point(anchor),
+                ..Default::default()
+            };
+            HashMap::from([(1, kept)])
+        };
+        // New: over the middle of its group's top.
+        assert_close(held(500.0, &HashMap::new(), on_map), pos2(500.0, 300.0));
+        // The middle shifting about under it leaves it where it hung.
+        let before = hung_at(pos2(500.0, 300.0), on_map);
+        for x in [485.0, 512.0, 520.0, 480.0] {
+            assert_close(held(x, &before, on_map), pos2(500.0, 300.0));
+        }
+        // Further than its slack, and it is moved only as far as puts it back within that.
+        assert_close(held(530.0, &before, on_map), pos2(510.0, 300.0));
+        // The view panning 50 pixels of map moves its group 100 points across the screen, and it
+        // with them.
+        let panned = OnMap::new(
+            on_map.map_view.map(|view| view.translate(vec2(50.0, 0.0))),
+            on_map.screen,
+        );
+        assert_close(held(412.0, &before, panned), pos2(400.0, 300.0));
+        // A group on the march, 8 points a frame: once it has taken up the slack, the label
+        // goes as far as the group does every frame.
+        let mut before = before;
+        let mut at = 500.0;
+        let mut steps = Vec::new();
+        for frame in 1..=10 {
+            let hung = held(500.0 + 8.0 * frame as f32, &before, on_map);
+            steps.push(hung.x - at);
+            at = hung.x;
+            before = hung_at(hung, on_map);
+        }
+        assert!(
+            steps[..2].iter().all(|&step| step.abs() < 1e-2),
+            "{steps:?}"
+        );
+        assert!(
+            steps[3..].iter().all(|&step| (step - 8.0).abs() < 1e-2),
+            "{steps:?}"
+        );
+    }
+
+    #[test]
+    fn a_group_carries_on_the_label_of_the_group_most_of_its_units_were_in() {
+        let units = [
+            unit_at(1, 0.1, 0.1),
+            unit_at(2, 0.1, 0.1),
+            unit_at(3, 0.1, 0.1),
+            unit_at(4, 0.1, 0.1),
+        ];
+        let members: Vec<&OnScreenUnitView> = units.iter().collect();
+        // The unit the group was keyed by has left it, and one from another group has joined.
+        let before = HashMap::from([(1, 1), (2, 1), (3, 1), (4, 7)]);
+        assert_eq!(carried_on_from(&members[1..], &before), Some(1));
+        // As many from each of two groups: the lower key, whichever way round they come.
+        let before = HashMap::from([(2, 9), (3, 5)]);
+        assert_eq!(carried_on_from(&members[1..3], &before), Some(5));
+        let before = HashMap::from([(2, 5), (3, 9)]);
+        assert_eq!(carried_on_from(&members[1..3], &before), Some(5));
+        // Nothing to carry on from for units new to the view.
+        assert_eq!(carried_on_from(&members, &HashMap::new()), None);
+    }
+
+    #[test]
+    fn a_label_hangs_from_the_top_of_what_is_drawn_of_its_units() {
+        // A unit whose art stands taller than its body, next to one whose doesn't.
+        let mut tall = unit_at(1, 0.5, 0.5);
+        tall.top = 0.46;
+        let view = OnScreenView {
+            players: vec![nobody()],
+            kinds: vec![ProductionIcon {
+                texture: None,
+                index: 0,
+                size: None,
+                margin: 0.0,
+                wireframe: None,
+            }],
+            units: vec![tall, unit_at(2, 0.52, 0.5)],
+            ..Default::default()
+        };
+        let (labels, _) = group_labels(&view, on_map(), &Default::default(), 0.016, |_| true);
+        assert_eq!(labels.len(), 1);
+        assert_close(labels[0].anchor, pos2(510.0, 460.0));
+    }
+
+    #[test]
+    fn the_workers_gathering_at_a_base_are_labelled_over_its_town_hall() {
+        let gathering = |id, x, y| OnScreenUnitView {
+            job: Some(WorkerJob::AtBase { base: 0 }),
+            ..unit_at(id, x, y)
+        };
+        let mut view = OnScreenView {
+            players: vec![nobody()],
+            kinds: vec![ProductionIcon {
+                texture: None,
+                index: 0,
+                size: None,
+                margin: 0.0,
+                wireframe: None,
+            }],
+            units: vec![gathering(1, 0.7, 0.5), gathering(2, 0.9, 0.3)],
+            bases: vec![OnScreenBaseView {
+                top: pos2(0.4, 0.2),
+            }],
+            ..Default::default()
+        };
+        let anchor = |view: &OnScreenView| {
+            let (mut labels, _) =
+                group_labels(view, on_map(), &Default::default(), 0.016, |_| true);
+            assert_eq!(labels.len(), 1);
+            // Wherever it hung before, it hangs over the town hall.
+            let kept = Kept {
+                hung: on_map().map_point(pos2(900.0, 900.0)),
+                ..Default::default()
+            };
+            labels[0].was = Some(1);
+            hold(&mut labels, &HashMap::from([(1, kept)]), on_map());
+            labels[0].anchor
+        };
+        assert_close(anchor(&view), pos2(400.0, 200.0));
+        // And stays there as they go about their gathering.
+        view.units[0].position = pos2(0.45, 0.35);
+        view.units[1].position = pos2(0.95, 0.6);
+        assert_close(anchor(&view), pos2(400.0, 200.0));
+    }
+
+    #[test]
+    fn a_label_is_quick_to_a_new_place_and_then_still_and_keeps_to_the_map_as_the_view_pans() {
+        let on_map = on_map();
+        let motion = CountTuning::default();
+        let player = nobody();
         let size = vec2(80.0, 60.0);
-        let placed = |key, at: Pos2| vec![(label(key), Rect::from_min_size(at, size))];
-        // New: where it is placed.
-        let (first, label_at) = settle(
+        let placed = |key, at: Pos2| vec![(label_of(&player, key), Rect::from_min_size(at, size))];
+        // New: where it is placed, standing still.
+        let (first, kept) = settle(
             placed(Some(1), pos2(400.0, 400.0)),
             &HashMap::new(),
-            Some(map_view),
-            screen,
+            on_map,
+            motion,
             0.016,
         );
-        assert_eq!(first[0].1.min, pos2(400.0, 400.0));
-        assert_eq!(label_at[&1], pos2(2200.0, 3200.0));
-        // Placed elsewhere a frame later: only part of the way there.
-        let (moved, _) = settle(
-            placed(Some(1), pos2(500.0, 400.0)),
-            &label_at,
-            Some(map_view),
-            screen,
-            0.016,
-        );
-        let x = moved[0].1.min.x;
-        assert!(x > 400.0 && x < 450.0, "{x}");
+        assert_close(first[0].rect.min, pos2(400.0, 400.0));
+        assert!(!first[0].moving);
+        assert_close(kept[&1].at, pos2(2220.0, 3230.0));
         // The view panned so its units stand 100 points further left: so does it, at once.
-        let panned = map_view.translate(vec2(50.0, 0.0));
-        let (kept, _) = settle(
+        let panned = OnMap::new(
+            on_map.map_view.map(|view| view.translate(vec2(50.0, 0.0))),
+            on_map.screen,
+        );
+        let (followed, _) = settle(
             placed(Some(1), pos2(300.0, 400.0)),
-            &label_at,
-            Some(panned),
-            screen,
+            &kept,
+            panned,
+            motion,
             0.016,
         );
-        assert_eq!(kept[0].1.min, pos2(300.0, 400.0));
-        // A box's label stands where it is placed.
-        let (boxed, label_at) = settle(
-            placed(None, pos2(10.0, 10.0)),
-            &label_at,
-            Some(map_view),
-            screen,
+        assert_close(followed[0].rect.min, pos2(300.0, 400.0));
+        assert!(followed[0].moving);
+        // Placed elsewhere: a good part of the way there a frame later, and there within a quarter
+        // of a second, rather than ever closer to it.
+        let mut kept = kept;
+        let mut frames = 0;
+        loop {
+            let (moved, now) = settle(
+                placed(Some(1), pos2(500.0, 400.0)),
+                &kept,
+                on_map,
+                motion,
+                0.016,
+            );
+            let x = moved[0].rect.min.x;
+            frames += 1;
+            kept = now;
+            if frames == 1 {
+                assert!(x > 420.0 && x < 480.0, "{x}");
+                assert!(moved[0].moving);
+            }
+            if (x - 500.0).abs() < 1e-2 {
+                break;
+            }
+            assert!(frames < 15, "still {x} after {frames} frames");
+        }
+        let (still, kept) = settle(
+            placed(Some(1), pos2(500.0, 400.0)),
+            &kept,
+            on_map,
+            motion,
             0.016,
         );
-        assert_eq!(boxed[0].1.min, pos2(10.0, 10.0));
-        assert!(label_at.is_empty());
+        assert_close(still[0].rect.min, pos2(500.0, 400.0));
+        assert!(!still[0].moving);
+        // A box's label stands where it is placed, and nothing is kept of it.
+        let (boxed, kept) = settle(placed(None, pos2(10.0, 10.0)), &kept, on_map, motion, 0.016);
+        assert_eq!(boxed[0].rect.min, pos2(10.0, 10.0));
+        assert!(kept.is_empty());
+    }
+
+    #[test]
+    fn the_label_of_a_group_that_joins_another_goes_into_that_one_s_and_fades() {
+        let motion = CountTuning::default();
+        let label_at = |x: f32| Kept {
+            at: pos2(x, 100.0),
+            size: vec2(80.0, 60.0),
+            ..Default::default()
+        };
+        let groups_of = |pairs: &[(u32, u32)]| grouping::Groups {
+            group_of: pairs.iter().copied().collect(),
+            ..Default::default()
+        };
+        // Unit 1 in a group of its own, then in the group of units 2 and 3.
+        let before = Memory {
+            groups: groups_of(&[(1, 7), (2, 8), (3, 8)]),
+            labels: HashMap::from([(7, label_at(100.0)), (8, label_at(300.0))]),
+            leaving: Vec::new(),
+        };
+        let joined = groups_of(&[(1, 8), (2, 8), (3, 8)]);
+        let now = HashMap::from([(8, label_at(300.0))]);
+        let leaving = leaving_labels(&before, &joined, &now, motion, 0.016);
+        assert_eq!(leaving.len(), 1);
+        assert_eq!((leaving[0].into, leaving[0].gone), (8, 0.0));
+        // On its way to the label of the group it joined.
+        assert!(leaving[0].at.x > 100.0 && leaving[0].at.x < 300.0);
+        // Still going a tenth of a second on, nearer the other, and gone within a fifth.
+        let before = Memory {
+            groups: joined.clone(),
+            labels: now.clone(),
+            leaving,
+        };
+        let going = leaving_labels(&before, &joined, &now, motion, 0.1);
+        assert_eq!(going.len(), 1);
+        assert!(going[0].at.x > before.leaving[0].at.x);
+        let before = Memory {
+            leaving: going,
+            ..before
+        };
+        assert!(leaving_labels(&before, &joined, &now, motion, 0.1).is_empty());
+        // A group whose units have left the view has joined nothing.
+        let before = Memory {
+            groups: groups_of(&[(1, 7), (2, 8)]),
+            labels: HashMap::from([(7, label_at(100.0)), (8, label_at(300.0))]),
+            leaving: Vec::new(),
+        };
+        let left = groups_of(&[(2, 8)]);
+        assert!(leaving_labels(&before, &left, &now, motion, 0.016).is_empty());
+    }
+
+    #[test]
+    fn health_bars_go_to_every_unit_in_view_or_to_the_ones_picked() {
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        // One of them a larva, which is given a bar though it is not counted.
+        let mut larva = unit_at(3, 0.3, 0.3);
+        larva.kind = None;
+        let view = OnScreenView {
+            units: vec![unit_at(9, 0.1, 0.1), larva, unit_at(5, 0.5, 0.5)],
+            ..Default::default()
+        };
+        assert_eq!(health_bars(&view, &Pick::Everything, screen), vec![3, 5, 9]);
+        assert_eq!(
+            health_bars(&view, &Pick::Picked(vec![5, 9]), screen),
+            vec![5, 9]
+        );
+        // A box being dragged covers what is counted inside it, added to what was picked.
+        let dragging = Pick::Dragging {
+            dragged: Rect::from_min_max(pos2(50.0, 50.0), pos2(350.0, 350.0)),
+            adding_to: vec![5],
+        };
+        assert_eq!(health_bars(&view, &dragging, screen), vec![5, 9]);
+    }
+
+    #[test]
+    fn a_unit_that_is_not_on_the_map_is_counted_but_cannot_be_clicked() {
+        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
+        // A worker inside a refinery, where the refinery stands.
+        let mut inside = unit_at(4, 0.5, 0.5);
+        inside.bounds = Rect::NOTHING;
+        let view = OnScreenView {
+            units: vec![inside],
+            ..Default::default()
+        };
+        assert!(unit_under(&view, pos2(500.0, 500.0), screen).is_none());
+        // A box dragged over where it is still takes it in.
+        let dragged = Rect::from_min_max(pos2(400.0, 400.0), pos2(600.0, 600.0));
+        assert!(in_box(&view.units[0], dragged, screen));
     }
 
     #[test]

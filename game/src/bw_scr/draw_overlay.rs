@@ -261,6 +261,8 @@ pub struct StepOutput {
     /// How much of the view's height it may scroll past the map's bottom edge: the band the
     /// overlay's bottom panels cover for a watcher, nothing for a player.
     pub bottom_overpan_share: f32,
+    /// The units the game is to draw health bars under though they are not selected.
+    pub health_bar_units: Vec<Unit>,
 }
 
 /// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
@@ -916,6 +918,7 @@ impl OverlayState {
         let mut replay_commands = Vec::new();
         let mut setting_changes = Vec::new();
         let mut game_commands = Vec::new();
+        let health_bars = std::mem::take(&mut frame_output.health_bars);
         for intent in frame_output.intents {
             match intent {
                 // The overlay holds what the player moved, so the screen keeps showing it for the
@@ -980,6 +983,7 @@ impl OverlayState {
             } else {
                 0.0
             },
+            health_bar_units: stats::health_bar_units(bw, &health_bars),
         }
     }
 
@@ -1120,6 +1124,7 @@ impl OverlayState {
         });
         let tileset = unsafe { (**bw.game).tileset };
         ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
+        ui.collapsing("On-screen count", on_screen_count_debug_ui);
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -1919,6 +1924,47 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
         info!("Fog style: {style:?}");
     }
     fog_style::set_fog_style(style);
+}
+
+/// Live controls for the on-screen count: how its labels keep their places and move between them,
+/// and how workers putting up buildings are grouped.
+fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
+    use overlay_ui::observer::CountTuning;
+    use stats::BuilderGrouping;
+
+    let mut builders = stats::builder_grouping();
+    ui.label("Workers putting up buildings are grouped");
+    for (grouping, text) in [
+        (BuilderGrouping::Apart, "On their own"),
+        (BuilderGrouping::WithGatherers, "With their base's workers"),
+        (BuilderGrouping::WithArmy, "As any other unit"),
+    ] {
+        ui.radio_value(&mut builders, grouping, text);
+    }
+    ui.separator();
+    ui.label("Labels");
+    let mut motion = stats::count_tuning();
+    ui.add(
+        Slider::new(&mut motion.slack_share, 0.0..=1.0)
+            .text("Slack (share of half the group's size)"),
+    );
+    ui.add(Slider::new(&mut motion.slack_least, 0.0..=64.0).text("Slack at least (map px)"));
+    ui.add(Slider::new(&mut motion.settle_secs, 0.0..=0.5).text("Move time (s)"));
+    ui.add(Slider::new(&mut motion.least_speed, 0.0..=600.0).text("Slowest move (map px/s)"));
+    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
+    ui.add(
+        Slider::new(&mut motion.same_orders_reach, 96.0..=1024.0)
+            .text("Reach on the same orders (map px)"),
+    );
+    if ui.button("Reset").clicked() {
+        motion = CountTuning::DEFAULT;
+        builders = BuilderGrouping::Apart;
+    }
+    if ui.button("Log values").clicked() {
+        info!("On-screen count: builders {builders:?}, {motion:?}");
+    }
+    stats::set_count_tuning(motion);
+    stats::set_builder_grouping(builders);
 }
 
 /// Nothing where there is no unit at `index` or it is the only one: taking the last unit out of a

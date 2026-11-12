@@ -547,6 +547,7 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let draw_image = analysis.draw_image().ok_or("draw_image")?;
         let software_cursor = match (
             analysis.draw_software_cursor(),
             analysis.push_renderer_mode_override(),
@@ -810,6 +811,7 @@ impl BwScr {
             net_format_turn_rate,
             init_obs_ui,
             draw_graphic_layers,
+            draw_image,
             software_cursor,
             decide_cursor_type,
             tick_gated_work,
@@ -917,6 +919,7 @@ impl BwScr {
             last_overlay_hd_value: AtomicBool::new(false),
             hd_switching: AtomicBool::new(false),
             overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
+            unit_health_bars: super::unit_health_bars::UnitHealthBars::new(),
             software_cursor_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),

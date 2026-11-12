@@ -109,6 +109,45 @@ pub fn presence_area_along<R>(
     Some(inner)
 }
 
+/// How long, in seconds, a surface held up by a key takes to cover most of the way in or out (see
+/// [`presence_area_quick`]).
+const QUICK_SECS: f32 = 0.03;
+
+/// Shows `area` through an entrance and exit made for a surface that is up only while a key is
+/// held: wanted the moment the key goes down, and in the way the moment it comes up. It fades
+/// without sliding, and covers most of what is left of the way every [`QUICK_SECS`], so it is
+/// nearly there within a frame or two and eases off over the rest. Letting the key go part of the
+/// way in turns it round from where it has got to.
+pub fn presence_area_quick<R>(
+    ctx: &Context,
+    id: Id,
+    shown: bool,
+    area: Area,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<InnerResponse<R>> {
+    /// How close to all the way in or out counts as there.
+    const THERE: f32 = 0.02;
+
+    let target = if shown { 1.0 } else { 0.0 };
+    let seconds = ctx.input(|input| input.stable_dt);
+    // A surface first asked for is where it is asked to be, as egui's own animations start.
+    let mut alpha = ctx.data(|data| data.get_temp::<f32>(id)).unwrap_or(target);
+    alpha += (target - alpha) * (1.0 - (-seconds / QUICK_SECS).exp());
+    if (target - alpha).abs() < THERE {
+        alpha = target;
+    } else {
+        ctx.request_repaint();
+    }
+    ctx.data_mut(|data| data.insert_temp(id, alpha));
+    if alpha <= 0.0 {
+        return None;
+    }
+    Some(area.show(ctx, |ui| {
+        ui.set_opacity(alpha);
+        add(ui)
+    }))
+}
+
 /// How many seconds ago a surface that makes its entrance every time it starts being drawn
 /// appeared, up to `secs`.
 ///

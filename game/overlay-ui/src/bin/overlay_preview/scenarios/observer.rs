@@ -654,7 +654,6 @@ fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
         let share = (t / 9.0 + index as f64 * 1.7).sin() * 0.5 + 0.5;
         let mut left = (f64::from(army_minerals) / 60.0 * share) as u32;
         let race_units = race_units(knobs.race(index));
-        let shielded = knobs.race(index) == RaceView::Protoss;
         let clumps = [
             egui::pos2(
                 0.2 + 0.6 * fraction(index as f64 * 0.37 + t / 40.0),
@@ -682,20 +681,15 @@ fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
                         0.05 * (fraction(serial as f64 * 0.618) - 0.5),
                         0.06 * (fraction(serial as f64 * 0.382) - 0.5),
                     );
-                let health = 0.15 + 0.85 * fraction(serial as f64 * 0.27 + t / 25.0);
                 view.units.push(OnScreenUnitView {
                     id: view.units.len() as u32,
                     player: index,
                     kind: Some(kind),
-                    worker: false,
+                    job: None,
+                    orders: None,
                     position: spot,
                     bounds: Rect::from_center_size(spot, vec2(0.01, 0.018)),
-                    bar: Some(Rect::from_center_size(
-                        spot + vec2(0.0, 0.03),
-                        vec2(31.0 / 640.0, if shielded { 7.0 } else { 5.0 } / 480.0),
-                    )),
-                    health: Some(health),
-                    shields: shielded.then(|| fraction(serial as f64 * 0.43 + t / 19.0)),
+                    top: spot.y - 0.03,
                 });
             }
         }
