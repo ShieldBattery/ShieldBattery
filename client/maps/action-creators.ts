@@ -281,6 +281,39 @@ export function openMapFamilyActionDialog(initData: {
   return openDialog({ type: DialogType.MapFamilyAction, initData })
 }
 
+/** Opens the dialog that makes a collection of the viewer's and opens it. */
+export function openMapCollectionCreateDialog() {
+  return openDialog({ type: DialogType.MapCollectionCreate })
+}
+
+/** Opens the dialog that changes a collection's title and description. */
+export function openMapCollectionEditDialog(initData: {
+  collectionId: string
+  title: string
+  description: string
+}) {
+  return openDialog({ type: DialogType.MapCollectionEdit, initData })
+}
+
+/** Opens the dialog that deletes a collection once the viewer confirms. */
+export function openMapCollectionDeleteDialog(initData: {
+  collectionId: string
+  title: string
+  mapCount: number
+}) {
+  return openDialog({ type: DialogType.MapCollectionDelete, initData })
+}
+
+/** Opens the dialog for telling staff something is wrong with a public collection. */
+export function openMapCollectionReportDialog(initData: { collectionId: string }) {
+  return openDialog({ type: DialogType.MapCollectionReport, initData })
+}
+
+/** Opens the dialog that hides a player's collection as staff. */
+export function openMapCollectionHideDialog(initData: { collectionId: string; title: string }) {
+  return openDialog({ type: DialogType.MapCollectionHide, initData })
+}
+
 /** Opens the dialog for telling staff that a map's files are wrong. */
 export function openMapFamilyReportDialog(initData: {
   familyId: string
