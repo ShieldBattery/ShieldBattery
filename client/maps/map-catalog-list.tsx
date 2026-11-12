@@ -31,7 +31,7 @@ import {
   MapListing,
   ServerMapListing,
 } from './map-catalog-params'
-import { MapTile, MapTileSignal, PendingMapTile } from './map-tile'
+import { MapTile, MapTilePick, MapTileSignal, PendingMapTile } from './map-tile'
 import { mapLibraryVersionAtom, pendingMapUploadsAtom } from './map-uploads'
 
 const PAGE_SIZE = 40
@@ -115,6 +115,22 @@ export interface MapPickOptions {
   isMarked?: (map: { id: SbMapId; familyId: string }) => boolean
   /** The text on a marked tile's chip. */
   markedLabel?: string
+}
+
+/** How the tile of the file `mapId`, in the map `familyId`, behaves when picking maps. */
+export function tilePick(pick: MapPickOptions, mapId: SbMapId, familyId: string): MapTilePick {
+  const marked = !!pick.isMarked?.({ id: mapId, familyId })
+  return {
+    onPick: () => {
+      pick.onPick(mapId, familyId).catch(() => {})
+    },
+    selected: pick.selectedMapId === mapId,
+    queuePositions: pick.queuePositions?.get(mapId),
+    pending: pick.pendingMapId === mapId,
+    failed: pick.failedMapId === mapId,
+    markedLabel: marked ? pick.markedLabel : undefined,
+    disabled: !!pick.disabled || marked || (!!pick.pendingMapId && pick.pendingMapId !== mapId),
+  }
 }
 
 const FilterRow = styled.div`
@@ -766,8 +782,6 @@ function MapCatalogChunk({
     <>
       {connection?.edges.map(edge => {
         const mapId = edge.node.id as SbMapId
-        const familyId = edge.node.family.id
-        const marked = !!pick?.isMarked?.({ id: mapId, familyId })
         return (
           <MapTile
             key={mapId}
@@ -776,24 +790,7 @@ function MapCatalogChunk({
             addedAt={edge.addedAt ?? undefined}
             onRemovedFromLibrary={!pick && listing === MapListing.Yours ? bumpLibrary : undefined}
             imageSize={imageSize}
-            pick={
-              pick
-                ? {
-                    onPick: () => {
-                      pick.onPick(mapId, familyId).catch(() => {})
-                    },
-                    selected: pick.selectedMapId === mapId,
-                    queuePositions: pick.queuePositions?.get(mapId),
-                    pending: pick.pendingMapId === mapId,
-                    failed: pick.failedMapId === mapId,
-                    markedLabel: marked ? pick.markedLabel : undefined,
-                    disabled:
-                      !!pick.disabled ||
-                      marked ||
-                      (!!pick.pendingMapId && pick.pendingMapId !== mapId),
-                  }
-                : undefined
-            }
+            pick={pick ? tilePick(pick, mapId, edge.node.family.id) : undefined}
           />
         )
       })}
@@ -847,7 +844,7 @@ function CatalogEmptyState({
   } else if (listing === MapListing.Yours) {
     text = t('maps.catalog.noLibraryMaps', "You haven't uploaded any maps yet.")
   } else if (listing === MapListing.Starred) {
-    text = t('maps.catalog.noFavorites', 'Star a map to keep it here.')
+    text = t('maps.catalog.noStarredMaps', 'Star a map to keep it here.')
   } else {
     text = t('maps.catalog.noMaps', 'There are no maps here yet.')
   }

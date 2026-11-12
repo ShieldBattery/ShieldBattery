@@ -3,12 +3,18 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { graphql } from '../gql'
+import { FragmentType, graphql } from '../gql'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { CatalogDensity, DENSITY_LAYOUT, EmptyText, Grid } from '../maps/map-catalog-list'
+import {
+  MapCollectionCard,
+  MapCollectionCard_CollectionFragment,
+  MapCollectionGrid,
+} from '../maps/map-collection-card'
 import { MapTile, MapTileSignal } from '../maps/map-tile'
 import { OutlinedButton } from '../material/button'
 import { LoadingDotsArea } from '../progress/dots'
+import { titleMedium } from '../styles/typography'
 
 const PAGE_SIZE = 40
 
@@ -98,6 +104,46 @@ export function UserProfileMaps({ userId }: { userId: SbUserId }) {
         ))}
       </Grid>
     </Root>
+  )
+}
+
+const CollectionsSection = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const SectionTitle = styled.h2`
+  ${titleMedium};
+  margin: 0;
+`
+
+/**
+ * A user's public collections as cards, under a heading. Shows nothing for a user with none.
+ *
+ * TODO(2Pac): Mount this in the Maps tab, and show the tab for a user with a public collection,
+ * once the API lists another user's public collections.
+ */
+export function UserProfileCollections({
+  collections,
+}: {
+  collections: ReadonlyArray<
+    { id: string } & FragmentType<typeof MapCollectionCard_CollectionFragment>
+  >
+}) {
+  const { t } = useTranslation()
+  if (!collections.length) {
+    return null
+  }
+  return (
+    <CollectionsSection>
+      <SectionTitle>{t('users.profile.collections', 'Collections')}</SectionTitle>
+      <MapCollectionGrid>
+        {collections.map(c => (
+          <MapCollectionCard key={c.id} collection={c} />
+        ))}
+      </MapCollectionGrid>
+    </CollectionsSection>
   )
 }
 

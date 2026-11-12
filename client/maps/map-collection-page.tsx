@@ -14,7 +14,7 @@ import {
   urlForMapCollections,
 } from '../../common/map-url'
 import { filterColorCodes, makeMapCollectionId, MapCollectionId, SbMapId } from '../../common/maps'
-import { hasVetoes } from '../../common/matchmaking'
+import { hasVetoes, MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
@@ -311,7 +311,10 @@ function MapCollectionPage({ id }: { id: MapCollectionId }) {
           reportOpen={!!reportId && reportOpen}
           onAddMaps={() => setAdding(true)}
         />
-        <CollectionRows collectionId={collection.id} />
+        <CollectionRows
+          collectionId={collection.id}
+          ownPoolType={collection.pool?.isCurrent ? collection.pool.matchmakingType : undefined}
+        />
       </PageContent>
     )
   }
@@ -824,6 +827,7 @@ function AddMapsPicker({
   })
 
   const target: MapPickerCollectionTarget = {
+    id: collection.id,
     title: collectionTitle(collection, t),
     mapCount: collection.mapCount,
     full: collection.mapCount >= MAX_COLLECTION_MAPS,
@@ -866,7 +870,17 @@ const RowList = styled.ol`
  * A collection's maps in its own order, numbered, a page at a time as the list scrolls. Each row
  * links to the map's page; for a ladder pool, to the exact file the pool holds.
  */
-function CollectionRows({ collectionId }: { collectionId: string }) {
+function CollectionRows({
+  collectionId,
+  ownPoolType,
+}: {
+  collectionId: string
+  /**
+   * The matchmaking type whose current pool the collection is, if it is one. Every row would carry
+   * that pool's chip, so none does.
+   */
+  ownPoolType?: MatchmakingType
+}) {
   const { t } = useTranslation()
   const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
   const firstPage = useRowsPage(collectionId, null)
@@ -915,6 +929,7 @@ function CollectionRows({ collectionId }: { collectionId: string }) {
             collectionId={collectionId}
             after={cursor}
             firstNumber={i * ROWS_PAGE_SIZE + 1}
+            ownPoolType={ownPoolType}
           />
         ))}
       </RowList>
@@ -950,17 +965,24 @@ function RowsChunk({
   collectionId,
   after,
   firstNumber,
+  ownPoolType,
 }: {
   collectionId: string
   after: string | null
   /** The number of the chunk's first row. */
   firstNumber: number
+  ownPoolType?: MatchmakingType
 }) {
   const { connection } = useRowsPage(collectionId, after)
   return (
     <>
       {connection?.edges.map((edge, i) => (
-        <CollectionMapRow key={edge.node.id} map={edge.node} number={firstNumber + i} />
+        <CollectionMapRow
+          key={edge.node.id}
+          map={edge.node}
+          number={firstNumber + i}
+          ownPoolType={ownPoolType}
+        />
       ))}
     </>
   )
@@ -1071,9 +1093,19 @@ const RowGames = styled.div`
   white-space: nowrap;
 `
 
-const UnlistedChip = styled(RoomChip)`
+const RowChip = styled(RoomChip)`
   flex-shrink: 0;
   padding-block: 2px;
+`
+
+/**
+ * Keeps the chip it wraps from shrinking in the row's tight name line, and above the link that
+ * covers the row, so hovering it shows the tooltip.
+ */
+const RowChipTooltip = styled(Tooltip)`
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 `
 
 const StarButton = styled(IconButton)<{ $favorited: boolean }>`
@@ -1083,13 +1115,19 @@ const StarButton = styled(IconButton)<{ $favorited: boolean }>`
   color: ${props => (props.$favorited ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
 `
 
-/** One map of a collection on one line: its number, image, name, facts, games, and its star. */
+/**
+ * One map of a collection on one line: its number, image, name, the ladder pools it's in, facts,
+ * games, and its star.
+ */
 function CollectionMapRow({
   map: mapRef,
   number,
+  ownPoolType,
 }: {
   map: FragmentType<typeof MapCollectionRow_SbMapFragment>
   number: number
+  /** A matchmaking type whose pool chip the row leaves out. */
+  ownPoolType?: MatchmakingType
 }) {
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
@@ -1111,9 +1149,25 @@ function CollectionMapRow({
         <RowText>
           <RowNameLine>
             <RowName>{name}</RowName>
-            {row.family.listed ? null : (
-              <UnlistedChip>{t('maps.page.unlisted', 'Unlisted')}</UnlistedChip>
-            )}
+            {row.family.listed ? null : <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>}
+            {map.ladderPools
+              .filter(type => type !== ownPoolType)
+              .map(type => {
+                const label = matchmakingTypeToLabel(type, t)
+                return (
+                  <RowChipTooltip
+                    key={type}
+                    text={t(
+                      'maps.thumbnail.mapPoolChipTooltip',
+                      'In the current {{mode}} ladder map pool',
+                      { mode: label },
+                    )}
+                    position='top'
+                    tabIndex={-1}>
+                    <RowChip>{label}</RowChip>
+                  </RowChipTooltip>
+                )
+              })}
           </RowNameLine>
           <RowMeta>{mapTileMeta(map, t)}</RowMeta>
         </RowText>

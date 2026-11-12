@@ -1,6 +1,7 @@
 import { TFunction } from 'i18next'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CombinedError, useMutation } from 'urql'
+import { CombinedError, useMutation, UseQueryState } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { urlForMapCollection } from '../../common/map-url'
 import { MapCollectionId, SbMapId } from '../../common/maps'
@@ -34,6 +35,18 @@ export const MapCollectionUpdateMutation = graphql(/* GraphQL */ `
 const MapCollectionAddMapMutation = graphql(/* GraphQL */ `
   mutation MapCollectionAddMap($collectionId: UUID!, $mapId: SbMapId!) {
     mapCollectionAddMap(collectionId: $collectionId, mapId: $mapId) {
+      id
+      mapCount
+      updatedAt
+      ...MapCollectionMosaic_CollectionFragment
+    }
+  }
+`)
+
+/** Selects what the views of a collection show about its maps, so they update from the result. */
+const MapCollectionRemoveMapMutation = graphql(/* GraphQL */ `
+  mutation MapCollectionRemoveMap($collectionId: UUID!, $mapId: SbMapId!) {
+    mapCollectionRemoveMap(collectionId: $collectionId, mapId: $mapId) {
       id
       mapCount
       updatedAt
@@ -87,6 +100,19 @@ export function collectionChangeErrorText(
   t: TFunction,
 ): string {
   return collectionErrorText(error ? errorCode(error) : undefined, change, t)
+}
+
+/**
+ * The data of a query's latest result that isn't stale, or until there is one, of its latest result.
+ * Invalidating a list a query reads makes its next result partial (the list's parent reads as null)
+ * while it loads again; this keeps showing what was there before instead.
+ */
+export function useLastSettledData<Data>(result: UseQueryState<Data, any>): Data | undefined {
+  const [settled, setSettled] = useState<Data>()
+  if (result.data && !result.stale && result.data !== settled) {
+    setSettled(result.data)
+  }
+  return result.data && !result.stale ? result.data : (settled ?? result.data)
 }
 
 /** Returns a function that copies the link to a collection's page, saying how that went. */
@@ -195,6 +221,33 @@ export function useAddMapToCollection(): (
       })
       .catch(() => {
         snackbarController.showSnackbar(collectionErrorText(undefined, 'add', t))
+        return false
+      })
+}
+
+/**
+ * Returns a function that removes the map a file is in from a collection, resolving with whether it
+ * was removed. A failure is reported with a snackbar.
+ */
+export function useRemoveMapFromCollection(): (
+  collectionId: string,
+  mapId: SbMapId,
+) => Promise<boolean> {
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+  const [, removeMap] = useMutation(MapCollectionRemoveMapMutation)
+
+  return (collectionId, mapId) =>
+    removeMap({ collectionId, mapId })
+      .then(result => {
+        if (result.error || !result.data) {
+          snackbarController.showSnackbar(collectionChangeErrorText(result.error, 'remove', t))
+          return false
+        }
+        return true
+      })
+      .catch(() => {
+        snackbarController.showSnackbar(collectionErrorText(undefined, 'remove', t))
         return false
       })
 }
