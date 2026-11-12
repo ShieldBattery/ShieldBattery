@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT p.id, p.matchmaking_type as \"matchmaking_type: MatchmakingType\",\n                cm.map_id as \"map_id!: SbMapId\", p.collection_id\n            FROM matchmaking_map_pools p\n            INNER JOIN collection_maps cm ON cm.collection_id = p.collection_id\n            INNER JOIN maps m ON m.id = cm.map_id\n            WHERE m.family_id = $1\n                AND p.collection_id IN (\n                    SELECT DISTINCT ON (cp.matchmaking_type) cp.collection_id\n                    FROM matchmaking_map_pools cp\n                    WHERE cp.start_date AT TIME ZONE 'UTC' <= now()\n                    ORDER BY cp.matchmaking_type, cp.start_date DESC, cp.id DESC\n                )\n            ORDER BY cm.position, cm.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "matchmaking_type: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collection_maps",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "collection_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "collection_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "9922153722319246aa767fc88d3bbc86d3f0d552e2dbfe117ef6e70011ad6c56"
+}

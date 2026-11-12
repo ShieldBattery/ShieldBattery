@@ -163,8 +163,8 @@ export interface CatalogFilters {
   sizes: ReadonlyArray<MapSizeClass>
   tilesets: ReadonlyArray<Tileset>
   eud: EudFilter
-  official: boolean
-  /** Only verified maps: official ones, and ones whose maker staff confirmed. */
+  staffPick: boolean
+  /** Only verified maps: staff picks, and ones whose maker staff confirmed. */
   verified: boolean
 }
 
@@ -174,7 +174,7 @@ export const DEFAULT_CATALOG_FILTERS: CatalogFilters = {
   sizes: [],
   tilesets: [],
   eud: EudFilter.Any,
-  official: false,
+  staffPick: false,
   verified: false,
 }
 
@@ -192,7 +192,7 @@ export function hasNonDefaultFilters(filters: CatalogFilters): boolean {
     filters.sizes.length > 0 ||
     filters.tilesets.length > 0 ||
     filters.eud !== EudFilter.Any ||
-    filters.official ||
+    filters.staffPick ||
     filters.verified
   )
 }
@@ -206,7 +206,7 @@ const PARAM_NAMES = [
   'size',
   'tileset',
   'eud',
-  'official',
+  'staff-pick',
   'verified',
 ]
 
@@ -242,7 +242,7 @@ export function parseCatalogParams(search: URLSearchParams): CatalogParams {
     sizes: parseList(search.get('size'), SIZE_SLUGS),
     tilesets: parseList(search.get('tileset'), TILESET_SLUGS),
     eud: fromSlug(search.get('eud'), EUD_SLUGS) ?? EudFilter.Any,
-    official: search.get('official') === '1',
+    staffPick: search.get('staff-pick') === '1',
     verified: search.get('verified') === '1',
   }
 }
@@ -276,7 +276,7 @@ export function serializeCatalogParams(
       .join(','),
   )
   set('eud', EUD_SLUGS.get(params.eud))
-  set('official', params.official ? '1' : undefined)
+  set('staff-pick', params.staffPick ? '1' : undefined)
   set('verified', params.verified ? '1' : undefined)
   // Commas are legal in a query string, and keep shared links readable (`size=small,huge`)
   return search.toString().replaceAll('%2C', ',')
@@ -290,7 +290,7 @@ export function filtersOf(params: CatalogFilters): CatalogFilters {
     sizes: params.sizes,
     tilesets: params.tilesets,
     eud: params.eud,
-    official: params.official,
+    staffPick: params.staffPick,
     verified: params.verified,
   }
 }
@@ -344,7 +344,7 @@ function toLocalSort(sort: CatalogSort): LocalMapSort {
 }
 
 /**
- * The local map index query for the params, without paging. The Official and Verified filters have
+ * The local map index query for the params, without paging. The Staff picks and Verified filters have
  * no meaning for files on disk and are left out.
  */
 export function toLocalMapQuery(
@@ -408,7 +408,7 @@ export function toMapFilter(params: CatalogParams): MapFilter {
     sizes: params.sizes.length ? [...params.sizes] : undefined,
     tilesets: params.tilesets.length ? [...params.tilesets] : undefined,
     eud: params.eud,
-    official: params.official || undefined,
+    staffPick: params.staffPick || undefined,
     verified: params.verified || undefined,
   }
 }
@@ -438,7 +438,7 @@ export function validateSavedFilters(value: unknown): CatalogFilters | undefined
       ? ALL_TILESETS.filter(t => (v.tilesets as unknown[]).includes(t))
       : [],
     eud: eud ?? EudFilter.Any,
-    official: v.official === true,
+    staffPick: v.staffPick === true,
     verified: v.verified === true,
   }
 }

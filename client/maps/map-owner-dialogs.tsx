@@ -504,7 +504,6 @@ const AddFileLibraryQuery = graphql(/* GraphQL */ `
             id
             name
             listed
-            official
             playerCount
             publishedAt
             publisher {
@@ -546,7 +545,6 @@ const AddFileUploadedQuery = graphql(/* GraphQL */ `
       id
       name
       listed
-      official
       playerCount
       publishedAt
       publisher {
@@ -709,7 +707,6 @@ function addFileFacts(file: AddFileData): AddFileFacts {
   return {
     name: file.name,
     listed: file.listed,
-    official: file.official,
     publisherId: file.publisher?.id,
     staffDelisted: file.moderation?.delistedKind === MapDelistedKind.Staff,
     family: {

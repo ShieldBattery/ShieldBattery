@@ -11,11 +11,13 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::collections::pools;
 use crate::maps::families::history::{
     self, Change, DefaultChange, FileChange, HistoryDetails, HistoryEntry, MapFamilyHistoryKind,
 };
 use crate::maps::families::owners::{self, FamilyOwner, OwnerPower, RetiredOwnership};
 use crate::maps::families::{lock_families, refresh_families, retire_families};
+use crate::matchmaking::MatchmakingType;
 use crate::users::SbUserId;
 
 /// The longest note a family report can carry, in characters.
@@ -70,6 +72,12 @@ pub enum FamilyEditError {
     ReportingRestricted,
     #[error("you've filed too many reports recently, please try again later")]
     TooManyReports,
+    #[error(
+        "the file is in a current or scheduled {} ladder map pool, so it can't be moved out of \
+         its map",
+        .0.as_str()
+    )]
+    InLadderPool(MatchmakingType),
     #[error(transparent)]
     Other(#[from] eyre::Report),
 }
@@ -203,8 +211,21 @@ fn single_retired(retired: Vec<RetiredOwnership>) -> Option<RetiredOwnership> {
     retired.into_iter().next()
 }
 
+/// Refuses taking `file_id` out of its family while a current or scheduled ladder map pool holds it.
+async fn check_not_in_ladder_pool(
+    tx: &mut Transaction<'_, Postgres>,
+    file_id: SbMapId,
+) -> Result<(), FamilyEditError> {
+    match pools::ladder_use(tx, file_id).await? {
+        Some(matchmaking_type) => Err(FamilyEditError::InLadderPool(matchmaking_type)),
+        None => Ok(()),
+    }
+}
+
 /// Moves a file to another family. A family left without files is deleted, and its id becomes an
-/// alias of the family the file moved to.
+/// alias of the family the file moved to. A file that shares its family with others can't be
+/// moved while a current or scheduled ladder map pool holds it; moving the only file of a family
+/// merges that family away and is allowed.
 pub async fn move_file(
     tx: &mut Transaction<'_, Postgres>,
     file_id: SbMapId,
@@ -217,6 +238,9 @@ pub async fn move_file(
     load_default(tx, family_id).await?;
     if file.family_id == family_id {
         return Err(FamilyEditError::AlreadyInFamily);
+    }
+    if file.family_size > 1 {
+        check_not_in_ladder_pool(tx, file_id).await?;
     }
 
     sqlx::query!(
@@ -275,7 +299,8 @@ pub async fn move_file(
     })
 }
 
-/// Moves a file out of its family into a new family of its own.
+/// Moves a file out of its family into a new family of its own. Refused while a current or
+/// scheduled ladder map pool holds the file.
 pub async fn split_file(
     tx: &mut Transaction<'_, Postgres>,
     file_id: SbMapId,
@@ -287,6 +312,7 @@ pub async fn split_file(
     if file.family_size == 1 {
         return Err(FamilyEditError::AlreadyAlone);
     }
+    check_not_in_ladder_pool(tx, file_id).await?;
 
     let family_id = sqlx::query_scalar!(
         r#"

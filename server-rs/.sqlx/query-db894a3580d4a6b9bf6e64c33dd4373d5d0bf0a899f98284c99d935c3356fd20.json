@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT cm.map_id as \"map_id!: SbMapId\",\n                    p.matchmaking_type as \"matchmaking_type: MatchmakingType\"\n                FROM matchmaking_map_pools p\n                INNER JOIN collection_maps cm ON cm.collection_id = p.collection_id\n                WHERE cm.map_id = ANY($1)\n                    AND p.collection_id IN (\n                        SELECT DISTINCT ON (cp.matchmaking_type) cp.collection_id\n                        FROM matchmaking_map_pools cp\n                        WHERE cp.start_date AT TIME ZONE 'UTC' <= now()\n                        ORDER BY cp.matchmaking_type, cp.start_date DESC, cp.id DESC\n                    )\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collection_maps",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "matchmaking_type: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "matchmaking_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "db894a3580d4a6b9bf6e64c33dd4373d5d0bf0a899f98284c99d935c3356fd20"
+}

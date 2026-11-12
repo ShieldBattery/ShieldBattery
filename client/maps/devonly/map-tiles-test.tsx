@@ -22,7 +22,7 @@ function tileMap({
   name,
   kind = MapKind.Melee,
   playerCount = 4,
-  official = false,
+  staffPick = false,
   publishedDaysAgo = 200,
   stats = { games7d: 40, games28d: 412, gamesTotal: 18_342, trendingScore: 0 },
   forces,
@@ -33,7 +33,7 @@ function tileMap({
   name: string
   kind?: MapKind
   playerCount?: number
-  official?: boolean
+  staffPick?: boolean
   publishedDaysAgo?: number
   stats?: { games7d: number; games28d: number; gamesTotal: number; trendingScore: number } | null
   forces?: Array<{ humans: number; computers?: number }>
@@ -58,7 +58,7 @@ function tileMap({
     name,
     kind,
     playerCount,
-    official,
+    staffPick,
     publishedAt: new Date(NOW - publishedDaysAgo * DAY).toISOString(),
     isFavorited: false,
     stats: stats ? { id: `map-stats:${mapId}`, ...stats } : null,
@@ -88,12 +88,12 @@ const TILES: ReadonlyArray<{
   library?: boolean
 }> = [
   {
-    label: 'Official, trending (rising)',
+    label: 'Staff pick, trending (rising)',
     signal: MapTileSignal.Trending,
     map: tileMap({
       id: '00000000-0000-4000-8000-000000009001',
       name: 'Fighting Spirit',
-      official: true,
+      staffPick: true,
       stats: { games7d: 170, games28d: 230, gamesTotal: 9_120, trendingScore: 862 },
     }),
   },

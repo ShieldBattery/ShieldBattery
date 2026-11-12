@@ -19,6 +19,9 @@ use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
 use crate::maps::collections::graphql::{
     CollectionContentLoader, CollectionSaveCountLoader, ViewerCollectionSavedLoader,
 };
+use crate::maps::collections::pools::{
+    LadderPoolLoader, LadderPoolsOfTypeLoader, MapLadderPoolsLoader,
+};
 use crate::maps::families::graphql::{MapFamilyFilesLoader, MapFamilyLoader, MapFamilyStatsLoader};
 use crate::maps::ingest::map_image_path;
 use crate::maps::parse::MapStartLocation;
@@ -104,6 +107,18 @@ impl SchemaBuilderModule for MapsModule {
             ))
             .data(DataLoader::new(
                 ViewerCollectionSavedLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                LadderPoolLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                LadderPoolsOfTypeLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                MapLadderPoolsLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
             .data(MapSearchRepo::new(self.db_pool.clone()))
@@ -200,7 +215,7 @@ pub enum MapVisibility {
     Unlisted,
     /// Listed for everyone in the community maps.
     Public,
-    /// Listed for everyone in the official maps.
+    /// Listed for everyone, and its map is one of the staff picks.
     Official,
 }
 
@@ -452,6 +467,8 @@ impl Loader<SbMapId> for MapsLoader {
         &self,
         keys: &[SbMapId],
     ) -> Result<std::collections::HashMap<SbMapId, Self::Value>, Self::Error> {
+        // Staff picks are told apart by `map_family_is_staff_pick`, which must agree with the
+        // inline check the listings use (`staff_pick_sql` in `search.rs`)
         Ok(sqlx::query_as!(
             UploadedMap,
             r#"
@@ -461,7 +478,7 @@ impl Loader<SbMapId> for MapsLoader {
                     CASE WHEN listed THEN published_at END as published_at,
                     (CASE
                         WHEN NOT listed THEN 'UNLISTED'
-                        WHEN official THEN 'OFFICIAL'
+                        WHEN map_family_is_staff_pick(family_id) THEN 'OFFICIAL'
                         ELSE 'PUBLIC'
                     END)::map_visibility as "visibility!: _"
                 FROM maps

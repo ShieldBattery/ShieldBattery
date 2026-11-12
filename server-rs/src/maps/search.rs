@@ -136,11 +136,11 @@ pub struct MapFilter {
     pub eud: EudFilter,
     /// Only maps published at or after this time.
     pub published_since: Option<DateTime<Utc>>,
-    /// Only official maps (`true`) or only maps that aren't official (`false`).
-    pub official: Option<bool>,
+    /// Only staff picks (`true`) or only maps that aren't staff picks (`false`).
+    pub staff_pick: Option<bool>,
     /// Only maps (families) this user owns.
     pub owner: Option<SbUserId>,
-    /// Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+    /// Only verified maps (`true`): staff picks, and maps whose ownership staff granted. With
     /// `false`, only the other maps.
     pub verified: Option<bool>,
 }
@@ -304,7 +304,7 @@ pub struct NormalizedFilter {
     tilesets: Vec<i32>,
     eud: EudFilter,
     published_since: Option<DateTime<Utc>>,
-    official: Option<bool>,
+    staff_pick: Option<bool>,
     owner: Option<SbUserId>,
     verified: Option<bool>,
 }
@@ -354,7 +354,7 @@ impl NormalizedFilter {
             tilesets: sorted_dedup(filter.tilesets),
             eud: filter.eud,
             published_since: filter.published_since,
-            official: filter.official,
+            staff_pick: filter.staff_pick,
             owner: filter.owner,
             verified: filter.verified,
         })
@@ -538,10 +538,34 @@ impl MapCursor {
     }
 }
 
+/// Whether the map (family) that `m` is in is a staff pick: Staff picks holds the map, or one of its
+/// files. Must agree with the SQL function `map_family_is_staff_pick`, which Node and the legacy
+/// `MapVisibility` of a file use. Listings use this inline form instead: the subquery doesn't refer
+/// to `m`, so the planner runs it once per query (as a semi-join or a hashed subplan) rather than
+/// once per row. Neither branch yields NULL, so `NOT` of it is never NULL either.
+macro_rules! staff_pick_sql {
+    () => {
+        "m.family_id IN (\
+         SELECT spm.family_id FROM collection_maps spm \
+         JOIN collections spc ON spc.id = spm.collection_id AND spc.grants_staff_pick \
+         WHERE spm.family_id IS NOT NULL \
+         UNION ALL \
+         SELECT spf.family_id FROM collection_maps spm \
+         JOIN collections spc ON spc.id = spm.collection_id AND spc.grants_staff_pick \
+         JOIN maps spf ON spf.id = spm.map_id)"
+    };
+}
+
+/// See [`staff_pick_sql`].
+const STAFF_PICK: &str = staff_pick_sql!();
+
 /// The columns of [`DbSbMap`], read from `maps m` joined with [`DB_SB_MAP_JOINS`].
-const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, m.family_id, \
+const DB_SB_MAP_COLUMNS: &str = concat!(
+    "m.id, m.hash, m.name, m.family_id, \
     COALESCE(m.public_description, m.description) AS description, \
-    m.kind::text AS kind, m.player_count, m.listed, m.official, \
+    m.kind::text AS kind, m.player_count, m.listed, ",
+    staff_pick_sql!(),
+    " AS staff_pick, \
     m.published_by, m.published_at, m.delisted_by, m.delisted_at, m.delisted_kind,     m.delisted_note, \
     s.map_id IS NOT NULL AS has_stats, \
     COALESCE(s.games_7d, 0) AS games_7d, \
@@ -551,7 +575,8 @@ const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, m.family_id, \
     COALESCE(s.players_90d, 0) AS players_90d, \
     s.median_length_90d, s.last_played_at, \
     COALESCE(s.trending_score, 0) AS trending_score, \
-    COALESCE(f.favorites, 0) AS favorites, m.first_seen_at";
+    COALESCE(f.favorites, 0) AS favorites, m.first_seen_at"
+);
 
 /// The joins [`DB_SB_MAP_COLUMNS`] reads from, after `FROM maps m`.
 const DB_SB_MAP_JOINS: &str = " LEFT JOIN map_stats s ON s.map_id = m.id \
@@ -569,7 +594,8 @@ pub struct DbSbMap {
     pub kind: String,
     pub player_count: i32,
     pub listed: bool,
-    pub official: bool,
+    /// Whether the map's family is in Staff picks.
+    pub staff_pick: bool,
     /// Who most recently listed the map, kept after it is delisted.
     pub published_by: Option<SbUserId>,
     /// When the map was most recently listed, kept after it is delisted.
@@ -1013,13 +1039,13 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, publ
         qb.push(format_args!(" AND {published_at} >= "));
         qb.push_bind(published_since);
     }
-    match filter.official {
+    match filter.staff_pick {
         None => {}
         Some(true) => {
-            qb.push(" AND m.official");
+            qb.push(" AND ").push(STAFF_PICK);
         }
         Some(false) => {
-            qb.push(" AND NOT m.official");
+            qb.push(" AND NOT ").push(STAFF_PICK);
         }
     }
     // Read through the file's family rather than `fam`, which only listings of families join
@@ -1036,9 +1062,13 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, publ
     }
 }
 
-/// Whether the map `m` is in is verified: its file is official, or staff granted its ownership.
-const VERIFIED: &str = "(m.official OR EXISTS (SELECT 1 FROM map_families vfam \
-    WHERE vfam.id = m.family_id AND vfam.owner_kind = 'staff'))";
+/// Whether the map `m` is in is verified: it's a staff pick, or staff granted its ownership.
+const VERIFIED: &str = concat!(
+    "(",
+    staff_pick_sql!(),
+    " OR EXISTS (SELECT 1 FROM map_families vfam \
+     WHERE vfam.id = m.family_id AND vfam.owner_kind = 'staff'))"
+);
 
 /// Loads pages of map listings.
 #[derive(Clone)]
@@ -1491,7 +1521,7 @@ mod tests {
                 tilesets: Some(vec![1, 2]),
                 eud: EudFilter::Exclude,
                 published_since: Some(Utc::now()),
-                official: Some(true),
+                staff_pick: Some(true),
                 owner: Some(SbUserId(1)),
                 verified: Some(true),
             },
@@ -1552,14 +1582,14 @@ mod tests {
     }
 
     #[test]
-    fn official_filter_matches_either_way() {
-        for (official, expected) in [
-            (None, ""),
-            (Some(true), " AND m.official"),
-            (Some(false), " AND NOT m.official"),
+    fn staff_pick_filter_matches_either_way() {
+        for (staff_pick, expected) in [
+            (None, String::new()),
+            (Some(true), format!(" AND {STAFF_PICK}")),
+            (Some(false), format!(" AND NOT {STAFF_PICK}")),
         ] {
             let filter = NormalizedFilter::new(MapFilter {
-                official,
+                staff_pick,
                 ..Default::default()
             })
             .unwrap();
@@ -1646,16 +1676,16 @@ mod tests {
     }
 
     #[test]
-    fn official_filter_changes_the_listing_hash() {
+    fn staff_pick_filter_changes_the_listing_hash() {
         let any = NormalizedFilter::new(MapFilter::default()).unwrap();
-        let official = NormalizedFilter::new(MapFilter {
-            official: Some(true),
+        let staff_pick = NormalizedFilter::new(MapFilter {
+            staff_pick: Some(true),
             ..Default::default()
         })
         .unwrap();
         assert_ne!(
             any.listing_hash(MapScope::Listed),
-            official.listing_hash(MapScope::Listed)
+            staff_pick.listing_hash(MapScope::Listed)
         );
     }
 
@@ -1664,7 +1694,7 @@ mod tests {
         let filter = MapFilter {
             search: Some("bound".into()),
             lens: MapLens::Ums,
-            official: Some(false),
+            staff_pick: Some(false),
             ..Default::default()
         };
         for scope in [

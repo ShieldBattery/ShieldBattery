@@ -8,7 +8,6 @@ import { protectedMapText, publishBlockedReasonText } from './map-publish'
 export interface AddFileFacts {
   name: string
   listed: boolean
-  official: boolean
   /** Who published the file, while it's listed. */
   publisherId?: SbUserId
   /** Whether staff took the file out of the listings. Only known to staff. */
@@ -73,7 +72,7 @@ export function planAddFile(file: AddFileFacts, familyId: string, viewerId: SbUs
     if (file.family.id === familyId) {
       return { kind: 'alreadyHere' }
     }
-    if (file.official || file.publisherId !== viewerId || !alone) {
+    if (file.publisherId !== viewerId || !alone) {
       return unavailable('listedElsewhere')
     }
     return isProtected ? unavailable('protected') : { kind: 'link' }

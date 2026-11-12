@@ -75,7 +75,7 @@ function UploadMaps() {
           body: formData,
         }
 
-        fetchJson(makeServerRsUrl(urlPath`/maps/official`), fetchParams)
+        fetchJson(makeServerRsUrl(urlPath`/maps/staff-upload`), fetchParams)
           .then(() => {
             setNameToUploadStatus(draft => {
               draft.set(map, UploadStatus.Success)
