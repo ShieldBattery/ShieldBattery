@@ -2,12 +2,13 @@ import { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { SbMapId } from '../../common/maps'
+import { MAX_MAP_QUEUE } from '../../common/lobbies'
+import { makeSbMapId, SbMapId } from '../../common/maps'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapCollectionKind } from '../gql/graphql'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { TextButton } from '../material/button'
+import { OutlinedButton, TextButton } from '../material/button'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodyMedium, singleLine, titleMedium } from '../styles/typography'
 import {
@@ -90,8 +91,11 @@ const MapPickerCollectionMapsQuery = graphql(/* GraphQL */ `
 
 /** How many staff collections and ladder pools are loaded, which is all of them in practice. */
 const SECTION_LIMIT = 100
-/** How many maps each page of an opened collection loads. */
-const MAPS_PAGE_SIZE = 40
+/**
+ * How many maps each page of an opened collection loads. More than a lobby's queue holds, so the
+ * first page has every map that adding all of them to the queue can use.
+ */
+const MAPS_PAGE_SIZE = Math.max(40, MAX_MAP_QUEUE)
 
 /**
  * Requests results without suspending: the picker renders its own loading states. Module-level so
@@ -104,6 +108,14 @@ export interface PickerCollection {
   id: string
   /** Its title, as the viewer sees it. */
   title: string
+}
+
+/** Adding all of an opened collection's maps to a lobby's queue at once. */
+export interface PickerAddAll {
+  /** Adds the maps to the end of the queue in order, as many as it has room for. */
+  onAddAll: (mapIds: ReadonlyArray<SbMapId>) => void
+  /** Whether the queue has no room left. */
+  disabled: boolean
 }
 
 const Section = styled.section`
@@ -133,6 +145,7 @@ export function MapPickerCollections({
   opened,
   excludeId,
   pick,
+  addAll,
   density,
   onOpen,
   onBack,
@@ -144,6 +157,8 @@ export function MapPickerCollections({
   /** A collection left out of the list, e.g. the one maps are being added to. */
   excludeId?: string
   pick: MapPickOptions
+  /** When set, an opened collection offers to add all of its maps to the queue. */
+  addAll?: PickerAddAll
   density: CatalogDensity
   onOpen: (collection: PickerCollection) => void
   onBack: () => void
@@ -153,6 +168,7 @@ export function MapPickerCollections({
       key={opened.id}
       collection={opened}
       pick={pick}
+      addAll={addAll}
       density={density}
       onBack={onBack}
     />
@@ -316,11 +332,13 @@ function useCollectionMapsPage(collectionId: string, after: string | null) {
 function OpenedCollection({
   collection,
   pick,
+  addAll,
   density,
   onBack,
 }: {
   collection: PickerCollection
   pick: MapPickOptions
+  addAll?: PickerAddAll
   density: CatalogDensity
   onBack: () => void
 }) {
@@ -330,6 +348,10 @@ function OpenedCollection({
   const lastPage = useCollectionMapsPage(collection.id, pageCursors[pageCursors.length - 1])
   const layout = DENSITY_LAYOUT[density]
   const totalCount = firstPage.connection?.totalCount
+  // The queue holds no more than this many, so the rest of the collection never fits
+  const addAllIds = (firstPage.connection?.edges ?? [])
+    .slice(0, MAX_MAP_QUEUE)
+    .map(edge => makeSbMapId(edge.node.id))
 
   const onLoadMore = () => {
     const endCursor = lastPage.connection?.pageInfo.endCursor
@@ -403,6 +425,14 @@ function OpenedCollection({
         />
         <OpenedTitle>{collection.title}</OpenedTitle>
         {totalCount !== undefined ? <OpenedCount>{mapCountText(totalCount, t)}</OpenedCount> : null}
+        {addAll ? (
+          <OutlinedButton
+            label={t('maps.picker.addAll', 'Add all')}
+            iconStart='playlist_add'
+            disabled={addAll.disabled || !addAllIds.length || !!pick.pendingMapId}
+            onClick={() => addAll.onAddAll(addAllIds)}
+          />
+        ) : null}
       </OpenedHeader>
       {content}
     </>

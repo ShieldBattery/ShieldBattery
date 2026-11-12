@@ -62,7 +62,8 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
   const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
-  const { queue, setQueue, queueIds, canQueueMore, addMap } = useMapQueueEditor(initialQueue)
+  const { queue, setQueue, queueIds, canQueueMore, addMap, addMaps } =
+    useMapQueueEditor(initialQueue)
 
   const selectedMapInfo = useAppSelector(s =>
     setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
@@ -93,6 +94,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
       onBack={onClose}
       picker={picker}
       onMapPicked={pick}
+      onMapsQueued={addMaps}
       gameType={setup.gameType}
       selectedMapId={setup.mapId}
       queuedMapIds={queueIds}

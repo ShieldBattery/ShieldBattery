@@ -26,7 +26,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip } from '../lobbies/room/room-parts'
-import { IconButton, OutlinedButton, TextButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -81,6 +81,7 @@ import {
 } from './map-collection-text'
 import { urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
+import { useCollectionHostAction } from './map-host-action'
 import { MapFileImage } from './map-image'
 import {
   MapPicker,
@@ -648,6 +649,7 @@ function CollectionActions({
   const [toggleSaved, savePending] = useToggleCollectionSaved()
   const [setPublic, publicPending] = useSetCollectionPublic()
   const unhide = useUnhideCollection()
+  const hostLobby = useCollectionHostAction()
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -725,6 +727,13 @@ function CollectionActions({
 
   return (
     <ActionRow>
+      {collection.mapCount > 0 ? (
+        <FilledButton
+          label={t('maps.collections.createLobby', 'Create lobby')}
+          iconStart='add'
+          onClick={() => hostLobby(id)}
+        />
+      ) : null}
       {collection.canEdit && collection.kind !== MapCollectionKind.Starred && onAddMaps ? (
         <OutlinedButton
           label={t('maps.collections.addMaps', 'Add maps')}
