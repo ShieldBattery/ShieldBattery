@@ -2,6 +2,7 @@ import { Cache, cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchang
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { graphql } from '../gql'
 import schema from '../gql/schema.json'
 import { CREDENTIAL_STORAGE } from './fetch'
 import { requestPolicyExchange } from './improved-request-policy-exchange'
@@ -147,10 +148,46 @@ function invalidateCollectionLists(cache: Cache) {
   }
 }
 
+const MapFamilyViewerCollectionIdsFragment = graphql(/* GraphQL */ `
+  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {
+    id
+    viewerCollectionIds
+  }
+`)
+
+/**
+ * Records whether the collection `collectionId` holds the map that the file `fileId` is in, in that
+ * map's cached `viewerCollectionIds`. Written rather than invalidated, so a menu showing them keeps
+ * its checks while the collection lists load again.
+ */
+function setViewerCollectionHolds(
+  cache: Cache,
+  fileId: string,
+  collectionId: string,
+  holds: boolean,
+) {
+  const familyKey = cache.resolve({ __typename: 'SbMap', id: fileId }, 'family')
+  if (typeof familyKey !== 'string') {
+    return
+  }
+  const familyId = cache.resolve(familyKey, 'id')
+  const ids = cache.resolve(familyKey, 'viewerCollectionIds')
+  if (typeof familyId !== 'string' || !Array.isArray(ids)) {
+    return
+  }
+  const others = ids.filter((id): id is string => typeof id === 'string' && id !== collectionId)
+  cache.writeFragment(MapFamilyViewerCollectionIdsFragment, {
+    id: familyId,
+    viewerCollectionIds: holds ? [...others, collectionId] : others,
+  })
+}
+
 /**
  * Invalidates what a change to the maps of the collection `collectionId` can affect: its listings
- * of maps, and which collections hold the map that the file `fileId` is in. The collection's count
- * and cover are kept, since the mutations changing its maps return them.
+ * of maps, and the collections listed on the page of the map that the file `fileId` is in (only
+ * public and staff collections are listed there, so a change to any other collection leaves them
+ * be). The collection's count and cover are kept, since the mutations changing its maps return
+ * them.
  */
 function invalidateCollectionMaps(cache: Cache, collectionId: string, fileId: string | undefined) {
   const collectionKey = cache.keyOfEntity({ __typename: 'MapCollection', id: collectionId })
@@ -161,8 +198,8 @@ function invalidateCollectionMaps(cache: Cache, collectionId: string, fileId: st
   const familyKey = fileId
     ? cache.resolve({ __typename: 'SbMap', id: fileId }, 'family')
     : undefined
-  if (typeof familyKey === 'string') {
-    invalidateEntityField(cache, familyKey, 'viewerCollectionIds')
+  const listedOnMapPages = !collectionKey || cache.resolve(collectionKey, 'public') !== false
+  if (typeof familyKey === 'string' && listedOnMapPages) {
     invalidateEntityField(cache, familyKey, 'collections')
   }
 }
@@ -329,7 +366,13 @@ const cacheUpdates: UpdatesConfig = {
     // Collections: each mutation returns the collection it changed with the fields its views show,
     // so only the lists it can move in and the listings of its maps are invalidated, never the
     // collection itself
-    mapCollectionCreate: (_result, _args, cache) => invalidateCollectionLists(cache),
+    mapCollectionCreate: (result, args, cache) => {
+      invalidateCollectionLists(cache)
+      const created = result.mapCollectionCreate as { id?: string } | undefined
+      if (args.addMapId && created?.id) {
+        setViewerCollectionHolds(cache, args.addMapId as string, created.id, true)
+      }
+    },
     mapCollectionUpdate: (_result, _args, cache) => invalidateCollectionLists(cache),
     mapCollectionDelete: (_result, args, cache) => {
       // The result is only the id, so the deleted collection can be dropped from the cache
@@ -337,10 +380,14 @@ const cacheUpdates: UpdatesConfig = {
       invalidateCollectionLists(cache)
       invalidateQueryFields(cache, COLLECTION_REPORT_QUERY_FIELDS)
     },
-    mapCollectionAddMap: (_result, args, cache) =>
-      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string),
-    mapCollectionRemoveMap: (_result, args, cache) =>
-      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string),
+    mapCollectionAddMap: (_result, args, cache) => {
+      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string)
+      setViewerCollectionHolds(cache, args.mapId as string, args.collectionId as string, true)
+    },
+    mapCollectionRemoveMap: (_result, args, cache) => {
+      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string)
+      setViewerCollectionHolds(cache, args.mapId as string, args.collectionId as string, false)
+    },
     mapCollectionMoveMap: (_result, args, cache) =>
       invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string),
     mapCollectionSave: (_result, _args, cache) => invalidateCollectionLists(cache),

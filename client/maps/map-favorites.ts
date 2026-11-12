@@ -79,14 +79,8 @@ export function useToggleMapFavorite(): [
         if (result.error) {
           snackbarController.showSnackbar(
             isFavorited
-              ? t(
-                  'maps.server.favorites.removedError',
-                  'An error occurred while removing from favorites',
-                )
-              : t(
-                  'maps.server.favorites.addedError',
-                  'An error occurred while adding to favorites',
-                ),
+              ? t('maps.server.starred.removeError', "Couldn't remove the map from Starred")
+              : t('maps.server.starred.addError', "Couldn't add the map to Starred"),
           )
           return
         }
@@ -107,8 +101,8 @@ export function useToggleMapFavorite(): [
         }
         snackbarController.showSnackbar(
           isFavorited
-            ? t('maps.server.favorites.removed', 'Removed from favorites')
-            : t('maps.server.favorites.added', 'Added to favorites'),
+            ? t('maps.server.starred.removed', 'Removed from Starred')
+            : t('maps.server.starred.added', 'Added to Starred'),
         )
       })
       .finally(() => setPending(false))

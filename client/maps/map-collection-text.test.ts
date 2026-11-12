@@ -172,6 +172,12 @@ describe('maps/map-collection-text', () => {
     expect(collectionErrorText('RATE_LIMITED', 'report', t)).toBe(
       "You've sent too many reports recently. Please try again later.",
     )
+    expect(collectionErrorText('NOT_FOUND', 'remove', t)).toBe(
+      "This map or collection doesn't exist anymore.",
+    )
+    expect(collectionErrorText('NOT_FOUND', 'edit', t)).toBe(
+      "This collection doesn't exist anymore.",
+    )
     expect(collectionErrorText(undefined, 'save', t)).toBe(
       'Something went wrong. Please try again later.',
     )

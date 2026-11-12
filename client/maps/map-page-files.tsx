@@ -5,6 +5,7 @@ import { useMutation } from 'urql'
 import { Link } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { filterColorCodes, SbMapId } from '../../common/maps'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
@@ -73,6 +74,13 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
     files {
       id
       ...MapPageFiles_FileFragment
+    }
+    ladderFiles {
+      id
+      matchmakingType
+      map {
+        id
+      }
     }
   }
 `)
@@ -253,7 +261,8 @@ type FamilyData = MapPageFiles_FamilyFragmentFragment
  * recommendation action. Staff can change which files the map holds, and the map's owner can take
  * files out of it while they aren't restricted from publishing. A file with no actions has no menu
  * button; its row still reserves the button's width when another visible row has one, so the rows'
- * text lines up. Players only see the card when the map has more than one file.
+ * text lines up. A file that a current ladder pool plays other than the recommended one carries a
+ * chip for that pool. Players only see the card when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -363,6 +372,10 @@ function FileRow({
   const isDefault = file.id === family.current.id
   const isPicked = family.defaultMap?.id === file.id
   const games = file.stats?.gamesTotal ?? 0
+  // The ladder playing the recommended file goes without saying, so only another file is marked
+  const ladderTypes = isDefault
+    ? []
+    : family.ladderFiles.filter(f => f.map.id === file.id).map(f => f.matchmakingType)
 
   const meta = [
     t('maps.files.games', {
@@ -407,6 +420,23 @@ function FileRow({
       <FileName $link={!isSelected}>{name}</FileName>
       {isDefault ? defaultChip : null}
       {!file.listed ? unlistedChip : null}
+      {ladderTypes.map(type => {
+        const label = matchmakingTypeToLabel(type, t)
+        return (
+          <ChipTooltip
+            key={type}
+            text={t(
+              'maps.thumbnail.mapPoolChipTooltip',
+              'In the current {{mode}} ladder map pool',
+              {
+                mode: label,
+              },
+            )}
+            position='top'>
+            <RowChip>{label}</RowChip>
+          </ChipTooltip>
+        )
+      })}
       <RowMeta>{meta.join(' · ')}</RowMeta>
     </>
   )

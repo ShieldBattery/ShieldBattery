@@ -13,7 +13,6 @@ import { narrowDuration } from '../i18n/date-formats'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip } from '../lobbies/room/room-parts'
-import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
 import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
@@ -51,6 +50,7 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     listed
     publishedAt
     isFavorited
+    ladderPools
     publisher {
       id
     }
@@ -387,7 +387,7 @@ export function MapTile({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const map = useFragment(MapTile_SbMapFragment, mapRef)
-  const poolTypes = useCurrentMapPoolTypes(map.id)
+  const poolTypes = map.ladderPools
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
 
   // When the tile first rendered is recent enough to judge "new" by
@@ -403,8 +403,8 @@ export function MapTile({
   }
 
   const favoriteLabel = map.isFavorited
-    ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
-    : t('maps.thumbnail.addToFavorites', 'Add to favorites')
+    ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+    : t('maps.thumbnail.addToStarred', 'Add to Starred')
 
   const previewLabel = t('maps.thumbnail.showMapPreview', 'Show map preview')
 

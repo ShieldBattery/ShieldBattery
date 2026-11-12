@@ -38,7 +38,6 @@ import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
-import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
@@ -82,6 +81,7 @@ import {
   removeFromMyMaps,
   updateMap,
 } from './action-creators'
+import { AddToCollectionButton } from './map-add-to-collection'
 import { MapBackButton } from './map-back-button'
 import { DescriptionForm, NameForm } from './map-edit-forms'
 import { correctedMapPageUrl, SelectedFileState, urlForMapFile } from './map-family-files'
@@ -98,6 +98,7 @@ import {
   useRelinquishMapOwner,
 } from './map-owner-actions'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
+import { MapCollectionsCard } from './map-page-collections'
 import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
@@ -345,6 +346,7 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
             <MapHero mapId={file.id} name={filterColorCodes(file.name)} file={file.file} />
             <MapFacts map={file} />
             <MapFilesCard family={family} selected={file} />
+            <MapCollectionsCard familyId={family.id} />
           </LeftColumn>
           <RightColumn>
             <MapHeaderAndActions
@@ -601,6 +603,7 @@ const MapPage_HeaderFragment = graphql(/* GraphQL */ `
     kind
     listed
     staffPick
+    ladderPools
     publishedAt
     publisher {
       id
@@ -819,7 +822,7 @@ function MapHeader({
   const snackbarController = useSnackbarController()
   const map = useFragment(MapPage_HeaderFragment, mapRef)
   const publishedDate = useFormat(publishedDateFormat)
-  const poolTypes = useCurrentMapPoolTypes(map.id)
+  const poolTypes = map.ladderPools
 
   const name = filterColorCodes(map.name)
   const description = filterColorCodes(map.description)
@@ -1397,8 +1400,8 @@ function MapActions({
   const reportOnly = menuGroups.length === 1 && menuGroups[0] === reportItems
 
   const favoriteLabel = map.isFavorited
-    ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
-    : t('maps.thumbnail.addToFavorites', 'Add to favorites')
+    ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+    : t('maps.thumbnail.addToStarred', 'Add to Starred')
 
   return (
     <ActionRow>
@@ -1430,6 +1433,7 @@ function MapActions({
           onClick={() => toggleFavorite(map)}
         />
       </Tooltip>
+      {selfUser ? <AddToCollectionButton fileId={map.id} /> : null}
       <Tooltip text={t('maps.thumbnail.downloadMap', 'Download')} position='bottom' tabIndex={-1}>
         <IconButton
           icon={<MaterialIcon icon='download' />}

@@ -1427,6 +1427,43 @@ export type LocalKnownMapQueryVariables = Exact<{
 
 export type LocalKnownMapQuery = { mapsByHash: Array<{ id: Types.SbMapId; name: string }> }
 
+export type MapAddToCollectionQueryVariables = Exact<{
+  fileId: Types.SbMapId
+  staff: boolean
+}>
+
+export type MapAddToCollectionQuery = {
+  map: { id: Types.SbMapId; family: { id: string; viewerCollectionIds: Array<string> } } | null
+  currentUser: {
+    id: Types.SbUserId
+    mapCollections: Array<{
+      id: string
+      kind: MapCollectionKind
+      title: string | null
+      canEdit: boolean
+    }>
+  } | null
+  staffCollections?: {
+    edges: Array<{
+      node: { id: string; kind: MapCollectionKind; title: string | null; canEdit: boolean }
+    }>
+  }
+}
+
+export type MapAddToCollectionCreateMutationVariables = Exact<{
+  title: string
+  addMapId: Types.SbMapId
+}>
+
+export type MapAddToCollectionCreateMutation = {
+  mapCollectionCreate: {
+    id: string
+    kind: MapCollectionKind
+    title: string | null
+    canEdit: boolean
+  }
+}
+
 export type MapCatalogAllQueryVariables = Exact<{
   filter?: MapFilter | null | undefined
   sort?: MapSort | null | undefined
@@ -1522,6 +1559,19 @@ export type MapCollectionAddMapMutationVariables = Exact<{
 
 export type MapCollectionAddMapMutation = {
   mapCollectionAddMap: { id: string; mapCount: number; updatedAt: string } & {
+    ' $fragmentRefs'?: {
+      MapCollectionMosaic_CollectionFragmentFragment: MapCollectionMosaic_CollectionFragmentFragment
+    }
+  }
+}
+
+export type MapCollectionRemoveMapMutationVariables = Exact<{
+  collectionId: string
+  mapId: Types.SbMapId
+}>
+
+export type MapCollectionRemoveMapMutation = {
+  mapCollectionRemoveMap: { id: string; mapCount: number; updatedAt: string } & {
     ' $fragmentRefs'?: {
       MapCollectionMosaic_CollectionFragmentFragment: MapCollectionMosaic_CollectionFragmentFragment
     }
@@ -2304,6 +2354,49 @@ export type MapLiveGamesQuery = {
   >
 }
 
+export type MapPageCollections_CollectionFragmentFragment = {
+  id: string
+  kind: MapCollectionKind
+  title: string | null
+  public: boolean
+  mapCount: number
+  owner: { id: Types.SbUserId; name: string } | null
+  pool: {
+    id: number
+    matchmakingType: Types.MatchmakingType
+    startDate: string
+    endDate: string | null
+    isCurrent: boolean
+  } | null
+} & { ' $fragmentName'?: 'MapPageCollections_CollectionFragmentFragment' }
+
+export type MapPageCollectionsQueryVariables = Exact<{
+  familyId: string
+}>
+
+export type MapPageCollectionsQuery = {
+  mapFamily: {
+    id: string
+    family: {
+      id: string
+      collections: Array<
+        { id: string } & {
+          ' $fragmentRefs'?: {
+            MapPageCollections_CollectionFragmentFragment: MapPageCollections_CollectionFragmentFragment
+          }
+        }
+      >
+      ladderPools: Array<
+        { id: string } & {
+          ' $fragmentRefs'?: {
+            MapPageCollections_CollectionFragmentFragment: MapPageCollections_CollectionFragmentFragment
+          }
+        }
+      >
+    }
+  } | null
+}
+
 export type MapPageFiles_FileFragmentFragment = {
   id: Types.SbMapId
   name: string
@@ -2325,6 +2418,11 @@ export type MapPageFiles_FamilyFragmentFragment = {
       ' $fragmentRefs'?: { MapPageFiles_FileFragmentFragment: MapPageFiles_FileFragmentFragment }
     }
   >
+  ladderFiles: Array<{
+    id: string
+    matchmakingType: Types.MatchmakingType
+    map: { id: Types.SbMapId }
+  }>
 } & { ' $fragmentName'?: 'MapPageFiles_FamilyFragmentFragment' }
 
 export type MapPageFilesUnlinkMutationVariables = Exact<{
@@ -2472,6 +2570,7 @@ export type MapPage_HeaderFragmentFragment = {
   kind: MapKind
   listed: boolean
   staffPick: boolean
+  ladderPools: Array<Types.MatchmakingType>
   publishedAt: string | null
   publisher: { id: Types.SbUserId; name: string } | null
   file: { id: string; originalName: string; originalDescription: string }
@@ -2550,6 +2649,65 @@ export type MapPage_HowToPlayFragmentFragment = {
   kind: MapKind
   file: { id: string; originalDescription: string }
 } & { ' $fragmentName'?: 'MapPage_HowToPlayFragmentFragment' }
+
+export type MapPickerCollectionsQueryVariables = Exact<{
+  search?: string | null | undefined
+  first: number
+}>
+
+export type MapPickerCollectionsQuery = {
+  currentUser: {
+    id: Types.SbUserId
+    mapCollections: Array<
+      { id: string; kind: MapCollectionKind; title: string | null } & {
+        ' $fragmentRefs'?: {
+          MapCollectionCard_CollectionFragmentFragment: MapCollectionCard_CollectionFragmentFragment
+        }
+      }
+    >
+  } | null
+  ladder: {
+    edges: Array<{
+      node: { id: string } & {
+        ' $fragmentRefs'?: {
+          MapCollectionCard_CollectionFragmentFragment: MapCollectionCard_CollectionFragmentFragment
+        }
+      }
+    }>
+  }
+  staff: {
+    edges: Array<{
+      node: { id: string } & {
+        ' $fragmentRefs'?: {
+          MapCollectionCard_CollectionFragmentFragment: MapCollectionCard_CollectionFragmentFragment
+        }
+      }
+    }>
+  }
+}
+
+export type MapPickerCollectionMapsQueryVariables = Exact<{
+  id: string
+  after?: string | null | undefined
+  first: number
+  withCount: boolean
+}>
+
+export type MapPickerCollectionMapsQuery = {
+  mapCollection: {
+    id: string
+    maps: {
+      totalCount?: number
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      edges: Array<{
+        cursor: string
+        node: { id: Types.SbMapId; family: { id: string } } & {
+          ' $fragmentRefs'?: { MapTile_SbMapFragmentFragment: MapTile_SbMapFragmentFragment }
+        }
+      }>
+    }
+  } | null
+}
 
 export type MapPublish_SuggestionFragmentFragment = {
   id: string
@@ -2754,6 +2912,14 @@ export type MapFamilyReportSetStatusMutation = {
   }
 }
 
+export type MapThumbnailLadderPoolsQueryVariables = Exact<{
+  id: Types.SbMapId
+}>
+
+export type MapThumbnailLadderPoolsQuery = {
+  map: { id: Types.SbMapId; ladderPools: Array<Types.MatchmakingType> } | null
+}
+
 export type MapTile_SbMapFragmentFragment = {
   id: Types.SbMapId
   name: string
@@ -2763,6 +2929,7 @@ export type MapTile_SbMapFragmentFragment = {
   listed: boolean
   publishedAt: string | null
   isFavorited: boolean
+  ladderPools: Array<Types.MatchmakingType>
   publisher: { id: Types.SbUserId } | null
   family: { id: string; name: string; current: { id: Types.SbMapId } }
   stats: {
@@ -2814,6 +2981,11 @@ export type MapUploadAddToLibraryMutationVariables = Exact<{
 export type MapUploadAddToLibraryMutation = {
   mapAddToLibrary: { id: Types.SbMapId; inLibrary: boolean }
 }
+
+export type MapFamilyViewerCollectionIdsFragmentFragment = {
+  id: string
+  viewerCollectionIds: Array<string>
+} & { ' $fragmentName'?: 'MapFamilyViewerCollectionIdsFragmentFragment' }
 
 export type NewsArchiveQueryVariables = Exact<{
   first?: number | null | undefined
@@ -4297,6 +4469,7 @@ export const MapTile_SbMapFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -4488,6 +4661,7 @@ export const MapCollectionRow_SbMapFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -4817,6 +4991,51 @@ export const MapOwner_FamilyOwnerFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<MapOwner_FamilyOwnerFragmentFragment, unknown>
+export const MapPageCollections_CollectionFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapPageCollections_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'public' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'mapCount' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'owner' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'pool' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'startDate' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'endDate' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'isCurrent' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPageCollections_CollectionFragmentFragment, unknown>
 export const MapPageFiles_FileFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -4922,6 +5141,25 @@ export const MapPageFiles_FamilyFragmentFragmentDoc = {
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'MapPageFiles_FileFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'ladderFiles' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'map' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
                 },
               ],
             },
@@ -5119,6 +5357,7 @@ export const MapPage_HeaderFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           {
             kind: 'Field',
@@ -5560,6 +5799,23 @@ export const MapPublish_PreviewFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<MapPublish_PreviewFragmentFragment, unknown>
+export const MapFamilyViewerCollectionIdsFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapFamilyViewerCollectionIdsFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamily' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCollectionIds' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapFamilyViewerCollectionIdsFragmentFragment, unknown>
 export const News_HomeFeedFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -10038,6 +10294,208 @@ export const LocalKnownMapDocument = {
     },
   ],
 } as unknown as DocumentNode<LocalKnownMapQuery, LocalKnownMapQueryVariables>
+export const MapAddToCollectionDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapAddToCollection' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'staff' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'fileId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'family' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'viewerCollectionIds' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentUser' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapCollections' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'canEdit' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            alias: { kind: 'Name', value: 'staffCollections' },
+            name: { kind: 'Name', value: 'mapCollections' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'section' },
+                value: { kind: 'EnumValue', value: 'STAFF' },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'IntValue', value: '100' },
+              },
+            ],
+            directives: [
+              {
+                kind: 'Directive',
+                name: { kind: 'Name', value: 'include' },
+                arguments: [
+                  {
+                    kind: 'Argument',
+                    name: { kind: 'Name', value: 'if' },
+                    value: { kind: 'Variable', name: { kind: 'Name', value: 'staff' } },
+                  },
+                ],
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'canEdit' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapAddToCollectionQuery, MapAddToCollectionQueryVariables>
+export const MapAddToCollectionCreateDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapAddToCollectionCreate' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'title' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'addMapId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapCollectionCreate' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'title' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'title' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'addMapId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'addMapId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'canEdit' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  MapAddToCollectionCreateMutation,
+  MapAddToCollectionCreateMutationVariables
+>
 export const MapCatalogAllDocument = {
   kind: 'Document',
   definitions: [
@@ -10221,6 +10679,7 @@ export const MapCatalogAllDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -10504,6 +10963,7 @@ export const MapCatalogLibraryDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -10786,6 +11246,7 @@ export const MapCatalogFavoritesDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -11089,6 +11550,138 @@ export const MapCollectionAddMapDocument = {
     },
   ],
 } as unknown as DocumentNode<MapCollectionAddMapMutation, MapCollectionAddMapMutationVariables>
+export const MapCollectionRemoveMapDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapCollectionRemoveMap' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'collectionId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapCollectionRemoveMap' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'collectionId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'collectionId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'mapId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'mapCount' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'startLocations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'cover' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'file' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  MapCollectionRemoveMapMutation,
+  MapCollectionRemoveMapMutationVariables
+>
 export const MapCollectionSaveDocument = {
   kind: 'Document',
   definitions: [
@@ -11806,6 +12399,7 @@ export const MapCollectionPageMapsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },
@@ -15588,6 +16182,139 @@ export const MapLiveGamesDocument = {
     },
   ],
 } as unknown as DocumentNode<MapLiveGamesQuery, MapLiveGamesQueryVariables>
+export const MapPageCollectionsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapPageCollections' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamily' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'familyId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'family' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'collections' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            {
+                              kind: 'FragmentSpread',
+                              name: {
+                                kind: 'Name',
+                                value: 'MapPageCollections_CollectionFragment',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'ladderPools' },
+                        arguments: [
+                          {
+                            kind: 'Argument',
+                            name: { kind: 'Name', value: 'first' },
+                            value: { kind: 'IntValue', value: '100' },
+                          },
+                        ],
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            {
+                              kind: 'FragmentSpread',
+                              name: {
+                                kind: 'Name',
+                                value: 'MapPageCollections_CollectionFragment',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapPageCollections_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'public' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'mapCount' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'owner' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'pool' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'startDate' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'endDate' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'isCurrent' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPageCollectionsQuery, MapPageCollectionsQueryVariables>
 export const MapPageFilesUnlinkDocument = {
   kind: 'Document',
   definitions: [
@@ -16011,6 +16738,25 @@ export const MapPageFamilyDocument = {
               ],
             },
           },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'ladderFiles' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'map' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
         ],
       },
     },
@@ -16163,6 +16909,7 @@ export const MapPageFileDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           {
             kind: 'Field',
@@ -16636,6 +17383,562 @@ export const MapPageClaimPreviewDocument = {
     },
   ],
 } as unknown as DocumentNode<MapPageClaimPreviewQuery, MapPageClaimPreviewQueryVariables>
+export const MapPickerCollectionsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapPickerCollections' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'search' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentUser' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapCollections' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'MapCollectionCard_CollectionFragment' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            alias: { kind: 'Name', value: 'ladder' },
+            name: { kind: 'Name', value: 'mapCollections' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'section' },
+                value: { kind: 'EnumValue', value: 'LADDER' },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'search' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'search' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'MapCollectionCard_CollectionFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            alias: { kind: 'Name', value: 'staff' },
+            name: { kind: 'Name', value: 'mapCollections' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'section' },
+                value: { kind: 'EnumValue', value: 'STAFF' },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'search' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'search' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'MapCollectionCard_CollectionFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'startLocations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'cover' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'file' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapCollectionCard_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'public' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'mapCount' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'owner' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'hidden' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'pool' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'startDate' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'endDate' } },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPickerCollectionsQuery, MapPickerCollectionsQueryVariables>
+export const MapPickerCollectionMapsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapPickerCollectionMaps' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'withCount' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapCollection' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'maps' },
+                  arguments: [
+                    {
+                      kind: 'Argument',
+                      name: { kind: 'Name', value: 'after' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
+                    },
+                    {
+                      kind: 'Argument',
+                      name: { kind: 'Name', value: 'first' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+                    },
+                  ],
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'totalCount' },
+                        directives: [
+                          {
+                            kind: 'Directive',
+                            name: { kind: 'Name', value: 'include' },
+                            arguments: [
+                              {
+                                kind: 'Argument',
+                                name: { kind: 'Name', value: 'if' },
+                                value: {
+                                  kind: 'Variable',
+                                  name: { kind: 'Name', value: 'withCount' },
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'pageInfo' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'hasNextPage' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'endCursor' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'edges' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'cursor' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'node' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'family' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                      ],
+                                    },
+                                  },
+                                  {
+                                    kind: 'FragmentSpread',
+                                    name: { kind: 'Name', value: 'MapTile_SbMapFragment' },
+                                  },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'startLocations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapTile_SbMapFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMap' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'staffPick' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'publisher' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'family' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'stats' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'games7d' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'trendingScore' } },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'file' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'tileset' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'isEud' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'umsForces' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'teamId' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'players' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'playerId' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'isComputer' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPickerCollectionMapsQuery, MapPickerCollectionMapsQueryVariables>
 export const MapPublishPreviewDocument = {
   kind: 'Document',
   definitions: [
@@ -17752,6 +19055,49 @@ export const MapFamilyReportSetStatusDocument = {
   MapFamilyReportSetStatusMutation,
   MapFamilyReportSetStatusMutationVariables
 >
+export const MapThumbnailLadderPoolsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapThumbnailLadderPools' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapThumbnailLadderPoolsQuery, MapThumbnailLadderPoolsQueryVariables>
 export const MapUnpublishDocument = {
   kind: 'Document',
   definitions: [
@@ -19451,6 +20797,7 @@ export const UserProfileOwnedMapsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'ladderPools' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'publisher' },

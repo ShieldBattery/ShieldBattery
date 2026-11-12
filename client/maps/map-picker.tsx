@@ -1,5 +1,5 @@
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameType } from '../../common/games/game-type'
@@ -42,6 +42,7 @@ import {
   LocalMatchesLink,
   validateLocalMapView,
 } from './map-local-list'
+import { MapPickerCollections, PickerCollection } from './map-picker-collections'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom } from './map-uploads'
 
 /** What picking a map in the picker does. */
@@ -59,6 +60,7 @@ export enum MapPickerMode {
 
 /** The collection that {@link MapPickerMode.Collection} adds maps to. */
 export interface MapPickerCollectionTarget {
+  id: string
   /** The collection's title, as the viewer sees it. */
   title: string
   /** How many maps the collection holds. */
@@ -74,11 +76,18 @@ export interface MapPickerCollectionTarget {
   add: (mapId: SbMapId, familyId?: string) => Promise<boolean>
 }
 
+/** The picker's tab of collections, whose maps are picked once a collection is opened. */
+const COLLECTIONS_TAB = 'collections'
+
+/** A tab of the picker: a listing of maps, or the collections. */
+type PickerTab = MapListing | typeof COLLECTIONS_TAB
+
 /** The picker's tabs, in display order. */
-const PICKER_TABS: ReadonlyArray<MapListing> = [
+const PICKER_TABS: ReadonlyArray<PickerTab> = [
   MapListing.Yours,
   MapListing.Local,
   MapListing.Starred,
+  COLLECTIONS_TAB,
   MapListing.All,
 ]
 
@@ -87,7 +96,9 @@ const MAX_REMEMBERED_WINDOWS = 20
 
 /** Where the picker was left, so opening it again (e.g. for the next queued map) returns there. */
 interface MapPickerSession {
-  tab: MapListing
+  tab: PickerTab
+  /** The collection opened on the Collections tab, if any. */
+  collection?: PickerCollection
   params: CatalogParams
   /**
    * Whether the lens is UMS because the lobby's game type was Use Map Settings when the picker
@@ -104,8 +115,8 @@ const mapPickerSessionAtom = atom<MapPickerSession | undefined>(undefined)
 
 type PickerSorts = Partial<Record<MapListing, CatalogSort>>
 
-function validateTab(value: unknown): MapListing | undefined {
-  return PICKER_TABS.includes(value as MapListing) ? (value as MapListing) : undefined
+function validateTab(value: unknown): PickerTab | undefined {
+  return PICKER_TABS.includes(value as PickerTab) ? (value as PickerTab) : undefined
 }
 
 function validateSorts(value: unknown): PickerSorts | undefined {
@@ -113,7 +124,7 @@ function validateSorts(value: unknown): PickerSorts | undefined {
     return undefined
   }
   const sorts: PickerSorts = {}
-  for (const tab of PICKER_TABS) {
+  for (const tab of Object.values(MapListing)) {
     const sort = validateSavedSort((value as Record<string, unknown>)[tab])
     if (sort) {
       sorts[tab] = sort
@@ -127,7 +138,7 @@ function validateSorts(value: unknown): PickerSorts | undefined {
  * doesn't change how the catalog opens (and the other way around).
  */
 function useSavedPickerChoices() {
-  const [tab, setTab] = useUserLocalStorageValue<MapListing>(
+  const [tab, setTab] = useUserLocalStorageValue<PickerTab>(
     'maps.picker.tab',
     MapListing.All,
     validateTab,
@@ -166,7 +177,7 @@ function useSavedPickerChoices() {
   }
 }
 
-function newSession(tab: MapListing, filters: CatalogFilters): MapPickerSession {
+function newSession(tab: PickerTab, filters: CatalogFilters): MapPickerSession {
   return {
     tab,
     params: { ...filters, search: '', sort: undefined },
@@ -316,9 +327,9 @@ export interface MapPickerProps {
 }
 
 /**
- * Picks maps for a lobby: the map catalog's listings (the viewer's maps, their favorites and every
- * map) with its search and filters, where choosing a tile picks that map instead of opening its
- * page. Where it was left is remembered until the app closes.
+ * Picks maps for a lobby: the map catalog's listings (the viewer's maps, their Starred maps and
+ * every map) with its search and filters, and collections to pick maps from, where choosing a tile
+ * picks that map instead of opening its page. Where it was left is remembered until the app closes.
  */
 export function MapPicker({
   mode,
@@ -350,14 +361,17 @@ export function MapPicker({
   }
 
   const isLocal = tab === MapListing.Local
+  const isCollections = tab === COLLECTIONS_TAB
+  // The Collections tab lists no maps until one is opened, and those are in the collection's order
+  const listing = isCollections ? MapListing.All : tab
   const sort = effectiveSort(
     params,
-    saved.sorts[tab],
-    defaultPickerSortForListing(tab),
+    saved.sorts[listing],
+    defaultPickerSortForListing(listing),
     isLocal ? LOCAL_SORTS : undefined,
   )
 
-  const onTabChange = (nextTab: MapListing) => {
+  const onTabChange = (nextTab: PickerTab) => {
     updateSession(s => ({ ...s, tab: nextTab, params: { ...s.params, sort: undefined } }))
     saved.setTab(nextTab)
   }
@@ -375,7 +389,7 @@ export function MapPicker({
   const onSortChange = (nextSort: CatalogSort) => {
     updateSession(s => ({ ...s, params: { ...s.params, sort: nextSort } }))
     if (nextSort !== CatalogSort.BestMatch) {
-      saved.setSorts({ ...saved.sorts, [tab]: nextSort })
+      saved.setSorts({ ...saved.sorts, [listing]: nextSort })
     }
   }
 
@@ -469,6 +483,61 @@ export function MapPicker({
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
   const listKey = JSON.stringify([tab, filter, sort, tab === MapListing.Yours && libraryVersion])
+  const openedCollection = isCollections ? session.collection : undefined
+
+  let content: ReactNode
+  if (isCollections) {
+    content = (
+      <MapPickerCollections
+        search={params.search}
+        opened={openedCollection}
+        excludeId={inCollectionMode ? collection.id : undefined}
+        pick={pickOptions}
+        density={saved.density}
+        onOpen={opened => updateSession(s => ({ ...s, collection: opened }))}
+        onBack={() => updateSession(s => ({ ...s, collection: undefined }))}
+      />
+    )
+  } else if (isLocal) {
+    content = (
+      <LocalMapList
+        params={params}
+        sort={sort}
+        density={saved.density}
+        view={saved.localView}
+        folder={session.localFolder}
+        pick={pickOptions}
+        onFiltersChange={onFiltersChange}
+        onSortChange={onSortChange}
+        onDensityChange={saved.setDensity}
+        onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
+        onViewChange={saved.setLocalView}
+        onFolderChange={folder => updateSession(s => ({ ...s, localFolder: folder }))}
+      />
+    )
+  } else {
+    content = (
+      <MapCatalogList
+        key={listKey}
+        listing={listing as ServerMapListing}
+        params={params}
+        filter={filter}
+        sort={sort}
+        density={saved.density}
+        windowStore={windowStore}
+        pick={pickOptions}
+        besideCount={
+          IS_ELECTRON && searchText ? (
+            <LocalMatchesLink search={searchText} onOpen={() => onTabChange(MapListing.Local)} />
+          ) : undefined
+        }
+        onFiltersChange={onFiltersChange}
+        onSortChange={onSortChange}
+        onDensityChange={saved.setDensity}
+        onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
+      />
+    )
+  }
 
   return (
     <Root>
@@ -515,15 +584,22 @@ export function MapPicker({
             {IS_ELECTRON ? (
               <TabItem text={t('maps.local.onThisPc', 'On this PC')} value={MapListing.Local} />
             ) : null}
-            <TabItem text={t('maps.catalog.favorites', 'Favorites')} value={MapListing.Starred} />
+            <TabItem text={t('maps.collections.starred', 'Starred')} value={MapListing.Starred} />
+            <TabItem text={t('maps.collections.tab', 'Collections')} value={COLLECTIONS_TAB} />
             <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapListing.All} />
           </Tabs>
-          <StyledSearchInput
-            ref={searchInputRef}
-            searchQuery={params.search}
-            onSearchChange={onSearchChange}
-            label={t('maps.catalog.searchMaps', 'Search maps')}
-          />
+          {openedCollection ? null : (
+            <StyledSearchInput
+              ref={searchInputRef}
+              searchQuery={params.search}
+              onSearchChange={onSearchChange}
+              label={
+                isCollections
+                  ? t('maps.collections.search', 'Search collections')
+                  : t('maps.catalog.searchMaps', 'Search maps')
+              }
+            />
+          )}
           <OutlinedButton
             label={t('maps.catalog.uploadMaps', 'Upload maps')}
             iconStart='upload'
@@ -532,47 +608,7 @@ export function MapPicker({
         </ControlsRow>
       </Header>
       <Scroller>
-        <Content>
-          {isLocal ? (
-            <LocalMapList
-              params={params}
-              sort={sort}
-              density={saved.density}
-              view={saved.localView}
-              folder={session.localFolder}
-              pick={pickOptions}
-              onFiltersChange={onFiltersChange}
-              onSortChange={onSortChange}
-              onDensityChange={saved.setDensity}
-              onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
-              onViewChange={saved.setLocalView}
-              onFolderChange={folder => updateSession(s => ({ ...s, localFolder: folder }))}
-            />
-          ) : (
-            <MapCatalogList
-              key={listKey}
-              listing={tab as ServerMapListing}
-              params={params}
-              filter={filter}
-              sort={sort}
-              density={saved.density}
-              windowStore={windowStore}
-              pick={pickOptions}
-              besideCount={
-                IS_ELECTRON && searchText ? (
-                  <LocalMatchesLink
-                    search={searchText}
-                    onOpen={() => onTabChange(MapListing.Local)}
-                  />
-                ) : undefined
-              }
-              onFiltersChange={onFiltersChange}
-              onSortChange={onSortChange}
-              onDensityChange={saved.setDensity}
-              onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
-            />
-          )}
-        </Content>
+        <Content>{content}</Content>
       </Scroller>
       <HiddenFileInput
         ref={fileInputRef}

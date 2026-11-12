@@ -175,7 +175,15 @@ export function collectionTitleMatches(title: string, search: string): boolean {
 }
 
 /** What a collection change was, for the sentence its failure is told with. */
-export type CollectionChange = 'create' | 'edit' | 'publish' | 'delete' | 'add' | 'save' | 'report'
+export type CollectionChange =
+  | 'create'
+  | 'edit'
+  | 'publish'
+  | 'delete'
+  | 'add'
+  | 'remove'
+  | 'save'
+  | 'report'
 
 /**
  * What a failed collection change tells the user, given the error code the server sent. `change`
@@ -186,7 +194,7 @@ export function collectionErrorText(code: unknown, change: CollectionChange, t: 
     case 'FORBIDDEN':
       return t('maps.collections.errorForbidden', "You can't change this collection.")
     case 'NOT_FOUND':
-      return change === 'add'
+      return change === 'add' || change === 'remove'
         ? t('maps.collections.errorMapNotFound', "This map or collection doesn't exist anymore.")
         : t('maps.collections.errorNotFound', "This collection doesn't exist anymore.")
     case 'UNAUTHORIZED':
