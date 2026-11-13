@@ -55,6 +55,20 @@ const MapCollectionRemoveMapMutation = graphql(/* GraphQL */ `
   }
 `)
 
+/**
+ * Selects what the views of a collection show about the order of its maps (its cover is its first
+ * maps), so they update from the result.
+ */
+const MapCollectionMoveMapMutation = graphql(/* GraphQL */ `
+  mutation MapCollectionMoveMap($collectionId: UUID!, $mapId: SbMapId!, $toIndex: Int!) {
+    mapCollectionMoveMap(collectionId: $collectionId, mapId: $mapId, toIndex: $toIndex) {
+      id
+      updatedAt
+      ...MapCollectionMosaic_CollectionFragment
+    }
+  }
+`)
+
 const MapCollectionSaveMutation = graphql(/* GraphQL */ `
   mutation MapCollectionSave($id: UUID!) {
     mapCollectionSave(id: $id) {
@@ -250,6 +264,36 @@ export function useRemoveMapFromCollection(): (
         snackbarController.showSnackbar(collectionErrorText(undefined, 'remove', t))
         return false
       })
+}
+
+/**
+ * Returns a function that moves the map a file is in to `toIndex` (from 0) in a collection's order,
+ * resolving with whether it was moved, and whether a move is in flight. A failure is reported with a
+ * snackbar.
+ */
+export function useMoveMapInCollection(): [
+  move: (collectionId: string, mapId: SbMapId, toIndex: number) => Promise<boolean>,
+  pending: boolean,
+] {
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+  const [{ fetching }, moveMap] = useMutation(MapCollectionMoveMapMutation)
+
+  const move = (collectionId: string, mapId: SbMapId, toIndex: number) =>
+    moveMap({ collectionId, mapId, toIndex })
+      .then(result => {
+        if (result.error || !result.data) {
+          snackbarController.showSnackbar(collectionChangeErrorText(result.error, 'move', t))
+          return false
+        }
+        return true
+      })
+      .catch(() => {
+        snackbarController.showSnackbar(collectionErrorText(undefined, 'move', t))
+        return false
+      })
+
+  return [move, fetching]
 }
 
 /**

@@ -175,6 +175,9 @@ describe('maps/map-collection-text', () => {
     expect(collectionErrorText('NOT_FOUND', 'remove', t)).toBe(
       "This map or collection doesn't exist anymore.",
     )
+    expect(collectionErrorText('NOT_FOUND', 'move', t)).toBe(
+      "This map or collection doesn't exist anymore.",
+    )
     expect(collectionErrorText('NOT_FOUND', 'edit', t)).toBe(
       "This collection doesn't exist anymore.",
     )

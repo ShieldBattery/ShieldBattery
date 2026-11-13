@@ -1578,6 +1578,20 @@ export type MapCollectionRemoveMapMutation = {
   }
 }
 
+export type MapCollectionMoveMapMutationVariables = Exact<{
+  collectionId: string
+  mapId: Types.SbMapId
+  toIndex: number
+}>
+
+export type MapCollectionMoveMapMutation = {
+  mapCollectionMoveMap: { id: string; updatedAt: string } & {
+    ' $fragmentRefs'?: {
+      MapCollectionMosaic_CollectionFragmentFragment: MapCollectionMosaic_CollectionFragmentFragment
+    }
+  }
+}
+
 export type MapCollectionSaveMutationVariables = Exact<{
   id: string
 }>
@@ -1717,6 +1731,7 @@ export type MapCollectionRow_SbMapFragmentFragment = ({
 
 export type MapCollectionPageMapsQueryVariables = Exact<{
   id: string
+  filter?: MapFilter | null | undefined
   after?: string | null | undefined
   first: number
   withCount: boolean
@@ -11686,6 +11701,147 @@ export const MapCollectionRemoveMapDocument = {
   MapCollectionRemoveMapMutation,
   MapCollectionRemoveMapMutationVariables
 >
+export const MapCollectionMoveMapDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapCollectionMoveMap' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'collectionId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'toIndex' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapCollectionMoveMap' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'collectionId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'collectionId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'mapId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'toIndex' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'toIndex' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'startLocations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapCollectionMosaic_CollectionFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapCollection' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'cover' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'file' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapCollectionMoveMapMutation, MapCollectionMoveMapMutationVariables>
 export const MapCollectionSaveDocument = {
   kind: 'Document',
   definitions: [
@@ -12237,6 +12393,11 @@ export const MapCollectionPageMapsDocument = {
         },
         {
           kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'filter' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFilter' } },
+        },
+        {
+          kind: 'VariableDefinition',
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
         },
@@ -12278,6 +12439,11 @@ export const MapCollectionPageMapsDocument = {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'maps' },
                   arguments: [
+                    {
+                      kind: 'Argument',
+                      name: { kind: 'Name', value: 'filter' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'filter' } },
+                    },
                     {
                       kind: 'Argument',
                       name: { kind: 'Name', value: 'after' },
