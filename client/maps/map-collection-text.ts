@@ -182,6 +182,7 @@ export type CollectionChange =
   | 'delete'
   | 'add'
   | 'remove'
+  | 'move'
   | 'save'
   | 'report'
 
@@ -194,7 +195,7 @@ export function collectionErrorText(code: unknown, change: CollectionChange, t: 
     case 'FORBIDDEN':
       return t('maps.collections.errorForbidden', "You can't change this collection.")
     case 'NOT_FOUND':
-      return change === 'add' || change === 'remove'
+      return change === 'add' || change === 'remove' || change === 'move'
         ? t('maps.collections.errorMapNotFound', "This map or collection doesn't exist anymore.")
         : t('maps.collections.errorNotFound', "This collection doesn't exist anymore.")
     case 'UNAUTHORIZED':

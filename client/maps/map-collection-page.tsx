@@ -1,10 +1,11 @@
 import * as React from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { Link, useRoute } from 'wouter'
 import { useLocationProperty } from 'wouter/use-browser-location'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   MAP_COLLECTIONS_SEGMENT,
   MAP_REPORT_PARAM,
@@ -19,7 +20,7 @@ import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapCollectionKind, MapCollectionPageQuery } from '../gql/graphql'
+import { MapCollectionKind, MapCollectionPageQuery, MapFilter } from '../gql/graphql'
 import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -35,6 +36,7 @@ import { Tooltip } from '../material/tooltip'
 import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import {
   bodyLarge,
   bodyMedium,
@@ -60,20 +62,31 @@ import {
   useCatalogWindowStore,
 } from './map-catalog'
 import { EmptyText, MapCatalogList } from './map-catalog-list'
-import { MapListing, toMapFilter } from './map-catalog-params'
+import {
+  MapListing,
+  parseCatalogParams,
+  serializeCatalogParams,
+  toMapFilter,
+} from './map-catalog-params'
 import {
   useAddMapToCollection,
   useCopyCollectionLink,
+  useLastSettledData,
+  useMoveMapInCollection,
+  useRemoveMapFromCollection,
   useSetCollectionPublic,
   useToggleCollectionSaved,
   useUnhideCollection,
 } from './map-collection-actions'
 import { MapCollectionMosaic } from './map-collection-card'
+import { MoveDirection, moveTargetIndex, removedMapText, rowIndex } from './map-collection-order'
 import { MapCollectionReportBar, useCollectionReportOpen } from './map-collection-report-bar'
 import {
+  collectionSearchArg,
   collectionTitle,
   mapCountText,
   MAX_COLLECTION_MAPS,
+  MAX_COLLECTION_SEARCH_LENGTH,
   poolDatesText,
 } from './map-collection-text'
 import { urlForMapFile } from './map-family-files'
@@ -140,10 +153,16 @@ const MapCollectionRow_SbMapFragment = graphql(/* GraphQL */ `
 `)
 
 const MapCollectionPageMapsQuery = graphql(/* GraphQL */ `
-  query MapCollectionPageMaps($id: UUID!, $after: String, $first: Int!, $withCount: Boolean!) {
+  query MapCollectionPageMaps(
+    $id: UUID!
+    $filter: MapFilter
+    $after: String
+    $first: Int!
+    $withCount: Boolean!
+  ) {
     mapCollection(id: $id) {
       id
-      maps(after: $after, first: $first) {
+      maps(filter: $filter, after: $after, first: $first) {
         totalCount @include(if: $withCount)
         pageInfo {
           hasNextPage
@@ -246,6 +265,8 @@ function MapCollectionPage({ id }: { id: MapCollectionId }) {
   const reportId = canManageMaps
     ? (new URLSearchParams(search).get(MAP_REPORT_PARAM) ?? undefined)
     : undefined
+  const searchText = parseCatalogParams(new URLSearchParams(search)).search
+  const mapSearch = collectionSearchArg(searchText)
   const [adding, setAdding] = useState(false)
   const reportOpen = useCollectionReportOpen(reportId, id)
 
@@ -312,14 +333,45 @@ function MapCollectionPage({ id }: { id: MapCollectionId }) {
           onAddMaps={() => setAdding(true)}
         />
         <CollectionRows
+          key={mapSearch ?? ''}
           collectionId={collection.id}
+          collectionTitle={collectionTitle(collection, t)}
+          mapCount={collection.mapCount}
+          editable={collection.canEdit}
+          search={mapSearch}
           ownPoolType={collection.pool?.isCurrent ? collection.pool.matchmakingType : undefined}
+          onOutOfDate={() => reexecute({ requestPolicy: 'network-only' })}
         />
       </PageContent>
     )
   }
 
-  return <MapCatalogFrame tab={MapCatalogTab.Collections}>{content}</MapCatalogFrame>
+  // Kept while searching, so a search that emptied the collection can still be cleared
+  const showSearch = !!collection && (collection.mapCount > 0 || !!searchText)
+
+  return (
+    <MapCatalogFrame
+      tab={MapCatalogTab.Collections}
+      search={
+        showSearch ? (
+          <CatalogSearchInput
+            value={searchText}
+            label={t('maps.catalog.searchMaps', 'Search maps')}
+            maxLength={MAX_COLLECTION_SEARCH_LENGTH}
+            onChange={onCollectionSearchChange}
+          />
+        ) : undefined
+      }>
+      {content}
+    </MapCatalogFrame>
+  )
+}
+
+/** Applies a change of the search text of a collection's page to its URL. */
+function onCollectionSearchChange(value: string) {
+  const current = new URLSearchParams(location.search)
+  const next = serializeCatalogParams({ ...parseCatalogParams(current), search: value }, current)
+  replace(location.pathname + (next ? `?${next}` : ''))
 }
 
 const PageContent = styled.div`
@@ -855,8 +907,15 @@ const PickerRoot = styled.div`
   flex-direction: column;
 `
 
-const RowList = styled.ol`
+const RowChunks = styled.div`
   width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const RowList = styled.ol`
   margin: 0;
   padding: 0;
   list-style: none;
@@ -866,32 +925,115 @@ const RowList = styled.ol`
   gap: 6px;
 `
 
+/** A row button that keeps keyboard focus when its row moves. */
+interface PendingFocus {
+  mapId: string
+  direction: MoveDirection
+}
+
+/** What the rows of a collection the viewer can edit need to offer changing it. */
+interface RowEditing {
+  /**
+   * Whether rows offer moving their maps. Positions only mean something while the rows list the
+   * whole collection, so a search leaves only removing.
+   */
+  canMove: boolean
+  /** How many maps the collection holds, which is where moving down stops. */
+  mapCount: number
+  /**
+   * The direction of the move button to focus on the row of `mapId`, once, if that row's map was
+   * the last one moved and its button still awaits focus in the map's new place.
+   */
+  takePendingFocus: (mapId: string) => MoveDirection | undefined
+  onMove: (mapId: SbMapId, index: number, direction: MoveDirection) => void
+  onRemove: (mapId: SbMapId, name: string) => void
+}
+
 /**
  * A collection's maps in its own order, numbered, a page at a time as the list scrolls. Each row
- * links to the map's page; for a ladder pool, to the exact file the pool holds.
+ * links to the map's page; for a ladder pool, to the exact file the pool holds. A collection the
+ * viewer can edit offers moving and removing its maps on each row.
  */
 function CollectionRows({
   collectionId,
+  collectionTitle,
+  mapCount,
+  editable,
+  search,
   ownPoolType,
+  onOutOfDate,
 }: {
   collectionId: string
+  collectionTitle: string
+  mapCount: number
+  editable: boolean
+  /** The text to narrow the maps down by, if any. Rows aren't numbered while it's set. */
+  search?: string
   /**
    * The matchmaking type whose current pool the collection is, if it is one. Every row would carry
    * that pool's chip, so none does.
    */
   ownPoolType?: MatchmakingType
+  /** Called when a change failed, so what the page shows of the collection may be out of date. */
+  onOutOfDate: () => void
 }) {
   const { t } = useTranslation()
-  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
-  const firstPage = useRowsPage(collectionId, null)
-  const lastPage = useRowsPage(collectionId, pageCursors[pageCursors.length - 1])
+  const snackbarController = useSnackbarController()
+  const [pageCount, setPageCount] = useState(1)
+  const [refetchToken, setRefetchToken] = useState(0)
+  const pendingFocus = useRef<PendingFocus>(undefined)
+  const [moveMap, movePending] = useMoveMapInCollection()
+  const removeMap = useRemoveMapFromCollection()
+  const filter = search ? { search } : undefined
+  const firstPage = useRowsPage(collectionId, null, filter)
 
-  const onLoadMore = () => {
-    const endCursor = lastPage.connection?.pageInfo.endCursor
-    if (lastPage.connection?.pageInfo.hasNextPage && endCursor) {
-      setPageCursors(prev => (prev.includes(endCursor) ? prev : [...prev, endCursor]))
-    }
+  const onFailed = () => {
+    pendingFocus.current = undefined
+    setRefetchToken(token => token + 1)
+    onOutOfDate()
   }
+
+  const editing: RowEditing | undefined = editable
+    ? {
+        canMove: !search,
+        mapCount,
+        takePendingFocus: mapId => {
+          const pending = pendingFocus.current
+          if (pending?.mapId !== mapId) {
+            return undefined
+          }
+          pendingFocus.current = undefined
+          return pending.direction
+        },
+        onMove: (mapId, index, direction) => {
+          const toIndex = moveTargetIndex(index, direction, mapCount)
+          // A move computes its target from the order shown, which is stale until it's applied
+          if (movePending || toIndex === undefined) {
+            return
+          }
+          pendingFocus.current = { mapId, direction }
+          moveMap(collectionId, mapId, toIndex)
+            .then(moved => {
+              if (!moved) {
+                onFailed()
+              }
+            })
+            .catch(swallowNonBuiltins)
+        },
+        onRemove: (mapId, name) => {
+          pendingFocus.current = undefined
+          removeMap(collectionId, mapId)
+            .then(removed => {
+              if (removed) {
+                snackbarController.showSnackbar(removedMapText(name, collectionTitle, t))
+              } else {
+                onFailed()
+              }
+            })
+            .catch(swallowNonBuiltins)
+        },
+      }
+    : undefined
 
   if (!firstPage.connection) {
     return firstPage.error ? (
@@ -904,48 +1046,46 @@ function CollectionRows({
     )
   }
   if (!firstPage.connection.edges.length) {
-    return <EmptyText>{t('maps.collections.empty', 'There are no maps here yet.')}</EmptyText>
+    return (
+      <EmptyText>
+        {search
+          ? t(
+              'maps.collections.noMapSearchMatches',
+              'No maps in this collection match your search.',
+            )
+          : t('maps.collections.empty', 'There are no maps here yet.')}
+      </EmptyText>
+    )
   }
 
   return (
-    <InfiniteScrollList
-      nextLoadingEnabled={true}
-      isLoadingNext={lastPage.fetching}
-      hasNextData={!!lastPage.connection?.pageInfo.hasNextPage}
-      nextError={
-        lastPage.error ? (
-          <LoadErrorRow
-            message={t('maps.catalog.loadMoreError', "Couldn't load more maps")}
-            onRetry={lastPage.retry}
-          />
-        ) : undefined
-      }
-      refreshToken={collectionId}
-      onLoadNextData={onLoadMore}>
-      <RowList>
-        {pageCursors.map((cursor, i) => (
-          <RowsChunk
-            key={cursor ?? 'first'}
-            collectionId={collectionId}
-            after={cursor}
-            firstNumber={i * ROWS_PAGE_SIZE + 1}
-            ownPoolType={ownPoolType}
-          />
-        ))}
-      </RowList>
-    </InfiniteScrollList>
+    <RowChunks>
+      <RowsChunk
+        collectionId={collectionId}
+        filter={filter}
+        pageIndex={0}
+        after={null}
+        pageCount={pageCount}
+        numbered={!search}
+        ownPoolType={ownPoolType}
+        editing={editing}
+        refetchToken={refetchToken}
+        onLoadMore={pageIndex => setPageCount(count => Math.max(count, pageIndex + 2))}
+      />
+    </RowChunks>
   )
 }
 
 /**
- * Loads one page of a collection's rows. Every caller asking for the same page shares one request,
- * so the list can read the last page's cursor from the same results its pages render.
+ * Loads one page of a collection's rows. Every caller asking for the same page shares one request.
+ * While a change to the collection makes the page load again, the rows last loaded keep showing.
  */
-function useRowsPage(collectionId: string, after: string | null) {
-  const [{ data, fetching, error }, reexecute] = useQuery({
+function useRowsPage(collectionId: string, after: string | null, filter: MapFilter | undefined) {
+  const [result, reexecute] = useQuery({
     query: MapCollectionPageMapsQuery,
     variables: {
       id: collectionId,
+      filter,
       after: after ?? undefined,
       first: ROWS_PAGE_SIZE,
       withCount: after === null,
@@ -953,44 +1093,114 @@ function useRowsPage(collectionId: string, after: string | null) {
     requestPolicy: 'cache-and-network',
     context: NO_SUSPENSE_CONTEXT,
   })
+  const data = useLastSettledData(result)
   return {
     connection: data?.mapCollection?.maps,
-    fetching,
-    error,
+    error: result.error,
     retry: () => reexecute({ requestPolicy: 'network-only' }),
   }
 }
 
+/**
+ * One page of a collection's rows, followed by the pages after it that the list has loaded. Each
+ * page continues from the end of the page before it as that page is now, so a change to the
+ * collection's order that loads the pages again can't skip or repeat a map where two pages meet.
+ */
 function RowsChunk({
   collectionId,
+  filter,
+  pageIndex,
   after,
-  firstNumber,
+  pageCount,
+  numbered,
   ownPoolType,
+  editing,
+  refetchToken,
+  onLoadMore,
 }: {
   collectionId: string
+  filter: MapFilter | undefined
+  pageIndex: number
   after: string | null
-  /** The number of the chunk's first row. */
-  firstNumber: number
+  /** How many pages the list has loaded. The last one loads the next as the list scrolls. */
+  pageCount: number
+  /** Whether rows show their position in the collection. */
+  numbered: boolean
   ownPoolType?: MatchmakingType
+  editing?: RowEditing
+  /** Changes when the page should load again from the server. */
+  refetchToken: number
+  onLoadMore: (pageIndex: number) => void
 }) {
-  const { connection } = useRowsPage(collectionId, after)
+  const { t } = useTranslation()
+  const page = useRowsPage(collectionId, after, filter)
+  const connection = page.connection
+  const endCursor = connection?.pageInfo.hasNextPage
+    ? (connection.pageInfo.endCursor ?? undefined)
+    : undefined
+  const isLast = pageIndex >= pageCount - 1
+
+  // A page that mounts loads anyway, so only a token that changed while it's shown loads it again
+  const shownToken = useRef(refetchToken)
+  const refetch = useEffectEvent(() => page.retry())
+  useEffect(() => {
+    if (refetchToken !== shownToken.current) {
+      shownToken.current = refetchToken
+      refetch()
+    }
+  }, [refetchToken])
+
   return (
     <>
-      {connection?.edges.map((edge, i) => (
-        <CollectionMapRow
-          key={edge.node.id}
-          map={edge.node}
-          number={firstNumber + i}
+      <InfiniteScrollList
+        nextLoadingEnabled={isLast}
+        isLoadingNext={!connection && !page.error}
+        hasNextData={connection ? !!endCursor : true}
+        nextError={
+          !connection && page.error ? (
+            <LoadErrorRow
+              message={t('maps.catalog.loadMoreError', "Couldn't load more maps")}
+              onRetry={page.retry}
+            />
+          ) : undefined
+        }
+        refreshToken={collectionId}
+        onLoadNextData={() => onLoadMore(pageIndex)}>
+        {connection?.edges.length ? (
+          <RowList>
+            {connection.edges.map((edge, i) => (
+              <CollectionMapRow
+                key={edge.node.id}
+                map={edge.node}
+                index={numbered ? rowIndex(pageIndex, i, ROWS_PAGE_SIZE) : undefined}
+                ownPoolType={ownPoolType}
+                editing={editing}
+              />
+            ))}
+          </RowList>
+        ) : null}
+      </InfiniteScrollList>
+      {!isLast && endCursor ? (
+        <RowsChunk
+          collectionId={collectionId}
+          filter={filter}
+          pageIndex={pageIndex + 1}
+          after={endCursor}
+          pageCount={pageCount}
+          numbered={numbered}
           ownPoolType={ownPoolType}
+          editing={editing}
+          refetchToken={refetchToken}
+          onLoadMore={onLoadMore}
         />
-      ))}
+      ) : null}
     </>
   )
 }
 
 /**
- * A row's hover and focus states cover all of it, star included: its link stretches over the whole
- * row (see `RowLink`), and the star sits above that.
+ * A row's hover and focus states cover all of it, star and controls included: its link stretches
+ * over the whole row (see `RowLink`), and the star and controls sit above that.
  */
 const Row = styled.li`
   position: relative;
@@ -1029,7 +1239,7 @@ const RowLink = styled(LinkButton)`
     outline: none;
   }
 
-  /* Makes the whole row the link's target, beneath the star */
+  /* Makes the whole row the link's target, beneath the star and controls */
   &::after {
     position: absolute;
     inset: 0;
@@ -1085,9 +1295,14 @@ const RowMeta = styled.div`
   color: var(--color-grey-blue80);
 `
 
+/**
+ * Outside the row's link, so this margin plus the row's gap make the same space the link leaves
+ * between its own parts.
+ */
 const RowGames = styled.div`
   ${labelSmall};
   flex-shrink: 0;
+  margin-inline-start: 8px;
   color: var(--color-grey-blue70);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1116,33 +1331,103 @@ const StarButton = styled(IconButton)<{ $favorited: boolean }>`
 `
 
 /**
+ * The move and remove buttons of a row, above the link that covers it. Its width never changes, so
+ * the name cuts off at the same place whether or not the buttons show. They show while the row is
+ * hovered or holds focus (so tabbing to one shows them), and always where nothing can hover. Hidden
+ * ones stay in the layout and in the tab order, so showing them shifts nothing.
+ */
+const RowControls = styled.div`
+  position: relative;
+  z-index: 1;
+  width: 96px;
+  flex-shrink: 0;
+
+  display: flex;
+  justify-content: flex-end;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms linear;
+
+  ${Row}:hover &,
+  ${Row}:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+`
+
+const RowControlButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+`
+
+/**
  * One map of a collection on one line: its number, image, name, the ladder pools it's in, facts,
- * games, and its star.
+ * the buttons that move and remove it (if the viewer can edit the collection), games, and its star.
  */
 function CollectionMapRow({
   map: mapRef,
-  number,
+  index,
   ownPoolType,
+  editing,
 }: {
   map: FragmentType<typeof MapCollectionRow_SbMapFragment>
-  number: number
+  /** Where the map is in the collection's order, from 0. Undefined leaves the row unnumbered. */
+  index?: number
   /** A matchmaking type whose pool chip the row leaves out. */
   ownPoolType?: MatchmakingType
+  editing?: RowEditing
 }) {
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
   const row = useFragment(MapCollectionRow_SbMapFragment, mapRef)
   const map = useFragment(MapTile_SbMapFragment, row)
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
+  const upRef = useRef<HTMLButtonElement>(null)
+  const downRef = useRef<HTMLButtonElement>(null)
   const name = filterColorCodes(map.name)
   const starLabel = map.isFavorited
     ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
     : t('maps.thumbnail.addToStarred', 'Add to Starred')
+  const moveIndex = editing?.canMove ? index : undefined
+  const canMove = (direction: MoveDirection) =>
+    !!editing &&
+    moveIndex !== undefined &&
+    moveTargetIndex(moveIndex, direction, editing.mapCount) !== undefined
+  const onMove = (direction: MoveDirection) => {
+    if (editing && moveIndex !== undefined) {
+      editing.onMove(map.id, moveIndex, direction)
+    }
+  }
+
+  // A moved row is put back in the DOM (or made anew, when it moves to another page), which takes
+  // focus away from the button that moved it
+  const restoreFocus = useEffectEvent(() => {
+    const direction = editing?.takePendingFocus(map.id)
+    if (direction === undefined) {
+      return
+    }
+    const [preferred, other] = direction === -1 ? [upRef, downRef] : [downRef, upRef]
+    const button = preferred.current?.disabled ? other.current : preferred.current
+    button?.focus()
+  })
+  useEffect(() => {
+    restoreFocus()
+  }, [index])
+
+  const moveUpLabel = t('maps.collections.moveUp', 'Move up')
+  const moveDownLabel = t('maps.collections.moveDown', 'Move down')
+  const removeLabel = t('maps.collections.removeFromCollection', 'Remove from collection')
 
   return (
     <Row>
       <RowLink href={urlForMapFile(map.family, map.id)}>
-        <RowNumber>{number}</RowNumber>
+        {index !== undefined ? <RowNumber>{index + 1}</RowNumber> : null}
         <RowThumbnail>
           <MapFileImage file={map.file} name={name} size={48} forceAspectRatio={1} />
         </RowThumbnail>
@@ -1171,17 +1456,50 @@ function CollectionMapRow({
           </RowNameLine>
           <RowMeta>{mapTileMeta(map, t)}</RowMeta>
         </RowText>
-        <RowGames>
-          {map.stats
-            ? t('maps.catalog.totalGames', {
-                defaultValue: '{{formattedCount}} games',
-                defaultValue_one: '{{formattedCount}} game',
-                count: map.stats.gamesTotal,
-                formattedCount: numbers.format(map.stats.gamesTotal),
-              })
-            : t('maps.catalog.notPlayed', 'Not played yet')}
-        </RowGames>
       </RowLink>
+      {editing ? (
+        <RowControls>
+          {editing.canMove ? (
+            <>
+              <Tooltip text={moveUpLabel} position='top' tabIndex={-1}>
+                <RowControlButton
+                  ref={upRef}
+                  icon={<MaterialIcon icon='arrow_upward' size={20} />}
+                  ariaLabel={moveUpLabel}
+                  disabled={!canMove(-1)}
+                  onClick={() => onMove(-1)}
+                />
+              </Tooltip>
+              <Tooltip text={moveDownLabel} position='top' tabIndex={-1}>
+                <RowControlButton
+                  ref={downRef}
+                  icon={<MaterialIcon icon='arrow_downward' size={20} />}
+                  ariaLabel={moveDownLabel}
+                  disabled={!canMove(1)}
+                  onClick={() => onMove(1)}
+                />
+              </Tooltip>
+            </>
+          ) : null}
+          <Tooltip text={removeLabel} position='top' tabIndex={-1}>
+            <RowControlButton
+              icon={<MaterialIcon icon='close' size={20} />}
+              ariaLabel={removeLabel}
+              onClick={() => editing.onRemove(map.id, name)}
+            />
+          </Tooltip>
+        </RowControls>
+      ) : null}
+      <RowGames>
+        {map.stats
+          ? t('maps.catalog.totalGames', {
+              defaultValue: '{{formattedCount}} games',
+              defaultValue_one: '{{formattedCount}} game',
+              count: map.stats.gamesTotal,
+              formattedCount: numbers.format(map.stats.gamesTotal),
+            })
+          : t('maps.catalog.notPlayed', 'Not played yet')}
+      </RowGames>
       <Tooltip text={starLabel} position='left' tabIndex={-1}>
         <StarButton
           $favorited={map.isFavorited}
