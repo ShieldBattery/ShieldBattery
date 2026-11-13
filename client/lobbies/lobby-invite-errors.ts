@@ -29,6 +29,11 @@ export function lobbyInviteErrorMessage(err: unknown, t: TFunction): string {
         'lobbies.inviteToLobby.errorBannedFromLobby',
         'That user has been banned from this lobby.',
       )
+    case InviteToLobbyErrorCode.NotAcceptingInvites:
+      return t(
+        'lobbies.inviteToLobby.errorNotAcceptingInvites',
+        "That user isn't accepting lobby invites.",
+      )
     default:
       return t('lobbies.inviteToLobby.defaultError', 'Error inviting user to lobby')
   }

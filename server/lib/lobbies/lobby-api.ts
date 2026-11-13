@@ -43,6 +43,7 @@ import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
 import NotificationService from '../notifications/notification-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import { AccountSettingsService } from '../settings/account-settings-service'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { findUserById } from '../users/user-model'
@@ -274,6 +275,7 @@ export class LobbyApi {
     private clientSocketsManager: ClientSocketsManager,
     private notificationService: NotificationService,
     private userRelationshipService: UserRelationshipService,
+    private accountSettingsService: AccountSettingsService,
   ) {}
 
   @httpPost('/')
@@ -402,6 +404,18 @@ export class LobbyApi {
     ])
     if (inviterBlockedByTarget || targetBlockedByInviter) {
       return
+    }
+
+    // The target's own settings decide who else may invite them. 
+    const targetSettings = await this.accountSettingsService.getSettings(target.id)
+    const invitesAllowed =
+      targetSettings.allowInvitesFrom === 'all' ||
+      (targetSettings.allowInvitesFrom === 'friends' &&
+        (await this.userRelationshipService.areFriends(userId, target.id)))
+    if (!invitesAllowed) {
+      throw new HttpErrorWithPayload(409, 'User is not accepting lobby invites', {
+        code: InviteToLobbyErrorCode.NotAcceptingInvites,
+      })
     }
 
     if (this.lobbyService.lobbyBannedUsers.get(lobby.id)?.has(target.id)) {

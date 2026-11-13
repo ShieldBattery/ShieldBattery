@@ -10,6 +10,7 @@ import {
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { createHuman, createOpen } from '../../../common/lobbies/slot'
 import { NotificationType } from '../../../common/notifications'
+import { AllowedInviteSource } from '../../../common/settings/account-settings'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { findUserById } from '../users/user-model'
 import { convertLobbyServiceError, LobbyApi } from './lobby-api'
@@ -161,11 +162,15 @@ function makeInviteApi({
   existingInvites = [],
   senderBlockedByTarget = false,
   targetBlockedBySender = false,
+  allowInvitesFrom = 'all',
+  senderAndTargetAreFriends = false,
 }: {
   lobby?: Lobby
   existingInvites?: unknown[]
   senderBlockedByTarget?: boolean
   targetBlockedBySender?: boolean
+  allowInvitesFrom?: AllowedInviteSource
+  senderAndTargetAreFriends?: boolean
 } = {}) {
   const lobbyService = {
     getLobbyForClient: vi.fn().mockReturnValue(lobby),
@@ -183,6 +188,10 @@ function makeInviteApi({
         (potentialBlocker === TARGET_ID && userId === SENDER_ID && senderBlockedByTarget) ||
         (potentialBlocker === SENDER_ID && userId === TARGET_ID && targetBlockedBySender),
     ),
+    areFriends: vi.fn().mockResolvedValue(senderAndTargetAreFriends),
+  }
+  const accountSettingsService = {
+    getSettings: vi.fn().mockResolvedValue({ allowInvitesFrom }),
   }
 
   const api = new LobbyApi(
@@ -190,9 +199,10 @@ function makeInviteApi({
     { getById: vi.fn().mockReturnValue({ clientType: 'electron' }) } as any,
     notificationService as any,
     userRelationshipService as any,
+    accountSettingsService as any,
   )
 
-  return { api, notificationService }
+  return { api, notificationService, userRelationshipService }
 }
 
 describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
@@ -260,5 +270,50 @@ describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
     await expect(api.inviteToLobby(makeInviteCtx())).resolves.toBeUndefined()
 
     expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test('rejects an invite when the target accepts no invites', async () => {
+    const { api, notificationService, userRelationshipService } = makeInviteApi({
+      allowInvitesFrom: 'none',
+    })
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
+    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.NotAcceptingInvites })
+    expect(notificationService.addNotification).not.toHaveBeenCalled()
+    // Whether the two are friends can't change the answer, so the lookup is skipped.
+    expect(userRelationshipService.areFriends).not.toHaveBeenCalled()
+  })
+
+  test('rejects an invite when the target only accepts friends and the sender is not one', async () => {
+    const { api, notificationService, userRelationshipService } = makeInviteApi({
+      allowInvitesFrom: 'friends',
+    })
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+
+    expect(userRelationshipService.areFriends).toHaveBeenCalledWith(SENDER_ID, TARGET_ID)
+    expect(err).toHaveProperty('status', 409)
+    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.NotAcceptingInvites })
+    expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test('invites a friend of a target that only accepts invites from friends', async () => {
+    const { api, notificationService, userRelationshipService } = makeInviteApi({
+      allowInvitesFrom: 'friends',
+      senderAndTargetAreFriends: true,
+    })
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    await api.inviteToLobby(makeInviteCtx())
+
+    expect(userRelationshipService.areFriends).toHaveBeenCalledWith(SENDER_ID, TARGET_ID)
+    expect(notificationService.addNotification).toHaveBeenCalledWith({
+      userId: TARGET_ID,
+      data: { type: NotificationType.LobbyInvite, from: SENDER_ID, lobbyId: LOBBY_ID },
+    })
   })
 })

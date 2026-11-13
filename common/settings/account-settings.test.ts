@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { ALL_USER_AVAILABILITIES } from '../users/availability'
-import { DEFAULT_ACCOUNT_SETTINGS, fillAccountSettingsDefaults } from './account-settings'
+import {
+  ALL_ALLOWED_INVITE_SOURCES,
+  DEFAULT_ACCOUNT_SETTINGS,
+  fillAccountSettingsDefaults,
+} from './account-settings'
 
 describe('common/settings/account-settings', () => {
   describe('fillAccountSettingsDefaults', () => {
@@ -74,6 +78,19 @@ describe('common/settings/account-settings', () => {
       expect(
         fillAccountSettingsDefaults({ shareDiscordActivity: 'friendsOnly' }).shareDiscordActivity,
       ).toBe('notAsked')
+    })
+
+    test.each(ALL_ALLOWED_INVITE_SOURCES)(
+      'keeps a stored lobby invite source of %s',
+      allowInvitesFrom => {
+        expect(fillAccountSettingsDefaults({ allowInvitesFrom }).allowInvitesFrom).toBe(
+          allowInvitesFrom,
+        )
+      },
+    )
+
+    test('an unknown lobby invite source falls back to anyone', () => {
+      expect(fillAccountSettingsDefaults({ allowInvitesFrom: 'clan' }).allowInvitesFrom).toBe('all')
     })
   })
 })

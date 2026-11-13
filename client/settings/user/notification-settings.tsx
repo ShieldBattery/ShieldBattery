@@ -1,5 +1,8 @@
+import { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isAllowedInviteSource } from '../../../common/settings/account-settings'
 import { CheckBox } from '../../material/check-box'
+import { RadioButton, RadioGroup } from '../../material/radio'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeAccountSettings } from '../action-creators'
 import {
@@ -13,6 +16,16 @@ export function UserNotificationSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const settings = useAppSelector(s => s.settings.account)
+
+  const onInviteSourceChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value
+    if (!isAllowedInviteSource(value)) {
+      return
+    }
+    dispatch(
+      mergeAccountSettings({ allowInvitesFrom: value }, { onSuccess: () => {}, onError: () => {} }),
+    )
+  }
 
   return (
     <FormContainer>
@@ -135,6 +148,35 @@ export function UserNotificationSettings() {
             'Show whispers in every chat',
           )}
         />
+      </SectionContainer>
+      <SectionContainer>
+        <SettingsSectionHeader>
+          {t('settings.user.notifications.lobbyInvites.title', 'Lobby invites')}
+        </SettingsSectionHeader>
+        <SettingsSectionDescription>
+          {t(
+            'settings.user.notifications.lobbyInvites.description',
+            'Who can invite you to their lobby. People you have blocked can never invite you, ' +
+              'whichever option you pick here.',
+          )}
+        </SettingsSectionDescription>
+        <RadioGroup
+          name='allowInvitesFrom'
+          value={settings.allowInvitesFrom}
+          onChange={onInviteSourceChange}>
+          <RadioButton
+            value='all'
+            label={t('settings.user.notifications.lobbyInvites.anyone', 'Anyone')}
+          />
+          <RadioButton
+            value='friends'
+            label={t('settings.user.notifications.lobbyInvites.friendsOnly', 'Friends only')}
+          />
+          <RadioButton
+            value='none'
+            label={t('settings.user.notifications.lobbyInvites.nobody', 'Nobody')}
+          />
+        </RadioGroup>
       </SectionContainer>
     </FormContainer>
   )

@@ -29,6 +29,11 @@ export enum InviteToLobbyErrorCode {
   AlreadyInvited = 'alreadyInvited',
   AlreadyInLobby = 'alreadyInLobby',
   BannedFromLobby = 'bannedFromLobby',
+  /**
+   * The target's settings don't allow invites from this sender: either they accept none at all, or
+   * only ones from friends and the sender isn't one.
+   */
+  NotAcceptingInvites = 'notAcceptingInvites',
 }
 
 /**
