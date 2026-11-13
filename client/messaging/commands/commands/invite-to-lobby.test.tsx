@@ -212,6 +212,10 @@ describe('messaging/commands/commands/invite-to-lobby', () => {
     [InviteToLobbyErrorCode.AlreadyInvited, 'That user already has an invite to this lobby.'],
     [InviteToLobbyErrorCode.AlreadyInLobby, 'That user is already in this lobby.'],
     [InviteToLobbyErrorCode.BannedFromLobby, 'That user has been banned from this lobby.'],
+    [
+      InviteToLobbyErrorCode.NotAcceptingInvites,
+      "That user isn't accepting lobby invites from you.",
+    ],
   ])('a refused invite (%s) says why', (code, message) => {
     const { emit } = runForTarget('/invite tec27')
 
