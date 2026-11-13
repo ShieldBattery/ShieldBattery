@@ -886,6 +886,13 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    /// `fn(image)`, the image in ecx on 32-bit; queues the draw commands of one image of a
+    /// sprite. Called for every image of every sprite in view, each sprite's from the last in its
+    /// list to the first.
+    pub fn draw_image(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_image()
+    }
+
     /// `fn()`; draws the software cursor (render mode 0x1d) on top of everything else. Returns
     /// without drawing when the cursor is hidden or the hardware cursor is in use. Last call
     /// of `draw_graphic_layers`.

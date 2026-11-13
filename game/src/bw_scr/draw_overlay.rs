@@ -78,6 +78,8 @@ pub struct OverlayState {
     native_dialogs_seen: [ReplacedDialogState; NativeDialog::ALL.len()],
     /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
+    /// Where the minimap is on screen, as the last frame found it.
+    minimap_place: Option<MinimapPlace>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
     /// The observer panels the last frame handed the shell, kept while the client is watching.
@@ -99,6 +101,10 @@ pub struct OverlayState {
     /// If (and only if) a mouse button down event was captured,
     /// capture the up event as well.
     captured_mouse_down: [bool; 2],
+    /// Whether the overlay took a click made with Alt and Shift held since Alt last went down. Such
+    /// a click picks with the on-screen count, and Windows would otherwise take the Alt+Shift let go
+    /// after it for a request to switch keyboard layouts.
+    vetoes_layout_switch: bool,
     /// Per mouse button, whether the last press was delivered to BW (neither captured by the
     /// overlay nor swallowed by the disconnect block), so its release is delivered too. BW must
     /// see every release of a press it saw — otherwise it is left mid-drag-select with no way to
@@ -215,6 +221,9 @@ pub struct StepOutput {
     pub textures_delta: egui::TexturesDelta,
     // (draw layer, primitive data)
     pub primitives: Vec<(u16, Vec<egui::ClippedPrimitive>)>,
+    /// The black to draw behind a watcher's minimap, with the minimap's square, in the overlay's
+    /// points: drawn just before the first thing the game draws there.
+    pub behind_minimap: Option<(Rect, Vec<egui::ClippedPrimitive>)>,
     pub replay_visions: u8,
     pub show_entire_map: bool,
     pub select_unit: Option<Unit>,
@@ -257,6 +266,10 @@ pub struct StepOutput {
     /// How much of the view's height it may scroll past the map's bottom edge: the band the
     /// overlay's bottom panels cover for a watcher, nothing for a player.
     pub bottom_overpan_share: f32,
+    /// The units the game is to draw health bars under though they are not selected.
+    pub health_bar_units: Vec<Unit>,
+    /// The units to light up on the map: those of the group the watcher is pointing at.
+    pub highlighted_units: Vec<Unit>,
 }
 
 /// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
@@ -345,6 +358,117 @@ pub struct BwVars {
     pub alliance_rules: AllianceRules,
     /// What the game offers the local player for pausing.
     pub pause_control: Option<PauseControl>,
+    /// The part of the map the main view shows.
+    pub map_view: MapView,
+    /// The map's size, in map pixels.
+    pub map_size: (u32, u32),
+}
+
+/// A part of the map, in map pixels: where its top-left corner is and how much of the map it spans.
+#[derive(Copy, Clone, Debug)]
+pub struct MapView {
+    pub left: u32,
+    pub top: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl MapView {
+    /// Whether `point` is inside this part of the map.
+    pub fn contains(&self, point: &bw::Point) -> bool {
+        let (Ok(x), Ok(y)) = (u32::try_from(point.x), u32::try_from(point.y)) else {
+            return false;
+        };
+        (self.left..self.left + self.width).contains(&x)
+            && (self.top..self.top + self.height).contains(&y)
+    }
+}
+
+/// Where the minimap is on screen: its rect, in the overlay's points, and whether that is the
+/// control the game draws the map in, which the game makes the shape of the map, or only the
+/// square the minimap's dialog leaves for it.
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct MinimapPlace {
+    rect: Rect,
+    is_the_map: bool,
+}
+
+/// Where on the screen the minimap shows the map, and how big the map is.
+#[derive(Copy, Clone, Debug)]
+struct MinimapMap {
+    /// The part of the minimap's square the map is shown in, in the overlay's points.
+    area: Rect,
+    /// The map's size in map pixels.
+    map_width: u32,
+    map_height: u32,
+}
+
+impl MinimapMap {
+    /// The minimap of a map `map_width` by `map_height` pixels at `place`. `None` for a map or a
+    /// place with no size.
+    ///
+    /// The control the game draws the map in is the map's own shape already, a map that is not
+    /// square having had it made narrower or shorter, so the map is all of it. Only the square a
+    /// dialog without that control leaves has the map fitted into it (see [`Self::fitted`]).
+    ///
+    /// Worked out from where the minimap is rather than read off what the game drew of the map
+    /// there: the game draws the minimap differently with the terrain on it turned off and in SD
+    /// graphics, and a place on the minimap is the same place on the map however it was drawn.
+    fn shown_at(place: MinimapPlace, map_width: u32, map_height: u32) -> Option<MinimapMap> {
+        if !place.is_the_map {
+            return MinimapMap::fitted(place.rect, map_width, map_height);
+        }
+        let sized = map_width > 0
+            && map_height > 0
+            && place.rect.width() > 0.0
+            && place.rect.height() > 0.0;
+        sized.then_some(MinimapMap {
+            area: place.rect,
+            map_width,
+            map_height,
+        })
+    }
+
+    /// The minimap of a map `map_width` by `map_height` pixels fitted into `square`: the map fills
+    /// the square along its longer side and stands in the middle of it along its shorter one,
+    /// which is how the game lays a map that is not square out in the room it has for its minimap.
+    /// `None` for a map or a square with no size.
+    fn fitted(square: Rect, map_width: u32, map_height: u32) -> Option<MinimapMap> {
+        let longer = map_width.max(map_height) as f32;
+        if longer <= 0.0 || square.width() <= 0.0 || square.height() <= 0.0 {
+            return None;
+        }
+        let size = egui::vec2(
+            square.width() * map_width as f32 / longer,
+            square.height() * map_height as f32 / longer,
+        );
+        if size.x <= 0.0 || size.y <= 0.0 {
+            return None;
+        }
+        Some(MinimapMap {
+            area: Rect::from_center_size(square.center(), size),
+            map_width,
+            map_height,
+        })
+    }
+
+    /// The place on the map the minimap shows at `point` of the screen, kept to the map.
+    fn map_point(&self, point: Pos2) -> bw::Point {
+        let across = |at: f32, from: f32, to: f32, span: u32| {
+            let along = ((at - from) / (to - from)).clamp(0.0, 1.0);
+            let max = span.saturating_sub(1).min(i16::MAX as u32) as f32;
+            (along * span as f32).min(max) as i16
+        };
+        bw::Point {
+            x: across(point.x, self.area.left(), self.area.right(), self.map_width),
+            y: across(
+                point.y,
+                self.area.top(),
+                self.area.bottom(),
+                self.map_height,
+            ),
+        }
+    }
 }
 
 /// What the playback controls need of the game: the replay's length and recorded speed, from its
@@ -455,6 +579,7 @@ impl OverlayState {
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
             logged_minimap_area: None,
+            minimap_place: None,
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
@@ -469,6 +594,7 @@ impl OverlayState {
                 follow_unit: None,
             },
             captured_mouse_down: [false; 2],
+            vetoes_layout_switch: false,
             bw_mouse_down: [false; 2],
             bw_keys_down: [false; 256],
             mouse_down: [false; 2],
@@ -672,7 +798,7 @@ impl OverlayState {
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
             pause_control: bw.pause_control,
-            minimap_rect: self.minimap_rect(bw),
+            minimap_rect: self.minimap_place(bw).map(|place| place.rect),
         };
         if let Some(minimap) = host_frame.minimap_rect {
             let screen = self.ctx.viewport_rect();
@@ -861,6 +987,8 @@ impl OverlayState {
         let mut replay_commands = Vec::new();
         let mut setting_changes = Vec::new();
         let mut game_commands = Vec::new();
+        let health_bars = std::mem::take(&mut frame_output.health_bars);
+        let highlighted_units = std::mem::take(&mut frame_output.highlighted_units);
         for intent in frame_output.intents {
             match intent {
                 // The overlay holds what the player moved, so the screen keeps showing it for the
@@ -894,11 +1022,28 @@ impl OverlayState {
             prefs
         });
         overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
+        overlay_ui::kit::off_grid::leave_text_off_grid(&self.ctx, &mut output.shapes);
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
         let primitives = vec![(self.draw_layer, ui_primitives)];
+        // The game draws no ground of its own for the minimap: its black comes from the console's
+        // art, which a watcher has none of. Where the minimap then draws nothing, with the
+        // terrain turned off on it or under fog the watcher has made see-through, the map would
+        // show through it.
+        let behind_minimap = self
+            .minimap_place
+            .filter(|_| bw.is_replay_or_obs)
+            .map(|place| place.rect)
+            .map(|square| {
+                let black = egui::epaint::ClippedShape {
+                    clip_rect: square,
+                    shape: egui::Shape::rect_filled(square, 0.0, Color32::BLACK),
+                };
+                (square, self.ctx.tessellate(vec![black], pixels_per_point))
+            });
         StepOutput {
             textures_delta: output.textures_delta,
             primitives,
+            behind_minimap,
             replay_visions: self.out_state.replay_visions,
             show_entire_map: self.out_state.show_entire_map,
             select_unit: self.out_state.select_unit,
@@ -925,6 +1070,8 @@ impl OverlayState {
             } else {
                 0.0
             },
+            health_bar_units: stats::on_screen_units(bw, &health_bars),
+            highlighted_units: stats::on_screen_units(bw, &highlighted_units),
         }
     }
 
@@ -951,14 +1098,21 @@ impl OverlayState {
         changed
     }
 
-    /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
+    /// Where BW's minimap is on screen, in overlay points, while its dialog is up, kept for the
+    /// rest of the frame to go by.
     ///
-    /// The square is the control the map is drawn in. Without that control, it is taken from the
-    /// dialog's own rect, which carries the strip of buttons above the map as well as the map: as
-    /// wide as the dialog, and as tall as it is wide, from its bottom.
-    /// The rect is logged whenever it moves, children and all, which is what to check the square
+    /// It is the control the map is drawn in, which the game sizes to the map. Without that
+    /// control, it is the square taken from the dialog's own rect, which carries the strip of
+    /// buttons above the map as well as the map: as wide as the dialog, and as tall as it is wide,
+    /// from its bottom.
+    /// The rect is logged whenever it moves, children and all, which is what to check the place
     /// against when a layout of the game's puts the minimap somewhere new.
-    fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
+    fn minimap_place(&mut self, bw: &BwVars) -> Option<MinimapPlace> {
+        self.minimap_place = self.find_minimap(bw);
+        self.minimap_place
+    }
+
+    fn find_minimap(&mut self, bw: &BwVars) -> Option<MinimapPlace> {
         let dialog = bw::iter_dialogs(bw.dialogs.first())
             .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
         let control = dialog.as_control();
@@ -1000,7 +1154,10 @@ impl OverlayState {
             let min = self.bw_dialog_point_to_egui(area.left, area.top);
             let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
             if max.x > min.x && max.y > min.y {
-                return Some(Rect::from_min_max(min, max));
+                return Some(MinimapPlace {
+                    rect: Rect::from_min_max(min, max),
+                    is_the_map: true,
+                });
             }
         }
         let min = self.bw_dialog_point_to_egui(area.left, area.top);
@@ -1010,10 +1167,10 @@ impl OverlayState {
             return None;
         }
         let side = width.min(max.y - min.y);
-        Some(Rect::from_min_max(
-            pos2(min.x, max.y - side),
-            pos2(max.x, max.y),
-        ))
+        Some(MinimapPlace {
+            rect: Rect::from_min_max(pos2(min.x, max.y - side), pos2(max.x, max.y)),
+            is_the_map: false,
+        })
     }
 
     fn bw_dialog_coords_max_x(&self) -> f32 {
@@ -1065,6 +1222,7 @@ impl OverlayState {
         });
         let tileset = unsafe { (**bw.game).tileset };
         ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
+        ui.collapsing("On-screen count", on_screen_count_debug_ui);
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -1265,6 +1423,15 @@ impl OverlayState {
                     point,
                     asked: Instant::now(),
                 });
+            }
+            Intent::LookAtMinimapPoint(point) => {
+                let (map_width, map_height) = bw.map_size;
+                let minimap = self
+                    .minimap_place
+                    .and_then(|place| MinimapMap::shown_at(place, map_width, map_height));
+                if let Some(minimap) = minimap {
+                    self.out_state.look_at = Some(minimap.map_point(point));
+                }
             }
             Intent::SetSpeed {
                 speed_index,
@@ -1500,7 +1667,21 @@ impl OverlayState {
             {
                 self.capture = self.shell.capture();
             }
+            // A fresh Alt press, not a repeat of a held one, starts a new chord.
+            let fresh_alt = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN)
+                && wparam as i32 == VK_MENU
+                && lparam & (1 << 30) == 0;
+            if fresh_alt {
+                self.vetoes_layout_switch = false;
+            }
             match msg {
+                // Windows asks the focused window before switching layouts, and turning it down
+                // leaves the layout as it was.
+                WM_INPUTLANGCHANGEREQUEST if self.vetoes_layout_switch => {
+                    debug!("Kept the keyboard layout through an Alt+Shift click the overlay took");
+                    self.vetoes_layout_switch = false;
+                    Some(0)
+                }
                 // The window's close button and Alt+F4 ask to close the window, which SC:R answers
                 // with its own exit question. The shell asks with its own instead, once the game
                 // runs. Either can arrive as the system command or as the close it turns into.
@@ -1561,6 +1742,10 @@ impl OverlayState {
                     }
                     self.bw_mouse_down[button_idx] = false;
                     self.captured_mouse_down[button_idx] = pressed;
+                    if pressed {
+                        let held = |key| GetKeyState(key) as u16 & 0x8000 != 0;
+                        self.vetoes_layout_switch |= held(VK_MENU) && held(VK_SHIFT);
+                    }
                     self.events.push(Event::PointerButton {
                         pos,
                         button,
@@ -1834,6 +2019,58 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
         info!("Fog style: {style:?}");
     }
     fog_style::set_fog_style(style);
+}
+
+/// Live controls for the on-screen count: how its labels keep their places and move between them,
+/// and how workers putting up buildings are grouped.
+fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
+    use overlay_ui::observer::CountTuning;
+    use stats::BuilderGrouping;
+
+    use super::unit_highlights::{self, HighlightLook};
+
+    let mut builders = stats::builder_grouping();
+    ui.label("Workers putting up buildings are grouped");
+    for (grouping, text) in [
+        (BuilderGrouping::Apart, "On their own"),
+        (BuilderGrouping::WithGatherers, "With their base's workers"),
+        (BuilderGrouping::WithArmy, "As any other unit"),
+    ] {
+        ui.radio_value(&mut builders, grouping, text);
+    }
+    ui.separator();
+    ui.label("Labels");
+    let mut motion = stats::count_tuning();
+    ui.add(
+        Slider::new(&mut motion.slack_share, 0.0..=1.0)
+            .text("Slack (share of half the group's size)"),
+    );
+    ui.add(Slider::new(&mut motion.slack_least, 0.0..=64.0).text("Slack at least (map px)"));
+    ui.add(Slider::new(&mut motion.settle_secs, 0.0..=0.5).text("Move time (s)"));
+    ui.add(Slider::new(&mut motion.least_speed, 0.0..=600.0).text("Slowest move (map px/s)"));
+    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
+    ui.add(
+        Slider::new(&mut motion.same_orders_reach, 96.0..=1024.0)
+            .text("Reach on the same orders (map px)"),
+    );
+    ui.separator();
+    ui.label("Units of the group pointed at");
+    let mut look = unit_highlights::look();
+    ui.add(Slider::new(&mut look.lit, 1.0..=3.0).text("Their brightness (no real-time lighting)"));
+    ui.add(Slider::new(&mut motion.veil, 0.0..=1.0).text("Veil over everything else"));
+    ui.add(Slider::new(&mut motion.spot_margin, 0.0..=96.0).text("Light past a unit (map px)"));
+    ui.add(Slider::new(&mut motion.spot_fade, 1.0..=192.0).text("Light's fade (map px)"));
+    if ui.button("Reset").clicked() {
+        motion = CountTuning::DEFAULT;
+        builders = BuilderGrouping::Apart;
+        look = HighlightLook::DEFAULT;
+    }
+    if ui.button("Log values").clicked() {
+        info!("On-screen count: builders {builders:?}, {motion:?}, {look:?}");
+    }
+    unit_highlights::set_look(look);
+    stats::set_count_tuning(motion);
+    stats::set_builder_grouping(builders);
 }
 
 /// Nothing where there is no unit at `index` or it is the only one: taking the last unit out of a
@@ -2226,9 +2463,72 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use super::{numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit};
+    use super::{
+        MinimapMap, MinimapPlace, numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui,
+        without_unit,
+    };
 
     use egui::pos2;
+
+    #[test]
+    fn the_control_the_game_draws_the_map_in_is_all_map() {
+        // A map twice as wide as it is tall, 128 tiles by 64: the game has made the control it
+        // draws it in as much wider than it is tall.
+        let control = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(256.0, 128.0)),
+            is_the_map: true,
+        };
+        let minimap = MinimapMap::shown_at(control, 4096, 2048).unwrap();
+        assert_eq!(minimap.area, control.rect);
+        // A quarter of the way down the control is a quarter of the way down the map.
+        let point = minimap.map_point(pos2(138.0, 532.0));
+        assert_eq!((point.x, point.y), (2048, 512));
+        // The square a dialog without that control leaves has the map fitted into it.
+        let square = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(200.0, 200.0)),
+            is_the_map: false,
+        };
+        let fitted = MinimapMap::shown_at(square, 4096, 2048).unwrap();
+        assert_eq!(
+            fitted.area,
+            egui::Rect::from_min_max(pos2(10.0, 550.0), pos2(210.0, 650.0))
+        );
+        // No map, or nowhere it is shown, is no minimap to point at.
+        assert!(MinimapMap::shown_at(control, 0, 2048).is_none());
+        let nowhere = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(0.0, 0.0)),
+            ..control
+        };
+        assert!(MinimapMap::shown_at(nowhere, 4096, 2048).is_none());
+    }
+
+    #[test]
+    fn a_place_on_the_minimap_is_the_same_share_of_the_map_shown_there() {
+        // A map twice as wide as it is tall, in a square 200 points across: it fills the square's
+        // width and the middle half of its height.
+        let square = egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(200.0, 200.0));
+        let minimap = MinimapMap::fitted(square, 4096, 2048).unwrap();
+        assert_eq!(
+            minimap.area,
+            egui::Rect::from_min_max(pos2(10.0, 550.0), pos2(210.0, 650.0))
+        );
+        let point = minimap.map_point(pos2(110.0, 575.0));
+        assert_eq!((point.x, point.y), (2048, 512));
+        // In the square but off the map's edge, it is kept to the map.
+        let point = minimap.map_point(pos2(250.0, 510.0));
+        assert_eq!((point.x, point.y), (4095, 0));
+        // A tall map stands in the middle of the square's width, and a square one fills it.
+        let tall = MinimapMap::fitted(square, 2048, 4096).unwrap();
+        assert_eq!(
+            tall.area,
+            egui::Rect::from_min_max(pos2(60.0, 500.0), pos2(160.0, 700.0))
+        );
+        assert_eq!(MinimapMap::fitted(square, 4096, 4096).unwrap().area, square);
+        // No map, or nowhere to show it, is no minimap to point at.
+        assert!(MinimapMap::fitted(square, 0, 0).is_none());
+        let nowhere = egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(0.0, 0.0));
+        assert!(MinimapMap::fitted(nowhere, 4096, 4096).is_none());
+    }
 
     #[test]
     fn scaled_mouse_positions_are_read_from_the_box_in_the_middle_of_the_window() {

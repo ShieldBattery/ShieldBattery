@@ -547,6 +547,7 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let draw_image = analysis.draw_image().ok_or("draw_image")?;
         let software_cursor = match (
             analysis.draw_software_cursor(),
             analysis.push_renderer_mode_override(),
@@ -810,6 +811,7 @@ impl BwScr {
             net_format_turn_rate,
             init_obs_ui,
             draw_graphic_layers,
+            draw_image,
             software_cursor,
             decide_cursor_type,
             tick_gated_work,
@@ -917,6 +919,8 @@ impl BwScr {
             last_overlay_hd_value: AtomicBool::new(false),
             hd_switching: AtomicBool::new(false),
             overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
+            unit_health_bars: super::unit_health_bars::UnitHealthBars::new(),
+            unit_highlights: super::unit_highlights::UnitHighlights::new(),
             software_cursor_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),
@@ -1029,7 +1033,8 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         .ok_or("techdata.dat")?;
     let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
     let images = analysis.dat_table(DatType::Images).ok_or("images.dat")?;
-    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13 + 0xe);
+    let sprites = analysis.dat_table(DatType::Sprites).ok_or("sprites.dat")?;
+    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13 + 0xe + 0x6);
     unsafe {
         copy_dat_table(&units, &mut out, 0x36);
         copy_dat_table(&weapons, &mut out, 0x18);
@@ -1037,6 +1042,7 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         copy_dat_table(&techdata, &mut out, 0xb);
         copy_dat_table(&orders, &mut out, 0x13);
         copy_dat_table(&images, &mut out, 0xe);
+        copy_dat_table(&sprites, &mut out, 0x6);
         let mut table = out.leak().as_ptr();
         bw_dat::init_units(table, 0x36);
         table = table.add(0x36);
@@ -1049,6 +1055,10 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         bw_dat::init_orders(table, 0x13);
         table = table.add(0x13);
         bw_dat::init_images(table, 0xe);
+        table = table.add(0xe);
+        // Its health bar, selection circle and circle offset fields start at sprite 130 (see
+        // `FIRST_SELECTABLE_SPRITE` in the overlay), and are read with ids counted from there.
+        bw_dat::init_sprites(table, 0x6);
         bw_dat::set_is_scr(true);
         bw_dat::set_bw_malloc(bw_malloc, bw_free);
     }
