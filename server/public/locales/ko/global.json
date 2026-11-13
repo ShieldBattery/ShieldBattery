@@ -223,6 +223,7 @@
       "openStarcraftSettings": "스타크래프트 설정 열기",
       "sessionExpired": "세션이 만료되었습니다",
       "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다.",
+      "unsupportedMachine": "이 컴퓨터에서는 ShieldBattery를 설정할 수 없습니다. 다른 컴퓨터에서 가입해 주세요.",
       "usernameTaken": "해당 아이디는 사용할 수 없습니다."
     },
     "usernameValidator": {
@@ -2338,6 +2339,7 @@
         "reviewSettings": "검색하기 전에 종족을 선택하고 선택한 각 모드의 맵을 확인하세요.",
         "settingsLoading": "설정을 아직 불러오는 중입니다",
         "somethingWentWrong": "문제가 발생했습니다 :(",
+        "unsupportedMachine": "이 컴퓨터에서는 랭크전이 지원되지 않습니다. 다른 컴퓨터에서 플레이해 주세요.",
         "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
       },
       "fixedMap": "고정 맵",

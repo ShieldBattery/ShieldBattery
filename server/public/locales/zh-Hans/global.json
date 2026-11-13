@@ -223,6 +223,7 @@
       "openStarcraftSettings": "打开星际争霸设置",
       "sessionExpired": "会话已过期",
       "tooManyAccounts": "该设备已达到创建账户的上限。如有注册码，可输入以绕过限制。",
+      "unsupportedMachine": "无法在这台电脑上设置 ShieldBattery。请尝试在其他电脑上注册。",
       "usernameTaken": "用户名不可用。"
     },
     "usernameValidator": {
@@ -2338,6 +2339,7 @@
         "reviewSettings": "搜索前请选择种族，并检查每个所选模式的地图。",
         "settingsLoading": "设置仍在加载中",
         "somethingWentWrong": "出错了 :(",
+        "unsupportedMachine": "这台电脑不支持排位对局。请尝试在其他电脑上游玩。",
         "userOffline": "与服务器的连接中断，请重新连接后重试。"
       },
       "fixedMap": "固定地图",

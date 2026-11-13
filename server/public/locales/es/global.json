@@ -223,6 +223,7 @@
       "openStarcraftSettings": "Abrir ajustes de StarCraft",
       "sessionExpired": "Sesión expirada",
       "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite.",
+      "unsupportedMachine": "No se puede configurar ShieldBattery en esta computadora. Intenta registrarte desde otra computadora.",
       "usernameTaken": "El nombre de usuario no está disponible."
     },
     "usernameValidator": {
@@ -2406,6 +2407,7 @@
         "reviewSettings": "Elige una raza y revisa los mapas de cada modo seleccionado antes de buscar.",
         "settingsLoading": "Los ajustes aún se están cargando",
         "somethingWentWrong": "Algo salió mal :(",
+        "unsupportedMachine": "Las partidas clasificatorias no son compatibles con esta computadora. Intenta jugar desde otra computadora.",
         "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
       },
       "fixedMap": "Mapa fijo",
