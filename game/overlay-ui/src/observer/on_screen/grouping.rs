@@ -61,8 +61,11 @@ pub(super) struct Member {
 /// each group's first member. `points_per_map_pixel` is how many points on the screen one of the
 /// map's pixels takes up, or 0 where that is not known, which leaves only [`LABEL_ROOM`].
 /// `same_orders_reach` is how far apart on the map, in its pixels, two units on the same orders
-/// can stand and still be together. `were_together` says whether two members, by index, were in
-/// one group the frame before.
+/// can stand and still be together. `were_together` says whether two members, by index, the lower
+/// first, were in one group the frame before.
+///
+/// Not every pair of units is measured: with every unit a player has on one screen, that is more
+/// pairs than there is time for in a frame. The groups are the same as if every pair had been.
 pub(super) fn stand_together(
     members: &[Member],
     points_per_map_pixel: f32,
@@ -72,25 +75,77 @@ pub(super) fn stand_together(
     let reach = (UNIT_REACH * points_per_map_pixel).max(LABEL_ROOM);
     let same_orders_reach = (same_orders_reach * points_per_map_pixel).max(reach);
     let mut parent: Vec<usize> = (0..members.len()).collect();
-    for (a, first) in members.iter().enumerate() {
-        for (b, second) in members.iter().enumerate().skip(a + 1) {
-            if first.job != second.job {
+
+    // A base's workers are together wherever they stand, and with nothing else. Everything else
+    // is together by how near it stands, and is sorted into squares small enough that any two in
+    // one are within the shortest reach of each other, a little under it across the corners. Two
+    // of a kind in one square are then together without being measured, where a kind is workers
+    // putting up buildings or units at no work, which never join each other.
+    let square_size = reach / std::f32::consts::SQRT_2 * 0.999;
+    let mut first_at_base: HashMap<usize, usize> = HashMap::new();
+    let mut by_square: HashMap<(i32, i32), [Vec<usize>; 2]> = HashMap::new();
+    for (index, member) in members.iter().enumerate() {
+        if let Some(WorkerJob::AtBase { base }) = member.job {
+            let first = *first_at_base.entry(base).or_insert(index);
+            join(&mut parent, first, index);
+            continue;
+        }
+        let square = (
+            (member.at.x / square_size).floor() as i32,
+            (member.at.y / square_size).floor() as i32,
+        );
+        let of_a_kind =
+            &mut by_square.entry(square).or_default()[usize::from(member.job.is_some())];
+        if let Some(&first) = of_a_kind.first() {
+            join(&mut parent, first, index);
+        }
+        of_a_kind.push(index);
+    }
+
+    // Between squares, the units of a kind in each are already one group apiece, so one pair
+    // within reach joins them all, and two that are joined already need no measuring. Squares
+    // further apart than the longest reach there is are never looked at together: they are gone
+    // through in order across the screen, each against the ones after it that are near enough.
+    let mut squares: Vec<_> = by_square.iter().collect();
+    squares.sort_unstable_by_key(|&(&square, _)| square);
+    let rings = (same_orders_reach * KEEP_TOGETHER / square_size).ceil() as i32;
+    for (at, &(&(x, y), ours)) in squares.iter().enumerate() {
+        for &(&(other_x, other_y), theirs) in &squares[at + 1..] {
+            if other_x - x > rings {
+                break;
+            }
+            if (other_y - y).abs() > rings {
                 continue;
             }
-            let same_base = matches!(first.job, Some(WorkerJob::AtBase { .. }));
-            let kept = if were_together(a, b) {
-                KEEP_TOGETHER
-            } else {
-                1.0
-            };
-            let reach = if first.orders.is_some() && first.orders == second.orders {
-                same_orders_reach
-            } else {
-                reach
-            };
-            if same_base || first.at.distance(second.at) <= reach * kept {
-                let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
-                parent[ra.max(rb)] = ra.min(rb);
+            for (ours, theirs) in ours.iter().zip(theirs) {
+                let (Some(&first), Some(&other)) = (ours.first(), theirs.first()) else {
+                    continue;
+                };
+                if root(&mut parent, first) == root(&mut parent, other) {
+                    continue;
+                }
+                let near = ours.iter().find_map(|&a| {
+                    theirs
+                        .iter()
+                        .find(|&&b| {
+                            let (first, second) = (&members[a], &members[b]);
+                            let kept = if were_together(a.min(b), a.max(b)) {
+                                KEEP_TOGETHER
+                            } else {
+                                1.0
+                            };
+                            let reach = if first.orders.is_some() && first.orders == second.orders {
+                                same_orders_reach
+                            } else {
+                                reach
+                            };
+                            first.at.distance(second.at) <= reach * kept
+                        })
+                        .map(|&b| (a, b))
+                });
+                if let Some((a, b)) = near {
+                    join(&mut parent, a, b);
+                }
             }
         }
     }
@@ -107,6 +162,12 @@ pub(super) fn stand_together(
         groups[group_of_root[r]].push(member);
     }
     groups
+}
+
+/// Puts the groups `a` and `b` are in together, under the lower of their roots.
+fn join(parent: &mut [usize], a: usize, b: usize) {
+    let (ra, rb) = (root(parent, a), root(parent, b));
+    parent[ra.max(rb)] = ra.min(rb);
 }
 
 /// The groups as they were settled a frame ago, kept while the count is up.
@@ -439,6 +500,106 @@ mod tests {
         let (groups, kept) = settled(&[vec![0, 1, 2], vec![3]], &[41, 42, 43, 44], &kept, 0.1);
         assert_eq!(groups, vec![(0, vec![0, 1, 2]), (1, vec![3])]);
         assert!(kept.out_of_step.is_empty());
+    }
+
+    /// The groups [`stand_together`] has to come to: every pair of members measured.
+    fn stand_together_by_pairs(
+        members: &[Member],
+        points_per_map_pixel: f32,
+        same_orders_reach: f32,
+        were_together: impl Fn(usize, usize) -> bool,
+    ) -> Vec<Vec<usize>> {
+        let reach = (UNIT_REACH * points_per_map_pixel).max(LABEL_ROOM);
+        let same_orders_reach = (same_orders_reach * points_per_map_pixel).max(reach);
+        let mut parent: Vec<usize> = (0..members.len()).collect();
+        for (a, first) in members.iter().enumerate() {
+            for (b, second) in members.iter().enumerate().skip(a + 1) {
+                if first.job != second.job {
+                    continue;
+                }
+                let same_base = matches!(first.job, Some(WorkerJob::AtBase { .. }));
+                let kept = if were_together(a, b) {
+                    KEEP_TOGETHER
+                } else {
+                    1.0
+                };
+                let reach = if first.orders.is_some() && first.orders == second.orders {
+                    same_orders_reach
+                } else {
+                    reach
+                };
+                if same_base || first.at.distance(second.at) <= reach * kept {
+                    join(&mut parent, a, b);
+                }
+            }
+        }
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        for member in 0..members.len() {
+            let r = root(&mut parent, member);
+            match groups.iter_mut().find(|group| group[0] == r) {
+                Some(group) => group.push(member),
+                None => groups.push(vec![member]),
+            }
+        }
+        groups
+    }
+
+    #[test]
+    fn the_groups_are_the_ones_measuring_every_pair_comes_to() {
+        // Numbers that are the same every run: a seed stepped on by a fixed rule.
+        struct Numbers(u64);
+        impl Numbers {
+            fn below(&mut self, limit: u64) -> u64 {
+                self.0 = self
+                    .0
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                (self.0 >> 33) % limit
+            }
+            fn share(&mut self) -> f32 {
+                self.below(10_000) as f32 / 10_000.0
+            }
+        }
+        for seed in 0..400u64 {
+            let mut numbers = Numbers(seed);
+            // A few clumps of units, some tight and some strung out, of every kind and on a
+            // handful of orders, some of them together the frame before.
+            let clumps: Vec<(Pos2, f32)> = (0..1 + numbers.below(5))
+                .map(|_| {
+                    let middle = pos2(numbers.share() * 2000.0, numbers.share() * 1200.0);
+                    (middle, 10.0 + numbers.share() * 500.0)
+                })
+                .collect();
+            let members: Vec<Member> = (0..1 + numbers.below(140))
+                .map(|_| {
+                    let (middle, spread) = clumps[numbers.below(clumps.len() as u64) as usize];
+                    let offset = vec2(numbers.share() - 0.5, numbers.share() - 0.5) * spread;
+                    Member {
+                        at: middle + offset,
+                        job: match numbers.below(10) {
+                            0 => Some(WorkerJob::Building),
+                            1 => Some(WorkerJob::AtBase {
+                                base: numbers.below(2) as usize,
+                            }),
+                            _ => None,
+                        },
+                        orders: match numbers.below(6) {
+                            0..=2 => None,
+                            orders => Some(orders),
+                        },
+                    }
+                })
+                .collect();
+            let were_together =
+                |a: usize, b: usize| (a * 31 + b * 17 + seed as usize).is_multiple_of(3);
+            for scale in [0.0, 0.4, 1.0, 3.0] {
+                assert_eq!(
+                    stand_together(&members, scale, SAME_ORDERS_REACH, were_together),
+                    stand_together_by_pairs(&members, scale, SAME_ORDERS_REACH, were_together),
+                    "seed {seed} at {scale} points to a pixel",
+                );
+            }
+        }
     }
 
     #[test]
