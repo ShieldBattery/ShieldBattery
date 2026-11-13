@@ -78,6 +78,8 @@ pub struct OverlayState {
     native_dialogs_seen: [ReplacedDialogState; NativeDialog::ALL.len()],
     /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
+    /// The square the minimap is drawn in, in the overlay's points, as the last frame found it.
+    minimap_square: Option<Rect>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
     /// The observer panels the last frame handed the shell, kept while the client is watching.
@@ -358,8 +360,8 @@ pub struct BwVars {
     pub pause_control: Option<PauseControl>,
     /// The part of the map the main view shows.
     pub map_view: MapView,
-    /// Where the minimap last drew the map, for a host that has seen it drawn.
-    pub minimap_map: Option<MinimapMap>,
+    /// The map's size, in map pixels.
+    pub map_size: (u32, u32),
 }
 
 /// A part of the map, in map pixels: where its top-left corner is and how much of the map it spans.
@@ -382,28 +384,59 @@ impl MapView {
     }
 }
 
-/// Where in the window the minimap drew the map, and how big the map is.
+/// Where on the screen the minimap shows the map, and how big the map is.
 #[derive(Copy, Clone, Debug)]
-pub struct MinimapMap {
-    /// `[left, top, right, bottom]` in shares of the window, 0.0 to 1.0 across and down it.
-    pub area: [f32; 4],
+struct MinimapMap {
+    /// The part of the minimap's square the map is shown in, in the overlay's points.
+    area: Rect,
     /// The map's size in map pixels.
-    pub map_width: u32,
-    pub map_height: u32,
+    map_width: u32,
+    map_height: u32,
 }
 
 impl MinimapMap {
-    /// The place on the map the minimap shows at `share` of the window, kept to the map.
-    fn map_point(&self, share: Pos2) -> bw::Point {
-        let [left, top, right, bottom] = self.area;
+    /// The minimap of a map `map_width` by `map_height` pixels shown in `square`: the map fills
+    /// the square along its longer side and stands in the middle of it along its shorter one,
+    /// which is how the game lays a map that is not square out on its minimap. `None` for a map or
+    /// a square with no size.
+    ///
+    /// Worked out from the square rather than read off what the game drew of the map there: the
+    /// game draws the minimap differently with the terrain on it turned off and in SD graphics,
+    /// and a place on the minimap is the same place on the map however it was drawn.
+    fn fitted(square: Rect, map_width: u32, map_height: u32) -> Option<MinimapMap> {
+        let longer = map_width.max(map_height) as f32;
+        if longer <= 0.0 || square.width() <= 0.0 || square.height() <= 0.0 {
+            return None;
+        }
+        let size = egui::vec2(
+            square.width() * map_width as f32 / longer,
+            square.height() * map_height as f32 / longer,
+        );
+        if size.x <= 0.0 || size.y <= 0.0 {
+            return None;
+        }
+        Some(MinimapMap {
+            area: Rect::from_center_size(square.center(), size),
+            map_width,
+            map_height,
+        })
+    }
+
+    /// The place on the map the minimap shows at `point` of the screen, kept to the map.
+    fn map_point(&self, point: Pos2) -> bw::Point {
         let across = |at: f32, from: f32, to: f32, span: u32| {
             let along = ((at - from) / (to - from)).clamp(0.0, 1.0);
             let max = span.saturating_sub(1).min(i16::MAX as u32) as f32;
             (along * span as f32).min(max) as i16
         };
         bw::Point {
-            x: across(share.x, left, right, self.map_width),
-            y: across(share.y, top, bottom, self.map_height),
+            x: across(point.x, self.area.left(), self.area.right(), self.map_width),
+            y: across(
+                point.y,
+                self.area.top(),
+                self.area.bottom(),
+                self.map_height,
+            ),
         }
     }
 }
@@ -516,6 +549,7 @@ impl OverlayState {
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
             logged_minimap_area: None,
+            minimap_square: None,
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
@@ -736,7 +770,7 @@ impl OverlayState {
             pause_control: bw.pause_control,
             minimap_rect: self.minimap_rect(bw),
         };
-        let minimap_square = host_frame.minimap_rect;
+        self.minimap_square = host_frame.minimap_rect;
         if let Some(minimap) = host_frame.minimap_rect {
             let screen = self.ctx.viewport_rect();
             if screen.height() > 0.0 {
@@ -966,7 +1000,8 @@ impl OverlayState {
         // art, which a watcher has none of. Where the minimap then draws nothing, with the
         // terrain turned off on it or under fog the watcher has made see-through, the map would
         // show through it.
-        let behind_minimap = minimap_square
+        let behind_minimap = self
+            .minimap_square
             .filter(|_| bw.is_replay_or_obs)
             .map(|square| {
                 let black = egui::epaint::ClippedShape {
@@ -1350,15 +1385,12 @@ impl OverlayState {
                 });
             }
             Intent::LookAtMinimapPoint(point) => {
-                let share = pos2(
-                    point.x / self.screen_size.0 as f32,
-                    point.y / self.screen_size.1 as f32,
-                );
-                if let Some(minimap) = bw.minimap_map
-                    && minimap.area[2] > minimap.area[0]
-                    && minimap.area[3] > minimap.area[1]
-                {
-                    self.out_state.look_at = Some(minimap.map_point(share));
+                let (map_width, map_height) = bw.map_size;
+                let minimap = self
+                    .minimap_square
+                    .and_then(|square| MinimapMap::fitted(square, map_width, map_height));
+                if let Some(minimap) = minimap {
+                    self.out_state.look_at = Some(minimap.map_point(point));
                 }
             }
             Intent::SetSpeed {
@@ -2398,17 +2430,31 @@ mod tests {
     use egui::pos2;
 
     #[test]
-    fn a_place_on_the_minimap_is_the_same_share_of_the_map_it_drew() {
-        let minimap = MinimapMap {
-            area: [0.0, 0.5, 0.5, 1.0],
-            map_width: 4096,
-            map_height: 2048,
-        };
-        let point = minimap.map_point(pos2(0.25, 0.625));
+    fn a_place_on_the_minimap_is_the_same_share_of_the_map_shown_there() {
+        // A map twice as wide as it is tall, in a square 200 points across: it fills the square's
+        // width and the middle half of its height.
+        let square = egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(200.0, 200.0));
+        let minimap = MinimapMap::fitted(square, 4096, 2048).unwrap();
+        assert_eq!(
+            minimap.area,
+            egui::Rect::from_min_max(pos2(10.0, 550.0), pos2(210.0, 650.0))
+        );
+        let point = minimap.map_point(pos2(110.0, 575.0));
         assert_eq!((point.x, point.y), (2048, 512));
-        // Off the map's edge, it is kept to the map.
-        let point = minimap.map_point(pos2(0.9, 0.2));
+        // In the square but off the map's edge, it is kept to the map.
+        let point = minimap.map_point(pos2(250.0, 510.0));
         assert_eq!((point.x, point.y), (4095, 0));
+        // A tall map stands in the middle of the square's width, and a square one fills it.
+        let tall = MinimapMap::fitted(square, 2048, 4096).unwrap();
+        assert_eq!(
+            tall.area,
+            egui::Rect::from_min_max(pos2(60.0, 500.0), pos2(160.0, 700.0))
+        );
+        assert_eq!(MinimapMap::fitted(square, 4096, 4096).unwrap().area, square);
+        // No map, or nowhere to show it, is no minimap to point at.
+        assert!(MinimapMap::fitted(square, 0, 0).is_none());
+        let nowhere = egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(0.0, 0.0));
+        assert!(MinimapMap::fitted(nowhere, 4096, 4096).is_none());
     }
 
     #[test]
