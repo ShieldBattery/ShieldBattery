@@ -24,6 +24,13 @@ export enum LobbyJoinErrorCode {
   AlreadyInActivity = 'alreadyInActivity',
 }
 
+export enum InviteToLobbyErrorCode {
+  /** The target already has an outstanding invite to this lobby that hasn't been acted on. */
+  AlreadyInvited = 'alreadyInvited',
+  AlreadyInLobby = 'alreadyInLobby',
+  BannedFromLobby = 'bannedFromLobby',
+}
+
 /**
  * Machine-readable codes for every way a lobby operation can fail. Transports translate these into
  * whatever their callers understand (status codes, client-facing error codes), so the messages

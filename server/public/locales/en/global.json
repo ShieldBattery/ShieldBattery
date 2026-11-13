@@ -463,7 +463,8 @@
         "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
       "invite": {
-        "invited": "Invited <1><0></0></1> to lobby."
+        "description": "Invites another user to your lobby.",
+        "invited": "Invited <2><0></0></2> to lobby."
       },
       "join": {
         "description": "Joins a chat channel, creating it if it does not exist."
@@ -475,6 +476,9 @@
       },
       "leave": {
         "description": "Leaves the channel or lobby you are in."
+      },
+      "matchmaking": {
+        "selfInvite": "You can't invite yourself to your lobby."
       },
       "me": {
         "chatRestricted": "You're currently restricted from sending chat messages.",
@@ -1881,6 +1885,12 @@
     },
     "inviteNotification": {
       "received": "<0>{{user}}</0> invited you to a lobby."
+    },
+    "inviteToLobby": {
+      "defaultError": "Error inviting user to lobby",
+      "errorAlreadyInLobby": "That user is already in this lobby.",
+      "errorAlreadyInvited": "That user already has an invite to this lobby.",
+      "errorBannedFromLobby": "That user has been banned from this lobby."
     },
     "joinCode": {
       "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
@@ -3589,7 +3599,6 @@
       "friendRequestRemoved": "Friend request removed",
       "friendRequestSent": "Friend request sent",
       "inviteToLobby": "Invite to Lobby",
-      "inviteToLobbyError": "Error inviting user to lobby",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
