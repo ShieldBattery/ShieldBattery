@@ -959,6 +959,7 @@ impl OverlayState {
             prefs
         });
         overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
+        overlay_ui::kit::off_grid::leave_text_off_grid(&self.ctx, &mut output.shapes);
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
         let primitives = vec![(self.draw_layer, ui_primitives)];
         // The game draws no ground of its own for the minimap: its black comes from the console's
