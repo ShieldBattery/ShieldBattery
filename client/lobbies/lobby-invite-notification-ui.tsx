@@ -76,7 +76,6 @@ export const LobbyInviteNotificationUi = memo(function LobbyInviteNotificationUi
           label={t('common.actions.accept', 'Accept')}
           onClick={() => {
             joinLobby(lobbyId)
-            dispatch(markNotificationsRead([notificationId]))
           }}
         />,
       ]}
