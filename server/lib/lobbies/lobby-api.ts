@@ -17,6 +17,7 @@ import {
   GetLobbyMapUrlRequest,
   GetLobbyMapUrlResponse,
   GetLobbyStateResponse,
+  InviteToLobbyErrorCode,
   InviteToLobbyRequest,
   JoinLobbyRequest,
   LobbyClientRequest,
@@ -400,7 +401,7 @@ export class LobbyApi {
     }
 
     // A block in either direction stops the invite from being delivered.
-    // Request succeeds to not reveal block.  
+    // Request succeeds to not reveal block.
     const [inviterBlockedByTarget, targetBlockedByInviter] = await Promise.all([
       this.userRelationshipService.isUserBlockedBy(userId, target.id),
       this.userRelationshipService.isUserBlockedBy(target.id, userId),
@@ -409,9 +410,30 @@ export class LobbyApi {
       return
     }
 
+    if (this.lobbyService.lobbyBannedUsers.get(lobby.id)?.has(target.id)) {
+      throw new HttpErrorWithPayload(409, 'User has been banned from lobby', {
+        code: InviteToLobbyErrorCode.BannedFromLobby,
+      })
+    }
+
     // Someone already in the lobby has nothing to accept.
     if (findSlotByUserId(lobby, target.id).length || findBenchedUser(lobby, target.id)) {
-      return
+      throw new HttpErrorWithPayload(409, 'User is already in this lobby', {
+        code: InviteToLobbyErrorCode.AlreadyInLobby,
+      })
+    }
+
+    // The invitee only needs one outstanding invite per lobby; another would just stack an
+    // identical, already-seen entry in their notification list.
+    const existingInvites = await this.notificationService.retrieveNotifications({
+      userId: target.id,
+      data: { type: NotificationType.LobbyInvite, lobbyId: lobby.id },
+      limit: 1,
+    })
+    if (existingInvites.length) {
+      throw new HttpErrorWithPayload(409, 'User already has an invite to this lobby', {
+        code: InviteToLobbyErrorCode.AlreadyInvited,
+      })
     }
 
     await this.notificationService.addNotification({

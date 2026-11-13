@@ -9,6 +9,7 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { useCurrentActivity } from '../activity/current-activity'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { inviteToLobby } from '../lobbies/action-creators'
+import { lobbyInviteErrorMessage } from '../lobbies/lobby-invite-errors'
 import logger from '../logging/logger'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -29,6 +30,7 @@ import {
 import { userRelationshipErrorToString } from '../social/relationship-errors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
+import { getLobbyPlayers } from '../../common/lobbies'
 
 const LoadingItem = styled(MenuItem)`
   color: var(--theme-on-surface-variant);
@@ -185,6 +187,8 @@ function ConnectedUserContextMenuContents({
   const { onNavigation } = useNavigationTracker()
   const isNavigationAvailable = useIsNavigationAvailable()
   const currentActivity = useCurrentActivity()
+  const currentLobby = useAppSelector(s => s.lobby)
+
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -256,7 +260,7 @@ function ConnectedUserContextMenuContents({
     }
 
     if (user.id !== selfUser?.id) {
-      if (currentActivity?.kind === 'lobby' && relationshipKind !== UserRelationshipKind.Block) {
+      if (currentActivity?.kind === 'lobby' && relationshipKind !== UserRelationshipKind.Block && !getLobbyPlayers(currentLobby.info).includes(user.id)) {
         appendToMultimap(
           items,
           MenuItemCategory.General,
@@ -269,9 +273,7 @@ function ConnectedUserContextMenuContents({
                   onSuccess: () => {},
                   onError: err => {
                     logger.error(`Error inviting ${user!.id} to lobby: ${err}`)
-                    snackbarController.showSnackbar(
-                      t('users.contextMenu.inviteToLobbyError', 'Error inviting user to lobby'),
-                    )
+                    snackbarController.showSnackbar(lobbyInviteErrorMessage(err, t))
                   },
                 }),
               )
