@@ -2267,6 +2267,7 @@
       "bySbStaff": "del staff de SB",
       "collectionActions": "Acciones de la colección",
       "create": "Crear",
+      "createLobby": "Crear lobby",
       "curatedByStaff": "Seleccionada por el staff de SB",
       "deleted": "Colección eliminada",
       "deleteText_one": "Esto elimina la colección y su lista de {{count}} mapa.",
@@ -2590,6 +2591,7 @@
       "weeklyGamesCaption_other": "partidas por semana, últimas {{count}} semanas"
     },
     "picker": {
+      "addAll": "Añadir todos",
       "addToCollection": "Añadir mapas a {{title}}",
       "addToQueue": "Añadir mapas a la cola",
       "collectionCount_one": "{{count}} mapa en esta colección",

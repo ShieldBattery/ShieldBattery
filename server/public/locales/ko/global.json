@@ -2187,6 +2187,7 @@
       "bySbStaff": "제작: SB 운영진",
       "collectionActions": "컬렉션 작업",
       "create": "만들기",
+      "createLobby": "로비 만들기",
       "curatedByStaff": "SB 운영진 선정",
       "deleted": "컬렉션을 삭제했습니다",
       "deleteText_other": "컬렉션과 여기에 담긴 맵 {{count}}개의 목록이 삭제됩니다.",
@@ -2476,6 +2477,7 @@
       "weeklyGamesCaption_other": "주간 게임 수, 최근 {{count}}주"
     },
     "picker": {
+      "addAll": "모두 추가",
       "addToCollection": "{{title}}에 맵 추가",
       "addToQueue": "대기열에 맵 추가",
       "collectionCount_other": "이 컬렉션의 맵 {{count}}개",
