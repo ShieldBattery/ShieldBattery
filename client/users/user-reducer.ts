@@ -143,10 +143,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@maps/getMaps'](state, action) {
-    updateUsers(state, action.payload.users)
-  },
-
   ['@maps/updateMap'](state, action) {
     updateUsers(state, action.payload.users)
   },
