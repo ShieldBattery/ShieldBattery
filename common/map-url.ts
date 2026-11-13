@@ -26,8 +26,9 @@ export const ALL_MAP_PAGE_SUB_PAGES: ReadonlyArray<MapPageSubPage> = Object.valu
  */
 export enum MapCatalogTab {
   All = 'all',
+  /** The collections the viewer can browse (see {@link MAP_COLLECTIONS_SEGMENT}). */
+  Collections = 'collections',
   Yours = 'yours',
-  Favorites = 'favorites',
   /** The map files in the user's StarCraft map folders (desktop app only). */
   Local = 'local',
 }
@@ -47,24 +48,43 @@ export function urlForMapCatalog(tab: MapCatalogTab, search?: string): string {
 export const MAP_COMPARE_SEGMENT = 'compare'
 
 /**
- * The path segment after `/maps` for map collections: `/maps/collections` lists them, and
- * `/maps/collections/:id/:slug?` is one collection's page. Like the catalog tabs, it can't be read
- * as a map id, so it shares the `/maps/:segment` namespace with map pages.
+ * The path segment after `/maps` of a catalog tab that listed the viewer's starred maps. Links to
+ * it still exist, so it redirects to the Collections tab, where Starred is the first collection.
  */
-export const MAP_COLLECTIONS_SEGMENT = 'collections'
+export const MAP_FAVORITES_SEGMENT = 'favorites'
 
-/** Returns the URL of the page listing map collections. */
-export function urlForMapCollections(): string {
-  return urlPath`/maps/${MAP_COLLECTIONS_SEGMENT}`
+/**
+ * The path segment after `/maps` for map collections: `/maps/collections` lists them, and
+ * `/maps/collections/:id/:slug?` is one collection's page. It's the catalog's Collections tab, so
+ * like the other tabs it can't be read as a map id.
+ */
+export const MAP_COLLECTIONS_SEGMENT = MapCatalogTab.Collections
+
+/**
+ * Returns the URL of the page listing map collections (the Collections tab of the catalog), with an
+ * optional query string (without the `?`).
+ */
+export function urlForMapCollections(search?: string): string {
+  return urlForMapCatalog(MapCatalogTab.Collections, search)
 }
 
 /**
- * Returns the URL of a map collection's page. If the collection's title is available, the URL will
- * include a slug made from it (otherwise the page replaces the placeholder once the collection has
- * loaded). Like a map page's slug, it's decorative: the page looks the collection up by its id.
+ * Returns the URL of a map collection's page. A collection with a title gets a slug made from it;
+ * one without (Starred and ladder pools, which the client names) has no slug segment. A page
+ * linked to without its title's slug replaces the URL once the collection has loaded. Like a map
+ * page's slug, it's decorative: the page looks the collection up by its id. `reportId` makes the
+ * page show that collection report to staff, who can resolve it there.
  */
-export function urlForMapCollection(id: MapCollectionId, title?: string): string {
-  return urlPath`/maps/${MAP_COLLECTIONS_SEGMENT}/${encodePrettyId(id)}/${mapSlug(title)}`
+export function urlForMapCollection(
+  id: MapCollectionId,
+  title?: string,
+  reportId?: string,
+): string {
+  let url = urlPath`/maps/${MAP_COLLECTIONS_SEGMENT}/${encodePrettyId(id)}`
+  if (title) {
+    url += urlPath`/${mapSlug(title)}`
+  }
+  return reportId ? url + urlPath`?${MAP_REPORT_PARAM}=${reportId}` : url
 }
 
 /**
@@ -94,7 +114,7 @@ export enum MapCompareView {
 
 /**
  * The query param of the compare page and of a map's page that names the map family report for
- * staff to review there.
+ * staff to review there, and of a collection's page that names the collection report.
  */
 export const MAP_REPORT_PARAM = 'report'
 

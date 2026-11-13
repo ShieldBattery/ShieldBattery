@@ -226,11 +226,11 @@ function fileChangeFailedText(error: CombinedError, t: TFunction): string {
   return fileChangeErrorText(errorCode(error), errorText(error), t)
 }
 
-/** What a map's link and favorites do when the map goes away into `target`. */
+/** What a map's link and stars do when the map goes away into `target`. */
 function goesAwayText(family: FamilyData, target: string): string {
   const favorites = favoritesOf(family)
   return favorites
-    ? `its link and ${pluralize(favorites, 'favorite', 'favorites')} move to ${target}.`
+    ? `its link and ${pluralize(favorites, 'star', 'stars')} move to ${target}.`
     : `its link moves to ${target}.`
 }
 

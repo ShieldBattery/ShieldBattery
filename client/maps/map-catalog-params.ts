@@ -1,5 +1,4 @@
 import { LocalMapKind, LocalMapQuery, LocalMapSize, LocalMapSort } from '../../common/map-library'
-import { MapCatalogTab } from '../../common/map-url'
 import { ALL_TILESETS, Tileset } from '../../common/maps'
 import { EudFilter, MapFilter, MapLens, MapSizeClass, MapSort } from '../gql/graphql'
 
@@ -54,12 +53,30 @@ export function catalogSortToMapSort(sort: CatalogSort): MapSort {
   }
 }
 
-/** The sort a catalog tab uses when neither the URL nor the viewer's saved default picks one. */
-export function defaultSortForTab(tab: MapCatalogTab): CatalogSort {
-  switch (tab) {
-    case MapCatalogTab.All:
+/**
+ * A listing of maps that the catalog's filters and sorts apply to: one of the server's, or the map
+ * files on this PC.
+ */
+export enum MapListing {
+  /** Every listed map. */
+  All = 'all',
+  /** The viewer's own maps: the ones they uploaded. */
+  Yours = 'yours',
+  /** The maps the viewer starred: their Starred collection. */
+  Starred = 'starred',
+  /** The map files in the user's StarCraft map folders (desktop app only). */
+  Local = 'local',
+}
+
+/** The listings the server holds (every listing but the maps on this PC). */
+export type ServerMapListing = Exclude<MapListing, MapListing.Local>
+
+/** The sort a listing uses when neither the URL nor the viewer's saved default picks one. */
+export function defaultSortForListing(listing: MapListing): CatalogSort {
+  switch (listing) {
+    case MapListing.All:
       return CatalogSort.Trending
-    case MapCatalogTab.Local:
+    case MapListing.Local:
       return CatalogSort.Name
     default:
       return CatalogSort.Newest
@@ -67,24 +84,19 @@ export function defaultSortForTab(tab: MapCatalogTab): CatalogSort {
 }
 
 /**
- * The sort a tab of the lobby map picker uses when the viewer hasn't picked one. Someone picking a
- * map for a lobby is usually looking for one they already have in mind, so every map is ordered
- * by how much it's played rather than by what's rising.
+ * The sort a listing of the lobby map picker uses when the viewer hasn't picked one. Someone
+ * picking a map for a lobby is usually looking for one they already have in mind, so every map is
+ * ordered by how much it's played rather than by what's rising.
  */
-export function defaultPickerSortForTab(tab: MapCatalogTab): CatalogSort {
-  switch (tab) {
-    case MapCatalogTab.All:
+export function defaultPickerSortForListing(listing: MapListing): CatalogSort {
+  switch (listing) {
+    case MapListing.All:
       return CatalogSort.MostPlayed
-    case MapCatalogTab.Local:
+    case MapListing.Local:
       return CatalogSort.Name
     default:
       return CatalogSort.Newest
   }
-}
-
-/** The sorts offered on a tab while not searching. */
-export function sortsForTab(tab: MapCatalogTab): ReadonlyArray<CatalogSort> {
-  return tab === MapCatalogTab.Local ? LOCAL_SORTS : BROWSE_SORTS
 }
 
 /** The player-count choices, as offered to the viewer. */

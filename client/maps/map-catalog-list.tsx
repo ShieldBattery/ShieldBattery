@@ -5,7 +5,6 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { MapCatalogTab } from '../../common/map-url'
 import { ALL_TILESETS, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { graphql } from '../gql'
 import { EudFilter, MapFilter, MapLens, MapSizeClass } from '../gql/graphql'
@@ -29,8 +28,10 @@ import {
   CatalogSort,
   catalogSortToMapSort,
   hasNonDefaultFilters,
+  MapListing,
+  ServerMapListing,
 } from './map-catalog-params'
-import { MapTile, MapTileSignal, PendingMapTile } from './map-tile'
+import { MapTile, MapTilePick, MapTileSignal, PendingMapTile } from './map-tile'
 import { mapLibraryVersionAtom, pendingMapUploadsAtom } from './map-uploads'
 
 const PAGE_SIZE = 40
@@ -92,8 +93,11 @@ export interface ListWindowStore {
 
 /** Turns a listing's tiles into buttons that pick a map (for a lobby) rather than links. */
 export interface MapPickOptions {
-  /** Picks the map. Resolves with whether the pick succeeded. */
-  onPick: (mapId: SbMapId) => Promise<boolean>
+  /**
+   * Picks the map. `familyId` is the map (family) the file is in, when the listing knows it.
+   * Resolves with whether the pick succeeded.
+   */
+  onPick: (mapId: SbMapId, familyId?: string) => Promise<boolean>
   /** The map currently chosen, marked on its tile. */
   selectedMapId?: SbMapId
   /** Where each map sits in the lobby's map queue (1-based), for maps that are queued. */
@@ -104,6 +108,29 @@ export interface MapPickOptions {
   failedMapId?: SbMapId
   /** Whether no more maps can be picked. */
   disabled?: boolean
+  /**
+   * Whether a tile's map is marked with `markedLabel` (e.g. as already in a collection). A marked
+   * tile can't be picked.
+   */
+  isMarked?: (map: { id: SbMapId; familyId: string }) => boolean
+  /** The text on a marked tile's chip. */
+  markedLabel?: string
+}
+
+/** How the tile of the file `mapId`, in the map `familyId`, behaves when picking maps. */
+export function tilePick(pick: MapPickOptions, mapId: SbMapId, familyId: string): MapTilePick {
+  const marked = !!pick.isMarked?.({ id: mapId, familyId })
+  return {
+    onPick: () => {
+      pick.onPick(mapId, familyId).catch(() => {})
+    },
+    selected: pick.selectedMapId === mapId,
+    queuePositions: pick.queuePositions?.get(mapId),
+    pending: pick.pendingMapId === mapId,
+    failed: pick.failedMapId === mapId,
+    markedLabel: marked ? pick.markedLabel : undefined,
+    disabled: !!pick.disabled || marked || (!!pick.pendingMapId && pick.pendingMapId !== mapId),
+  }
 }
 
 const FilterRow = styled.div`
@@ -446,6 +473,9 @@ const MapCatalogAllQuery = graphql(/* GraphQL */ `
         cursor
         node {
           id
+          family {
+            id
+          }
           ...MapTile_SbMapFragment
         }
       }
@@ -474,6 +504,9 @@ const MapCatalogLibraryQuery = graphql(/* GraphQL */ `
           addedAt
           node {
             id
+            family {
+              id
+            }
             ...MapTile_SbMapFragment
           }
         }
@@ -502,6 +535,9 @@ const MapCatalogFavoritesQuery = graphql(/* GraphQL */ `
           cursor
           node {
             id
+            family {
+              id
+            }
             ...MapTile_SbMapFragment
           }
         }
@@ -510,26 +546,23 @@ const MapCatalogFavoritesQuery = graphql(/* GraphQL */ `
   }
 `)
 
-/** The catalog tabs listed by the server (every tab but the maps on this PC). */
-export type ServerCatalogTab = Exclude<MapCatalogTab, MapCatalogTab.Local>
-
-const CATALOG_QUERIES: Readonly<Record<ServerCatalogTab, typeof MapCatalogAllQuery>> = {
-  [MapCatalogTab.All]: MapCatalogAllQuery,
+const LISTING_QUERIES: Readonly<Record<ServerMapListing, typeof MapCatalogAllQuery>> = {
+  [MapListing.All]: MapCatalogAllQuery,
   // The three queries take the same variables and differ only in where their connection is
-  [MapCatalogTab.Yours]: MapCatalogLibraryQuery as unknown as typeof MapCatalogAllQuery,
-  [MapCatalogTab.Favorites]: MapCatalogFavoritesQuery as unknown as typeof MapCatalogAllQuery,
+  [MapListing.Yours]: MapCatalogLibraryQuery as unknown as typeof MapCatalogAllQuery,
+  [MapListing.Starred]: MapCatalogFavoritesQuery as unknown as typeof MapCatalogAllQuery,
 }
 
 /** Requests results without suspending: the catalog renders its own loading states. */
 const NO_SUSPENSE_CONTEXT = { suspense: false }
 
 /**
- * Loads one page of a tab's listing. Every caller asking for the same page shares one request, so
- * the list can read the first page's count and the last page's cursor from the same results its
- * pages render.
+ * Loads one page of a listing. Every caller asking for the same page shares one request, so the
+ * list can read the first page's count and the last page's cursor from the same results its pages
+ * render.
  */
 function useCatalogPage(
-  tab: ServerCatalogTab,
+  listing: ServerMapListing,
   filter: MapFilter,
   sort: CatalogSort,
   after: string | null,
@@ -542,7 +575,7 @@ function useCatalogPage(
     withCount: after === null,
   }
   const [{ data, fetching, error }, reexecute] = useQuery({
-    query: CATALOG_QUERIES[tab],
+    query: LISTING_QUERIES[listing],
     variables,
     requestPolicy: 'cache-and-network',
     context: NO_SUSPENSE_CONTEXT,
@@ -574,30 +607,30 @@ type CatalogConnection = {
   edges: ReadonlyArray<{
     cursor: string
     addedAt?: string | null
-    node: { id: string } & React.ComponentProps<typeof MapTile>['map']
+    node: { id: string; family: { id: string } } & React.ComponentProps<typeof MapTile>['map']
   }>
 }
 
-function signalFor(tab: ServerCatalogTab, sort: CatalogSort): MapTileSignal {
-  if (tab === MapCatalogTab.Yours) {
+function signalFor(listing: ServerMapListing, sort: CatalogSort): MapTileSignal {
+  if (listing === MapListing.Yours) {
     return MapTileSignal.Added
   }
   switch (sort) {
     case CatalogSort.Trending:
       return MapTileSignal.Trending
     case CatalogSort.Newest:
-      return tab === MapCatalogTab.All ? MapTileSignal.Published : MapTileSignal.Total
+      return listing === MapListing.All ? MapTileSignal.Published : MapTileSignal.Total
     default:
       return MapTileSignal.Total
   }
 }
 
 /**
- * One tab's listing of maps: the filter and sort row, then the maps as a grid of tiles, loaded a
- * page at a time as the list scrolls.
+ * One listing of maps: the filter and sort row, then the maps as a grid of tiles, loaded a page at
+ * a time as the list scrolls.
  */
 export function MapCatalogList({
-  tab,
+  listing,
   params,
   filter,
   sort,
@@ -610,7 +643,7 @@ export function MapCatalogList({
   onDensityChange,
   onClearFilters,
 }: {
-  tab: ServerCatalogTab
+  listing: ServerMapListing
   params: CatalogParams
   filter: MapFilter
   sort: CatalogSort
@@ -626,7 +659,7 @@ export function MapCatalogList({
   onClearFilters: () => void
 }) {
   const { t } = useTranslation()
-  const listKey = JSON.stringify([tab, filter, sort])
+  const listKey = JSON.stringify([listing, filter, sort])
   const pendingUploads = useAtomValue(pendingMapUploadsAtom)
   const [pageCursors, setPageCursors] = useState<Array<string | null>>(
     () => windowStore.get(listKey) ?? [null],
@@ -639,12 +672,12 @@ export function MapCatalogList({
     storeWindow(listKey, pageCursors)
   }, [listKey, pageCursors])
 
-  const firstPage = useCatalogPage(tab, filter, sort, null)
-  const lastPage = useCatalogPage(tab, filter, sort, pageCursors[pageCursors.length - 1])
+  const firstPage = useCatalogPage(listing, filter, sort, null)
+  const lastPage = useCatalogPage(listing, filter, sort, pageCursors[pageCursors.length - 1])
   const totalCount = firstPage.connection?.totalCount
   const layout = DENSITY_LAYOUT[density]
-  const signal = signalFor(tab, sort)
-  const showPending = tab === MapCatalogTab.Yours && pendingUploads.length > 0
+  const signal = signalFor(listing, sort)
+  const showPending = listing === MapListing.Yours && pendingUploads.length > 0
 
   const onLoadMore = () => {
     const endCursor = lastPage.connection?.pageInfo.endCursor
@@ -666,7 +699,7 @@ export function MapCatalogList({
   } else if (firstPage.connection.edges.length === 0 && !showPending) {
     content = (
       <CatalogEmptyState
-        tab={tab}
+        listing={listing}
         search={params.search.trim()}
         hasFilters={hasNonDefaultFilters(params)}
         onClearFilters={onClearFilters}
@@ -693,7 +726,7 @@ export function MapCatalogList({
           {pageCursors.map(cursor => (
             <MapCatalogChunk
               key={cursor ?? 'first'}
-              tab={tab}
+              listing={listing}
               filter={filter}
               sort={sort}
               after={cursor}
@@ -726,7 +759,7 @@ export function MapCatalogList({
 }
 
 function MapCatalogChunk({
-  tab,
+  listing,
   filter,
   sort,
   after,
@@ -734,7 +767,7 @@ function MapCatalogChunk({
   imageSize,
   pick,
 }: {
-  tab: ServerCatalogTab
+  listing: ServerMapListing
   filter: MapFilter
   sort: CatalogSort
   after: string | null
@@ -742,7 +775,7 @@ function MapCatalogChunk({
   imageSize: number
   pick?: MapPickOptions
 }) {
-  const { connection } = useCatalogPage(tab, filter, sort, after)
+  const { connection } = useCatalogPage(listing, filter, sort, after)
   const bumpLibrary = useSetLibraryVersion()
 
   return (
@@ -755,23 +788,9 @@ function MapCatalogChunk({
             map={edge.node}
             signal={signal}
             addedAt={edge.addedAt ?? undefined}
-            onRemovedFromLibrary={!pick && tab === MapCatalogTab.Yours ? bumpLibrary : undefined}
+            onRemovedFromLibrary={!pick && listing === MapListing.Yours ? bumpLibrary : undefined}
             imageSize={imageSize}
-            pick={
-              pick
-                ? {
-                    onPick: () => {
-                      pick.onPick(mapId).catch(() => {})
-                    },
-                    selected: pick.selectedMapId === mapId,
-                    queuePositions: pick.queuePositions?.get(mapId),
-                    pending: pick.pendingMapId === mapId,
-                    failed: pick.failedMapId === mapId,
-                    disabled:
-                      !!pick.disabled || (!!pick.pendingMapId && pick.pendingMapId !== mapId),
-                  }
-                : undefined
-            }
+            pick={pick ? tilePick(pick, mapId, edge.node.family.id) : undefined}
           />
         )
       })}
@@ -803,12 +822,12 @@ function PendingUploadTiles() {
 }
 
 function CatalogEmptyState({
-  tab,
+  listing,
   search,
   hasFilters,
   onClearFilters,
 }: {
-  tab: MapCatalogTab
+  listing: ServerMapListing
   search: string
   hasFilters: boolean
   onClearFilters: () => void
@@ -822,10 +841,10 @@ function CatalogEmptyState({
     })
   } else if (hasFilters) {
     text = t('maps.catalog.noMatches', 'No maps match these filters.')
-  } else if (tab === MapCatalogTab.Yours) {
+  } else if (listing === MapListing.Yours) {
     text = t('maps.catalog.noLibraryMaps', "You haven't uploaded any maps yet.")
-  } else if (tab === MapCatalogTab.Favorites) {
-    text = t('maps.catalog.noFavorites', 'Star a map to keep it here.')
+  } else if (listing === MapListing.Starred) {
+    text = t('maps.catalog.noStarredMaps', 'Star a map to keep it here.')
   } else {
     text = t('maps.catalog.noMaps', 'There are no maps here yet.')
   }

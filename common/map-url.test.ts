@@ -3,6 +3,7 @@ import {
   ALL_MAP_CATALOG_TABS,
   MAP_COLLECTIONS_SEGMENT,
   MAP_COMPARE_SEGMENT,
+  MAP_FAVORITES_SEGMENT,
   MapCatalogTab,
   mapCollectionIdFromSegment,
   MapCompareView,
@@ -91,6 +92,13 @@ describe('common/map-url', () => {
     }
     expect(mapIdFromRouteSegment(MAP_COMPARE_SEGMENT)).toBeUndefined()
     expect(mapIdFromRouteSegment(MAP_COLLECTIONS_SEGMENT)).toBeUndefined()
+    expect(mapIdFromRouteSegment(MAP_FAVORITES_SEGMENT)).toBeUndefined()
+  })
+
+  test('lists collections on the Collections tab', () => {
+    expect(ALL_MAP_CATALOG_TABS).toContain(MapCatalogTab.Collections)
+    expect(urlForMapCollections()).toBe(urlForMapCatalog(MapCatalogTab.Collections))
+    expect(urlForMapCollections('q=ums')).toBe('/maps/collections?q=ums')
   })
 
   test('builds collection URLs from a pretty id and slug', () => {
@@ -99,7 +107,16 @@ describe('common/map-url', () => {
       `/maps/collections/${encodePrettyId(COLLECTION_ID)}/ums-night-4-0-starters`,
     )
     expect(urlForMapCollection(COLLECTION_ID)).toBe(
-      `/maps/collections/${encodePrettyId(COLLECTION_ID)}/_`,
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}`,
+    )
+    expect(urlForMapCollection(COLLECTION_ID, '')).toBe(
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}`,
+    )
+    expect(urlForMapCollection(COLLECTION_ID, undefined, REPORT_ID)).toBe(
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}?report=${REPORT_ID}`,
+    )
+    expect(urlForMapCollection(COLLECTION_ID, 'Pool', REPORT_ID)).toBe(
+      `/maps/collections/${encodePrettyId(COLLECTION_ID)}/pool?report=${REPORT_ID}`,
     )
   })
 

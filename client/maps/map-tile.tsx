@@ -13,7 +13,6 @@ import { narrowDuration } from '../i18n/date-formats'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip } from '../lobbies/room/room-parts'
-import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
 import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
@@ -51,6 +50,7 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     listed
     publishedAt
     isFavorited
+    ladderPools
     publisher {
       id
     }
@@ -177,13 +177,29 @@ const PendingOverlay = styled.div`
   background-color: rgb(from var(--color-blue10) r g b / 0.6);
 `
 
+/**
+ * The chips along the bottom of a tile's image: the picker's marker (where the map sits in the
+ * queue, or that it's in a collection) on its own line, above the ladder pool chips, so neither
+ * covers the other however many pools there are.
+ */
+const BottomChips = styled.div`
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+
+  pointer-events: none;
+`
+
 const QueueChip = styled.div`
   ${labelMedium};
   ${singleLine};
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  max-width: calc(100% - 12px);
+  max-width: 100%;
   padding: 2px 8px;
 
   border-radius: 999px;
@@ -192,7 +208,8 @@ const QueueChip = styled.div`
   pointer-events: none;
 `
 
-const Badge = styled.div`
+/** A word over the top left corner of a map or collection image, such as "New". */
+export const TileBadge = styled.div`
   ${labelSmall};
   position: absolute;
   top: 8px;
@@ -208,15 +225,14 @@ const Badge = styled.div`
 `
 
 const PoolChips = styled.div`
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  max-width: calc(100% - 12px);
+  align-self: stretch;
 
   display: flex;
   flex-wrap: wrap-reverse;
   justify-content: flex-end;
   gap: 4px;
+
+  pointer-events: auto;
 
   @container (max-width: 140px) {
     display: none;
@@ -347,6 +363,8 @@ export interface MapTilePick {
   selected: boolean
   /** Where the map sits in the lobby's map queue (1-based), if it's queued. */
   queuePositions?: ReadonlyArray<number>
+  /** A chip saying why the map is marked (e.g. that it's already in a collection), if it is. */
+  markedLabel?: string
   /** Whether a pick of this map is being completed. */
   pending: boolean
   /** Whether the last pick of this map failed. */
@@ -369,7 +387,7 @@ export function MapTile({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const map = useFragment(MapTile_SbMapFragment, mapRef)
-  const poolTypes = useCurrentMapPoolTypes(map.id)
+  const poolTypes = map.ladderPools
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
 
   // When the tile first rendered is recent enough to judge "new" by
@@ -385,8 +403,8 @@ export function MapTile({
   }
 
   const favoriteLabel = map.isFavorited
-    ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
-    : t('maps.thumbnail.addToFavorites', 'Add to favorites')
+    ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+    : t('maps.thumbnail.addToStarred', 'Add to Starred')
 
   const previewLabel = t('maps.thumbnail.showMapPreview', 'Show map preview')
 
@@ -394,34 +412,39 @@ export function MapTile({
     <>
       <ImageBox $selected={pick?.selected}>
         <MapFileImage file={map.file} name={name} size={imageSize} forceAspectRatio={1} />
-        {badge ? <Badge>{badge}</Badge> : null}
-        {poolTypes.length ? (
-          <PoolChips>
-            {poolTypes.map(type => {
-              const label = matchmakingTypeToLabel(type, t)
-              return (
-                <PoolChip
-                  key={type}
-                  text={t(
-                    'maps.thumbnail.mapPoolChipTooltip',
-                    'In the current {{mode}} ladder map pool',
-                    { mode: label },
-                  )}
-                  position='top'
-                  tabIndex={-1}>
-                  {label}
-                </PoolChip>
-              )
-            })}
-          </PoolChips>
-        ) : null}
-        {pick?.queuePositions?.length ? (
-          <QueueChip>
-            {t('maps.picker.inQueue', {
-              defaultValue: '{{positions}} in queue',
-              positions: pick.queuePositions.map(p => `#${p}`).join(', '),
-            })}
-          </QueueChip>
+        {badge ? <TileBadge>{badge}</TileBadge> : null}
+        {pick?.markedLabel || pick?.queuePositions?.length || poolTypes.length ? (
+          <BottomChips>
+            {pick?.markedLabel ? <QueueChip>{pick.markedLabel}</QueueChip> : null}
+            {!pick?.markedLabel && pick?.queuePositions?.length ? (
+              <QueueChip>
+                {t('maps.picker.inQueue', {
+                  defaultValue: '{{positions}} in queue',
+                  positions: pick.queuePositions.map(p => `#${p}`).join(', '),
+                })}
+              </QueueChip>
+            ) : null}
+            {poolTypes.length ? (
+              <PoolChips>
+                {poolTypes.map(type => {
+                  const label = matchmakingTypeToLabel(type, t)
+                  return (
+                    <PoolChip
+                      key={type}
+                      text={t(
+                        'maps.thumbnail.mapPoolChipTooltip',
+                        'In the current {{mode}} ladder map pool',
+                        { mode: label },
+                      )}
+                      position='top'
+                      tabIndex={-1}>
+                      {label}
+                    </PoolChip>
+                  )
+                })}
+              </PoolChips>
+            ) : null}
+          </BottomChips>
         ) : null}
         {pick?.pending ? (
           <PendingOverlay>
@@ -492,7 +515,11 @@ export function MapTile({
 
 type TileMap = MapTile_SbMapFragmentFragment
 
-function mapTileMeta(map: TileMap, t: TFunction): string {
+/**
+ * The line of facts under a map's name: its player count, size and tileset, or for a UMS map its
+ * forces and whether it's EUD.
+ */
+export function mapTileMeta(map: TileMap, t: TFunction): string {
   const players = t('maps.catalog.players', {
     defaultValue: '{{count}} players',
     defaultValue_one: '{{count}} player',
