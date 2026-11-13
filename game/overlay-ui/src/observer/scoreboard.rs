@@ -2,12 +2,12 @@
 //! in the screen's top-right corner.
 //!
 //! It is a stats wing, the top of the column the wings make down the right edge, built from the
-//! same pieces they are: the same chrome and title row, with the game clock in the middle of it, a
-//! row of column headings, and a row per player led by the square of their color and their name,
-//! ruled into sides where the sides have players to tell apart. Its row carries the player's race
-//! icon too, and its headings are icons for what each column counts, short of the rate, which keeps
-//! the name casters give it. Each player is named once, on one row, so the columns are labeled once
-//! for the whole game rather than once per player.
+//! same pieces they are: the same chrome and title row, a row of column headings, and a row per
+//! player led by the square of their color and their name, ruled into sides where the sides have
+//! players to tell apart. Its row carries the player's race icon too, and its headings are icons for
+//! what each column counts, short of the rate, which keeps the name casters give it. Each player is
+//! named once, on one row, so the columns are labeled once for the whole game rather than once per
+//! player.
 //!
 //! A click on a row takes that player's vision, as it does everywhere a player is named, and a
 //! player whose vision is off is dimmed rather than dropped.
@@ -22,8 +22,8 @@ use crate::observer::matchup::supply_blocked;
 use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
-    Wing, game_clock, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider,
-    paint_text, panel_name, teams_worth_dividing, vision_alpha, wing_panel,
+    Wing, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider, paint_text,
+    teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -98,9 +98,6 @@ const HEADING_HEIGHT: f32 = 18.0;
 /// Size of the glyphs heading the number columns, which fill their row.
 const COLUMN_ICON: f32 = HEADING_HEIGHT;
 
-/// Text size of the game clock in the middle of the title row.
-const CLOCK_SIZE: f32 = 16.0;
-
 /// What the watcher asked of the scoreboard this frame.
 pub struct ScoreboardOutcome {
     /// Where the panel is on screen, for the host's hit testing and for the surfaces stacked under
@@ -127,7 +124,7 @@ pub fn render_scoreboard_view(
         layout::screen_margin(ctx.viewport_rect()),
         PANEL_WIDTH,
         shown,
-        |ui, header| draw_panel(ui, header, view),
+        |ui, _| draw_panel(ui, view),
     )?;
     Some(ScoreboardOutcome {
         rect: wing.rect,
@@ -136,10 +133,8 @@ pub fn render_scoreboard_view(
     })
 }
 
-/// Draws the panel's contents under its title row at `header`, and reports which player was
-/// clicked.
-fn draw_panel(ui: &mut Ui, header: Rect, view: &MatchupView) -> Option<u8> {
-    draw_clock(ui, header, &panel_name(Panel::Matchup), view.elapsed_secs);
+/// Draws the panel's contents under its title row, and reports which player was clicked.
+fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
     draw_headings(
@@ -170,25 +165,6 @@ fn draw_panel(ui: &mut Ui, header: Rect, view: &MatchupView) -> Option<u8> {
         }
     }
     clicked
-}
-
-/// Draws the game clock in the middle of the title row, `header`, whose title is `title`.
-///
-/// Set on the title's letters rather than in the middle of the row: the title is small capitals and
-/// the clock figures, each sitting at its own height in the box its face leaves around it, and the
-/// two read as one line only where their letters do.
-fn draw_clock(ui: &Ui, header: Rect, title: &str, elapsed_secs: u64) {
-    let title = text::panel_title().galley(ui, title);
-    let letters_middle =
-        header.center().y - title.size().y * 0.5 + text::ink_bounds(&title).center().y;
-    let spec = text::numeral(CLOCK_SIZE).with_color(theme::TIER0_HEADER);
-    let clock = spec.galley(ui, &game_clock(elapsed_secs));
-    let top = letters_middle - text::ink_bounds(&clock).center().y;
-    ui.painter().galley(
-        pos2(header.center().x - clock.size().x * 0.5, top),
-        clock,
-        spec.color,
-    );
 }
 
 /// Draws the row of column headings: the icon heading each number column, and over the names the

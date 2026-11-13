@@ -13,6 +13,10 @@
 //! of players with a switch each, which asks exactly what a click on a half of the matchup bar asks,
 //! and a menu button, which asks the host to open the game's menu the way its own key does.
 //!
+//! The game clock stands between the two buttons. The minimap stays where it is whichever form the
+//! matchup takes, and with the matchup put away, so the clock is found in the same place in all of
+//! them.
+//!
 //! The frame follows the minimap wherever the game puts it, being drawn from the square the host
 //! reports, and comes and goes with it.
 //!
@@ -30,7 +34,7 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    MatchupPlayerView, ObserverView, PLAYER_SWATCH, paint_player_swatch_in, paint_text,
+    MatchupPlayerView, ObserverView, PLAYER_SWATCH, game_clock, paint_player_swatch_in, paint_text,
     teams_worth_dividing,
 };
 use crate::tr;
@@ -50,6 +54,12 @@ const BUTTON_MIN_WIDTH: f32 = 52.0;
 
 /// Text size of a header button's label.
 const BUTTON_TEXT_SIZE: f32 = 12.0;
+
+/// Text size of the game clock between the header's buttons.
+const CLOCK_SIZE: f32 = 16.0;
+
+/// The least room kept between the clock and either button.
+const CLOCK_GAP: f32 = theme::SPACE_SM;
 
 /// How wide the list of players is, and the height of one of its rows.
 const PICKER_WIDTH: f32 = 236.0;
@@ -127,7 +137,7 @@ pub fn render_minimap_frame(
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         paint_frame(ui, outer, square, header);
-        draw_header(ui, header, picker_open)
+        draw_header(ui, header, picker_open, view.matchup.elapsed_secs)
     })?;
     let (vision, menu) = inner.inner;
     // The open list already says what the vision button is for, and covers where its card goes.
@@ -229,8 +239,14 @@ fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect) {
 }
 
 /// Draws the header's two buttons, returning what the pointer did to each: vision at the left end,
-/// where the list it opens hangs from, and the menu at the right.
-fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response, egui::Response) {
+/// where the list it opens hangs from, and the menu at the right. The game clock, at
+/// `elapsed_secs`, goes between them.
+fn draw_header(
+    ui: &mut Ui,
+    header: Rect,
+    picker_open: bool,
+    elapsed_secs: u64,
+) -> (egui::Response, egui::Response) {
     let inner = header.shrink2(vec2(theme::SPACE_XS + FRAME_PAD, 0.0));
     let vision_label = tr!("observer.minimapVision", "Vision");
     let menu_label = tr!("observer.minimapMenu", "Menu");
@@ -249,7 +265,37 @@ fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response,
     );
     let vision = header_button(ui, vision_rect, &vision_label, picker_open);
     let menu = header_button(ui, menu_rect, &menu_label, false);
+    draw_clock(
+        ui,
+        Rect::from_min_max(
+            pos2(vision_rect.right(), header.top()),
+            pos2(menu_rect.left(), header.bottom()),
+        ),
+        elapsed_secs,
+    );
     (vision, menu)
+}
+
+/// Draws the game clock centered in `room`, the part of the header between its two buttons.
+///
+/// Centered between the buttons rather than on the header, so a translation that makes one button
+/// wider than the other moves the clock over rather than running it into that button. A minimap too
+/// narrow to leave the clock room clear of both buttons shows no clock at all: the buttons are what
+/// a watcher acts through, and a clock cut short would read as a different time.
+fn draw_clock(ui: &Ui, room: Rect, elapsed_secs: u64) {
+    let spec = text::numeral(CLOCK_SIZE);
+    let clock = spec.galley(ui, &game_clock(elapsed_secs));
+    if clock.size().x > room.width() - CLOCK_GAP * 2.0 {
+        return;
+    }
+    // The figures' own ink is centered on the strip rather than the box the face leaves around them,
+    // which would set them lower than the labels on the buttons either side.
+    let top = room.center().y - text::ink_bounds(&clock).center().y;
+    ui.painter().galley(
+        pos2(room.center().x - clock.size().x * 0.5, top),
+        clock,
+        spec.color,
+    );
 }
 
 /// How wide a header button carrying `label` is.
