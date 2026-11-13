@@ -7,8 +7,11 @@ import NotificationService from '../notifications/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { MIN_IDENTIFIER_MATCHES } from './client-ids'
 import {
+  countRestrictedUserIdentifiers,
   getActiveRestrictionsForUsers,
+  getActiveUserRestrictions,
   liftIdentifierRestrictions,
   liftUserRestrictions,
   restrictAllIdentifiers,
@@ -17,6 +20,8 @@ import {
 } from './restriction-models'
 import { RestrictionService } from './restriction-service'
 import { findConnectedUsers } from './user-identifiers'
+
+vi.mock('./client-ids', () => ({ MIN_IDENTIFIER_MATCHES: 4 }))
 
 vi.mock('./restriction-models', () => ({
   checkMultipleRestrictions: vi.fn(),
@@ -162,6 +167,61 @@ describe('users/restriction-service', () => {
 
       expect(getActiveRestrictionsForUsers).not.toHaveBeenCalled()
       expect(publish).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('handleNewIdentifiers', () => {
+    const MATCHING_INFO = {
+      latestEnd: new Date(NOW + 60 * 60 * 1000),
+      reason: RestrictionReason.Spam,
+      restrictedBy: ADMIN,
+      firstUserId: CONNECTED,
+    }
+
+    beforeEach(() => {
+      asMockedFunction(getActiveUserRestrictions).mockResolvedValue([])
+      asMockedFunction(restrictUsers).mockResolvedValue([makeRestriction()])
+      asMockedFunction(restrictAllIdentifiers).mockResolvedValue(undefined)
+    })
+
+    test('ignores restrictions matching fewer than the minimum number of identifiers', async () => {
+      asMockedFunction(countRestrictedUserIdentifiers).mockImplementation(async ({ kind }) =>
+        kind === RestrictionKind.Chat
+          ? { ...MATCHING_INFO, count: MIN_IDENTIFIER_MATCHES - 1 }
+          : undefined,
+      )
+
+      await service.handleNewIdentifiers(TARGET, [])
+
+      expect(restrictUsers).not.toHaveBeenCalled()
+      expect(restrictAllIdentifiers).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+      expect(addNotification).not.toHaveBeenCalled()
+    })
+
+    test('applies restrictions matching the minimum number of identifiers', async () => {
+      asMockedFunction(countRestrictedUserIdentifiers).mockImplementation(async ({ kind }) =>
+        kind === RestrictionKind.Chat
+          ? { ...MATCHING_INFO, count: MIN_IDENTIFIER_MATCHES }
+          : undefined,
+      )
+
+      await service.handleNewIdentifiers(TARGET, [])
+
+      expect(restrictUsers).toHaveBeenCalledWith(
+        {
+          users: [TARGET],
+          causedBy: CONNECTED,
+          kind: RestrictionKind.Chat,
+          startTime: new Date(NOW),
+          endTime: MATCHING_INFO.latestEnd,
+          restrictedBy: ADMIN,
+          reason: RestrictionReason.Spam,
+        },
+        dbClient,
+      )
+      expect(restrictAllIdentifiers).toHaveBeenCalledTimes(1)
+      expect(addNotification).toHaveBeenCalledTimes(1)
     })
   })
 
