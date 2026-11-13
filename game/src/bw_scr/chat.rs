@@ -4,7 +4,10 @@ use std::time::{Duration, Instant};
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    app_messages::{BlockFailureReason, BlockRequestFailed, ReportOutcome, ReportResult, SbUserId},
+    app_messages::{
+        BlockFailureReason, BlockRequestFailed, ReportOutcome, ReportResult, SbUserId,
+        UserStatsAnswer, UserStatsPurpose,
+    },
     bw::{get_bw, players::BwPlayerId},
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
@@ -74,6 +77,9 @@ pub struct ChatManager {
     /// Text to print in the game's chat area, queued by code running off the game thread (which
     /// can't print directly). Drained by [`Self::take_pending_notices`] on the game thread.
     pending_notices: Vec<CString>,
+    /// Stats the app has answered with, which the overlay shows. Queued here by the thread that
+    /// receives them and drained by [`Self::take_user_stats`] where the overlay is drawn.
+    user_stats: Vec<UserStatsAnswer>,
     /// The reports the local user has made about players this game, by player.
     reports: HashMap<SbUserId, Report>,
 }
@@ -141,6 +147,7 @@ impl ChatManager {
             local_user_id: None,
             is_chat_restricted: false,
             pending_notices: Vec::new(),
+            user_stats: Vec::new(),
             reports: HashMap::new(),
         }
     }
@@ -232,6 +239,15 @@ impl ChatManager {
         let msg = CString::new(format!("\x06Couldn't {action} \x07{name}\x06{detail}"))
             .unwrap_or_default();
         self.pending_notices.push(msg);
+    }
+
+    /// Queues stats the app answered with, for the overlay to show.
+    pub fn user_stats_received(&mut self, answer: UserStatsAnswer) {
+        self.user_stats.push(answer);
+    }
+
+    pub fn take_user_stats(&mut self) -> Vec<UserStatsAnswer> {
+        std::mem::take(&mut self.user_stats)
     }
 
     pub fn take_pending_notices(&mut self) -> Vec<CString> {
@@ -441,7 +457,7 @@ impl ChatManager {
             }
             "/muteenemy" | "/menemy" => match self.mute_enemies(is_enemy) {
                 MuteEnemiesOutcome::Muted => {
-                    get_bw().print_text(c"Enemy players muted");
+                    get_bw().print_text(c"\x04Enemy players muted");
                 }
                 MuteEnemiesOutcome::NoEnemies => {
                     get_bw().print_centered_text(c"\x06You have no enemies to mute");
@@ -515,6 +531,20 @@ impl ChatManager {
                     }
                 }
             }
+            // Same name and aliases as the app's chat command
+            "/stats" | "/astat" | "/profile" | "/p" | "/rank" | "/mmr" => {
+                let mut args = tokens.filter(|arg| !arg.is_empty());
+                let name = args.next();
+                if args.next().is_some() {
+                    let msg = CString::new(format!("\x03Usage: \x04{command} \x07[name]")).unwrap();
+                    get_bw().print_centered_text(&msg);
+                    return true;
+                }
+                send_game_msg_to_async(GameThreadMessage::RequestUserStats {
+                    name: name.map(String::from),
+                    purpose: UserStatsPurpose::Command,
+                });
+            }
             "/unmute" | "/um" => {
                 let mut to_unmute = None;
                 if let Some(player) = tokens.next() {
@@ -550,6 +580,9 @@ impl ChatManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_messages::{
+        MatchmakingDivision, MatchmakingType, StatsRace, UserStanding, UserStats, UserStatsResult,
+    };
     use crate::bw::players::{BwPlayerId, StormPlayerId};
 
     fn joined(name: &str, index: u8, user: u32) -> JoinedPlayer {
@@ -803,5 +836,63 @@ mod tests {
         assert!(notices[0].to_str().unwrap().contains("block \x07player-b"));
         assert!(notices[1].to_str().unwrap().contains("unblock \x07watcher"));
         assert!(manager.take_pending_notices().is_empty());
+    }
+
+    #[test]
+    fn user_stats_answers_are_queued_for_the_overlay() {
+        let mut manager = manager_with_players();
+        let answer = UserStatsAnswer {
+            purpose: UserStatsPurpose::Command,
+            result: UserStatsResult::NotFound {
+                name: "nobody".into(),
+            },
+        };
+        manager.user_stats_received(answer);
+        assert_eq!(manager.take_user_stats().len(), 1);
+        assert!(manager.take_user_stats().is_empty());
+        assert!(manager.take_pending_notices().is_empty());
+    }
+
+    #[test]
+    fn user_stats_answers_deserialize_from_the_app() {
+        let found: UserStatsAnswer = serde_json::from_str(
+            r#"{"purpose":"roster","result":{"kind":"found","name":"tec27","mainRace":"p",
+                "wins":1,"losses":2,
+                "best":{"matchmakingType":"1v1","division":"gold2","rating":1820},
+                "current":{"matchmakingType":"2v2"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            found,
+            UserStatsAnswer {
+                purpose: UserStatsPurpose::Roster,
+                result: UserStatsResult::Found(UserStats {
+                    name: "tec27".into(),
+                    main_race: Some(StatsRace::Protoss),
+                    wins: 1,
+                    losses: 2,
+                    best: Some(UserStanding {
+                        matchmaking_type: MatchmakingType::OneVOne,
+                        division: Some(MatchmakingDivision::Gold2),
+                        rating: Some(1820),
+                    }),
+                    current: Some(UserStanding {
+                        matchmaking_type: MatchmakingType::TwoVTwo,
+                        division: None,
+                        rating: None,
+                    }),
+                }),
+            },
+        );
+        let not_found: UserStatsAnswer = serde_json::from_str(
+            r#"{"purpose":"command","result":{"kind":"notFound","name":"nobody"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            not_found.result,
+            UserStatsResult::NotFound {
+                name: "nobody".into()
+            },
+        );
     }
 }

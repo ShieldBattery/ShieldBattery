@@ -4,8 +4,9 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
-import { InGameReportRequest } from '../../common/ipc'
+import { GameUserStatsPurpose, InGameReportRequest } from '../../common/ipc'
 import { MapDownloadOutcome } from '../../common/maps'
+import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -390,6 +391,44 @@ describe('ActiveGameManager block list updates', () => {
     expect(commands.filter(([, command]) => command === 'reportResult')).toEqual([
       ['game-1', 'reportResult', result],
     ])
+  })
+
+  it('relays in-game stats requests and their answers for the active game only', () => {
+    const statsRequests: Array<
+      [string, string | undefined, GameUserStatsPurpose, MatchmakingType | undefined]
+    > = []
+    manager.on('requestUserStats', (gameId, name, purpose, matchmakingType) => {
+      statsRequests.push([gameId, name, purpose, matchmakingType])
+    })
+    manager.setGameConfig(configFor('game-1'))
+
+    manager.handleRequestUserStats('game-0', 'tec27', 'command')
+    manager.handleRequestUserStats('game-1', 'tec27', 'roster')
+    manager.handleRequestUserStats('game-1', undefined, 'command')
+    expect(statsRequests).toEqual([
+      ['game-1', 'tec27', 'roster', undefined],
+      ['game-1', undefined, 'command', undefined],
+    ])
+
+    const result = { kind: 'notFound' as const, name: 'tec27' }
+    manager.userStatsResult('game-0', 'roster', result)
+    manager.userStatsResult('game-1', 'roster', result)
+    expect(commands.filter(([, command]) => command === 'userStats')).toEqual([
+      ['game-1', 'userStats', { purpose: 'roster', result }],
+    ])
+  })
+
+  it("attaches a matchmaking game's mode to its stats requests", () => {
+    const modes: Array<MatchmakingType | undefined> = []
+    manager.on('requestUserStats', (_gameId, _name, _purpose, matchmakingType) => {
+      modes.push(matchmakingType)
+    })
+    const config = configFor('game-1')
+    config.setup.matchmakingType = MatchmakingType.Match2v2
+    manager.setGameConfig(config)
+
+    manager.handleRequestUserStats('game-1', 'tec27', 'command')
+    expect(modes).toEqual([MatchmakingType.Match2v2])
   })
 })
 

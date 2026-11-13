@@ -4,10 +4,15 @@
 //! The ambient surface it puts on screen is the network-stats panel: with it up and the mode set to
 //! observing, a frame here is an ambient panel under whatever modal the native dialogs raise.
 
+use egui::Color32;
 use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, Rank, StatRanks};
 use overlay_ui::observer::RaceView;
 use overlay_ui::options::{
     DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
+};
+use overlay_ui::stats_card::{
+    Division, MatchmakingMode, ModeStanding, Rank as StatsRank, RosterGroup, RosterPlayer,
+    RosterRecord, RosterSide, RosterStats, RosterView, StatsCardContent, StatsCardView,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +39,10 @@ pub struct Knobs {
     pub end_card_moment: Option<f32>,
     /// Whether the scenario comes up with the notice of a setting the game changed on its own keys.
     pub setting_toast: bool,
+    /// Which answer to a `/stats` command the scenario comes up with, if any.
+    pub stats_card: Option<StatsCardSample>,
+    /// Which game's other players the roster is held up over, if it is.
+    pub roster: Option<RosterSample>,
 }
 
 impl Default for Knobs {
@@ -46,6 +55,383 @@ impl Default for Knobs {
             race: RaceView::Protoss,
             end_card_moment: None,
             setting_toast: false,
+            stats_card: None,
+            roster: None,
+        }
+    }
+}
+
+/// The other players of a game, standing in for what the app has looked up about them.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RosterSample {
+    /// A 1v1 matchmaking game: one opponent.
+    OneVOne,
+    /// A 2v2 matchmaking game: an ally and two opponents.
+    TwoVTwo,
+    /// A 3v3 matchmaking game, with one player still loading and one not yet rated in anything.
+    ThreeVThree,
+    /// A free-for-all lobby game, which has no mode, so each row has only its player's best.
+    Lobby,
+}
+
+impl RosterSample {
+    pub const ALL: [RosterSample; 4] = [
+        RosterSample::OneVOne,
+        RosterSample::TwoVTwo,
+        RosterSample::ThreeVThree,
+        RosterSample::Lobby,
+    ];
+
+    pub fn slug(self) -> &'static str {
+        match self {
+            RosterSample::OneVOne => "1v1",
+            RosterSample::TwoVTwo => "2v2",
+            RosterSample::ThreeVThree => "3v3",
+            RosterSample::Lobby => "lobby",
+        }
+    }
+
+    pub fn view(self) -> RosterView {
+        // BW's own player colors, in slot order, which is what a row's bar is matched against.
+        const COLORS: [Color32; 6] = [
+            Color32::from_rgb(0xF4, 0x04, 0x04),
+            Color32::from_rgb(0x0C, 0x48, 0xCC),
+            Color32::from_rgb(0x2C, 0xB4, 0x94),
+            Color32::from_rgb(0x88, 0x40, 0x9C),
+            Color32::from_rgb(0xF8, 0x8C, 0x14),
+            Color32::from_rgb(0x70, 0x30, 0x14),
+        ];
+        let player = |name: &str, slot: usize, race, stats| RosterPlayer {
+            name: name.to_string(),
+            color: COLORS[slot],
+            race,
+            stats,
+        };
+        let standing = |mode, rank: Option<(Division, u32)>| {
+            Some(ModeStanding {
+                mode,
+                rank: rank.map(|(division, rating)| StatsRank { division, rating }),
+            })
+        };
+        let loaded = |main_race, wins, losses, best, current| {
+            RosterStats::Loaded(RosterRecord {
+                main_race,
+                wins,
+                losses,
+                best,
+                current,
+            })
+        };
+        let group = |side, players| RosterGroup { side, players };
+        use MatchmakingMode::*;
+        use RaceView::*;
+        match self {
+            RosterSample::OneVOne => RosterView {
+                groups: vec![group(
+                    RosterSide::Opponents,
+                    vec![player(
+                        "Bisu[Shield]",
+                        1,
+                        Protoss,
+                        loaded(
+                            Some(Protoss),
+                            362,
+                            248,
+                            standing(TwoVTwo, Some((Division::Diamond2, 2140))),
+                            standing(OneVOne, Some((Division::Platinum1, 1865))),
+                        ),
+                    )],
+                )],
+            },
+            RosterSample::TwoVTwo => RosterView {
+                groups: vec![
+                    group(
+                        RosterSide::Allies,
+                        vec![player(
+                            "Flash",
+                            2,
+                            Terran,
+                            loaded(
+                                Some(Terran),
+                                1204,
+                                699,
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
+                            ),
+                        )],
+                    ),
+                    group(
+                        RosterSide::Opponents,
+                        vec![
+                            player(
+                                "Jaedong",
+                                1,
+                                Zerg,
+                                loaded(
+                                    Some(Zerg),
+                                    880,
+                                    602,
+                                    standing(OneVOne, Some((Division::Champion, 2512))),
+                                    standing(TwoVTwo, Some((Division::Diamond1, 2051))),
+                                ),
+                            ),
+                            player(
+                                "Stork",
+                                3,
+                                Protoss,
+                                loaded(
+                                    Some(Protoss),
+                                    431,
+                                    390,
+                                    standing(TwoVTwo, Some((Division::Gold3, 1742))),
+                                    standing(TwoVTwo, Some((Division::Gold3, 1742))),
+                                ),
+                            ),
+                        ],
+                    ),
+                ],
+            },
+            RosterSample::ThreeVThree => RosterView {
+                groups: vec![
+                    group(
+                        RosterSide::Allies,
+                        vec![
+                            player(
+                                "AVeryLongNamePlayer",
+                                2,
+                                Zerg,
+                                loaded(
+                                    Some(Terran),
+                                    12_480,
+                                    11_903,
+                                    standing(OneVOne, Some((Division::Gold1, 1611))),
+                                    standing(ThreeVThreeBgh, Some((Division::Silver2, 1488))),
+                                ),
+                            ),
+                            player(
+                                "newcomer",
+                                4,
+                                Terran,
+                                loaded(None, 2, 1, None, standing(ThreeVThreeBgh, None)),
+                            ),
+                        ],
+                    ),
+                    group(
+                        RosterSide::Opponents,
+                        vec![
+                            player(
+                                "Light",
+                                1,
+                                Terran,
+                                loaded(
+                                    Some(Terran),
+                                    640,
+                                    511,
+                                    standing(ThreeVThreeBgh, Some((Division::Gold1, 1603))),
+                                    standing(ThreeVThreeBgh, Some((Division::Gold1, 1603))),
+                                ),
+                            ),
+                            player("Rain", 3, Protoss, RosterStats::Loading),
+                            player(
+                                "Soulkey",
+                                5,
+                                Zerg,
+                                loaded(
+                                    Some(Zerg),
+                                    977,
+                                    845,
+                                    standing(OneVOne, Some((Division::Diamond2, 2160))),
+                                    standing(ThreeVThreeBgh, Some((Division::Platinum2, 1910))),
+                                ),
+                            ),
+                        ],
+                    ),
+                ],
+            },
+            RosterSample::Lobby => RosterView {
+                groups: vec![group(
+                    RosterSide::Opponents,
+                    vec![
+                        player(
+                            "Jaedong",
+                            1,
+                            Zerg,
+                            loaded(
+                                Some(Zerg),
+                                880,
+                                602,
+                                standing(OneVOne, Some((Division::Champion, 2512))),
+                                None,
+                            ),
+                        ),
+                        player(
+                            "Flash",
+                            2,
+                            Terran,
+                            loaded(
+                                Some(Terran),
+                                1204,
+                                699,
+                                standing(TwoVTwo, Some((Division::Diamond3, 2214))),
+                                None,
+                            ),
+                        ),
+                        player("guest4471", 3, Random, RosterStats::Unavailable),
+                    ],
+                )],
+            },
+        }
+    }
+}
+
+/// Paints a player's console under the overlay, which the preview otherwise has none of: the
+/// minimap in the bottom-left corner, the band along the bottom, and a few lines of chat where BW
+/// writes them, above the minimap. The chat-area surfaces are judged against what they cover.
+pub fn paint_player_console_stand_in(ctx: &egui::Context) {
+    let screen = ctx.viewport_rect();
+    let minimap = super::observer::minimap_square(screen);
+    super::observer::paint_minimap_stand_in(ctx, minimap);
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("player_console_stand_in"),
+    ));
+    let unit = screen.height() / 1080.0;
+    let band = egui::Rect::from_min_max(
+        egui::pos2(minimap.right(), screen.bottom() - 200.0 * unit),
+        screen.max,
+    );
+    painter.rect_filled(band, 0.0, Color32::from_rgb(0x14, 0x16, 0x1a));
+    painter.hline(
+        band.x_range(),
+        band.top(),
+        egui::Stroke::new(2.0, Color32::from_rgb(0x3a, 0x3e, 0x46)),
+    );
+    let lines = [
+        ("Jaedong", Color32::from_rgb(0xF4, 0x04, 0x04), "gl hf"),
+        ("Flash", Color32::from_rgb(0x0C, 0x48, 0xCC), "glhf"),
+        ("Stork", Color32::from_rgb(0x2C, 0xB4, 0x94), "gl"),
+    ];
+    let font = egui::FontId::proportional(16.0);
+    let mut y = minimap.top() - 14.0;
+    for (name, color, text) in lines.iter().rev() {
+        let name_galley = painter.layout_no_wrap(format!("{name}: "), font.clone(), *color);
+        let pos = egui::pos2(minimap.left(), y - name_galley.size().y);
+        let width = name_galley.size().x;
+        painter.galley(
+            pos + egui::vec2(1.0, 1.0),
+            name_galley.clone(),
+            Color32::BLACK,
+        );
+        painter.galley(pos, name_galley, *color);
+        let text_galley = painter.layout_no_wrap(text.to_string(), font.clone(), Color32::WHITE);
+        painter.galley(pos + egui::vec2(width, 0.0), text_galley, Color32::WHITE);
+        y -= 20.0;
+    }
+}
+
+/// An answer to a `/stats` command, standing in for what the app sends back.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StatsCardSample {
+    /// A seasoned player looked up during a 1v1, whose best mode is another one.
+    Matchmaking,
+    /// A player whose best mode is the one being played.
+    SameMode,
+    /// A player looked up in a lobby game, which has no mode of its own.
+    Lobby,
+    /// A new player in their first matchmaking game, rated in nothing yet.
+    NewPlayer,
+    /// A name long enough to need truncating, with a record wide enough to crowd it.
+    LongName,
+    /// A name nobody has.
+    NotFound,
+    /// The player's own stats, which couldn't be loaded.
+    Failed,
+}
+
+impl StatsCardSample {
+    pub const ALL: [StatsCardSample; 7] = [
+        StatsCardSample::Matchmaking,
+        StatsCardSample::SameMode,
+        StatsCardSample::Lobby,
+        StatsCardSample::NewPlayer,
+        StatsCardSample::LongName,
+        StatsCardSample::NotFound,
+        StatsCardSample::Failed,
+    ];
+
+    pub fn slug(self) -> &'static str {
+        match self {
+            StatsCardSample::Matchmaking => "matchmaking",
+            StatsCardSample::SameMode => "same-mode",
+            StatsCardSample::Lobby => "lobby",
+            StatsCardSample::NewPlayer => "new-player",
+            StatsCardSample::LongName => "long-name",
+            StatsCardSample::NotFound => "not-found",
+            StatsCardSample::Failed => "failed",
+        }
+    }
+
+    pub fn content(self) -> StatsCardContent {
+        let rated = |mode, division, rating| ModeStanding {
+            mode,
+            rank: Some(StatsRank { division, rating }),
+        };
+        let seasoned = |name: &str, best, current| {
+            StatsCardContent::Stats(StatsCardView {
+                name: name.to_string(),
+                main_race: Some(RaceView::Zerg),
+                wins: 362,
+                losses: 248,
+                best: Some(best),
+                current,
+            })
+        };
+        match self {
+            StatsCardSample::Matchmaking => seasoned(
+                "Bisu[Shield]",
+                rated(MatchmakingMode::TwoVTwo, Division::Diamond2, 2140),
+                Some(rated(MatchmakingMode::OneVOne, Division::Platinum1, 1865)),
+            ),
+            StatsCardSample::SameMode => {
+                let one_v_one = rated(MatchmakingMode::OneVOne, Division::Gold2, 1720);
+                seasoned("Flash", one_v_one, Some(one_v_one))
+            }
+            StatsCardSample::Lobby => seasoned(
+                "Jaedong",
+                rated(MatchmakingMode::OneVOne, Division::Champion, 2512),
+                None,
+            ),
+            StatsCardSample::NewPlayer => StatsCardContent::Stats(StatsCardView {
+                name: "newcomer".to_string(),
+                main_race: None,
+                wins: 0,
+                losses: 0,
+                best: None,
+                current: Some(ModeStanding {
+                    mode: MatchmakingMode::OneVOne,
+                    rank: None,
+                }),
+            }),
+            StatsCardSample::LongName => StatsCardContent::Stats(StatsCardView {
+                name: "AVeryLongName16c".to_string(),
+                main_race: Some(RaceView::Protoss),
+                wins: 12_480,
+                losses: 11_903,
+                best: Some(rated(
+                    MatchmakingMode::ThreeVThreeHunters,
+                    Division::Silver3,
+                    1488,
+                )),
+                current: Some(rated(
+                    MatchmakingMode::TwoVTwoFastest,
+                    Division::Bronze1,
+                    1210,
+                )),
+            }),
+            StatsCardSample::NotFound => StatsCardContent::NotFound {
+                name: "nobodyxyz".to_string(),
+            },
+            StatsCardSample::Failed => StatsCardContent::Failed { name: None },
         }
     }
 }
@@ -69,10 +455,14 @@ pub enum Preset {
     Defeat,
     /// A player's game with the notice of a setting changed on the game's own keys.
     SettingToast,
+    /// A player's game with the answer to a `/stats` command they typed.
+    StatsCard(StatsCardSample),
+    /// A player's game with the roster of the other players held up.
+    Roster(RosterSample),
 }
 
 impl Preset {
-    pub const ALL: [Preset; 12] = [
+    pub const ALL: [Preset; 23] = [
         Preset::Observer,
         Preset::GameMenu,
         Preset::PlayerGameMenu,
@@ -85,6 +475,17 @@ impl Preset {
         Preset::Victory,
         Preset::Defeat,
         Preset::SettingToast,
+        Preset::StatsCard(StatsCardSample::Matchmaking),
+        Preset::StatsCard(StatsCardSample::SameMode),
+        Preset::StatsCard(StatsCardSample::Lobby),
+        Preset::StatsCard(StatsCardSample::NewPlayer),
+        Preset::StatsCard(StatsCardSample::LongName),
+        Preset::StatsCard(StatsCardSample::NotFound),
+        Preset::StatsCard(StatsCardSample::Failed),
+        Preset::Roster(RosterSample::OneVOne),
+        Preset::Roster(RosterSample::TwoVTwo),
+        Preset::Roster(RosterSample::ThreeVThree),
+        Preset::Roster(RosterSample::Lobby),
     ];
 
     pub fn label(self) -> String {
@@ -97,6 +498,8 @@ impl Preset {
             Preset::Victory => "victory".to_string(),
             Preset::Defeat => "defeat".to_string(),
             Preset::SettingToast => "setting-toast".to_string(),
+            Preset::StatsCard(sample) => format!("stats-card-{}", sample.slug()),
+            Preset::Roster(sample) => format!("roster-{}", sample.slug()),
         }
     }
 
@@ -110,13 +513,24 @@ impl Preset {
         knobs.host.defeat_spawned = matches!(self, Preset::Defeat);
         // The result popups are a player's; the rest of the shell's states are shown to a watcher.
         knobs.host.mode = match self {
-            Preset::PlayerGameMenu | Preset::Victory | Preset::Defeat | Preset::SettingToast => {
-                overlay_ui::shell::Mode::Playing
-            }
+            Preset::PlayerGameMenu
+            | Preset::Victory
+            | Preset::Defeat
+            | Preset::SettingToast
+            | Preset::StatsCard(_)
+            | Preset::Roster(_) => overlay_ui::shell::Mode::Playing,
             _ => overlay_ui::shell::Mode::Observing,
         };
         knobs.shell.ambient_panel = matches!(self, Preset::Observer);
         knobs.shell.setting_toast = matches!(self, Preset::SettingToast);
+        knobs.shell.stats_card = match self {
+            Preset::StatsCard(sample) => Some(sample),
+            _ => None,
+        };
+        knobs.shell.roster = match self {
+            Preset::Roster(sample) => Some(sample),
+            _ => None,
+        };
         knobs.shell.options_open = matches!(self, Preset::Options(_));
         if let Preset::Options(section) = self {
             knobs.shell.options_section = section;
@@ -269,6 +683,30 @@ pub fn knobs_ui(knobs: &mut Knobs, ui: &mut egui::Ui) -> bool {
              the color overrides off would. Tick it again to show it again.",
         )
         .changed();
+    ui.horizontal_wrapped(|ui| {
+        ui.label("stats card:");
+        changed |= ui
+            .selectable_value(&mut knobs.stats_card, None, "none")
+            .changed();
+        for sample in StatsCardSample::ALL {
+            changed |= ui
+                .selectable_value(&mut knobs.stats_card, Some(sample), sample.slug())
+                .on_hover_text("Shows this answer to a /stats command.")
+                .changed();
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label("roster held:");
+        changed |= ui
+            .selectable_value(&mut knobs.roster, None, "none")
+            .changed();
+        for sample in RosterSample::ALL {
+            changed |= ui
+                .selectable_value(&mut knobs.roster, Some(sample), sample.slug())
+                .on_hover_text("Holds up the roster of this game's other players.")
+                .changed();
+        }
+    });
     ui.add_space(8.0);
     changed |= ui
         .checkbox(&mut knobs.options_open, "options")

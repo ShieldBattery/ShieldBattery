@@ -421,5 +421,66 @@
     "soundOn": "Sound on",
     "windowed": "Windowed",
     "windowedFullscreen": "Windowed (Fullscreen)"
+  },
+  "statsCard": {
+    "bestMode": "Best mode",
+    "bestModeThisGame": "Best mode · This game",
+    "division": {
+      "bronze1": "Bronze 1",
+      "bronze2": "Bronze 2",
+      "bronze3": "Bronze 3",
+      "champion": "Champion",
+      "diamond1": "Diamond 1",
+      "diamond2": "Diamond 2",
+      "diamond3": "Diamond 3",
+      "gold1": "Gold 1",
+      "gold2": "Gold 2",
+      "gold3": "Gold 3",
+      "platinum1": "Platinum 1",
+      "platinum2": "Platinum 2",
+      "platinum3": "Platinum 3",
+      "silver1": "Silver 1",
+      "silver2": "Silver 2",
+      "silver3": "Silver 3",
+      "unrated": "Unrated"
+    },
+    "failedFor": "Couldn't load the stats of",
+    "failedOwn": "Couldn't load your stats",
+    "games_one": "{{count}} game",
+    "games_other": "{{count}} games",
+    "lossMark": "L",
+    "mainRace": "{{race}} main",
+    "mmr": "MMR",
+    "mode": {
+      "1v1": "1v1",
+      "1v1fastest": "1v1 Fastest",
+      "2v2": "2v2",
+      "2v2bgh": "2v2 BGH",
+      "2v2fastest": "2v2 Fastest",
+      "2v2hunters": "2v2 Hunters",
+      "3v3bgh": "3v3 BGH",
+      "3v3fastest": "3v3 Fastest",
+      "3v3hunters": "3v3 Hunters"
+    },
+    "noGames": "No games played",
+    "notFound": "No player named",
+    "race": {
+      "protoss": "Protoss",
+      "random": "Random",
+      "terran": "Terran",
+      "zerg": "Zerg"
+    },
+    "roster": {
+      "allies": "Allies",
+      "best": "Best",
+      "bestThisGame": "Best · This game",
+      "loading": "Loading…",
+      "opponents": "Opponents",
+      "unavailable": "No stats"
+    },
+    "thisGame": "This game",
+    "unranked": "Unranked",
+    "winMark": "W",
+    "winRate": "{{percent}}% won"
   }
 }

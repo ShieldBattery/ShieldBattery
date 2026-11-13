@@ -43,7 +43,7 @@ pub use thiscall::Thiscall;
 use crate::GameThreadMessage;
 use crate::app_messages::{
     AtomicStartingFog, BlockRequestFailed, MapInfo, MinimapColorMode, SbUserId, Settings,
-    SettingsChanged, StartingFog,
+    SettingsChanged, StartingFog, UserStatsAnswer,
 };
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -4214,6 +4214,10 @@ impl BwScr {
 
     pub fn report_result(&self, result: &crate::app_messages::ReportResult) {
         self.chat_manager.lock().report_result(result);
+    }
+
+    pub fn user_stats_received(&self, answer: UserStatsAnswer) {
+        self.chat_manager.lock().user_stats_received(answer);
     }
 
     /// Prints the notices other threads queued on the chat manager. Must run on the game thread.
