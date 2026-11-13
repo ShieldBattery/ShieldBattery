@@ -78,8 +78,8 @@ pub struct OverlayState {
     native_dialogs_seen: [ReplacedDialogState; NativeDialog::ALL.len()],
     /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
-    /// The square the minimap is drawn in, in the overlay's points, as the last frame found it.
-    minimap_square: Option<Rect>,
+    /// Where the minimap is on screen, as the last frame found it.
+    minimap_place: Option<MinimapPlace>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
     /// The observer panels the last frame handed the shell, kept while the client is watching.
@@ -384,6 +384,15 @@ impl MapView {
     }
 }
 
+/// Where the minimap is on screen: its rect, in the overlay's points, and whether that is the
+/// control the game draws the map in, which the game makes the shape of the map, or only the
+/// square the minimap's dialog leaves for it.
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct MinimapPlace {
+    rect: Rect,
+    is_the_map: bool,
+}
+
 /// Where on the screen the minimap shows the map, and how big the map is.
 #[derive(Copy, Clone, Debug)]
 struct MinimapMap {
@@ -395,14 +404,35 @@ struct MinimapMap {
 }
 
 impl MinimapMap {
-    /// The minimap of a map `map_width` by `map_height` pixels shown in `square`: the map fills
-    /// the square along its longer side and stands in the middle of it along its shorter one,
-    /// which is how the game lays a map that is not square out on its minimap. `None` for a map or
-    /// a square with no size.
+    /// The minimap of a map `map_width` by `map_height` pixels at `place`. `None` for a map or a
+    /// place with no size.
     ///
-    /// Worked out from the square rather than read off what the game drew of the map there: the
-    /// game draws the minimap differently with the terrain on it turned off and in SD graphics,
-    /// and a place on the minimap is the same place on the map however it was drawn.
+    /// The control the game draws the map in is the map's own shape already, a map that is not
+    /// square having had it made narrower or shorter, so the map is all of it. Only the square a
+    /// dialog without that control leaves has the map fitted into it (see [`Self::fitted`]).
+    ///
+    /// Worked out from where the minimap is rather than read off what the game drew of the map
+    /// there: the game draws the minimap differently with the terrain on it turned off and in SD
+    /// graphics, and a place on the minimap is the same place on the map however it was drawn.
+    fn shown_at(place: MinimapPlace, map_width: u32, map_height: u32) -> Option<MinimapMap> {
+        if !place.is_the_map {
+            return MinimapMap::fitted(place.rect, map_width, map_height);
+        }
+        let sized = map_width > 0
+            && map_height > 0
+            && place.rect.width() > 0.0
+            && place.rect.height() > 0.0;
+        sized.then_some(MinimapMap {
+            area: place.rect,
+            map_width,
+            map_height,
+        })
+    }
+
+    /// The minimap of a map `map_width` by `map_height` pixels fitted into `square`: the map fills
+    /// the square along its longer side and stands in the middle of it along its shorter one,
+    /// which is how the game lays a map that is not square out in the room it has for its minimap.
+    /// `None` for a map or a square with no size.
     fn fitted(square: Rect, map_width: u32, map_height: u32) -> Option<MinimapMap> {
         let longer = map_width.max(map_height) as f32;
         if longer <= 0.0 || square.width() <= 0.0 || square.height() <= 0.0 {
@@ -549,7 +579,7 @@ impl OverlayState {
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
             logged_minimap_area: None,
-            minimap_square: None,
+            minimap_place: None,
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
@@ -768,9 +798,8 @@ impl OverlayState {
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
             pause_control: bw.pause_control,
-            minimap_rect: self.minimap_rect(bw),
+            minimap_rect: self.minimap_place(bw).map(|place| place.rect),
         };
-        self.minimap_square = host_frame.minimap_rect;
         if let Some(minimap) = host_frame.minimap_rect {
             let screen = self.ctx.viewport_rect();
             if screen.height() > 0.0 {
@@ -1001,8 +1030,9 @@ impl OverlayState {
         // terrain turned off on it or under fog the watcher has made see-through, the map would
         // show through it.
         let behind_minimap = self
-            .minimap_square
+            .minimap_place
             .filter(|_| bw.is_replay_or_obs)
+            .map(|place| place.rect)
             .map(|square| {
                 let black = egui::epaint::ClippedShape {
                     clip_rect: square,
@@ -1068,14 +1098,21 @@ impl OverlayState {
         changed
     }
 
-    /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
+    /// Where BW's minimap is on screen, in overlay points, while its dialog is up, kept for the
+    /// rest of the frame to go by.
     ///
-    /// The square is the control the map is drawn in. Without that control, it is taken from the
-    /// dialog's own rect, which carries the strip of buttons above the map as well as the map: as
-    /// wide as the dialog, and as tall as it is wide, from its bottom.
-    /// The rect is logged whenever it moves, children and all, which is what to check the square
+    /// It is the control the map is drawn in, which the game sizes to the map. Without that
+    /// control, it is the square taken from the dialog's own rect, which carries the strip of
+    /// buttons above the map as well as the map: as wide as the dialog, and as tall as it is wide,
+    /// from its bottom.
+    /// The rect is logged whenever it moves, children and all, which is what to check the place
     /// against when a layout of the game's puts the minimap somewhere new.
-    fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
+    fn minimap_place(&mut self, bw: &BwVars) -> Option<MinimapPlace> {
+        self.minimap_place = self.find_minimap(bw);
+        self.minimap_place
+    }
+
+    fn find_minimap(&mut self, bw: &BwVars) -> Option<MinimapPlace> {
         let dialog = bw::iter_dialogs(bw.dialogs.first())
             .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
         let control = dialog.as_control();
@@ -1117,7 +1154,10 @@ impl OverlayState {
             let min = self.bw_dialog_point_to_egui(area.left, area.top);
             let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
             if max.x > min.x && max.y > min.y {
-                return Some(Rect::from_min_max(min, max));
+                return Some(MinimapPlace {
+                    rect: Rect::from_min_max(min, max),
+                    is_the_map: true,
+                });
             }
         }
         let min = self.bw_dialog_point_to_egui(area.left, area.top);
@@ -1127,10 +1167,10 @@ impl OverlayState {
             return None;
         }
         let side = width.min(max.y - min.y);
-        Some(Rect::from_min_max(
-            pos2(min.x, max.y - side),
-            pos2(max.x, max.y),
-        ))
+        Some(MinimapPlace {
+            rect: Rect::from_min_max(pos2(min.x, max.y - side), pos2(max.x, max.y)),
+            is_the_map: false,
+        })
     }
 
     fn bw_dialog_coords_max_x(&self) -> f32 {
@@ -1387,8 +1427,8 @@ impl OverlayState {
             Intent::LookAtMinimapPoint(point) => {
                 let (map_width, map_height) = bw.map_size;
                 let minimap = self
-                    .minimap_square
-                    .and_then(|square| MinimapMap::fitted(square, map_width, map_height));
+                    .minimap_place
+                    .and_then(|place| MinimapMap::shown_at(place, map_width, map_height));
                 if let Some(minimap) = minimap {
                     self.out_state.look_at = Some(minimap.map_point(point));
                 }
@@ -2424,10 +2464,43 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 #[cfg(test)]
 mod tests {
     use super::{
-        MinimapMap, numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui, without_unit,
+        MinimapMap, MinimapPlace, numbered_from_one, of_same_kind, scaled_mouse_pos_to_egui,
+        without_unit,
     };
 
     use egui::pos2;
+
+    #[test]
+    fn the_control_the_game_draws_the_map_in_is_all_map() {
+        // A map twice as wide as it is tall, 128 tiles by 64: the game has made the control it
+        // draws it in as much wider than it is tall.
+        let control = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(256.0, 128.0)),
+            is_the_map: true,
+        };
+        let minimap = MinimapMap::shown_at(control, 4096, 2048).unwrap();
+        assert_eq!(minimap.area, control.rect);
+        // A quarter of the way down the control is a quarter of the way down the map.
+        let point = minimap.map_point(pos2(138.0, 532.0));
+        assert_eq!((point.x, point.y), (2048, 512));
+        // The square a dialog without that control leaves has the map fitted into it.
+        let square = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(200.0, 200.0)),
+            is_the_map: false,
+        };
+        let fitted = MinimapMap::shown_at(square, 4096, 2048).unwrap();
+        assert_eq!(
+            fitted.area,
+            egui::Rect::from_min_max(pos2(10.0, 550.0), pos2(210.0, 650.0))
+        );
+        // No map, or nowhere it is shown, is no minimap to point at.
+        assert!(MinimapMap::shown_at(control, 0, 2048).is_none());
+        let nowhere = MinimapPlace {
+            rect: egui::Rect::from_min_size(pos2(10.0, 500.0), egui::vec2(0.0, 0.0)),
+            ..control
+        };
+        assert!(MinimapMap::shown_at(nowhere, 4096, 2048).is_none());
+    }
 
     #[test]
     fn a_place_on_the_minimap_is_the_same_share_of_the_map_shown_there() {
