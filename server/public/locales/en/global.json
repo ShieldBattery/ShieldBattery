@@ -2227,6 +2227,7 @@
       "bySbStaff": "by SB staff",
       "collectionActions": "Collection actions",
       "create": "Create",
+      "createLobby": "Create lobby",
       "curatedByStaff": "Curated by SB staff",
       "deleted": "Collection deleted",
       "deleteText_one": "This deletes the collection and its list of {{count}} map.",
@@ -2533,6 +2534,7 @@
       "weeklyGamesCaption_other": "games per week, last {{count}} weeks"
     },
     "picker": {
+      "addAll": "Add all",
       "addToCollection": "Add maps to {{title}}",
       "addToQueue": "Add maps to the queue",
       "collectionCount_one": "{{count}} map in this collection",

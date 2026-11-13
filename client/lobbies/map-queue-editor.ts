@@ -26,6 +26,28 @@ export function appendQueuedMap(
 }
 
 /**
+ * Adds maps to the end of the queue in order, as {@link appendQueuedMap} adds each one, so the
+ * maps past `MAX_MAP_QUEUE` are left out.
+ */
+export function appendQueuedMaps(
+  queue: ReadonlyArray<QueuedMapEntry>,
+  mapIds: ReadonlyArray<SbMapId>,
+): QueuedMapEntry[] {
+  return mapIds.reduce<QueuedMapEntry[]>((q, mapId) => appendQueuedMap(q, mapId), queue.slice())
+}
+
+/**
+ * Splits a list of maps (e.g. a collection's, in its order) into a lobby's map and the queue after
+ * it: the first map, then as many of the rest as the queue holds.
+ */
+export function splitMapAndQueue(mapIds: ReadonlyArray<SbMapId>): {
+  mapId: SbMapId | undefined
+  queue: SbMapId[]
+} {
+  return { mapId: mapIds[0], queue: mapIds.slice(1, 1 + MAX_MAP_QUEUE) }
+}
+
+/**
  * The state of a map queue being edited, starting from `initialMapIds` (only read on the first
  * render).
  */
@@ -38,5 +60,6 @@ export function useMapQueueEditor(initialMapIds: ReadonlyArray<SbMapId> = []) {
     queueIds: queue.map(entry => entry.mapId),
     canQueueMore: queue.length < MAX_MAP_QUEUE,
     addMap: (mapId: SbMapId) => setQueue(q => appendQueuedMap(q, mapId)),
+    addMaps: (mapIds: ReadonlyArray<SbMapId>) => setQueue(q => appendQueuedMaps(q, mapIds)),
   }
 }

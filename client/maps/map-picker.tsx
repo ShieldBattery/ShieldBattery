@@ -328,6 +328,11 @@ export interface MapPickerProps {
    * {@link MapPickerMode.Collection}, which adds picked maps to `collection` instead.
    */
   onPick?: (mapId: SbMapId) => void
+  /**
+   * Called with an opened collection's maps, in its order, to add them all to the queue. Only used
+   * for {@link MapPickerMode.Queue}, where it offers "Add all" on an opened collection.
+   */
+  onQueueMaps?: (mapIds: ReadonlyArray<SbMapId>) => void
   /** Uploads map files the viewer picked from disk. */
   onUploadFiles: (files: Iterable<File>) => void
   onClose: () => void
@@ -345,6 +350,7 @@ export function MapPicker({
   canQueueMore = true,
   collection,
   onPick,
+  onQueueMaps,
   onUploadFiles,
   onClose,
 }: MapPickerProps) {
@@ -500,6 +506,11 @@ export function MapPicker({
         opened={openedCollection}
         excludeId={inCollectionMode ? collection.id : undefined}
         pick={pickOptions}
+        addAll={
+          mode === MapPickerMode.Queue && onQueueMaps
+            ? { onAddAll: onQueueMaps, disabled: !canQueueMore }
+            : undefined
+        }
         density={saved.density}
         onOpen={opened => updateSession(s => ({ ...s, collection: opened }))}
         onBack={() => updateSession(s => ({ ...s, collection: undefined }))}
