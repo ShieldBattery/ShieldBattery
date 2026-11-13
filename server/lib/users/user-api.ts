@@ -140,6 +140,7 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { BanEnacter } from './ban-enacter'
 import { isUserBanned, retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
+import { MAX_ENCODED_BODY_LENGTH } from './client-proof'
 import { addEmailVerificationCode, getEmailVerificationsCount } from './email-verification-models'
 import { PasswordResetCleanupJob } from './password-reset-cleanup'
 import { addPasswordResetCode, usePasswordResetCode } from './password-reset-model'
@@ -359,7 +360,7 @@ export class UserApi {
         attemptId: Joi.string().uuid(),
         proof: Joi.object<ClientProof>({
           keyId: Joi.number().integer().min(0).max(0xffffffff).required(),
-          body: Joi.string().max(360).required(),
+          body: Joi.string().max(MAX_ENCODED_BODY_LENGTH).required(),
           signature: Joi.string().max(88).required(),
         }),
       }).required(),

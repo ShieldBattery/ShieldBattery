@@ -18,6 +18,7 @@ import {
   ClientAttestationOutcome,
 } from '../users/client-attestation'
 import { invalidProof, requestContext } from '../users/client-proof'
+import { MachineSupportRegistry } from '../users/machine-support-registry'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
 export const ATTESTATION_TIMEOUT_MS = 60 * 1000
@@ -50,6 +51,7 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
     private nydus: NydusServer,
     private sessionLookup: RequestSessionLookup,
     private attestation: ClientAttestation,
+    private machineSupport: MachineSupportRegistry,
     private clock: Clock,
   ) {
     super()
@@ -163,6 +165,12 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
     }
   }
 
+  private recordMachineSupport({ socket, session }: PendingSocket, supported: boolean) {
+    const { userId, clientId } = session
+    this.machineSupport.record(userId, clientId, socket.id, supported)
+    socket.once('close', () => this.machineSupport.forget(userId, clientId, socket.id))
+  }
+
   attest(userId: SbUserId, sessionId: string, { attemptId, proof }: ClientAttestationRequest) {
     const existing = this.pending.get(attemptId)
     if (
@@ -183,6 +191,9 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
     )
     if (result.outcome !== 'valid') {
       this.logFailure(entry, result.outcome)
+    }
+    if (result.machineSupported !== undefined) {
+      this.recordMachineSupport(entry, result.machineSupported)
     }
     if (entry.mode !== 'required') return
 

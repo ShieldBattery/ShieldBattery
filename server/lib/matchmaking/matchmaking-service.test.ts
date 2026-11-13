@@ -8,6 +8,7 @@ import {
   MatchmakingCompletionType,
   MatchmakingDivision,
   MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
@@ -17,6 +18,7 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { BaseGameLoaderError, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { FakeClock } from '../time/testing/fake-clock'
+import { MachineSupportRegistry } from '../users/machine-support-registry'
 import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -145,6 +147,7 @@ describe('matchmaking/matchmaking-service', () => {
     warmRegions: ReturnType<typeof vi.fn>
   }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
+  let machineSupport: MachineSupportRegistry
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
     return {
@@ -277,6 +280,7 @@ describe('matchmaking/matchmaking-service', () => {
     matchmakerClient.cancel.mockResolvedValue(Result.ok())
     matchmakerClient.requeue.mockResolvedValue(Result.ok())
     matchmakerClient.getProcessToken.mockResolvedValue(Result.ok('token-1'))
+    machineSupport = new MachineSupportRegistry()
 
     service = new MatchmakingService(
       publisher as unknown as TypedPublisher<any>,
@@ -294,6 +298,7 @@ describe('matchmaking/matchmaking-service', () => {
       gameServerRegionsService as any,
       netcodeV2Service as any,
       matchmakerClient as unknown as MatchmakerClient,
+      machineSupport,
     )
   })
 
@@ -382,6 +387,30 @@ describe('matchmaking/matchmaking-service', () => {
     // Acceptance times out, but the unmatched player keeps searching without renewing any region.
     await vi.advanceTimersByTimeAsync(120_000)
     expect(netcodeV2Service.warmRegions).toHaveBeenCalledTimes(expected.length ? 1 : 0)
+  })
+
+  test('refuses a search from a client that reported an unsupported machine', async () => {
+    machineSupport.record(USER_A, CLIENT_A, 'socket-1', false)
+
+    await expect(queuePlayer(USER_A, CLIENT_A)).rejects.toMatchObject({
+      code: MatchmakingServiceErrorCode.UnsupportedMachine,
+    })
+    expect(matchmakerClient.queue).not.toHaveBeenCalled()
+    await expect(service.cancel(USER_A)).rejects.toMatchObject({
+      code: MatchmakingServiceErrorCode.NotInQueue,
+    })
+  })
+
+  test('allows searches from supported clients', async () => {
+    machineSupport.record(USER_A, CLIENT_A, 'socket-1', false)
+    machineSupport.record(USER_B, CLIENT_B, 'socket-2', true)
+
+    await queuePlayer(USER_B, CLIENT_B)
+    expect(matchmakerClient.queue).toHaveBeenCalledWith(expect.objectContaining({ id: USER_B }))
+
+    machineSupport.forget(USER_A, CLIENT_A, 'socket-1')
+    await queuePlayer(USER_A, CLIENT_A)
+    expect(matchmakerClient.queue).toHaveBeenCalledWith(expect.objectContaining({ id: USER_A }))
   })
 
   test('recovers from an orphaned Rust queue entry by canceling and retrying once', async () => {

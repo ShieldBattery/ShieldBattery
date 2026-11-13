@@ -223,6 +223,7 @@
       "openStarcraftSettings": "Open StarCraft settings",
       "sessionExpired": "Session expired",
       "tooManyAccounts": "This machine has reached the limit of created accounts. If you have a signup code, you can enter it to bypass this limit.",
+      "unsupportedMachine": "ShieldBattery can't be set up on this computer. Try signing up from a different computer.",
       "usernameTaken": "The username is not available."
     },
     "usernameValidator": {
@@ -2372,6 +2373,7 @@
         "reviewSettings": "Choose a race and review the maps for each selected mode before searching.",
         "settingsLoading": "Settings are still loading",
         "somethingWentWrong": "Something went wrong :(",
+        "unsupportedMachine": "Ranked play isn't supported on this computer. Try playing from a different computer.",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
       "fixedMap": "Fixed map",

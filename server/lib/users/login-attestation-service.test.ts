@@ -5,7 +5,7 @@ import { SessionReleaseCatalog, SessionReleaseKey } from '../netcode-v2/session-
 import { Redis } from '../redis/redis'
 import { ClientAttestation } from './client-attestation'
 import { LoginAttestationService } from './login-attestation-service'
-import { TestClientKey } from './testing/client-proofs'
+import { TestClientKey, testReportBody } from './testing/client-proofs'
 
 const key = new TestClientKey()
 const fields: LoginChallengeRequest = { username: 'example', password: 'secret-password' }
@@ -84,6 +84,14 @@ describe('requiring proofs', () => {
   test('accepts a valid proof', async () => {
     const { challenge } = await service.challenge(fields)
     expect(await service.verify(fields, challenge!.attemptId, signed(challenge!))).toEqual([
+      [1, '07'.repeat(32)],
+    ])
+  })
+
+  test('accepts a valid proof reporting an unsupported machine', async () => {
+    const { challenge } = await service.challenge(fields)
+    const proof = key.sign(challenge!.nonce, challenge!.requestHash, testReportBody(1))
+    expect(await service.verify(fields, challenge!.attemptId, proof)).toEqual([
       [1, '07'.repeat(32)],
     ])
   })

@@ -213,7 +213,7 @@ test('rejects unknown keys, invalid signatures, and unsigned changes to the body
 
 test('requires bounded canonical encodings', async () => {
   const proof = signed()
-  for (const body of [proof.body + '\n', 'A'.repeat(364), proof.body.replace(/=+$/, '') + '=']) {
+  for (const body of [proof.body + '\n', 'A'.repeat(536), proof.body.replace(/=+$/, '') + '=']) {
     await expect(service.verify(fields, request.id, { ...proof, body })).rejects.toThrow()
   }
   await expect(
@@ -373,4 +373,36 @@ test('only canonical valid signed evidence can request client setup', async () =
     status: 400,
     message: 'Invalid client request',
   })
+})
+
+function reportBody(kinds: readonly number[], status: number): Buffer {
+  const body = identifierBody(2, kinds)
+  body[0] = 3
+  return Buffer.concat([body, Buffer.from([2, status, 0])])
+}
+
+test('version 3 signup accepts a machine reported as supported', async () => {
+  identifierPolicy.minimum = 4
+  const kinds = [1, 2, 3, 9]
+  const result = await service.verify(fields, request.id, signed(reportBody(kinds, 0)))
+  expect(result?.clientIds).toEqual(
+    kinds.map(kind => [kind, kind.toString(16).padStart(2, '0').repeat(32)]),
+  )
+})
+
+test.each([1, 255])(
+  'version 3 signup refuses a machine reported as not supported (status %i)',
+  async status => {
+    await expect(
+      service.verify(fields, request.id, signed(reportBody([1, 2, 3, 9], status))),
+    ).rejects.toMatchObject({ code: UserErrorCode.UnsupportedMachine })
+    expect(completeSignupRequest).not.toHaveBeenCalled()
+  },
+)
+
+test('an unsupported machine is refused before identifier requirements are checked', async () => {
+  identifierPolicy.minimum = 4
+  await expect(
+    service.verify(fields, request.id, signed(reportBody([1], 1))),
+  ).rejects.toMatchObject({ code: UserErrorCode.UnsupportedMachine })
 })

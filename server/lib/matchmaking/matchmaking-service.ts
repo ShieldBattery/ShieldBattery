@@ -82,6 +82,7 @@ import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
 import { ClientIdentifierString } from '../users/client-ids'
+import { MachineSupportRegistry } from '../users/machine-support-registry'
 import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import {
@@ -615,6 +616,7 @@ export class MatchmakingService {
     private gameServerRegionsService: GameServerRegionsService,
     private netcodeV2Service: NetcodeV2Service,
     private matchmakerClient: MatchmakerClient,
+    private machineSupport: MachineSupportRegistry,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -645,6 +647,12 @@ export class MatchmakingService {
     desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
+    if (!this.machineSupport.isSupported(userId, clientId)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UnsupportedMachine,
+        'Ranked play is not supported on this machine',
+      )
+    }
 
     for (const pref of allPreferences) {
       if (!this.matchmakingStatus.isEnabled(pref.matchmakingType)) {

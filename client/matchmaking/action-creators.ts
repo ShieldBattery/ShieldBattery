@@ -121,6 +121,12 @@ export function findMatch(
               'You must select at least one map in the settings for each chosen matchmaking type.',
             )
             break
+          case MatchmakingServiceErrorCode.UnsupportedMachine:
+            message = i18n.t(
+              'matchmaking.findMatch.errors.unsupportedMachine',
+              "Ranked play isn't supported on this computer. Try playing from a different computer.",
+            )
+            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,

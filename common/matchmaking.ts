@@ -1312,6 +1312,7 @@ export enum MatchmakingServiceErrorCode {
   NoActiveDraft = 'noActiveDraft',
   InvalidDraftPick = 'invalidDraftPick',
   UserChatRestricted = 'userChatRestricted',
+  UnsupportedMachine = 'unsupportedMachine',
 }
 
 /** Development-only request to find the searching player a match nobody else accepts. */
