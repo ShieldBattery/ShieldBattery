@@ -453,7 +453,7 @@ pub fn render_on_screen_view(
     minimap: Option<Rect>,
 ) -> OnScreenOutcome {
     let id = Id::new("sb_on_screen_units");
-    let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, minimap);
+    let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, panels, minimap);
     let health_bars = if shown {
         health_bars(view, &pick, screen)
     } else {
@@ -731,14 +731,18 @@ fn health_bars(view: &OnScreenView, pick: &Pick, screen: Rect) -> Vec<u32> {
 /// own docs), taking Ctrl and Shift as they are held when the button is let go, as the game does,
 /// and a double-click as a Ctrl-click, as the game does too. A box too small to be one is a click.
 /// A press on the minimap picks nothing, and the place on it the pointer is at is returned for as
-/// long as the button stays down. All of it is dropped with the count, but for what was picked,
-/// which is what is counted while the count fades out.
+/// long as the button stays down. A press on one of `panels` is the panel's, and picks nothing
+/// either: the units under a panel are not what a click on its controls is after, and a click
+/// there would otherwise drop what was picked. A box that started on the map can be dragged over
+/// a panel all the same. All of it is dropped with the count, but for what was picked, which is
+/// what is counted while the count fades out.
 fn follow_pick(
     ctx: &Context,
     id: Id,
     shown: bool,
     view: &OnScreenView,
     screen: Rect,
+    panels: &[Rect],
     minimap: Option<Rect>,
 ) -> (Pick, Option<Pos2>) {
     let mut state = ctx
@@ -770,7 +774,11 @@ fn follow_pick(
                 .button_double_clicked(egui::PointerButton::Primary),
         )
     });
-    if pressed && let Some(origin) = origin {
+    let on_the_map = |at: Pos2| !panels.iter().any(|panel| panel.contains(at));
+    if pressed
+        && let Some(origin) = origin
+        && on_the_map(origin)
+    {
         if minimap.is_some_and(|minimap| minimap.contains(origin)) {
             state.steering = true;
         } else {
@@ -1551,6 +1559,7 @@ mod tests {
     struct FrameInput {
         shown: bool,
         modifiers: egui::Modifiers,
+        panels: Vec<Rect>,
         minimap: Option<Rect>,
         /// How long after the frame before it this one comes, which is long enough by default for
         /// no two clicks to be taken for a double-click.
@@ -1562,6 +1571,7 @@ mod tests {
             FrameInput {
                 shown: true,
                 modifiers: egui::Modifiers::NONE,
+                panels: Vec::new(),
                 minimap: None,
                 seconds: 0.5,
             }
@@ -1594,6 +1604,7 @@ mod tests {
                     input.shown,
                     view,
                     screen,
+                    &input.panels,
                     input.minimap,
                 )
             },
@@ -1698,6 +1709,45 @@ mod tests {
             pick_frame(&ctx, &view, true, vec![]),
             Pick::Everything
         ));
+    }
+
+    #[test]
+    fn a_press_on_a_panel_is_the_panel_s_and_a_box_from_the_map_can_cross_one() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![unit_at(7, 0.2, 0.2), unit_at(9, 0.8, 0.8)],
+            ..Default::default()
+        };
+        // A panel over the second unit.
+        let panel = Rect::from_min_max(pos2(700.0, 700.0), pos2(1000.0, 1000.0));
+        let with_panel = |events: Vec<egui::Event>| {
+            let input = FrameInput {
+                panels: vec![panel],
+                ..FrameInput::default()
+            };
+            frame(&ctx, &view, input, events).0
+        };
+        // With the first unit picked, a click on the panel neither picks the unit under it nor
+        // drops the pick, as a click on the bare map beside it would.
+        let on_unit = pos2(200.0, 200.0);
+        with_panel(vec![egui::Event::PointerMoved(on_unit)]);
+        with_panel(vec![button(on_unit, true)]);
+        let picked = with_panel(vec![button(on_unit, false)]);
+        assert!(matches!(&picked, Pick::Picked(ids) if ids == &[7]));
+        let on_panel = pos2(800.0, 800.0);
+        with_panel(vec![egui::Event::PointerMoved(on_panel)]);
+        let pressed = with_panel(vec![button(on_panel, true)]);
+        assert!(matches!(&pressed, Pick::Picked(ids) if ids == &[7]));
+        let released = with_panel(vec![button(on_panel, false)]);
+        assert!(matches!(&released, Pick::Picked(ids) if ids == &[7]));
+        // A box begun on the map and let go over the panel picks what it covers, under the
+        // panel as well.
+        let start = pos2(100.0, 100.0);
+        with_panel(vec![egui::Event::PointerMoved(start)]);
+        with_panel(vec![button(start, true)]);
+        with_panel(vec![egui::Event::PointerMoved(pos2(900.0, 900.0))]);
+        let boxed = with_panel(vec![button(pos2(900.0, 900.0), false)]);
+        assert!(matches!(&boxed, Pick::Picked(ids) if ids == &[7, 9]));
     }
 
     #[test]
