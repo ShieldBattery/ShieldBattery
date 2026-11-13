@@ -159,6 +159,8 @@ type Documents = {
   '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n': typeof types.MapUploadKnownMapDocument
   '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.MapUploadAddToLibraryDocument
   '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n': typeof types.PlayersCollectionsDocument
+  '\n  query AdminMapPoolRow($id: SbMapId!) {\n    map(id: $id) {\n      id\n      listed\n      ...MapTile_SbMapFragment\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n          name\n          listed\n          firstSeenAt\n          stats {\n            id\n            gamesTotal\n          }\n        }\n      }\n    }\n  }\n': typeof types.AdminMapPoolRowDocument
+  '\n  query AdminMapPoolCollection($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        ladderPools(first: 100) {\n          id\n          pool {\n            id\n          }\n        }\n      }\n    }\n  }\n': typeof types.AdminMapPoolCollectionDocument
   '\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n': typeof types.MapFamilyViewerCollectionIdsFragmentFragmentDoc
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.NewsArchiveDocument
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n': typeof types.News_HomeFeedFragmentFragmentDoc
@@ -484,6 +486,10 @@ const documents: Documents = {
     types.MapUploadAddToLibraryDocument,
   '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n':
     types.PlayersCollectionsDocument,
+  '\n  query AdminMapPoolRow($id: SbMapId!) {\n    map(id: $id) {\n      id\n      listed\n      ...MapTile_SbMapFragment\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n          name\n          listed\n          firstSeenAt\n          stats {\n            id\n            gamesTotal\n          }\n        }\n      }\n    }\n  }\n':
+    types.AdminMapPoolRowDocument,
+  '\n  query AdminMapPoolCollection($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        ladderPools(first: 100) {\n          id\n          pool {\n            id\n          }\n        }\n      }\n    }\n  }\n':
+    types.AdminMapPoolCollectionDocument,
   '\n  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {\n    id\n    viewerCollectionIds\n  }\n':
     types.MapFamilyViewerCollectionIdsFragmentFragmentDoc,
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          translations {\n            language\n            title\n            summary\n          }\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
@@ -1435,6 +1441,18 @@ export function graphql(
 export function graphql(
   source: '\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n',
 ): (typeof documents)['\n  query PlayersCollections(\n    $owner: SbUserId\n    $search: String\n    $after: String\n    $first: Int!\n    $withCount: Boolean!\n  ) {\n    mapCollections(section: PLAYERS, owner: $owner, search: $search, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          ...MapCollectionCard_CollectionFragment\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapPoolRow($id: SbMapId!) {\n    map(id: $id) {\n      id\n      listed\n      ...MapTile_SbMapFragment\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n          name\n          listed\n          firstSeenAt\n          stats {\n            id\n            gamesTotal\n          }\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapPoolRow($id: SbMapId!) {\n    map(id: $id) {\n      id\n      listed\n      ...MapTile_SbMapFragment\n      family {\n        id\n        name\n        current {\n          id\n        }\n        files {\n          id\n          name\n          listed\n          firstSeenAt\n          stats {\n            id\n            gamesTotal\n          }\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapPoolCollection($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        ladderPools(first: 100) {\n          id\n          pool {\n            id\n          }\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapPoolCollection($id: SbMapId!) {\n    map(id: $id) {\n      id\n      family {\n        id\n        ladderPools(first: 100) {\n          id\n          pool {\n            id\n          }\n        }\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -67,6 +67,13 @@ export interface MapPickerCollectionTarget {
   mapCount: number
   /** Whether the collection can't hold any more maps. */
   full: boolean
+  /** The chip on tiles of maps the collection holds. Defaults to `In this collection`. */
+  heldLabel?: string
+  /**
+   * How many maps the collection holds, as the picker's header says it. Defaults to
+   * `{count} maps in this collection`.
+   */
+  countLabel?: string
   /** Whether the collection holds the map (family) `familyId`. Marked tiles can't be picked. */
   holds: (familyId: string) => boolean
   /**
@@ -463,7 +470,7 @@ export function MapPicker({
       (mode === MapPickerMode.Queue && !canQueueMore) || (inCollectionMode && collection.full),
     isMarked: inCollectionMode ? map => collection.holds(map.familyId) : undefined,
     markedLabel: inCollectionMode
-      ? t('maps.picker.inThisCollection', 'In this collection')
+      ? (collection.heldLabel ?? t('maps.picker.inThisCollection', 'In this collection'))
       : undefined,
   }
   const searchText = params.search.trim()
@@ -554,11 +561,12 @@ export function MapPicker({
               <QueueStatus>
                 {collection.full
                   ? t('maps.picker.collectionFull', 'The collection is full')
-                  : t('maps.picker.collectionCount', {
+                  : (collection.countLabel ??
+                    t('maps.picker.collectionCount', {
                       defaultValue: '{{count}} maps in this collection',
                       defaultValue_one: '{{count}} map in this collection',
                       count: collection.mapCount,
-                    })}
+                    }))}
               </QueueStatus>
               <FilledButton label={t('common.actions.done', 'Done')} onClick={onClose} />
             </>

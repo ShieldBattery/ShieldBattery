@@ -5,8 +5,6 @@ import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import { MapPageId } from '../../common/map-url'
 import {
   GetBatchMapInfoResponse,
-  GetMapsQueryParams,
-  GetMapsResponse,
   MapServiceErrorCode,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
@@ -119,51 +117,6 @@ export function loadMapAddedToLibrary(
   return abortableThunk(spec, async dispatch => {
     const result = await loadUploadedMap(mapId)
     dispatch({ type: '@maps/uploadMap', payload: result })
-    return result
-  })
-}
-
-export function getMaps(
-  params: GetMapsQueryParams,
-  spec: RequestHandlingSpec<GetMapsResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const { visibility, sort, numPlayers, tilesets, q, offset } = params
-
-    const queryParams = new URLSearchParams()
-    if (visibility) {
-      queryParams.set('visibility', visibility)
-    }
-    if (sort !== undefined) {
-      queryParams.set('sort', sort.toString())
-    }
-    if (numPlayers) {
-      for (const playerCount of numPlayers) {
-        queryParams.append('numPlayers', playerCount.toString())
-      }
-    }
-    if (tilesets) {
-      for (const tileset of tilesets) {
-        queryParams.append('tilesets', tileset.toString())
-      }
-    }
-    if (q) {
-      queryParams.set('q', q)
-    }
-    if (offset !== undefined) {
-      queryParams.set('offset', offset.toString())
-    }
-
-    const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/getMaps',
-      payload: result,
-      meta: params,
-    })
-
     return result
   })
 }

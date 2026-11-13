@@ -21,13 +21,12 @@ import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapCollectionKind, MapCollectionPageQuery, MapFilter } from '../gql/graphql'
-import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { IconButton, OutlinedButton, TextButton } from '../material/button'
-import { LinkButton } from '../material/link-button'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -37,16 +36,7 @@ import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import {
-  bodyLarge,
-  bodyMedium,
-  bodySmall,
-  displaySmall,
-  labelMedium,
-  labelSmall,
-  singleLine,
-  titleSmall,
-} from '../styles/typography'
+import { bodyLarge, bodyMedium, bodySmall, displaySmall, labelMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
   openMapCollectionDeleteDialog,
@@ -98,6 +88,20 @@ import {
   MapPickerMode,
   useMapPickerSession,
 } from './map-picker'
+import {
+  MapRow,
+  MapRowChip,
+  MapRowChipTooltip,
+  MapRowControlButton,
+  MapRowControls,
+  MapRowGamesCount,
+  MapRowLink,
+  MapRowMeta,
+  MapRowName,
+  MapRowNameLine,
+  MapRowText,
+  MapRowThumbnail,
+} from './map-row-parts'
 import { MapTile_SbMapFragment, mapTileMeta } from './map-tile'
 import { useUploadMapFiles } from './map-uploads'
 
@@ -219,7 +223,6 @@ const ENTRIES_PAGE_SIZE = 100
 const NO_SUSPENSE_CONTEXT = { suspense: false }
 
 const poolDateFormat = dateTimeFormat({ year: 'numeric', month: 'short', day: 'numeric' })
-const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits: 1 })
 
 const NotFoundText = styled.div`
   ${bodyLarge};
@@ -1198,56 +1201,6 @@ function RowsChunk({
   )
 }
 
-/**
- * A row's hover and focus states cover all of it, star and controls included: its link stretches
- * over the whole row (see `RowLink`), and the star and controls sit above that.
- */
-const Row = styled.li`
-  position: relative;
-  min-height: 64px;
-  padding: 8px 12px;
-
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  border-radius: 6px;
-  background-color: var(--theme-container-low);
-
-  &:hover {
-    background-color: var(--theme-container);
-  }
-
-  &:has(a:focus-visible) {
-    outline: 2px solid var(--theme-primary);
-  }
-`
-
-const RowLink = styled(LinkButton)`
-  && {
-    position: static;
-  }
-
-  flex: 1 1 auto;
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 16px;
-
-  &:focus-visible {
-    outline: none;
-  }
-
-  /* Makes the whole row the link's target, beneath the star and controls */
-  &::after {
-    position: absolute;
-    inset: 0;
-    content: '';
-    border-radius: 6px;
-  }
-`
-
 const RowNumber = styled.div`
   ${labelMedium};
   width: 24px;
@@ -1257,113 +1210,11 @@ const RowNumber = styled.div`
   font-variant-numeric: tabular-nums;
 `
 
-const RowThumbnail = styled.div`
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 4px;
-`
-
-const RowText = styled.div`
-  flex: 1 1 auto;
-  min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`
-
-const RowNameLine = styled.div`
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`
-
-const RowName = styled.div`
-  ${titleSmall};
-  ${singleLine};
-  min-width: 0;
-  color: var(--theme-on-surface);
-`
-
-const RowMeta = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--color-grey-blue80);
-`
-
-/**
- * Outside the row's link, so this margin plus the row's gap make the same space the link leaves
- * between its own parts.
- */
-const RowGames = styled.div`
-  ${labelSmall};
-  flex-shrink: 0;
-  margin-inline-start: 8px;
-  color: var(--color-grey-blue70);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-`
-
-const RowChip = styled(RoomChip)`
-  flex-shrink: 0;
-  padding-block: 2px;
-`
-
-/**
- * Keeps the chip it wraps from shrinking in the row's tight name line, and above the link that
- * covers the row, so hovering it shows the tooltip.
- */
-const RowChipTooltip = styled(Tooltip)`
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
-`
-
 const StarButton = styled(IconButton)<{ $favorited: boolean }>`
   position: relative;
   z-index: 1;
   flex-shrink: 0;
   color: ${props => (props.$favorited ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
-`
-
-/**
- * The move and remove buttons of a row, above the link that covers it. Its width never changes, so
- * the name cuts off at the same place whether or not the buttons show. They show while the row is
- * hovered or holds focus (so tabbing to one shows them), and always where nothing can hover. Hidden
- * ones stay in the layout and in the tab order, so showing them shifts nothing.
- */
-const RowControls = styled.div`
-  position: relative;
-  z-index: 1;
-  width: 96px;
-  flex-shrink: 0;
-
-  display: flex;
-  justify-content: flex-end;
-
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 100ms linear;
-
-  ${Row}:hover &,
-  ${Row}:focus-within & {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  @media (hover: none) {
-    opacity: 1;
-    pointer-events: auto;
-  }
-`
-
-const RowControlButton = styled(IconButton)`
-  width: 32px;
-  min-height: 32px;
 `
 
 /**
@@ -1384,7 +1235,6 @@ function CollectionMapRow({
   editing?: RowEditing
 }) {
   const { t } = useTranslation()
-  const numbers = useFormat(compactNumber)
   const row = useFragment(MapCollectionRow_SbMapFragment, mapRef)
   const map = useFragment(MapTile_SbMapFragment, row)
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
@@ -1425,22 +1275,24 @@ function CollectionMapRow({
   const removeLabel = t('maps.collections.removeFromCollection', 'Remove from collection')
 
   return (
-    <Row>
-      <RowLink href={urlForMapFile(map.family, map.id)}>
+    <MapRow>
+      <MapRowLink href={urlForMapFile(map.family, map.id)}>
         {index !== undefined ? <RowNumber>{index + 1}</RowNumber> : null}
-        <RowThumbnail>
+        <MapRowThumbnail>
           <MapFileImage file={map.file} name={name} size={48} forceAspectRatio={1} />
-        </RowThumbnail>
-        <RowText>
-          <RowNameLine>
-            <RowName>{name}</RowName>
-            {row.family.listed ? null : <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>}
+        </MapRowThumbnail>
+        <MapRowText>
+          <MapRowNameLine>
+            <MapRowName>{name}</MapRowName>
+            {row.family.listed ? null : (
+              <MapRowChip>{t('maps.page.unlisted', 'Unlisted')}</MapRowChip>
+            )}
             {map.ladderPools
               .filter(type => type !== ownPoolType)
               .map(type => {
                 const label = matchmakingTypeToLabel(type, t)
                 return (
-                  <RowChipTooltip
+                  <MapRowChipTooltip
                     key={type}
                     text={t(
                       'maps.thumbnail.mapPoolChipTooltip',
@@ -1449,20 +1301,20 @@ function CollectionMapRow({
                     )}
                     position='top'
                     tabIndex={-1}>
-                    <RowChip>{label}</RowChip>
-                  </RowChipTooltip>
+                    <MapRowChip>{label}</MapRowChip>
+                  </MapRowChipTooltip>
                 )
               })}
-          </RowNameLine>
-          <RowMeta>{mapTileMeta(map, t)}</RowMeta>
-        </RowText>
-      </RowLink>
+          </MapRowNameLine>
+          <MapRowMeta>{mapTileMeta(map, t)}</MapRowMeta>
+        </MapRowText>
+      </MapRowLink>
       {editing ? (
-        <RowControls>
+        <MapRowControls $slots={3}>
           {editing.canMove ? (
             <>
               <Tooltip text={moveUpLabel} position='top' tabIndex={-1}>
-                <RowControlButton
+                <MapRowControlButton
                   ref={upRef}
                   icon={<MaterialIcon icon='arrow_upward' size={20} />}
                   ariaLabel={moveUpLabel}
@@ -1471,7 +1323,7 @@ function CollectionMapRow({
                 />
               </Tooltip>
               <Tooltip text={moveDownLabel} position='top' tabIndex={-1}>
-                <RowControlButton
+                <MapRowControlButton
                   ref={downRef}
                   icon={<MaterialIcon icon='arrow_downward' size={20} />}
                   ariaLabel={moveDownLabel}
@@ -1482,24 +1334,15 @@ function CollectionMapRow({
             </>
           ) : null}
           <Tooltip text={removeLabel} position='top' tabIndex={-1}>
-            <RowControlButton
+            <MapRowControlButton
               icon={<MaterialIcon icon='close' size={20} />}
               ariaLabel={removeLabel}
               onClick={() => editing.onRemove(map.id, name)}
             />
           </Tooltip>
-        </RowControls>
+        </MapRowControls>
       ) : null}
-      <RowGames>
-        {map.stats
-          ? t('maps.catalog.totalGames', {
-              defaultValue: '{{formattedCount}} games',
-              defaultValue_one: '{{formattedCount}} game',
-              count: map.stats.gamesTotal,
-              formattedCount: numbers.format(map.stats.gamesTotal),
-            })
-          : t('maps.catalog.notPlayed', 'Not played yet')}
-      </RowGames>
+      <MapRowGamesCount gamesTotal={map.stats?.gamesTotal} />
       <Tooltip text={starLabel} position='left' tabIndex={-1}>
         <StarButton
           $favorited={map.isFavorited}
@@ -1509,7 +1352,7 @@ function CollectionMapRow({
           onClick={() => toggleFavorite(map)}
         />
       </Tooltip>
-    </Row>
+    </MapRow>
   )
 }
 
