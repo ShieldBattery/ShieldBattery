@@ -216,7 +216,7 @@ export class RestrictionService {
         }),
       )
     ).filter(([kind, info]) => {
-      if (!info) {
+      if (!info || info.count < MIN_IDENTIFIER_MATCHES) {
         return false
       }
       const old = oldRestrictions.get(kind)
