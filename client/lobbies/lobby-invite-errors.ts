@@ -23,14 +23,11 @@ export function lobbyInviteErrorMessage(err: unknown, t: TFunction): string {
         'That user already has an invite to this lobby.',
       )
     case InviteToLobbyErrorCode.AlreadyInLobby:
-      return t(
-        'lobbies.inviteToLobby.errorAlreadyInLobby',
-        'That user is already in this lobby.',
-      )
+      return t('lobbies.inviteToLobby.errorAlreadyInLobby', 'That user is already in this lobby.')
     case InviteToLobbyErrorCode.BannedFromLobby:
       return t(
         'lobbies.inviteToLobby.errorBannedFromLobby',
-        'That user has been banned from this lobby.'
+        'That user has been banned from this lobby.',
       )
     default:
       return t('lobbies.inviteToLobby.defaultError', 'Error inviting user to lobby')

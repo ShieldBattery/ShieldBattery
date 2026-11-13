@@ -93,6 +93,7 @@ describe('messaging/commands/command-registry', () => {
       'roll',
       'flip',
       '8ball',
+      'invite',
     ])
   })
 
@@ -126,6 +127,7 @@ describe('messaging/commands/command-registry', () => {
       ['roll', 'fun'],
       ['flip', 'fun'],
       ['8ball', 'fun'],
+      ['invite', 'matchmaking'],
     ])
   })
 
@@ -208,6 +210,7 @@ describe('messaging/commands/command-registry', () => {
       'roll',
       'flip',
       '8ball',
+      'invite',
     ])
   })
 
