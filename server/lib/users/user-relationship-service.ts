@@ -412,4 +412,16 @@ export class UserRelationshipService {
     const relationships = await getRelationshipsForUsers(userId, potentialBlocker)
     return relationships.some(r => r.kind === UserRelationshipKind.Block && r.toId === userId)
   }
+
+  /** Returns whether the two users are friends. */
+  async areFriends(userId: SbUserId, otherId: SbUserId): Promise<boolean> {
+    // `getRelationshipsForUsers` rejects a user paired with themselves, and a user is never their
+    // own friend anyway.
+    if (userId === otherId) {
+      return false
+    }
+
+    const relationships = await getRelationshipsForUsers(userId, otherId)
+    return relationships.some(r => r.kind === UserRelationshipKind.Friend)
+  }
 }

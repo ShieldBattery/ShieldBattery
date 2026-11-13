@@ -161,6 +161,7 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'roll',
       'flip',
       '8ball',
+      'invite',
     ])
   })
 

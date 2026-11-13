@@ -23,6 +23,7 @@ import { LobbyMapStatus, LobbyServiceErrorCode } from '../../../common/lobbies/l
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
+import { NotificationType } from '../../../common/notifications'
 import { RaceChar } from '../../../common/races'
 import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -39,6 +40,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import {
   ActivityStatusService,
@@ -243,6 +245,8 @@ describe('lobbies/lobby-service', () => {
   let clock: FakeClock
   /** The real status service the activity registry publishes through. */
   let activityStatusService: ActivityStatusService
+  /** The stubbed notification service, for tests that check what a lobby change clears. */
+  let notificationService: ReturnType<typeof createFakeNotificationService>
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
@@ -403,6 +407,7 @@ describe('lobbies/lobby-service', () => {
       clock,
     )
     activityRegistry = new GameplayActivityRegistry(activityStatusService)
+    notificationService = createFakeNotificationService()
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
       activityRegistry,
@@ -422,6 +427,7 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents,
       clientSockets,
       clock,
+      notificationService,
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
@@ -1216,6 +1222,27 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
       expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
       expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('closing a lobby clears the invites it had outstanding', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      // The host is the only occupant, so leaving closes the lobby.
+      lobbyService.leaveLobby({ client: host.client })
+
+      expect(notificationService.clearAllMatching).toHaveBeenCalledWith({
+        type: NotificationType.LobbyInvite,
+        lobbyId: id,
+      })
+    })
+
+    test('a lobby someone else stays in keeps its invites', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(notificationService.clearAllMatching).not.toHaveBeenCalled()
     })
   })
 

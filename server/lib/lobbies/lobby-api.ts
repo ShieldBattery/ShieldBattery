@@ -4,7 +4,12 @@ import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
-import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
+import {
+  ALL_LOBBY_VISIBILITIES,
+  findBenchedUser,
+  findSlotByUserId,
+  MAX_MAP_QUEUE,
+} from '../../../common/lobbies'
 import {
   ALL_LOBBY_MAP_STATUSES,
   CreateLobbyRequest,
@@ -12,6 +17,8 @@ import {
   GetLobbyMapUrlRequest,
   GetLobbyMapUrlResponse,
   GetLobbyStateResponse,
+  InviteToLobbyErrorCode,
+  InviteToLobbyRequest,
   JoinLobbyRequest,
   LobbyClientRequest,
   LobbyJoinErrorCode,
@@ -27,6 +34,7 @@ import {
   UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { NotificationType } from '../../../common/notifications'
 import { isPrettyId } from '../../../common/pretty-id'
 import { ALL_RACE_CHARS } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -35,9 +43,13 @@ import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
+import NotificationService from '../notifications/notification-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import { AccountSettingsService } from '../settings/account-settings-service'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
+import { findUserById } from '../users/user-model'
+import { UserRelationshipService } from '../users/user-relationship-service'
 import { validateRequest } from '../validation/joi-validator'
 import {
   ClientSocketsGroup,
@@ -69,6 +81,14 @@ const lobbyActionThrottle = createThrottle('lobbies/action', {
 const lobbyChatThrottle = createThrottle('lobbies/chat', {
   rate: 30,
   burst: 90,
+  window: 60000,
+})
+
+// Invites reach another user's notification list, so they get a tighter cap than the ordinary
+// in-lobby actions even though sending one is a single click.
+const lobbyInviteThrottle = createThrottle('lobbies/invite', {
+  rate: 20,
+  burst: 40,
   window: 60000,
 })
 
@@ -255,6 +275,9 @@ export class LobbyApi {
   constructor(
     private lobbyService: LobbyService,
     private clientSocketsManager: ClientSocketsManager,
+    private notificationService: NotificationService,
+    private userRelationshipService: UserRelationshipService,
+    private accountSettingsService: AccountSettingsService,
   ) {}
 
   @httpPost('/')
@@ -336,6 +359,100 @@ export class LobbyApi {
       leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
+    })
+
+    // The invite has been acted on, so it shouldn't linger in the invitee's notification list.
+    await this.notificationService.clearFirstMatching({
+      userId: ctx.session!.user.id,
+      data: { type: NotificationType.LobbyInvite, lobbyId: params.lobbyId },
+    })
+  }
+
+  /**
+   * Invites a user to the lobby the acting client is in. Membership is what grants the invitation,
+   * so any member can send one; the invite arrives as a notification the recipient can act on.
+   */
+  @httpPost('/:lobbyId/invite')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyInviteThrottle, throttleByUser))
+  async inviteToLobby(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<InviteToLobbyRequest>({
+        clientId: clientIdSchema,
+        targetId: Joi.number().min(1).required(),
+      }),
+    })
+
+    const userId = ctx.session!.user.id
+    const client = this.getClientSockets(userId, body.clientId)
+
+    // Asserts the actor is actually in this lobby before letting them invite to it.
+    const lobby = this.lobbyService.getLobbyForClient(client, params.lobbyId)
+
+    if (body.targetId === userId) {
+      throw httpErrors.BadRequest("Can't invite yourself to a lobby")
+    }
+
+    const target = await findUserById(body.targetId as SbUserId)
+    if (!target) {
+      throw httpErrors.NotFound('Target user not found')
+    }
+
+    // A block in either direction stops the invite from being delivered.
+    // Request succeeds to not reveal block.
+    const [inviterBlockedByTarget, targetBlockedByInviter] = await Promise.all([
+      this.userRelationshipService.isUserBlockedBy(userId, target.id),
+      this.userRelationshipService.isUserBlockedBy(target.id, userId),
+    ])
+    if (inviterBlockedByTarget || targetBlockedByInviter) {
+      return
+    }
+
+    // The target's own settings decide who else may invite them. 
+    const targetSettings = await this.accountSettingsService.getSettings(target.id)
+    const invitesAllowed =
+      targetSettings.allowInvitesFrom === 'all' ||
+      (targetSettings.allowInvitesFrom === 'friends' &&
+        (await this.userRelationshipService.areFriends(userId, target.id)))
+    if (!invitesAllowed) {
+      throw new HttpErrorWithPayload(409, 'User is not accepting lobby invites', {
+        code: InviteToLobbyErrorCode.NotAcceptingInvites,
+      })
+    }
+
+    if (this.lobbyService.lobbyBannedUsers.get(lobby.id)?.has(target.id)) {
+      throw new HttpErrorWithPayload(409, 'User has been banned from lobby', {
+        code: InviteToLobbyErrorCode.BannedFromLobby,
+      })
+    }
+
+    // Someone already in the lobby has nothing to accept.
+    if (findSlotByUserId(lobby, target.id).length || findBenchedUser(lobby, target.id)) {
+      throw new HttpErrorWithPayload(409, 'User is already in this lobby', {
+        code: InviteToLobbyErrorCode.AlreadyInLobby,
+      })
+    }
+
+    // The invitee only needs one outstanding invite per lobby; another would just stack an
+    // identical, already-seen entry in their notification list.
+    const existingInvites = await this.notificationService.retrieveNotifications({
+      userId: target.id,
+      data: { type: NotificationType.LobbyInvite, lobbyId: lobby.id },
+      limit: 1,
+    })
+    if (existingInvites.length) {
+      throw new HttpErrorWithPayload(409, 'User already has an invite to this lobby', {
+        code: InviteToLobbyErrorCode.AlreadyInvited,
+      })
+    }
+
+    await this.notificationService.addNotification({
+      userId: target.id,
+      data: {
+        type: NotificationType.LobbyInvite,
+        from: userId,
+        lobbyId: lobby.id,
+      },
     })
   }
 

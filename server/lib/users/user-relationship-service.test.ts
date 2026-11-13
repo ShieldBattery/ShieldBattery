@@ -351,6 +351,17 @@ vi.mock('./user-relationship-models', () => {
       const blockerSummary = fakeDb.get(potentialBlocker)
       return blockerSummary?.blocks?.some(r => r.toId === userId) ?? false
     }),
+
+    getRelationshipsForUsers: vi.fn(async (userA: SbUserId, userB: SbUserId) => {
+      const summaryA = fakeDb.get(userA)
+      const summaryB = fakeDb.get(userB)
+      return [
+        ...(summaryA?.blocks.filter(r => r.toId === userB) ?? []),
+        ...(summaryB?.blocks.filter(r => r.toId === userA) ?? []),
+        ...(summaryA?.friends.filter(r => r.toId === userB) ?? []),
+        ...(summaryB?.friends.filter(r => r.toId === userA) ?? []),
+      ]
+    }),
   }
 })
 
@@ -803,6 +814,26 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.removeFriend(makeSbUserId(1), makeSbUserId(2)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not currently friends with that user]`)
+    })
+  })
+
+  describe('friendship checks', () => {
+    test('reports two users as friends once a request is accepted', async () => {
+      const FROM = makeSbUserId(1)
+      const TO = makeSbUserId(2)
+
+      expect(await userRelationshipService.areFriends(FROM, TO)).toBe(false)
+
+      await userRelationshipService.sendFriendRequest(FROM, TO)
+      expect(await userRelationshipService.areFriends(FROM, TO)).toBe(false)
+
+      await userRelationshipService.acceptFriendRequest(TO, FROM)
+      expect(await userRelationshipService.areFriends(FROM, TO)).toBe(true)
+      expect(await userRelationshipService.areFriends(TO, FROM)).toBe(true)
+    })
+
+    test('never reports a user as their own friend', async () => {
+      expect(await userRelationshipService.areFriends(makeSbUserId(1), makeSbUserId(1))).toBe(false)
     })
   })
 

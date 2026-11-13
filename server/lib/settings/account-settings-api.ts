@@ -3,6 +3,7 @@ import Joi from 'joi'
 import { MAX_REPLAY_NAME_TEMPLATE_LENGTH } from '../../../common/replay-name-template'
 import {
   AccountSettingsResponse,
+  ALL_ALLOWED_INVITE_SOURCES,
   ALL_CHAT_DISPLAY_MODES,
   ALL_DISCORD_ACTIVITY_SHARING,
   UpdateAccountSettingsRequest,
@@ -29,6 +30,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
   playMessageSounds: Joi.boolean(),
   flashTaskbar: Joi.boolean(),
   showWhispersEverywhere: Joi.boolean(),
+  allowInvitesFrom: Joi.valid(...ALL_ALLOWED_INVITE_SOURCES),
   availability: Joi.valid(...ALL_USER_AVAILABILITIES),
   chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
   hideBlockedMessages: Joi.boolean(),

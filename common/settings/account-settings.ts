@@ -45,6 +45,12 @@ export interface AccountSettings {
    * their screen.
    */
   showWhispersEverywhere: boolean
+
+  /**
+   * Who may invite the user to a lobby: anyone, only their friends, or nobody. Blocking someone
+   * still stops their invites whatever this says.
+   */
+  allowInvitesFrom: AllowedInviteSource
   /**
    * How available the user has said they are. Unlike the other keys this is visible to other users:
    * friends and everyone sharing a chat channel see it while the user is online.
@@ -67,6 +73,18 @@ export interface AccountSettings {
    * account signed in to the Discord desktop app on the same computer.
    */
   shareDiscordActivity: DiscordActivitySharing
+}
+
+export type AllowedInviteSource = 'all' | 'friends' | 'none'
+
+export const ALL_ALLOWED_INVITE_SOURCES: ReadonlyArray<AllowedInviteSource> = [
+  'all',
+  'friends',
+  'none',
+]
+
+export function isAllowedInviteSource(value: unknown): value is AllowedInviteSource {
+  return ALL_ALLOWED_INVITE_SOURCES.includes(value as AllowedInviteSource)
 }
 
 /**
@@ -105,6 +123,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   playMessageSounds: true,
   flashTaskbar: true,
   showWhispersEverywhere: true,
+  allowInvitesFrom: 'all',
   availability: UserAvailability.Online,
   chatDisplayMode: 'classic',
   hideBlockedMessages: false,
@@ -141,6 +160,9 @@ export function fillAccountSettingsDefaults(stored: unknown): AccountSettings {
   }
   if (!isChatDisplayMode(result.chatDisplayMode)) {
     result.chatDisplayMode = DEFAULT_ACCOUNT_SETTINGS.chatDisplayMode
+  }
+  if (!isAllowedInviteSource(result.allowInvitesFrom)) {
+    result.allowInvitesFrom = DEFAULT_ACCOUNT_SETTINGS.allowInvitesFrom
   }
   if (result.replayNameTemplate.length > MAX_REPLAY_NAME_TEMPLATE_LENGTH) {
     result.replayNameTemplate = DEFAULT_ACCOUNT_SETTINGS.replayNameTemplate

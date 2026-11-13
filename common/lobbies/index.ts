@@ -100,6 +100,14 @@ export interface Lobby {
   readonly createdAt: number
 }
 
+export function getLobbyPlayers(lobby: Lobby): SbUserId[] {
+    return [...lobby.teams
+      .flatMap(team => team.slots.map(slot => slot?.userId))
+      .filter(val => val != null),
+    ...lobby.bench.map(b => b.userId)]
+}
+
+
 /**
  * Whether a game played from this lobby will have alliance changes disabled: the host asked for it
  * and the game type is one where locking alliances does anything.

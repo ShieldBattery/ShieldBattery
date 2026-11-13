@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { TranslationLanguage } from './i18n'
+import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
@@ -43,6 +44,8 @@ export enum NotificationType {
   CommendReceived = 'commendReceived',
   /** The user was automatically banned or warned for not readying up or not loading into a match. */
   MatchmakingBan = 'matchmakingBan',
+  /** The user has been invited to a lobby. */
+  LobbyInvite = 'lobbyInvite',
 }
 
 export type SbNotification =
@@ -63,6 +66,7 @@ export type SbNotification =
   | GamePointsRefundedNotification
   | CommendReceivedNotification
   | MatchmakingBanNotification
+  | LobbyInviteNotification
 
 export interface BaseNotification {
   /**
@@ -198,6 +202,15 @@ export interface MatchmakingBanNotification extends BaseNotification {
   type: NotificationType.MatchmakingBan
   /** When the ban ends, or `undefined` if this was a warning. */
   bannedUntil?: number
+}
+
+/**
+ * Tells a player they were invited to a lobby.
+ */
+export interface LobbyInviteNotification extends BaseNotification {
+  type: NotificationType.LobbyInvite
+  lobbyId: SbLobbyId
+  from: SbUserId
 }
 
 export type NotificationEvent =

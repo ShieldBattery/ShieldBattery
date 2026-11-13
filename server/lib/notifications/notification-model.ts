@@ -1,5 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
+import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   LeagueBanNotification,
   LeagueStartNotification,
@@ -37,6 +38,7 @@ export type NotificationData =
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
   | MatchmakingBanNotificationData
+  | LobbyInviteNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -154,6 +156,14 @@ export interface MatchmakingBanNotificationData extends BaseNotificationData {
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
 
+export interface LobbyInviteNotificationData extends BaseNotificationData {
+  type: NotificationType.LobbyInvite
+  from: SbUserId
+  lobbyId: SbLobbyId
+}
+
+type LobbyInviteSearchNotificationData = MakeSearchable<LobbyInviteNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -173,6 +183,7 @@ export type SearchNotificationData =
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | MatchmakingBanSearchNotificationData
+  | LobbyInviteSearchNotificationData
   | Record<string, never>
 
 export interface Notification {
@@ -342,6 +353,32 @@ export async function clearById(userId: SbUserId, notificationId: string): Promi
       SET visible = false
       WHERE user_id = ${userId} AND id = ${notificationId};
     `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Marks every visible notification matching the given data as not visible, for every user, and
+ * returns which ones were cleared so their owners' clients can be updated.
+ */
+export async function clearMatching(
+  data: SearchNotificationData,
+): Promise<Array<{ id: string; userId: SbUserId }>> {
+  const criteria = Object.entries(data).map(([k, v]) => sql`data->>${k} = ${v}`)
+  if (!criteria.length) {
+    throw new Error('clearMatching requires at least one data property to match on')
+  }
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ id: string; user_id: SbUserId }>(sql`
+      UPDATE notifications
+      SET visible = false
+      WHERE visible = true AND ${sqlConcat(' AND ', criteria)}
+      RETURNING id, user_id;
+    `)
+    return result.rows.map(row => ({ id: row.id, userId: row.user_id }))
   } finally {
     done()
   }

@@ -469,6 +469,10 @@
         },
         "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
+      "invite": {
+        "description": "Invites another user to your lobby.",
+        "invited": "Invited <2><0></0></2> to lobby."
+      },
       "join": {
         "description": "Joins a chat channel, creating it if it does not exist."
       },
@@ -479,6 +483,9 @@
       },
       "leave": {
         "description": "Leaves the channel or lobby you are in."
+      },
+      "matchmaking": {
+        "selfInvite": "You can't invite yourself to your lobby."
       },
       "me": {
         "chatRestricted": "You're currently restricted from sending chat messages.",
@@ -1886,6 +1893,16 @@
       "seats": "{{taken}} of {{total}} seats filled",
       "title": "Lobby",
       "view": "View lobby"
+    },
+    "inviteNotification": {
+      "received": "<0>{{user}}</0> invited you to a lobby."
+    },
+    "inviteToLobby": {
+      "defaultError": "Error inviting user to lobby",
+      "errorAlreadyInLobby": "That user is already in this lobby.",
+      "errorAlreadyInvited": "That user already has an invite to this lobby.",
+      "errorBannedFromLobby": "That user has been banned from this lobby.",
+      "errorNotAcceptingInvites": "That user isn't accepting lobby invites."
     },
     "joinCode": {
       "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
@@ -3390,6 +3407,13 @@
           "description": "While you're in a game, messages won't play a sound or flash the taskbar, even ones that mention you. Saved to your account and applies on every device you log in from.",
           "title": "In game"
         },
+        "lobbyInvites": {
+          "anyone": "Anyone",
+          "description": "Who can invite you to their lobby. People you have blocked can never invite you, whichever option you pick here.",
+          "friendsOnly": "Friends only",
+          "nobody": "Nobody",
+          "title": "Lobby invites"
+        },
         "playMessageSounds": "Play message sounds",
         "quietChannelsWhileInGame": "Quiet channels while in a game",
         "quietWhispersWhileInGame": "Quiet whispers while in a game",
@@ -3604,6 +3628,7 @@
       "friendRequestAccepted": "Friend request accepted",
       "friendRequestRemoved": "Friend request removed",
       "friendRequestSent": "Friend request sent",
+      "inviteToLobby": "Invite to Lobby",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
