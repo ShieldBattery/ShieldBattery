@@ -357,3 +357,29 @@ export async function clearById(userId: SbUserId, notificationId: string): Promi
     done()
   }
 }
+
+/**
+ * Marks every visible notification matching the given data as not visible, for every user, and
+ * returns which ones were cleared so their owners' clients can be updated.
+ */
+export async function clearMatching(
+  data: SearchNotificationData,
+): Promise<Array<{ id: string; userId: SbUserId }>> {
+  const criteria = Object.entries(data).map(([k, v]) => sql`data->>${k} = ${v}`)
+  if (!criteria.length) {
+    throw new Error('clearMatching requires at least one data property to match on')
+  }
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ id: string; user_id: SbUserId }>(sql`
+      UPDATE notifications
+      SET visible = false
+      WHERE visible = true AND ${sqlConcat(' AND ', criteria)}
+      RETURNING id, user_id;
+    `)
+    return result.rows.map(row => ({ id: row.id, userId: row.user_id }))
+  } finally {
+    done()
+  }
+}

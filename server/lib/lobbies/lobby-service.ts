@@ -54,6 +54,7 @@ import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
+import { NotificationType } from '../../../common/notifications'
 import { RaceChar } from '../../../common/races'
 import { multipleRandomItems } from '../../../common/random'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
@@ -78,6 +79,7 @@ import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import NotificationService from '../notifications/notification-service'
 import { Clock, TimeoutId } from '../time/clock'
 import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
 import { genShortRandomCode } from '../users/random-code'
@@ -496,6 +498,7 @@ export class LobbyService {
     private gameLifecycleEvents: GameLifecycleEvents,
     private clientSockets: ClientSocketsManager,
     private clock: Clock,
+    private notificationService: NotificationService,
   ) {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
@@ -2271,6 +2274,7 @@ export class LobbyService {
       const withoutMember = Lobbies.removeFromBench(lobby, client.userId)
       updatedLobby = isLobbyEmpty(withoutMember) ? undefined : withoutMember
     }
+
     const lobbyIsEmpty = !updatedLobby
 
     if (!updatedLobby) {
@@ -2292,6 +2296,10 @@ export class LobbyService {
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._deleteJoinCode(lobby.id)
       this._publishListChange('delete', lobby)
+      // remove pending lobby invites
+      this.notificationService
+        .clearAllMatching({ type: NotificationType.LobbyInvite, lobbyId: lobby.id })
+        .catch(err => logger.error({ err }, 'error clearing invites for a closed lobby'))
     } else {
       this.lobbies.set(lobby.id, updatedLobby)
       // Ready marks belong to the people in the lobby, so someone who is out of it (having left,
