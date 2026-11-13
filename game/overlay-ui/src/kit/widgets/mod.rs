@@ -10,6 +10,7 @@ mod controls;
 mod icons;
 mod menus;
 mod panels;
+mod swatch;
 mod tooltip;
 
 pub use buttons::{
@@ -39,6 +40,7 @@ pub use panels::{
     panel_header, panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact,
     tag_height, tag_sized, text_cell,
 };
+pub use swatch::{PLAYER_SWATCH, paint_player_swatch, paint_player_swatch_in};
 pub use tooltip::{hint_card, tooltip, tooltip_above};
 
 use egui::{

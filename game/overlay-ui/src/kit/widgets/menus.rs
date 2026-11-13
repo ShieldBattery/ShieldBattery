@@ -14,7 +14,7 @@ use crate::colors::{
     AMBER60, BLUE60, BLUE70, BLUE80, BLUE99, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY_BLUE95,
 };
 use crate::kit::text::{self, BodyWeight};
-use crate::kit::widgets::{focus_ring, state_overlay};
+use crate::kit::widgets::{PLAYER_SWATCH, focus_ring, paint_player_swatch_in, state_overlay};
 use crate::kit::{theme, tiers};
 
 /// Padding between a menu's edge and its rows.
@@ -30,15 +30,12 @@ const ROW_LABEL_SIZE: f32 = 14.0;
 const COMPACT_ROW_HEIGHT: f32 = 36.0;
 const COMPACT_ROW_LABEL_SIZE: f32 = 13.5;
 
-/// Padding either side of a row's contents, and the gap between its glyph or bar and its label.
+/// Padding either side of a row's contents, and the gap between its glyph or swatch and its label.
 const ROW_PAD_X: f32 = 12.0;
 const ROW_GAP: f32 = 10.0;
 
 /// The size of the glyph in front of a row's label.
 const ROW_GLYPH_SIZE: f32 = 15.0;
-
-/// The bar of a player's color in front of a row's label.
-const ROW_BAR: Vec2 = vec2(3.0, 13.0);
 
 /// The size of the note at a row's far end.
 const ROW_NOTE_SIZE: f32 = 11.0;
@@ -141,7 +138,7 @@ pub enum MenuTone {
 pub struct MenuRow<'a> {
     label: &'a str,
     glyph: Option<Glyph>,
-    bar: Option<Color32>,
+    swatch: Option<Color32>,
     tone: MenuTone,
     selected: bool,
     note: Option<&'a str>,
@@ -162,9 +159,9 @@ impl<'a> MenuRow<'a> {
         self
     }
 
-    /// A bar of a player's color in front of the label, for a row that stands for a player.
-    pub fn bar(mut self, color: Color32) -> Self {
-        self.bar = Some(color);
+    /// The square of a player's color in front of the label, for a row that stands for a player.
+    pub fn swatch(mut self, color: Color32) -> Self {
+        self.swatch = Some(color);
         self
     }
 
@@ -222,11 +219,11 @@ impl<'a> MenuRow<'a> {
             paint_glyph(ui.painter(), glyph_rect, glyph, color);
             left = glyph_rect.right() + ROW_GAP;
         }
-        if let Some(bar) = self.bar {
-            let bar_rect =
-                Rect::from_min_size(pos2(left, rect.center().y - ROW_BAR.y * 0.5), ROW_BAR);
-            ui.painter().rect_filled(bar_rect, theme::radius(1), bar);
-            left = bar_rect.right() + ROW_GAP;
+        if let Some(swatch) = self.swatch {
+            let column =
+                Rect::from_min_size(pos2(left, rect.top()), vec2(PLAYER_SWATCH, rect.height()));
+            paint_player_swatch_in(ui, column, swatch, 1.0);
+            left = column.right() + ROW_GAP;
         }
         let mut right = rect.right() - ROW_PAD_X;
         if self.selected {

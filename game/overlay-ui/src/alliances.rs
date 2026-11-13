@@ -1131,7 +1131,7 @@ fn draw_chat_menu(
                     .compact()
                     .selected(option.choice == view.chat_target);
                 if let Some(color) = option.color {
-                    row = row.bar(color);
+                    row = row.swatch(color);
                 }
                 if option.muted {
                     row = row.tone(MenuTone::Dim).note(&muted_note);

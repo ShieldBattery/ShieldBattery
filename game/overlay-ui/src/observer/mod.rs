@@ -77,6 +77,7 @@ use serde::{Deserialize, Serialize};
 use crate::colors::{GREY_BLUE60, PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
 use crate::kit::widgets::{self, ResourceGlyph};
+pub(crate) use crate::kit::widgets::{PLAYER_SWATCH, paint_player_swatch, paint_player_swatch_in};
 use crate::kit::{motion, text, theme, tiers};
 use crate::shell::Panel;
 use crate::tr;
@@ -432,34 +433,6 @@ pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) 
         theme::radius(theme::RADIUS_TIGHT),
         color.gamma_multiply(alpha),
     );
-}
-
-/// Side of the square of a player's color that marks their row in a panel.
-pub(crate) const PLAYER_SWATCH: f32 = 12.0;
-
-/// Paints a square of a player's color, at `alpha` of itself, which is what ties a row to the
-/// player's units on the map. A square rather than a thin bar, whose sliver of color is too little
-/// to tell a color by. A faint light edge keeps the dark colors (blue, navy) reading as a square
-/// against the panel rather than sinking into it.
-pub(crate) fn paint_player_swatch(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter()
-        .rect_filled(rect, corner_radius, color.gamma_multiply(alpha));
-    ui.painter().rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(
-            theme::HAIRLINE,
-            theme::alpha(theme::TEXT_PRIMARY, 0.25 * alpha),
-        ),
-        StrokeKind::Inside,
-    );
-}
-
-/// Paints a [`PLAYER_SWATCH`] square of a player's color in the middle of `column`.
-pub(crate) fn paint_player_swatch_in(ui: &Ui, column: Rect, color: Color32, alpha: f32) {
-    let square = Rect::from_center_size(column.center(), Vec2::splat(PLAYER_SWATCH));
-    paint_player_swatch(ui, square, color, alpha);
 }
 
 /// Outlines a tile the pointer is over, for the tiles that act when they are clicked.
