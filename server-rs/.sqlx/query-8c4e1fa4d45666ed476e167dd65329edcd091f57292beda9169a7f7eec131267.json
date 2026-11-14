@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id as \"id: _\", hash as \"map_hash: _\", name as \"name!\",\n                    COALESCE(public_description, description) as \"description!\",\n                    CASE WHEN listed THEN published_by END as \"published_by: _\",\n                    CASE WHEN listed THEN published_at END as published_at,\n                    (CASE\n                        WHEN NOT listed THEN 'UNLISTED'\n                        WHEN official THEN 'OFFICIAL'\n                        ELSE 'PUBLIC'\n                    END)::map_visibility as \"visibility!: _\"\n                FROM maps\n                WHERE id = ANY($1)\n            ",
+  "query": "\n                SELECT id as \"id: _\", hash as \"map_hash: _\", name as \"name!\",\n                    COALESCE(public_description, description) as \"description!\",\n                    CASE WHEN listed THEN published_by END as \"published_by: _\",\n                    CASE WHEN listed THEN published_at END as published_at,\n                    (CASE\n                        WHEN NOT listed THEN 'UNLISTED'\n                        WHEN map_family_is_staff_pick(family_id) THEN 'OFFICIAL'\n                        ELSE 'PUBLIC'\n                    END)::map_visibility as \"visibility!: _\"\n                FROM maps\n                WHERE id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -87,5 +87,5 @@
       null
     ]
   },
-  "hash": "3c6a208f1dad6cbb297b25490898c8d7ad3fcecc5724602b314e2a6e014d790a"
+  "hash": "8c4e1fa4d45666ed476e167dd65329edcd091f57292beda9169a7f7eec131267"
 }

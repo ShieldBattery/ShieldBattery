@@ -262,7 +262,7 @@ export function CatalogFilterRow({
   sorts?: ReadonlyArray<CatalogSort>
   /** Whether Best match is offered while searching. */
   offersBestMatch?: boolean
-  /** Whether the Official and Verified filters, which only the server's listings have, show. */
+  /** Whether the Staff picks and Verified filters, which only the server's listings have, show. */
   showServerFilters?: boolean
   /** Shown next to the count, e.g. a link to the same search elsewhere. */
   besideCount?: React.ReactNode
@@ -370,9 +370,9 @@ export function CatalogFilterRow({
       {showServerFilters ? (
         <>
           <FilterChip
-            label={t('maps.page.official', 'Official')}
-            selected={params.official}
-            onClick={() => onFiltersChange({ official: !params.official })}
+            label={t('maps.catalog.staffPicks', 'Staff picks')}
+            selected={params.staffPick}
+            onClick={() => onFiltersChange({ staffPick: !params.staffPick })}
           />
           <FilterChip
             label={t('maps.page.verified', 'Verified')}

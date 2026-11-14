@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.official, m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\",\n                EXISTS (\n                    SELECT 1 FROM maps o WHERE o.family_id = m.family_id AND o.listed\n                ) as \"family_listed!\",\n                f.owner_id as \"family_owner_id: SbUserId\",\n                f.credit IS NOT NULL as \"family_has_credit!\"\n            FROM maps m\n            INNER JOIN map_families f ON f.id = m.family_id\n            WHERE m.id = $1\n        ",
+  "query": "\n            SELECT m.family_id, m.listed as \"listed!\", m.name as \"name!\",\n                COALESCE(m.public_description, m.description) as \"description!\",\n                m.published_by as \"published_by: SbUserId\", m.delisted_kind,\n                (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as \"family_size!\",\n                EXISTS (\n                    SELECT 1 FROM maps o WHERE o.family_id = m.family_id AND o.listed\n                ) as \"family_listed!\",\n                f.owner_id as \"family_owner_id: SbUserId\",\n                f.credit IS NOT NULL as \"family_has_credit!\"\n            FROM maps m\n            INNER JOIN map_families f ON f.id = m.family_id\n            WHERE m.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -27,17 +27,6 @@
       },
       {
         "ordinal": 2,
-        "name": "official",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "maps",
-            "name": "official"
-          }
-        }
-      },
-      {
-        "ordinal": 3,
         "name": "name!",
         "type_info": "Text",
         "origin": {
@@ -48,13 +37,13 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "description!",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "published_by: SbUserId",
         "type_info": "Int4",
         "origin": {
@@ -65,7 +54,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "delisted_kind",
         "type_info": "Text",
         "origin": {
@@ -76,19 +65,19 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "family_size!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "family_listed!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "family_owner_id: SbUserId",
         "type_info": "Int4",
         "origin": {
@@ -99,7 +88,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "family_has_credit!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -113,7 +102,6 @@
     "nullable": [
       false,
       true,
-      false,
       true,
       null,
       true,
@@ -124,5 +112,5 @@
       null
     ]
   },
-  "hash": "65d1a8785a28677929bf42fe355d688004a6ddd0628f560ccfc37e7a48bf3751"
+  "hash": "7bf596a241b86abb706b2c523aaa8eb70a77e42d924f9546262cf9ca0a8fef29"
 }
