@@ -3405,6 +3405,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "스타크래프트 또는 ShieldBattery 파일을 확인할 수 없어 게임을 시작하지 못했습니다.",
+      "matchmakingCost": "이렇게 시작하지 못한 경기가 쌓이면 매치메이킹이 금지됩니다.",
+      "repair": "Battle.net 런처에서 스타크래프트의 ‘검사 및 복구’를 실행한 후 다시 시도해 주세요. 문제가 계속되면 shieldbattery.net에서 ShieldBattery를 재설치해 주세요.",
+      "title": "게임 파일을 확인할 수 없습니다"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "가능하다면 이 파일들이 오탐(false positive)이라고 백신 업체에 신고해 주세요. 그래야 다른 사용자들에게도 이런 문제가 생기지 않을 거예요!",
       "middleContents": "이런 문제는 보통 설치된 백신 프로그램이 오탐(false positive)으로 잘못 판단해 파일에 조치를 취했을 때 발생합니다. 예외 목록에 해당 파일들을 추가하거나, 격리 해제 처리해야 할 수도 있어요. 또는 ShieldBattery를 다시 설치해 보는 것도 방법입니다.",

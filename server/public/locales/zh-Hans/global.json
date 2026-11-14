@@ -3405,6 +3405,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "ShieldBattery 无法验证您的《星际争霸》或 ShieldBattery 文件，因此游戏未能启动。",
+      "matchmakingCost": "每场因此未能开始的对局都会被记录，多次出现将导致被禁止匹配。",
+      "repair": "请在战网客户端中对《星际争霸》执行“扫描和修复”，然后重试。如果问题仍然出现，请从 shieldbattery.net 重新安装 ShieldBattery。",
+      "title": "无法验证游戏文件"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "如果可以的话，向您的杀毒软件供应商报告这些误报可以避免其他用户遭遇同样的问题！",
       "middleContents": "这通常是由于杀毒软件误报导致的。您可能需要将这些文件添加到信任区，或者让软件将它们移出隔离区。您也可以尝试重新安装ShieldBattery。",

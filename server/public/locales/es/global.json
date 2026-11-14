@@ -3507,6 +3507,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "ShieldBattery no pudo verificar tus archivos de StarCraft o de ShieldBattery, así que la partida no se inició.",
+      "matchmakingCost": "Cada partida que no se inicia por este motivo cuenta para un baneo de emparejamiento.",
+      "repair": "Usa “Analizar y reparar” con StarCraft en la app de Battle.net y vuelve a intentarlo. Si sigue pasando, reinstala ShieldBattery desde shieldbattery.net.",
+      "title": "No se pudieron verificar los archivos del juego"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
       "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",
