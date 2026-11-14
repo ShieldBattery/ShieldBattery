@@ -106,30 +106,39 @@ export interface MapPickOptions {
   pendingMapId?: SbMapId
   /** The map whose last pick failed. */
   failedMapId?: SbMapId
-  /** Whether no more maps can be picked. */
+  /** Whether no more maps can be picked. Doesn't keep marked tiles from `onPickMarked`. */
   disabled?: boolean
-  /**
-   * Whether a tile's map is marked with `markedLabel` (e.g. as already in a collection). A marked
-   * tile can't be picked.
-   */
+  /** Whether a tile's map is marked with `markedLabel` (e.g. as already in a collection). */
   isMarked?: (map: { id: SbMapId; familyId: string }) => boolean
   /** The text on a marked tile's chip. */
   markedLabel?: string
+  /**
+   * Picks a marked tile's map in place of `onPick` (e.g. taking it back out of a collection), with
+   * the tile's file `mapId`, its map (family) `familyId` and its name. Marked tiles show as selected
+   * when this is set, and can't be picked when it isn't. Resolves with whether the pick succeeded.
+   */
+  onPickMarked?: (mapId: SbMapId, familyId: string, name: string) => Promise<boolean>
 }
 
 /** How the tile of the file `mapId`, in the map `familyId`, behaves when picking maps. */
 export function tilePick(pick: MapPickOptions, mapId: SbMapId, familyId: string): MapTilePick {
   const marked = !!pick.isMarked?.({ id: mapId, familyId })
+  const onPickMarked = marked ? pick.onPickMarked : undefined
   return {
-    onPick: () => {
-      pick.onPick(mapId, familyId).catch(() => {})
+    onPick: name => {
+      const picked = onPickMarked
+        ? onPickMarked(mapId, familyId, name)
+        : pick.onPick(mapId, familyId)
+      picked.catch(() => {})
     },
-    selected: pick.selectedMapId === mapId,
+    selected: pick.selectedMapId === mapId || !!onPickMarked,
     queuePositions: pick.queuePositions?.get(mapId),
     pending: pick.pendingMapId === mapId,
     failed: pick.failedMapId === mapId,
     markedLabel: marked ? pick.markedLabel : undefined,
-    disabled: !!pick.disabled || marked || (!!pick.pendingMapId && pick.pendingMapId !== mapId),
+    disabled:
+      (marked ? !onPickMarked : !!pick.disabled) ||
+      (!!pick.pendingMapId && pick.pendingMapId !== mapId),
   }
 }
 

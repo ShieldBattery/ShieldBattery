@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { GameType } from '../../common/games/game-type'
 import { SbMapId } from '../../common/maps'
 import { MapLens } from '../gql/graphql'
-import { FilledButton, OutlinedButton, TextButton } from '../material/button'
+import { OutlinedButton, TextButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
@@ -52,7 +52,8 @@ export enum MapPickerMode {
   /** Adds maps to the lobby's map queue, one per pick, keeping the picker open. */
   Queue,
   /**
-   * Adds maps to a collection, one per pick, keeping the picker open (see
+   * Adds maps to a collection, one per pick, keeping the picker open. Picking a map the collection
+   * holds takes it back out, where the collection allows that (see
    * {@link MapPickerCollectionTarget}).
    */
   Collection,
@@ -65,7 +66,7 @@ export interface MapPickerCollectionTarget {
   title: string
   /** How many maps the collection holds. */
   mapCount: number
-  /** Whether the collection can't hold any more maps. */
+  /** Whether the collection can't hold any more maps. Maps it holds can still be removed. */
   full: boolean
   /** The chip on tiles of maps the collection holds. Defaults to `In this collection`. */
   heldLabel?: string
@@ -74,13 +75,22 @@ export interface MapPickerCollectionTarget {
    * `{count} maps in this collection`.
    */
   countLabel?: string
-  /** Whether the collection holds the map (family) `familyId`. Marked tiles can't be picked. */
+  /**
+   * Whether the collection holds the map (family) `familyId`. Tiles of the maps it holds are marked
+   * and picking one calls `remove`; without `remove`, they can't be picked.
+   */
   holds: (familyId: string) => boolean
   /**
    * Adds the map the file `mapId` is in to the collection, telling the viewer if that fails.
    * Resolves with whether it was added.
    */
   add: (mapId: SbMapId, familyId?: string) => Promise<boolean>
+  /**
+   * Removes the map (family) `familyId` from the collection, telling the viewer if that fails.
+   * `mapId` and `name` are the picked tile's file and its name, which may not be the file of the map
+   * that the collection holds. Resolves with whether it was removed.
+   */
+  remove?: (mapId: SbMapId, familyId: string, name: string) => Promise<boolean>
 }
 
 /** The picker's tab of collections, whose maps are picked once a collection is opened. */
@@ -424,19 +434,16 @@ export function MapPicker({
     queuePositions.set(mapId, [...(queuePositions.get(mapId) ?? []), i + 1])
   })
 
-  const addToCollection = (
-    target: MapPickerCollectionTarget,
-    mapId: SbMapId,
-    familyId?: string,
-  ) => {
+  /** Makes a change to the collection for a pick of the file `mapId`, pending until it's done. */
+  const changeCollection = (mapId: SbMapId, change: () => Promise<boolean>) => {
     setPendingMapId(mapId)
     setFailedMapId(undefined)
-    return target.add(mapId, familyId).finally(() => setPendingMapId(undefined))
+    return change().finally(() => setPendingMapId(undefined))
   }
 
   const pickMap = (mapId: SbMapId, familyId?: string) => {
     if (mode === MapPickerMode.Collection && collection) {
-      return addToCollection(collection, mapId, familyId)
+      return changeCollection(mapId, () => collection.add(mapId, familyId))
     }
     setPendingMapId(mapId)
     setFailedMapId(undefined)
@@ -460,6 +467,7 @@ export function MapPicker({
   }
 
   const inCollectionMode = mode === MapPickerMode.Collection && !!collection
+  const removeFromCollection = inCollectionMode ? collection.remove : undefined
   const pickOptions: MapPickOptions = {
     onPick: pickMap,
     selectedMapId: mode === MapPickerMode.Map ? selectedMapId : undefined,
@@ -471,6 +479,10 @@ export function MapPicker({
     isMarked: inCollectionMode ? map => collection.holds(map.familyId) : undefined,
     markedLabel: inCollectionMode
       ? (collection.heldLabel ?? t('maps.picker.inThisCollection', 'In this collection'))
+      : undefined,
+    onPickMarked: removeFromCollection
+      ? (mapId, familyId, name) =>
+          changeCollection(mapId, () => removeFromCollection(mapId, familyId, name))
       : undefined,
   }
   const searchText = params.search.trim()
@@ -557,33 +569,27 @@ export function MapPicker({
           />
           <Title>{title}</Title>
           {inCollectionMode ? (
-            <>
-              <QueueStatus>
-                {collection.full
-                  ? t('maps.picker.collectionFull', 'The collection is full')
-                  : (collection.countLabel ??
-                    t('maps.picker.collectionCount', {
-                      defaultValue: '{{count}} maps in this collection',
-                      defaultValue_one: '{{count}} map in this collection',
-                      count: collection.mapCount,
-                    }))}
-              </QueueStatus>
-              <FilledButton label={t('common.actions.done', 'Done')} onClick={onClose} />
-            </>
+            <QueueStatus>
+              {collection.full
+                ? t('maps.picker.collectionFull', 'The collection is full')
+                : (collection.countLabel ??
+                  t('maps.picker.collectionCount', {
+                    defaultValue: '{{count}} maps in this collection',
+                    defaultValue_one: '{{count}} map in this collection',
+                    count: collection.mapCount,
+                  }))}
+            </QueueStatus>
           ) : null}
           {mode === MapPickerMode.Queue ? (
-            <>
-              <QueueStatus>
-                {canQueueMore
-                  ? t('maps.picker.queuedCount', {
-                      defaultValue: '{{count}} maps in the queue',
-                      defaultValue_one: '{{count}} map in the queue',
-                      count: queuedMapIds?.length ?? 0,
-                    })
-                  : t('maps.picker.queueFull', 'The queue is full')}
-              </QueueStatus>
-              <FilledButton label={t('common.actions.done', 'Done')} onClick={onClose} />
-            </>
+            <QueueStatus>
+              {canQueueMore
+                ? t('maps.picker.queuedCount', {
+                    defaultValue: '{{count}} maps in the queue',
+                    defaultValue_one: '{{count}} map in the queue',
+                    count: queuedMapIds?.length ?? 0,
+                  })
+                : t('maps.picker.queueFull', 'The queue is full')}
+            </QueueStatus>
           ) : null}
         </TopRow>
         <ControlsRow>

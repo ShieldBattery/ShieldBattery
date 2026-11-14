@@ -358,8 +358,12 @@ export interface MapTileProps {
 
 /** How a tile behaves when picking maps for a lobby. */
 export interface MapTilePick {
-  onPick: () => void
-  /** Whether this is the map currently chosen. */
+  /** Called with the map's name, as the tile shows it. */
+  onPick: (name: string) => void
+  /**
+   * Whether the tile shows as chosen: the map currently chosen, or a marked map that picking takes
+   * back out (e.g. of a collection).
+   */
   selected: boolean
   /** Where the map sits in the lobby's map queue (1-based), if it's queued. */
   queuePositions?: ReadonlyArray<number>
@@ -476,7 +480,7 @@ export function MapTile({
           type='button'
           aria-pressed={pick.selected}
           disabled={pick.disabled || pick.pending}
-          onClick={pick.onPick}>
+          onClick={() => pick.onPick(name)}>
           {contents}
         </TilePickButton>
       ) : (

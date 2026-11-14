@@ -90,15 +90,19 @@ import {
 } from './map-picker'
 import {
   MapRow,
+  MapRowCell,
   MapRowChip,
   MapRowChipTooltip,
+  MapRowColumn,
   MapRowControlButton,
   MapRowControls,
   MapRowGamesCount,
   MapRowLink,
+  MapRowListGroup,
   MapRowMeta,
   MapRowName,
   MapRowNameLine,
+  MapRowSubList,
   MapRowText,
   MapRowThumbnail,
 } from './map-row-parts'
@@ -713,8 +717,9 @@ function CollectionActions({
   }
   const menuGroups = [editItems, moderationItems].filter(group => group.length)
   const menuItemCount = menuGroups.reduce((sum, group) => sum + group.length, 0)
-  // A menu would hold only one item, so it's shown as a button instead
-  const onlyItem = menuItemCount === 1 ? menuGroups[0][0] : undefined
+  // Moderation always sits in the menu, set apart from the owner's actions. Any other item that
+  // would be the menu's only one is shown as a button instead
+  const onlyItem = menuItemCount === 1 && !moderationItems.length ? editItems[0] : undefined
 
   const savedLabel = collection.isSaved
     ? t('maps.collections.saved', 'Saved')
@@ -752,7 +757,7 @@ function CollectionActions({
       {onlyItem ? (
         <OutlinedButton label={onlyItem[0]} disabled={publicPending} onClick={onlyItem[1]} />
       ) : null}
-      {menuItemCount > 1 ? (
+      {menuItemCount > 0 && !onlyItem ? (
         <>
           <Tooltip text={menuLabel} position='bottom' tabIndex={-1}>
             <IconButton
@@ -845,8 +850,8 @@ function useUnlistedCount(collectionId: string, enabled: boolean): number {
 }
 
 /**
- * The map picker, adding each picked map to the collection and marking the maps already in it. It
- * stays open until closed.
+ * The map picker, adding each picked map to the collection and marking the maps already in it,
+ * which picking removes from it again. It stays open until closed.
  */
 function AddMapsPicker({
   collection,
@@ -856,19 +861,32 @@ function AddMapsPicker({
   onClose: () => void
 }) {
   const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
   const addMap = useAddMapToCollection()
+  const removeMap = useRemoveMapFromCollection()
   const pickerSession = useMapPickerSession()
   const entries = useCollectionEntries(collection.id, true)
-  // Maps added while the picker is open, marked before the collection's entries load again
-  const [addedFamilyIds, setAddedFamilyIds] = useState<ReadonlySet<string>>(() => new Set())
-  const heldFamilyIds = new Set([...(entries ?? []).map(e => e.family.id), ...addedFamilyIds])
+  // Whether the collection holds each map (family) added or removed while the picker is open, which
+  // decides its mark until the collection's entries load again
+  const [changedHolds, setChangedHolds] = useState<ReadonlyMap<string, boolean>>(() => new Map())
+  const entryFamilyIds = new Set((entries ?? []).map(e => e.family.id))
+  const title = collectionTitle(collection, t)
 
   const add = (mapId: SbMapId, familyId?: string) =>
     addMap(collection.id, mapId).then(added => {
       if (added && familyId) {
-        setAddedFamilyIds(prev => new Set([...prev, familyId]))
+        setChangedHolds(prev => new Map(prev).set(familyId, true))
       }
       return added
+    })
+
+  const remove = (mapId: SbMapId, familyId: string, name: string) =>
+    removeMap(collection.id, mapId).then(removed => {
+      if (removed) {
+        setChangedHolds(prev => new Map(prev).set(familyId, false))
+        snackbarController.showSnackbar(removedMapText(name, title, t))
+      }
+      return removed
     })
 
   const uploadFiles = useUploadMapFiles({
@@ -883,11 +901,12 @@ function AddMapsPicker({
 
   const target: MapPickerCollectionTarget = {
     id: collection.id,
-    title: collectionTitle(collection, t),
+    title,
     mapCount: collection.mapCount,
     full: collection.mapCount >= MAX_COLLECTION_MAPS,
-    holds: familyId => heldFamilyIds.has(familyId),
+    holds: familyId => changedHolds.get(familyId) ?? entryFamilyIds.has(familyId),
     add,
+    remove,
   }
 
   return (
@@ -910,22 +929,11 @@ const PickerRoot = styled.div`
   flex-direction: column;
 `
 
-const RowChunks = styled.div`
+/** The columns of a collection's rows, after the link. */
+const ROW_COLUMNS: ReadonlyArray<MapRowColumn> = ['controls', 'games', 'star']
+
+const RowChunks = styled(MapRowListGroup)`
   width: 100%;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`
-
-const RowList = styled.ol`
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 `
 
 /** A row button that keeps keyboard focus when its row moves. */
@@ -1062,7 +1070,7 @@ function CollectionRows({
   }
 
   return (
-    <RowChunks>
+    <RowChunks $columns={ROW_COLUMNS}>
       <RowsChunk
         collectionId={collectionId}
         filter={filter}
@@ -1170,7 +1178,7 @@ function RowsChunk({
         refreshToken={collectionId}
         onLoadNextData={() => onLoadMore(pageIndex)}>
         {connection?.edges.length ? (
-          <RowList>
+          <MapRowSubList>
             {connection.edges.map((edge, i) => (
               <CollectionMapRow
                 key={edge.node.id}
@@ -1180,7 +1188,7 @@ function RowsChunk({
                 editing={editing}
               />
             ))}
-          </RowList>
+          </MapRowSubList>
         ) : null}
       </InfiniteScrollList>
       {!isLast && endCursor ? (
@@ -1211,9 +1219,6 @@ const RowNumber = styled.div`
 `
 
 const StarButton = styled(IconButton)<{ $favorited: boolean }>`
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
   color: ${props => (props.$favorited ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
 `
 
@@ -1343,15 +1348,17 @@ function CollectionMapRow({
         </MapRowControls>
       ) : null}
       <MapRowGamesCount gamesTotal={map.stats?.gamesTotal} />
-      <Tooltip text={starLabel} position='left' tabIndex={-1}>
-        <StarButton
-          $favorited={map.isFavorited}
-          icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
-          ariaLabel={starLabel}
-          disabled={favoritePending}
-          onClick={() => toggleFavorite(map)}
-        />
-      </Tooltip>
+      <MapRowCell $column='star'>
+        <Tooltip text={starLabel} position='left' tabIndex={-1}>
+          <StarButton
+            $favorited={map.isFavorited}
+            icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
+            ariaLabel={starLabel}
+            disabled={favoritePending}
+            onClick={() => toggleFavorite(map)}
+          />
+        </Tooltip>
+      </MapRowCell>
     </MapRow>
   )
 }

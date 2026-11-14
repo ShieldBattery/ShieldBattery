@@ -31,14 +31,18 @@ import {
 } from '../maps/map-picker'
 import {
   MapRow,
+  MapRowCell,
   MapRowChip,
+  MapRowColumn,
   MapRowControlButton,
   MapRowControls,
   MapRowGamesCount,
   MapRowLink,
+  MapRowList,
   MapRowMeta,
   MapRowName,
   MapRowNameLine,
+  MapRowPlaceholder,
   MapRowText,
   MapRowThumbnail,
 } from '../maps/map-row-parts'
@@ -434,6 +438,24 @@ function MapPoolsScreen({
     })
   }
 
+  /**
+   * Takes the map (family) `familyId` out of the draft: whichever of its files the draft holds, and
+   * the file `mapId` itself, should the draft not know that file's family.
+   */
+  const removeFromDraft = (mapId: SbMapId, familyId: string) => {
+    setDraft(d => {
+      if (!d) {
+        return d
+      }
+      const maps = d.maps.filter(id => id !== mapId && d.families.get(id) !== familyId)
+      if (maps.length === d.maps.length) {
+        return d
+      }
+      const next = { ...d, maps }
+      return next.problems ? { ...next, problems: draftProblems(next, Date.now()) } : next
+    })
+  }
+
   const schedule = () => {
     if (!draft || draft.submitting) {
       return
@@ -485,6 +507,7 @@ function MapPoolsScreen({
           draft={draft}
           title={`the ${typeLabel} pool`}
           onAdd={addToDraft}
+          onRemove={removeFromDraft}
           onClose={() => setPicking(false)}
         />
       </Root>
@@ -627,15 +650,8 @@ const PoolActions = styled.div`
   gap: 4px;
 `
 
-const RowList = styled.ol`
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`
+/** The columns of a pool's rows, after the link. */
+const POOL_ROW_COLUMNS: ReadonlyArray<MapRowColumn> = ['games']
 
 /**
  * A pool on one header line (its dates, size, vetoes and actions) with its maps under it. A past
@@ -712,11 +728,11 @@ function PoolBlock({
         </PoolActions>
       </PoolHeader>
       {expanded ? (
-        <RowList>
+        <MapRowList $columns={POOL_ROW_COLUMNS}>
           {pool.maps.map(mapId => (
             <PoolMapRow key={mapId} mapId={mapId} />
           ))}
-        </RowList>
+        </MapRowList>
       ) : null}
     </PoolRoot>
   )
@@ -785,7 +801,7 @@ function RowFileLink({ map }: { map: PoolRowMap }) {
 /** The image and text of a row whose file is loading, or couldn't be loaded. */
 function RowPlaceholder({ mapId, failed }: { mapId: SbMapId; failed: boolean }) {
   return (
-    <>
+    <MapRowPlaceholder>
       <PlaceholderThumbnail>
         {failed ? <MaterialIcon icon='broken_image' size={24} /> : null}
       </PlaceholderThumbnail>
@@ -797,7 +813,7 @@ function RowPlaceholder({ mapId, failed }: { mapId: SbMapId; failed: boolean }) 
           </>
         ) : null}
       </MapRowText>
-    </>
+    </MapRowPlaceholder>
   )
 }
 
@@ -858,7 +874,10 @@ const DraftSummary = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const DraftRows = styled(RowList)`
+/** The columns of a draft's rows, after the link. */
+const DRAFT_ROW_COLUMNS: ReadonlyArray<MapRowColumn> = ['recommended', 'file', 'games', 'controls']
+
+const DraftRows = styled(MapRowList)`
   width: 100%;
 `
 
@@ -913,7 +932,7 @@ function DraftCard({
       </DraftHeader>
 
       {draft.maps.length ? (
-        <DraftRows>
+        <DraftRows $columns={DRAFT_ROW_COLUMNS}>
           {draft.maps.map(mapId => (
             <DraftMapRow
               key={mapId}
@@ -953,17 +972,6 @@ function DraftCard({
     </DraftRoot>
   )
 }
-
-/** Keeps what it wraps above the link that covers the row, so it can be used. */
-const RowAside = styled.div`
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`
 
 /**
  * Wide enough to show a whole option label, e.g. `Sep 30, 2026 · Recommended`, clear of the
@@ -1010,17 +1018,17 @@ function DraftMapRow({
         {map.id !== recommendedId &&
         family.files.length > 1 &&
         !draftMaps.includes(recommendedId) ? (
-          <RowAside>
+          <MapRowCell $column='recommended'>
             <Tooltip text="This isn't the map's recommended file" position='top' tabIndex={-1}>
               <TextButton
                 label='Use recommended'
                 onClick={() => onSwapFile(recommendedId, family.id)}
               />
             </Tooltip>
-          </RowAside>
+          </MapRowCell>
         ) : null}
         {files.length > 1 ? (
-          <RowAside>
+          <MapRowCell $column='file'>
             <FileSelect
               value={map.id}
               dense={true}
@@ -1048,7 +1056,7 @@ function DraftMapRow({
                 )
               })}
             </FileSelect>
-          </RowAside>
+          </MapRowCell>
         ) : null}
         <MapRowGamesCount gamesTotal={tile.stats?.gamesTotal} />
       </>
@@ -1073,19 +1081,22 @@ function DraftMapRow({
 }
 
 /**
- * The map picker, adding each picked map's file to the draft and marking the maps the draft holds.
- * It stays open until closed.
+ * The map picker, adding each picked map's file to the draft and marking the maps the draft holds,
+ * which picking takes back out of it. It stays open until closed.
  */
 function DraftMapsPicker({
   draft,
   title,
   onAdd,
+  onRemove,
   onClose,
 }: {
   draft: PoolDraft
   /** What the picker adds maps to, e.g. `the 1v1 pool`. */
   title: string
   onAdd: (mapId: SbMapId, familyId: string) => void
+  /** Takes the map (family) `familyId` out of the draft, `mapId` being the picked tile's file. */
+  onRemove: (mapId: SbMapId, familyId: string) => void
   onClose: () => void
 }) {
   const client = useClient()
@@ -1136,6 +1147,10 @@ function DraftMapsPicker({
     countLabel: `${draft.maps.length} ${draft.maps.length === 1 ? 'map' : 'maps'} in this pool`,
     holds: familyId => heldFamilyIds.has(familyId),
     add,
+    remove: (mapId, familyId) => {
+      onRemove(mapId, familyId)
+      return Promise.resolve(true)
+    },
   }
 
   return (
