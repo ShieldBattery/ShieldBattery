@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
+import { MatchmakingBanReason } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { durationFormat, useFormat } from '../i18n/locale-formats'
 import { logger } from '../logging/logger'
@@ -10,6 +11,7 @@ import { Dialog } from '../material/dialog'
 import { useAppDispatch } from '../redux-hooks'
 import { BodyLarge, titleLarge } from '../styles/typography'
 import { getMatchmakingBanStatus } from './action-creators'
+import { matchmakingBanText } from './ban-reason-text'
 
 const StyledDialog = styled(Dialog)`
   width: 480px;
@@ -40,6 +42,7 @@ export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
   const bannedDurationFormatter = useFormat(bannedDurationFormat)
 
   const [bannedUntil, setBannedUntil] = useState<number>()
+  const [reason, setReason] = useState<MatchmakingBanReason>()
   const [bannedUntilStr, setBannedUntilStr] = useState<string>('')
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
         signal: abortController.signal,
         onSuccess: response => {
           setBannedUntil(response.bannedUntil)
+          setReason(response.reason)
         },
         onError: error => {
           logger.error('Failed to fetch matchmaking ban status: ' + getErrorStack(error))
@@ -109,11 +113,12 @@ export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
       ]}>
       <Content>
         <BodyLarge>
-          {t(
-            'matchmaking.bannedDialog.description',
-            'You have been temporarily banned from matchmaking for failing to ready up, or ' +
-              'failing to join matches.',
-          )}
+          {reason
+            ? matchmakingBanText(t, reason)
+            : t(
+                'matchmaking.bannedDialog.description',
+                'You have been temporarily banned from matchmaking.',
+              )}
         </BodyLarge>
         {bannedUntil && bannedUntilStr.length ? (
           <div>

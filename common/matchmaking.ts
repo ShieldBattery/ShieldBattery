@@ -1382,8 +1382,22 @@ export interface DraftChatMessageRequest extends MatchScopedRequest {
   message: string
 }
 
+/**
+ * Why a player received an automatic matchmaking ban (or warning):
+ *
+ * - `notReady`: they didn't ready up for a found match in time
+ * - `left`: they left, or their client disconnected, before the match's game started
+ * - `failedToLoad`: their game didn't load into the match
+ */
+export type MatchmakingBanReason = 'notReady' | 'left' | 'failedToLoad'
+
 export interface GetMatchmakingBanStatusResponse {
   bannedUntil?: number
+  /**
+   * Why the automatic ban that `bannedUntil` reflects was issued. Absent if the player is kept out
+   * by something else (e.g. a manual restriction), or the ban was recorded without a reason.
+   */
+  reason?: MatchmakingBanReason
 }
 
 export enum MatchmakingSeasonsServiceErrorCode {

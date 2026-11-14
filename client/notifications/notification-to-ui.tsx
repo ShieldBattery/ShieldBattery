@@ -215,6 +215,7 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           showDivider={showDivider}
           read={notification.read}
           bannedUntil={notification.bannedUntil}
+          reason={notification.reason}
         />
       )
     default:

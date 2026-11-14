@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { TranslationLanguage } from './i18n'
+import { MatchmakingBanReason } from './matchmaking'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
@@ -198,6 +199,8 @@ export interface MatchmakingBanNotification extends BaseNotification {
   type: NotificationType.MatchmakingBan
   /** When the ban ends, or `undefined` if this was a warning. */
   bannedUntil?: number
+  /** Why the ban or warning was issued. Absent for bans recorded without a reason. */
+  reason?: MatchmakingBanReason
 }
 
 export type NotificationEvent =

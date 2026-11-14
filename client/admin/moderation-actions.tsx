@@ -663,7 +663,12 @@ function ActionCell({ action, now }: { action: ReadonlyDeep<ModerationAction>; n
       break
     case ModerationActionKind.MatchmakingBan:
       label = `Matchmaking timeout (${formatLength(action.time, action.endTime)})`
-      details = <SecondaryText>Level {action.banLevel}</SecondaryText>
+      details = (
+        <SecondaryText>
+          Level {action.banLevel}
+          {action.reason ? ` · ${action.reason}` : ''}
+        </SecondaryText>
+      )
       break
     default:
       label = action satisfies never

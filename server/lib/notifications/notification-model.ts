@@ -1,5 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
+import { MatchmakingBanReason } from '../../../common/matchmaking'
 import {
   LeagueBanNotification,
   LeagueStartNotification,
@@ -150,6 +151,8 @@ type GamePointsRefundedSearchNotificationData = MakeSearchable<GamePointsRefunde
 export interface MatchmakingBanNotificationData extends BaseNotificationData {
   type: NotificationType.MatchmakingBan
   bannedUntil?: number
+  /** Why the ban or warning was issued. Absent for bans recorded without a reason. */
+  reason?: MatchmakingBanReason
 }
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>

@@ -7,6 +7,7 @@ import {
   ALL_MATCHMAKING_TYPES,
   MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+  MatchmakingBanReason,
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../../common/matchmaking'
@@ -32,6 +33,7 @@ import {
   MatchCancellationPenalty,
   matchLaunchingAtom,
 } from '../matchmaking-atoms'
+import { MatchmakingBanNotificationUi } from '../matchmaking-ban-notification-ui'
 import { eventToAction } from '../socket-handlers'
 
 const ControlsCard = styled(Card)`
@@ -42,6 +44,14 @@ const ControlsCard = styled(Card)`
   flex-direction: column;
   gap: 8px;
 `
+
+const BAN_END_TIME = new Date('2030-01-01T12:00:00Z').getTime()
+const BAN_REASONS: ReadonlyArray<MatchmakingBanReason | undefined> = [
+  undefined,
+  'notReady',
+  'left',
+  'failedToLoad',
+]
 
 export function MatchDialogsTest() {
   const { t } = useTranslation()
@@ -239,6 +249,24 @@ export function MatchDialogsTest() {
         </Select>
         <FilledButton label='Cancel draft + requeue' onClick={() => showCanceledMatch('draft')} />
         <FilledButton label='Cancel loading + requeue' onClick={() => showCanceledMatch('load')} />
+      </ControlsCard>
+      <ControlsCard>
+        <BodyMedium>Ban notifications (no reason is a notification stored without one).</BodyMedium>
+        {BAN_REASONS.flatMap(reason => [
+          <MatchmakingBanNotificationUi
+            key={`warning-${reason}`}
+            showDivider={true}
+            read={false}
+            reason={reason}
+          />,
+          <MatchmakingBanNotificationUi
+            key={`ban-${reason}`}
+            showDivider={true}
+            read={false}
+            bannedUntil={BAN_END_TIME}
+            reason={reason}
+          />,
+        ])}
       </ControlsCard>
     </div>
   )

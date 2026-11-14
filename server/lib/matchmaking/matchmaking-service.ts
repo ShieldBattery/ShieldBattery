@@ -27,6 +27,7 @@ import {
   getMatchmakingModeInfo,
   MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+  MatchmakingBanReason,
   MatchmakingCompletionType,
   MatchmakingEvent,
   MatchmakingPreferences,
@@ -182,7 +183,7 @@ class Match {
   private clearAcceptTimeout: (reason?: any) => void
   private playerIds = new Set<SbUserId>()
 
-  private toBan = new Set<SbUserId>()
+  private toBan = new Map<SbUserId, MatchmakingBanReason>()
   private abortController = new AbortController()
   private phase: MatchmakingMatchFailPhase = 'accepting'
   private loadingGameId?: string
@@ -219,7 +220,7 @@ class Match {
       .then(() => {
         if (this.acceptPromises.size) {
           for (const id of this.acceptPromises.keys()) {
-            this.markForBan(id)
+            this.markForBan(id, 'notReady')
           }
           this.abortController.abort()
         }
@@ -332,7 +333,7 @@ class Match {
   }
 
   registerDecline(userId: SbUserId) {
-    this.markForBan(userId)
+    this.markForBan(userId, 'left')
     this.clearAcceptTimeout()
 
     // If draft state exists, then we need to abort that too
@@ -340,13 +341,16 @@ class Match {
     this.abortController.abort()
   }
 
-  markForBan(userId: SbUserId) {
-    this.toBan.add(userId)
+  /** Marks a player to be banned, keeping the first reason recorded for them. */
+  markForBan(userId: SbUserId, reason: MatchmakingBanReason) {
+    if (!this.toBan.has(userId)) {
+      this.toBan.set(userId, reason)
+    }
   }
 
   /** The players to remove from matchmaking and ban, and everyone else, who gets requeued. */
-  getBansAndRequeues(): [toBan: Set<SbUserId>, toRequeue: Set<SbUserId>] {
-    return [new Set(this.toBan), subtract(this.playerIds, this.toBan)]
+  getBansAndRequeues(): [toBan: Map<SbUserId, MatchmakingBanReason>, toRequeue: Set<SbUserId>] {
+    return [new Map(this.toBan), subtract(this.playerIds, this.toBan.keys())]
   }
 
   /**
@@ -380,6 +384,11 @@ class Match {
   }
 }
 
+/** The reason to ban a player the game load failed on: they left, or their game failed to load. */
+function loadBanReason(match: Match, userId: SbUserId): MatchmakingBanReason {
+  return match.playersDisconnectedDuringLoad.has(userId) ? 'left' : 'failedToLoad'
+}
+
 /**
  * Determines the cause reported to the players of a match that fell apart after every player
  * accepted it. Only players marked for a ban are blamed for a failure, so a failure that marked
@@ -388,7 +397,7 @@ class Match {
 function getMatchCanceledReason(
   phase: MatchmakingMatchFailPhase,
   err: unknown,
-  toBan: ReadonlySet<SbUserId>,
+  toBan: ReadonlyMap<SbUserId, MatchmakingBanReason>,
 ): MatchCanceledReason {
   if (
     phase === 'loading' &&
@@ -1393,7 +1402,7 @@ export class MatchmakingService {
 
       const matchPlayers = Array.from(match.players())
 
-      for (const id of toBan) {
+      for (const [id, banReason] of toBan) {
         if (match.isSimulatedPlayer(id)) continue
         // Someone who has already moved on to another search is left to it
         if (this.matchQueueEntry(id, match)) {
@@ -1434,7 +1443,7 @@ export class MatchmakingService {
           // A lobby violation's ban comes from its durable evidence, in `LobbyViolationService`
           continue
         }
-        this.matchmakingBanService.banUser(player.id, player.identifiers).catch(err => {
+        this.matchmakingBanService.banUser(player.id, player.identifiers, banReason).catch(err => {
           logger.error({ err }, 'error while issuing matchmaking ban to user')
         })
         // The ban service notifies them of the ban it issued, which reaches them even if they've
@@ -1712,13 +1721,14 @@ export class MatchmakingService {
     if (loadResult.isError()) {
       if (loadResult.error.code === GameLoadErrorType.Timeout) {
         for (const user of loadResult.error.data.unloaded) {
-          match.markForBan(user)
+          match.markForBan(user, loadBanReason(match, user))
         }
-      } else if (
-        loadResult.error.code === GameLoadErrorType.PlayerFailed ||
-        loadResult.error.code === GameLoadErrorType.GameAnomaly
-      ) {
-        match.markForBan(loadResult.error.data.userId)
+      } else if (loadResult.error.code === GameLoadErrorType.PlayerFailed) {
+        const userId = loadResult.error.data.userId
+        match.markForBan(userId, loadBanReason(match, userId))
+      } else if (loadResult.error.code === GameLoadErrorType.GameAnomaly) {
+        // The lobby violation flow issues its own penalty; the mark only identifies who to cancel
+        match.markForBan(loadResult.error.data.userId, 'failedToLoad')
       }
 
       throw new MatchmakingServiceError(

@@ -1324,6 +1324,97 @@ describe('matchmaking/matchmaking-service', () => {
     })
   })
 
+  describe('records why a player was banned', () => {
+    async function runLoadFailure(error: unknown, disconnectA = false) {
+      asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+      asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+      let resolveLoad!: (result: Result<any, any>) => void
+      gameLoader.loadGame.mockImplementation((loadRequest: any) => {
+        loadRequest.onGameRegistered('loading-game')
+        return new Promise(resolve => {
+          resolveLoad = resolve
+        })
+      })
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
+          quality: 1,
+          skillVariance: 0,
+          ratingVarianceMultiplier: 1,
+          winProbability: 0.5,
+          teamARating: 1500,
+          teamBRating: 1500,
+          maxLatency: 0,
+          rematchPenalty: 0,
+        },
+      })
+      await drainMatchmakingTasks()
+      await acceptFoundMatch(USER_A)
+      await acceptFoundMatch(USER_B)
+      await drainMatchmakingTasks()
+
+      if (disconnectA) {
+        const clientA = clientSockets.get(USER_A)!
+        const onClose = asMockedFunction(clientA.subscribe)
+          .mock.calls.map(call => call[2])
+          .find(callback => typeof callback === 'function')!
+        onClose(clientA)
+        await drainMatchmakingTasks()
+      }
+
+      resolveLoad(Result.error(error as any))
+      await drainMatchmakingTasks()
+    }
+
+    test('a player whose game failed to load', async () => {
+      await runLoadFailure(
+        new BaseGameLoaderError(GameLoadErrorType.PlayerFailed, 'player failed', {
+          data: { userId: USER_A },
+        }),
+      )
+
+      expect(banUser.mock.calls).toEqual([[USER_A, expect.anything(), 'failedToLoad']])
+    })
+
+    test('a player whose client disconnected before their game failed to load', async () => {
+      await runLoadFailure(
+        new BaseGameLoaderError(GameLoadErrorType.PlayerFailed, 'player failed', {
+          data: { userId: USER_A },
+        }),
+        true,
+      )
+
+      expect(banUser.mock.calls).toEqual([[USER_A, expect.anything(), 'left']])
+    })
+
+    test('a player who never finished loading', async () => {
+      await runLoadFailure(
+        new BaseGameLoaderError(GameLoadErrorType.Timeout, 'timed out', {
+          data: { unloaded: [USER_A] },
+        }),
+      )
+
+      expect(banUser.mock.calls).toEqual([[USER_A, expect.anything(), 'failedToLoad']])
+    })
+
+    test('a player who never finished loading after their client disconnected', async () => {
+      await runLoadFailure(
+        new BaseGameLoaderError(GameLoadErrorType.Timeout, 'timed out', {
+          data: { unloaded: [USER_A] },
+        }),
+        true,
+      )
+
+      expect(banUser.mock.calls).toEqual([[USER_A, expect.anything(), 'left']])
+    })
+  })
+
   test('counts a found match once, not once per matched player', async () => {
     await queuePlayer(USER_A, CLIENT_A)
     await queuePlayer(USER_B, CLIENT_B)
@@ -1683,8 +1774,8 @@ describe('matchmaking/matchmaking-service', () => {
     await acceptFoundMatch(USER_C)
     await vi.advanceTimersByTimeAsync(120_000)
 
-    expect(banUser).toHaveBeenCalledWith(USER_A, expect.anything())
-    expect(banUser).not.toHaveBeenCalledWith(USER_C, expect.anything())
+    expect(banUser).toHaveBeenCalledWith(USER_A, expect.anything(), 'notReady')
+    expect(banUser).not.toHaveBeenCalledWith(USER_C, expect.anything(), expect.anything())
   })
 
   test('a match proposed while a player was in another one stays dropped once they requeue', async () => {
@@ -2158,7 +2249,7 @@ describe('matchmaking/matchmaking-service', () => {
 
       expect(clientEvents(USER_A)).toContainEqual({ type: 'acceptTimeout' })
       expect(clientEvents(USER_A)).not.toContainEqual({ type: 'requeue' })
-      expect(banUser.mock.calls).toEqual([[USER_A, IDENTIFIERS]])
+      expect(banUser.mock.calls).toEqual([[USER_A, IDENTIFIERS, 'notReady']])
       expect(matchmakerClient.queue).not.toHaveBeenCalled()
       await expect(service.cancel(USER_A)).rejects.toThrow('does not have an active')
     })
@@ -2175,7 +2266,7 @@ describe('matchmaking/matchmaking-service', () => {
       ;(searchSubscription[2] as any)(client)
       await drainMatchmakingTasks()
 
-      expect(banUser.mock.calls).toEqual([[USER_A, IDENTIFIERS]])
+      expect(banUser.mock.calls).toEqual([[USER_A, IDENTIFIERS, 'left']])
       expect(matchmakerClient.queue).not.toHaveBeenCalled()
     })
 

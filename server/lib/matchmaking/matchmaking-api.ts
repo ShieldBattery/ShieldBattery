@@ -368,8 +368,11 @@ export class MatchmakingApi {
 
     const banExpiresAt = ban ? Number(ban.expiresAt) : undefined
     const endTimes = [banExpiresAt, restrictionEndTime].filter((t): t is number => t !== undefined)
+    const bannedUntil = endTimes.length ? Math.max(...endTimes) : undefined
     return {
-      bannedUntil: endTimes.length ? Math.max(...endTimes) : undefined,
+      bannedUntil,
+      // Only an automatic ban that is what keeps them out has a reason to show
+      reason: ban && banExpiresAt === bannedUntil ? ban.reason : undefined,
     }
   }
 
