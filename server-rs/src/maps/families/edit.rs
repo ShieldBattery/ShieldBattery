@@ -20,8 +20,9 @@ use crate::users::SbUserId;
 
 /// The longest note a family report can carry, in characters.
 pub const MAX_REPORT_NOTE_LENGTH: usize = 500;
-/// The most family reports a user can file in a rolling hour. Only stops outright spam.
-const MAX_REPORTS_PER_HOUR: i64 = 10;
+/// The most family reports (or, separately, collection reports) a user can file in a rolling hour.
+/// Only stops outright spam.
+pub(crate) const MAX_REPORTS_PER_HOUR: i64 = 10;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FamilyEditError {

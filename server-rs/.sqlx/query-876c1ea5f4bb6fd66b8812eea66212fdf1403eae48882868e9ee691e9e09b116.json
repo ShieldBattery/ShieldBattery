@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.id\n            FROM collections c\n            WHERE ((c.kind = 'user' AND c.owner_id = $2) OR (c.kind = 'staff' AND $3))\n                AND EXISTS (\n                    SELECT 1 FROM collection_maps cm\n                    WHERE cm.collection_id = c.id AND (cm.family_id = $1\n                        OR cm.map_id IN (SELECT fm.id FROM maps fm WHERE fm.family_id = $1))\n                )\n            ORDER BY c.created_at, c.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "876c1ea5f4bb6fd66b8812eea66212fdf1403eae48882868e9ee691e9e09b116"
+}

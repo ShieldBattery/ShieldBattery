@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM collection_maps\n            WHERE collection_id = $1\n                AND (family_id = (SELECT family_id FROM maps WHERE id = $2) OR map_id = $2)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa3f034e2338ff5767c244db1de37ee2d1691f896baa37adb7e1e1888e146435"
+}

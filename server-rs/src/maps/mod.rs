@@ -16,6 +16,9 @@ use uuid::Uuid;
 use crate::file_store::FileStore;
 use crate::maps::analysis::{MapAnalysisLoader, MapFileAnalysis};
 use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
+use crate::maps::collections::graphql::{
+    CollectionContentLoader, CollectionSaveCountLoader, ViewerCollectionSavedLoader,
+};
 use crate::maps::families::graphql::{MapFamilyFilesLoader, MapFamilyLoader, MapFamilyStatsLoader};
 use crate::maps::ingest::map_image_path;
 use crate::maps::parse::MapStartLocation;
@@ -29,6 +32,7 @@ use crate::{
 mod analysis;
 pub mod api;
 mod catalog;
+pub mod collections;
 mod compare;
 pub mod families;
 pub mod ingest;
@@ -41,6 +45,9 @@ mod stats;
 pub use catalog::{
     FavoriteMapConnection, MapLibraryConnection, MapsMutation, MapsQuery, SbMap,
     load_favorite_maps, load_map_library,
+};
+pub use collections::graphql::{
+    MapCollection, MapCollectionsMutation, MapCollectionsQuery, viewer_collections,
 };
 pub use families::graphql::{MapFamiliesMutation, MapFamiliesQuery};
 pub use families::owners_graphql::{MapOwnersMutation, MapOwnersQuery};
@@ -85,6 +92,18 @@ impl SchemaBuilderModule for MapsModule {
             ))
             .data(DataLoader::new(
                 MapFamilyStatsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                CollectionContentLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                CollectionSaveCountLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                ViewerCollectionSavedLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
             .data(MapSearchRepo::new(self.db_pool.clone()))

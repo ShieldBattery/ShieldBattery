@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO collections (kind, owner_id)\n            VALUES ('starred', $1)\n            ON CONFLICT (owner_id) WHERE kind = 'starred' DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb389a93be490d58f14d94ba6d1ab2ca02d89f93aa8bd7721db87026c5d8ed7d"
+}
