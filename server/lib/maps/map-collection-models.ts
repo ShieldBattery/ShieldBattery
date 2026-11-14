@@ -1,5 +1,5 @@
 import { MapCollectionId, SbMapId } from '../../../common/maps'
-import db from '../db'
+import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 
 /** The kinds of map collection, as stored. */
@@ -76,4 +76,35 @@ export async function getMapCollectionPageInfo(
   } finally {
     done()
   }
+}
+
+/**
+ * Creates the `ladder_pool` collection of a ladder map pool that starts at `createdAt`, holding
+ * `mapIds` (exact files, which must exist and not repeat) in that order. Run it on the client of the
+ * transaction that creates the pool. Returns the new collection's id.
+ */
+export async function createLadderPoolCollection(
+  client: DbClient,
+  { createdAt, mapIds }: { createdAt: Date; mapIds: ReadonlyArray<SbMapId> },
+): Promise<MapCollectionId> {
+  const result = await client.query<{ id: MapCollectionId }>(sql`
+    INSERT INTO collections (kind, created_at, updated_at)
+    VALUES ('ladder_pool', ${createdAt}, ${createdAt})
+    RETURNING id
+  `)
+  const id = result.rows[0].id
+  await client.query(sql`
+    INSERT INTO collection_maps (collection_id, map_id, position, added_at)
+    SELECT ${id}, e.map_id, (e.pos - 1)::integer, ${createdAt}
+    FROM unnest(${mapIds}::uuid[]) WITH ORDINALITY AS e(map_id, pos)
+  `)
+  return id
+}
+
+/** Deletes a collection, with its entries, saves and reports. */
+export async function deleteCollection(client: DbClient, id: MapCollectionId): Promise<void> {
+  await client.query(sql`
+    DELETE FROM collections
+    WHERE id = ${id}
+  `)
 }

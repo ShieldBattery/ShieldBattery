@@ -113,7 +113,7 @@ const MapPublishPreviewQuery = graphql(/* GraphQL */ `
       id
       listed
       publishedAt
-      official
+      staffPick
       publisher {
         id
         name

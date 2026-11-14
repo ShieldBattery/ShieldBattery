@@ -92,6 +92,7 @@ import { claimMenuState } from './map-owner'
 import {
   claimBlockedText,
   claimErrorText,
+  errorCode,
   ownerErrorText,
   useClaimMapOwner,
   useRelinquishMapOwner,
@@ -101,6 +102,7 @@ import { MapFilesCard } from './map-page-files'
 import { MapGamesPage } from './map-page-games'
 import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
+import { fileChangeErrorText } from './map-publish'
 import { MapReportBar } from './map-report-bar'
 import { useUnpublishMap } from './map-unpublish'
 
@@ -598,7 +600,7 @@ const MapPage_HeaderFragment = graphql(/* GraphQL */ `
     description
     kind
     listed
-    official
+    staffPick
     publishedAt
     publisher {
       id
@@ -847,7 +849,7 @@ function MapHeader({
     )
   }
 
-  const hasChips = map.official || !map.listed || poolTypes.length > 0
+  const hasChips = map.staffPick || !map.listed || poolTypes.length > 0
 
   let delistedText: React.ReactNode
   if (delisted?.delistedAt) {
@@ -887,7 +889,7 @@ function MapHeader({
     <Header>
       {hasChips ? (
         <Chips>
-          {map.official ? <RoomChip>{t('maps.page.official', 'Official')}</RoomChip> : null}
+          {map.staffPick ? <RoomChip>{t('maps.page.staffPick', 'Staff pick')}</RoomChip> : null}
           {!map.listed ? <RoomChip>{t('maps.page.unlisted', 'Unlisted')}</RoomChip> : null}
           {poolTypes.map(type => {
             const label = matchmakingTypeToLabel(type, t)
@@ -970,7 +972,6 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
     id
     name
     listed
-    official
     isFavorited
     inLibrary
     publisher {
@@ -1155,7 +1156,13 @@ function MapActions({
     unlinkFile({ fileId: map.id })
       .then(result => {
         if (result.error || !result.data) {
-          showError(t('maps.publish.unlinkError', "Couldn't remove the file from this map"))
+          showError(
+            fileChangeErrorText(
+              result.error ? errorCode(result.error) : undefined,
+              t('maps.publish.unlinkError', "Couldn't remove the file from this map"),
+              t,
+            ),
+          )
           return
         }
         snackbarController.showSnackbar(
@@ -1229,7 +1236,6 @@ function MapActions({
     !canManageMaps &&
     !!selfUser &&
     map.listed &&
-    !map.official &&
     !!map.publisher &&
     map.publisher.id === selfUser.id
   if (isPublisher) {

@@ -47,7 +47,7 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     name
     kind
     playerCount
-    official
+    staffPick
     listed
     publishedAt
     isFavorited
@@ -378,8 +378,8 @@ export function MapTile({
   const name = filterColorCodes(map.name)
   const isNew = !!map.publishedAt && now - Date.parse(map.publishedAt) < NEW_MAP_MS
   let badge: string | undefined
-  if (map.official) {
-    badge = t('maps.page.official', 'Official')
+  if (map.staffPick) {
+    badge = t('maps.page.staffPick', 'Staff pick')
   } else if (isNew) {
     badge = t('maps.catalog.newBadge', 'New')
   }
@@ -630,7 +630,7 @@ function LibraryMapMenu({
   map,
   onRemoved,
 }: {
-  map: Pick<TileMap, 'id' | 'name' | 'listed' | 'official' | 'publisher'>
+  map: Pick<TileMap, 'id' | 'name' | 'listed' | 'publisher'>
   onRemoved: (id: SbMapId) => void
 }) {
   const { t } = useTranslation()
@@ -639,8 +639,7 @@ function LibraryMapMenu({
   const selfUser = useSelfUser()
   const unpublish = useUnpublishMap()
   const mapId = map.id
-  const canUnpublish =
-    map.listed && !map.official && !!selfUser && map.publisher?.id === selfUser.id
+  const canUnpublish = map.listed && !!selfUser && map.publisher?.id === selfUser.id
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 

@@ -1,11 +1,12 @@
 //! The GraphQL API of map collections: reading collections and their maps, players' and staff's
-//! edits, saves, and reports with staff moderation.
+//! edits, saves, and reports with staff moderation. Ladder map pools have their own fields, in
+//! [`crate::maps::collections::pools`].
 
 use std::collections::HashMap;
 
 use async_graphql::connection::{Connection, CursorType, Edge, EmptyFields, OpaqueCursor};
 use async_graphql::dataloader::{DataLoader, Loader};
-use async_graphql::{Context, Enum, Object, Result, SimpleObject};
+use async_graphql::{Context, Enum, Guard, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::WrapErr;
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder};
@@ -16,6 +17,9 @@ use crate::maps::SbMapId;
 use crate::maps::catalog::{
     CollectionMapConnection, SbMap, SbMapLoader, is_staff, load_collection_maps, load_user,
     require_current_user, resolve_existing_map_id,
+};
+use crate::maps::collections::pools::{
+    self, CURRENT_POOL_COLLECTIONS, LadderPoolLoader, MIN_PUBLIC_POOL_FILES, MapCollectionPool,
 };
 use crate::maps::collections::{
     self, COLLECTION_COLUMNS, CollectionError, CollectionKind, CollectionRow, Viewer,
@@ -48,6 +52,7 @@ pub(crate) async fn current_viewer(ctx: &Context<'_>) -> Result<Viewer> {
     Ok(Viewer {
         id,
         staff: is_staff(ctx).await,
+        manage_map_pools: RequiredPermission::ManageMapPools.check(ctx).await.is_ok(),
     })
 }
 
@@ -228,6 +233,10 @@ pub struct MapCollection {
 }
 
 impl MapCollection {
+    pub(crate) fn new(row: CollectionRow, viewer: Viewer) -> Self {
+        Self { row, viewer }
+    }
+
     fn view(&self) -> CollectionView {
         CollectionView {
             id: self.row.id,
@@ -244,9 +253,10 @@ impl MapCollection {
     }
 }
 
-/// A named, ordered list of maps: a player's own collection, a player's Starred maps, or a
-/// collection made by staff. Everyone other than its owner (and, for a staff collection, users who
-/// can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only those.
+/// A named, ordered list of maps: a player's own collection, a player's Starred maps, a collection
+/// made by staff, or a ladder map pool. Everyone other than its owner (and, for a staff collection,
+/// users who can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only
+/// those; a ladder map pool shows all of its maps to everyone who can see it.
 #[Object]
 impl MapCollection {
     async fn id(&self) -> Uuid {
@@ -273,10 +283,29 @@ impl MapCollection {
         load_user(ctx, self.row.owner_id).await
     }
 
-    /// Whether everyone can see the collection: always for `STAFF`, and for `USER` while its owner
-    /// has made it public and staff haven't hidden it.
+    /// Whether everyone can see the collection: always for `STAFF`, for `USER` while its owner has
+    /// made it public and staff haven't hidden it, and for `LADDER_POOL` once the pool has started
+    /// and holds at least 2 maps.
     async fn public(&self) -> bool {
         self.row.is_public()
+    }
+
+    /// Whether this is Staff picks, the staff collection whose maps are marked as staff picks. It
+    /// can't be deleted.
+    async fn grants_staff_pick(&self) -> bool {
+        self.row.grants_staff_pick
+    }
+
+    /// The ladder map pool this collection is. Null unless it's a `LADDER_POOL`.
+    async fn pool(&self, ctx: &Context<'_>) -> Result<Option<MapCollectionPool>> {
+        if self.row.kind != CollectionKind::LadderPool {
+            return Ok(None);
+        }
+        Ok(ctx
+            .data::<DataLoader<LadderPoolLoader>>()?
+            .load_one(self.row.id)
+            .await?
+            .map(|row| MapCollectionPool::new(row, self.viewer)))
     }
 
     /// That staff hid the collection, keeping it from everyone but its owner and staff. Only shown
@@ -333,7 +362,7 @@ impl MapCollection {
 
     /// Whether the viewer can add, remove and move the collection's maps: its owner, or for
     /// `STAFF`, users who can manage maps. `STARRED` can't be renamed, reordered or deleted, and
-    /// its maps are ordered newest first.
+    /// its maps are ordered newest first. Nobody edits a `LADDER_POOL`.
     async fn can_edit(&self) -> bool {
         self.row.can_edit(self.viewer)
     }
@@ -368,7 +397,7 @@ impl MapCollection {
 }
 
 /// Loads a collection as the viewer sees it, or `None` if they can't see it.
-async fn load_for_viewer(
+pub(crate) async fn load_for_viewer(
     ctx: &Context<'_>,
     id: Uuid,
     viewer: Viewer,
@@ -513,6 +542,9 @@ pub(crate) async fn viewer_collection_ids(ctx: &Context<'_>, family_id: Uuid) ->
 pub enum MapCollectionSection {
     /// Every staff collection, oldest first.
     Staff,
+    /// The current ladder map pool of each matchmaking type that the viewer can see, in
+    /// matchmaking type order. Pools have no title, so a search leaves none.
+    Ladder,
     /// Players' public collections that aren't hidden and hold at least one listed map, the most
     /// saved first, then the most recently made public.
     Players,
@@ -558,17 +590,36 @@ const PLAYERS_ROWS: &str = "c.kind = 'user' AND c.published_at IS NOT NULL \
         INNER JOIN map_families fam ON fam.id = m.family_id \
         WHERE cm.collection_id = c.id AND fam.listed)";
 
-/// Emits the `FROM` and `WHERE` of a collection listing.
+/// Emits the `FROM` and `WHERE` of a collection listing as `viewer` sees it.
 fn push_section_rows(
     query: &mut QueryBuilder<Postgres>,
     section: MapCollectionSection,
     search: Option<&str>,
+    viewer: Viewer,
 ) {
     query.push(" FROM collections c WHERE ");
-    query.push(match section {
-        MapCollectionSection::Staff => "c.kind = 'staff'",
-        MapCollectionSection::Players => PLAYERS_ROWS,
-    });
+    match section {
+        MapCollectionSection::Staff => {
+            query.push("c.kind = 'staff'");
+        }
+        MapCollectionSection::Players => {
+            query.push(PLAYERS_ROWS);
+        }
+        MapCollectionSection::Ladder => {
+            query
+                .push("c.kind = 'ladder_pool' AND c.id IN (")
+                .push(CURRENT_POOL_COLLECTIONS)
+                .push(")");
+            if !viewer.manage_map_pools {
+                query
+                    .push(
+                        " AND (SELECT count(*) FROM collection_maps lcm \
+                         WHERE lcm.collection_id = c.id) >= ",
+                    )
+                    .push_bind(MIN_PUBLIC_POOL_FILES);
+            }
+        }
+    }
     if let Some(search) = search {
         query.push(" AND strpos(map_search_normalize(c.title), map_search_normalize(");
         query.push_bind(search.to_string());
@@ -580,6 +631,7 @@ fn push_section_rows(
 pub struct MapCollectionListInfo {
     section: MapCollectionSection,
     search: Option<String>,
+    viewer: Viewer,
 }
 
 #[Object]
@@ -588,7 +640,12 @@ impl MapCollectionListInfo {
     async fn total_count(&self, ctx: &Context<'_>) -> Result<i32> {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let mut query = QueryBuilder::<Postgres>::new("SELECT count(*)");
-        push_section_rows(&mut query, self.section, self.search.as_deref());
+        push_section_rows(
+            &mut query,
+            self.section,
+            self.search.as_deref(),
+            self.viewer,
+        );
         let count = query
             .build_query_scalar::<i64>()
             .fetch_one(db)
@@ -745,14 +802,27 @@ impl MapCollectionsQuery {
 
         let mut query = QueryBuilder::<Postgres>::new("SELECT ");
         query.push(COLLECTION_COLUMNS);
-        push_section_rows(&mut query, section, search.as_deref());
-        query.push(match section {
-            MapCollectionSection::Staff => " ORDER BY c.created_at, c.id",
-            MapCollectionSection::Players => {
-                " ORDER BY (SELECT count(*) FROM collection_saves s WHERE s.collection_id = c.id) \
-                 DESC, c.published_at DESC, c.id"
+        push_section_rows(&mut query, section, search.as_deref(), viewer);
+        match section {
+            MapCollectionSection::Staff => {
+                query.push(" ORDER BY c.created_at, c.id");
             }
-        });
+            MapCollectionSection::Players => {
+                query.push(
+                    " ORDER BY (SELECT count(*) FROM collection_saves s \
+                     WHERE s.collection_id = c.id) DESC, c.published_at DESC, c.id",
+                );
+            }
+            MapCollectionSection::Ladder => {
+                query
+                    .push(" ORDER BY array_position(")
+                    .push_bind(pools::type_names())
+                    .push(
+                        "::text[], (SELECT lp.matchmaking_type::text FROM matchmaking_map_pools lp \
+                         WHERE lp.collection_id = c.id)), c.id",
+                    );
+            }
+        }
         query.push(" LIMIT ").push_bind((count + 1) as i64);
         query.push(" OFFSET ").push_bind(offset as i64);
         let rows = query
@@ -764,7 +834,11 @@ impl MapCollectionsQuery {
         let mut connection = Connection::with_additional_fields(
             offset > 0,
             rows.len() > count,
-            MapCollectionListInfo { section, search },
+            MapCollectionListInfo {
+                section,
+                search,
+                viewer,
+            },
         );
         connection.edges.extend(
             rows.into_iter()

@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
 use crate::maps::collections;
+use crate::maps::collections::pools::MapLadderPoolsLoader;
 use crate::maps::compare;
 use crate::maps::families::graphql::{MapFamily, load_family};
 use crate::maps::search::{
@@ -53,8 +54,8 @@ pub struct SbMap {
     pub player_count: i32,
     /// Whether the map appears in the public map listings.
     pub listed: bool,
-    /// Whether the map was listed by staff as an official map.
-    pub official: bool,
+    /// Whether the map (family) this file is in is one of the staff picks.
+    pub staff_pick: bool,
     /// When the map was listed. Null unless it is listed.
     pub published_at: Option<DateTime<Utc>>,
     #[graphql(skip)]
@@ -146,6 +147,16 @@ impl SbMap {
     /// The map (family) this file is in.
     async fn family(&self, ctx: &Context<'_>) -> Result<MapFamily> {
         load_family(ctx, self.family_id).await
+    }
+
+    /// The matchmaking types whose current ladder map pool holds this exact file, in matchmaking
+    /// type order. Usually empty.
+    async fn ladder_pools(&self, ctx: &Context<'_>) -> Result<Vec<MatchmakingType>> {
+        Ok(ctx
+            .data::<DataLoader<MapLadderPoolsLoader>>()?
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default())
     }
 }
 
@@ -297,7 +308,7 @@ impl From<DbSbMap> for SbMap {
             },
             player_count: row.player_count,
             listed: row.listed,
-            official: row.official,
+            staff_pick: row.staff_pick,
             // Who listed a map is only public while it's listed
             published_at: row.published_at.filter(|_| row.listed),
             published_by: row.published_by.filter(|_| row.listed),
@@ -837,7 +848,7 @@ mod tests {
                 kind: "melee".into(),
                 player_count: 2,
                 listed: false,
-                official: false,
+                staff_pick: false,
                 published_by: None,
                 published_at: Some(published_at),
                 delisted_by: None,

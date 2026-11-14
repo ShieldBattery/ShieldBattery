@@ -14,6 +14,7 @@ use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::collections::pools;
 use crate::maps::families::edit::{
     self, FamilyEditError, FileMove, MAX_REPORT_NOTE_LENGTH, MapFamilyReportKind,
     MapFamilyReportStatus, MapPublishReviewAnswer, MoveBy, ReportRequest,
@@ -23,6 +24,7 @@ use crate::maps::families::owners;
 use crate::maps::families::{lock_families, refresh_families, resolve_family_id};
 use crate::maps::parse::filter_color_codes;
 use crate::maps::similarity::{PublishSuggestion, publish_suggestions};
+use crate::matchmaking::MatchmakingType;
 use crate::users::SbUserId;
 use crate::users::names::{NameChecker, RestrictedNameReason};
 
@@ -102,8 +104,12 @@ pub enum PublishError {
     NotDelisted,
     #[error("staff already took this file out of the listings")]
     AlreadyStaffDelisted,
-    #[error("official files can only be changed by staff")]
-    Official,
+    #[error(
+        "the file is in a current or scheduled {} ladder map pool, so it can't be taken out of \
+         the listings or out of its map",
+        .0.as_str()
+    )]
+    InLadderPool(MatchmakingType),
     #[error("only the file's publisher can do that")]
     NotPublisher,
     #[error("only the file's publisher or its map's owner can do that")]
@@ -151,7 +157,6 @@ impl From<FamilyEditError> for PublishError {
 struct PublishFile {
     family_id: Uuid,
     listed: bool,
-    official: bool,
     name: String,
     description: String,
     published_by: Option<SbUserId>,
@@ -189,7 +194,7 @@ async fn load_file(conn: &mut PgConnection, file_id: SbMapId) -> Result<PublishF
     sqlx::query_as!(
         PublishFile,
         r#"
-            SELECT m.family_id, m.listed as "listed!", m.official, m.name as "name!",
+            SELECT m.family_id, m.listed as "listed!", m.name as "name!",
                 COALESCE(m.public_description, m.description) as "description!",
                 m.published_by as "published_by: SbUserId", m.delisted_kind,
                 (SELECT count(*) FROM maps o WHERE o.family_id = m.family_id) as "family_size!",
@@ -765,9 +770,6 @@ async fn delist_file(
             if !file.listed {
                 return Err(PublishError::NotListed);
             }
-            if file.official {
-                return Err(PublishError::Official);
-            }
             if file.published_by != Some(actor) {
                 return Err(PublishError::NotPublisher);
             }
@@ -780,6 +782,9 @@ async fn delist_file(
             (MapFamilyHistoryKind::Delist, "staff", note)
         }
     };
+    if let Some(matchmaking_type) = pools::ladder_use(&mut tx, file_id).await? {
+        return Err(PublishError::InLadderPool(matchmaking_type));
+    }
 
     sqlx::query!(
         r#"
@@ -823,7 +828,7 @@ async fn delist_file(
 }
 
 /// Takes a listed file out of the listings at its publisher's request. Anyone may publish it again.
-/// Official files can only be delisted by staff.
+/// Refused while a current or scheduled ladder map pool holds the file.
 pub async fn unpublish(db: &PgPool, file_id: SbMapId, user: SbUserId) -> Result<(), PublishError> {
     delist_file(db, file_id, user, Delisting::Publisher)
         .await
@@ -833,8 +838,8 @@ pub async fn unpublish(db: &PgPool, file_id: SbMapId, user: SbUserId) -> Result<
 /// Blocks a file as staff, with an optional note saying why: only staff can list it from then on
 /// (see [`relist`]). Works on any file staff haven't blocked already: a listed file is taken out
 /// of the listings, a file its publisher unpublished stays unlisted, and a file that was never
-/// published stays unpublished. Whether the file is official is kept, so relisting a listed
-/// official file restores it.
+/// published stays unpublished. Refused while a current or scheduled ladder map pool holds the
+/// file.
 pub async fn delist(
     db: &PgPool,
     file_id: SbMapId,
@@ -907,8 +912,8 @@ pub async fn link_suggestions(
     Ok(publish_suggestions(&mut conn, file_id).await?)
 }
 
-/// Checks that `user` may link or unlink `file`: they aren't restricted from publishing, it isn't
-/// official, and they published it or (with `owner_may`) own its family.
+/// Checks that `user` may link or unlink `file`: they aren't restricted from publishing, and they
+/// published it or (with `owner_may`) own its family.
 async fn check_publisher_move(
     tx: &mut Transaction<'_, Postgres>,
     file: &PublishFile,
@@ -917,9 +922,6 @@ async fn check_publisher_move(
 ) -> Result<(), PublishError> {
     if is_publishing_restricted(tx, user).await? {
         return Err(PublishError::Blocked(PublishBlock::Restricted));
-    }
-    if file.official {
-        return Err(PublishError::Official);
     }
     if file.published_by == Some(user) {
         return Ok(());
@@ -994,7 +996,6 @@ mod tests {
         PublishFile {
             family_id: Uuid::nil(),
             listed: false,
-            official: false,
             name: name.to_string(),
             description: String::new(),
             published_by: None,
