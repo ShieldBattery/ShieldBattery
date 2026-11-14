@@ -19,6 +19,8 @@ function getRulesMarkdown(t: TFunction): string {
       'Welcome to ShieldBattery! We want everyone to enjoy their time on our platform, and to ' +
         'that end, we require adherence to the following community guidelines:',
     ),
+    // Changing the rules list requires incrementing `RULES_VERSION` (common/policies/versions.ts),
+    // so that users get notified of the update.
     t(
       'rules.list',
       '1. **Play fair.** Cheating is not permitted.\n2. **Respect others.** Refrain from ' +

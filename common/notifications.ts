@@ -17,6 +17,8 @@ export enum NotificationType {
   PartyInvite = 'partyInvite',
   /** An updated legal policy is available for viewing. */
   PolicyUpdated = 'policyUpdated',
+  /** The platform rules have been updated. */
+  RulesUpdated = 'rulesUpdated',
   /** A restriction has been applied to this user. */
   UserRestricted = 'userRestricted',
   /** A user has been banned from a league. */
@@ -50,6 +52,7 @@ export type SbNotification =
   | FriendStartNotification
   | PartyInviteNotification
   | PolicyUpdatedNotification
+  | RulesUpdatedNotification
   | UserRestrictedNotification
   | LeagueBanNotification
   | LeagueUnbanNotification
@@ -96,6 +99,11 @@ export interface PolicyUpdatedNotification extends BaseNotification {
   type: NotificationType.PolicyUpdated
   local: true
   policyType: SbPolicyType
+}
+
+export interface RulesUpdatedNotification extends BaseNotification {
+  type: NotificationType.RulesUpdated
+  local: true
 }
 
 export interface PartyInviteNotification extends BaseNotification {

@@ -4,6 +4,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import {
   AcceptPoliciesResponse,
+  AcceptRulesResponse,
   ChangeLanguagesResponse,
   EmailChangedEvent,
   UpdateCurrentUserAvatarResponse,
@@ -15,6 +16,7 @@ export type AuthActions =
   | EmailChanged
   | EmailVerified
   | AcceptPolicies
+  | AcceptRules
   | ChangeLanguage
   | PermissionsChanged
   | RestrictionsChanged
@@ -56,6 +58,13 @@ export interface EmailVerified {
 export interface AcceptPolicies {
   type: '@auth/acceptPolicies'
   payload: AcceptPoliciesResponse
+  error?: false
+}
+
+/** The current user has accepted the current version of the platform rules. */
+export interface AcceptRules {
+  type: '@auth/acceptRules'
+  payload: AcceptRulesResponse
   error?: false
 }
 

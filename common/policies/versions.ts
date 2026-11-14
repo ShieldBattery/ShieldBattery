@@ -13,3 +13,8 @@ export const PRIVACY_POLICY_VERSION = 2
  * policy file changes.
  */
 export const TERMS_OF_SERVICE_VERSION = 1
+/**
+ * The current version of the platform rules. This should be incremented every time the list of
+ * rules changes, so that users get notified of the update.
+ */
+export const RULES_VERSION = 1

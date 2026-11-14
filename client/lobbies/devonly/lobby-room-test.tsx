@@ -109,6 +109,7 @@ function makeSelfUser(user: SbUser): SelfUserJson {
     acceptedPrivacyVersion: 0,
     acceptedTermsVersion: 0,
     acceptedUsePolicyVersion: 0,
+    acceptedRulesVersion: 0,
     nameChangeTokens: 0,
   }
 }

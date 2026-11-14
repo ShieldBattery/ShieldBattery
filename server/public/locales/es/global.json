@@ -2779,7 +2779,8 @@
     "copyLink": "Copiar enlace a las reglas",
     "intro": "¡Te damos la bienvenida a ShieldBattery! Queremos que todos disfruten su tiempo en nuestra plataforma y, para ello, te pedimos que respetes las siguientes normas de la comunidad:",
     "list": "1. **Juega limpio.** No se permiten trampas.\n2. **Respeta a los demás.** Evita el lenguaje y el comportamiento abusivos, y trata a los demás jugadores con dignidad.\n3. **Respeta el juego.** No abandones las partidas antes de tiempo.\n4. **Respeta tu nombre.** No se permiten nombres imposibles de leer o de teclear, como los barcodes.",
-    "title": "Reglas de la plataforma"
+    "title": "Reglas de la plataforma",
+    "updateNotification": "Se han actualizado las <2>reglas de la plataforma</2> de ShieldBattery."
   },
   "settings": {
     "activity": {

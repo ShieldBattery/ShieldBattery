@@ -34,6 +34,7 @@ import {
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
+import { RULES_VERSION } from '../../../common/policies/versions'
 import { CheckAllowedNameResponse } from '../../../common/typeshare'
 import { urlPath } from '../../../common/urls'
 import {
@@ -59,6 +60,8 @@ import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
+  AcceptRulesRequest,
+  AcceptRulesResponse,
   AdminApplyRestrictionRequest,
   AdminApplyRestrictionResponse,
   AdminBanUserRequest,
@@ -975,6 +978,31 @@ export class UserApi {
     }
 
     const { user } = await this.userService.updateCurrentUser(params.id, updates, ctx)
+
+    return { user: toSelfUserJson(user) }
+  }
+
+  @httpPost('/:id/rules')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(accountUpdateThrottle, throttleByUser))
+  async acceptRules(ctx: RouterContext): Promise<AcceptRulesResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }).required(),
+      body: Joi.object<AcceptRulesRequest>({
+        version: Joi.number().integer().min(1).max(RULES_VERSION).required(),
+      }).required(),
+    })
+
+    if (params.id !== ctx.session!.user.id) {
+      throw new httpErrors.Unauthorized("Can't change another user's account")
+    }
+
+    const { user } = await this.userService.updateCurrentUser(
+      params.id,
+      { acceptedRulesVersion: body.version },
+      ctx,
+    )
 
     return { user: toSelfUserJson(user) }
   }
