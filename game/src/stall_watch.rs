@@ -215,7 +215,8 @@ fn watch_loop() {
                     };
                     info!(
                         "Main thread still made no progress after {STALL_FOLLOW_UP_TICKS} s; its \
-                         stack {change}: {description}",
+                         stack {change}: {:#x}: {description}",
+                        main.id,
                     );
                 }
                 if !hang_dump_attempted {
@@ -294,18 +295,58 @@ fn log_stacks(headline: &str, stacks: &[ThreadStack]) {
              loader's lock."
         ),
     });
-    for (stack, description) in stacks.iter().zip(&described) {
-        let kind = match stack.id == main_thread_id {
-            true => "main thread",
-            false => "thread",
+    // Threads with the same stack share a line: the idle workers of a thread pool would otherwise
+    // fill the log with copies of one stack. The main thread always gets a line of its own.
+    let mut shares_earlier_line = vec![false; stacks.len()];
+    for (i, (stack, description)) in stacks.iter().zip(&described).enumerate() {
+        if shares_earlier_line[i] {
+            continue;
+        }
+        let is_main = stack.id == main_thread_id;
+        let mut sharing = vec![stack];
+        if !is_main {
+            for (j, other) in stacks.iter().enumerate().skip(i + 1) {
+                if other.id != main_thread_id && other.frames == stack.frames {
+                    shares_earlier_line[j] = true;
+                    sharing.push(other);
+                }
+            }
+        }
+        let threads = ThreadsLabel(&sharing);
+        let kind = match (is_main, sharing.len()) {
+            (true, _) => "main thread".to_owned(),
+            (false, 1) => "thread".to_owned(),
+            (false, count) => format!("{count} threads"),
         };
         match headline.take() {
-            Some(headline) => info!("{headline} Stack of {kind} {description}"),
-            None => info!("Stack of {kind} {description}"),
+            Some(headline) => info!("{headline} Stack of {kind} {threads}: {description}"),
+            None => info!("Stack of {kind} {threads}: {description}"),
         }
     }
     if let Some(headline) = headline {
         info!("{headline}");
+    }
+}
+
+/// The ids of threads sharing a line of the log, followed by their name when they all have the
+/// same one: `0x1a2c, 0x1b40 (<name>)`.
+struct ThreadsLabel<'a>(&'a [&'a ThreadStack]);
+
+impl fmt::Display for ThreadsLabel<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, thread) in self.0.iter().enumerate() {
+            if i != 0 {
+                f.write_str(", ")?;
+            }
+            write!(f, "{:#x}", thread.id)?;
+        }
+        let shared_name = self.0.first().and_then(|first| first.name.as_deref());
+        match shared_name {
+            Some(name) if self.0.iter().all(|x| x.name.as_deref() == Some(name)) => {
+                write!(f, " ({name})")
+            }
+            _ => Ok(()),
+        }
     }
 }
 
@@ -343,7 +384,7 @@ enum ModuleNames {
 }
 
 impl ThreadStack {
-    /// `<id> (<name>): <frames>`.
+    /// The stack's frames, innermost first, separated by ` < `.
     fn describe(&self, names: ModuleNames) -> impl fmt::Display + '_ {
         StackDescription(self, names)
     }
@@ -354,11 +395,6 @@ struct StackDescription<'a>(&'a ThreadStack, ModuleNames);
 impl fmt::Display for StackDescription<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let stack = self.0;
-        write!(f, "{:#x}", stack.id)?;
-        if let Some(name) = &stack.name {
-            write!(f, " ({name})")?;
-        }
-        f.write_str(": ")?;
         match &stack.frames {
             None => f.write_str("not captured"),
             Some(frames) => {
@@ -580,6 +616,29 @@ mod tests {
             .collect()
     }
 
+    fn thread(id: u32, name: Option<&str>) -> ThreadStack {
+        ThreadStack {
+            id,
+            name: name.map(str::to_owned),
+            frames: None,
+        }
+    }
+
+    #[test]
+    fn threads_sharing_a_line_are_named_once_when_they_share_a_name() {
+        let workers = [thread(0x10, Some("worker")), thread(0x2a, Some("worker"))];
+        let sharing: Vec<&ThreadStack> = workers.iter().collect();
+        assert_eq!(ThreadsLabel(&sharing).to_string(), "0x10, 0x2a (worker)");
+
+        let mixed = [thread(0x10, Some("worker")), thread(0x2a, None)];
+        let sharing: Vec<&ThreadStack> = mixed.iter().collect();
+        assert_eq!(ThreadsLabel(&sharing).to_string(), "0x10, 0x2a");
+
+        let unnamed = [thread(0x10, None)];
+        let sharing: Vec<&ThreadStack> = unnamed.iter().collect();
+        assert_eq!(ThreadsLabel(&sharing).to_string(), "0x10");
+    }
+
     #[test]
     fn stall_is_reported_at_the_threshold() {
         let mut counter = StallCounter::new(0);
@@ -669,10 +728,7 @@ mod tests {
             frames: Some(vec![0x10, 0x20]),
         };
         for names in [ModuleNames::Loader, ModuleNames::MemoryMap] {
-            assert_eq!(
-                stack.describe(names).to_string(),
-                "0x1a2c (worker): 10 < 20"
-            );
+            assert_eq!(stack.describe(names).to_string(), "10 < 20");
         }
         let stack = ThreadStack {
             id: 0x30,
@@ -681,7 +737,7 @@ mod tests {
         };
         assert_eq!(
             stack.describe(ModuleNames::Loader).to_string(),
-            "0x30: not captured"
+            "not captured"
         );
     }
 
@@ -695,14 +751,21 @@ mod tests {
     #[test]
     fn watched_thread_is_captured() {
         let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let looping = std::sync::Arc::new(AtomicBool::new(false));
         let thread = {
             let stop = stop.clone();
+            let looping = looping.clone();
             std::thread::spawn(move || {
                 while !stop.load(Ordering::Relaxed) {
+                    looping.store(true, Ordering::Relaxed);
                     std::thread::sleep(Duration::from_millis(1));
                 }
             })
         };
+        // A thread captured at its very first instructions has no callers on its stack yet.
+        while !looping.load(Ordering::Relaxed) {
+            std::thread::yield_now();
+        }
         let id =
             unsafe { winapi::um::processthreadsapi::GetThreadId(thread.as_raw_handle() as HANDLE) };
         let watch = Watch {
