@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation } from 'urql'
 import { filterColorCodes, SbMapId } from '../../common/maps'
@@ -10,6 +11,8 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
+import { errorCode } from './map-owner-actions'
+import { fileChangeErrorText } from './map-publish'
 import { useSetReportStatus } from './map-report-status'
 
 // Only staff delist files, so this dialog isn't translated.
@@ -90,6 +93,7 @@ export function MapDelistDialog({
   onCancel,
   close,
 }: MapDelistDialogProps) {
+  const { t } = useTranslation()
   const snackbarController = useSnackbarController()
   const setReportStatus = useSetReportStatus()
   const [note, setNote] = useState('')
@@ -102,9 +106,13 @@ export function MapDelistDialog({
       .then(async result => {
         if (result.error || !result.data) {
           setErrorMessage(
-            result.error?.graphQLErrors[0]?.message ??
-              result.error?.message ??
-              'Something went wrong. Please try again.',
+            fileChangeErrorText(
+              result.error ? errorCode(result.error) : undefined,
+              result.error?.graphQLErrors[0]?.message ??
+                result.error?.message ??
+                'Something went wrong. Please try again.',
+              t,
+            ),
           )
           return
         }

@@ -3,6 +3,8 @@ import { useMutation } from 'urql'
 import { SbMapId } from '../../common/maps'
 import { graphql } from '../gql'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { errorCode } from './map-owner-actions'
+import { fileChangeErrorText } from './map-publish'
 
 /** Selects what the views of a file show about its listing, so they update from the result. */
 const UnpublishMutation = graphql(/* GraphQL */ `
@@ -27,14 +29,16 @@ export function useUnpublishMap() {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
   const [, unpublish] = useMutation(UnpublishMutation)
-  const showError = () =>
-    snackbarController.showSnackbar(t('maps.publish.unpublishError', "Couldn't unpublish the map"))
+  const showError = (code?: unknown) =>
+    snackbarController.showSnackbar(
+      fileChangeErrorText(code, t('maps.publish.unpublishError', "Couldn't unpublish the map"), t),
+    )
 
   return (fileId: SbMapId) => {
     unpublish({ fileId })
       .then(result => {
         if (result.error || !result.data) {
-          showError()
+          showError(result.error ? errorCode(result.error) : undefined)
         } else {
           snackbarController.showSnackbar(t('maps.publish.unpublished', 'Unpublished'))
         }
