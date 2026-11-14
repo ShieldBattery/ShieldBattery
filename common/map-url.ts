@@ -1,5 +1,12 @@
 import slug from 'slug'
-import { filterColorCodes, makeSbMapId, MapFamilyId, SbMapId } from './maps'
+import {
+  filterColorCodes,
+  makeMapCollectionId,
+  makeSbMapId,
+  MapCollectionId,
+  MapFamilyId,
+  SbMapId,
+} from './maps'
 import { decodePrettyId, encodePrettyId, isPrettyId } from './pretty-id'
 import { urlPath } from './urls'
 
@@ -38,6 +45,36 @@ export function urlForMapCatalog(tab: MapCatalogTab, search?: string): string {
  * be read as a map id, so it shares the `/maps/:segment` namespace with map pages.
  */
 export const MAP_COMPARE_SEGMENT = 'compare'
+
+/**
+ * The path segment after `/maps` for map collections: `/maps/collections` lists them, and
+ * `/maps/collections/:id/:slug?` is one collection's page. Like the catalog tabs, it can't be read
+ * as a map id, so it shares the `/maps/:segment` namespace with map pages.
+ */
+export const MAP_COLLECTIONS_SEGMENT = 'collections'
+
+/** Returns the URL of the page listing map collections. */
+export function urlForMapCollections(): string {
+  return urlPath`/maps/${MAP_COLLECTIONS_SEGMENT}`
+}
+
+/**
+ * Returns the URL of a map collection's page. If the collection's title is available, the URL will
+ * include a slug made from it (otherwise the page replaces the placeholder once the collection has
+ * loaded). Like a map page's slug, it's decorative: the page looks the collection up by its id.
+ */
+export function urlForMapCollection(id: MapCollectionId, title?: string): string {
+  return urlPath`/maps/${MAP_COLLECTIONS_SEGMENT}/${encodePrettyId(id)}/${mapSlug(title)}`
+}
+
+/**
+ * Returns a map collection's ID from the id segment of its page's URL, which is either a pretty
+ * (base64url) ID or a raw UUID. Returns undefined for anything else.
+ */
+export function mapCollectionIdFromSegment(segment: string): MapCollectionId | undefined {
+  const id = uuidFromIdSegment(segment)
+  return id !== undefined ? makeMapCollectionId(id) : undefined
+}
 
 /** The ways the compare page can show two maps' images, as its `view` query param. */
 export enum MapCompareView {

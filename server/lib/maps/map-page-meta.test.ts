@@ -1,16 +1,30 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { makeMapFamilyId, makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
+import {
+  makeMapCollectionId,
+  makeMapFamilyId,
+  makeSbMapId,
+  MapInfo,
+  MapVisibility,
+  Tileset,
+} from '../../../common/maps'
 import { encodePrettyId } from '../../../common/pretty-id'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { PageMetadataContext } from '../page-metadata/types'
+import { getMapCollectionPageInfo, MapCollectionPageInfo } from './map-collection-models'
 import { getMapInfos, resolveMapId, resolveMapPageId } from './map-models'
-import { mapComparePageMetadata, mapPageMetadata } from './map-page-meta'
+import { mapCollectionPageMetadata, mapComparePageMetadata, mapPageMetadata } from './map-page-meta'
 
 vi.mock('./map-models', () => ({
   getMapInfos: vi.fn(),
   resolveMapId: vi.fn(),
   resolveMapPageId: vi.fn(),
 }))
+
+vi.mock('./map-collection-models', () => ({
+  getMapCollectionPageInfo: vi.fn(),
+}))
+
+const getMapCollectionPageInfoMock = asMockedFunction(getMapCollectionPageInfo)
 
 const getMapInfosMock = asMockedFunction(getMapInfos)
 const resolveMapIdMock = asMockedFunction(resolveMapId)
@@ -219,6 +233,153 @@ describe('maps/map-page-meta', () => {
       )
 
       expect(result).toBeUndefined()
+    })
+  })
+
+  describe('collection page', () => {
+    const COLLECTION_ID = makeMapCollectionId('5eed0000-0000-0000-0000-00000000eeee')
+    const COLLECTION_URL = `https://shieldbattery.net/maps/collections/${encodePrettyId(
+      COLLECTION_ID,
+    )}/ladder-picks`
+    const HIDDEN = {
+      url: 'https://shieldbattery.net',
+      type: 'website',
+      title: 'ShieldBattery',
+      description: 'Play StarCraft 1 on the premier community-run platform.',
+      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+      noindex: true,
+    }
+
+    function makeCollection(overrides: Partial<MapCollectionPageInfo> = {}): MapCollectionPageInfo {
+      return {
+        id: COLLECTION_ID,
+        kind: 'user',
+        title: 'Ladder picks',
+        description: 'The maps I play the most.',
+        ownerName: 'tec27',
+        published: true,
+        hidden: false,
+        listedMapCount: 3,
+        firstListedMapId: MAP_ID,
+        ...overrides,
+      }
+    }
+
+    beforeEach(() => {
+      getMapCollectionPageInfoMock.mockReset()
+    })
+
+    test("describes a public player's collection with its first map's image", async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(makeCollection())
+      getMapInfosMock.mockResolvedValueOnce([makeMap()])
+
+      const result = await mapCollectionPageMetadata(
+        { id: encodePrettyId(COLLECTION_ID), slug: 'old-slug' },
+        CONTEXT,
+      )
+
+      expect(getMapCollectionPageInfoMock).toHaveBeenCalledWith(COLLECTION_ID)
+      expect(getMapInfosMock).toHaveBeenCalledWith([MAP_ID])
+      expect(result).toEqual({
+        url: COLLECTION_URL,
+        type: 'website',
+        title: 'Ladder picks',
+        description: 'The maps I play the most.',
+        image: 'https://cdn.example.com/maps/polypoid-1024.jpg',
+        noindex: false,
+      })
+    })
+
+    test('describes a collection without a description by its maps and owner', async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(
+        makeCollection({ description: '  ', listedMapCount: 1 }),
+      )
+      getMapInfosMock.mockResolvedValueOnce([makeMap()])
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(result?.description).toBe('1 map by tec27')
+    })
+
+    test('describes a staff collection by its maps alone and indexes it', async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(
+        makeCollection({
+          kind: 'staff',
+          title: 'Staff picks',
+          description: '',
+          ownerName: undefined,
+          published: false,
+        }),
+      )
+      getMapInfosMock.mockResolvedValueOnce([makeMap()])
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(result?.title).toBe('Staff picks')
+      expect(result?.description).toBe('3 maps')
+      expect(result?.url).toBe(
+        `https://shieldbattery.net/maps/collections/${encodePrettyId(COLLECTION_ID)}/staff-picks`,
+      )
+      expect(result?.noindex).toBe(false)
+    })
+
+    test('describes a collection without listed maps but keeps it out of search engines', async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(
+        makeCollection({ description: '', listedMapCount: 0, firstListedMapId: undefined }),
+      )
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(getMapInfosMock).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        url: COLLECTION_URL,
+        type: 'website',
+        title: 'Ladder picks',
+        description: '0 maps by tec27',
+        image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+        noindex: true,
+      })
+    })
+
+    test('truncates long descriptions', async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(
+        makeCollection({ description: 'a'.repeat(500) }),
+      )
+      getMapInfosMock.mockResolvedValueOnce([makeMap()])
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(result?.description).toHaveLength(200)
+      expect(result?.description.endsWith('…')).toBe(true)
+    })
+
+    test.each([
+      ['private', { published: false }],
+      ['hidden', { hidden: true }],
+      ['Starred', { kind: 'starred' as const, title: undefined, published: false }],
+      ['ladder pool', { kind: 'ladder_pool' as const, title: undefined, ownerName: undefined }],
+    ])('gives a %s collection the default metadata, kept out of search engines', async (_, o) => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(makeCollection(o))
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(result).toEqual(HIDDEN)
+      expect(getMapInfosMock).not.toHaveBeenCalled()
+    })
+
+    test('gives an unknown id the default metadata, kept out of search engines', async () => {
+      getMapCollectionPageInfoMock.mockResolvedValueOnce(undefined)
+
+      const result = await mapCollectionPageMetadata({ id: COLLECTION_ID }, CONTEXT)
+
+      expect(result).toEqual(HIDDEN)
+    })
+
+    test('gives a malformed id the default metadata without querying', async () => {
+      const result = await mapCollectionPageMetadata({ id: 'ladder-picks' }, CONTEXT)
+
+      expect(result).toEqual(HIDDEN)
+      expect(getMapCollectionPageInfoMock).not.toHaveBeenCalled()
     })
   })
 })

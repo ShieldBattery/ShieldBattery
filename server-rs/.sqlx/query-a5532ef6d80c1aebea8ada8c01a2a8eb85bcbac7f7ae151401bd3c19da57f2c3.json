@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT k.id as \"id!\", k.listed_only as \"listed_only!\",\n                    s.map_count as \"map_count!\", s.cover as \"cover!\"\n                FROM unnest($1::uuid[], $2::boolean[]) AS k(id, listed_only)\n                CROSS JOIN LATERAL (\n                    SELECT count(*) as map_count,\n                        COALESCE(\n                            (array_agg(\n                                e.map_id ORDER BY e.position, e.added_at DESC NULLS LAST, e.map_id\n                            ))[1:$3],\n                            '{}'\n                        ) as cover\n                    FROM (\n                        SELECT m.id as map_id, cm.position, cm.added_at\n                        FROM collection_maps cm\n                        INNER JOIN maps m ON m.id = COALESCE(cm.map_id, (\n                            SELECT efam.current_map_id FROM map_families efam\n                            WHERE efam.id = cm.family_id\n                        ))\n                        INNER JOIN map_families fam ON fam.id = m.family_id\n                        WHERE cm.collection_id = k.id AND (NOT k.listed_only OR fam.listed)\n                    ) e\n                ) s\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "listed_only!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "map_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "cover!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "BoolArray",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "a5532ef6d80c1aebea8ada8c01a2a8eb85bcbac7f7ae151401bd3c19da57f2c3"
+}

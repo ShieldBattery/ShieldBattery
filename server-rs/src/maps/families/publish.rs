@@ -324,7 +324,17 @@ fn name_check_terms(name: &str, description: &str) -> Vec<String> {
 /// Whether a file's name or description hits a profanity restriction. Reserved names (kept from
 /// impersonation) don't count: a map may well mention one.
 async fn hits_restricted_names(names: &NameChecker, file: &PublishFile) -> eyre::Result<bool> {
-    let terms = name_check_terms(&file.name, &file.description);
+    text_hits_restricted_names(names, &file.name, &file.description).await
+}
+
+/// Whether a name or the description that goes with it hits a profanity restriction, checking the
+/// same strings publishing a file checks. Reserved names don't count.
+pub(crate) async fn text_hits_restricted_names(
+    names: &NameChecker,
+    name: &str,
+    description: &str,
+) -> eyre::Result<bool> {
+    let terms = name_check_terms(name, description);
     let terms: Vec<&str> = terms.iter().map(String::as_str).collect();
     Ok(names
         .check_names(&terms, Some(RestrictedNameReason::Profanity))

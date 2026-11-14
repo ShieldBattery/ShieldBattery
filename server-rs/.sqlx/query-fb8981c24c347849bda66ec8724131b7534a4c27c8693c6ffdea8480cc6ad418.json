@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH v AS (\n                SELECT * FROM unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)\n            ),\n            entries AS (\n                SELECT cm.id, cm.collection_id, t.into_id, cm.position, cm.added_at,\n                    false as moving\n                FROM collection_maps cm\n                INNER JOIN (SELECT DISTINCT into_id FROM v) t ON t.into_id = cm.family_id\n                UNION ALL\n                SELECT cm.id, cm.collection_id, v.into_id, cm.position, cm.added_at, true\n                FROM collection_maps cm\n                INNER JOIN v ON v.from_id = cm.family_id\n            ),\n            ranked AS (\n                SELECT e.id, e.collection_id, e.into_id, e.moving,\n                    row_number() OVER (\n                        PARTITION BY e.collection_id, e.into_id\n                        ORDER BY e.moving, e.position, e.id\n                    ) as rank,\n                    min(e.added_at) OVER (PARTITION BY e.collection_id, e.into_id) as earliest,\n                    bool_or(e.moving) OVER (PARTITION BY e.collection_id, e.into_id)\n                        as any_moving\n                FROM entries e\n            ),\n            dropped AS (\n                DELETE FROM collection_maps cm\n                USING ranked r\n                WHERE cm.id = r.id AND r.moving AND r.rank > 1\n                RETURNING cm.collection_id\n            ),\n            -- Never conflicts with a dropped entry: those still name a family being retired\n            kept AS (\n                UPDATE collection_maps cm\n                SET family_id = r.into_id,\n                    added_at = CASE WHEN c.kind = 'starred' THEN r.earliest ELSE cm.added_at END\n                FROM ranked r, collections c\n                WHERE cm.id = r.id AND r.rank = 1 AND r.any_moving AND c.id = cm.collection_id\n            )\n            SELECT DISTINCT collection_id as \"collection_id!\" FROM dropped\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "collection_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collection_maps",
+            "name": "collection_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fb8981c24c347849bda66ec8724131b7534a4c27c8693c6ffdea8480cc6ad418"
+}

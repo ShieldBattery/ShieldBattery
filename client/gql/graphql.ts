@@ -289,11 +289,20 @@ export enum MapSizeClass {
 
 /** The order maps are listed in. */
 export enum MapSort {
+  /**
+   * A collection's own order: as its editor arranged it, or for a Starred collection, the most
+   * recently starred first. The default when listing a collection's maps; any other listing
+   * treats it as its own default sort.
+   */
+  CollectionOrder = 'COLLECTION_ORDER',
   /** Most favorited first. */
   MostFavorited = 'MOST_FAVORITED',
   /** Alphabetical, ignoring leading player-count prefixes and bracketed tags. */
   Name = 'NAME',
-  /** Most recently published (or, in a user's maps or favorites, most recently added) first. */
+  /**
+   * Most recently published (or, in a user's maps, favorites or a collection, most recently
+   * added) first.
+   */
   Newest = 'NEWEST',
   /** Fewest player slots first. */
   Players = 'PLAYERS',
