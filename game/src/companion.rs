@@ -19,6 +19,10 @@ mod implementation {
         // TODO(tec27): implement
         None
     }
+
+    pub fn countdown_started(_length: std::time::Duration) {
+        // TODO(tec27): implement
+    }
 }
 
 /// Called on the main thread during injection, before game hooks or async tasks start.
@@ -29,4 +33,9 @@ pub fn initialize(server_port: u16) {
 #[inline(always)]
 pub fn collect(message: impl Fn(u32, &[u8]) -> Vec<u8>) -> Option<Response> {
     implementation::collect(&message)
+}
+
+/// Called once when the pre-game countdown starts, with how long it runs. Returns right away.
+pub fn countdown_started(length: std::time::Duration) {
+    implementation::countdown_started(length)
 }
