@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id,\n                (SELECT count(*) FROM collection_maps WHERE collection_id = $1) as \"count!\"\n            FROM collection_maps\n            WHERE collection_id = $1\n                AND (family_id = (SELECT family_id FROM maps WHERE id = $2) OR map_id = $2)\n            ORDER BY position, id\n            LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "collection_maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "fd8b0db82ebc2c57858c62d9fa6fbcbca948e27b060c20cd77bb0a18303455ab"
+}

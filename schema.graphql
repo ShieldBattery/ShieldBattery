@@ -37,6 +37,43 @@ type BlockedStream {
 	blockedBy: SbUser
 }
 
+type CollectionMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [CollectionMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type CollectionMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was added to the collection. Null for stars from before this was recorded.
+	"""
+	addedAt: DateTime
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
 type CommendPlayerPayload {
 	feedback: GameFeedback!
 	"""
@@ -96,6 +133,12 @@ type CurrentUser {
 	`NEWEST` sorts by when each map was favorited.
 	"""
 	favoriteMaps(filter: MapFilter, sort: MapSort, after: String, first: Int): FavoriteMapConnection!
+	"""
+	This user's own list of collections: their Starred collection (made now if they have
+	none), then their own collections, most recently changed first, then the collections they
+	saved and can still see, most recently saved first.
+	"""
+	mapCollections: [MapCollection!]!
 }
 
 """
@@ -640,6 +683,218 @@ enum MapChange {
 }
 
 """
+A named, ordered list of maps: a player's own collection, a player's Starred maps, or a
+collection made by staff. Everyone other than its owner (and, for a staff collection, users who
+can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only those.
+"""
+type MapCollection {
+	id: UUID!
+	kind: MapCollectionKind!
+	"""
+	The title its owner or staff gave it. Null for `STARRED` and `LADDER_POOL`, which the
+	client names.
+	"""
+	title: String
+	"""
+	Plain text, possibly empty.
+	"""
+	description: String!
+	"""
+	The player whose collection it is. Null for `STAFF` and `LADDER_POOL`.
+	"""
+	owner: SbUser
+	"""
+	Whether everyone can see the collection: always for `STAFF`, and for `USER` while its owner
+	has made it public and staff haven't hidden it.
+	"""
+	public: Boolean!
+	"""
+	That staff hid the collection, keeping it from everyone but its owner and staff. Only shown
+	to its owner and to users who can manage maps; null otherwise, and while it isn't hidden.
+	"""
+	hidden: MapCollectionHidden
+	"""
+	How many maps the viewer sees in the collection.
+	"""
+	mapCount: Int!
+	"""
+	The first 4 maps the viewer sees, in the collection's order.
+	"""
+	cover: [SbMap!]!
+	"""
+	How many players saved the collection.
+	"""
+	saveCount: Int!
+	"""
+	Whether the viewer saved the collection. False when logged out.
+	"""
+	isSaved: Boolean!
+	"""
+	Whether the viewer can add, remove and move the collection's maps: its owner, or for
+	`STAFF`, users who can manage maps. `STARRED` can't be renamed, reordered or deleted, and
+	its maps are ordered newest first.
+	"""
+	canEdit: Boolean!
+	createdAt: DateTime!
+	"""
+	When its owner (or staff) last changed it or its maps.
+	"""
+	updatedAt: DateTime!
+	"""
+	The maps the viewer sees in the collection, each as its current file (or, for an entry
+	naming an exact file, that file). Takes the same arguments as `maps`; sorts by
+	`COLLECTION_ORDER` unless told otherwise, and `NEWEST` sorts by when each map was added.
+	"""
+	maps(filter: MapFilter, sort: MapSort, after: String, first: Int): CollectionMapConnection!
+}
+
+type MapCollectionConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapCollectionEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapCollection!]!
+	"""
+	How many collections the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type MapCollectionEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapCollection!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+That staff hid a collection, and why.
+"""
+type MapCollectionHidden {
+	id: String!
+	"""
+	What staff told the owner.
+	"""
+	note: String!
+	hiddenAt: DateTime!
+}
+
+"""
+What kind of collection something is, which decides who edits it and who sees it.
+"""
+enum MapCollectionKind {
+	"""
+	Made by a player, who titles and orders it. Private until they make it public.
+	"""
+	USER
+	"""
+	A player's starred maps, newest first. Every player has one; only they see it.
+	"""
+	STARRED
+	"""
+	Made by staff. Everyone sees it.
+	"""
+	STAFF
+	"""
+	A ladder map pool.
+	"""
+	LADDER_POOL
+}
+
+"""
+A player's report about a public collection. Only available to users who can manage maps.
+"""
+type MapCollectionReport {
+	id: UUID!
+	"""
+	The reported collection. Null if staff can no longer see it (its owner made it private).
+	"""
+	collection: MapCollection
+	reporter: SbUser
+	note: String!
+	createdAt: DateTime!
+	resolvedAt: DateTime
+	resolvedBy: SbUser
+	resolution: MapCollectionReportResolution
+}
+
+type MapCollectionReportConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapCollectionReportEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapCollectionReport!]!
+	"""
+	How many reports the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type MapCollectionReportEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapCollectionReport!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+How staff resolved a collection report.
+"""
+enum MapCollectionReportResolution {
+	"""
+	Staff found nothing to do.
+	"""
+	DISMISSED
+	"""
+	Staff hid the collection.
+	"""
+	HIDDEN
+}
+
+"""
+Which collections `mapCollections` lists.
+"""
+enum MapCollectionSection {
+	"""
+	Every staff collection, oldest first.
+	"""
+	STAFF
+	"""
+	Players' public collections that aren't hidden and hold at least one listed map, the most
+	saved first, then the most recently made public.
+	"""
+	PLAYERS
+}
+
+"""
 What differs between two maps. `a` is treated as the before side and `b` as the after side.
 """
 type MapComparison {
@@ -750,6 +1005,17 @@ type MapFamily {
 	the current file, and the unlisted files in their own library.
 	"""
 	files: [SbMap!]!
+	"""
+	The staff collections, then the public players' collections, holding this map (or one of
+	its files), the most saved first within each; `first` of them (at most 20).
+	"""
+	collections(first: Int! = 6): [MapCollection!]!
+	"""
+	The ids of the viewer's own collections holding this map, and of the staff collections
+	holding it when the viewer can manage maps. Starred isn't included (see
+	`SbMap.isFavorited`). Empty when logged out.
+	"""
+	viewerCollectionIds: [UUID!]!
 	"""
 	Play statistics summed over every file of the map, or null if none has been played.
 	Recomputed hourly; until then a map's stats are its current file's.
@@ -1681,7 +1947,8 @@ enum MapSort {
 	"""
 	POPULAR_ALL_TIME
 	"""
-	Most recently published (or, in a user's maps or favorites, most recently added) first.
+	Most recently published (or, in a user's maps, favorites or a collection, most recently
+	added) first.
 	"""
 	NEWEST
 	"""
@@ -1696,6 +1963,12 @@ enum MapSort {
 	Fewest player slots first.
 	"""
 	PLAYERS
+	"""
+	A collection's own order: as its editor arranged it, or for a Starred collection, the most
+	recently starred first. The default when listing a collection's maps; any other listing
+	treats it as its own default sort.
+	"""
+	COLLECTION_ORDER
 }
 
 """
@@ -1951,8 +2224,8 @@ type Mutation {
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
 	"""
-	Adds the map (family) a file is in to the current user's favorites. Favoriting a map that is
-	already a favorite does nothing.
+	Adds the map (family) a file is in to the current user's favorites, their Starred
+	collection. Favoriting a map that is already a favorite does nothing.
 	"""
 	mapAddFavorite(id: SbMapId!): SbMap!
 	"""
@@ -1961,14 +2234,14 @@ type Mutation {
 	"""
 	mapAddToLibrary(id: SbMapId!): SbMap!
 	"""
-	Removes the map (family) a file is in from the current user's favorites. Removing a map that
-	isn't a favorite does nothing.
+	Removes the map (family) a file is in from the current user's favorites, their Starred
+	collection. Removing a map that isn't a favorite does nothing.
 	"""
 	mapRemoveFavorite(id: SbMapId!): SbMap!
 	"""
 	Moves a file to another map. A map left without files is merged into the other map: its id
-	keeps working as an alias, and its favorites move along. Only available to users who can
-	manage maps.
+	keeps working as an alias, and its favorites and collection entries move along. Only
+	available to users who can manage maps.
 	"""
 	mapFamilyMoveFile(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
 	"""
@@ -1978,9 +2251,10 @@ type Mutation {
 	mapFamilySplitFile(fileId: SbMapId!): MapFamilyFileMove!
 	"""
 	Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
-	alias of `intoFamilyId`, its favorites and open owner claims move along, and its default
-	pick, owner and credit are dropped (`intoFamilyId` keeps its own). Returns the map merged
-	into. Only available to users who can manage maps.
+	alias of `intoFamilyId`, its favorites, collection entries and open owner claims move along
+	(one per collection or user), and its default pick, owner and credit are dropped
+	(`intoFamilyId` keeps its own). Returns the map merged into. Only available to users who can
+	manage maps.
 	"""
 	mapFamilyMerge(familyId: UUID!, intoFamilyId: UUID!): MapFamily!
 	"""
@@ -2096,6 +2370,75 @@ type Mutation {
 	Rejects a claim waiting for staff. Only available to users who can manage maps.
 	"""
 	mapOwnerClaimReject(claimId: UUID!): MapOwnerClaim!
+	"""
+	Creates a private collection of the current user's (at most 100), or with `staff`, a staff
+	collection (only for users who can manage maps). The title must be 3 to 50 characters
+	after trimming and differ from the user's other collections' titles, ignoring case; the
+	description may be up to 500 characters. With `addMapId`, the map that file is in is the
+	collection's first map.
+	"""
+	mapCollectionCreate(title: String!, description: String, staff: Boolean! = false, addMapId: SbMapId): MapCollection!
+	"""
+	Changes a collection's title and description, and makes a player's collection public or
+	private. Only what's given changes. Making a collection public needs a verified email, no
+	restriction on publishing maps, and a title and description without words that aren't
+	allowed; while it's public, its title and description are checked the same way. A hidden
+	collection can't be made public or private. Available to the collection's owner and, for a
+	staff collection, users who can manage maps.
+	"""
+	mapCollectionUpdate(id: UUID!, title: String, description: String, public: Boolean): MapCollection!
+	"""
+	Deletes a collection, along with its saves and reports. Starred can't be deleted. Returns
+	the deleted collection's id.
+	"""
+	mapCollectionDelete(id: UUID!): UUID!
+	"""
+	Adds the map a file is in to the end of a collection (at most 200 maps; Starred has no
+	limit). Adding a map that's already in does nothing.
+	"""
+	mapCollectionAddMap(collectionId: UUID!, mapId: SbMapId!): MapCollection!
+	"""
+	Removes the map a file is in from a collection. Removing a map that isn't in does nothing.
+	"""
+	mapCollectionRemoveMap(collectionId: UUID!, mapId: SbMapId!): MapCollection!
+	"""
+	Moves the map a file is in to `toIndex` (from 0) in a collection's order, shifting the maps
+	between. An index past the end moves it to the end. Starred can't be reordered.
+	"""
+	mapCollectionMoveMap(collectionId: UUID!, mapId: SbMapId!, toIndex: Int!): MapCollection!
+	"""
+	Saves someone else's collection to the current user's list (at most 500). Saving a saved
+	collection does nothing.
+	"""
+	mapCollectionSave(id: UUID!): MapCollection!
+	"""
+	Takes a collection out of the current user's saved list. Unsaving a collection that isn't
+	saved does nothing. Returns the collection, or null when the user can no longer see it (it
+	was made private, hidden or deleted), which is still unsaved.
+	"""
+	mapCollectionUnsave(id: UUID!): MapCollection
+	"""
+	Tells staff something is wrong with a public player's collection. The note is required
+	(at most 500 characters). Reporting it again while the report is open replaces the note.
+	A user can file at most 10 collection reports an hour; replacing a note doesn't count.
+	"""
+	mapCollectionReport(id: UUID!, note: String!): MapCollection!
+	"""
+	Hides a player's collection from everyone but its owner and staff, telling its owner why
+	(`note`, required, at most 500 characters), and resolves its open reports. Its owner can
+	still edit and delete it, but can't make it public or private until staff unhide it.
+	Hiding a hidden collection replaces the note. Only available to users who can manage maps.
+	"""
+	mapCollectionHide(id: UUID!, note: String!): MapCollection!
+	"""
+	Shows a hidden collection again. Only available to users who can manage maps.
+	"""
+	mapCollectionUnhide(id: UUID!): MapCollection!
+	"""
+	Dismisses an open collection report, leaving the collection as it is. Returns the report.
+	Only available to users who can manage maps.
+	"""
+	mapCollectionReportDismiss(reportId: UUID!): MapCollectionReport!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -2395,6 +2738,27 @@ type Query {
 	How many claims have a status. Only available to users who can manage maps.
 	"""
 	mapOwnerClaimCount(status: MapOwnerClaimStatus! = OPEN): Int!
+	"""
+	Looks up a collection by id. Null when there's no such collection or the viewer can't see
+	it.
+	"""
+	mapCollection(id: UUID!): MapCollection
+	"""
+	Pages through a section of the collections everyone can see. `search` keeps the collections
+	whose title contains it, ignoring case, punctuation and spacing. Pages are 40 collections
+	unless `first` says otherwise (at most 100).
+	"""
+	mapCollections(section: MapCollectionSection!, search: String, after: String, first: Int): MapCollectionConnection!
+	"""
+	Collection reports: the open ones oldest first with `open: true`, otherwise the newest
+	first (only the resolved ones with `open: false`). Pages are 40 reports unless `first` says
+	otherwise (at most 100). Only available to users who can manage maps.
+	"""
+	mapCollectionReports(open: Boolean, after: String, first: Int): MapCollectionReportConnection!
+	"""
+	How many collection reports are open. Only available to users who can manage maps.
+	"""
+	mapCollectionReportCount: Int!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or

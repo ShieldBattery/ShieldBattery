@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT k.id as \"id!\",\n                    (SELECT count(*) FROM collection_saves s WHERE s.collection_id = k.id)\n                        as \"count!\"\n                FROM unnest($1::uuid[]) AS k(id)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "c325d241fe0196eb27a12cee77c2c298debcc07c2b43b61de2891cf58a248445"
+}

@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, kind as \"kind: CollectionKind\", owner_id as \"owner_id: SbUserId\", title,\n                description, published_at, hidden_at, hidden_by as \"hidden_by: SbUserId\",\n                hidden_note, created_at, updated_at\n            FROM collections\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind: CollectionKind",
+        "type_info": {
+          "Custom": {
+            "name": "collection_kind",
+            "kind": {
+              "Enum": [
+                "user",
+                "starred",
+                "staff",
+                "ladder_pool"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "published_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "published_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "hidden_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "hidden_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "hidden_by: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "hidden_by"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "hidden_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "hidden_note"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "collections",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a2f3828e24a3a9aed11bb5d9b86dd796f44bc97968fe2998fdb6988e881056da"
+}

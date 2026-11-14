@@ -19,6 +19,9 @@ use crate::maps::catalog::{
     MapStats, MapStatsKey, SbMap, SbMapLoader, ViewerMapFlagsLoader, is_staff, load_sb_map,
     load_user, require_current_user, resolve_existing_map_id,
 };
+use crate::maps::collections::graphql::{
+    DEFAULT_FAMILY_COLLECTIONS, MapCollection, family_collections, viewer_collection_ids,
+};
 use crate::maps::families::edit::{
     self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus,
     MapPublishReviewAnswer, MoveBy, ReportRequest,
@@ -347,6 +350,23 @@ impl MapFamily {
             .load_many(ordered.iter().copied())
             .await?;
         Ok(ordered.iter().filter_map(|id| maps.remove(id)).collect())
+    }
+
+    /// The staff collections, then the public players' collections, holding this map (or one of
+    /// its files), the most saved first within each; `first` of them (at most 20).
+    async fn collections(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default_with = "DEFAULT_FAMILY_COLLECTIONS")] first: i32,
+    ) -> Result<Vec<MapCollection>> {
+        family_collections(ctx, self.0.id, first).await
+    }
+
+    /// The ids of the viewer's own collections holding this map, and of the staff collections
+    /// holding it when the viewer can manage maps. Starred isn't included (see
+    /// `SbMap.isFavorited`). Empty when logged out.
+    async fn viewer_collection_ids(&self, ctx: &Context<'_>) -> Result<Vec<Uuid>> {
+        viewer_collection_ids(ctx, self.0.id).await
     }
 
     /// Play statistics summed over every file of the map, or null if none has been played.
@@ -778,8 +798,8 @@ pub struct MapFamiliesMutation;
 #[Object]
 impl MapFamiliesMutation {
     /// Moves a file to another map. A map left without files is merged into the other map: its id
-    /// keeps working as an alias, and its favorites move along. Only available to users who can
-    /// manage maps.
+    /// keeps working as an alias, and its favorites and collection entries move along. Only
+    /// available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_move_file(
         &self,
@@ -821,9 +841,10 @@ impl MapFamiliesMutation {
     }
 
     /// Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
-    /// alias of `intoFamilyId`, its favorites and open owner claims move along, and its default
-    /// pick, owner and credit are dropped (`intoFamilyId` keeps its own). Returns the map merged
-    /// into. Only available to users who can manage maps.
+    /// alias of `intoFamilyId`, its favorites, collection entries and open owner claims move along
+    /// (one per collection or user), and its default pick, owner and credit are dropped
+    /// (`intoFamilyId` keeps its own). Returns the map merged into. Only available to users who can
+    /// manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_merge(
         &self,
