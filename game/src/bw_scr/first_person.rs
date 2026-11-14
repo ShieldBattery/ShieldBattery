@@ -332,6 +332,7 @@ impl BwScr {
             Some(FirstPersonView {
                 color,
                 cursor_scale: self.cursor_scale_factor.resolve(),
+                legacy_cursor_sizing: self.use_legacy_cursor_sizing.load(Ordering::Relaxed),
                 cursor,
                 cursor_type: view.cursor_type,
                 drag_rect,

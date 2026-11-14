@@ -1,8 +1,13 @@
 """Generates first-person-cursors.png, the cursors a replay draws for the player whose perspective
 is shown. Run with `python first-person-cursors.py` (needs Pillow) after changing a shape.
 
-The atlas is a grid of 48x48 cells at 2x scale (96x96 pixels each). Each sprite takes three
-consecutive cells, drawn in order:
+Shapes are drawn in a 48x48 unit design space and placed into 128x128 pixel cells. Each kind of
+cursor has its own size, set so it covers about what the game's own cursor of that kind does: the
+game draws its cursor art at `cursor_scale_factor` window pixels per art pixel, and the atlas holds
+ours at ATLAS_ART_SCALE atlas pixels per art pixel (see ART_PX_PER_UNIT for the game's sizes).
+Arrow sprites have their tip at ARROW_TIP_PX of the cell, the rest are centered in it.
+
+Each sprite takes three consecutive cells, drawn in order:
 - under: the dark outline,
 - body: white shapes the overlay tints to the player's color,
 - over: highlights and the colors that mean something (target rings green/yellow/red for own,
@@ -17,9 +22,17 @@ import os
 
 from PIL import Image, ImageDraw, ImageFilter
 
-CELL = 48            # cell size at 1x
-SCALE = 2            # output scale
-SS = 8               # supersampling relative to 1x
+CELL = 48            # side of the design space, in units
+CELL_PX = 128        # side of an atlas cell, in pixels
+SS = 8               # supersampling per unit while drawing
+# Atlas pixels per pixel of game cursor art. Below 1 to keep the atlas inside a 2048 pixel texture;
+# 0.75 draws the atlas 1:1 on a 1440 pixel tall window, where the game's scale factor is 0.75.
+ATLAS_ART_SCALE = 0.75
+ARROW_TIP_PX = (8, 8)
+# Game art pixels per design unit, by kind. The game's cursors at scale factor 1 are, in pixels:
+# arrow 78x80, illegal 112x114, target 108x76, hover (magnifier) 164x104, drag 72x88, scroll
+# 142x78 up and down, 78x142 left and right, 104x104 on the diagonals.
+ART_PX_PER_UNIT = {'arrow': 2.8, 'illegal': 3.0, 'target': 3.0, 'hover': 3.6, 'drag': 3.8, 'scroll': 4.0}
 COLUMNS = 12
 HOVER_FRAMES = 12
 
@@ -40,9 +53,25 @@ def p(points, offset=(0, 0)):
     return [((x + offset[0]) * SS, (y + offset[1]) * SS) for x, y in points]
 
 
-def finish(img):
-    size = CELL * SCALE
-    return img.resize((size, size), Image.LANCZOS)
+def finish(img, kind):
+    """Scales a drawn layer to its kind's size and places it in a cell."""
+    scale = ART_PX_PER_UNIT[kind] * ATLAS_ART_SCALE
+    size = round(CELL * scale)
+    scaled = img.resize((size, size), Image.LANCZOS)
+    if kind in ('arrow', 'illegal'):
+        anchor_unit, anchor_px = ARROW_TIP, ARROW_TIP_PX
+    else:
+        anchor_unit, anchor_px = CENTER, (CELL_PX / 2, CELL_PX / 2)
+    left = round(anchor_px[0] - anchor_unit[0] * scale)
+    top = round(anchor_px[1] - anchor_unit[1] * scale)
+    cell = Image.new('RGBA', (CELL_PX, CELL_PX), (0, 0, 0, 0))
+    # `paste` clips what falls outside the cell, which only ever is empty margin.
+    cell.paste(scaled, (left, top))
+    box = scaled.getbbox()
+    if box and not (0 <= left + box[0] and left + box[2] <= CELL_PX
+                    and 0 <= top + box[1] and top + box[3] <= CELL_PX):
+        raise SystemExit(f'{kind} sprite does not fit its cell: {box} at {left},{top}')
+    return cell
 
 
 def dilate(img, px):
@@ -140,21 +169,21 @@ def scroll_layers(angle):
 
 
 def sprites():
-    yield arrow_layers()
-    yield arrow_layers(illegal=True)
+    yield 'arrow', arrow_layers()
+    yield 'illegal', arrow_layers(illegal=True)
     for relation in range(3):
-        yield target_layers(relation)
+        yield 'target', target_layers(relation)
     for relation in range(3):
         for frame in range(HOVER_FRAMES):
-            yield target_layers(relation, hover_phase=frame * 120 / HOVER_FRAMES)
-    yield drag_layers()
+            yield 'hover', target_layers(relation, hover_phase=frame * 120 / HOVER_FRAMES)
+    yield 'drag', drag_layers()
     for direction in range(8):
-        yield scroll_layers(direction * 45)
+        yield 'scroll', scroll_layers(direction * 45)
 
 
 def main():
-    cells = [finish(img) for layers in sprites() for img in layers]
-    size = CELL * SCALE
+    cells = [finish(img, kind) for kind, layers in sprites() for img in layers]
+    size = CELL_PX
     rows = (len(cells) + COLUMNS - 1) // COLUMNS
     atlas = Image.new('RGBA', (COLUMNS * size, rows * size), (0, 0, 0, 0))
     for i, cell in enumerate(cells):
