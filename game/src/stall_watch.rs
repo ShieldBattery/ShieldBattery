@@ -176,6 +176,7 @@ fn watch_loop() {
     };
     let mut counter = StallCounter::new(BEATS.load(Ordering::Relaxed));
     let mut stall_start_stack = None;
+    let mut hang_dump_attempted = false;
     loop {
         std::thread::sleep(TICK);
         let beats = BEATS.load(Ordering::Relaxed);
@@ -217,10 +218,36 @@ fn watch_loop() {
                          stack {change}: {description}",
                     );
                 }
+                if !hang_dump_attempted {
+                    hang_dump_attempted = true;
+                    watch.write_hang_dump();
+                }
             }
             Some(StallEvent::Resumed { ticks }) => {
                 info!("Main thread made progress again after about {ticks} s without any");
             }
+        }
+    }
+}
+
+impl Watch {
+    /// Writes a dump of the process, after making sure the stacks logged before it are in the log
+    /// file: writing the dump can wait on a lock the stalled thread holds, with every other
+    /// thread, the log writer's included, suspended.
+    ///
+    /// Writing a dump suspends threads too, so no capture may run meanwhile: one that has a
+    /// thread suspended when the dump suspends it could leave the dump waiting on a lock that
+    /// thread holds, and both stuck.
+    fn write_hang_dump(&self) {
+        use crate::crash_dump::HANG_DUMP_NAME;
+        crate::log_writer::flush(Duration::from_secs(1));
+        let _capturing = self
+            .capturing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        match crate::crash_dump::write_hang_dump() {
+            Ok(size) => info!("Wrote {HANG_DUMP_NAME}, {size} bytes"),
+            Err(e) => warn!("Couldn't write {HANG_DUMP_NAME}: {e}"),
         }
     }
 }

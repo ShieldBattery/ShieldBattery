@@ -112,6 +112,7 @@ type MiniDumpWriteDumpFn = unsafe extern "system" fn(
 struct Prepared {
     minidump_write_dump: MiniDumpWriteDumpFn,
     dump_paths: DumpPaths,
+    hang_dump_paths: DumpPaths,
     /// `LdrLockLoaderLock` and `LdrUnlockLoaderLock`, if ntdll has them.
     loader_lock: Option<(LdrLockLoaderLockFn, LdrUnlockLoaderLockFn)>,
 }
@@ -125,8 +126,9 @@ type LdrUnlockLoaderLockFn = unsafe extern "system" fn(u32, usize) -> i32;
 struct DumpPaths {
     dump: Vec<u16>,
     temp: Vec<u16>,
-    /// A stack dump older builds wrote next to the minidump, removed once a new dump is in place.
-    old_crash_stack: Vec<u16>,
+    /// A stack dump older builds wrote next to the crash dump, removed once a new crash dump is in
+    /// place.
+    old_crash_stack: Option<Vec<u16>>,
 }
 
 impl DumpPaths {
@@ -138,10 +140,21 @@ impl DumpPaths {
         DumpPaths {
             dump: windows::winapi_str(dir.join("latest_crash.dmp")),
             temp: windows::winapi_str(dir.join("latest_crash.dmp.tmp")),
-            old_crash_stack: windows::winapi_str(dir.join("crash_stack.bin")),
+            old_crash_stack: Some(windows::winapi_str(dir.join("crash_stack.bin"))),
+        }
+    }
+
+    fn hang_in_dir(dir: &Path) -> DumpPaths {
+        DumpPaths {
+            dump: windows::winapi_str(dir.join(HANG_DUMP_NAME)),
+            temp: windows::winapi_str(dir.join(format!("{HANG_DUMP_NAME}.tmp"))),
+            old_crash_stack: None,
         }
     }
 }
+
+/// File name, in the logs directory, of the dump written of a process whose main thread stalled.
+pub const HANG_DUMP_NAME: &str = "latest_hang.dmp";
 
 static PREPARED: OnceLock<Prepared> = OnceLock::new();
 
@@ -250,6 +263,7 @@ fn prepare() -> Result<Prepared, io::Error> {
     unsafe {
         let minidump_write_dump = load_minidump_write_dump()?;
         let dump_paths = DumpPaths::new();
+        let hang_dump_paths = DumpPaths::hang_in_dir(&logs_dir());
         let loader_lock = windows::load_library("ntdll").ok().and_then(|ntdll| {
             let lock = ntdll.proc_address("LdrLockLoaderLock").ok()?;
             let unlock = ntdll.proc_address("LdrUnlockLoaderLock").ok()?;
@@ -273,6 +287,7 @@ fn prepare() -> Result<Prepared, io::Error> {
         Ok(Prepared {
             minidump_write_dump,
             dump_paths,
+            hang_dump_paths,
             loader_lock,
         })
     }
@@ -1197,6 +1212,32 @@ pub unsafe fn write_minidump_to_default_path(
     }
 }
 
+/// Writes a dump of the whole process, as it is now, to [`HANG_DUMP_NAME`] by way of a temporary
+/// file, and returns its size. For a process whose main thread stalled; call it from another
+/// thread.
+///
+/// Writing a dump suspends every other thread and needs the loader's lock and the heap's, so a
+/// dump that waits on a lock some other thread holds stalls the whole process for good. The dump
+/// is written holding the loader's lock, and not at all when another thread keeps it; there is no
+/// such check for the heap's lock.
+pub fn write_hang_dump() -> Result<u64, io::Error> {
+    let prepared = PREPARED
+        .get()
+        .ok_or_else(|| io::Error::other("dump writing isn't prepared"))?;
+    with_loader_lock(|| unsafe {
+        write_minidump(
+            prepared.minidump_write_dump,
+            &prepared.hang_dump_paths,
+            null_mut(),
+            GetCurrentThreadId(),
+        )
+    })
+    .ok_or_else(|| {
+        io::Error::other("another thread holds the loader's lock, which writing a dump needs")
+    })??;
+    Ok(std::fs::metadata(logs_dir().join(HANG_DUMP_NAME))?.len())
+}
+
 fn logs_dir() -> PathBuf {
     let args = crate::parse_args();
     args.user_data_path.join("logs")
@@ -1224,9 +1265,15 @@ unsafe fn write_minidump(
                 }
             });
         match result {
-            Ok(()) => DeleteFileW(paths.old_crash_stack.as_ptr()),
-            Err(_) => DeleteFileW(paths.temp.as_ptr()),
-        };
+            Ok(()) => {
+                if let Some(old_crash_stack) = &paths.old_crash_stack {
+                    DeleteFileW(old_crash_stack.as_ptr());
+                }
+            }
+            Err(_) => {
+                DeleteFileW(paths.temp.as_ptr());
+            }
+        }
         result
     }
 }
@@ -1499,6 +1546,29 @@ mod tests {
         assert_eq!(&dump[..4], b"MDMP");
         assert!(!dir.0.join("latest_crash.dmp.tmp").exists());
         assert!(!dir.0.join("crash_stack.bin").exists());
+    }
+
+    #[test]
+    fn hang_dump_leaves_crash_dump_files_alone() {
+        let dir = TempDir::new();
+        std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
+        std::fs::write(dir.0.join("crash_stack.bin"), b"stale").unwrap();
+        unsafe {
+            let write_dump = load_minidump_write_dump().unwrap();
+            let paths = DumpPaths::hang_in_dir(&dir.0);
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId()).unwrap();
+        }
+        let dump = std::fs::read(dir.0.join(HANG_DUMP_NAME)).unwrap();
+        assert_eq!(&dump[..4], b"MDMP");
+        assert!(!dir.0.join(format!("{HANG_DUMP_NAME}.tmp")).exists());
+        assert_eq!(
+            std::fs::read(dir.0.join("latest_crash.dmp")).unwrap(),
+            b"previous"
+        );
+        assert_eq!(
+            std::fs::read(dir.0.join("crash_stack.bin")).unwrap(),
+            b"stale"
+        );
     }
 
     #[test]
