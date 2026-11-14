@@ -143,6 +143,7 @@ pub fn progress() -> Option<f32> {
 /// Called from SC:R's `open_file` with the normalized path (if it could be normalized), before the
 /// file is opened. Does nothing outside of a load on this thread.
 pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
+    crate::stall_watch::beat();
     let Some(mut pump) = PUMP.take() else {
         return;
     };

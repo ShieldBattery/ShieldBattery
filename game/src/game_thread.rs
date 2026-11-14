@@ -194,7 +194,14 @@ pub fn run_event_loop() -> ! {
     let receive_requests = receive_requests
         .take()
         .expect("Channel to receive requests not set?");
-    while let Ok(msg) = receive_requests.recv() {
+    loop {
+        let received = {
+            let _idle = crate::stall_watch::idle();
+            receive_requests.recv()
+        };
+        let Ok(msg) = received else {
+            break;
+        };
         unsafe {
             handle_game_request(msg.request_type);
         }
@@ -812,6 +819,7 @@ pub fn map_name_for_filename() -> String {
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
 pub unsafe fn after_step_game() {
+    crate::stall_watch::beat();
     unsafe {
         let bw = get_bw();
         add_fow_sprites_for_replay_vision_change(bw);

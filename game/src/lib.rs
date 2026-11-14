@@ -86,9 +86,11 @@ mod rollback_probe;
 mod rollback_soak;
 mod scr_stdout;
 mod snp;
+mod stall_watch;
 mod startup_trace;
 mod sync;
 mod team_colors;
+mod thread_stack;
 mod windows;
 
 #[cfg(debug_assertions)]
@@ -384,6 +386,9 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
         bw.patch_game(image);
     }
     bw::set_bw_impl(bw);
+    // After the analysis and patching above, which keep the main thread busy for a while without
+    // anything counting its progress.
+    stall_watch::start();
     initialize();
     machine_info::log_at_startup();
     unsafe {
@@ -445,7 +450,11 @@ fn initialize() {
     std::thread::spawn(move || {
         async_thread(sender);
     });
-    if receiver.recv().is_err() {
+    let received = {
+        let _idle = stall_watch::idle();
+        receiver.recv()
+    };
+    if received.is_err() {
         // Async thread closed, wait for it to exit the process
         wait_async_exit();
     }
@@ -454,6 +463,7 @@ fn initialize() {
 // Call from main thread when something (closed channel) implies that async thread is shutting
 // down.
 fn wait_async_exit() -> ! {
+    let _idle = stall_watch::idle();
     std::thread::sleep(Duration::from_millis(5000));
     warn!("Async thread exit timed out");
     forge::mouse_speed::restore();
@@ -640,6 +650,9 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             })
             .map(|_| ())
     }));
+    if !bw::get_bw().has_game_started() {
+        stall_watch::log_load_ended_before_start();
+    }
     drop(runtime);
     info!("Async thread end");
     forge::mouse_speed::restore();

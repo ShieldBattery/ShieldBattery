@@ -112,7 +112,12 @@ type MiniDumpWriteDumpFn = unsafe extern "system" fn(
 struct Prepared {
     minidump_write_dump: MiniDumpWriteDumpFn,
     dump_paths: DumpPaths,
+    /// `LdrLockLoaderLock` and `LdrUnlockLoaderLock`, if ntdll has them.
+    loader_lock: Option<(LdrLockLoaderLockFn, LdrUnlockLoaderLockFn)>,
 }
+
+type LdrLockLoaderLockFn = unsafe extern "system" fn(u32, *mut u32, *mut usize) -> i32;
+type LdrUnlockLoaderLockFn = unsafe extern "system" fn(u32, usize) -> i32;
 
 /// Where a dump goes, as nul-terminated UTF-16. It's written to `temp` and only renamed over
 /// `dump` once complete, so a write that fails partway (a full disk, a paging file too small for
@@ -245,6 +250,14 @@ fn prepare() -> Result<Prepared, io::Error> {
     unsafe {
         let minidump_write_dump = load_minidump_write_dump()?;
         let dump_paths = DumpPaths::new();
+        let loader_lock = windows::load_library("ntdll").ok().and_then(|ntdll| {
+            let lock = ntdll.proc_address("LdrLockLoaderLock").ok()?;
+            let unlock = ntdll.proc_address("LdrUnlockLoaderLock").ok()?;
+            Some((
+                mem::transmute::<FARPROC, LdrLockLoaderLockFn>(lock),
+                mem::transmute::<FARPROC, LdrUnlockLoaderLockFn>(unlock),
+            ))
+        });
         let request = CreateEventW(null_mut(), 0, 0, null_mut());
         if request.is_null() {
             return Err(io::Error::last_os_error());
@@ -260,6 +273,7 @@ fn prepare() -> Result<Prepared, io::Error> {
         Ok(Prepared {
             minidump_write_dump,
             dump_paths,
+            loader_lock,
         })
     }
 }
@@ -514,18 +528,101 @@ fn module_containing(address: usize) -> Option<HMODULE> {
 fn write_module_name(f: &mut fmt::Formatter<'_>, module: HMODULE) -> fmt::Result {
     let mut path = [0u16; 260];
     let len = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) } as usize;
-    let path = &path[..len.min(path.len())];
+    write_file_name(f, &path[..len.min(path.len())], module as usize)
+}
+
+/// Writes the last component of `path`, or `base` in hex for an empty one.
+fn write_file_name(f: &mut fmt::Formatter<'_>, path: &[u16], base: usize) -> fmt::Result {
     let name = match path.iter().rposition(|&c| c == u16::from(b'\\')) {
         Some(slash) => &path[slash + 1..],
         None => path,
     };
     if name.is_empty() {
-        return write!(f, "{:x}", module as usize);
+        return write!(f, "{base:x}");
     }
     for c in char::decode_utf16(name.iter().copied()) {
         f.write_char(c.unwrap_or(char::REPLACEMENT_CHARACTER))?;
     }
     Ok(())
+}
+
+/// A code address as `module+offset`, the file name of the module it's in and its offset from the
+/// module's base, or outside any module as [`ExeAddress`] does. Formats without allocating.
+///
+/// Asks the loader, which on some systems takes the loader's lock to answer; outside the crash
+/// path, format these inside [`with_loader_lock`], so that a thread stalled while holding that
+/// lock can't stall the caller too.
+pub struct CodeAddress(pub usize);
+
+impl fmt::Display for CodeAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Some(module) = module_containing(self.0) else {
+            return write!(f, "{}", ExeAddress(self.0));
+        };
+        write_module_name(f, module)?;
+        write!(f, "+{:x}", self.0 - module as usize)
+    }
+}
+
+unsafe extern "system" {
+    fn K32GetMappedFileNameW(
+        process: HANDLE,
+        address: *mut c_void,
+        name: *mut u16,
+        size: u32,
+    ) -> u32;
+}
+
+/// [`CodeAddress`] for when the loader's lock is out of reach: names the module from the memory
+/// map alone, which takes no lock. Code whose image was remapped into memory of another kind (as
+/// the game's own code is) is outside any module here, and shows as [`ExeAddress`] does.
+pub struct MappedCodeAddress(pub usize);
+
+impl fmt::Display for MappedCodeAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut region: MEMORY_BASIC_INFORMATION = unsafe { mem::zeroed() };
+        let found =
+            unsafe { VirtualQuery(self.0 as *const _, &mut region, mem::size_of_val(&region)) }
+                != 0;
+        if !found || region.State != MEM_COMMIT || region.Type != MEM_IMAGE {
+            return write!(f, "{}", ExeAddress(self.0));
+        }
+        let base = region.AllocationBase as usize;
+        let mut path = [0u16; 260];
+        let len = unsafe {
+            K32GetMappedFileNameW(
+                GetCurrentProcess(),
+                base as *mut c_void,
+                path.as_mut_ptr(),
+                path.len() as u32,
+            )
+        } as usize;
+        write_file_name(f, &path[..len.min(path.len())], base)?;
+        write!(f, "+{:x}", self.0 - base)
+    }
+}
+
+/// Runs `func` holding the loader's lock, so that nothing loads or unloads a module meanwhile and
+/// asking the loader can't wait on another thread. Gives a thread that holds the lock briefly a
+/// second to let go; `None` when the lock stays held (or can't be taken at all).
+///
+/// `func` must not wait on another thread, which may be waiting for the loader's lock.
+pub fn with_loader_lock<R>(func: impl FnOnce() -> R) -> Option<R> {
+    const TRY_ONLY: u32 = 2;
+    const ACQUIRED: u32 = 1;
+    let (lock, unlock) = PREPARED.get()?.loader_lock?;
+    for _ in 0..10 {
+        let mut disposition = 0;
+        let mut cookie = 0;
+        let status = unsafe { lock(TRY_ONLY, &mut disposition, &mut cookie) };
+        if status >= 0 && disposition == ACQUIRED {
+            let result = func();
+            unsafe { unlock(0, cookie) };
+            return Some(result);
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    None
 }
 
 unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {
