@@ -1,11 +1,19 @@
 import {
+  mapCollectionIdFromSegment,
   mapFileIdFromSegment,
   mapIdFromRouteSegment,
   urlForMap,
+  urlForMapCollection,
   urlForMapCompare,
 } from '../../../common/map-url'
 import { filterColorCodes, MapVisibility, tilesetToName } from '../../../common/maps'
-import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
+import {
+  defaultPageImage,
+  defaultPageMetadata,
+  englishT,
+  PageMetadataResolver,
+} from '../page-metadata/types'
+import { getMapCollectionPageInfo, MapCollectionPageInfo } from './map-collection-models'
 import { getMapInfos, resolveMapId, resolveMapPageId } from './map-models'
 
 const MAX_DESCRIPTION_LENGTH = 200
@@ -103,5 +111,53 @@ export const mapComparePageMetadata: PageMetadataResolver = async (params, conte
     description: `Compare the terrain, bases and start locations of ${nameA} and ${nameB}.`,
     image: mapB.jpegImageUrl ?? mapA.jpegImageUrl ?? defaultPageImage(context),
     noindex: true,
+  }
+}
+
+/** Whether everyone can see a collection: a staff collection, or a public player's one. */
+function isPublicCollection(collection: MapCollectionPageInfo): boolean {
+  return (
+    collection.kind === 'staff' ||
+    (collection.kind === 'user' && collection.published && !collection.hidden)
+  )
+}
+
+/**
+ * Resolves the metadata for a map collection's page (registered for the
+ * `/maps/collections/:id/:slug?` route in `page-metadata.ts`). Staff collections and public
+ * players' collections describe themselves as anyone sees them, counting only their listed maps;
+ * one with no listed map is kept out of search engines, as it isn't listed. Every other collection (private, hidden or Starred) and an unknown or malformed id get the default
+ * site-wide metadata, kept out of search engines, so the page never reveals what a collection is
+ * called to someone who can't see it.
+ */
+export const mapCollectionPageMetadata: PageMetadataResolver = async (params, context) => {
+  const hidden = { ...defaultPageMetadata(context), noindex: true }
+  const id = params.id ? mapCollectionIdFromSegment(params.id) : undefined
+  if (!id) {
+    return hidden
+  }
+  const collection = await getMapCollectionPageInfo(id)
+  if (!collection || !isPublicCollection(collection)) {
+    return hidden
+  }
+
+  const title = cleanText(collection.title ?? '')
+  const description = cleanText(collection.description)
+  const count = collection.listedMapCount
+  const maps = `${count} ${count === 1 ? 'map' : 'maps'}`
+  const ownerName = collection.ownerName ? cleanText(collection.ownerName) : undefined
+  const fallbackDescription = ownerName ? `${maps} by ${ownerName}` : maps
+  const firstMap = collection.firstListedMapId
+    ? (await getMapInfos([collection.firstListedMapId]))[0]
+    : undefined
+
+  return {
+    url: context.canonicalHost + urlForMapCollection(collection.id, collection.title),
+    type: 'website',
+    title: title || 'Untitled collection',
+    description: description ? truncate(description, MAX_DESCRIPTION_LENGTH) : fallbackDescription,
+    // Crawlers don't all decode AVIF
+    image: firstMap?.jpegImageUrl ?? defaultPageImage(context),
+    noindex: count === 0,
   }
 }
