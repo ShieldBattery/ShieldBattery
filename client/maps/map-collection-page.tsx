@@ -956,6 +956,7 @@ interface RowEditing {
    * the last one moved and its button still awaits focus in the map's new place.
    */
   takePendingFocus: (mapId: string) => MoveDirection | undefined
+  /** `index` is the row's position in the order shown, which the move's target is computed from. */
   onMove: (mapId: SbMapId, index: number, direction: MoveDirection) => void
   onRemove: (mapId: SbMapId, name: string) => void
 }
@@ -1018,7 +1019,8 @@ function CollectionRows({
         },
         onMove: (mapId, index, direction) => {
           const toIndex = moveTargetIndex(index, direction, mapCount)
-          // A move computes its target from the order shown, which is stale until it's applied
+          // A move's target comes from the order shown, so moves are ignored while one is being
+          // applied here, and (in RowsChunk) while the rows are reloading after one
           if (movePending || toIndex === undefined) {
             return
           }
@@ -1108,6 +1110,11 @@ function useRowsPage(collectionId: string, after: string | null, filter: MapFilt
   return {
     connection: data?.mapCollection?.maps,
     error: result.error,
+    /**
+     * Whether a request for this page is in flight, so the rows returned may not be the collection's
+     * current order.
+     */
+    reloading: result.fetching || !!result.stale,
     retry: () => reexecute({ requestPolicy: 'network-only' }),
   }
 }
@@ -1146,6 +1153,16 @@ function RowsChunk({
   const { t } = useTranslation()
   const page = useRowsPage(collectionId, after, filter)
   const connection = page.connection
+  // Every row's move goes through this wrapper, since a row's position only means something in the
+  // order its page last settled on. Buttons stay enabled so keyboard focus stays where it is.
+  const pageEditing: RowEditing | undefined = editing && {
+    ...editing,
+    onMove: (mapId, index, direction) => {
+      if (!page.reloading) {
+        editing.onMove(mapId, index, direction)
+      }
+    },
+  }
   const endCursor = connection?.pageInfo.hasNextPage
     ? (connection.pageInfo.endCursor ?? undefined)
     : undefined
@@ -1185,7 +1202,7 @@ function RowsChunk({
                 map={edge.node}
                 index={numbered ? rowIndex(pageIndex, i, ROWS_PAGE_SIZE) : undefined}
                 ownPoolType={ownPoolType}
-                editing={editing}
+                editing={pageEditing}
               />
             ))}
           </MapRowSubList>

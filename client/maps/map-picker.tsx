@@ -502,7 +502,12 @@ export function MapPicker({
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
   const listKey = JSON.stringify([tab, filter, sort, tab === MapListing.Yours && libraryVersion])
-  const openedCollection = isCollections ? session.collection : undefined
+  // The remembered collection is shared by every picker, so one adding to it lists collections
+  // instead of showing the collection it is adding to
+  const openedCollection =
+    isCollections && !(inCollectionMode && session.collection?.id === collection.id)
+      ? session.collection
+      : undefined
 
   let content: ReactNode
   if (isCollections) {
