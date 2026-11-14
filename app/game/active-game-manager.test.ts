@@ -141,14 +141,14 @@ describe('ActiveGameManager packaged launch checks', () => {
   it('fails a packaged launch when the DLL check rejects', async () => {
     electronApp.isPackaged = true
     vi.mocked(checkStarcraftPath).mockResolvedValueOnce({ path: true, version: true })
-    const failure = new Error('DLL check failed')
-    verifyGame.mockRejectedValue(failure)
+    verifyGame.mockRejectedValue(new Error('DLL check failed'))
     const { manager, statuses } = launch()
     await vi.waitFor(() =>
       expect(statuses).toContainEqual(
         expect.objectContaining({
           state: 'error',
-          extra: failure,
+          extra: expect.objectContaining({ message: 'DLL check failed' }),
+          launchErrorKind: 'verification',
         }),
       ),
     )

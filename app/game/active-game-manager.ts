@@ -19,6 +19,7 @@ import {
   isReplayMapInfo,
 } from '../../common/games/game-launch-config'
 import {
+  GameLaunchErrorKind,
   GameNetworkStatus,
   GameStatus,
   ReportedGameStatus,
@@ -73,6 +74,7 @@ interface ActiveGameInfo {
   status?: {
     state: GameStatus
     extra: any // TODO(tec27): Type the extra param based on the GameStatus
+    launchErrorKind?: GameLaunchErrorKind
   }
   /**
    * A promise for when the game process has been launched, returning an instance of the process.
@@ -138,11 +140,22 @@ function isGameConfig(
   return !!(possibleConfig as any).setup
 }
 
+/** A launch failure the player can fix themselves, named so the client can explain it. */
+class GameLaunchError extends Error {
+  constructor(
+    readonly kind: GameLaunchErrorKind,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
 function reportedStatus(game: ActiveGameInfo): ReportedGameStatus {
   return {
     id: game.id,
     state: statusToString(game.status?.state ?? GameStatus.Unknown),
     extra: game.status?.extra,
+    launchErrorKind: game.status?.launchErrorKind,
     isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
     networkStatus: game.networkStatus,
   }
@@ -617,7 +630,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     log.error(`Error while launching game ${id}: ${err.stack}`)
     const game = this.gameFor(id)
     if (game) {
-      this.setStatus(game, GameStatus.Error, err)
+      this.setStatus(
+        game,
+        GameStatus.Error,
+        err,
+        err instanceof GameLaunchError ? err.kind : undefined,
+      )
       this.untrackGame(game)
     }
   }
@@ -1134,8 +1152,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     log.error(`Error while waiting for game ${id} to exit: ${String(err.stack ?? err)}`)
   }
 
-  private setStatus(game: ActiveGameInfo, state: GameStatus, extra: any = null) {
-    game.status = { state, extra }
+  private setStatus(
+    game: ActiveGameInfo,
+    state: GameStatus,
+    extra: any = null,
+    launchErrorKind?: GameLaunchErrorKind,
+  ) {
+    game.status = { state, extra, launchErrorKind }
     this.emit('gameStatus', reportedStatus(game))
     log.verbose(
       `Game ${game.id} status updated to '${statusToString(state)}' [${JSON.stringify(extra)}]`,
@@ -1208,7 +1231,11 @@ async function doLaunch(
     : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
   if (app.isPackaged) {
     const { verifyGame } = await import('virtual:sb-security-impl')
-    await verifyGame?.(injectPath, appPath, msg => log.error(msg))
+    try {
+      await verifyGame?.(injectPath, appPath, msg => log.error(msg))
+    } catch (err) {
+      throw new GameLaunchError('verification', err instanceof Error ? err.message : String(err))
+    }
   }
 
   // Ensure that our local settings file is up-to-date with the current settings

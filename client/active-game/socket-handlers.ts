@@ -7,6 +7,8 @@ import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import {
   addRecentReplayPathAtom,
@@ -114,6 +116,21 @@ export default function ({
         // quitting the game immediately). We may want to change this at some point, but we'll have
         // to make the server assign replay IDs in that case.
         return
+      }
+
+      if (status.state === 'error' && status.launchErrorKind === 'verification') {
+        // The player can fix this themselves, so it gets a dialog that says how. Whatever else
+        // reacts to the game not loading (e.g. matchmaking's load-canceled notice) leaves the
+        // explaining to this.
+        const game = jotaiStore.get(participatingGameAtom)
+        dispatch(
+          openDialog({
+            type: DialogType.GameVerificationFailed,
+            initData: {
+              matchmaking: game?.gameId === status.id && game.matchmakingType !== undefined,
+            },
+          }),
+        )
       }
 
       if (status.state === 'playing') {

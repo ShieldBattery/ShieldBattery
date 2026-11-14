@@ -289,7 +289,7 @@ export const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  queueStatus: event => dispatch => {
+  queueStatus: event => (dispatch, getState) => {
     logger.debug(
       `Matchmaking queue status received: ${event.matchmaking ? JSON.stringify(event.matchmaking) : 'Not in queue'}`,
     )
@@ -305,9 +305,14 @@ export const eventToAction: EventToActionMap = {
             initData: { ...canceledMatch, requeued: false },
           }),
         )
-      } else if (canceledMatch?.phase === 'load') {
-        // A failed load is the moment this client's logs say the most about why, so the app offers
-        // a bug report (which uploads them) right on the notice. The web client has no logs to send.
+      } else if (
+        canceledMatch?.phase === 'load' &&
+        getState().gameClient.status?.launchErrorKind === undefined
+      ) {
+        // A launch that failed for a reason this client has already explained in a dialog of its
+        // own (the game's status names the reason) gets no second notice. Any other failed load is
+        // the moment this client's logs say the most about why, so the app offers a bug report
+        // (which uploads them) right on the notice. The web client has no logs to send.
         externalShowSnackbar(
           i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
           IS_ELECTRON ? DURATION_LONG : undefined,

@@ -1,5 +1,6 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { ReportedGameStatus } from '../../common/games/game-status'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { asMockedFunction } from '../../common/testing/mocks'
@@ -97,6 +98,7 @@ function runHandler(
   result: unknown,
   dialogHistory: Array<{ type: DialogType }>,
   flashTaskbar = true,
+  gameStatus?: ReportedGameStatus,
 ) {
   const dispatched: unknown[] = []
   const dispatch = ((action: unknown) => {
@@ -104,6 +106,7 @@ function runHandler(
   }) as DispatchFunction<any>
   const getState = (() => ({
     dialog: { history: dialogHistory },
+    gameClient: { status: gameStatus, watchOnly: {} },
     settings: { account: { ...DEFAULT_ACCOUNT_SETTINGS, flashTaskbar } },
   })) as unknown as () => RootState
 
@@ -141,8 +144,8 @@ function runRequeue(dialogHistory: Array<{ type: DialogType }> = []) {
   return runHandler(eventToAction.requeue({ type: 'requeue' } as any), dialogHistory)
 }
 
-function runQueueStatus(dialogHistory: Array<{ type: DialogType }> = []) {
-  return runHandler(eventToAction.queueStatus({ type: 'queueStatus' } as any), dialogHistory)
+function runQueueStatus(gameStatus?: ReportedGameStatus) {
+  return runHandler(eventToAction.queueStatus({ type: 'queueStatus' } as any), [], true, gameStatus)
 }
 
 describe('client/matchmaking/socket-handlers/matchFound', () => {
@@ -526,6 +529,26 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
 
     // A later requeue from a different match isn't explained by the stale cancel.
     expect(openedDialogs(runRequeue())).toEqual([])
+  })
+
+  test('leaves a launch failure that has its own explanation without a notification', () => {
+    runHandler(
+      eventToAction.cancelLoading({
+        type: 'cancelLoading',
+        reason: 'playerFailedToLoad',
+      }),
+      [],
+    )
+    const dispatched = runQueueStatus({
+      id: 'game-1',
+      state: 'error',
+      isReplay: false,
+      launchErrorKind: 'verification',
+    })
+
+    expect(openedDialogs(dispatched)).toEqual([])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+    expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
   })
 })
 

@@ -90,10 +90,22 @@ export interface GameNetworkStatus {
   error?: string
 }
 
+/**
+ * Why a game failed to launch, for the failures a player can fix themselves:
+ *
+ * - `verification`: the game's files couldn't be verified
+ */
+export type GameLaunchErrorKind = 'verification'
+
 export interface ReportedGameStatus {
   id: string
   state: GameStatusString
   extra?: any
+  /**
+   * Set on an `error` status when the launch failed for a reason the player can act on, so the
+   * client can explain that instead of treating it as a bug.
+   */
+  launchErrorKind?: GameLaunchErrorKind
   isReplay: boolean
   /**
    * Which turn transport the game ended up using, reported once via `/game/networkStatus` during

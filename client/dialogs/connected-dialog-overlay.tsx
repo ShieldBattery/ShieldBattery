@@ -98,6 +98,10 @@ const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
 const ImageViewerDialog = React.lazy(async () => ({
   default: (await import('../markdown/image-viewer-dialog')).ImageViewerDialog,
 }))
+const GameVerificationFailedDialog = React.lazy(async () => ({
+  default: (await import('../starcraft/game-verification-failed-dialog'))
+    .GameVerificationFailedDialog,
+}))
 const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
@@ -294,6 +298,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MapPreviewDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
+    case DialogType.GameVerificationFailed:
+      return { component: GameVerificationFailedDialog }
     case DialogType.MatchCanceled:
       return { component: MatchCanceledDialog }
     case DialogType.MatchmakingBanned:

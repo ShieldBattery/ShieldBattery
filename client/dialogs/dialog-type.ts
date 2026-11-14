@@ -41,6 +41,7 @@ export enum DialogType {
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
+  GameVerificationFailed = 'gameVerificationFailed',
   FailedToAcceptMatch = 'failedToAcceptMatch',
   BattleNetSettingsCopy = 'battleNetSettingsCopy',
   GameDefaultsApply = 'gameDefaultsApply',
@@ -347,6 +348,12 @@ type MapPreviewDialogPayload = BaseDialogPayload<
     mapId: SbMapId
   }
 >
+type GameVerificationFailedDialogPayload = BaseDialogPayload<
+  typeof DialogType.GameVerificationFailed,
+  {
+    matchmaking: boolean
+  }
+>
 type MarkdownDialogPayload = BaseDialogPayload<
   typeof DialogType.Markdown,
   {
@@ -531,6 +538,7 @@ export type DialogPayload =
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
+  | GameVerificationFailedDialogPayload
   | MatchCanceledDialogPayload
   | MatchmakingBannedDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
