@@ -460,7 +460,6 @@ export type SbPermissionsInput = {
   manageNews: boolean
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
-  massDeleteMaps: boolean
   moderateChatChannels: boolean
   useDevelopmentClient: boolean
 }
@@ -3348,7 +3347,6 @@ export type AdminUserProfile_PermissionsFragment = {
     manageMatchmaking: boolean
     manageMatchmakingTimes: boolean
     manageMatchmakingSeasons: boolean
-    massDeleteMaps: boolean
     moderateChatChannels: boolean
     manageNews: boolean
     manageBugReports: boolean
@@ -6091,7 +6089,6 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
@@ -21134,7 +21131,6 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
@@ -21231,7 +21227,6 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },

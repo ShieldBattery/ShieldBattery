@@ -25,11 +25,6 @@ const LoadableGameReports = React.lazy(async () => ({
 const LoadableReviewRequests = React.lazy(async () => ({
   default: (await import('../games/admin-review-requests')).AdminReviewRequests,
 }))
-const LoadableMapManager = IS_ELECTRON
-  ? React.lazy(async () => ({
-      default: (await import('./map-manager')).AdminMapManager,
-    }))
-  : () => null
 const LoadableMapReports = React.lazy(async () => ({
   default: (await import('../maps/admin-map-reports')).AdminMapReports,
 }))
@@ -333,15 +328,6 @@ export default function AdminPanel() {
           title: 'Live streams',
           description: 'Which streams are featured on the site',
           icon: 'live_tv',
-        },
-        {
-          path: '/admin/map-manager',
-          // The map manager needs local file access, so it only exists in the app
-          allowed: IS_ELECTRON && !!(perms?.manageMaps || perms?.massDeleteMaps),
-          Component: LoadableMapManager,
-          title: 'Maps',
-          description: 'Upload and remove maps',
-          icon: 'landscape',
         },
         {
           path: '/admin/maps/reports',

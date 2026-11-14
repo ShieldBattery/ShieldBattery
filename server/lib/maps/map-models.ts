@@ -587,34 +587,3 @@ export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
     done()
   }
 }
-
-/**
- * Removes all maps in the database.
- *
- * This function should only be used by users with necessary, super-restrictive, permissions. Note
- * that unlike the user-facing removal functions, which only take a map out of a user's maps or the
- * listings, this one actually deletes all maps from the database, along with every ladder map pool
- * and the maps of every collection. Use with care!
- *
- * @param deleteFromStoreFn A function that will be called during the database transaction that
- *   should delete the map contents from the file store as well. If this function fails, the
- *   transaction will be rolled back
- */
-export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promise<void>) {
-  return transact(async client => {
-    const query = sql`
-      BEGIN;
-        UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
-        UPDATE matchmaking_preferences SET map_selections = '{}';
-        TRUNCATE matchmaking_map_pools, collection_maps, map_favorite_counts, map_library,
-          map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
-          map_family_reports, map_family_history, map_family_stats, map_family_aliases,
-          map_families, map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;
-        DELETE FROM collections WHERE kind = 'ladder_pool';
-      COMMIT;
-    `
-
-    await client.query(query)
-    await deleteFromStoreFn()
-  })
-}

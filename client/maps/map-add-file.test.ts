@@ -133,6 +133,64 @@ describe('maps/map-add-file/planAddFile', () => {
       join,
     )
   })
+
+  describe('for staff', () => {
+    const join = { kind: 'publish', answer: MapPublishAnswerKind.Join }
+
+    test('publishes a file out of any map, whatever its maker, credit or other files', () => {
+      for (const family of [
+        { ownerId: SOMEONE_ELSE },
+        { credited: true },
+        { fileCount: 2, listed: true },
+        { fileCount: 2, listed: true, ownerId: SOMEONE_ELSE },
+      ]) {
+        expect(planAddFile(file({ family }), TARGET, VIEWER, true)).toEqual(join)
+      }
+    })
+
+    test('publishes a file staff delisted, but not one without a name', () => {
+      expect(planAddFile(file({ staffDelisted: true }), TARGET, VIEWER, true)).toEqual(join)
+      expect(planAddFile(file({ name: '\u0003 ' }), TARGET, VIEWER, true)).toMatchObject({
+        reason: 'noName',
+      })
+    })
+
+    test('moves in a listed file they published from a map with another maker or a credit', () => {
+      for (const family of [{ ownerId: SOMEONE_ELSE }, { credited: true }]) {
+        expect(
+          planAddFile(file({ listed: true, publisherId: VIEWER, family }), TARGET, VIEWER, true),
+        ).toEqual({ kind: 'link' })
+      }
+    })
+
+    test('leaves listed files of other maps to the Files card', () => {
+      const listedElsewhere = {
+        kind: 'unavailable',
+        reason: 'listedElsewhere',
+        mapName: 'Eclipse 1.3',
+      }
+      expect(
+        planAddFile(file({ listed: true, publisherId: SOMEONE_ELSE }), TARGET, VIEWER, true),
+      ).toEqual(listedElsewhere)
+      expect(
+        planAddFile(
+          file({ listed: true, publisherId: VIEWER, family: { fileCount: 2 } }),
+          TARGET,
+          VIEWER,
+          true,
+        ),
+      ).toEqual(listedElsewhere)
+    })
+
+    test('knows files already in the map', () => {
+      expect(
+        planAddFile(file({ listed: true, family: { id: TARGET } }), TARGET, VIEWER, true),
+      ).toEqual({ kind: 'alreadyHere' })
+      expect(
+        planAddFile(file({ family: { id: TARGET, fileCount: 2 } }), TARGET, VIEWER, true),
+      ).toEqual({ kind: 'publish', answer: MapPublishAnswerKind.Keep })
+    })
+  })
 })
 
 describe('maps/map-add-file/addFileUnavailableText', () => {
