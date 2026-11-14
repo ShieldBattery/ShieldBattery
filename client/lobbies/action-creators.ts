@@ -2,7 +2,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { LobbyVisibility } from '../../common/lobbies'
+import { findSlotByUserId, LobbyVisibility } from '../../common/lobbies'
 import {
   CreateLobbyRequest,
   CreateLobbyResponse,
@@ -22,10 +22,12 @@ import {
   UpdateLobbySettingsRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { SlotType } from '../../common/lobbies/slot'
 import { SbMapId } from '../../common/maps'
-import { RaceChar } from '../../common/races'
+import { ALL_RACE_CHARS, RaceChar } from '../../common/races'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import logger from '../logging/logger'
@@ -33,10 +35,31 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
+import { getUserLocalStorageValue, setUserLocalStorageValue } from '../react/state-hooks'
 import { ActivateLobby, DeactivateLobby } from './actions'
 import { isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
+const LOBBY_RACE_KEY = 'lobbies.lastRace'
+
+// Keep successive personal race changes in selection order, including when entering another
+// lobby while the last change is still being confirmed.
+let pendingOwnRaceChange = Promise.resolve()
+
+async function getRememberedLobbyRace(userId: SbUserId | undefined): Promise<RaceChar | undefined> {
+  if (userId === undefined) {
+    return undefined
+  }
+
+  await pendingOwnRaceChange
+  try {
+    const race = getUserLocalStorageValue<unknown>(userId, LOBBY_RACE_KEY)
+    return ALL_RACE_CHARS.find(value => value === race)
+  } catch {
+    // Local storage can be unavailable in some browser contexts.
+    return undefined
+  }
+}
 
 /**
  * Collects the netcode inputs reported alongside a lobby create or join: the occupant's home region,
@@ -95,8 +118,10 @@ export function createLobby(
   }: CreateLobbyParams,
   spec: RequestHandlingSpec<CreateLobbyResponse>,
 ): ThunkAction {
-  return abortableThunk(spec, async () => {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const userId = getState().auth.self?.user.id
     const network = await resolveNetworkParams()
+    const race = await getRememberedLobbyRace(userId)
 
     return await fetchJson<CreateLobbyResponse>(apiUrl`lobbies`, {
       method: 'POST',
@@ -106,6 +131,7 @@ export function createLobby(
         map,
         gameType,
         gameSubType,
+        race,
         useLegacyLimits,
         starcraftCompatibleReplays,
         lockedAlliances,
@@ -137,13 +163,16 @@ export function joinLobby(
   { asObserver, leaveCurrentLobby }: JoinLobbyParams = {},
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return abortableThunk(spec, async () => {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const userId = getState().auth.self?.user.id
     const network = await resolveNetworkParams()
+    const race = await getRememberedLobbyRace(userId)
 
     await fetchJson<void>(apiUrl`lobbies/${id}/join`, {
       method: 'POST',
       body: encodeBodyAsParams<JoinLobbyRequest>({
         clientId,
+        race,
         asObserver,
         leaveCurrentLobby,
         ...network,
@@ -203,13 +232,32 @@ export function setRace(
   race: RaceChar,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/set-race`, {
-      method: 'POST',
-      body: encodeBodyAsParams<SetLobbyRaceRequest>({ clientId, slotId, race }),
-      signal: spec.signal,
-    }),
-  )
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { auth, lobby } = getState()
+    if (!isInLobby(lobby)) {
+      return
+    }
+
+    const changeRace = () =>
+      fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/set-race`, {
+        method: 'POST',
+        body: encodeBodyAsParams<SetLobbyRaceRequest>({ clientId, slotId, race }),
+        signal: spec.signal,
+      })
+    const userId = auth.self?.user.id
+    const ownSlot = userId !== undefined ? findSlotByUserId(lobby.info, userId)[2] : undefined
+    if (userId === undefined || ownSlot?.type !== SlotType.Human || ownSlot.id !== slotId) {
+      await changeRace()
+      return
+    }
+
+    const change = pendingOwnRaceChange.then(async () => {
+      await changeRace()
+      setUserLocalStorageValue(userId, LOBBY_RACE_KEY, race)
+    })
+    pendingOwnRaceChange = change.catch(() => {})
+    await change
+  })
 }
 
 export function openSlot(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
