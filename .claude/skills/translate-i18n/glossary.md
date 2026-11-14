@@ -213,6 +213,7 @@ consistent. (Seed — extend over time.)
 - **Discord activity:** activity→actividad, Ranked {{mode}}→Clasificatoria {{mode}} (matches
   `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**barcode** (community loanword: los barcodes), a player’s name→**nombre**, type (on a keyboard)→**teclear** ("escribir a mano" means handwriting).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -346,6 +347,7 @@ consistent. (Seed — extend over time.)
   (dodges a verb against a nominative mode label), Ranked {{mode}}→Рейтинговый {{mode}}. preorder
   skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
   «Открыть страницу Battle.net» clips in its slot beside the note.
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**баркод** (community loanword; штрихкод is the retail sense), a player’s name→**имя**.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -477,6 +479,7 @@ consistent. (Seed — extend over time.)
 - **Discord activity:** activity→활동, Ranked {{mode}}→**{{mode}} 래더** (matches
   `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
   section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**바코드**, a player’s name→**이름** (the display name, 표시 이름; never 아이디, which is the login name and is not what the rule covers).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -588,3 +591,4 @@ consistent. (Seed — extend over time.)
 - **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**条形码**, a player’s name→**名字**.

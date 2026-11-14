@@ -23,7 +23,8 @@ function getRulesMarkdown(t: TFunction): string {
       'rules.list',
       '1. **Play fair.** Cheating is not permitted.\n2. **Respect others.** Refrain from ' +
         'abusive language and behavior, and treat fellow players with dignity.\n3. **Respect ' +
-        'the game.** Don’t leave games prematurely.',
+        'the game.** Don’t leave games prematurely.\n4. **Respect your name.** Names that ' +
+        'can’t be read or typed by hand, such as barcodes, are not permitted.',
     ),
     t(
       'rules.consequences',
