@@ -24,6 +24,18 @@ pub fn frame_ms(game_speed: u8) -> f64 {
     FRAME_MS.get(game_speed as usize).copied().unwrap_or(42.0)
 }
 
+/// Milliseconds between the ticks a recorded track is stored at, roughly. Cursor motion
+/// interpolated between ticks this close follows the path the cursor took closely enough to read
+/// the same by eye, and closer ticks mostly cost space.
+const TICK_MS: f64 = 21.0;
+
+/// Ticks per frame of a track recorded with frames `frame_ms` long, so its ticks are about
+/// [`TICK_MS`] apart. [`TrackRecorder::new`] clamps it to what tracks support.
+fn ticks_per_frame(frame_ms: f64) -> u8 {
+    // Float to integer casts saturate, and give 0 for NaN.
+    (frame_ms / TICK_MS).round() as u8
+}
+
 /// A frame that has been on screen for longer than this many frame lengths is stalled (waiting on
 /// the network or paused). Cursor movement during a stall happens at no point of the replay's
 /// timeline, so it isn't recorded.
@@ -73,11 +85,12 @@ pub struct LiveView {
 
 /// Starts recording the local player's perspective, discarding any earlier recording.
 pub fn start_recording(owner: TrackOwner, game_speed: u8) {
+    let frame_ms = frame_ms(game_speed);
     *RECORDING.lock() = Some(Recording {
-        recorder: TrackRecorder::new(owner),
+        recorder: TrackRecorder::new(owner, ticks_per_frame(frame_ms)),
         frame: 0,
         frame_shown_at: Instant::now(),
-        frame_ms: frame_ms(game_speed),
+        frame_ms,
         viewport: None,
         drag_start: None,
         last_sample_at: None,
@@ -163,11 +176,7 @@ pub fn recorded_track() -> Option<Track> {
     let guard = RECORDING.lock();
     let recording = guard.as_ref()?;
     let track = recording.recorder.snapshot(false);
-    if track.samples.is_empty() {
-        None
-    } else {
-        Some(track)
-    }
+    if track.is_empty() { None } else { Some(track) }
 }
 
 static REPLAY_TRACKS: OnceLock<Vec<Track>> = OnceLock::new();
@@ -437,4 +446,18 @@ fn advance_clock(clock: &mut Option<FrameClock>, frame: u32, frame_ms: f64, now:
         0.0
     };
     frame as f64 + fraction
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn ticks_are_about_21_ms_apart() {
+        let ticks: Vec<u8> = (0..7)
+            .map(|speed| ticks_per_frame(frame_ms(speed)))
+            .collect();
+        assert_eq!(ticks, [8, 5, 4, 3, 3, 2, 2]);
+        assert_eq!(ticks_per_frame(f64::NAN), 0);
+    }
 }
