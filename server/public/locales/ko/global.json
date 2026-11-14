@@ -205,6 +205,7 @@
       "haveSignupCodeLink": "가입 코드가 있으신가요?",
       "password": "비밀번호",
       "readAndAgree": "나는 <2>서비스 약관</2>, <5>사용 정책</5>, 그리고 <8>개인정보 보호 정책</8>에 동의하고 읽었습니다",
+      "rulesAgreement": "나는 <2>플랫폼 규칙</2>을 읽었으며 이를 따르겠습니다",
       "signupCode": "가입 코드 (선택 사항)",
       "title": "계정 만들기",
       "username": "아이디"

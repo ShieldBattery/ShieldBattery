@@ -205,6 +205,7 @@
       "haveSignupCodeLink": "Have a signup code?",
       "password": "Password",
       "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <5>Acceptable Use</5>, and <8>Privacy</8> policies",
+      "rulesAgreement": "I have read and will follow the <2>platform rules</2>",
       "signupCode": "Signup code (optional)",
       "title": "Create account",
       "username": "Username"

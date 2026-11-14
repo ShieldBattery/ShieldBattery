@@ -51,7 +51,11 @@ function DialogLink({
   dialogType,
   children,
 }: {
-  dialogType: DialogType.TermsOfService | DialogType.AcceptableUse | DialogType.PrivacyPolicy
+  dialogType:
+    | DialogType.TermsOfService
+    | DialogType.AcceptableUse
+    | DialogType.PrivacyPolicy
+    | DialogType.Rules
   children: string
 }) {
   const dispatch = useAppDispatch()
@@ -98,6 +102,7 @@ interface SignupModel {
   confirmPassword: string
   ageConfirmation: boolean
   policyAgreement: boolean
+  rulesAgreement: boolean
   signupCode?: string
 }
 
@@ -126,6 +131,7 @@ export function Signup() {
       confirmPassword: '',
       ageConfirmation: false,
       policyAgreement: false,
+      rulesAgreement: false,
       signupCode: '',
     },
     {
@@ -135,6 +141,7 @@ export function Signup() {
       confirmPassword: confirmPasswordValidator,
       ageConfirmation: requireChecked(),
       policyAgreement: requireChecked(),
+      rulesAgreement: requireChecked(),
       signupCode: randomCodeValidator,
     },
   )
@@ -240,6 +247,19 @@ export function Signup() {
                   <DialogLink dialogType={DialogType.TermsOfService}>Terms of Service</DialogLink>,{' '}
                   <DialogLink dialogType={DialogType.AcceptableUse}>Acceptable Use</DialogLink>, and{' '}
                   <DialogLink dialogType={DialogType.PrivacyPolicy}>Privacy</DialogLink> policies
+                </Trans>
+              </span>
+            }
+            inputProps={{ tabIndex: 0 }}
+            disabled={isLoading}
+          />
+          <CheckBoxWithError
+            {...bindCheckable('rulesAgreement')}
+            label={
+              <span>
+                <Trans t={t} i18nKey='auth.signup.rulesAgreement'>
+                  I have read and will follow the{' '}
+                  <DialogLink dialogType={DialogType.Rules}>platform rules</DialogLink>
                 </Trans>
               </span>
             }

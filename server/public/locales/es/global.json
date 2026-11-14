@@ -205,6 +205,7 @@
       "haveSignupCodeLink": "¿Tienes un código de registro?",
       "password": "Contraseña",
       "readAndAgree": "He leído y estoy de acuerdo con los <2>Términos de Servicio</2>, <5>Uso Aceptable</5> y <8>Política de Privacidad</8>",
+      "rulesAgreement": "He leído y seguiré las <2>reglas de la plataforma</2>",
       "signupCode": "Código de registro (opcional)",
       "title": "Crea cuenta",
       "username": "Nombre de usuario"
