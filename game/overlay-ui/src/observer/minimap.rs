@@ -46,17 +46,19 @@ pub(crate) const FRAME_PAD: f32 = 4.0;
 pub(crate) const HEADER_HEIGHT: f32 = 28.0;
 
 /// Height of a button in the header, and the room either side of its label.
-const BUTTON_HEIGHT: f32 = 20.0;
-const BUTTON_PAD: f32 = theme::SPACE_SM;
+const BUTTON_HEIGHT: f32 = 22.0;
+const BUTTON_PAD: f32 = 6.0;
 
-/// The narrowest a header button is, so a short translation still makes a target worth aiming at.
-const BUTTON_MIN_WIDTH: f32 = 52.0;
+/// The narrowest a header button is: wide enough for the longest label any language gives either
+/// button, so the two are the same width in every language and the clock between them stands in
+/// the same place.
+const BUTTON_MIN_WIDTH: f32 = 56.0;
 
 /// Text size of a header button's label.
-const BUTTON_TEXT_SIZE: f32 = 12.0;
+const BUTTON_TEXT_SIZE: f32 = 13.0;
 
 /// Text size of the game clock between the header's buttons.
-const CLOCK_SIZE: f32 = 16.0;
+const CLOCK_SIZE: f32 = 20.0;
 
 /// The least room kept between the clock and either button.
 const CLOCK_GAP: f32 = theme::SPACE_SM;
@@ -309,12 +311,21 @@ fn button_spec() -> text::TextSpec {
 }
 
 /// Draws one header button: the kit's chip, lit in the accent while what it opens is open.
+///
+/// The chip is drawn without its label, which is set here on its capitals instead: the chip centers
+/// the box the face leaves around a label, and that sets a word of mostly small letters visibly low.
 fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Response {
     let response = ui
         .scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
-            widgets::chip_button(ui, &button_spec(), label, rect.size())
+            widgets::chip_button(ui, &button_spec(), "", rect.size())
         })
         .inner;
+    let color = if response.hovered() {
+        theme::TEXT_PRIMARY
+    } else {
+        theme::TEXT_SECONDARY
+    };
+    paint_on_capitals(ui, rect, &button_spec().with_color(color), label);
     if lit {
         ui.painter().add(Shape::rect_stroke(
             rect,
@@ -324,6 +335,27 @@ fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Respo
         ));
     }
     response
+}
+
+/// Paints `label` centered across `rect`, with the middle of a capital letter set on the rect's
+/// middle.
+///
+/// Placed by its baseline rather than by its own letters, so every label sits on the same line
+/// whatever it is spelled with: centered on its own ink, a word with a descender would ride higher
+/// than one without, and a word in a script whose letters stand taller would ride lower.
+fn paint_on_capitals(ui: &Ui, rect: Rect, spec: &text::TextSpec, label: &str) {
+    let galley = spec.layout(
+        ui.ctx(),
+        spec.job_truncated(label, (rect.width() - theme::SPACE_SM).max(0.0)),
+    );
+    let capital = spec.galley(ui, "H");
+    let capital_middle = text::ink_bounds(&capital).center().y - text::baseline(&capital);
+    let top = rect.center().y - capital_middle - text::baseline(&galley);
+    ui.painter().galley(
+        pos2(rect.center().x - galley.size().x * 0.5, top),
+        galley,
+        spec.color,
+    );
 }
 
 /// Names the header button the pointer is resting on, and the key that does the same.
