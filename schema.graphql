@@ -683,9 +683,10 @@ enum MapChange {
 }
 
 """
-A named, ordered list of maps: a player's own collection, a player's Starred maps, or a
-collection made by staff. Everyone other than its owner (and, for a staff collection, users who
-can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only those.
+A named, ordered list of maps: a player's own collection, a player's Starred maps, a collection
+made by staff, or a ladder map pool. Everyone other than its owner (and, for a staff collection,
+users who can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only
+those; a ladder map pool shows all of its maps to everyone who can see it.
 """
 type MapCollection {
 	id: UUID!
@@ -704,10 +705,20 @@ type MapCollection {
 	"""
 	owner: SbUser
 	"""
-	Whether everyone can see the collection: always for `STAFF`, and for `USER` while its owner
-	has made it public and staff haven't hidden it.
+	Whether everyone can see the collection: always for `STAFF`, for `USER` while its owner has
+	made it public and staff haven't hidden it, and for `LADDER_POOL` once the pool has started
+	and holds at least 2 maps.
 	"""
 	public: Boolean!
+	"""
+	Whether this is Staff picks, the staff collection whose maps are marked as staff picks. It
+	can't be deleted.
+	"""
+	grantsStaffPick: Boolean!
+	"""
+	The ladder map pool this collection is. Null unless it's a `LADDER_POOL`.
+	"""
+	pool: MapCollectionPool
 	"""
 	That staff hid the collection, keeping it from everyone but its owner and staff. Only shown
 	to its owner and to users who can manage maps; null otherwise, and while it isn't hidden.
@@ -732,7 +743,7 @@ type MapCollection {
 	"""
 	Whether the viewer can add, remove and move the collection's maps: its owner, or for
 	`STAFF`, users who can manage maps. `STARRED` can't be renamed, reordered or deleted, and
-	its maps are ordered newest first.
+	its maps are ordered newest first. Nobody edits a `LADDER_POOL`.
 	"""
 	canEdit: Boolean!
 	createdAt: DateTime!
@@ -816,6 +827,40 @@ enum MapCollectionKind {
 }
 
 """
+A ladder map pool: the maps a matchmaking type plays from its start until the next pool of that
+type starts.
+"""
+type MapCollectionPool {
+	"""
+	The pool's id in the matchmaking map pool APIs.
+	"""
+	id: Int!
+	matchmakingType: MatchmakingType!
+	startDate: DateTime!
+	"""
+	When the next pool of the same matchmaking type starts, ending this one. Null for the
+	latest pool of its type.
+	"""
+	endDate: DateTime
+	"""
+	How many of the pool's maps each player can veto, in matchmaking types that have vetoes.
+	"""
+	maxVetoCount: Int!
+	"""
+	Whether this is the pool its matchmaking type plays now: the latest one that has started.
+	"""
+	isCurrent: Boolean!
+	"""
+	The pool of the same matchmaking type before this one that the viewer can see.
+	"""
+	previous: MapCollection
+	"""
+	The pool of the same matchmaking type after this one that the viewer can see.
+	"""
+	next: MapCollection
+}
+
+"""
 A player's report about a public collection. Only available to users who can manage maps.
 """
 type MapCollectionReport {
@@ -887,6 +932,11 @@ enum MapCollectionSection {
 	Every staff collection, oldest first.
 	"""
 	STAFF
+	"""
+	The current ladder map pool of each matchmaking type that the viewer can see, in
+	matchmaking type order. Pools have no title, so a search leaves none.
+	"""
+	LADDER
 	"""
 	Players' public collections that aren't hidden and hold at least one listed map, the most
 	saved first, then the most recently made public.
@@ -1016,6 +1066,17 @@ type MapFamily {
 	`SbMap.isFavorited`). Empty when logged out.
 	"""
 	viewerCollectionIds: [UUID!]!
+	"""
+	The files of this map that current ladder map pools hold, one entry for each file a pool
+	holds, in matchmaking type order. The ladder plays these exact files, which needn't be the
+	map's current file.
+	"""
+	ladderFiles: [MapLadderFile!]!
+	"""
+	The ladder map pools that have started and hold a file of this map, newest first (current
+	pools included); `first` of them (at most 100). Pools the viewer can't see are left out.
+	"""
+	ladderPools(first: Int! = 20): [MapCollection!]!
 	"""
 	Play statistics summed over every file of the map, or null if none has been played.
 	Recomputed hourly; until then a map's stats are its current file's.
@@ -1452,15 +1513,15 @@ input MapFilter {
 	"""
 	publishedSince: DateTime
 	"""
-	Only official maps (`true`) or only maps that aren't official (`false`).
+	Only staff picks (`true`) or only maps that aren't staff picks (`false`).
 	"""
-	official: Boolean
+	staffPick: Boolean
 	"""
 	Only maps (families) this user owns.
 	"""
 	owner: SbUserId
 	"""
-	Only verified maps (`true`): official maps, and maps whose ownership staff granted. With
+	Only verified maps (`true`): staff picks, and maps whose ownership staff granted. With
 	`false`, only the other maps.
 	"""
 	verified: Boolean
@@ -1490,6 +1551,26 @@ Whether a map is played as a regular melee map or with its own Use Map Settings 
 enum MapKind {
 	MELEE
 	UMS
+}
+
+"""
+A file of a map that a current ladder map pool holds.
+"""
+type MapLadderFile {
+	id: String!
+	"""
+	The matchmaking type whose current pool holds the file.
+	"""
+	matchmakingType: MatchmakingType!
+	"""
+	The file the pool holds. The ladder plays this exact file, whichever file is its map's
+	current one.
+	"""
+	map: SbMap!
+	"""
+	The pool's collection. Null when the viewer can't see it (a pool of one map).
+	"""
+	collection: MapCollection
 }
 
 """
@@ -2240,13 +2321,15 @@ type Mutation {
 	mapRemoveFavorite(id: SbMapId!): SbMap!
 	"""
 	Moves a file to another map. A map left without files is merged into the other map: its id
-	keeps working as an alias, and its favorites and collection entries move along. Only
-	available to users who can manage maps.
+	keeps working as an alias, and its favorites and collection entries move along. A file
+	that shares its map with other files can't be moved while a current or scheduled ladder map
+	pool holds it (`IN_LADDER_POOL`). Only available to users who can manage maps.
 	"""
 	mapFamilyMoveFile(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
 	"""
-	Moves a file out of its map into a new map of its own. Only available to users who can
-	manage maps.
+	Moves a file out of its map into a new map of its own. Refused while a current or scheduled
+	ladder map pool holds the file (`IN_LADDER_POOL`). Only available to users who can manage
+	maps.
 	"""
 	mapFamilySplitFile(fileId: SbMapId!): MapFamilyFileMove!
 	"""
@@ -2304,14 +2387,15 @@ type Mutation {
 	mapPublishReviewApprove(reportId: UUID!): MapFamilyReport!
 	"""
 	Takes a file the current user published out of the listings. Anyone may publish it again.
-	Official files can't be unpublished.
+	Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
 	"""
 	mapUnpublish(fileId: SbMapId!): SbMap!
 	"""
 	Blocks a file, with an optional note (at most 500 characters) saying why, so only staff can
 	list it from then on. Works on any file staff haven't delisted already: a listed file is
 	taken out of the listings, a file its publisher unpublished stays unlisted, and a file that
-	was never published stays unpublished. Only available to users who can manage maps.
+	was never published stays unpublished. Refused while a current or scheduled ladder map pool
+	holds the file (`IN_LADDER_POOL`). Only available to users who can manage maps.
 	"""
 	mapDelist(fileId: SbMapId!, note: String): SbMap!
 	"""
@@ -2331,6 +2415,7 @@ type Mutation {
 	"""
 	Moves a file out of a map holding other files, into a new map of its own. Only available to
 	the file's publisher and the map's owner (while they aren't restricted from publishing).
+	Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
 	"""
 	mapFileUnlink(fileId: SbMapId!): MapFamilyFileMove!
 	"""
@@ -2928,9 +3013,9 @@ type SbMap {
 	"""
 	listed: Boolean!
 	"""
-	Whether the map was listed by staff as an official map.
+	Whether the map (family) this file is in is one of the staff picks.
 	"""
-	official: Boolean!
+	staffPick: Boolean!
 	"""
 	When the map was listed. Null unless it is listed.
 	"""
@@ -2986,6 +3071,11 @@ type SbMap {
 	The map (family) this file is in.
 	"""
 	family: MapFamily!
+	"""
+	The matchmaking types whose current ladder map pool holds this exact file, in matchmaking
+	type order. Usually empty.
+	"""
+	ladderPools: [MatchmakingType!]!
 }
 
 type SbMapConnection {

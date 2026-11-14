@@ -113,7 +113,7 @@ export enum MapVisibility {
   Unlisted = 'UNLISTED',
   /** Listed for everyone in the community maps. */
   Public = 'PUBLIC',
-  /** Listed for everyone in the official maps. */
+  /** Listed for everyone, and its map is one of the staff picks. */
   Official = 'OFFICIAL',
 }
 

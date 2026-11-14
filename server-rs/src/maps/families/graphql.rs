@@ -22,6 +22,9 @@ use crate::maps::catalog::{
 use crate::maps::collections::graphql::{
     DEFAULT_FAMILY_COLLECTIONS, MapCollection, family_collections, viewer_collection_ids,
 };
+use crate::maps::collections::pools::{
+    DEFAULT_FAMILY_POOLS, MapLadderFile, family_ladder_files, family_ladder_pools,
+};
 use crate::maps::families::edit::{
     self, FamilyEditError, FileMove, MapFamilyReportKind, MapFamilyReportStatus,
     MapPublishReviewAnswer, MoveBy, ReportRequest,
@@ -369,6 +372,23 @@ impl MapFamily {
         viewer_collection_ids(ctx, self.0.id).await
     }
 
+    /// The files of this map that current ladder map pools hold, one entry for each file a pool
+    /// holds, in matchmaking type order. The ladder plays these exact files, which needn't be the
+    /// map's current file.
+    async fn ladder_files(&self, ctx: &Context<'_>) -> Result<Vec<MapLadderFile>> {
+        family_ladder_files(ctx, self.0.id).await
+    }
+
+    /// The ladder map pools that have started and hold a file of this map, newest first (current
+    /// pools included); `first` of them (at most 100). Pools the viewer can't see are left out.
+    async fn ladder_pools(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default_with = "DEFAULT_FAMILY_POOLS")] first: i32,
+    ) -> Result<Vec<MapCollection>> {
+        family_ladder_pools(ctx, self.0.id, first).await
+    }
+
     /// Play statistics summed over every file of the map, or null if none has been played.
     /// Recomputed hourly; until then a map's stats are its current file's.
     async fn stats(&self, ctx: &Context<'_>) -> Result<Option<MapStats>> {
@@ -629,6 +649,7 @@ pub(crate) fn edit_error(error: FamilyEditError) -> async_graphql::Error {
         }
         FamilyEditError::NotOwner => "FORBIDDEN",
         FamilyEditError::TooManyReports => "RATE_LIMITED",
+        FamilyEditError::InLadderPool(_) => "IN_LADDER_POOL",
         FamilyEditError::Other(e) => return async_graphql::Error::new(format!("{e:?}")),
         _ => "BAD_REQUEST",
     };
@@ -798,8 +819,9 @@ pub struct MapFamiliesMutation;
 #[Object]
 impl MapFamiliesMutation {
     /// Moves a file to another map. A map left without files is merged into the other map: its id
-    /// keeps working as an alias, and its favorites and collection entries move along. Only
-    /// available to users who can manage maps.
+    /// keeps working as an alias, and its favorites and collection entries move along. A file
+    /// that shares its map with other files can't be moved while a current or scheduled ladder map
+    /// pool holds it (`IN_LADDER_POOL`). Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_move_file(
         &self,
@@ -820,8 +842,9 @@ impl MapFamiliesMutation {
         Ok(MapFamilyFileMove { file_id, moved })
     }
 
-    /// Moves a file out of its map into a new map of its own. Only available to users who can
-    /// manage maps.
+    /// Moves a file out of its map into a new map of its own. Refused while a current or scheduled
+    /// ladder map pool holds the file (`IN_LADDER_POOL`). Only available to users who can manage
+    /// maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_split_file(
         &self,

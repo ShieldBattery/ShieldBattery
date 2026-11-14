@@ -1,5 +1,7 @@
+import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CombinedError, useMutation, useQuery } from 'urql'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -19,6 +21,8 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { FamilyFileFacts, predictCurrentFile } from './map-family-files'
 import { MapFamilyCandidate, MapFamilySearch, useFamilyCandidate } from './map-family-search'
+import { errorCode } from './map-owner-actions'
+import { fileChangeErrorText } from './map-publish'
 import { useSetReportStatus } from './map-report-status'
 
 // Only staff can change which files make up a map, so this dialog isn't translated.
@@ -217,6 +221,11 @@ function errorText(error: CombinedError): string {
   return error.graphQLErrors[0]?.message ?? error.message
 }
 
+/** What a failed file move or split tells the user. */
+function fileChangeFailedText(error: CombinedError, t: TFunction): string {
+  return fileChangeErrorText(errorCode(error), errorText(error), t)
+}
+
 /** What a map's link and favorites do when the map goes away into `target`. */
 function goesAwayText(family: FamilyData, target: string): string {
   const favorites = favoritesOf(family)
@@ -400,6 +409,7 @@ function ActionFrame({
  * resolves `reportId`'s report, and the snackbar says if that didn't work.
  */
 function useRunAction(close: () => void, reportId: string | undefined) {
+  const { t } = useTranslation()
   const snackbarController = useSnackbarController()
   const setReportStatus = useSetReportStatus()
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -416,7 +426,9 @@ function useRunAction(close: () => void, reportId: string | undefined) {
         if (result.error || !result.data) {
           setPending(false)
           setErrorMessage(
-            result.error ? errorText(result.error) : 'Something went wrong. Please try again.',
+            result.error
+              ? fileChangeFailedText(result.error, t)
+              : 'Something went wrong. Please try again.',
           )
           return
         }
