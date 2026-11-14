@@ -2318,13 +2318,21 @@
     },
     "bannedDialog": {
       "bannedFor": "Estás baneado por:",
-      "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
+      "description": "Se te baneó temporalmente del emparejamiento.",
       "title": "Baneado del emparejamiento"
     },
     "banNotification": {
       "ban": "Se te baneó temporalmente del emparejamiento por no marcarte como listo o no cargar en un partido.",
       "endsOn": "Este baneo terminará el:",
       "warning": "Recibiste una advertencia de emparejamiento por no marcarte como listo o no cargar en un partido. Si vuelve a pasar pronto, se te baneará temporalmente del emparejamiento."
+    },
+    "banReason": {
+      "banFailedToLoad": "Se te baneó temporalmente del emparejamiento porque tu juego no pudo cargar un partido.",
+      "banLeft": "Se te baneó temporalmente del emparejamiento por abandonar un partido antes de que empezara. Perder la conexión con ShieldBattery cuenta como abandonar.",
+      "banNotReady": "Se te baneó temporalmente del emparejamiento por no marcarte como listo a tiempo para un partido.",
+      "warningFailedToLoad": "Recibiste una advertencia de emparejamiento porque tu juego no pudo cargar un partido. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento.",
+      "warningLeft": "Recibiste una advertencia de emparejamiento por abandonar un partido antes de que empezara. Perder la conexión con ShieldBattery cuenta como abandonar. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento.",
+      "warningNotReady": "Recibiste una advertencia de emparejamiento por no marcarte como listo a tiempo para un partido. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento."
     },
     "disabledCard": {
       "days": "Días",
