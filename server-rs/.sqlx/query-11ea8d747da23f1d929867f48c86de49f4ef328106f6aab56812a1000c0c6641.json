@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE collection_maps cm\n            SET position = r.position\n            FROM (\n                SELECT e.id,\n                    (row_number() OVER (PARTITION BY e.collection_id ORDER BY e.position, e.id)\n                        - 1)::integer as position\n                FROM collection_maps e\n                INNER JOIN collections c ON c.id = e.collection_id\n                WHERE e.collection_id = ANY($1) AND c.kind <> 'starred'\n            ) r\n            WHERE cm.id = r.id AND cm.position <> r.position\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "11ea8d747da23f1d929867f48c86de49f4ef328106f6aab56812a1000c0c6641"
+}
