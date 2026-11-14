@@ -18,6 +18,14 @@ use crate::{
 const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
 const SMALL_MAP_IMAGE_SIZE: Vec2 = Vec2::new(480.0, 480.0);
 const MAP_BREAKPOINT: f32 = 1360.0;
+const MAP_FRAME_SPACE: f32 = 8.0;
+const PLAYER_CARD_PADDING: i8 = 16;
+const PLAYER_ICON_SIZE: f32 = 40.0;
+const PLAYER_CARD_GAP: f32 = 16.0;
+const PLAYER_ICON_SPACE: f32 = PLAYER_ICON_SIZE + PLAYER_CARD_GAP;
+// Reserve room for the division and rating on separate lines, even with an avatar.
+const PLAYER_COLUMN_WIDTH: f32 = 2.0 * (PLAYER_CARD_PADDING as f32 + PLAYER_ICON_SPACE) + 132.0;
+const COMPACT_HEIGHT: f32 = 540.0;
 const OBSERVER_ROW_HEIGHT: f32 = 48.0;
 const OBSERVER_AVATAR_SIZE: f32 = 24.0;
 const OBSERVER_NAME_MAX_WIDTH: f32 = 200.0;
@@ -134,7 +142,16 @@ impl OverlayState {
                     .tint(Color32::from_white_alpha(170))
                     .paint_at(ui, background_rect);
 
-                ui.style_mut().spacing.item_spacing = [40.0, 24.0].into();
+                let row_gap = if screen_size.y < COMPACT_HEIGHT {
+                    8.0
+                } else {
+                    24.0
+                };
+                ui.style_mut().spacing.item_spacing = [40.0, row_gap].into();
+                let map_limit = ui.available_width()
+                    - 2.0 * (PLAYER_COLUMN_WIDTH + ui.spacing().item_spacing.x)
+                    - MAP_FRAME_SPACE;
+                let map_size = map_size.min(Vec2::splat(map_limit.max(1.0)));
                 ui.with_layout(
                     Layout::centered_and_justified(egui::Direction::TopDown),
                     |ui| {
@@ -148,7 +165,7 @@ impl OverlayState {
                             rows.strip(|builder| {
                                 builder
                                     .size(egui_extras::Size::remainder().at_least(120.0))
-                                    .size(egui_extras::Size::exact(map_size.x + 4.0 + 4.0))
+                                    .size(egui_extras::Size::exact(map_size.x + MAP_FRAME_SPACE))
                                     .size(egui_extras::Size::remainder().at_least(120.0))
                                     .horizontal(|mut strip| {
                                         strip.cell(|ui| {
@@ -336,6 +353,11 @@ impl OverlayState {
         };
 
         let opacity = presence_opacity(flex.ui().ctx(), player, presence);
+        let vertical_padding = if flex.ui().ctx().content_rect().height() < COMPACT_HEIGHT {
+            8
+        } else {
+            PLAYER_CARD_PADDING
+        };
         flex.add_ui(
             egui_flex::item().frame(
                 egui::Frame::default()
@@ -347,18 +369,21 @@ impl OverlayState {
                         spread: 2,
                         color: colors::BLUE80.gamma_multiply(0.7),
                     })
-                    .inner_margin(Margin::same(16))
+                    .inner_margin(Margin::symmetric(PLAYER_CARD_PADDING, vertical_padding))
                     .multiply_with_opacity(opacity),
             ),
             |ui| {
                 ui.multiply_opacity(opacity);
+                let text_width = ui.available_width()
+                    - PLAYER_ICON_SPACE
+                    - avatar_url.map_or(0.0, |_| PLAYER_ICON_SPACE);
                 Flex::horizontal()
                     .w_auto()
-                    .gap([16.0, 16.0].into())
+                    .gap(Vec2::splat(PLAYER_CARD_GAP))
                     .align_items(FlexAlign::Center)
                     .show(ui, |flex| {
                         let race_image = egui::Image::new(race_icon)
-                            .fit_to_exact_size([40.0, 40.0].into())
+                            .fit_to_exact_size(Vec2::splat(PLAYER_ICON_SIZE))
                             .tint(race_color);
                         // A circular avatar, shown only when the user has uploaded one. The race
                         // icon always sits on the inner (map-facing) edge, and the avatar (when
@@ -366,12 +391,13 @@ impl OverlayState {
                         let avatar = avatar_url.map(|url| {
                             egui::Image::from_uri(url)
                                 .show_loading_spinner(false)
-                                .fit_to_exact_size([40.0, 40.0].into())
-                                .corner_radius(CornerRadius::same(20))
+                                .fit_to_exact_size(Vec2::splat(PLAYER_ICON_SIZE))
+                                .corner_radius(CornerRadius::same((PLAYER_ICON_SIZE / 2.0) as u8))
                         });
 
                         let add_name = |flex: &mut FlexInstance| {
                             flex.add_ui(egui_flex::item().shrink(), |ui| {
+                                ui.set_max_width(ui.available_width().min(text_width).max(0.0));
                                 ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                                 ui.vertical(|ui| {
                                     ui.spacing_mut().item_spacing.y = 4.0;
@@ -532,20 +558,25 @@ fn add_presence_note(ui: &mut egui::Ui, presence: LoadingPresence, size: f32) {
     });
 }
 
-/// Adds a line showing the player's division icon and name, followed by their rating when it's
-/// known (it isn't during placement matches).
+/// Shows the player's division and their rating, if known. The rating can move to its own line.
 fn add_rank(ui: &mut egui::Ui, rank: &GamePlayerRank) {
-    ui.horizontal(|ui| {
+    // Wrap between the division and rating while keeping the whole rating together.
+    ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 8.0;
         if let Some((icon, label)) = division_icon_and_label(rank.division) {
-            ui.add(egui::Image::new(icon).fit_to_exact_size([32.0, 32.0].into()));
-            ui.label(RichText::new(label).size(18.0).color(colors::GREY90));
+            ui.horizontal(|ui| {
+                ui.add(egui::Image::new(icon).fit_to_exact_size([32.0, 32.0].into()));
+                ui.add(Label::new(RichText::new(label).size(18.0).color(colors::GREY90)).wrap());
+            });
         }
         if let Some(rating) = rank.rating {
-            ui.label(
-                RichText::new(format!("{} MMR", rating.round() as i32))
-                    .size(18.0)
-                    .color(colors::GREY60),
+            ui.add(
+                Label::new(
+                    RichText::new(format!("{} MMR", rating.round() as i32))
+                        .size(18.0)
+                        .color(colors::GREY60),
+                )
+                .extend(),
             );
         }
     });
