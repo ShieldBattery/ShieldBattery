@@ -193,7 +193,8 @@
       "reasonLabel": "Reason:",
       "reporting": {
         "notification": "Your account has been restricted from reporting players."
-      }
+      },
+      "viewRules": "View rules"
     },
     "signup": {
       "ageConfirmation": "I certify that I am 13 years of age or older",
@@ -1480,7 +1481,7 @@
     "alreadyReported": "You've already reported this player for this game.",
     "badRequest": "Your report could not be submitted. Please check the details and try again.",
     "closed": "Reports for this game are closed. Players can be reported for 24 hours after a game ends.",
-    "description": "Report a player for breaking the rules in this game. Reports are reviewed by ShieldBattery staff.",
+    "description": "Report a player for breaking the <2>rules</2> in this game. Reports are reviewed by ShieldBattery staff.",
     "details": "Details",
     "detailsOptional": "Details (optional)",
     "detailsRequiredForOther": "Please describe what happened.",
@@ -1616,6 +1617,7 @@
       "faq": "FAQ",
       "licenses": "Licenses",
       "privacyPolicy": "Privacy Policy",
+      "rules": "Rules",
       "termsOfService": "Terms of Service"
     },
     "faq": {
@@ -2562,6 +2564,7 @@
       "logOutErrorMessage": "Something went wrong. Please try again later.",
       "logOutErrorTitle": "Logging out failed",
       "reportBug": "Report a bug",
+      "rules": "Platform rules",
       "settings": "Settings",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
@@ -2736,6 +2739,13 @@
     "reportBug": "Report a bug",
     "title": "Something went wrong :(",
     "tryAgain": "Try again"
+  },
+  "rules": {
+    "consequences": "Failure to follow these guidelines may result in administrative consequences, including chat, matchmaking, and platform restrictions.",
+    "copyLink": "Copy link to the rules",
+    "intro": "Welcome to ShieldBattery! We want everyone to enjoy their time on our platform, and to that end, we require adherence to the following community guidelines:",
+    "list": "1. **Play fair.** Cheating is not permitted.\n2. **Respect others.** Refrain from abusive language and behavior, and treat fellow players with dignity.\n3. **Respect the game.** Don’t leave games prematurely.",
+    "title": "Platform rules"
   },
   "settings": {
     "activity": {

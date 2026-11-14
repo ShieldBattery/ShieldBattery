@@ -1,6 +1,14 @@
 import keycode from 'keycode'
 import * as React from 'react'
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -82,6 +90,22 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
       dispatch(markNotificationsRead(serverUnreadNotifications))
     }
   }, [closeActivityBar, localUnreadNotifications, serverUnreadNotifications, dispatch])
+
+  // Popovers draw above dialogs, so a dialog opened from a notification (a linked policy, the
+  // rules) would be hidden behind this list. Close the list whenever a new dialog opens.
+  const dialogCount = useAppSelector(s => s.dialog.history.length)
+  const lastDialogCount = useRef(dialogCount)
+  const onDialogOpened = useEffectEvent(() => {
+    if (activityBarOpen) {
+      onDismiss()
+    }
+  })
+  useEffect(() => {
+    if (dialogCount > lastDialogCount.current) {
+      onDialogOpened()
+    }
+    lastDialogCount.current = dialogCount
+  }, [dialogCount])
 
   // The list is newest-first and grows at the top, so every open starts there rather than wherever
   // a previous one was left. The popover usually mounts fresh (and so is already at the top), but
