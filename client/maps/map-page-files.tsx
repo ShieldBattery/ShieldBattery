@@ -34,13 +34,14 @@ import {
   visibleFamilyFiles,
 } from './map-family-files'
 import { MapFamilySetDefaultMutation } from './map-make-recommended'
+import { errorCode } from './map-owner-actions'
+import { fileChangeErrorText } from './map-publish'
 
 export const MapPageFiles_FileFragment = graphql(/* GraphQL */ `
   fragment MapPageFiles_FileFragment on SbMap {
     id
     name
     listed
-    official
     firstSeenAt
     stats {
       id
@@ -466,7 +467,7 @@ function fileActionKinds(
       kinds.push('split')
     }
     kinds.push('move')
-  } else if (!file.official && fileCount > 1) {
+  } else if (fileCount > 1) {
     kinds.push('unlink')
   }
   return kinds
@@ -541,7 +542,11 @@ function FileMenu({
       .then(result => {
         if (result.error || !result.data) {
           snackbarController.showSnackbar(
-            t('maps.publish.unlinkError', "Couldn't remove the file from this map"),
+            fileChangeErrorText(
+              result.error ? errorCode(result.error) : undefined,
+              t('maps.publish.unlinkError', "Couldn't remove the file from this map"),
+              t,
+            ),
           )
           return
         }

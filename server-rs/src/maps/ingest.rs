@@ -201,14 +201,15 @@ impl MapIngester {
         .await
     }
 
-    /// Stores an uploaded map and adds it to the uploader's library, or publishes it as an
-    /// official map. A file that's already stored isn't parsed again.
+    /// Stores an uploaded map and adds it to the uploader's library, or with `publish` (a staff
+    /// upload), publishes it as the uploader instead, unless it's already listed. A file that's
+    /// already stored isn't parsed again.
     pub async fn upload(
         &self,
         bytes: Vec<u8>,
         extension: MapExtension,
         uploaded_by: SbUserId,
-        official: bool,
+        publish: bool,
     ) -> Result<SbMapId, MapIngestError> {
         let hash = MapHash(map_file_hash(extension, &bytes));
         let existing = sqlx::query_scalar!(
@@ -239,16 +240,16 @@ impl MapIngester {
             .begin()
             .await
             .wrap_err("Failed to start transaction")?;
-        if official {
+        if publish {
             // Listing the file can change which file of its family is current.
             lock_families(&mut tx).await?;
             let family_id = sqlx::query_scalar!(
                 r#"
                     UPDATE maps
-                    SET official = true, published_by = $2, published_at = now(),
+                    SET published_by = $2, published_at = now(),
                         delisted_by = NULL, delisted_at = NULL, delisted_kind = NULL,
                         delisted_note = NULL
-                    WHERE id = $1 AND NOT (listed AND official)
+                    WHERE id = $1 AND NOT listed
                     RETURNING family_id
                 "#,
                 map_id as _,
@@ -707,12 +708,14 @@ impl MapIngester {
                 RenderTarget,
                 r#"
                     WITH current_pools AS (
-                        SELECT DISTINCT ON (matchmaking_type) maps
+                        SELECT DISTINCT ON (matchmaking_type) collection_id
                         FROM matchmaking_map_pools
-                        WHERE start_date <= now()
-                        ORDER BY matchmaking_type, start_date DESC
+                        WHERE start_date AT TIME ZONE 'UTC' <= now()
+                        ORDER BY matchmaking_type, start_date DESC, id DESC
                     ), pool_maps AS (
-                        SELECT DISTINCT unnest(maps) AS map_id FROM current_pools
+                        SELECT DISTINCT cm.map_id
+                        FROM collection_maps cm
+                        INNER JOIN current_pools p ON p.collection_id = cm.collection_id
                     )
                     SELECT m.id as "id: SbMapId", m.hash as "hash: MapHash", m.extension,
                         m.image_version, m.render_version

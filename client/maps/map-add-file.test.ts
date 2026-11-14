@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { MapPublishAnswerKind, MapPublishBlockedReason } from '../gql/graphql'
 import { AddFileFacts, addFileUnavailableText, joinedMessage, planAddFile } from './map-add-file'
-import { publishErrorText } from './map-publish'
+import { fileChangeErrorText, publishErrorText } from './map-publish'
 
 /** Returns each string's default text with its `{{placeholders}}` filled in. */
 const t = ((_key: string, defaultValue: string, options?: Record<string, unknown>) =>
@@ -22,7 +22,6 @@ function file({
   return {
     name: 'Eclipse 1.3',
     listed: false,
-    official: false,
     staffDelisted: false,
     ...overrides,
     family: {
@@ -82,9 +81,6 @@ describe('maps/map-add-file/planAddFile', () => {
         TARGET,
         VIEWER,
       ),
-    ).toEqual(listedElsewhere)
-    expect(
-      planAddFile(file({ listed: true, official: true, publisherId: VIEWER }), TARGET, VIEWER),
     ).toEqual(listedElsewhere)
   })
 
@@ -192,5 +188,13 @@ describe('maps/map-publish/publishErrorText', () => {
     )
     expect(publishErrorText('BAD_REQUEST', t)).toBe('Something went wrong. Please try again later.')
     expect(publishErrorText(undefined, t)).toBe('Something went wrong. Please try again later.')
+  })
+
+  test('explains why a file in a ladder map pool stays put', () => {
+    expect(fileChangeErrorText('IN_LADDER_POOL', 'Failed', t)).toBe(
+      "This file is in a current or upcoming ladder map pool, so it can't be taken out of the listings or out of its map.",
+    )
+    expect(fileChangeErrorText('BAD_REQUEST', 'Failed', t)).toBe('Failed')
+    expect(fileChangeErrorText(undefined, 'Failed', t)).toBe('Failed')
   })
 })

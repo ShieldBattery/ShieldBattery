@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT p.id, p.collection_id,\n                    p.matchmaking_type as \"matchmaking_type: MatchmakingType\",\n                    p.start_date AT TIME ZONE 'UTC' as \"start_date!\", p.max_veto_count,\n                    (SELECT count(*) FROM collection_maps cm\n                        WHERE cm.collection_id = p.collection_id) as \"file_count!\"\n                FROM matchmaking_map_pools p\n                WHERE p.matchmaking_type::text = ANY($1::text[])\n                ORDER BY p.start_date, p.id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "collection_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "collection_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "matchmaking_type: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "start_date!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "max_veto_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_map_pools",
+            "name": "max_veto_count"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "file_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      false,
+      null
+    ]
+  },
+  "hash": "3518fa88c30182f97e31c739c9d0de33a45e536f80744b744f22fdeb13ec101c"
+}

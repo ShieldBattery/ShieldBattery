@@ -25,7 +25,7 @@ type DbMapInfo = Dbify<{
   hash: Buffer
   name: string
   description: string
-  official: boolean
+  staffPick: boolean
   listed: boolean
   publishedBy: SbUserId | null
   publishedAt: Date | null
@@ -54,7 +54,7 @@ const MAP_INFO_COLUMNS = sql`
   m.hash,
   m.name,
   COALESCE(m.public_description, m.description) AS description,
-  m.official,
+  map_family_is_staff_pick(m.family_id) AS staff_pick,
   m.listed,
   m.published_by,
   m.published_at,
@@ -84,12 +84,15 @@ interface MapUrlProps {
   jpegImageUrl?: string
 }
 
-/** Returns which listing a map appears in, given how the database records it. */
-function toVisibility({ listed, official }: { listed: boolean; official: boolean }) {
-  if (!listed) {
+/**
+ * Returns which listing a map appears in, given how the database records it: listed files whose map
+ * is a staff pick make up the official listing.
+ */
+function toVisibility(info: Pick<DbMapInfo, 'listed' | 'staff_pick'>) {
+  if (!info.listed) {
     return MapVisibility.Unlisted
   }
-  return official ? MapVisibility.Official : MapVisibility.Public
+  return info.staff_pick ? MapVisibility.Official : MapVisibility.Public
 }
 
 function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
@@ -355,9 +358,9 @@ function getOrderByStatement(sort: MapSortType): SqlTemplate {
 function getListingCondition(listing: MapVisibility): SqlTemplate {
   switch (listing) {
     case MapVisibility.Official:
-      return sql`WHERE m.listed AND m.official`
+      return sql`WHERE m.listed AND map_family_is_staff_pick(m.family_id)`
     case MapVisibility.Public:
-      return sql`WHERE m.listed AND NOT m.official`
+      return sql`WHERE m.listed AND NOT map_family_is_staff_pick(m.family_id)`
     case MapVisibility.Unlisted:
       return sql`WHERE NOT m.listed`
     default:
@@ -590,7 +593,8 @@ export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
  *
  * This function should only be used by users with necessary, super-restrictive, permissions. Note
  * that unlike the user-facing removal functions, which only take a map out of a user's maps or the
- * listings, this one actually deletes all maps from the database. Use with care!
+ * listings, this one actually deletes all maps from the database, along with every ladder map pool
+ * and the maps of every collection. Use with care!
  *
  * @param deleteFromStoreFn A function that will be called during the database transaction that
  *   should delete the map contents from the file store as well. If this function fails, the
@@ -606,6 +610,7 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
           map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
           map_family_reports, map_family_history, map_family_stats, map_family_aliases,
           map_families, map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;
+        DELETE FROM collections WHERE kind = 'ladder_pool';
       COMMIT;
     `
 

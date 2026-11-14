@@ -319,7 +319,6 @@ function libraryFile(
     id,
     name,
     listed,
-    official: false,
     playerCount,
     publishedAt: listed ? new Date(NOW - publishedDaysAgo * DAY).toISOString() : null,
     publisher: listed ? { id: VIEWER } : null,
