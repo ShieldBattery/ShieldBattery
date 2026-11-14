@@ -252,6 +252,15 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
 
     let value =
         text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha));
+    // The two banks stand side by side in columns of one width, named only by the icons heading
+    // them, so each is set in the color its icon is drawn in: that carries the name down to every
+    // row, and the two read apart without a look back up at the headings.
+    let minerals = value
+        .clone()
+        .with_color(theme::RESOURCE_MINERALS.gamma_multiply(alpha));
+    let gas = value
+        .clone()
+        .with_color(theme::RESOURCE_GAS.gamma_multiply(alpha));
     // The rate is set a step quieter than the holdings: those are the reading, and the rate is
     // color on it.
     let rate =
@@ -259,8 +268,8 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
     for column in Column::ALL {
         let cell = cursor.take(column.width());
         match column {
-            Column::Minerals => paint_count(ui, cell, &value, player.minerals, Align::Center),
-            Column::Gas => paint_count(ui, cell, &value, player.gas, Align::Center),
+            Column::Minerals => paint_count(ui, cell, &minerals, player.minerals, Align::Center),
+            Column::Gas => paint_count(ui, cell, &gas, player.gas, Align::Center),
             Column::Workers => paint_count(ui, cell, &value, player.workers, Align::Center),
             Column::Supply => {
                 // A supply block is production time a player is losing, so it is the one number on
