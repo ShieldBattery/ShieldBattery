@@ -124,7 +124,7 @@ pub fn render_scoreboard_view(
         layout::screen_margin(ctx.viewport_rect()),
         PANEL_WIDTH,
         shown,
-        |ui, _| draw_panel(ui, view),
+        |ui| draw_panel(ui, view),
     )?;
     Some(ScoreboardOutcome {
         rect: wing.rect,

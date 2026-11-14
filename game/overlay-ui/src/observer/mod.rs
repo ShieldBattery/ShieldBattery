@@ -811,7 +811,7 @@ pub fn wing_id(panel: Panel) -> Id {
 /// the screen with its top edge at `top`, fading and sliding in and out, under a title row naming
 /// it with the keycap of its key. Returns nothing at all once it is gone.
 ///
-/// `add` draws the rows under the title row, which it is handed the place of.
+/// `add` draws the rows under the title row.
 ///
 /// `top` is where the panels around this one leave it, which the caller eases (see
 /// [`crate::kit::motion::Spot`]): a wing whose neighbor was just hidden moves up the neighbor's whole
@@ -827,7 +827,7 @@ pub(crate) fn wing_panel<R>(
     top: f32,
     width: f32,
     shown: bool,
-    add: impl FnOnce(&mut Ui, Rect) -> R,
+    add: impl FnOnce(&mut Ui) -> R,
 ) -> Option<WingFrame<R>> {
     let margin = layout::screen_margin(ctx.viewport_rect());
     let (align, offset_x) = match wing {
@@ -844,9 +844,9 @@ pub(crate) fn wing_panel<R>(
             // fixed layouts, and egui's own item spacing would add to every one of them.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(tiers::panel_content_width(width));
-            let header =
+            let key_clicked =
                 widgets::panel_header(ui, &panel_name(panel), panel.key_label().as_deref());
-            (header.key_clicked, add(ui, header.rect))
+            (key_clicked, add(ui))
         })
         .inner
     })?;

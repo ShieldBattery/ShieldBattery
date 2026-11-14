@@ -315,17 +315,18 @@ fn button_spec() -> text::TextSpec {
 /// The chip is drawn without its label, which is set here on its capitals instead: the chip centers
 /// the box the face leaves around a label, and that sets a word of mostly small letters visibly low.
 fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Response {
+    let spec = button_spec();
     let response = ui
         .scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
-            widgets::chip_button(ui, &button_spec(), "", rect.size())
+            widgets::chip_button(ui, &spec, "", rect.size())
         })
         .inner;
     let color = if response.hovered() {
         theme::TEXT_PRIMARY
     } else {
-        theme::TEXT_SECONDARY
+        spec.color
     };
-    paint_on_capitals(ui, rect, &button_spec().with_color(color), label);
+    paint_on_capitals(ui, rect, &spec.with_color(color), label);
     if lit {
         ui.painter().add(Shape::rect_stroke(
             rect,

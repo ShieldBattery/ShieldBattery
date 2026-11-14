@@ -171,7 +171,7 @@ pub fn render_economy_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui, _| draw_panel(ui, view),
+        |ui| draw_panel(ui, view),
     )?;
     Some(WingOutcome {
         rect: wing.rect,
