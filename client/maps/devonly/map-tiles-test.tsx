@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { LocalMapFile, LocalMapKind } from '../../../common/map-library'
 import { makeSbMapId, SbMapId, Tileset } from '../../../common/maps'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { FragmentType } from '../../gql'
 import { MapKind } from '../../gql/graphql'
 import { titleMedium } from '../../styles/typography'
@@ -23,6 +24,7 @@ function tileMap({
   kind = MapKind.Melee,
   playerCount = 4,
   staffPick = false,
+  ladderPools = [],
   publishedDaysAgo = 200,
   stats = { games7d: 40, games28d: 412, gamesTotal: 18_342, trendingScore: 0 },
   forces,
@@ -34,6 +36,7 @@ function tileMap({
   kind?: MapKind
   playerCount?: number
   staffPick?: boolean
+  ladderPools?: MatchmakingType[]
   publishedDaysAgo?: number
   stats?: { games7d: number; games28d: number; gamesTotal: number; trendingScore: number } | null
   forces?: Array<{ humans: number; computers?: number }>
@@ -59,6 +62,7 @@ function tileMap({
     kind,
     playerCount,
     staffPick,
+    ladderPools,
     publishedAt: new Date(NOW - publishedDaysAgo * DAY).toISOString(),
     isFavorited: false,
     stats: stats ? { id: `map-stats:${mapId}`, ...stats } : null,
@@ -94,6 +98,7 @@ const TILES: ReadonlyArray<{
       id: '00000000-0000-4000-8000-000000009001',
       name: 'Fighting Spirit',
       staffPick: true,
+      ladderPools: [MatchmakingType.Match1v1, MatchmakingType.Match2v2],
       stats: { games7d: 170, games28d: 230, gamesTotal: 9_120, trendingScore: 862 },
     }),
   },

@@ -214,6 +214,7 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
 
+- **Map collections (`maps.collections.*`):** collection→**colección** (feminine: Privada / Pública / Guardada / Tuya), **Starred keeps the favorites word → Favoritos** (the star icon already reads as "favorito"; "Destacados" would read as featured), Staff picks / Staff pick→**Selección del staff**, ladder pool→**grupo de mapas de clasificatoria** (card title "{{mode}}: grupo de mapas", mode first so a truncated card still shows which pool it is), save (someone's collection)→Guardar, Move up/down→**Mover arriba / Mover abajo** (never "Subir", which is upload).
 - **Map browser (`maps.*`):** compare views are short segmented labels: Dividir / Deslizador / Fundido / Parpadeo / Resaltar / Restar. delist→**retirar del catálogo**, a map (what players pick)→**mapa**, a file (one upload of it)→**archivo**, the Default file→**predeterminado** (Comparar con el predeterminado, Usar el predeterminado); never "familia" / "versión" for these, staff→**el staff**, report to staff→**reporte**, Melee/UMS lens→Melee / UMS (in-file game type), the Your maps tab→Tus mapas (buttons say "mis mapas"), On this PC→**En este PC**, upload→subir. map maker (the map's original author, who owns its page; never "propietario" / "dueño")→**creador** (Ahora eres el creador de este mapa), a claim (a request to be recorded as a map's maker)→**solicitud** (Solicitud enviada al staff), "I made this map"→Hice este mapa.
 
 ### ru
@@ -349,6 +350,7 @@ consistent. (Seed — extend over time.)
   skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
   «Открыть страницу Battle.net» clips in its slot beside the note.
 
+- **Map collections (`maps.collections.*`):** collection→**подборка** (feminine: Приватная / Публичная / Ваша; titles quoted «»), **Starred keeps the favorites word → Избранное**, Staff picks / Staff pick→**Выбор администрации**, ladder pool→**пул карт ладдера** (card title «Пул карт {{mode}}»), save (someone's collection)→Сохранить / Сохранено, "by {{name}}"→«автор: {{name}}».
 - **Map browser (`maps.*`):** delist→**убрать из каталога** (Убрана из каталога), a map (what players pick)→**карта**, a file (one upload of it)→**файл**, the Default file→**файл по умолчанию** (chip «По умолчанию»); never «группа версий» / «версия» for these, staff→**администрация**, report to staff→**жалоба** (in-file), the Your maps tab→**«Мои карты»** (quoted when referenced in a sentence), Melee lens→Стычка (in-file game type), UMS kept, tileset→Тайлсет, related map→родственная карта. Relative times from `narrowDuration` render as «−3 дн.», so labels that precede one take a colon («Добавлена: {{time}}», «Последняя игра:»). map maker (the map's original author, who owns its page; never «владелец»)→**автор (карты)** (Вы автор этой карты), a claim (a request to be recorded as a map's maker)→**заявка** (Заявка отправлена администрации), «Это моя карта».
 
 ### ko
@@ -482,6 +484,7 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
   section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
 
+- **Map collections (`maps.collections.*`):** collection→**컬렉션**, **Starred keeps the favorites word → 즐겨찾기** (the star is 즐겨찾기 in Korean UIs; 별표 reads as a mail flag), Staff picks / Staff pick→**운영진 추천**, ladder pool→**래더 맵 풀**, save (someone's collection)→저장 / 저장됨, public/private→공개 / 비공개, "by {{name}}"→제작: {{name}}.
 - **Map browser (`maps.*`):** delist→**목록에서 내리기**, a map (what players pick)→**맵**, a file (one upload of it)→**파일**, the Default file→**기본 파일** (chip 기본); never 버전 그룹 / 버전 for these, report to staff→**제보** (not 신고, which is for punishing players), Melee/UMS lens→**섬멸전 / 유즈맵**, player count on tiles/filters→**{{count}}인용**, publish (map)→게시 (게시자:), On this PC→**이 PC**, staff→운영진. map maker (the map's original author, who owns its page; never 소유자)→**제작자**, a claim (a request to be recorded as a map's maker)→**신청** (운영진에 신청을 보냈습니다.), 제가 만든 맵입니다.
 
 ### zh-Hans
@@ -594,4 +597,5 @@ consistent. (Seed — extend over time.)
 - **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Map collections (`maps.collections.*`):** collection→**合集**, **Starred keeps the favorites word → 收藏** (添加到收藏 / 取消收藏; the star is 收藏 in Chinese apps), so saving someone's collection is **保存 / 已保存**, never 收藏. Staff picks / Staff pick→**工作人员精选**, ladder pool→**天梯地图池**, public/private→公开 / 私密, titles quoted “”.
 - **Map browser (`maps.*`):** delist→**下架**, a map (what players pick)→**地图**, a file (one upload of it)→**文件**, the Default file→**默认文件** (chip 默认); never 版本组 / 版本 for these, report to staff→**报告**, Melee lens→对战 (in-file game type), UMS kept, tileset→地形类型 (in-file), Your maps→“我的地图”, On this PC→**此电脑**, staff→工作人员, map counter→张. map maker (the map's original author, who owns its page; never 所有者)→**作者**, a claim (a request to be recorded as a map's maker)→**申请** (申请已提交给工作人员), 这是我做的地图.

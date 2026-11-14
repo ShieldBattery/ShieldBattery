@@ -52,6 +52,11 @@ export enum DialogType {
   LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
+  MapCollectionCreate = 'mapCollectionCreate',
+  MapCollectionDelete = 'mapCollectionDelete',
+  MapCollectionEdit = 'mapCollectionEdit',
+  MapCollectionHide = 'mapCollectionHide',
+  MapCollectionReport = 'mapCollectionReport',
   MapDelist = 'mapDelist',
   MapDownload = 'mapDownload',
   MapFamilyAction = 'mapFamilyAction',
@@ -335,6 +340,44 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     asObserver?: boolean
     /** Called with a user-facing message and the underlying error when the join fails. */
     onJoinFailed?: (message: string, error: unknown) => void
+  }
+>
+
+type MapCollectionCreateDialogPayload = BaseDialogPayload<typeof DialogType.MapCollectionCreate>
+
+type MapCollectionDeleteDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionDelete,
+  {
+    collectionId: string
+    /** The collection's title, as the viewer sees it. */
+    title: string
+    /** How many maps the viewer sees in it. */
+    mapCount: number
+  }
+>
+
+type MapCollectionEditDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionEdit,
+  {
+    collectionId: string
+    title: string
+    description: string
+  }
+>
+
+type MapCollectionHideDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionHide,
+  {
+    collectionId: string
+    /** The collection's title. */
+    title: string
+  }
+>
+
+type MapCollectionReportDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionReport,
+  {
+    collectionId: string
   }
 >
 
@@ -642,6 +685,11 @@ export type DialogPayload =
   | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
+  | MapCollectionCreateDialogPayload
+  | MapCollectionDeleteDialogPayload
+  | MapCollectionEditDialogPayload
+  | MapCollectionHideDialogPayload
+  | MapCollectionReportDialogPayload
   | MapDelistDialogPayload
   | MapDownloadDialogPayload
   | MapFamilyActionDialogPayload
