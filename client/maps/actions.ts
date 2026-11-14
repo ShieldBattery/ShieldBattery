@@ -1,8 +1,6 @@
 import { GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
-  GetMapsQueryParams,
-  GetMapsResponse,
   MapInfoJson,
   SbMapId,
   UpdateMapResponse,
@@ -13,7 +11,6 @@ import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MapsActions =
   | UploadMap
-  | GetMaps
   | GetBatchMapInfoSuccess
   | GetBatchMapInfoFailure
   | AddToFavorites
@@ -37,15 +34,6 @@ export interface UploadedMap {
 export interface UploadMap {
   type: '@maps/uploadMap'
   payload: UploadedMap
-}
-
-/**
- * The server has returned the list of maps with a particular visibility and other filters applied.
- */
-export interface GetMaps {
-  type: '@maps/getMaps'
-  payload: GetMapsResponse
-  meta: GetMapsQueryParams
 }
 
 /**

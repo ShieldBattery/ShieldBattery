@@ -5,8 +5,6 @@ import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import { MapPageId } from '../../common/map-url'
 import {
   GetBatchMapInfoResponse,
-  GetMapsQueryParams,
-  GetMapsResponse,
   MapServiceErrorCode,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
@@ -123,51 +121,6 @@ export function loadMapAddedToLibrary(
   })
 }
 
-export function getMaps(
-  params: GetMapsQueryParams,
-  spec: RequestHandlingSpec<GetMapsResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const { visibility, sort, numPlayers, tilesets, q, offset } = params
-
-    const queryParams = new URLSearchParams()
-    if (visibility) {
-      queryParams.set('visibility', visibility)
-    }
-    if (sort !== undefined) {
-      queryParams.set('sort', sort.toString())
-    }
-    if (numPlayers) {
-      for (const playerCount of numPlayers) {
-        queryParams.append('numPlayers', playerCount.toString())
-      }
-    }
-    if (tilesets) {
-      for (const tileset of tilesets) {
-        queryParams.append('tilesets', tileset.toString())
-      }
-    }
-    if (q) {
-      queryParams.set('q', q)
-    }
-    if (offset !== undefined) {
-      queryParams.set('offset', offset.toString())
-    }
-
-    const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/getMaps',
-      payload: result,
-      meta: params,
-    })
-
-    return result
-  })
-}
-
 /** Removes a map from the current user's own maps. The map itself stays available to others. */
 export function removeFromMyMaps(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -279,6 +232,39 @@ export function openMapFamilyActionDialog(initData: {
   targetFamilyId?: string
 }) {
   return openDialog({ type: DialogType.MapFamilyAction, initData })
+}
+
+/** Opens the dialog that makes a collection of the viewer's and opens it. */
+export function openMapCollectionCreateDialog() {
+  return openDialog({ type: DialogType.MapCollectionCreate })
+}
+
+/** Opens the dialog that changes a collection's title and description. */
+export function openMapCollectionEditDialog(initData: {
+  collectionId: string
+  title: string
+  description: string
+}) {
+  return openDialog({ type: DialogType.MapCollectionEdit, initData })
+}
+
+/** Opens the dialog that deletes a collection once the viewer confirms. */
+export function openMapCollectionDeleteDialog(initData: {
+  collectionId: string
+  title: string
+  mapCount: number
+}) {
+  return openDialog({ type: DialogType.MapCollectionDelete, initData })
+}
+
+/** Opens the dialog for telling staff something is wrong with a public collection. */
+export function openMapCollectionReportDialog(initData: { collectionId: string }) {
+  return openDialog({ type: DialogType.MapCollectionReport, initData })
+}
+
+/** Opens the dialog that hides a player's collection as staff. */
+export function openMapCollectionHideDialog(initData: { collectionId: string; title: string }) {
+  return openDialog({ type: DialogType.MapCollectionHide, initData })
 }
 
 /** Opens the dialog for telling staff that a map's files are wrong. */

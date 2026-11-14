@@ -546,7 +546,7 @@ pub enum MapCollectionSection {
     /// matchmaking type order. Pools have no title, so a search leaves none.
     Ladder,
     /// Players' public collections that aren't hidden and hold at least one listed map, the most
-    /// saved first, then the most recently made public.
+    /// saved first, then the most recently made public. `owner` narrows it to one player's.
     Players,
 }
 
@@ -590,10 +590,12 @@ const PLAYERS_ROWS: &str = "c.kind = 'user' AND c.published_at IS NOT NULL \
         INNER JOIN map_families fam ON fam.id = m.family_id \
         WHERE cm.collection_id = c.id AND fam.listed)";
 
-/// Emits the `FROM` and `WHERE` of a collection listing as `viewer` sees it.
+/// Emits the `FROM` and `WHERE` of a collection listing as `viewer` sees it. `owner` only applies
+/// to `PLAYERS`.
 fn push_section_rows(
     query: &mut QueryBuilder<Postgres>,
     section: MapCollectionSection,
+    owner: Option<SbUserId>,
     search: Option<&str>,
     viewer: Viewer,
 ) {
@@ -604,6 +606,9 @@ fn push_section_rows(
         }
         MapCollectionSection::Players => {
             query.push(PLAYERS_ROWS);
+            if let Some(owner) = owner {
+                query.push(" AND c.owner_id = ").push_bind(owner.0);
+            }
         }
         MapCollectionSection::Ladder => {
             query
@@ -630,6 +635,7 @@ fn push_section_rows(
 /// Facts about a whole collection listing, rather than one page of it.
 pub struct MapCollectionListInfo {
     section: MapCollectionSection,
+    owner: Option<SbUserId>,
     search: Option<String>,
     viewer: Viewer,
 }
@@ -643,6 +649,7 @@ impl MapCollectionListInfo {
         push_section_rows(
             &mut query,
             self.section,
+            self.owner,
             self.search.as_deref(),
             self.viewer,
         );
@@ -784,17 +791,25 @@ impl MapCollectionsQuery {
         load_for_viewer(ctx, id, viewer).await
     }
 
-    /// Pages through a section of the collections everyone can see. `search` keeps the collections
-    /// whose title contains it, ignoring case, punctuation and spacing. Pages are 40 collections
-    /// unless `first` says otherwise (at most 100).
+    /// Pages through a section of the collections everyone can see. `owner` keeps one player's
+    /// collections (only with `PLAYERS`; the player sees the same ones as everyone else). `search`
+    /// keeps the collections whose title contains it, ignoring case, punctuation and spacing.
+    /// Pages are 40 collections unless `first` says otherwise (at most 100).
     async fn map_collections(
         &self,
         ctx: &Context<'_>,
         section: MapCollectionSection,
+        owner: Option<SbUserId>,
         search: Option<String>,
         after: Option<String>,
         first: Option<i32>,
     ) -> Result<MapCollectionConnection> {
+        if owner.is_some() && section != MapCollectionSection::Players {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                "owner is only allowed with the PLAYERS section",
+            ));
+        }
         let viewer = current_viewer(ctx).await?;
         let search = collection_search(search)?;
         let (offset, count) = page_bounds(after.as_deref(), first)?;
@@ -802,7 +817,7 @@ impl MapCollectionsQuery {
 
         let mut query = QueryBuilder::<Postgres>::new("SELECT ");
         query.push(COLLECTION_COLUMNS);
-        push_section_rows(&mut query, section, search.as_deref(), viewer);
+        push_section_rows(&mut query, section, owner, search.as_deref(), viewer);
         match section {
             MapCollectionSection::Staff => {
                 query.push(" ORDER BY c.created_at, c.id");
@@ -836,6 +851,7 @@ impl MapCollectionsQuery {
             rows.len() > count,
             MapCollectionListInfo {
                 section,
+                owner,
                 search,
                 viewer,
             },
