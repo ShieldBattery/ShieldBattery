@@ -102,6 +102,21 @@ const GameVerificationFailedDialog = React.lazy(async () => ({
   default: (await import('../starcraft/game-verification-failed-dialog'))
     .GameVerificationFailedDialog,
 }))
+const MapCollectionCreateDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionCreateDialog,
+}))
+const MapCollectionDeleteDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionDeleteDialog,
+}))
+const MapCollectionEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionEditDialog,
+}))
+const MapCollectionHideDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionHideDialog,
+}))
+const MapCollectionReportDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionReportDialog,
+}))
 const MapDelistDialog = React.lazy(async () => ({
   default: (await import('../maps/map-delist-dialog')).MapDelistDialog,
 }))
@@ -319,6 +334,16 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.ImageViewer:
       return { component: ImageViewerDialog }
+    case DialogType.MapCollectionCreate:
+      return { component: MapCollectionCreateDialog }
+    case DialogType.MapCollectionDelete:
+      return { component: MapCollectionDeleteDialog }
+    case DialogType.MapCollectionEdit:
+      return { component: MapCollectionEditDialog }
+    case DialogType.MapCollectionHide:
+      return { component: MapCollectionHideDialog }
+    case DialogType.MapCollectionReport:
+      return { component: MapCollectionReportDialog }
     case DialogType.MapDelist:
       return { component: MapDelistDialog }
     case DialogType.MapDownload:

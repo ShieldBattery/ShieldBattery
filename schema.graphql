@@ -939,7 +939,7 @@ enum MapCollectionSection {
 	LADDER
 	"""
 	Players' public collections that aren't hidden and hold at least one listed map, the most
-	saved first, then the most recently made public.
+	saved first, then the most recently made public. `owner` narrows it to one player's.
 	"""
 	PLAYERS
 }
@@ -2829,11 +2829,12 @@ type Query {
 	"""
 	mapCollection(id: UUID!): MapCollection
 	"""
-	Pages through a section of the collections everyone can see. `search` keeps the collections
-	whose title contains it, ignoring case, punctuation and spacing. Pages are 40 collections
-	unless `first` says otherwise (at most 100).
+	Pages through a section of the collections everyone can see. `owner` keeps one player's
+	collections (only with `PLAYERS`; the player sees the same ones as everyone else). `search`
+	keeps the collections whose title contains it, ignoring case, punctuation and spacing.
+	Pages are 40 collections unless `first` says otherwise (at most 100).
 	"""
-	mapCollections(section: MapCollectionSection!, search: String, after: String, first: Int): MapCollectionConnection!
+	mapCollections(section: MapCollectionSection!, owner: SbUserId, search: String, after: String, first: Int): MapCollectionConnection!
 	"""
 	Collection reports: the open ones oldest first with `open: true`, otherwise the newest
 	first (only the resolved ones with `open: false`). Pages are 40 reports unless `first` says

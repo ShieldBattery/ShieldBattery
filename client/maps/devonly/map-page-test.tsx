@@ -17,7 +17,13 @@ import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
-import { MapDelistedKind, MapKind, MapOwnerClaimStatus, MapOwnerKind } from '../../gql/graphql'
+import {
+  MapCollectionKind,
+  MapDelistedKind,
+  MapKind,
+  MapOwnerClaimStatus,
+  MapOwnerKind,
+} from '../../gql/graphql'
 import { IsolatedReduxProvider } from '../../lobbies/devonly/isolated-redux'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { titleMedium } from '../../styles/typography'
@@ -197,6 +203,8 @@ function makeMap({
     playerCount,
     listed,
     staffPick,
+    // Staff picks stand in for the maps the current 1v1 pool holds, so its ladder pool chip shows
+    ladderPools: staffPick ? [MatchmakingType.Match1v1] : [],
     publishedAt: listed ? new Date(NOW - 200 * DAY).toISOString() : null,
     publisher: listed ? { id: PUBLISHER, name: 'tec27_the_sequel' } : null,
     isFavorited: false,
@@ -418,6 +426,61 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
 
 const NO_MAKER: ScenarioMaker = { owner: null, ownerKind: null, credit: null }
 
+const STAFF_PICKS = {
+  id: 'c0000000-0000-4000-8000-000000000001',
+  kind: MapCollectionKind.Staff,
+  title: 'Staff picks',
+  public: true,
+  canEdit: true,
+  mapCount: 42,
+  owner: null,
+  pool: null,
+}
+
+/** A 1v1 ladder pool the scenario's map is in, starting `startDays` ago. */
+function ladderPool(id: number, startDays: number, endDays: number | null) {
+  return {
+    id: `c0000000-0000-4000-8000-00000000010${id}`,
+    kind: MapCollectionKind.LadderPool,
+    title: null,
+    public: true,
+    canEdit: false,
+    mapCount: 7,
+    owner: null,
+    pool: {
+      id,
+      matchmakingType: MatchmakingType.Match1v1,
+      startDate: new Date(NOW - startDays * DAY).toISOString(),
+      endDate: endDays === null ? null : new Date(NOW - endDays * DAY).toISOString(),
+      isCurrent: endDays === null,
+    },
+  }
+}
+
+const LADDER_POOLS = [ladderPool(3, 30, null), ladderPool(2, 120, 30), ladderPool(1, 400, 120)]
+
+/** The collections of the viewer's own that a map can be added to, plus their Starred. */
+const VIEWER_COLLECTIONS = [
+  {
+    id: 'c0000000-0000-4000-8000-000000000201',
+    kind: MapCollectionKind.User,
+    title: 'Team league maps',
+    canEdit: true,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000202',
+    kind: MapCollectionKind.User,
+    title: 'To try',
+    canEdit: true,
+  },
+  {
+    id: 'c0000000-0000-4000-8000-000000000203',
+    kind: MapCollectionKind.Starred,
+    title: null,
+    canEdit: true,
+  },
+]
+
 /** Who made the scenario's map for a viewer: the viewer themselves when they view as its maker. */
 function makerFor(scenario: Scenario, viewer: ViewerId): ScenarioMaker {
   if (viewer === 'maker' || viewer === 'makerPublisher') {
@@ -467,6 +530,7 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                   file: { id: file.id, width: file.width, height: file.height },
                 },
               ],
+              ladderFiles: [],
               stats,
               weeklyActivity,
             },
@@ -520,6 +584,26 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                 : null,
           },
         }
+      case 'MapPageCollections':
+        return {
+          mapFamily: {
+            id: operation.variables?.familyId,
+            family: {
+              id: familyIdOf(scenario),
+              collections: scenario.map.staffPick ? [STAFF_PICKS] : [],
+              ladderPools: scenario.map.staffPick ? LADDER_POOLS : [],
+            },
+          },
+        }
+      case 'MapAddToCollection':
+        return {
+          map: {
+            id: scenario.map.id,
+            family: { id: familyIdOf(scenario), viewerCollectionIds: [VIEWER_COLLECTIONS[0].id] },
+          },
+          currentUser: { id: VIEWER, mapCollections: VIEWER_COLLECTIONS },
+          ...(isStaff ? { staffCollections: { edges: [{ node: STAFF_PICKS }] } } : {}),
+        }
       case 'MapLiveGames':
         return { liveGames: [] }
       case 'MapPageAddFavorite':
@@ -543,7 +627,7 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
     )
 }
 
-function seedActions(viewer: ViewerId, scenario: Scenario): ReduxAction[] {
+function seedActions(viewer: ViewerId): ReduxAction[] {
   const actions: ReduxAction[] = [{ type: '@users/loadUsers', payload: USERS }]
   if (viewer !== 'loggedOut') {
     const user: SelfUserJson = {
@@ -565,23 +649,6 @@ function seedActions(viewer: ViewerId, scenario: Scenario): ReduxAction[] {
         permissions: { ...DEFAULT_PERMISSIONS, manageMaps: viewer === 'staff' },
         jwt: '',
       },
-    })
-  }
-  if (scenario.map.staffPick) {
-    // Puts the scenario's map in the 1v1 pool, so its ladder pool chip shows.
-    actions.push({
-      type: '@matchmaking/getCurrentMapPool',
-      payload: {
-        pool: {
-          id: 1,
-          matchmakingType: MatchmakingType.Match1v1,
-          maps: [scenario.map.id],
-          maxVetoCount: 3,
-          startDate: NOW - 30 * DAY,
-        },
-        mapInfos: [],
-      },
-      meta: { type: MatchmakingType.Match1v1 },
     })
   }
   return actions
@@ -641,7 +708,7 @@ export function MapPageTest() {
         <ScenarioPicker scenarios={VIEWERS} active={viewer} onChange={setViewer} label='Viewer' />
       </Controls>
       <PageContainer>
-        <IsolatedReduxProvider key={key} seedActions={seedActions(viewer, scenario)}>
+        <IsolatedReduxProvider key={key} seedActions={seedActions(viewer)}>
           <UrqlProvider value={client}>
             <MapPage pageId={makeMapFamilyId(familyIdOf(scenario))} correctUrl={false} />
           </UrqlProvider>

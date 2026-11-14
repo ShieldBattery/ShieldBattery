@@ -26,7 +26,6 @@ import {
   EmptyText,
   ListWindowStore,
   MapCatalogList,
-  ServerCatalogTab,
   useCoalescedSearch,
   validateDensity,
 } from './map-catalog-list'
@@ -35,13 +34,15 @@ import {
   CatalogParams,
   CatalogSort,
   DEFAULT_CATALOG_FILTERS,
-  defaultSortForTab,
+  defaultSortForListing,
   effectiveSort,
   filtersOf,
   hasCatalogParams,
   LOCAL_SORTS,
+  MapListing,
   parseCatalogParams,
   serializeCatalogParams,
+  ServerMapListing,
   toMapFilter,
   validateSavedFilters,
   validateSavedSort,
@@ -152,26 +153,140 @@ const HiddenFileInput = styled.input`
   display: none;
 `
 
-/** The route for the map catalog's tabs: `/maps/:tab`. */
-export function MapCatalogRoute({ tab }: { tab: MapCatalogTab }) {
-  useTrackPageView(`/maps/${tab}`)
-  return <MapCatalog key={tab} tab={tab} />
+/**
+ * The search field of the catalog's header bar, focused by pressing `/` anywhere outside a text
+ * field.
+ */
+export function CatalogSearchInput({
+  value,
+  label,
+  maxLength,
+  onChange,
+}: {
+  value: string
+  label: string
+  /** The most characters that can be typed. */
+  maxLength?: number
+  /** Called with each change of the text, coalesced while typing quickly. */
+  onChange: (value: string) => void
+}) {
+  const searchInputRef = useRef<SearchInputHandle>(null)
+  const onSearchChange = useCoalescedSearch(onChange)
+  useKeyListener({
+    onKeyDown: event => {
+      if (event.key !== '/' || event.ctrlKey || event.altKey || event.metaKey) {
+        return false
+      }
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return false
+      }
+      searchInputRef.current?.focus()
+      return true
+    },
+  })
+
+  return (
+    <StyledSearchInput
+      ref={searchInputRef}
+      searchQuery={value}
+      onSearchChange={onSearchChange}
+      label={label}
+      maxLength={maxLength}
+    />
+  )
 }
 
-/** Sends `/maps` to the All maps tab, keeping any filters in its URL. */
-export function MapCatalogRedirect() {
-  useEffect(() => {
-    replace(urlForMapCatalog(MapCatalogTab.All, location.search.slice(1)))
-  }, [])
-  return null
-}
-
-function MapCatalog({ tab }: { tab: MapCatalogTab }) {
+/**
+ * The layout every catalog tab and collection page shares: the header bar with the catalog's tabs
+ * and `search` (a {@link CatalogSearchInput}, or nothing), the scrolling content below it, and the
+ * drop zone that uploads map files to the viewer's maps.
+ */
+export function MapCatalogFrame({
+  tab,
+  search,
+  children,
+}: {
+  /** The tab shown as active. */
+  tab: MapCatalogTab
+  search?: React.ReactNode
+  children: React.ReactNode
+}) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
   const uploadFiles = useUploadMapFiles()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  useScrollMemory(scroller)
 
+  // Switching tabs keeps the filters and search, so the same maps are looked for on the next tab
+  const onTabChange = (nextTab: MapCatalogTab) => {
+    const params = parseCatalogParams(new URLSearchParams(location.search))
+    const nextSearch = serializeCatalogParams({
+      ...filtersOf(params),
+      search: params.search,
+      sort: undefined,
+    })
+    push(urlForMapCatalog(nextTab, nextSearch))
+  }
+
+  return (
+    <Root data-content-fullbleed=''>
+      <HeaderBar>
+        <Title>{t('maps.activity.title', 'Maps')}</Title>
+        <Tabs activeTab={tab} onChange={onTabChange}>
+          <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
+          <TabItem
+            text={t('maps.collections.tab', 'Collections')}
+            value={MapCatalogTab.Collections}
+          />
+          {selfUser ? (
+            <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
+          ) : null}
+          {selfUser && IS_ELECTRON ? (
+            <TabItem text={t('maps.local.onThisPc', 'On this PC')} value={MapCatalogTab.Local} />
+          ) : null}
+        </Tabs>
+        {search}
+      </HeaderBar>
+      <Scroller ref={setScroller} $fullWidth={true}>
+        <Content>{children}</Content>
+      </Scroller>
+      {selfUser ? (
+        <DropZone extensions={[...MAP_FILE_EXTENSIONS]} onFilesDropped={uploadFiles}>
+          <DropContents>
+            <MaterialIcon icon='upload_file' size={48} />
+            {t('maps.catalog.dropToUpload', 'Drop maps here to upload them to your maps.')}
+          </DropContents>
+        </DropZone>
+      ) : null}
+    </Root>
+  )
+}
+
+/** The listing of maps each catalog tab that lists maps shows. */
+function listingForTab(tab: MapCatalogTab): MapListing {
+  switch (tab) {
+    case MapCatalogTab.Yours:
+      return MapListing.Yours
+    case MapCatalogTab.Local:
+      return MapListing.Local
+    default:
+      return MapListing.All
+  }
+}
+
+/**
+ * The filters, sort and search of a listing of maps, as the page's URL holds them, and the ways to
+ * change them. A visit with no filters in its URL starts from the viewer's saved ones. Filters are
+ * saved for every listing alike, and sorts for each listing.
+ */
+export function useCatalogUrlParams(listing: MapListing) {
   const search = useLocationProperty(() => location.search)
   const params = parseCatalogParams(new URLSearchParams(search))
 
@@ -181,31 +296,19 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     validateSavedFilters,
   )
   const [savedSort, setSavedSort] = useUserLocalStorageValue<CatalogSort | undefined>(
-    `maps.catalog.sort.${tab}`,
+    `maps.catalog.sort.${listing}`,
     undefined,
     validateSavedSort,
   )
-  const [density, setDensity] = useUserLocalStorageValue<CatalogDensity>(
-    'maps.catalog.density',
-    CatalogDensity.Cozy,
-    validateDensity,
-  )
-  const [localView, setLocalView] = useUserLocalStorageValue<LocalMapView>(
-    'maps.catalog.localView',
-    LocalMapView.Folders,
-    validateLocalMapView,
-  )
-  const isLocal = tab === MapCatalogTab.Local
   const sort = effectiveSort(
     params,
     savedSort,
-    defaultSortForTab(tab),
-    isLocal ? LOCAL_SORTS : undefined,
+    defaultSortForListing(listing),
+    listing === MapListing.Local ? LOCAL_SORTS : undefined,
   )
-  const localFolder = new URLSearchParams(search).get('folder') ?? undefined
 
-  // A visit with no filters in its URL starts from the viewer's saved ones, written into the URL
-  // so it always describes what's shown (and a link copied from it shows the same maps).
+  // The saved filters are written into the URL so it always describes what's shown (and a link
+  // copied from it shows the same maps).
   const applySavedDefaults = useEffectEvent(() => {
     const current = new URLSearchParams(location.search)
     if (hasCatalogParams(current)) {
@@ -234,30 +337,82 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     setSavedFilters(filtersOf(next))
   }
 
-  const onSortChange = (nextSort: CatalogSort) => {
-    navigate({ ...params, sort: nextSort })
-    if (nextSort !== CatalogSort.BestMatch) {
-      setSavedSort(nextSort)
-    }
+  return {
+    params,
+    sort,
+    onFiltersChange,
+    onSortChange: (nextSort: CatalogSort) => {
+      navigate({ ...params, sort: nextSort })
+      if (nextSort !== CatalogSort.BestMatch) {
+        setSavedSort(nextSort)
+      }
+    },
+    onClearFilters: () => onFiltersChange(DEFAULT_CATALOG_FILTERS),
+    /** Applies a change of the search text. Meant for a {@link CatalogSearchInput}. */
+    onSearchChange: (value: string) => {
+      const current = parseCatalogParams(new URLSearchParams(location.search))
+      navigate(withSearch(current, value), replace)
+    },
   }
+}
 
-  const onClearFilters = () => {
-    onFiltersChange(DEFAULT_CATALOG_FILTERS)
+/** Remembers the pages loaded for a catalog listing for the current visit to the page. */
+export function useCatalogWindowStore(): ListWindowStore {
+  const entryKey = useHistoryEntryKey()
+  return {
+    get: listKey => {
+      const stored = entryKey ? listWindows.get(entryKey) : undefined
+      return stored?.listKey === listKey ? stored.pageCursors : undefined
+    },
+    set: (listKey, pageCursors) => {
+      if (entryKey) {
+        listWindows.set(entryKey, { listKey, pageCursors })
+      }
+    },
   }
+}
 
-  const onSearchChange = useCoalescedSearch(value => {
-    const current = parseCatalogParams(new URLSearchParams(location.search))
-    navigate(withSearch(current, value), replace)
-  })
+/** How densely catalog listings lay out their tiles, as the viewer last picked. */
+export function useCatalogDensity() {
+  return useUserLocalStorageValue<CatalogDensity>(
+    'maps.catalog.density',
+    CatalogDensity.Cozy,
+    validateDensity,
+  )
+}
 
-  const onTabChange = (nextTab: MapCatalogTab) => {
-    const nextSearch = serializeCatalogParams({
-      ...filtersOf(params),
-      search: params.search,
-      sort: undefined,
-    })
-    push(urlForMapCatalog(nextTab, nextSearch))
-  }
+/** The route for the catalog's tabs that list maps: `/maps/:tab`. */
+export function MapCatalogRoute({ tab }: { tab: MapCatalogTab }) {
+  useTrackPageView(`/maps/${tab}`)
+  return <MapCatalog key={tab} tab={tab} />
+}
+
+/** Sends `/maps` to the All maps tab, keeping any filters in its URL. */
+export function MapCatalogRedirect() {
+  useEffect(() => {
+    replace(urlForMapCatalog(MapCatalogTab.All, location.search.slice(1)))
+  }, [])
+  return null
+}
+
+function MapCatalog({ tab }: { tab: MapCatalogTab }) {
+  const { t } = useTranslation()
+  const selfUser = useSelfUser()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadFiles = useUploadMapFiles()
+
+  const listing = listingForTab(tab)
+  const { params, sort, onFiltersChange, onSortChange, onClearFilters, onSearchChange } =
+    useCatalogUrlParams(listing)
+  const search = useLocationProperty(() => location.search)
+  const [density, setDensity] = useCatalogDensity()
+  const [localView, setLocalView] = useUserLocalStorageValue<LocalMapView>(
+    'maps.catalog.localView',
+    LocalMapView.Folders,
+    validateLocalMapView,
+  )
+  const isLocal = listing === MapListing.Local
+  const localFolder = new URLSearchParams(search).get('folder') ?? undefined
 
   const onLocalFolderChange = (folder: string | undefined) => {
     const next = new URLSearchParams(location.search)
@@ -270,47 +425,17 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     push(location.pathname + (nextSearch ? `?${nextSearch}` : ''))
   }
 
-  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
-  useScrollMemory(scroller)
+  const windowStore = useCatalogWindowStore()
 
-  const entryKey = useHistoryEntryKey()
-  const windowStore: ListWindowStore = {
-    get: listKey => {
-      const stored = entryKey ? listWindows.get(entryKey) : undefined
-      return stored?.listKey === listKey ? stored.pageCursors : undefined
-    },
-    set: (listKey, pageCursors) => {
-      if (entryKey) {
-        listWindows.set(entryKey, { listKey, pageCursors })
-      }
-    },
-  }
-
-  const searchInputRef = useRef<SearchInputHandle>(null)
-  useKeyListener({
-    onKeyDown: event => {
-      if (event.key !== '/' || event.ctrlKey || event.altKey || event.metaKey) {
-        return false
-      }
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return false
-      }
-      searchInputRef.current?.focus()
-      return true
-    },
-  })
-
-  const needsLogin = !selfUser && tab !== MapCatalogTab.All && !isLocal
+  const needsLogin = !selfUser && listing !== MapListing.All && !isLocal
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
-  const listKey = JSON.stringify([tab, filter, sort, tab === MapCatalogTab.Yours && libraryVersion])
+  const listKey = JSON.stringify([
+    listing,
+    filter,
+    sort,
+    listing === MapListing.Yours && libraryVersion,
+  ])
 
   let body: React.ReactNode
   if (needsLogin) {
@@ -352,12 +477,12 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     const searchText = params.search.trim()
     body = (
       <>
-        {tab === MapCatalogTab.Yours ? (
+        {listing === MapListing.Yours ? (
           <UploadBanner onUpload={() => fileInputRef.current?.click()} />
         ) : null}
         <MapCatalogList
           key={listKey}
-          tab={tab as ServerCatalogTab}
+          listing={listing as ServerMapListing}
           params={params}
           filter={filter}
           sort={sort}
@@ -392,53 +517,29 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   }
 
   return (
-    <Root data-content-fullbleed=''>
-      <HeaderBar>
-        <Title>{t('maps.activity.title', 'Maps')}</Title>
-        {selfUser ? (
-          <Tabs activeTab={tab} onChange={onTabChange}>
-            <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
-            <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
-            {IS_ELECTRON ? (
-              <TabItem text={t('maps.local.onThisPc', 'On this PC')} value={MapCatalogTab.Local} />
-            ) : null}
-            <TabItem
-              text={t('maps.catalog.favorites', 'Favorites')}
-              value={MapCatalogTab.Favorites}
-            />
-          </Tabs>
-        ) : null}
-        <StyledSearchInput
-          ref={searchInputRef}
-          searchQuery={params.search}
-          onSearchChange={onSearchChange}
+    <MapCatalogFrame
+      tab={tab}
+      search={
+        <CatalogSearchInput
+          value={params.search}
           label={t('maps.catalog.searchMaps', 'Search maps')}
+          onChange={onSearchChange}
         />
-      </HeaderBar>
-      <Scroller ref={setScroller} $fullWidth={true}>
-        <Content>{body}</Content>
-      </Scroller>
-      {selfUser ? (
-        <>
-          <HiddenFileInput
-            ref={fileInputRef}
-            type='file'
-            multiple={true}
-            accept={MAP_FILE_EXTENSIONS.map(e => `.${e}`).join(',')}
-            onChange={event => {
-              uploadFiles(event.target.files ?? [])
-              event.target.value = ''
-            }}
-          />
-          <DropZone extensions={[...MAP_FILE_EXTENSIONS]} onFilesDropped={uploadFiles}>
-            <DropContents>
-              <MaterialIcon icon='upload_file' size={48} />
-              {t('maps.catalog.dropToUpload', 'Drop maps here to upload them to your maps.')}
-            </DropContents>
-          </DropZone>
-        </>
+      }>
+      {body}
+      {listing === MapListing.Yours ? (
+        <HiddenFileInput
+          ref={fileInputRef}
+          type='file'
+          multiple={true}
+          accept={MAP_FILE_EXTENSIONS.map(e => `.${e}`).join(',')}
+          onChange={event => {
+            uploadFiles(event.target.files ?? [])
+            event.target.value = ''
+          }}
+        />
       ) : null}
-    </Root>
+    </MapCatalogFrame>
   )
 }
 

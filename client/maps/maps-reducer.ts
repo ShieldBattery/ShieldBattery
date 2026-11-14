@@ -48,19 +48,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@maps/getMaps'](state, action) {
-    const {
-      payload: { maps, libraryMapIds },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of maps) {
-      state.byId.set(map.id, map)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-    updateLibraryMapIds(state, maps, libraryMapIds)
-  },
-
   ['@maps/getBatchMapInfo'](state, action) {
     if (action.error) {
       return
