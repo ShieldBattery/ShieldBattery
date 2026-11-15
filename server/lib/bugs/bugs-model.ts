@@ -1,7 +1,8 @@
-import { BugReport } from '../../../common/bugs'
+import { BugReport, compareAppVersionsNewestFirst } from '../../../common/bugs'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
-import { sql, sqlConcat } from '../db/sql'
+import { escapeSearchString } from '../db/escape-search-string'
+import { sql, sqlConcat, SqlTemplate } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbBugReport = Dbify<BugReport>
@@ -15,18 +16,24 @@ function convertFromDb(row: DbBugReport): BugReport {
     createdAt: row.created_at,
     resolvedAt: row.resolved_at ?? undefined,
     resolverId: row.resolver_id ?? undefined,
+    appVersion: row.app_version ?? undefined,
   }
 }
 
 export async function createBugReport(
-  { submitterId, details, createdAt }: { submitterId?: SbUserId; details: string; createdAt: Date },
+  {
+    submitterId,
+    details,
+    appVersion,
+    createdAt,
+  }: { submitterId?: SbUserId; details: string; appVersion?: string; createdAt: Date },
   withClient?: DbClient,
 ): Promise<BugReport> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbBugReport>(sql`
-      INSERT INTO bug_reports (submitter_id, details, created_at)
-      VALUES (${submitterId}, ${details}, ${createdAt})
+      INSERT INTO bug_reports (submitter_id, details, app_version, created_at)
+      VALUES (${submitterId}, ${details}, ${appVersion}, ${createdAt})
       RETURNING *
     `)
     return convertFromDb(result.rows[0])
@@ -47,39 +54,69 @@ export async function deleteBugReport(reportId: string, withClient?: DbClient): 
   }
 }
 
-export async function listBugReports(
-  includeResolved = false,
-  withClient?: DbClient,
-): Promise<BugReport[]> {
-  const query = sql`
-    SELECT *
-    FROM bug_reports
-    ${includeResolved ? sql`` : sql`WHERE resolved_at IS NULL`}
-    ORDER BY created_at DESC
-  `
+/** The largest value `submitter_id` (an `integer`) can hold; longer digit strings can't match it. */
+const MAX_USER_ID = 2 ** 31 - 1
 
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query<DbBugReport>(query)
-    return result.rows.map(row => convertFromDb(row))
-  } finally {
-    done()
+export interface BugReportListFilters {
+  includeResolved: boolean
+  /**
+   * Text matching a report if its ID, details or submitter's name contain it (case-insensitive), or
+   * if it is all digits and equals the submitter's user ID. Leading/trailing whitespace is ignored,
+   * and a blank search matches every report.
+   */
+  search?: string
+  /** Only include reports filed from exactly this app version. */
+  appVersion?: string
+}
+
+/** Returns the SQL conditions on `br` (bug_reports) and `u` (users) selecting `filters`. */
+function bugReportFilterConditions({
+  includeResolved,
+  search,
+  appVersion,
+}: BugReportListFilters): SqlTemplate[] {
+  const conditions = includeResolved ? [] : [sql`br.resolved_at IS NULL`]
+  if (appVersion !== undefined) {
+    conditions.push(sql`br.app_version = ${appVersion}`)
   }
+
+  const trimmedSearch = search?.trim()
+  if (trimmedSearch) {
+    const pattern = `%${escapeSearchString(trimmedSearch)}%`
+    const matches = [
+      sql`br.id::text ILIKE ${pattern}`,
+      sql`br.details ILIKE ${pattern}`,
+      sql`u.name ILIKE ${pattern}`,
+    ]
+    if (/^\d+$/.test(trimmedSearch) && Number(trimmedSearch) <= MAX_USER_ID) {
+      matches.push(sql`br.submitter_id = ${Number(trimmedSearch)}`)
+    }
+    conditions.push(sql`(${sqlConcat(' OR ', matches)})`)
+  }
+
+  return conditions
 }
 
 /**
- * Returns up to `limit` bug reports, newest first, ordered by `(created_at, id)` so the order is
- * total. If `before` is given, only reports that sort after that report are returned; the
- * comparison reads the stored row in SQL so paging stays exact at the column's full timestamp
- * precision. Returns `undefined` if the `before` report does not exist.
+ * Returns up to `limit` bug reports matching `filters`, newest first, ordered by `(created_at, id)`
+ * so the order is total. If `before` is given, only reports that sort after that report are
+ * returned; the comparison reads the stored row in SQL so paging stays exact at the column's full
+ * timestamp precision. Returns `undefined` if the `before` report does not exist.
  */
 export async function listBugReportsPage(
-  { includeResolved, before, limit }: { includeResolved: boolean; before?: string; limit: number },
+  {
+    before,
+    limit,
+    ...filters
+  }: BugReportListFilters & {
+    before?: string
+    limit: number
+  },
   withClient?: DbClient,
 ): Promise<BugReport[] | undefined> {
   const { client, done } = await db(withClient)
   try {
-    const conditions = includeResolved ? [] : [sql`resolved_at IS NULL`]
+    const conditions = bugReportFilterConditions(filters)
     if (before) {
       const cursor = await client.query(sql`
         SELECT 1
@@ -90,18 +127,34 @@ export async function listBugReportsPage(
         return undefined
       }
       conditions.push(sql`
-        (created_at, id) < (SELECT created_at, id FROM bug_reports WHERE id = ${before})
+        (br.created_at, br.id) < (SELECT created_at, id FROM bug_reports WHERE id = ${before})
       `)
     }
 
     const result = await client.query<DbBugReport>(sql`
-      SELECT *
-      FROM bug_reports
+      SELECT br.*
+      FROM bug_reports br
+      LEFT JOIN users u ON u.id = br.submitter_id
       ${conditions.length ? sql`WHERE ${sqlConcat(' AND ', conditions)}` : sql``}
-      ORDER BY created_at DESC, id DESC
+      ORDER BY br.created_at DESC, br.id DESC
       LIMIT ${limit}
     `)
     return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/** Returns every app version any bug report was filed from, newest first. */
+export async function listBugReportAppVersions(withClient?: DbClient): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ app_version: string }>(sql`
+      SELECT DISTINCT app_version
+      FROM bug_reports
+      WHERE app_version IS NOT NULL
+    `)
+    return result.rows.map(row => row.app_version).sort(compareAppVersionsNewestFirst)
   } finally {
     done()
   }

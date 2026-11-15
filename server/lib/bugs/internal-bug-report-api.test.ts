@@ -49,7 +49,7 @@ describe('bugs/internal-bug-report-api', () => {
 
   describe('list', () => {
     test('defaults to the newest 50 unresolved reports, with no next page when they all fit', async () => {
-      const reports = [makeReport(1), makeReport(2)]
+      const reports = [{ ...makeReport(1), appVersion: '12.4.0' }, makeReport(2)]
       mockListBugReportsPage.mockResolvedValue(reports)
 
       const res = await got(`${baseUrl}/internal/bug-reports`, NO_THROW)
@@ -65,6 +65,7 @@ describe('bugs/internal-bug-report-api', () => {
       const body = JSON.parse(res.body)
       expect(body.reports.map((r: { id: string }) => r.id)).toEqual(reports.map(r => r.id))
       expect(body.reports[0].createdAt).toBe(Number(reports[0].createdAt))
+      expect(body.reports[0].appVersion).toBe('12.4.0')
       expect(body.nextPath).toBeUndefined()
     })
 
@@ -136,7 +137,17 @@ describe('bugs/internal-bug-report-api', () => {
 
       expect(res.statusCode).toBe(200)
       expect(JSON.parse(res.body).report.id).toBe(report.id)
+      expect(JSON.parse(res.body).report.appVersion).toBeUndefined()
       expect(mockListBugReportsPage).not.toHaveBeenCalled()
+    })
+
+    test('carries the app version the report was filed from', async () => {
+      const report = { ...makeReport(1), appVersion: '12.4.0' }
+      mockGetBugReport.mockResolvedValue(report)
+
+      const res = await got(`${baseUrl}/internal/bug-reports/${report.id}`, NO_THROW)
+
+      expect(JSON.parse(res.body).report.appVersion).toBe('12.4.0')
     })
   })
 })

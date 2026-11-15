@@ -3,8 +3,13 @@ import { createReadStream } from 'fs'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import {
+  DEFAULT_BUG_REPORTS_PAGE_SIZE,
   GetBugReportResponseJson,
+  ListBugReportsRequest,
   ListBugReportsResponseJson,
+  MAX_BUG_REPORT_APP_VERSION_LENGTH,
+  MAX_BUG_REPORT_SEARCH_LENGTH,
+  MAX_BUG_REPORTS_PAGE_SIZE,
   ReportBugRequest,
   ReportBugResponse,
   toBugReportJson,
@@ -30,12 +35,32 @@ import {
   deleteBugReport,
   findDeletableBugReports,
   getBugReport,
-  listBugReports,
+  listBugReportAppVersions,
+  listBugReportsPage,
   markBugReportFilesDeleted,
   resolveBugReport,
 } from './bugs-model'
 
 const MAX_LOGS_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
+
+const APP_VERSION = Joi.string()
+  .trim()
+  .max(MAX_BUG_REPORT_APP_VERSION_LENGTH)
+  .pattern(/^[\w.+-]+$/)
+
+const LIST_QUERY = Joi.object<
+  ListBugReportsRequest & Required<Pick<ListBugReportsRequest, 'includeResolved' | 'limit'>>
+>({
+  includeResolved: Joi.boolean().default(false),
+  search: Joi.string().trim().allow('').max(MAX_BUG_REPORT_SEARCH_LENGTH),
+  appVersion: APP_VERSION,
+  before: Joi.string().uuid(),
+  limit: Joi.number()
+    .integer()
+    .min(1)
+    .max(MAX_BUG_REPORTS_PAGE_SIZE)
+    .default(DEFAULT_BUG_REPORTS_PAGE_SIZE),
+})
 
 const reportThrottle = createThrottle('bugsReport', {
   rate: 1,
@@ -86,10 +111,11 @@ export class BugsApi {
   )
   async reportBug(ctx: RouterContext): Promise<ReportBugResponse> {
     const {
-      body: { details },
+      body: { details, appVersion },
     } = validateRequest(ctx, {
       body: Joi.object<ReportBugRequest>({
         details: Joi.string().required(),
+        appVersion: APP_VERSION,
       }),
     })
 
@@ -109,6 +135,7 @@ export class BugsApi {
     const report = await createBugReport({
       submitterId: ctx.session?.user?.id,
       details: details.slice(0, 5000),
+      appVersion,
       createdAt: new Date(this.clock.now()),
     })
 
@@ -130,7 +157,8 @@ export class BugsApi {
     this.webhookNotifier
       .notify({
         content:
-          `New bug report from: ${ctx.session?.user?.name ?? 'Unknown user'}\n\n` +
+          `New bug report from: ${ctx.session?.user?.name ?? 'Unknown user'}` +
+          `${appVersion ? ` (v${appVersion})` : ''}\n\n` +
           `> ${
             sanitizedDetails.length > 100 ? sanitizedDetails.slice(0, 100) + '…' : sanitizedDetails
           }\n\n` +
@@ -146,25 +174,30 @@ export class BugsApi {
   @httpGet('/')
   @httpBefore(ensureLoggedIn, checkAllPermissions('manageBugReports'))
   async listBugReports(ctx: RouterContext): Promise<ListBugReportsResponseJson> {
-    const reports = await listBugReports(ctx.query.includeResolved !== undefined)
+    const {
+      query: { includeResolved, search, appVersion, before, limit },
+    } = validateRequest(ctx, { query: LIST_QUERY })
+
+    const [reports, appVersions] = await Promise.all([
+      // One extra row tells us whether another page exists without a separate count query.
+      listBugReportsPage({ includeResolved, search, appVersion, before, limit: limit + 1 }),
+      listBugReportAppVersions(),
+    ])
+    if (!reports) {
+      throw new httpErrors.NotFound('Bug report passed as before not found')
+    }
+
+    const page = reports.slice(0, limit)
     const userIds = new Set(
-      reports.flatMap(r => {
-        if (r.submitterId && r.resolverId) {
-          return [r.submitterId, r.resolverId]
-        } else if (r.submitterId) {
-          return [r.submitterId]
-        } else if (r.resolverId) {
-          return [r.resolverId]
-        } else {
-          return []
-        }
-      }),
+      page.flatMap(r => [r.submitterId, r.resolverId]).filter(id => id !== undefined),
     )
     const users = await findUsersById(Array.from(userIds))
 
     return {
-      reports: reports.map(r => toBugReportJson(r)),
+      reports: page.map(r => toBugReportJson(r)),
       users,
+      hasMore: reports.length > limit,
+      appVersions,
     }
   }
 
