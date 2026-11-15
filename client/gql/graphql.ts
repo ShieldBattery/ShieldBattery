@@ -1146,6 +1146,15 @@ export type Leagues_HomeFeedEntryFragmentFragment = ({
   ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
 }) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
+export type HostGameCollectionMapsQueryVariables = Exact<{
+  id: string
+  first: number
+}>
+
+export type HostGameCollectionMapsQuery = {
+  mapCollection: { id: string; maps: { edges: Array<{ node: { id: Types.SbMapId } }> } } | null
+}
+
 export type AdminMapFamilyReportsQueryVariables = Exact<{
   status: MapFamilyReportStatus
   limit: number
@@ -8723,6 +8732,91 @@ export const HomePageLiveContentDocument = {
     },
   ],
 } as unknown as DocumentNode<HomePageLiveContentQuery, HomePageLiveContentQueryVariables>
+export const HostGameCollectionMapsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'HostGameCollectionMaps' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapCollection' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'maps' },
+                  arguments: [
+                    {
+                      kind: 'Argument',
+                      name: { kind: 'Name', value: 'first' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+                    },
+                  ],
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'edges' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'node' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<HostGameCollectionMapsQuery, HostGameCollectionMapsQueryVariables>
 export const AdminMapFamilyReportsDocument = {
   kind: 'Document',
   definitions: [
