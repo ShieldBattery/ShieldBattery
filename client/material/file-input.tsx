@@ -170,23 +170,3 @@ export function SingleFileInput(
     />
   )
 }
-
-export function MultiFileInput(
-  props: Omit<FileInputProps, 'onChange'> & { onChange?: (files: File[]) => void },
-) {
-  const onInputChange = (file?: File | File[]) => {
-    if (!file) {
-      props.onChange?.([])
-      return
-    }
-    props.onChange?.(Array.isArray(file) ? file : [file])
-  }
-
-  return (
-    <FileInput
-      {...props}
-      inputProps={{ ...props.inputProps, multiple: true }}
-      onChange={onInputChange}
-    />
-  )
-}

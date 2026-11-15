@@ -165,7 +165,8 @@ async fn clear_departing_default(
 /// Who moves a file between families, which decides how the move is recorded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveBy {
-    /// Staff sorting files into families (`move_file` and `split`).
+    /// Staff sorting files into families (`move_file` and `split`), or adding a file to a map by
+    /// publishing or linking it where its publisher couldn't.
     Staff,
     /// The file's publisher linking it to a suggested map (or one they own) or unlinking it, or
     /// the owner of its map unlinking it (`link` and `unlink`).

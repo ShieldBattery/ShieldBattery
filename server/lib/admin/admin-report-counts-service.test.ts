@@ -83,7 +83,6 @@ function perms(overrides: Partial<SbPermissions>): SbPermissions {
     manageMatchmaking: false,
     manageMatchmakingSeasons: false,
     manageMatchmakingTimes: false,
-    massDeleteMaps: false,
     moderateChatChannels: false,
     manageNews: false,
     manageBugReports: false,
