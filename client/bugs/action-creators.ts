@@ -1,5 +1,6 @@
 import {
   GetBugReportResponseJson,
+  ListBugReportsRequest,
   ListBugReportsResponseJson,
   ReportBugRequest,
   ReportBugResponse,
@@ -12,6 +13,8 @@ import { fetchJson } from '../network/fetch'
 
 const ipcRenderer = new TypedIpcRenderer()
 
+const APP_VERSION = import.meta.env.SB_VERSION
+
 export function reportBug(
   report: ReportBugRequest,
   spec: RequestHandlingSpec<ReportBugResponse>,
@@ -21,6 +24,7 @@ export function reportBug(
     const filesBlob = new Blob([reportFiles], { type: 'application/zip' })
     const formData = new FormData()
     formData.append('details', report.details)
+    formData.append('appVersion', APP_VERSION)
     formData.append('logs', filesBlob, 'logs.zip')
 
     return await fetchJson(apiUrl`/bugs`, { method: 'POST', body: formData, signal: spec.signal })
@@ -42,22 +46,37 @@ export async function sendReplayDiagnosticReport(
     'details',
     `Automatic report: the server rejected the replay for game ${gameId} (${code}).`,
   )
+  formData.append('appVersion', APP_VERSION)
   formData.append('logs', new Blob([reportFiles], { type: 'application/zip' }), 'logs.zip')
 
   return await fetchJson(apiUrl`/bugs`, { method: 'POST', body: formData })
 }
 
 export function adminListBugReports(
-  includeResolved: boolean,
+  { includeResolved, search, appVersion, before, limit }: ListBugReportsRequest,
   spec: RequestHandlingSpec<ListBugReportsResponseJson>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<ListBugReportsResponseJson>(
-      apiUrl`/bugs` + (includeResolved ? '?includeResolved' : ''),
-      {
-        signal: spec.signal,
-      },
-    )
+    const params = new URLSearchParams()
+    if (includeResolved) {
+      params.set('includeResolved', 'true')
+    }
+    if (search) {
+      params.set('search', search)
+    }
+    if (appVersion) {
+      params.set('appVersion', appVersion)
+    }
+    if (before) {
+      params.set('before', before)
+    }
+    if (limit !== undefined) {
+      params.set('limit', String(limit))
+    }
+
+    const result = await fetchJson<ListBugReportsResponseJson>(apiUrl`/bugs?${params}`, {
+      signal: spec.signal,
+    })
     dispatch({
       type: '@users/loadUsers',
       payload: result.users,
