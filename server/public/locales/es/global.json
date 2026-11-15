@@ -2411,12 +2411,42 @@
       "mapName": "Nombre del mapa",
       "mapNameRequired": "Introduce un nombre de mapa"
     },
+    "discover": {
+      "becauseYouPlayed": "Porque jugaste {{name}}",
+      "browseByTag": "Explorar por etiqueta",
+      "collectionOfTheWeek": "Colección de la semana",
+      "fresh": "Recién salidos del taller",
+      "freshSubtitle": "Mapas nuevos y versiones nuevas de los últimos 60 días",
+      "jumpBackIn": "Vuelve a jugar",
+      "loadError": "No se pudieron cargar los mapas",
+      "mapmakers": "Creadores de mapas",
+      "mapmakersSubtitle": "Los creadores cuyos mapas más se jugaron este mes",
+      "mapOfTheWeek": "Mapa de la semana",
+      "onTheRise": "En alza",
+      "playedAgo": "Jugado {{time}}",
+      "recommendationNoTags": "Mapas que no has jugado",
+      "recommendationOneTag": "{{tag}}: mapas que no has jugado",
+      "recommendationThreeTags": "{{first}}, {{second}} y {{third}}: mapas que no has jugado",
+      "recommendationTwoTags": "{{first}} y {{second}}: mapas que no has jugado",
+      "showAll": "Ver todo",
+      "tab": "Descubrir",
+      "tagWithCount_one": "{{tag}} · {{count}}",
+      "tagWithCount_many": "{{tag}} · {{count}}",
+      "tagWithCount_other": "{{tag}} · {{count}}",
+      "trending": "Tendencias de la semana",
+      "verifiedMakerTooltip": "El staff confirmó que este usuario creó algunos de estos mapas",
+      "viewCollection": "Ver colección"
+    },
     "familySearch": {
       "files_one": "{{count}} archivo",
       "files_many": "{{count}} de archivos",
       "files_other": "{{count}} archivos",
       "noResults": "No se encontraron mapas.",
       "search": "Busca mapas o pega un enlace de mapa"
+    },
+    "feature": {
+      "collectionOfTheWeekNotification": "<0>{{name}}</0> es la colección de la semana",
+      "mapOfTheWeekNotification": "<0>{{name}}</0> es el mapa de la semana"
     },
     "files": {
       "compare": "Comparar",
@@ -2540,6 +2570,8 @@
       "linkCopyError": "No se pudo copiar el enlace",
       "liveNow": "En vivo",
       "loadError": "No se pudo cargar este mapa",
+      "mapOfTheWeek": "Mapa de la semana",
+      "mapOfTheWeekOn": "Mapa de la semana · {{date}}",
       "matchmakingType": "Tipo de emparejamiento",
       "matchupBarLabel": "{{left}} {{leftRate}}, {{right}} {{rightRate}}",
       "matchupGames_one": "{{count}} partida",
@@ -2613,6 +2645,7 @@
     "publish": {
       "alreadyListed": "Este archivo ya está publicado.",
       "approvedNotification": "Tu mapa <1>{{name}}</1> fue revisado y ya está en el catálogo.",
+      "badTags": "Estas etiquetas no se pueden usar en este mapa.",
       "button": "Publicar",
       "delistedNotification": "El staff retiró tu mapa <1>{{name}}</1> del catálogo.",
       "delistedNotificationNote": "Su nota: “{{note}}”",
@@ -2659,6 +2692,8 @@
       "sameTriggers": "mismos triggers",
       "separateMap": "No, es un mapa aparte",
       "staffDelisted": "El staff retiró este archivo del catálogo, así que no se puede publicar.",
+      "tagLocked": "Este mapa tiene una etiqueta puesta por el staff o su creador que tus etiquetas quitarían.",
+      "tagsHaveMaker": "Este mapa tiene otro creador, que es quien pone sus etiquetas.",
       "terrainPercent": "{{percent}}% del mismo terreno",
       "title": "Publicar mapa",
       "unlinked": "Quitado de {{mapName}}",
@@ -2702,6 +2737,23 @@
         "removed": "Quitado de favoritos",
         "removeError": "No se pudo quitar el mapa de favoritos"
       }
+    },
+    "tags": {
+      "addTags": "Añadir etiquetas",
+      "badRequest": "Estas etiquetas no se pueden usar en este mapa.",
+      "editTitle": "Editar etiquetas",
+      "emailUnverified": "Verifica tu correo electrónico para cambiar las etiquetas de mapas.",
+      "error": "No se pudieron guardar las etiquetas. Inténtalo de nuevo más tarde.",
+      "filter": "Etiquetas",
+      "filterAny": "Cualquier etiqueta",
+      "filterMore": "{{tag}} +{{more}}",
+      "hasMaker": "Este mapa ya tiene creador, que es quien pone sus etiquetas.",
+      "locked": "Una de las etiquetas que quitaste la puso el staff o el creador del mapa, así que se queda.",
+      "lockedTooltip": "No puedes quitar esta etiqueta",
+      "notListed": "Este mapa no está publicado, así que no se pueden cambiar sus etiquetas.",
+      "rateLimited": "Has cambiado muchas etiquetas de mapas en la última hora. Inténtalo más tarde.",
+      "restricted": "Tienes restringido publicar mapas, así que no puedes cambiar las etiquetas de mapas.",
+      "selectedCount": "{{selected}} de {{max}}"
     },
     "thumbnail": {
       "addToStarred": "Añadir a favoritos",
