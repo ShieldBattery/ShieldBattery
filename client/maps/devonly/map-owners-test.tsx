@@ -380,6 +380,7 @@ function AddFileScenario({ scenarioId }: { scenarioId: ScenarioId }) {
       <MapOwnerAddFileBody
         familyId={FAMILY_ID}
         viewerId={VIEWER}
+        viewerIsStaff={false}
         listing={listing}
         busy={state.busy}
         errorMessage={state.error}

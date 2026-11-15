@@ -294,9 +294,11 @@ impl MapPublishingMutation {
     /// `answer` says. `JOIN` takes one of the suggested maps or a map the current user owns, and is
     /// refused when the file's own map has a credit or an owner other than the current user.
     /// `JOIN` and `UNSURE` are refused for a file with an `existingMap`, except a `JOIN` into a map
-    /// the current user owns while none of the `existingMap`'s files is listed. A
-    /// file that's already listed is left as it is. A file whose name or description needs a look
-    /// is held for staff instead (`heldForReview`), who list it or not.
+    /// the current user owns while none of the `existingMap`'s files is listed. Users who can
+    /// manage maps can publish any file, and `JOIN` it to any map other than its own, as
+    /// `mapFamilyMoveFile` would move it. A file that's already listed is left as it is. A file
+    /// whose name or description needs a look is held for staff instead (`heldForReview`), who
+    /// list it or not.
     async fn map_publish(
         &self,
         ctx: &Context<'_>,
@@ -466,7 +468,8 @@ impl MapPublishingMutation {
     /// Moves a listed file the current user published, while it's the only file of its map, into
     /// one of the maps suggested for it (see `mapLinkSuggestions`) or a map the current user owns.
     /// Its old map is merged into that map, so this is refused when that map has a credit or an
-    /// owner other than the current user.
+    /// owner other than the current user. Users who can manage maps can move any listed file into
+    /// any other map, as `mapFamilyMoveFile` would.
     async fn map_file_link(
         &self,
         ctx: &Context<'_>,
@@ -477,7 +480,8 @@ impl MapPublishingMutation {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let file_id = resolve_existing_map_id(db, file_id).await?;
         let family_id = resolve_existing_family_id(db, family_id).await?;
-        let moved = publish::link(db, file_id, family_id, user.id)
+        let staff = is_staff(ctx).await;
+        let moved = publish::link(db, file_id, family_id, user.id, staff)
             .await
             .map_err(publish_error)?;
         notify_file_move(ctx, file_id, &moved, user.id).await;

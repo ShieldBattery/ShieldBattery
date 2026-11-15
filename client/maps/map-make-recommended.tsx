@@ -28,8 +28,9 @@ export const MapFamilySetDefaultMutation = graphql(/* GraphQL */ `
 `)
 
 /**
- * Returns a function that makes a file that just joined a map the viewer owns that map's
- * recommended file when `wanted`, resolving to what came of it. It never rejects.
+ * Returns a function that makes a file that just joined a map the viewer may pick the recommended
+ * file of (as its maker, or as staff) that map's recommended file when `wanted`, resolving to what
+ * came of it. It never rejects.
  */
 export function useMakeRecommended() {
   const [, setDefault] = useMutation(MapFamilySetDefaultMutation)
@@ -46,7 +47,7 @@ export function useMakeRecommended() {
   }
 }
 
-/** Asks whether a file being added to a map the viewer owns becomes its recommended file. */
+/** Asks whether a file being added to a map becomes its recommended file. */
 export function MakeRecommendedCheckBox({
   checked,
   disabled,

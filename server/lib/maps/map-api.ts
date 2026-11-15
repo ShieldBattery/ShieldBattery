@@ -20,7 +20,7 @@ import {
   toMapInfoJson,
   UpdateMapResponse,
 } from '../../../common/maps'
-import { deleteFiles, getSignedUrl } from '../files'
+import { getSignedUrl } from '../files'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from '../games/game-list-data'
 import { getGames } from '../games/game-models'
 import { httpApi } from '../http/http-api'
@@ -38,9 +38,7 @@ import {
   resolveMapIds,
   resolveMapPageId,
   updateMap,
-  veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
-import { checkAllPermissions } from '../permissions/check-permissions'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -365,18 +363,5 @@ export class MapsApi {
     })
 
     return { url }
-  }
-
-  @httpDelete('/')
-  @httpBefore(ensureLoggedIn, checkAllPermissions('massDeleteMaps'))
-  async deleteAllMaps(ctx: RouterContext): Promise<void> {
-    await veryDangerousDeleteAllMaps(async () => {
-      await Promise.all([
-        deleteFiles('maps/'),
-        deleteFiles('map_images/'),
-        deleteFiles('map_rejects/'),
-      ])
-    })
-    ctx.status = 204
   }
 }

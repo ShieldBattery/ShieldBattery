@@ -1,7 +1,9 @@
 //! Listing map files. Any player can publish a file they hold (list it in the catalog) and take it
 //! out again; staff can delist any file, which keeps players from listing it again, and relist it.
 //! A file's publisher can also link it to a map the server suggests it's a version of (or to a map
-//! they own), or unlink it into a map of its own; a map's owner can unlink any file from it.
+//! they own), or unlink it into a map of its own; a map's owner can unlink any file from it. Staff
+//! can publish a file into any map, or link a listed file to one, as moving the file with their own
+//! tools would.
 //!
 //! Like the edits in [`edit`], every change takes the families lock before touching anything,
 //! recomputes the current file of the families it touched before its transaction commits, and
@@ -136,6 +138,23 @@ pub enum PublishError {
 impl From<sqlx::Error> for PublishError {
     fn from(error: sqlx::Error) -> Self {
         Self::Other(error.into())
+    }
+}
+
+impl PublishError {
+    /// Whether this refuses moving a file into a map only for being outside what its publisher (or
+    /// the map's owner) may do. Staff can move any file into any other map (see
+    /// [`edit::move_file`]), so these don't stop them from adding a file to a map.
+    fn is_waived_for_staff_moves(&self) -> bool {
+        matches!(
+            self,
+            Self::Blocked(PublishBlock::Restricted)
+                | Self::NotPublisher
+                | Self::NotAlone
+                | Self::ProtectedMap
+                | Self::NotSuggested
+                | Self::HasExistingMap
+        )
     }
 }
 
@@ -437,15 +456,45 @@ pub struct PublishOutcome {
     pub moved: Option<FileMove>,
 }
 
+/// Checks that `user` may answer that `file_id` is (`join`) or might be a version of `target`, as
+/// its publisher: a `Join` answer may name a suggested map or one `user` owns, an `Unsure` answer
+/// only a suggested map. Neither is taken for a file that shares its family with other files,
+/// except a `Join` into another map `user` owns while none of that family's files is listed. A
+/// `Join` is also refused when it would merge away the file's own map while that map has a credit
+/// or an owner other than `user`.
+async fn check_answer_target(
+    tx: &mut Transaction<'_, Postgres>,
+    file: &PublishFile,
+    file_id: SbMapId,
+    target: Uuid,
+    join: bool,
+    user: SbUserId,
+) -> Result<(), PublishError> {
+    let owned = join && owners::owns(tx, target, user).await?;
+    if file.has_existing_map(target, owned) {
+        return Err(PublishError::HasExistingMap);
+    }
+    if join && file.move_erases_protected_map(user) {
+        return Err(PublishError::ProtectedMap);
+    }
+    if !owned {
+        let suggestions = publish_suggestions(tx, file_id).await?;
+        if !suggestions.iter().any(|s| s.family_id == target) {
+            return Err(PublishError::NotSuggested);
+        }
+    }
+    Ok(())
+}
+
 /// Publishes `file_id` as `user`, who is staff if `staff`. A file that's already listed is left as
 /// it is. Otherwise the file is listed and `answer` applied, unless its name or description hits
 /// the restricted names list (checked for everyone but staff): then it's held for staff, who list
 /// it or dismiss it. The publish review keeps `answer`, which is applied if staff list the file
-/// (see [`approve_review`]). A `Join` answer may name a suggested map or one `user` owns; an
-/// `Unsure` answer only a suggested map. Neither is taken for a file that shares its family with
-/// other files, except a `Join` into another map `user` owns while none of that family's files is
-/// listed: the file then leaves the family, whose other files stay in it. A joined file is moved
-/// before it's listed, so it's only ever listed in the map it joins.
+/// (see [`approve_review`]). Which maps an answer may name is up to [`check_answer_target`], except
+/// that staff may `Join` a file to any map other than its own, as moving it there with
+/// [`edit::move_file`] would: that move is recorded as a staff move. A file joined out of a family
+/// holding other files leaves those files where they are. A joined file is moved before it's
+/// listed, so it's only ever listed in the map it joins.
 pub async fn publish(
     db: &PgPool,
     names: &NameChecker,
@@ -482,20 +531,13 @@ pub async fn publish(
             return Err(PublishError::Blocked(block));
         }
     }
+    let mut join_by = MoveBy::Publisher;
     if let PublishAnswer::Join(family_id) | PublishAnswer::Unsure(family_id) = answer {
-        let owned = matches!(answer, PublishAnswer::Join(_))
-            && owners::owns(&mut tx, family_id, user).await?;
-        if file.has_existing_map(family_id, owned) {
-            return Err(PublishError::HasExistingMap);
-        }
-        if matches!(answer, PublishAnswer::Join(_)) && file.move_erases_protected_map(user) {
-            return Err(PublishError::ProtectedMap);
-        }
-        if !owned {
-            let suggestions = publish_suggestions(&mut tx, file_id).await?;
-            if !suggestions.iter().any(|s| s.family_id == family_id) {
-                return Err(PublishError::NotSuggested);
-            }
+        let join = matches!(answer, PublishAnswer::Join(_));
+        match check_answer_target(&mut tx, &file, file_id, family_id, join, user).await {
+            Ok(()) => {}
+            Err(e) if join && staff && e.is_waived_for_staff_moves() => join_by = MoveBy::Staff,
+            Err(e) => return Err(e),
         }
     }
 
@@ -532,8 +574,7 @@ pub async fn publish(
             }
         }
         PublishAnswer::Join(family_id) => {
-            let moved =
-                edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
+            let moved = edit::move_file(&mut tx, file_id, family_id, user, join_by).await?;
             list_file(&mut tx, file_id, family_id, user, user).await?;
             PublishOutcome {
                 family_id,
@@ -936,19 +977,17 @@ async fn check_publisher_move(
     }
 }
 
-/// Moves a listed file, alone in its family, into one of the maps suggested for it or a map its
-/// publisher owns, at its publisher's request. Refused when the file's own map, which the move
-/// would merge away, has a credit or an owner other than the publisher.
-pub async fn link(
-    db: &PgPool,
+/// Checks that `user` may link `file` into `target` as its publisher: the file is listed and alone
+/// in its family, `target` is suggested for it or owned by `user`, and the file's own map, which
+/// the move would merge away, has no credit and no owner other than `user`.
+async fn check_publisher_link(
+    tx: &mut Transaction<'_, Postgres>,
+    file: &PublishFile,
     file_id: SbMapId,
-    family_id: Uuid,
+    target: Uuid,
     user: SbUserId,
-) -> Result<FileMove, PublishError> {
-    let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
-    lock_families(&mut tx).await?;
-    let file = load_file(&mut tx, file_id).await?;
-    check_publisher_move(&mut tx, &file, user, false).await?;
+) -> Result<(), PublishError> {
+    check_publisher_move(tx, file, user, false).await?;
     if !file.listed {
         return Err(PublishError::NotListed);
     }
@@ -958,13 +997,39 @@ pub async fn link(
     if file.move_erases_protected_map(user) {
         return Err(PublishError::ProtectedMap);
     }
-    if !owners::owns(&mut tx, family_id, user).await? {
-        let suggestions = publish_suggestions(&mut tx, file_id).await?;
-        if !suggestions.iter().any(|s| s.family_id == family_id) {
+    if !owners::owns(tx, target, user).await? {
+        let suggestions = publish_suggestions(tx, file_id).await?;
+        if !suggestions.iter().any(|s| s.family_id == target) {
             return Err(PublishError::NotSuggested);
         }
     }
-    let moved = edit::move_file(&mut tx, file_id, family_id, user, MoveBy::Publisher).await?;
+    Ok(())
+}
+
+/// Moves a listed file into another map at the request of `user`, who is staff if `staff`. Its
+/// publisher may move it while it's alone in its family, into one of the maps suggested for it or
+/// a map they own, unless the file's own map, which the move would merge away, has a credit or an
+/// owner other than them (see [`check_publisher_link`]). Staff may move any listed file into any
+/// other map, as [`edit::move_file`] would, which is recorded as a staff move.
+pub async fn link(
+    db: &PgPool,
+    file_id: SbMapId,
+    family_id: Uuid,
+    user: SbUserId,
+    staff: bool,
+) -> Result<FileMove, PublishError> {
+    let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
+    lock_families(&mut tx).await?;
+    let file = load_file(&mut tx, file_id).await?;
+    if staff && !file.listed {
+        return Err(PublishError::NotListed);
+    }
+    let by = match check_publisher_link(&mut tx, &file, file_id, family_id, user).await {
+        Ok(()) => MoveBy::Publisher,
+        Err(e) if staff && e.is_waived_for_staff_moves() => MoveBy::Staff,
+        Err(e) => return Err(e),
+    };
+    let moved = edit::move_file(&mut tx, file_id, family_id, user, by).await?;
     tx.commit().await.wrap_err("Failed to commit link")?;
     Ok(moved)
 }
@@ -1253,6 +1318,32 @@ mod tests {
     fn publish_review_answers_round_trip_through_the_db_value() {
         for answer in [MapPublishReviewAnswer::Join, MapPublishReviewAnswer::Unsure] {
             assert_eq!(MapPublishReviewAnswer::from_db(answer.as_str()), answer);
+        }
+    }
+
+    #[test]
+    fn staff_moves_skip_only_the_publisher_and_owner_limits() {
+        for waived in [
+            PublishError::Blocked(PublishBlock::Restricted),
+            PublishError::NotPublisher,
+            PublishError::NotAlone,
+            PublishError::ProtectedMap,
+            PublishError::NotSuggested,
+            PublishError::HasExistingMap,
+        ] {
+            assert!(waived.is_waived_for_staff_moves(), "{waived:?}");
+        }
+        for kept in [
+            PublishError::MapNotFound,
+            PublishError::FamilyNotFound,
+            PublishError::NotListed,
+            PublishError::NotPublisherOrOwner,
+            PublishError::InLadderPool(MatchmakingType::Match1v1),
+            PublishError::Blocked(PublishBlock::AlreadyListed),
+            PublishError::Blocked(PublishBlock::StaffDelisted),
+            PublishError::Edit(FamilyEditError::AlreadyInFamily),
+        ] {
+            assert!(!kept.is_waived_for_staff_moves(), "{kept:?}");
         }
     }
 
