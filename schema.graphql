@@ -139,6 +139,20 @@ type CurrentUser {
 	saved and can still see, most recently saved first.
 	"""
 	mapCollections: [MapCollection!]!
+	"""
+	The different maps this user played in their most recent games (of any kind, canceled
+	games aside), the most recently played first; `first` of them (at most 12). Includes maps
+	that aren't listed, except where every file of the map the user played was delisted by
+	staff.
+	"""
+	recentMaps(first: Int! = 6): [RecentMap!]!
+	"""
+	Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
+	the last 28 days: listed maps of that map's kind (for a melee map, also with as many
+	players) sharing a tag with it, that the user hasn't played in the last 90 days. Null when
+	none of the 5 maps they played most in lobbies gives at least 4.
+	"""
+	mapRecommendation(lens: MapLens! = ALL): MapRecommendation
 }
 
 """
@@ -1094,6 +1108,11 @@ type MapFamily {
 	"""
 	canEditTags: Boolean!
 	"""
+	The weeks in which the map was the staff pick leading the Discover page, each as the instant
+	it starts (a Monday at 00:00 UTC), up to and including the current week, newest first.
+	"""
+	featuredWeeks: [DateTime!]!
+	"""
 	Play statistics summed over every file of the map, or null if none has been played.
 	Recomputed hourly; until then a map's stats are its current file's.
 	"""
@@ -1448,6 +1467,75 @@ enum MapFamilyReportStatus {
 	DISMISSED
 }
 
+"""
+The map or collection leading the Discover page for a week: one staff picked, or when staff
+picked nothing everyone can see, the map rising fastest.
+"""
+type MapFeature {
+	id: String!
+	"""
+	When the week starts: a Monday at 00:00 UTC. The week ends when the next one starts.
+	"""
+	week: DateTime!
+	"""
+	The picked map's current file. Null for a collection.
+	"""
+	map: SbMap
+	"""
+	The picked collection. Null for a map, and when the viewer can't see the collection.
+	"""
+	collection: MapCollection
+	"""
+	What staff wrote about the pick, plain text on one line. Empty when they wrote nothing, and
+	for an automatic pick.
+	"""
+	blurb: String!
+	"""
+	Whether this is the automatic pick, the map rising fastest, standing in for a week without
+	a staff pick everyone can see.
+	"""
+	automatic: Boolean!
+	"""
+	Who made the pick. Null for an automatic pick, and for users who can't manage maps.
+	"""
+	createdBy: SbUser
+	"""
+	Whether the pick is shown: it points at a listed map or at a collection everyone can see.
+	A week whose pick isn't shown gets the automatic pick instead. Only available to users who
+	can manage maps.
+	"""
+	shown: Boolean!
+}
+
+type MapFeatureConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapFeatureEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapFeature!]!
+}
+
+"""
+An edge in a connection.
+"""
+type MapFeatureEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapFeature!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
 type MapFile {
 	format: String!
 	tileset: Int!
@@ -1537,7 +1625,8 @@ input MapFilter {
 	tilesets: [Int!]
 	eud: EudFilter! = ANY
 	"""
-	Only maps published at or after this time.
+	Only maps whose file shown in the listing was published at or after this time: for a map
+	listed as its current file, when that file was published.
 	"""
 	publishedSince: DateTime
 	"""
@@ -1659,6 +1748,26 @@ type MapLibraryEdge {
 	A cursor for use in pagination
 	"""
 	cursor: String!
+}
+
+"""
+A user who is the maker of listed maps, counting only the maps that fit the lens asked for.
+"""
+type MapMaker {
+	id: String!
+	user: SbUser!
+	"""
+	Whether staff set them as the maker of at least one of their maps.
+	"""
+	verified: Boolean!
+	"""
+	How many of their maps are listed.
+	"""
+	mapCount: Int!
+	"""
+	The games played on their listed maps in the last 28 days.
+	"""
+	games28d: Int!
 }
 
 """
@@ -1996,6 +2105,30 @@ type MapPublishSuggestion {
 	sameResources: Boolean!
 }
 
+"""
+Maps sharing tags with a map the current user played in lobbies lately (the seed), which they
+haven't played lately themselves.
+"""
+type MapRecommendation {
+	"""
+	The seed map's id.
+	"""
+	id: UUID!
+	"""
+	The seed map's current file.
+	"""
+	seed: SbMap!
+	"""
+	The seed map's tags, in list order. The recommended maps each share at least one of them.
+	"""
+	tags: [MapTag!]!
+	"""
+	The recommended maps' current files: the most tags shared with the seed first, then the
+	most played in the last 28 days.
+	"""
+	maps: [SbMap!]!
+}
+
 type MapSimilarFile {
 	id: String!
 	map: SbMap!
@@ -2061,8 +2194,9 @@ enum MapSort {
 	"""
 	POPULAR_ALL_TIME
 	"""
-	Most recently published (or, in a user's maps, favorites or a collection, most recently
-	added) first.
+	In the listed maps, the maps whose current file (the file each map is shown as) was
+	published most recently first. In a user's library, favorites or a collection, the most
+	recently added first.
 	"""
 	NEWEST
 	"""
@@ -2666,6 +2800,24 @@ type Mutation {
 	Only available to users who can manage maps.
 	"""
 	mapCollectionReportDismiss(reportId: UUID!): MapCollectionReport!
+	"""
+	Makes a map (the map the file `mapId` is in) or a collection the staff pick of a week,
+	replacing the week's pick if it has one. Give exactly one of `mapId` and `collectionId`
+	(`BAD_REQUEST`). The map must be listed (`NOT_LISTED`), and the collection one everyone can
+	see (`NOT_PUBLIC`). `week` is the instant the week starts, a Monday at 00:00 UTC
+	(`INVALID_WEEK`), from this week (`WEEK_PASSED`) up to 26 weeks ahead (`WEEK_TOO_FAR`).
+	`blurb` is trimmed, and must be one line of at most 400 characters (`INVALID_BLURB`).
+	Picking another map or collection for a week makes a new pick whose maker hasn't been told;
+	picking the same one again only changes the blurb. Only available to users who can manage
+	maps.
+	"""
+	mapFeatureSet(week: DateTime!, mapId: SbMapId, collectionId: UUID, blurb: String): MapFeature!
+	"""
+	Removes the staff pick of a week, past or to come. `week` is the instant the week starts, a
+	Monday at 00:00 UTC (`INVALID_WEEK`). Returns whether the week had a pick. Only available to
+	users who can manage maps.
+	"""
+	mapFeatureRemove(week: DateTime!): Boolean!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -2991,6 +3143,26 @@ type Query {
 	How many collection reports are open. Only available to users who can manage maps.
 	"""
 	mapCollectionReportCount: Int!
+	"""
+	The map or collection leading the Discover page this week: the week's staff pick if it is
+	shown (see `MapFeature.shown`) and fits `lens` (a map of the lens's kind, or any
+	collection), otherwise the automatic pick: the listed map fitting `lens` with the highest
+	trending score, at least 200, that wasn't a staff pick in any of the last 8 weeks (this one
+	included), the most played in the last 28 days first on a tie. Null when nothing qualifies.
+	"""
+	mapFeature(lens: MapLens! = ALL): MapFeature
+	"""
+	Every staff pick, whether or not it's shown, the latest week first: the weeks to come, then
+	this one, then the past. Pages are 30 picks unless `first` says otherwise (at most 100).
+	Only available to users who can manage maps.
+	"""
+	mapFeatures(after: String, first: Int): MapFeatureConnection!
+	"""
+	The users who are the maker (owner) of listed maps fitting `lens`, counting only those
+	maps: the most games on them in the last 28 days first, then the most maps. A maker is only
+	listed once their maps' `players90d` add up to at least 10. `first` of them (at most 24).
+	"""
+	mapMakers(lens: MapLens! = ALL, first: Int! = 8): [MapMaker!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -3094,6 +3266,21 @@ again until `availableAt`.
 type RecentCommend {
 	userId: SbUserId!
 	availableAt: DateTime!
+}
+
+"""
+A map the current user played recently.
+"""
+type RecentMap {
+	id: String!
+	"""
+	The map's current file, which may not be the file that was played.
+	"""
+	map: SbMap!
+	"""
+	When the user's most recent game on any of the map's files started.
+	"""
+	lastPlayedAt: DateTime!
 }
 
 type ReconciledPlayerResult {

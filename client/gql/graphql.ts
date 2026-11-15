@@ -178,7 +178,10 @@ export type MapFilter = {
   owner?: Types.SbUserId | null | undefined
   /** Exact player counts to include. */
   players?: Array<number> | null | undefined
-  /** Only maps published at or after this time. */
+  /**
+   * Only maps whose file shown in the listing was published at or after this time: for a map
+   * listed as its current file, when that file was published.
+   */
   publishedSince?: string | null | undefined
   /**
    * Text to search for in map names (curated and original) and descriptions. Case,
@@ -325,8 +328,9 @@ export enum MapSort {
   /** Alphabetical, ignoring leading player-count prefixes and bracketed tags. */
   Name = 'NAME',
   /**
-   * Most recently published (or, in a user's maps, favorites or a collection, most recently
-   * added) first.
+   * In the listed maps, the maps whose current file (the file each map is shown as) was
+   * published most recently first. In a user's library, favorites or a collection, the most
+   * recently added first.
    */
   Newest = 'NEWEST',
   /** Fewest player slots first. */
