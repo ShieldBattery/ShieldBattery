@@ -1,369 +1,426 @@
 ---
 name: verify-app
-description: Drive the real ShieldBattery Electron app to verify functionality — single-client or multiple clients at once (chat, whispers, lobbies, parties, matchmaking). Connects to the running app over the Chrome DevTools Protocol with playwright-cli. Use this for ANY client/feature behavior verification; the browser + /dev pages only prove superficial rendering (they're not wired to the Redux store and use mock data).
+description: Launch and drive the real ShieldBattery Electron app with the sb-app script and playwright-cli over the Chrome DevTools Protocol. Use it to verify ANY client/feature behavior, single-client or multi-client (chat, whispers, lobbies, parties, matchmaking), and any time you need a dev app instance running - to start a game against computers, play a replay, take in-game screenshots or run a capture or benchmark. The browser + /dev pages only prove superficial rendering (they're not wired to the Redux store and use mock data).
 ---
 
 # Verifying changes in the Electron app
 
 The Electron app is the **primary** verification surface. Most features are gated behind the
-Electron client check, and the web `/dev` devonly pages render against mock data with no store — they
-prove a component *looks* right, nothing more. To verify that something *works*, drive the real app.
+Electron client check, and the web `/dev` devonly pages render against mock data with no store: they
+prove a component _looks_ right, nothing more. To verify that something _works_, drive the real app.
+
+[sb-app.mjs](./sb-app.mjs) does the repetitive parts (launch, wait until rendered, log in, attach
+playwright-cli, make a lobby against computers, start a replay, wait for a game state, tear down).
+You drive everything else with `playwright-cli` on the session it attached. Like `dev-stack.mjs` it
+works from any directory and shell, and drives the checkout it lives in.
+
+```bash
+node .claude/skills/verify-app/sb-app.mjs launch 2                      # instance 2, logged in as claude-2
+node .claude/skills/verify-app/sb-app.mjs lobby 2 --computers 1 --start # melee vs 1 computer, waits for 'playing'
+node .claude/skills/verify-app/sb-app.mjs end 2                         # end the game, keep the app
+node .claude/skills/verify-app/sb-app.mjs stop --all                    # tear down every instance sb-app launched
+```
 
 ## Prerequisites
 
-1. Dev stack running (see the **dev-env** skill): Postgres/Redis, Node server (:5555), Rust server
-   (:5556), and the **app renderer dev server (:5566)** — the dev app fetches its shell and modules
-   from there.
-2. Seeded accounts: `pnpm run seed-dev` (gives `claude-admin` + `claude-1..3`, password
-   `shieldbattery`).
-3. `playwright-cli` available. It's a **global** npm tool (not a project dependency) and is on PATH,
-   so just run it directly — `playwright-cli --version` (→ `0.1.14`), `playwright-cli -s=c1 snapshot`,
-   etc. No wrapper needed; it prints clean output with no npm config noise.
-   - **Don't wrap it in `npx`/`pnpm dlx`/`pnpm exec`.** `npx` (even `--no-install`) adds config-warning
-     noise you'd have to `2>/dev/null` away. `pnpm dlx` re-downloads from the registry each run (the
-     fetch-and-run path — it would drift from the pinned global). `pnpm exec` prints `Already up to
-     date` / `Done in Nms` to **stdout** (not stderr — `2>/dev/null` won't strip it), corrupting the
-     snapshot/eval output this skill parses. And `playwright-cli` isn't a project dep, so pnpm has
-     nothing to resolve for it anyway. Bare `playwright-cli` is the clean choice.
-4. **If you changed `game/` Rust code and will launch a game to verify it, rebuild with
-   `game\build.bat` first** — a bare `cargo build` leaves `game/dist/shieldbattery_64.dll` (the DLL
-   the app injects by default) stale, so the launched game silently runs the *old* code. If a
-   game-launch result contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game
-   DLL.)
-5. **If you changed `app/` (Electron main-process) code, run `pnpm run build-app-main` before
-   launching.** The launch below runs `electron.exe app`, which loads the *bundled* main process
-   from `app/dist/index.js` — only the renderer is served live by the :5566 dev server. A stale
-   bundle is silent until something you added is missing at runtime (e.g. a new IPC handler fails
-   with `No handler registered for '…'`). `common/` changes used by the main process need the
-   rebuild too. Rebuilding requires relaunching the app instances (which also ends any game they
-   have running).
+1. **Dev stack running** (the **dev-env** skill): `dev-stack.mjs start node rust renderer`. `launch`
+   refuses without :5555 and :5566, because the dev app fetches its shell and modules from the
+   renderer dev server.
+2. **Seeded accounts**: `pnpm run seed-dev` (`claude-admin` + `claude-1..12`, password
+   `shieldbattery`, UI language reset to English).
+3. **`playwright-cli`** is a global npm tool on PATH: run it bare (`playwright-cli --version` →
+   `0.1.14`). Don't wrap it in `npx`/`pnpm dlx`/`pnpm exec`; they add noise to stdout that corrupts
+   the output you parse, and `pnpm dlx` re-downloads it.
+4. **Game DLL, if you changed `game/` and will launch a game:** `node game/gates.mjs --build` (or
+   `game\build.bat`, plus `build.bat x86` for 32-bit). A bare `cargo build` leaves
+   `game/dist/shieldbattery_64.dll` stale, so the launched game silently runs the _old_ code.
+   `launch` warns when the DLL in `dist` is older than the game sources. To inject a DLL from
+   somewhere else (another worktree's `game/dist`, or a pinned copy while `dist` is being rebuilt),
+   pass `--dll-dir <dir>` (sets `SB_GAME_DLL_DIR`, dev builds only).
+5. **App main-process bundle, if you changed `app/` (or `common/` code it uses):**
+   `pnpm run build-app-main`, then relaunch the instances. The app runs the _bundled_ main process
+   from `app/dist/index.js`; only the renderer is served live. `launch` warns when the bundle is
+   older than that code. A stale bundle is otherwise silent until something you added is missing at
+   runtime (e.g. `No handler registered for '…'`).
 
-## Launch the app with a debugging port
+## Launching
 
-Electron exposes a CDP endpoint when launched with `--remote-debugging-port`. Use a distinct
-`SB_SESSION` (separate settings + session storage, so a second instance can be logged in as a
-different account) and a distinct port per instance.
-
-**Launch with PowerShell `Start-Process -PassThru` and record the PID** — do NOT launch via
-`npx electron` (or bash + the electron binary) as a background task. Every wrapper layer (npx,
-pnpm, Git Bash's `env`/MSYS exec emulation) breaks the Windows process tree, so `TaskStop` kills
-only the wrapper and the real `electron.exe` survives as an orphaned, visible window; a
-direct-binary bash launch orphans too. `Start-Process` returns the *actual* electron PID, and
-`Stop-Process` on it takes down the whole app, Chromium children included:
-
-```powershell
-# Instance 1 (PowerShell tool — returns immediately, app runs detached; SAVE the PID)
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-$env:SB_HOT='1'; $env:SB_SESSION='session1'; $env:SB_APP_BACKGROUND='1'; $env:SB_GAME_BACKGROUND='1'
-$p = Start-Process -FilePath 'node_modules\electron\dist\electron.exe' `
-  -ArgumentList 'app','--remote-debugging-port=9222' -PassThru; "PID: $($p.Id)"
-
-# Instance 2 — only for multi-client flows: SB_SESSION='session2', port 9223, save its PID too
-```
-
-Sanity check the PID took the port: `netstat -ano | findstr :9222` → the LISTENING line's PID
-must match what `Start-Process` returned.
-
-> **`SB_APP_BACKGROUND=1` and `SB_GAME_BACKGROUND=1` keep your test instances out of the user's
-> way. Set both unless the user will use that instance themselves.** The user is usually working
-> on this machine while you test. `SB_APP_BACKGROUND` opens the app window behind their windows
-> without taking focus. It also skips restoring a maximized window, because maximizing would
-> activate it. Driving the app over CDP works the same either way. When nobody needs to see the app
-> window at all (an unattended run that only drives it over CDP), also pass `--hidden` after `app`
-> in `-ArgumentList`: the app then never shows its window.
->
-> Without `SB_GAME_BACKGROUND`, every game launch steals focus and warps the cursor. Games inherit
-> the app's environment, so set it on the app launch (as above). With it, the game window opens
-> behind other windows without activating, and the game doesn't move or confine the cursor until
-> someone brings its window to the front (after that it behaves normally). The game still renders, and
-> `screenshot(gameId)` works on the hidden window. **Leave it off** when the user is meant to
-> interact with the game (e.g. the human graceful-leave finish in verify-pr T4): the window would
-> otherwise come up buried, and they'd have to dig it out. The flag can't stop exclusive
-> **Fullscreen** mode from taking over the display, so use windowed or windowed fullscreen. The
-> game log confirms it's active: `Launching in the background (SB_GAME_BACKGROUND=1)`.
-
-> **Stripping `ELECTRON_RUN_AS_NODE` is mandatory when launching from an agent tool** (the
-> `Remove-Item Env:` above; in bash it's `env -u ELECTRON_RUN_AS_NODE`). VS Code runs its
-> extension host (which the Claude Code extension and its Bash/PowerShell tools live under) by
-> spawning the Electron binary with `ELECTRON_RUN_AS_NODE=1`, and that var is inherited by everything
-> the tools launch. Left set, the freshly-spawned `electron.exe` runs as plain Node and dies with
-> `TypeError: Not running in an Electron environment!`. A human launching from a normal terminal
-> never sees it (their shell doesn't have the var), so it's easy to miss — always strip it here.
-
-`session1`/`session2`/`session3` already have their settings files configured (incl. the StarCraft
-path) under `%APPDATA%\ShieldBattery-Local`.
-
-> A fresh `SB_SESSION` with no settings file yet gets the "First launch" game defaults dialog after
-> login (modal — click its Continue button to get it out of the way). `session1`/`session2`/
-> `session3` already have settings files, so they won't see it.
-
-> If `SB_HOT=1` shows a blank window, the renderer dev server (:5566) isn't ready yet — wait for it to
-> finish compiling, then reload (`playwright-cli reload`).
-
-## Connect playwright-cli over CDP
-
-Attach one named playwright-cli session per app instance (don't use `open`/`goto` — the app is
-already loaded):
+Instance N (1..12) is `SB_SESSION=sessionN` (its own settings and login), CDP port 9221+N,
+playwright-cli session `cN`, default account `claude-N`.
 
 ```bash
-playwright-cli -s=c1 attach --cdp=http://localhost:9222
-playwright-cli -s=c2 attach --cdp=http://localhost:9223
+node .claude/skills/verify-app/sb-app.mjs launch <N> [--foreground] [--hidden] [--env K=V]...
+     [--dll-dir <dir>] [--login <user>] [--no-login]
 ```
 
-Then drive each instance independently with its `-s` flag:
+`launch` warms the renderer, starts Electron, waits for the CDP port and for the app to actually
+render (a window that stays blank is relaunched), handles login, attaches `playwright-cli -s=cN`, and
+prints one line: PID, port, cli session, logged-in user. It takes roughly 10 s. If instance N is
+already up it is reused as is, and launch flags are ignored with a warning: to change `--env`,
+`--dll-dir` or window mode, `stop N` first.
+
+**Which instance.** Use instance 2 and up for test accounts. **Instance 1 is usually logged in as the
+developer's own dev account**, and `launch` keeps whoever is already logged in unless you pass
+`--login <user>`. Don't log that account out or run throwaway tests on it uninvited. Always read the
+`user` in launch's output rather than assuming `claude-N`.
+
+**Login rules.** Logged out → logs in as `--login` or `claude-N`. Already logged in → keeps that
+account unless `--login` names a different one, in which case it logs out and back in. Test instances
+come back logged out after every relaunch, which is why `launch` logs in for you.
+`sb-app.mjs login <N> <user>` switches accounts on a running instance.
+
+**Window behavior. The user is usually working on this machine while you test.**
+
+- By default `launch` sets `SB_APP_BACKGROUND=1` and `SB_GAME_BACKGROUND=1`: the app and any game it
+  launches open behind other windows without taking focus or moving the cursor. Driving over CDP
+  works the same, the game still renders, and `screenshot(gameId)` works. The game log confirms it:
+  `Launching in the background (SB_GAME_BACKGROUND=1)`.
+- `--hidden` never shows the app window at all. Use it for unattended runs that only need the game
+  or the store. Don't use it when you need page screenshots (`playwright-cli screenshot`): a hidden
+  window has been seen to stop producing frames, and the screenshot hangs waiting for fonts.
+- `--foreground` is for when the user will look at or play in that instance. **Tell them what to
+  look for before you launch**, because they can't read your messages once a game has focus.
+- Exclusive **Fullscreen** takes over the display regardless; `sb-app` refuses to launch a game for
+  a session whose StarCraft settings use it. Use windowed or windowed fullscreen.
+- Background screenshots on the legacy DX9 renderer have come back black with a known-good DLL.
+  Confirm a black capture with a `--foreground` launch before treating it as a rendering bug.
+
+**Useful `--env` values** (dev builds): `SB_SCR_EXTRA_ARGS=--renderer=ogl|legacy` (pick SC:R's
+renderer), `SB_HIDE_DEBUG_UI=1` (no Debug window in screenshots), `SB_ROLLBACK_HARNESS` (see the
+**rollback-soak** skill).
+
+**A new `SB_SESSION`** (no settings file yet) gets a "First launch" game-defaults dialog after
+login; `launch` dismisses it. Instances 1..12 already have settings files, including the StarCraft
+path. Don't invent session names with hand-written settings: copy an existing session's files if you
+need a variant, since a bad settings file makes every game launch crash with a visible dialog.
+
+<details>
+<summary>What launch does, if you ever have to do it by hand</summary>
+
+- Start `node_modules\electron\dist\electron.exe app --remote-debugging-port=<port>` **directly, by
+  absolute path** (a relative path breaks as soon as the shell's working directory has moved). Every
+  wrapper (npx, pnpm, a background shell task) breaks the Windows process tree, so stopping the
+  wrapper leaves the real `electron.exe` running as an orphaned window. From PowerShell,
+  `Start-Process -PassThru` returns the real PID.
+- **Remove `ELECTRON_RUN_AS_NODE` from the environment.** VS Code runs its extension host with
+  `ELECTRON_RUN_AS_NODE=1` and every tool process inherits it; left set, Electron runs as plain Node
+  and dies with `TypeError: Not running in an Electron environment!`.
+- Set `SB_HOT=1`, `SB_SESSION`, and the two background variables.
+- Wait for the renderer before launching. A window that came up blank (`504 Outdated Optimize Dep`
+  in the console, empty body) is fixed by restarting or warming the renderer
+  (`dev-stack.mjs warm`) and **relaunching**; `playwright-cli reload` tends to drop the CDP session
+  instead.
+- `playwright-cli -s=cN attach --cdp=http://localhost:<port>` (not `open`/`goto`), and `detach`
+  (not `close`) to leave the app running.
+- Stop with `Stop-Process -Id <pid> -Force` / `taskkill //F //T //PID <pid>`, never by image name
+  (other Electron apps are running), then confirm the CDP port is free.
+
+</details>
+
+## Driving the app with playwright-cli
 
 ```bash
-playwright-cli -s=c1 snapshot
-playwright-cli -s=c1 click e15
 playwright-cli -s=c2 snapshot
+playwright-cli -s=c2 click "getByTestId('nav-play-button')"
+playwright-cli --raw -s=c2 eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"
 ```
 
-`detach` (not `close`) leaves the app running when you're done:
-`playwright-cli -s=c1 detach`.
+- **Use `--raw` whenever you read a value.** It prints only the result. Without it the result is
+  buried in status and code-echo lines whose layout varies by command, which is what breaks
+  `sed -n 2p`-style parsing.
+- **Prefer `data-testid` hooks** (`getByTestId('name')`; inside an `eval`,
+  `document.querySelector('[data-testid=name]')`). They are stable and independent of the UI
+  language. Text and role-name locators break when the account's language isn't English, which
+  happens whenever someone has been checking translations. If you find a non-English UI on a seeded
+  account, re-run `pnpm run seed-dev`.
+- For elements without a test id, take a `snapshot` to get a ref (refs are ephemeral: re-snapshot per
+  step). Snapshot files are written relative to the current directory, so run from one directory
+  or use `--raw snapshot` and read stdout.
+- Selector strings don't take Playwright's `>> nth=0` suffix. For "the second match" and other
+  multi-step interactions use `run-code` with `.nth()` / `.first()`:
+  `playwright-cli -s=c2 run-code "async page => { await page.getByTestId('lobby-slot').nth(1).hover() }"`.
+- **Don't click via an `eval` that finds an element and calls `.click()`** for app buttons that open
+  overlays: it does not reliably fire the React handler. Use a locator click.
+- **Every click times out with "intercepts pointer events"?** Two known causes. The dev server's
+  error overlay after a transient error:
+  `playwright-cli -s=cN eval "(document.querySelector('vite-error-overlay')?.remove(), 'x')"`. Or a
+  narrow window, where the social sidebar overlays the page: `playwright-cli -s=cN resize 1600 1000`.
+  Don't send click output to `/dev/null`; the message that tells you this is in it.
+- **Stale module after an edit.** Two quick writes to one file (an edit, then the formatter) can
+  leave the renderer serving a half-updated module: a runtime error or style that contradicts the
+  source on disk. Check with `curl -s http://localhost:5566/client/<path> | grep <new code>`; fix
+  with `touch <file>`.
+- **Benign console noise** (don't chase): a `410 (Gone)` on `/api/1/sessions` while logged out, an
+  Electron insecure-CSP warning, and a Mantine `UNSAFE_componentWillReceiveProps` warning.
+- **Never wait with a bare `sleep N` in front of another command**; the harness blocks it. Use
+  `sb-app.mjs wait`, or a bounded loop that polls a condition with a short sleep per iteration. A
+  foreground command that runs past about two minutes gets moved to the background, so start long
+  runs with `run_in_background` and wait for the completion notice. Don't run long CDP polling loops
+  as background shell loops: they have dropped the playwright-cli session mid-wait.
 
-## Log in
-
-The app boots to the **home screen, logged out**. Click the **"Log in"** button in the top app bar
-to open the login form (it's an overlay — the URL stays `shieldbattery://app/`, it does not navigate
-to `/login`). Then fill the form (standard `name` inputs + `submit-button` test id) and check the
-logged-in marker:
-
-```bash
-# Open the form (snapshot first to get the ref, or use the role locator):
-playwright-cli -s=c1 click "getByRole('button', { name: 'Log in' })"
-playwright-cli -s=c1 fill 'input[name="username"]' claude-1
-playwright-cli -s=c1 fill 'input[name="password"]' shieldbattery
-playwright-cli -s=c1 click "getByTestId('submit-button')"
-# Logged-in marker (also carries the name+rank, e.g. "claude-1Novice"):
-playwright-cli -s=c1 eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"
-```
-
-Seeded accounts are email-verified, so the verification dialog won't block you. Finding elements:
-the app tags hooks with `data-testid` (Playwright's default test-id attribute), so
-`getByTestId('name')` resolves them directly in both playwright-cli and the `integration/` suite —
-prefer it. A `[data-testid='name']` CSS attribute selector works too, and is what you need inside an
-`eval` (e.g. `document.querySelector('[data-testid=…]')`). For elements without a test id, take a
-`snapshot` first to get a ref (refs are ephemeral — they regenerate each snapshot, so re-snapshot per
-step), or use a role/name locator when the text is stable (`getByRole('button', { name: '…' })`).
-
-**Benign console noise** (don't chase these): a `410 (Gone)` on `/api/1/sessions` while logged out
-(it's the "do I have a session?" probe), an Electron insecure-CSP warning, and a Mantine
-`UNSAFE_componentWillReceiveProps` warning — all expected in dev.
-
-## Two-client flows
-
-Log instance 1 in as `claude-1` and instance 2 as `claude-2`, then exercise the interaction from
-both sides.
-
-> **Login recipe — the plain role-locator sequence is reliable on every instance.** Per instance,
-> one at a time (don't fire-and-forget-race them):
-> ```bash
-> playwright-cli -s=cN click "getByRole('button', { name: 'Log in' })"   # opens the form overlay
-> sleep 2                                                                 # let the overlay render
-> playwright-cli -s=cN fill 'input[name="username"]' claude-N
-> playwright-cli -s=cN fill 'input[name="password"]' shieldbattery
-> playwright-cli -s=cN click "getByTestId('submit-button')"
-> ```
-> Then confirm: `eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"` →
-> e.g. `"claude-1Novice"`.
-> **Do NOT click "Log in" via an `eval` that finds the button by text and calls `.click()`** — that
-> silently does *not* fire the React handler (the form never opens, `input[name=username]` stays
-> absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
-> `Error / Gone` (410) dialog pops, close it via its exact `× Close` ref from a snapshot (the role
-> locator `Close` is ambiguous with the window control) and redo the login.
-> **If every click times out because something is intercepting pointer events**, the dev server's
-> error overlay is covering the page after a transient dev error. Remove it, then retry the click:
-> `playwright-cli -s=cN eval "(document.querySelector('vite-error-overlay')?.remove(), 'x')"`.
-
-Examples:
-
-- **Whisper / chat**: send from `c1`, assert the message appears in `c2`'s snapshot.
-- **Lobby**: `c1` creates/hosts, `c2` joins; verify both see the slot changes.
-- **Party**: `c1` invites `claude-2`; accept on `c2`; verify party state on both.
-- **Matchmaking**: queue both clients on the same type/maps; verify a match is found and the
-  countdown/launch begins on both. (Actually *launching the game* and verifying outcomes is the
-  **verify-pr** skill's game-launch tier.)
-
-## Navigating to an in-game state from a lobby (stable selectors)
-
-This is the **lobby** path to getting two clients in-game — `c1` hosts a custom lobby, `c2` joins,
-`c1` starts. (Matchmaking is a *separate* path with its own ready-up/ban mechanics — not covered
-here; see the **verify-pr** skill's T4 game-launch tier for that.) The lobby → in-game path carries
-`data-testid` hooks so you don't have to snapshot-scrape ephemeral refs at each step. Target them
-with `getByTestId('…')` (or a `[data-testid='…']` selector inside an `eval`):
+### Test ids
 
 | test id | Element | Screen |
 | --- | --- | --- |
-| `nav-play-button` | The big Play button | home |
+| `app-bar-login` | "Log in" button (opens the login overlay; the URL stays `shieldbattery://app/`) | app bar, logged out |
+| `app-bar-user-button` | Logged-in marker; text is name + rank, e.g. `claude-2Novice` | app bar |
+| `app-bar-logout` | "Log out" item, in the overlay `app-bar-user-button` opens | app bar |
+| `submit-button` | Login form submit (inputs are `input[name="username"]` / `input[name="password"]`) | login form |
+| `discord-activity-decline` / `discord-activity-enable` | The post-login "share activity" prompt (`discord-activity-prompt`); only appears while Discord is running and the account hasn't answered | after login |
+| `nav-play-button` | The big Play button (opens the last-used play tab) | home |
+| `play-tab-lobbies` / `play-tab-matchmaking` | Play page tabs | `/play/*` |
 | `create-lobby-button` | Opens the create-lobby form | `/play/lobbies` |
-| `lobby-name-input` | Lobby-name field (lands on the real `<input>`) | create form |
+| `lobby-name-input` | Lobby-name field | create form |
 | `create-lobby-submit` | Submits the create form | create form |
 | `lobby-list-entry` | One row per joinable lobby (text = name + host) | `/play/lobbies` |
+| `join-lobby-button` | Joins the selected lobby | lobby browser |
+| `lobby-slot` | One per slot (open/closed/player). **No index**: use `.nth()` or contained text | lobby view |
+| `lobby-slot-actions` | The host's per-slot menu button. Only clickable while its row is hovered or focused | lobby view |
+| `lobby-slot-action-<id>` | Slot menu items: `add-computer`, `close-slot`, `open-slot`, `kick`, `ban`, `remove`, `make-observer`, `move-into-player-slot` | lobby view |
+| `ready-up-button` / `cancel-ready-button` | A joiner's ready toggle | lobby view |
 | `start-game-button` | Host's Start game | lobby view |
 | `leave-lobby-button` | Leave lobby | lobby view |
-| `lobby-slot` | One per slot (open/closed/player). **No index** — disambiguate by contained text | lobby view |
+| `accept-match-button` | "Ready up" in the match-found dialog | matchmaking |
 
-Both accounts logged in (see Two-client flows). Host on `c1`, join on `c2`, start on `c1`:
+Logging in by hand, when you need to (the script does exactly this):
 
 ```bash
-# c1 hosts
-playwright-cli -s=c1 click "getByTestId('nav-play-button')"       # → /play/lobbies
-playwright-cli -s=c1 click "getByTestId('create-lobby-button')"   # → create form (remembers last map/name)
-playwright-cli -s=c1 fill  "getByTestId('lobby-name-input')" my-test-lobby
-playwright-cli -s=c1 click "getByTestId('create-lobby-submit')"   # → /lobbies/my-test-lobby (host in lobby)
+playwright-cli -s=cN click "getByTestId('app-bar-login')"
+playwright-cli -s=cN fill 'input[name="username"]' claude-N
+playwright-cli -s=cN fill 'input[name="password"]' shieldbattery
+playwright-cli -s=cN click "getByTestId('submit-button')"
+```
 
-# c2 joins by matching the row text, then clicking that specific entry
+Logging out from `/play` or a lobby route lands on the login form directly (and `app-bar-login` is
+then disabled): just fill the form.
+
+## A game against computers
+
+```bash
+node .claude/skills/verify-app/sb-app.mjs lobby <N> [--computers <k>] [--name <name>] [--map <mapId>] [--listed] [--start]
+```
+
+Creates a Melee lobby (unlisted unless `--listed`, on an official non-EUD map), adds `k` computers
+(default 1), and with `--start` starts it and waits for `playing` (about 20 s). It refuses while the
+instance is already in a game, and exits 3 with a plain message when the server answers
+`409 AlreadyInActivity` (see "Ending games" below) instead of polling a game that will never start.
+
+Adding a computer by hand in a lobby you host:
+
+```bash
+playwright-cli -s=c2 run-code "async page => {
+  const row = page.getByTestId('lobby-slot').nth(1)
+  await row.hover()
+  await row.getByTestId('lobby-slot-actions').click()
+  await page.getByTestId('lobby-slot-action-add-computer').click()
+}"
+```
+
+- The menu button is invisible to pointer events until its row is hovered or focused, so hover the
+  row first. Clicking an open slot's row itself **moves you into that slot**; it does not add a
+  computer.
+- "Add computer" is only offered on open or closed player slots of a lobby type that takes computers
+  (Melee does; the create form remembers the last game type, so a remembered Top vs Bottom or UMS
+  lobby may not offer it).
+- UMS / EUD maps change end-of-game behavior (SC:R skips its own `LastReplay.rep` autosave on EUD
+  maps), so use a plain melee map unless the test needs otherwise.
+
+## Two-client flows
+
+Launch two instances (`launch 2`, `launch 3`) and exercise the interaction from both sides: send a
+whisper from `c2` and assert it in `c3`'s snapshot; invite to a party and accept; and so on.
+
+Lobby with two humans (`c2` hosts, `c3` joins):
+
+```bash
+# c2 hosts
 playwright-cli -s=c2 click "getByTestId('nav-play-button')"
-# `nav-play-button` opens the LAST-USED play tab, which per account may be Matchmaking, not Lobbies —
-# so click the "Lobbies (N)" tab first, then the entry. (Harmless if already on Lobbies.)
-playwright-cli -s=c2 eval "[...document.querySelectorAll('button')].find(e=>/^Lobbies/.test(e.textContent||''))?.click(), 'x'"
-playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-testid=lobby-list-entry]')].find(e=>e.textContent.includes('my-test-lobby'))?.click(), 'joined'"
+playwright-cli -s=c2 click "getByTestId('play-tab-lobbies')"       # Play opens the last-used tab
+playwright-cli -s=c2 click "getByTestId('create-lobby-button')"    # form remembers last map/type/name
+playwright-cli -s=c2 fill  "getByTestId('lobby-name-input')" my-test-lobby
+playwright-cli -s=c2 click "getByTestId('create-lobby-submit')"    # → /lobbies/<id>/my-test-lobby
 
-# Clicking a lobby-list entry only selects it; the join is a separate button
-playwright-cli -s=c2 click "getByRole('button', { name: 'Join lobby' })"
+# c3 joins: selecting a row only selects it; the join is a separate button
+playwright-cli -s=c3 click "getByTestId('nav-play-button')"
+playwright-cli -s=c3 click "getByTestId('play-tab-lobbies')"
+playwright-cli -s=c3 run-code "async page => { await page.getByTestId('lobby-list-entry').filter({ hasText: 'my-test-lobby' }).click() }"
+playwright-cli -s=c3 click "getByTestId('join-lobby-button')"
 
-# Joiners ready up; the host counts as ready automatically (there is no "Ready up" button on
-# c1). Once the rail reads "N of N ready", a plain click on `start-game-button` starts the game.
-playwright-cli -s=c2 click "getByRole('button', { name: 'Ready up' })"
-playwright-cli -s=c1 click "getByTestId('start-game-button')"
+# Joiners ready up; the host counts as ready. Then the host starts.
+playwright-cli -s=c3 click "getByTestId('ready-up-button')"
+playwright-cli -s=c2 click "getByTestId('start-game-button')"
+node .claude/skills/verify-app/sb-app.mjs wait 2 playing
 ```
 
-> **Not everyone ready?** A plain click on `start-game-button` does nothing (the game state stays
-> null forever). The host can bypass readiness by **pressing and holding the button for 2 s**
-> (`START_GAME_HOLD_MS` in `client/lobbies/room/use-start-game-hold.ts`; the hint reads "Hold to
-> start anyway"). Over CDP that's a mouse-down / wait / mouse-up, not a click:
-> ```bash
-> playwright-cli -s=c1 run-code "async page => { const b = page.getByTestId('start-game-button'); await b.hover(); await page.mouse.down(); await page.waitForTimeout(2500); await page.mouse.up(); }"
-> ```
-> (Recipe derived from the hold implementation; the plain-click path above is the live-verified one.)
+- **Not everyone ready?** A plain click on `start-game-button` does nothing. The host can bypass
+  readiness by pressing and holding the button for 2 s (`START_GAME_HOLD_MS` in
+  `client/lobbies/room/use-start-game-hold.ts`):
+  `playwright-cli -s=c2 run-code "async page => { const b = page.getByTestId('start-game-button'); await b.hover(); await page.mouse.down(); await page.waitForTimeout(2500); await page.mouse.up(); }"`
+- **3+ players / a bigger map:** the map's slot count caps the lobby; open slots just aren't
+  participants. Confirm who's in via
+  `--raw eval "[...document.querySelectorAll('[data-testid=lobby-slot]')].map(e=>e.textContent)"`.
+- **Lobbies are persistent.** A lobby survives its game: when the game ends, every client lands back
+  in the same lobby, and the host can change map and settings from inside it. For repeated games,
+  reuse the lobby (and don't leave a lobby the user set up for you).
+- **Picking a map by hand:** click a tile in the create form's "Recent maps" strip or use "Change
+  map", then confirm the summary line above the Create button names the map you wanted; a click that
+  didn't take leaves the old map in place silently.
+- **Matchmaking** is a separate path with its own accept and ban steps: see the **verify-pr**
+  skill's T4 game-launch tier. The match-found dialog's button is `accept-match-button` (the page
+  behind it has a lobby "Ready up" of its own, so a role/name locator is ambiguous).
 
-> **3+ players / a bigger map:** the map's slot count caps the lobby (an 8-slot map gives 8
-> `lobby-slot`s); open slots just aren't participants, so a 3-human melee on a big map starts fine.
-> Confirm who's in via `eval "[...document.querySelectorAll('[data-testid=lobby-slot]')].map(e=>e.textContent).filter(t=>/claude/.test(t))"`.
-
-> **Lobbies are persistent.** A lobby lives at `/lobbies/<id>/<name>` and survives the game: when
-> the game ends, every client lands back in the *same* lobby, and the host can change the map, game
-> type and other settings from inside it without leaving. For repeated games in one session, reuse
-> the lobby instead of leaving and recreating it (and don't click `leave-lobby-button` on a lobby
-> the user set up for you).
-
-> **Picking a map.** The create form remembers the last map. To use another one, click a tile in
-> its "Recent maps" strip (take a `snapshot`, click the `generic "<map name>"` ref) or use "Change
-> map", then confirm the summary line above the Create button reads e.g.
-> `Public · Melee · 4 slots · 투혼 1.3` before submitting — a click that didn't take leaves the old
-> map in place silently. Note that UMS / EUD maps change end-of-game behaviour (SC:R skips its own
-> `LastReplay.rep` autosave on EUD maps), so use a plain melee map unless the test needs otherwise.
-
-Then poll for the game to reach `playing` (next section). A launched game needs a **fresh debug DLL
-in `game/dist`** (`game\build.bat`) — a stale one crashes at start (see verify-pr T4).
-
-## Waiting for the game to reach a state (poll in the foreground)
-
-Launching a game is slow — StarCraft starts, the DLL injects, and game networking is established —
-so `gameClient.status.state` walks `configuring` → `playing` over ~30–60s, and the result
-path later moves `playing` → `resultSent`/`finished`. Don't guess a fixed sleep; poll the state.
-
-**Poll with a bounded *foreground* loop, one short `eval` at a time** — do **not** wrap a long
-`until playwright-cli … eval …; do sleep; done` in a background Bash task. A long-lived background
-loop of CDP evals silently drops the playwright-cli session mid-wait (later calls start failing
-`The browser 'cN' is not open`) even though the Electron app itself stays up and listening — you
-then have to `attach` again and you've lost the wait. A short foreground loop with a per-iteration
-`sleep` is reliable:
+## Replays
 
 ```bash
-# The eval result is on the SECOND output line, so sed -n 2p extracts it.
-for i in $(seq 1 40); do
-  st=$(playwright-cli -s=c1 eval "window.__sbReduxStore.getState().gameClient.status?.state ?? 'null'" 2>/dev/null | sed -n 2p)
-  echo "[$i] $st"
-  [ "$st" = '"playing"' ] && break
-  sleep 4
-done
+node .claude/skills/verify-app/sb-app.mjs replay <N> <file.rep> [--start-frame <f>]
 ```
 
-Poll both instances in the same loop for a two-client game. If the session does drop, re-`attach`
-(the app is still up on its CDP port) and resume — you do not need to relaunch the app.
+Starts the replay and waits until it is playing (a few seconds). Replays show no loading screen, and
+their state lives in `gameClient.watchOnly[<id>]`, **not** `gameClient.status` (which stays `null`),
+so wait on them with `sb-app.mjs wait <N> playing --replay`. Passing a `.rep` as an Electron launch
+argument does not work in dev builds; go through the app.
+
+## Waiting for a game state
+
+Launching a game is slow (StarCraft starts, the DLL injects, networking comes up):
+`gameClient.status.state` walks `launching` → `configuring` → … → `playing` over 15–60 s, and later
+`playing` → `hasResult` → `resultSent` → `finished`.
+
+```bash
+node .claude/skills/verify-app/sb-app.mjs wait <N> <state> [--replay] [--timeout <s>]
+```
+
+It prints each state change with elapsed time and fails fast, saying what it saw, on an error state,
+a game that ended first, a dead StarCraft process or app, or timeout (default 180 s). A game that was
+killed or force-quit ends as `unknown`, not `finished`.
+
+## Driving the store directly
+
+Dev builds expose the Redux store as `window.__sbReduxStore`, and any client module can be imported
+from the renderer dev server, so you can dispatch an action creator instead of clicking through UI
+that has no stable hook:
+
+```bash
+playwright-cli -s=c2 run-code "async page => page.evaluate(async () => {
+  const m = await import('http://localhost:5566/client/navigation/routing.ts')
+  m.push('/play/lobbies')
+})"
+```
+
+- The URL must be absolute (`http://localhost:5566/client/...`); a bare `/client/...` resolves
+  against `shieldbattery://app/` and fails.
+- Pass file paths with **forward slashes** (`C:/dir/file.rep`); backslashes get eaten on the way
+  through the shell and `eval`.
+- A module the app loaded after an HMR update lives at a `?t=…` URL, and importing the bare URL
+  evaluates a second copy. That is harmless for action creators (they go through the store) but not
+  for modules with their own state.
+- Useful ones: `client/navigation/routing.ts` (`push`), `client/replays/action-creators.ts`
+  (`startReplay({ path, startFrame })`), `client/lobbies/action-creators.ts` (`createLobby`,
+  `addComputer`), `client/settings/action-creators.ts` (`mergeScrSettings`, to change SC:R settings
+  on a running instance).
 
 ## Reading what happened
 
-- **Redux state (dev builds)**: the store is exposed as `window.__sbReduxStore` (dev bundles
-  only), so app state is one eval away — e.g.
-  `playwright-cli -s=c1 eval "JSON.stringify(window.__sbReduxStore.getState().gameClient)"`.
-  Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
-  `networkStatus`, …) — assert on this instead of grepping the game DLL log.
-- **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
-  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
-  `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
-  `forceQuit(gameId)`, `crash(gameId, kind)`, `screenshot(gameId)` and
-  `setRollback(gameId, depth, { [stormPlayer]: frames })` for driving/inspecting a running game
-  over CDP (a release DLL doesn't implement these, so query calls time out). Input injection:
-  `input(gameId, events)` posts `{type:'key',vkey,down}`, `{type:'char',code}`,
-  `{type:'mouseMove',x,y}`, `{type:'mouseButton',x,y,button:'left'|'right',down}` and
-  `{type:'wait',ms}` events to the game window, with `pressKey(gameId, vkey)` and
-  `click(gameId, x, y, button = 'left')` as helpers. Coordinates are game-window client pixels, as in
-  the `screenshot`; posted modifiers don't change the game's key state, so shifted combos can't be
-  driven. `setRollback` only
-  works in a replay launched with `SB_ROLLBACK_HARNESS` set; depth 0 turns rolling back off.
-  `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
-  exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty
-  `latest_crash.dmp` in the logs dir, a "Shieldbattery crash :(" message box (close it, or kill
-  `StarCraft.exe`), and a crash-code exit + "Crash dump written" line in the app log. The three
-  game-enders differ in ways that matter — pick deliberately:
-  - **`forceDesync(gameId)` is THE desync trigger.** It perturbs the calling client's own sim
-    state (local player's minerals), so **both clients keep playing** while their sync checksums
-    diverge — the relay comparator fires within seconds (verified live on staging: `hasResult`
-    ~10s after the call), a 1v1 **voids** (no-majority), team games discard the caller as the
-    diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
-    flight-recorder pin).
-  - **`forceUnsyncedLeave(gameId, slot)` ends a game unattended but usually desyncs it.** It
-    injects a local, non-consensus leave of `slot` on the calling client. `slot` is **required**
-    (the DLL rejects the command with `missing field 'slot'` if omitted); pass the caller's own
-    storm slot (`localSlot` in `queryGameState`) to end the caller. Even on the caller's own
-    slot the forked sim's checksum typically reaches the relay, so a 1v1 is **voided**
-    (`no-majority`) and the clients report contradictory results — no win/loss, no MMR. Use it
-    to get a game to *end* (see verify-pr T4), never for a scored result.
-  - **`forceQuit(gameId)`** is the reliable teardown between checks — a hard process-level end
-    that works even mid-game or at the native victory dialog. The opponent sees a drop.
-  None of the three produces a clean MMR-scored finish on its own; a human leaving via the
-  in-game menu is the clean path when the test needs a real scored result (verify-pr T4).
-- **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
-- **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app-<session>.0.log`, one file per
-  `SB_SESSION` (`app-session1.0.log` for instance 1). `app.0.log` is the no-session/prod name.
-- **Network**: `playwright-cli -s=cN requests` to confirm an API call fired and its status.
-- **Server-side truth**: query Postgres directly (`DATABASE_URL` in `.env`) when the UI isn't
-  enough — e.g. confirm a row was written. This is first-class; don't rely on UI alone for data
-  correctness.
+- **Redux state**:
+  `playwright-cli --raw -s=c2 eval "JSON.stringify(window.__sbReduxStore.getState().gameClient)"`.
+  `gameClient.status` is the full `ReportedGameStatus` (state, error, `networkStatus`, …): assert on
+  this instead of grepping the game log.
+- **UI state**: `snapshot`, and `console` for renderer errors (a failed request such as a `409`
+  shows up here). **Network**: `requests`.
+- **App and game logs**: `%APPDATA%\ShieldBattery-Local\logs\app-<session>.0.log` and
+  `game-<session>.0.log` (see the dev-env skill).
+- **Server-side truth**: query Postgres directly when the UI isn't enough (dev-env has the `psql`
+  one-liner). This is first-class; don't rely on UI alone for data correctness.
+- **Visibility-dependent behavior can't be observed while attached.** An attached CDP client pins
+  `document.visibilityState` to `visible`, even when the window is really minimized. To test
+  minimize/occlusion behavior: arm an in-page script that records to `localStorage`, `detach`, have
+  the state change happen, then re-attach and read the result.
+
+### The debug-game control surface
+
+Dev builds with a debug DLL expose `window.__sbDebugGame` (a release DLL doesn't implement it, so
+calls time out with "it may not be a debug build"): `queryGameState(gameId)`,
+`screenshot(gameId)`, `sendChat(gameId, text)`, `requestDrop(gameId, slot)`,
+`toggleNetStats(gameId)`, `forceQuit(gameId)`, `forceUnsyncedLeave(gameId, slot)`,
+`forceDesync(gameId)`, `crash(gameId, kind)`, and
+`setRollback(gameId, depth, { [stormPlayer]: frames })` (only in a replay launched with
+`SB_ROLLBACK_HARNESS`; depth 0 turns rolling back off). The game id is
+`window.__sbReduxStore.getState().gameClient.gameId`.
+
+**Input injection:** `input(gameId, events)` posts `{type:'key',vkey,down}`, `{type:'char',code}`,
+`{type:'mouseMove',x,y}`, `{type:'mouseButton',x,y,button:'left'|'right',down}` and
+`{type:'wait',ms}` to the game window, with `pressKey(gameId, vkey)` and
+`click(gameId, x, y, button = 'left')` as helpers. Coordinates are game-window client pixels, as in
+the `screenshot`. Limits that are easy to mistake for a broken build:
+
+- Posted **clicks and drags reach our overlay UI, not SC:R's own input** (unit selection, the
+  minimap, native buttons such as alliances) while the game is in the background. A click that
+  selects nothing proves nothing. Use overlay elements and log lines, or a `--foreground` launch
+  with the user at the mouse.
+- Posted **keys do work** (F10 opens the menu; menu hotkeys follow).
+- Posted modifiers don't change the game's key state, so shifted combos can't be driven, and hover
+  tooltips don't render from a posted mouse move.
+
+**`crash(gameId, 'accessViolation' | 'stackOverflow')`** kills the game with that fault to exercise
+the crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty `latest_crash.dmp` in
+the logs dir, a "Shieldbattery crash :(" message box (close it, or kill that `StarCraft.exe`), and a
+crash-code exit + "Crash dump written" line in the app log.
+
+### Ending games
+
+```bash
+node .claude/skills/verify-app/sb-app.mjs end <N>     # forceQuit the game and any replays, keep the app
+```
+
+The ways to end a game differ in ways that matter; pick deliberately:
+
+- **`forceQuit(gameId)`** (what `end` and `stop` use) is a hard process-level end that works
+  mid-game and at the native victory dialog, and lets the app reset its own state. Opponents see a
+  drop. Prefer it over killing `StarCraft.exe`. After it, clicking `start-game-button` again in the
+  same lobby is a fast repeat loop.
+- **`forceDesync(gameId)` is THE desync trigger.** It perturbs the calling client's own sim state,
+  so both clients keep playing while their checksums diverge: the relay comparator fires within
+  seconds, a 1v1 **voids** (no-majority), team games discard the caller as the diverged minority.
+  Use it to exercise desync policy and desync-flagged paths.
+- **`forceUnsyncedLeave(gameId, slot)`** injects a local, non-consensus leave. `slot` is required;
+  the caller's own slot is `turnState.localSlot` in `queryGameState`. With other humans in the game
+  it usually ends it as a voided desync (no win/loss, no MMR). Against only computers it does not
+  end the game at all.
+- **A real, scored finish** needs a graceful leave through the in-game menu. With humans that means
+  a person at the keyboard (verify-pr T4). Against computers, posting the menu keys has worked
+  unattended: `pressKey` F10, then `E`, then `Q`, reached `finished`.
+
+**`409 AlreadyInActivity` on the next lobby or queue** means the server still has that account in
+its previous game. It has shown up after hard-killing games whose results never reconciled, which is
+what happens to multi-human games against a remote coordinator when the webhook funnel isn't running
+(see dev-env). Restart the Node server (`dev-stack.mjs restart node`) to clear it, or carry on with a
+different instance number. Don't wait it out and don't poll a lobby that failed to create.
+
+## Subagents
+
+A subagent sees only its prompt. When you delegate app verification, tell it to load **dev-env** and
+**verify-app**, which instance numbers to use, and whether the servers already running are the
+user's and must be left alone. Don't brief a subagent to check a _behavior_ change on a `/dev` page.
 
 ## Cleanup
 
-When the task is done, `detach` each playwright-cli session, then **shut down everything you
-started** — the Electron instances, any game process still running, and any servers/side processes
-you spun up for this verification (see the dev-env skill's Stopping section — including the caveat
-that `TaskStop` on a `pnpm` task can orphan the child, so confirm ports are actually free). Only
-leave something running if you'll reuse it in the same session. Leave Docker running.
-
-**Closing the Electron instances: `Stop-Process` the PIDs you saved at launch, then verify.**
-This is why the launch section captures the PID via `Start-Process -PassThru` — killing that PID
-reliably takes down the whole app (Chromium children included). `TaskStop` on a wrapper task
-(npx/pnpm/bash) does NOT work: it kills the wrapper and orphans the real `electron.exe` with its
-window still open.
-
-```powershell
-Stop-Process -Id <pid1>,<pid2> -Force
-```
-
-Always verify, whichever path you took — the CDP ports are the ground truth (and the recovery
-route if you lost a PID: the LISTENING line's last column is the PID to `taskkill //F //PID`):
+When the task is done, shut down everything you started, unless you'll reuse it in the same session
+(and if you leave something up, say so in your reply):
 
 ```bash
-netstat -ano | grep -E ':(9222|9223)\s' | grep LISTENING   # empty = actually gone
+node .claude/skills/verify-app/sb-app.mjs stop --all    # games ended, app trees killed, cli sessions detached, ports checked
+node .claude/skills/verify-app/sb-app.mjs status        # nothing left on 9222-9233
+node .claude/skills/dev-env/dev-stack.mjs stop          # servers you started through dev-stack
 ```
 
-Don't `taskkill //IM electron.exe` — it's imprecise (other Electron-based dev tools may be
-running); the saved PID / CDP port identifies exactly the instance you launched. A game process
-the app spawned (`StarCraft.exe`) dies separately: `taskkill //F //IM StarCraft.exe`.
+`stop` only touches instances `sb-app` launched, and only kills `StarCraft.exe` processes those
+instances spawned. An app on a CDP port that `sb-app` didn't launch is listed by `status` as such;
+if it is a leftover from an earlier agent, kill it by the PID that owns the port
+(`taskkill //F //T //PID <pid>`), never by image name. Leave Docker running.
 
 ## When the browser is enough
 
-Only for pure CSS/layout/visual checks on a component that has a `/dev` page. Start the Node server,
-`playwright-cli open http://localhost:5555/dev`, navigate to the component. Never use this to claim a
-*behavior* works.
+Only for pure CSS/layout/visual checks on a component that has a `/dev` page, and for pages that
+work in the web client. Start `node` + `rust`, then
+`playwright-cli open http://localhost:5555/dev` and `resize 1600 1000` (at the default width the
+social sidebar's scrim swallows clicks). Never use this to claim a _behavior_ works.
