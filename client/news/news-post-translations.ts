@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
-import { getBestLanguage } from '../i18n/language-detector'
+import {
+  ALL_TRANSLATION_LANGUAGES,
+  resolveTranslationLanguage,
+  TranslationLanguage,
+} from '../../common/i18n'
 
 export type NewsPostTranslationLanguage = Exclude<TranslationLanguage, TranslationLanguage.English>
 
@@ -27,7 +30,7 @@ interface NewsPostText {
  * translation keeps the default text for whatever it leaves blank.
  */
 export function localizeNewsPost<T extends NewsPostText>(post: T, language: string): T {
-  const selectedLanguage = getBestLanguage([language])
+  const selectedLanguage = resolveTranslationLanguage(language)
   const translation = post.translations?.find(t => t.language === selectedLanguage)
   return {
     ...post,

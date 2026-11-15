@@ -593,13 +593,43 @@ export async function maybeMigrateSignupIp(userId: SbUserId, ipAddress: string):
 }
 
 /**
- * Returns all the `User`s that have a matching email address.
+ * Returns all the users that have a matching email address. This includes private account info, so
+ * it must only be handed to the owner of that email address.
  */
-export async function findAllUsersWithEmail(email: string): Promise<SbUser[]> {
+export async function findAllUsersWithEmail(email: string): Promise<SelfUser[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(sql`SELECT name FROM users WHERE email = ${email}`)
-    return result.rows.map(row => convertToExternal(convertUserFromDb(row)))
+    const result = await client.query<DbUser>(sql`
+      SELECT * FROM users
+      WHERE email = ${email}
+      ORDER BY login_name
+    `)
+    return result.rows.map(row => convertToExternalSelf(convertUserFromDb(row)))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the user registered to `email` whose login name or display name is `name`, or
+ * `undefined` if there isn't one. A display name can match a different account's login name, so if
+ * each kind of name matches an account with this email, the login name match is returned.
+ */
+export async function findUserByEitherNameAndEmail(
+  name: string,
+  email: string,
+): Promise<SelfUser | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbUser>(sql`
+      SELECT * FROM users
+      WHERE (login_name = ${name} OR name = ${name}) AND email = ${email}
+      ORDER BY (login_name = ${name}) DESC
+      LIMIT 1
+    `)
+    return result.rows.length > 0
+      ? convertToExternalSelf(convertUserFromDb(result.rows[0]))
+      : undefined
   } finally {
     done()
   }

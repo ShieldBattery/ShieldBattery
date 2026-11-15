@@ -149,3 +149,4 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
 - **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**barcode** (community loanword: los barcodes), a player’s name→**nombre**, type (on a keyboard)→**teclear** ("escribir a mano" means handwriting).
 
+- **Account emails (`--ns email`) and recovery forms:** login name→**nombre de inicio de sesión**, display name→**nombre para mostrar** (the settings labels), username→**nombre de usuario**. Account settings→**ajustes de la cuenta**. Same informal tú as the app. The sign-off "gl hf gogogo" stays as it is.

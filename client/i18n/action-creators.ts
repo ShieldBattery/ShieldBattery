@@ -1,4 +1,4 @@
-import { TranslationLanguage } from '../../common/i18n'
+import { resolveTranslationLanguage, TranslationLanguage } from '../../common/i18n'
 import { apiUrl } from '../../common/urls'
 import { ChangeLanguageRequest, ChangeLanguagesResponse } from '../../common/users/user-network'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -9,14 +9,13 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { getBestLanguage } from './language-detector'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
   return dispatch => {
     if (!locale || !i18n.isInitialized) {
       return
     }
-    const language = getBestLanguage([locale])
+    const language = resolveTranslationLanguage(locale)
     rememberLanguage(language)
     if (language === i18n.language) {
       return

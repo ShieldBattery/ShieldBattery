@@ -31,13 +31,16 @@
   "passwordReset": {
     "body": "To choose a new password, enter the code above in the app or on the website along with your new password.",
     "intro": "You are receiving this email because someone requested a password reset for <2>{{username}}</2> on ShieldBattery. If you didn't make this request, please ignore this email.",
+    "loginName": "The login name for this account is <2>{{loginName}}</2>. Use it with your new password to log in.",
     "preview": "You are receiving this email because someone requested a password reset for {{username}} on ShieldBattery.",
     "title": "ShieldBattery Password Reset"
   },
   "usernameRecovery": {
+    "accountsText": "The accounts registered to this email are:",
+    "displayNameHeader": "Display name",
     "intro": "Someone requested a list of all usernames registered to this email account ({{email}}). If this wasn't you, you can safely ignore this email.",
-    "listText": "The usernames registered to this email are:",
-    "loginText": "You can log in with any of the above usernames by visiting <2>our login page</2>.",
+    "loginNameHeader": "Login name",
+    "logInText": "Use a login name, not a display name, to log in. You can do that with any of the login names above by visiting <1>our login page</1>.",
     "preview": "Someone requested a list of all usernames registered to this email account on ShieldBattery.",
     "title": "ShieldBattery Username Recovery"
   }

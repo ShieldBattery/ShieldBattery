@@ -130,10 +130,10 @@
       "password": {
         "alreadyHaveCodeLink": "Already have a code?",
         "emailAddress": "Email address",
-        "explanationText": "Enter the email address and username associated with your account. We'll send you an email with a reset code to set a new password.",
+        "explanationText": "Enter your account's email address and its login name or display name. We'll send you an email with a reset code to set a new password.",
         "sendResetEmail": "Send reset email",
         "title": "Request password reset",
-        "username": "Username"
+        "username": "Login or display name"
       },
       "reset": {
         "confirmPassword": "Confirm new password",

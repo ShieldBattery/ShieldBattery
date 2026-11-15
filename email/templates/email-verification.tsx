@@ -4,8 +4,13 @@ import { EmailProps } from '../email-props'
 import { t } from '../i18n/i18next'
 import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
-export default function UsernameRecovery(props: EmailProps) {
-  const title = t('emailVerification.title', 'ShieldBattery Email Verification')
+/** The subject line of this email, in the current language. */
+export function subject() {
+  return t('emailVerification.title', 'ShieldBattery Email Verification')
+}
+
+export default function EmailVerification(props: EmailProps) {
+  const title = subject()
 
   return (
     <SbEmail

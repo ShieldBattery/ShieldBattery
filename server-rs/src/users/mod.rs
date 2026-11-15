@@ -601,6 +601,7 @@ impl UsersMutation {
                 template: MailgunTemplate::PasswordChange(PasswordChangeData {
                     username: user.name.clone(),
                 }),
+                locale: user.locale.clone(),
             });
 
             async move {
@@ -685,6 +686,7 @@ impl UsersMutation {
                         old_login_name: user.login_name.clone(),
                         new_login_name: new_login_name.clone(),
                     }),
+                    locale: user.locale.clone(),
                 });
 
                 has_update = true;
@@ -772,6 +774,7 @@ impl UsersMutation {
                     template: MailgunTemplate::EmailChange(EmailChangeData {
                         username: user.name.clone(),
                     }),
+                    locale: user.locale.clone(),
                 });
                 let code = gen_random_code();
                 let ip: IpNetwork = ctx.data::<ClientIp>()?.0.into();
@@ -793,6 +796,7 @@ impl UsersMutation {
                         username: user.name.clone(),
                         code,
                     }),
+                    locale: user.locale.clone(),
                 });
                 published_messages.push(PublishedUserMessage::EmailChanged {
                     user_id: user.id,

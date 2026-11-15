@@ -4,10 +4,16 @@ import { EmailProps } from '../email-props'
 import { t, TransInterpolation } from '../i18n/i18next'
 import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
+/** The subject line of this email, in the current language. */
+export function subject() {
+  return t('passwordReset.title', 'ShieldBattery Password Reset')
+}
+
 export default function PasswordReset(props: EmailProps) {
-  const title = t('passwordReset.title', 'ShieldBattery Password Reset')
+  const title = subject()
 
   const username = '{{username}}'
+  const loginName = '{{loginName}}'
 
   return (
     <SbEmail
@@ -45,6 +51,14 @@ export default function PasswordReset(props: EmailProps) {
             <Trans t={t} i18nKey='passwordReset.body'>
               To choose a new password, enter the code above in the app or on the website along with
               your new password.
+            </Trans>
+          </EmailText>
+
+          <EmailText>
+            <Trans t={t} i18nKey='passwordReset.loginName'>
+              The login name for this account is{' '}
+              <span style={{ fontWeight: 500 }}>{{ loginName } as TransInterpolation}</span>. Use it
+              with your new password to log in.
             </Trans>
           </EmailText>
         </Section>

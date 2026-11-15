@@ -1,8 +1,9 @@
-import { createHash } from 'crypto'
 import formData from 'form-data'
 import Mailgun from 'mailgun.js'
 import { MailgunMessageData } from 'mailgun.js/definitions'
+import { resolveTranslationLanguage } from '../../../common/i18n'
 import { default as log, default as logger } from '../logging/logger'
+import { emailSubject, emailTemplateVersion } from './email-templates'
 
 const enabled = !!process.env.SB_MAILGUN_KEY
 
@@ -18,33 +19,34 @@ const mailgunClient = enabled
     })
   : undefined
 
-const TEMPLATE_VERSION = createHash('sha256').update(HOST).digest('base64')
-
 /**
- * Sends an email using the specified template name and associated data to apply for variables.
- * Every template will also have the following data added:
+ * Sends an email using the specified template name and associated data to apply for variables. The
+ * email (body and subject) is in the supported language that best matches `locale`, or English if
+ * none does. Every template will also have the following data added:
  *
  * - `HOST`: The canonical host of the site (e.g. `https://shieldbattery.net`)
  */
 export async function sendMailTemplate({
   to,
-  subject,
+  locale,
   templateName,
   templateData,
 }: {
   to: string
-  subject: string
+  /** The recipient's locale (e.g. a user's stored `locale`), if known. */
+  locale: string | undefined
   templateName: string
   templateData: any
 }) {
+  const language = resolveTranslationLanguage(locale)
   const mailData = {
     from: FROM,
     to,
-    subject,
+    subject: emailSubject(templateName, language),
     template: templateName,
     't:text': 'yes',
     't:variables': JSON.stringify({ ...templateData, HOST }),
-    't:version': TEMPLATE_VERSION,
+    't:version': emailTemplateVersion(HOST, language),
   } satisfies MailgunMessageData
 
   if (!enabled) {

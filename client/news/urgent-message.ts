@@ -1,4 +1,4 @@
-import { getBestLanguage } from '../i18n/language-detector'
+import { resolveTranslationLanguage } from '../../common/i18n'
 
 interface UrgentMessageContent {
   title: string
@@ -11,7 +11,7 @@ interface UrgentMessageContent {
 }
 
 export function localizeUrgentMessage(content: UrgentMessageContent, language: string) {
-  const selectedLanguage = getBestLanguage([language])
+  const selectedLanguage = resolveTranslationLanguage(language)
   const translation = content.translations?.find(t => t.language === selectedLanguage)
   return {
     title: translation?.title.trim() ? translation.title : content.title,

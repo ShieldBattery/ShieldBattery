@@ -115,3 +115,4 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
 - **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**条形码**, a player’s name→**名字**.
+- **Account emails (`--ns email`) and recovery forms:** login name→**登录名**, display name→**显示名**, username→**用户名**, account→**账号** (the app's dominant form over 账户), reset code→**重置码**. 您 throughout, with a space between Chinese and Latin text or placeholders. The sign-off "gl hf gogogo" stays as it is.

@@ -4,12 +4,12 @@ import { initReactI18next } from 'react-i18next'
 import createDeferred from '../../common/async/deferred'
 import {
   ALL_TRANSLATION_LANGUAGES,
+  getBestLanguage,
   TranslationLanguage,
   TranslationNamespace,
 } from '../../common/i18n'
 import { JsonLocalStorageValue } from '../local-storage'
 import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
-import { getBestLanguage } from './language-detector'
 
 const isDev = import.meta.env.DEV
 const CUR_VERSION = import.meta.env.SB_VERSION
@@ -43,7 +43,7 @@ export function getStartupLanguage(): string {
   const remembered = lastLanguage.getValue()
   return remembered && (ALL_TRANSLATION_LANGUAGES as ReadonlyArray<string>).includes(remembered)
     ? remembered
-    : getBestLanguage()
+    : getBestLanguage(navigator.languages)
 }
 
 const i18nextDeferred = createDeferred<TFunction>()

@@ -1,0 +1,44 @@
+{
+  "email-change": {
+    "zh-Hans": "ShieldBattery 电子邮箱已更改",
+    "en": "ShieldBattery Email Changed",
+    "ko": "ShieldBattery 이메일 주소 변경",
+    "ru": "Адрес электронной почты ShieldBattery изменен",
+    "es": "Correo electrónico de ShieldBattery cambiado"
+  },
+  "email-verification": {
+    "zh-Hans": "ShieldBattery 电子邮箱验证",
+    "en": "ShieldBattery Email Verification",
+    "ko": "ShieldBattery 이메일 인증",
+    "ru": "Подтверждение адреса электронной почты ShieldBattery",
+    "es": "Verificación de correo electrónico de ShieldBattery"
+  },
+  "login-name-change": {
+    "zh-Hans": "ShieldBattery 登录名已更改",
+    "en": "ShieldBattery Login Name Changed",
+    "ko": "ShieldBattery 아이디 변경",
+    "ru": "Логин ShieldBattery изменен",
+    "es": "Nombre de inicio de sesión de ShieldBattery cambiado"
+  },
+  "password-change": {
+    "zh-Hans": "ShieldBattery 密码已更改",
+    "en": "ShieldBattery Password Changed",
+    "ko": "ShieldBattery 비밀번호 변경",
+    "ru": "Пароль ShieldBattery изменен",
+    "es": "Contraseña de ShieldBattery cambiada"
+  },
+  "password-reset": {
+    "zh-Hans": "ShieldBattery 密码重置",
+    "en": "ShieldBattery Password Reset",
+    "ko": "ShieldBattery 비밀번호 재설정",
+    "ru": "Сброс пароля ShieldBattery",
+    "es": "Restablecimiento de contraseña de ShieldBattery"
+  },
+  "username-recovery": {
+    "zh-Hans": "找回 ShieldBattery 用户名",
+    "en": "ShieldBattery Username Recovery",
+    "ko": "ShieldBattery 아이디 복구",
+    "ru": "Восстановление имени пользователя ShieldBattery",
+    "es": "Recuperación de nombre de usuario de ShieldBattery"
+  }
+}

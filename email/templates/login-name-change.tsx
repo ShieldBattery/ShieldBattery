@@ -4,8 +4,13 @@ import { EmailProps } from '../email-props'
 import { t, TransInterpolation } from '../i18n/i18next'
 import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
+/** The subject line of this email, in the current language. */
+export function subject() {
+  return t('loginNameChange.title', 'ShieldBattery Login Name Changed')
+}
+
 export default function LoginNameChange(props: EmailProps) {
-  const title = t('loginNameChange.title', 'ShieldBattery Login Name Changed')
+  const title = subject()
 
   const username = '{{username}}'
   const oldLoginName = '{{oldLoginName}}'

@@ -73,7 +73,7 @@ jobs:
 
       - name: Check email templates
         id: check-email-templates
-        run: echo "matches=$(git status --porcelain -- 'server/email/*.html' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+        run: echo "matches=$(git status --porcelain -- server/email server-rs/src/email-subjects.json | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Display email template error
         if: ${{ steps.check-email-templates.outputs.matches != '' || failure() && steps.gen-email-templates.conclusion == 'failure' }}

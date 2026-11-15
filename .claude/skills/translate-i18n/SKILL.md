@@ -57,10 +57,15 @@ pnpm run -s i18n terms <lang> <query>            # look up Blizzard-matched game
 **Namespaces.** `global.json` (the app) is the default. Pass `--ns game` (anywhere on the command
 line) for `game.json`: the in-game UI's strings, which live in the Rust game DLL (`tr!` /
 `tr_plural!` calls extracted by `tools/i18next-rust-plugin.mjs`) and are embedded into the DLL at
-build time. `status` covers both namespaces; every other command works on one at a time. Treat game
-strings as in-game HUD/dialog text: short, read at a glance mid-match, often in caps labels (which are
-not uppercased for ko/zh-Hans). Email templates (`email/locales`) are English-only and not part of
-this workflow.
+build time. Pass `--ns email` for `email/locales/<lang>/email.json`: the transactional account emails
+(`email/templates/*.tsx`: email verification, password reset, username recovery, and notices of
+password, email and login name changes). `status` covers every namespace; every other command works on
+one at a time. Treat game strings as in-game HUD/dialog text: short, read at a glance mid-match, often
+in caps labels (which are not uppercased for ko/zh-Hans). Write email strings plainly and politely, as
+a service writing to its user; each `*.title` is also that email's subject line. Mailgun fills in the
+`{{username}}`-style placeholders at send time, so they and the `<2>…</2>` index tags must come
+through exactly as in English. After changing email translations, run `pnpm gen-emails` to re-render
+the templates and subject lines the servers send.
 
 ## Workflow
 
@@ -71,8 +76,8 @@ languages.
 
 ```bash
 pnpm gen-translations            # only if English strings changed in code since `en` was last extracted
-pnpm run -s i18n status          # missing + orphans, both namespaces
-pnpm run -s i18n stale           # reworded English whose translations stayed behind (add --ns game too)
+pnpm run -s i18n status          # missing + orphans, every namespace
+pnpm run -s i18n stale           # reworded English whose translations stayed behind (add --ns game/email too)
 pnpm run -s i18n plan all <scratchpad>/plan.json
 ```
 
@@ -145,7 +150,7 @@ a chat action). For anything ambiguous (short single words like "Block", "Clear"
 whose meaning depends on surrounding UI; tricky interpolations), find where it's used:
 
 - Grep for the leaf key or the English string across `client/` and `common/` (or `game/` for the
-  game namespace).
+  game namespace, `email/` for the email namespace).
 - Strings are used via `t('some.key')`, `<Trans i18nKey='some.key'>`, or with a `keyPrefix`. Reading
   the surrounding component tells you whether it's a button (keep it short!), a tooltip, a heading,
   an error message, etc.

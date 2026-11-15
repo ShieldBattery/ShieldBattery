@@ -16,7 +16,7 @@
  * `ru` => one/few/many/other, `ko`/`zh-Hans` => other only.
  *
  * Usage (run from repo root):
- *   pnpm run i18n status                       # overview of missing/orphan counts (both namespaces)
+ *   pnpm run i18n status                       # overview of missing/orphan counts (every namespace)
  *   pnpm run i18n show <key|prefix>... [--grep <regex>]  # en + every language side by side
  *   pnpm run i18n plan <lang|all> [outFile]    # write the to-translate work list (JSON)
  *   pnpm run i18n apply <lang|all> <resultFile>  # validate + merge translations for missing keys
@@ -44,10 +44,27 @@ import {
 
 const SOURCE_LANG = TranslationLanguage.English
 const REPO_ROOT = path.resolve(__dirname, '..')
-const LOCALES_DIR = path.join(REPO_ROOT, 'server', 'public', 'locales')
+
+/**
+ * The namespace of the email templates' strings. It isn't a `TranslationNamespace`, since those
+ * are the namespaces the server serves from `server/public/locales`.
+ */
+const EMAIL_NAMESPACE = 'email'
+
+/**
+ * Every namespace this tool works on, mapped to the directory (relative to the repo root, with
+ * forward slashes for git) that holds its `<lang>/<namespace>.json` files.
+ */
+const NAMESPACE_LOCALE_DIRS: ReadonlyMap<string, string> = new Map([
+  ...ALL_TRANSLATION_NAMESPACES.map(ns => [ns, 'server/public/locales'] as const),
+  [EMAIL_NAMESPACE, 'email/locales'],
+])
+const ALL_NAMESPACES = Array.from(NAMESPACE_LOCALE_DIRS.keys())
+
 /**
  * The namespace (one JSON file per language) every command operates on. `global` is the app's;
- * `game` is the in-game UI's. Selected with `--ns <name>` on the command line.
+ * `game` is the in-game UI's; `email` is the email templates'. Selected with `--ns <name>` on the
+ * command line.
  */
 let namespace: string = TranslationNamespace.Global
 /** Whether `--ns` was given, for commands that cover every namespace when it was not. */
@@ -69,8 +86,13 @@ type LocaleObject = { [key: string]: string | LocaleObject }
 
 // --- File IO -----------------------------------------------------------------
 
+/** The current namespace's locale file for `lang`, relative to the repo root (with `/`s). */
+function localeRelPath(lang: string): string {
+  return `${NAMESPACE_LOCALE_DIRS.get(namespace)}/${lang}/${namespace}.json`
+}
+
 function localePath(lang: string): string {
-  return path.join(LOCALES_DIR, lang, `${namespace}.json`)
+  return path.join(REPO_ROOT, localeRelPath(lang))
 }
 
 function readLocale(lang: string): LocaleObject {
@@ -135,6 +157,8 @@ export function serializeLocale(obj: LocaleObject): string {
 }
 
 function writeLocale(lang: string, obj: LocaleObject): void {
+  // A language's first file in a namespace may also be the first in its directory
+  fs.mkdirSync(path.dirname(localePath(lang)), { recursive: true })
   fs.writeFileSync(localePath(lang), serializeLocale(obj), 'utf8')
 }
 
@@ -361,7 +385,7 @@ function resolveLangs(lang: string | undefined): string[] {
 
 function cmdStatus(): void {
   const original = namespace
-  const namespaces = namespaceExplicit ? [namespace] : [...ALL_TRANSLATION_NAMESPACES]
+  const namespaces = namespaceExplicit ? [namespace] : ALL_NAMESPACES
   namespaces.forEach((ns, i) => {
     namespace = ns
     if (i > 0) console.log()
@@ -1044,8 +1068,6 @@ function cmdTerms(lang: string, query: string): void {
 // other commands catch this (plan = missing, prune = orphans, check = token drift only). We detect it
 // by parsing the JSON at a base git ref and comparing values, so sorting/reformatting is irrelevant.
 
-const LOCALES_REL = 'server/public/locales'
-
 /** Candidate names for the main branch, most authoritative first. */
 const MAIN_REFS = ['origin/master', 'master', 'origin/main', 'main']
 
@@ -1069,10 +1091,6 @@ function gitSucceeds(gitArgs: string[], cwd: string): boolean {
 
 function refExists(ref: string, cwd: string): boolean {
   return gitSucceeds(['rev-parse', '--verify', '--quiet', ref], cwd)
-}
-
-function localeRelPath(lang: string): string {
-  return `${LOCALES_REL}/${lang}/${namespace}.json`
 }
 
 /** Whether the current namespace's locale file for `lang` existed at `ref`. */
@@ -1364,9 +1382,9 @@ function takeValueOption(
 function takeNamespaceOption(args: string[]): string[] {
   const { value, rest } = takeValueOption(args, '--ns')
   if (value !== undefined) {
-    if (!(ALL_TRANSLATION_NAMESPACES as readonly string[]).includes(value)) {
+    if (!NAMESPACE_LOCALE_DIRS.has(value)) {
       console.error(
-        `--ns needs one of: ${ALL_TRANSLATION_NAMESPACES.join(', ')} (got ${JSON.stringify(value)})`,
+        `--ns needs one of: ${ALL_NAMESPACES.join(', ')} (got ${JSON.stringify(value)})`,
       )
       process.exit(1)
     }
@@ -1416,10 +1434,10 @@ function main(): void {
       break
     default:
       console.error(
-        'usage: i18n [--ns <global|game>] <status|show|plan|apply|fix|terms|stale|prune|normalize|check|rename> [args]\n' +
+        'usage: i18n [--ns <global|game|email>] <status|show|plan|apply|fix|terms|stale|prune|normalize|check|rename> [args]\n' +
           '  <lang> is es|ko|ru|zh-Hans, or `all` where shown\n' +
           '  --ns <name>                  namespace file to work on (default: global; game = in-game UI;\n' +
-          '                               `status` covers both unless given)\n' +
+          '                               email = email templates; `status` covers all unless given)\n' +
           '  status                       overview of missing/orphan counts per language\n' +
           '  show <key|prefix>... [--grep <regex>]  en + every language side by side\n' +
           '  plan <lang|all> [outFile]    write the to-translate work list as JSON\n' +

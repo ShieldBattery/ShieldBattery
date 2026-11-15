@@ -130,10 +130,10 @@
       "password": {
         "alreadyHaveCodeLink": "이미 코드가 있으신가요?",
         "emailAddress": "이메일 주소",
-        "explanationText": "계정과 연결된 이메일 주소와 아이디를 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드릴게요.",
+        "explanationText": "계정의 이메일 주소와 아이디 또는 표시 이름을 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드립니다.",
         "sendResetEmail": "재설정 이메일 보내기",
         "title": "비밀번호 재설정 요청",
-        "username": "아이디"
+        "username": "아이디 또는 표시 이름"
       },
       "reset": {
         "confirmPassword": "새 비밀번호 확인",

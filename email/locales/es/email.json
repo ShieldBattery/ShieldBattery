@@ -1,0 +1,47 @@
+{
+  "common": {
+    "footer": "Sigue a <2>@shieldbattery.net</2> en Bluesky.",
+    "signatureFrom": "— El equipo de ShieldBattery",
+    "signatureText": "gl hf gogogo"
+  },
+  "emailChange": {
+    "intro": "Recibes este correo porque se ha cambiado la dirección de correo electrónico de <2>{{username}}</2> en ShieldBattery. Si no solicitaste este cambio, ponte en contacto con el equipo de ShieldBattery.",
+    "preview": "Recibes este correo porque se ha cambiado la dirección de correo electrónico de {{username}} en ShieldBattery.",
+    "title": "Correo electrónico de ShieldBattery cambiado"
+  },
+  "emailVerification": {
+    "body": "Confirma tu dirección de correo electrónico ingresando el siguiente código en los ajustes de la cuenta dentro de ShieldBattery. Puede que tengamos que enviarte información importante sobre nuestro servicio, así que necesitamos una dirección de correo correcta.",
+    "intro": "¡Gracias por registrarte en ShieldBattery!",
+    "preview": "¡Gracias por registrarte en ShieldBattery! Confirma tu dirección de correo electrónico ingresando el código en los ajustes de la cuenta.",
+    "title": "Verificación de correo electrónico de ShieldBattery"
+  },
+  "loginNameChange": {
+    "details": "Tu nombre de inicio de sesión ha cambiado de <2>{{oldLoginName}}</2> a <5>{{newLoginName}}</5>.",
+    "intro": "Recibes este correo porque se ha cambiado el nombre de inicio de sesión de <2>{{username}}</2> en ShieldBattery.",
+    "preview": "Recibes este correo porque se ha cambiado el nombre de inicio de sesión de {{username}} en ShieldBattery.",
+    "security": "Si no solicitaste este cambio, ponte en contacto con el soporte de inmediato.",
+    "title": "Nombre de inicio de sesión de ShieldBattery cambiado"
+  },
+  "passwordChange": {
+    "body": "Si no solicitaste este cambio, puedes restablecer tu contraseña visitando <2>este enlace</2>.",
+    "intro": "Recibes este correo porque se ha cambiado la contraseña de <2>{{username}}</2> en ShieldBattery.",
+    "preview": "Recibes este correo porque se ha cambiado la contraseña de {{username}} en ShieldBattery.",
+    "title": "Contraseña de ShieldBattery cambiada"
+  },
+  "passwordReset": {
+    "body": "Para elegir una nueva contraseña, ingresa el código de arriba en la aplicación o en el sitio web junto con tu nueva contraseña.",
+    "intro": "Recibes este correo porque alguien solicitó restablecer la contraseña de <2>{{username}}</2> en ShieldBattery. Si no hiciste esta solicitud, ignora este correo.",
+    "loginName": "El nombre de inicio de sesión de esta cuenta es <2>{{loginName}}</2>. Úsalo con tu nueva contraseña para iniciar sesión.",
+    "preview": "Recibes este correo porque alguien solicitó restablecer la contraseña de {{username}} en ShieldBattery.",
+    "title": "Restablecimiento de contraseña de ShieldBattery"
+  },
+  "usernameRecovery": {
+    "accountsText": "Las cuentas registradas con este correo son:",
+    "displayNameHeader": "Nombre para mostrar",
+    "intro": "Alguien solicitó una lista de todos los nombres de usuario registrados con esta cuenta de correo ({{email}}). Si no fuiste tú, puedes ignorar este correo sin problema.",
+    "loginNameHeader": "Nombre de inicio de sesión",
+    "logInText": "Para iniciar sesión, usa un nombre de inicio de sesión, no un nombre para mostrar. Puedes hacerlo con cualquiera de los nombres de inicio de sesión de arriba visitando <1>nuestra página de inicio de sesión</1>.",
+    "preview": "Alguien solicitó una lista de todos los nombres de usuario registrados con esta cuenta de correo en ShieldBattery.",
+    "title": "Recuperación de nombre de usuario de ShieldBattery"
+  }
+}

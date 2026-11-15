@@ -130,10 +130,10 @@
       "password": {
         "alreadyHaveCodeLink": "已有重置码？",
         "emailAddress": "电子邮箱",
-        "explanationText": "请输入与您的账户关联的电子邮箱地址和用户名。我们会向您发送一封包含重置码的邮件，用于设置新密码。",
+        "explanationText": "请输入您账号的电子邮箱地址，以及登录名或显示名。我们会向您发送一封包含重置码的邮件，用于设置新密码。",
         "sendResetEmail": "发送邮件以重置密码",
         "title": "请求重置密码",
-        "username": "用户名"
+        "username": "登录名或显示名"
       },
       "reset": {
         "confirmPassword": "确认新密码",

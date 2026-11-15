@@ -1,0 +1,47 @@
+{
+  "common": {
+    "footer": "在 Bluesky 上关注 <2>@shieldbattery.net</2>。",
+    "signatureFrom": "— ShieldBattery 团队",
+    "signatureText": "gl hf gogogo"
+  },
+  "emailChange": {
+    "intro": "您收到这封邮件，是因为 ShieldBattery 账号 <2>{{username}}</2> 的电子邮箱地址已被更改。如果这不是您本人的操作，请联系 ShieldBattery 团队。",
+    "preview": "您收到这封邮件，是因为 ShieldBattery 账号 {{username}} 的电子邮箱地址已被更改。",
+    "title": "ShieldBattery 电子邮箱已更改"
+  },
+  "emailVerification": {
+    "body": "请在 ShieldBattery 的账号设置中输入以下验证码，以确认您的电子邮箱地址。我们可能需要向您发送与服务相关的重要信息，因此请确保邮箱地址准确无误。",
+    "intro": "感谢您注册 ShieldBattery！",
+    "preview": "感谢您注册 ShieldBattery！请在账号设置中输入验证码，以确认您的电子邮箱地址。",
+    "title": "ShieldBattery 电子邮箱验证"
+  },
+  "loginNameChange": {
+    "details": "您的登录名已从 <2>{{oldLoginName}}</2> 更改为 <5>{{newLoginName}}</5>。",
+    "intro": "您收到这封邮件，是因为 ShieldBattery 账号 <2>{{username}}</2> 的登录名已被更改。",
+    "preview": "您收到这封邮件，是因为 ShieldBattery 账号 {{username}} 的登录名已被更改。",
+    "security": "如果这不是您本人的操作，请立即联系我们的支持团队。",
+    "title": "ShieldBattery 登录名已更改"
+  },
+  "passwordChange": {
+    "body": "如果这不是您本人的操作，您可以通过<2>此链接</2>重置密码。",
+    "intro": "您收到这封邮件，是因为 ShieldBattery 账号 <2>{{username}}</2> 的密码已被更改。",
+    "preview": "您收到这封邮件，是因为 ShieldBattery 账号 {{username}} 的密码已被更改。",
+    "title": "ShieldBattery 密码已更改"
+  },
+  "passwordReset": {
+    "body": "要设置新密码，请在应用或网站中输入上方的重置码和您的新密码。",
+    "intro": "您收到这封邮件，是因为有人请求重置 ShieldBattery 账号 <2>{{username}}</2> 的密码。如果这不是您本人的操作，请忽略这封邮件。",
+    "loginName": "此账号的登录名是 <2>{{loginName}}</2>。请使用该登录名和您的新密码登录。",
+    "preview": "您收到这封邮件，是因为有人请求重置 ShieldBattery 账号 {{username}} 的密码。",
+    "title": "ShieldBattery 密码重置"
+  },
+  "usernameRecovery": {
+    "accountsText": "使用此邮箱注册的账号如下：",
+    "displayNameHeader": "显示名",
+    "intro": "有人请求获取使用此邮箱（{{email}}）注册的所有用户名。如果这不是您本人的操作，请忽略这封邮件。",
+    "loginNameHeader": "登录名",
+    "logInText": "登录时请使用登录名，而不是显示名。您可以在<1>登录页面</1>使用上方任意一个登录名登录。",
+    "preview": "有人请求获取使用此邮箱注册的所有 ShieldBattery 用户名。",
+    "title": "找回 ShieldBattery 用户名"
+  }
+}

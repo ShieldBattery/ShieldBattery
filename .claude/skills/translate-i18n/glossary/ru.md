@@ -138,3 +138,4 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
   «Открыть страницу Battle.net» clips in its slot beside the note.
 - **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**баркод** (community loanword; штрихкод is the retail sense), a player’s name→**имя**.
 
+- **Account emails (`--ns email`) and recovery forms:** login name→**логин** (the settings label; shorter than «имя для входа» and it declines), display name→**отображаемое имя**, username→**имя пользователя**. Вы is lowercase mid-sentence, as in the app. No ё. The sign-off "gl hf gogogo" stays as it is.

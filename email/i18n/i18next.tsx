@@ -3,7 +3,7 @@ import FsBackend, { FsBackendOptions } from 'i18next-fs-backend/cjs'
 import path from 'path'
 import React from 'react'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
-import { ALL_TRANSLATION_LANGUAGES } from '../../common/i18n'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
 
 export { t } from 'i18next'
 
@@ -30,8 +30,11 @@ export const i18nextPromise = i18n
     // TODO(tec27): maybe we can use this? I don't think it sorts though
     saveMissing: false,
 
+    // Templates render in English unless the generator switches languages. Any string a language's
+    // catalog lacks (or a catalog that doesn't exist yet) falls back to English.
+    lng: TranslationLanguage.English,
     supportedLngs: ALL_TRANSLATION_LANGUAGES,
-    fallbackLng: 'en',
+    fallbackLng: TranslationLanguage.English,
 
     ns: 'email',
     defaultNS: 'email',

@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { TranslationLanguage } from '../../common/i18n'
-import { getBestLanguage } from './language-detector'
+import { getBestLanguage, resolveTranslationLanguage, TranslationLanguage } from './i18n'
 
 const SUPPORTED_LANGUAGES = ['zh-Hans', 'en', 'ko', 'ru', 'es']
 
-describe('client/i18n/language-detector', () => {
+describe('common/i18n getBestLanguage', () => {
   test('returns the english language if none of the given languages are supported', () => {
     const lng = getBestLanguage(['INVALID_LANGUAGE'], SUPPORTED_LANGUAGES)
 
@@ -71,5 +70,39 @@ describe('client/i18n/language-detector', () => {
     expect(getBestLanguage(['ZH-hans-cn'], SUPPORTED_LANGUAGES)).toBe(
       TranslationLanguage.ChineseSimplified,
     )
+  })
+})
+
+describe('common/i18n resolveTranslationLanguage', () => {
+  // server-rs/src/email.rs tests `resolve_translation_language` against these same cases
+  test.each<[string | null | undefined, TranslationLanguage]>([
+    [undefined, TranslationLanguage.English],
+    [null, TranslationLanguage.English],
+    ['', TranslationLanguage.English],
+    ['en', TranslationLanguage.English],
+    ['en-US', TranslationLanguage.English],
+    ['ko', TranslationLanguage.Korean],
+    ['ko-KR', TranslationLanguage.Korean],
+    ['es', TranslationLanguage.Spanish],
+    ['es-MX', TranslationLanguage.Spanish],
+    ['es-419', TranslationLanguage.Spanish],
+    ['ru-RU', TranslationLanguage.Russian],
+    ['zh-Hans', TranslationLanguage.ChineseSimplified],
+    ['zh-CN', TranslationLanguage.ChineseSimplified],
+    ['zh-SG', TranslationLanguage.ChineseSimplified],
+    ['zh', TranslationLanguage.ChineseSimplified],
+    ['zh-Hans-CN', TranslationLanguage.ChineseSimplified],
+    ['ZH-hans-cn', TranslationLanguage.ChineseSimplified],
+    ['zh-TW', TranslationLanguage.English],
+    ['zh-HK', TranslationLanguage.English],
+    ['zh-US', TranslationLanguage.English],
+    ['zh-Hant', TranslationLanguage.English],
+    ['zh-Hant-CN', TranslationLanguage.English],
+    ['pt-BR', TranslationLanguage.English],
+    ['ko_KR', TranslationLanguage.English],
+    ['zh-cmn-Hans', TranslationLanguage.English],
+    ['not a locale', TranslationLanguage.English],
+  ])('%j resolves to %s', (locale, expected) => {
+    expect(resolveTranslationLanguage(locale)).toBe(expected)
   })
 })

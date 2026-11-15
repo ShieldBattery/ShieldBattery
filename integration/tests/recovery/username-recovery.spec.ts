@@ -1,4 +1,6 @@
-import { expect, test } from '@playwright/test'
+import { BrowserContext, expect, Page, test } from '@playwright/test'
+import { TranslationLanguage } from '../../../common/i18n'
+import { emailSubject, emailTemplateVersion } from '../../../server/lib/mail/email-templates'
 import { clearLocalState } from '../../clear-local-state'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
@@ -6,12 +8,24 @@ import { goToSignup, signupWith } from '../signup/utils'
 
 const sentEmailChecker = new SentEmailChecker()
 
+/** The `SB_CANONICAL_HOST` of the integration test servers. */
+const HOST = 'http://localhost:5527'
+
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
 
-test('recover username after signing up', async ({ context, page }) => {
-  // Sign up with a new account
+/**
+ * Signs up an account, then requests a username recovery email for it while logged out. Returns the
+ * emails sent to the account's address afterwards.
+ */
+async function signupAndRecoverUsername({
+  context,
+  page,
+}: {
+  context: BrowserContext
+  page: Page
+}) {
   await goToSignup(page)
 
   const username = generateUsername()
@@ -39,9 +53,29 @@ test('recover username after signing up', async ({ context, page }) => {
   // Wait for the success message
   await page.waitForSelector('[data-testid=recover-username-success]')
 
+  return { username, emails: await sentEmailChecker.retrieveSentEmails(email) }
+}
+
+test('recover username after signing up', async ({ context, page }) => {
+  const { username, emails } = await signupAndRecoverUsername({ context, page })
+
   // Check the sent email for the recovered username
-  const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const usernames = emails[0].templateVariables.usernames as Array<{ username: string }>
-  expect(usernames).toEqual([{ username }])
+  expect(emails[0].templateVariables.accounts).toEqual([
+    { loginName: username, displayName: username },
+  ])
+  expect(emails[0].version).toBe(emailTemplateVersion(HOST, TranslationLanguage.English))
+  expect(emails[0].subject).toBe(emailSubject('username-recovery', TranslationLanguage.English))
+})
+
+test.describe('with a Spanish browser', () => {
+  test.use({ locale: 'es-ES' })
+
+  test('recovery email is in the language stored on the account', async ({ context, page }) => {
+    const { emails } = await signupAndRecoverUsername({ context, page })
+
+    expect(emails).toHaveLength(1)
+    expect(emails[0].version).toBe(emailTemplateVersion(HOST, TranslationLanguage.Spanish))
+    expect(emails[0].subject).toBe(emailSubject('username-recovery', TranslationLanguage.Spanish))
+  })
 })

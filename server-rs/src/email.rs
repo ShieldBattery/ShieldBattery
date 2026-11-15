@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use color_eyre::eyre;
@@ -66,20 +69,6 @@ pub struct LoginNameChangeData {
     pub new_login_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PasswordResetData {
-    pub username: String,
-    pub token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct UsernameRecoveryData {
-    pub email: String,
-    pub usernames: Vec<String>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MailgunTemplate {
@@ -87,30 +76,15 @@ pub enum MailgunTemplate {
     EmailVerification(EmailVerificationData),
     PasswordChange(PasswordChangeData),
     LoginNameChange(LoginNameChangeData),
-    PasswordReset(PasswordResetData),
-    UsernameRecovery(UsernameRecoveryData),
 }
 
 impl MailgunTemplate {
-    fn subject(&self) -> &'static str {
-        match self {
-            MailgunTemplate::EmailChange(_) => "ShieldBattery Email Changed",
-            MailgunTemplate::EmailVerification(_) => "ShieldBattery Email Verification",
-            MailgunTemplate::PasswordChange(_) => "ShieldBattery Password Changed",
-            MailgunTemplate::LoginNameChange(_) => "ShieldBattery Login Name Changed",
-            MailgunTemplate::PasswordReset(_) => "ShieldBattery Password Reset",
-            MailgunTemplate::UsernameRecovery(_) => "ShieldBattery Username Recovery",
-        }
-    }
-
     fn template_name(&self) -> &'static str {
         match self {
             MailgunTemplate::EmailChange(_) => "email-change",
             MailgunTemplate::EmailVerification(_) => "email-verification",
             MailgunTemplate::PasswordChange(_) => "password-change",
             MailgunTemplate::LoginNameChange(_) => "login-name-change",
-            MailgunTemplate::PasswordReset(_) => "password-reset",
-            MailgunTemplate::UsernameRecovery(_) => "username-recovery",
         }
     }
 }
@@ -121,12 +95,14 @@ pub struct MailgunMessage {
     pub to: String,
     /// The template and associated data to use to construct the email subject/body.
     pub template: MailgunTemplate,
+    /// The recipient's locale (generally the user's stored locale), which picks the language the
+    /// email is sent in. See [resolve_translation_language].
+    pub locale: Option<String>,
 }
 
 pub struct MailgunClient {
     settings: Option<MailgunSettings>,
     canonical_host: String,
-    template_version: String,
     http: reqwest::Client,
 }
 
@@ -136,24 +112,154 @@ pub enum MailgunError {
     UnexpectedError(#[from] eyre::Error),
 }
 
-fn get_template_version(canonical_host: &str) -> String {
+const ENGLISH: &str = "en";
+
+/// The languages emails are rendered in, matching `TranslationLanguage` in `common/i18n.ts`.
+const SUPPORTED_LANGUAGES: [&str; 5] = [ENGLISH, "es", "ko", "ru", "zh-Hans"];
+
+/// Regions whose Chinese is written in Traditional characters according to CLDR's likely subtags
+/// (e.g. `zh-TW` maximizes to `zh-Hant-TW`). Chinese in any other region is Simplified.
+const TRADITIONAL_CHINESE_REGIONS: [&str; 15] = [
+    "au", "bn", "gb", "gf", "hk", "id", "mo", "pa", "pf", "ph", "sr", "th", "tw", "us", "vn",
+];
+
+/// Maps a locale (e.g. a user's stored locale, which may be a supported language like `ko` or a
+/// browser-reported tag like `ko-KR` or `zh-CN`) to the supported language an email to them should
+/// be in. A missing, empty, or unsupported locale resolves to English.
+///
+/// This is a port of `resolveTranslationLanguage` in `common/i18n.ts`, which the client uses to
+/// pick the app's language; their unit tests share the same cases. A locale matches a supported
+/// language with the same tag, with the same language and script (inferring the script of Chinese
+/// from its region), or with the same language alone.
+pub fn resolve_translation_language(locale: Option<&str>) -> &'static str {
+    let Some(locale) = locale.filter(|l| !l.is_empty()) else {
+        return ENGLISH;
+    };
+    let locale = locale.to_ascii_lowercase();
+
+    let candidates = match parse_language_tag(&locale) {
+        Some(tag) => {
+            // Only Chinese has a supported language that names its script, so other languages
+            // never need one inferred
+            let script = match (tag.script, tag.region) {
+                (Some(script), _) => script,
+                (None, Some(region))
+                    if tag.language == "zh" && TRADITIONAL_CHINESE_REGIONS.contains(&region) =>
+                {
+                    "hant"
+                }
+                (None, _) if tag.language == "zh" => "hans",
+                (None, _) => "",
+            };
+            vec![
+                locale.clone(),
+                format!("{}-{script}", tag.language),
+                tag.language.to_string(),
+            ]
+        }
+        // Not a well-formed tag, so there's no script to infer
+        None => vec![
+            locale.clone(),
+            locale.split('-').next().unwrap_or_default().to_string(),
+        ],
+    };
+
+    candidates
+        .iter()
+        .find_map(|candidate| {
+            SUPPORTED_LANGUAGES
+                .iter()
+                .find(|l| l.eq_ignore_ascii_case(candidate))
+        })
+        .copied()
+        .unwrap_or(ENGLISH)
+}
+
+struct LanguageTag<'a> {
+    language: &'a str,
+    script: Option<&'a str>,
+    region: Option<&'a str>,
+}
+
+/// Parses the language, script, and region of a lowercase BCP 47 language tag, or returns `None`
+/// if the tag isn't well formed. Variants and extensions are checked loosely and otherwise ignored.
+fn parse_language_tag(tag: &str) -> Option<LanguageTag<'_>> {
+    let is_alpha = |s: &str| s.bytes().all(|b| b.is_ascii_lowercase());
+    let is_digit = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
+    let is_alphanumeric = |s: &str| {
+        s.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+    };
+
+    let mut subtags = tag.split('-').peekable();
+    let language = subtags.next()?;
+    if !(matches!(language.len(), 2 | 3 | 5..=8) && is_alpha(language)) {
+        return None;
+    }
+    let script = subtags.next_if(|s| s.len() == 4 && is_alpha(s));
+    let region =
+        subtags.next_if(|s| (s.len() == 2 && is_alpha(s)) || (s.len() == 3 && is_digit(s)));
+    // Then variants (5-8 characters, or 4 starting with a digit), and finally extensions, each a
+    // single-character singleton followed by subtags of 1-8 characters
+    let mut in_extension = false;
+    for subtag in subtags {
+        if !is_alphanumeric(subtag) {
+            return None;
+        }
+        let is_variant = (5..=8).contains(&subtag.len())
+            || (subtag.len() == 4 && subtag.as_bytes()[0].is_ascii_digit());
+        if subtag.len() == 1 {
+            in_extension = true;
+        } else if !(is_variant || in_extension && subtag.len() <= 8) {
+            return None;
+        }
+    }
+
+    Some(LanguageTag {
+        language,
+        script,
+        region,
+    })
+}
+
+/// Returns the tag of the Mailgun template version holding the `language` rendering of a template
+/// for the server at `canonical_host`. This must match `emailTemplateVersion` in
+/// `server/lib/mail/email-templates.ts`, which uploads the templates; both sides pin the same
+/// expected values in their tests. English uses the hash of the host alone, the one tag known to a
+/// server build that sends every email in English.
+fn template_version(canonical_host: &str, language: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(canonical_host);
+    if language != ENGLISH {
+        hasher.update("\n");
+        hasher.update(language);
+    }
     let hash = hasher.finalize();
     BASE64_STANDARD.encode(&hash[..])
 }
 
+/// Template name -> language -> subject line, generated by `pnpm gen-emails` along with the
+/// templates themselves.
+static SUBJECTS: LazyLock<HashMap<String, HashMap<String, String>>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("email-subjects.json"))
+        .expect("email-subjects.json should be valid")
+});
+
+/// Returns the subject line of the `language` rendering of `template_name`, falling back to the
+/// English one.
+fn subject(template_name: &str, language: &str) -> Option<&'static str> {
+    let subjects = SUBJECTS.get(template_name)?;
+    subjects
+        .get(language)
+        .or_else(|| subjects.get(ENGLISH))
+        .map(String::as_str)
+}
+
 impl MailgunClient {
     pub fn new(settings: Option<MailgunSettings>, canonical_host: impl Into<String>) -> Self {
-        let canonical_host: String = canonical_host.into();
-        let template_version = get_template_version(&canonical_host);
-
-        tracing::debug!("Using template version: {template_version}");
-
         Self {
             settings,
-            canonical_host,
-            template_version,
+            canonical_host: canonical_host.into(),
             http: reqwest::Client::new(),
         }
     }
@@ -168,6 +274,11 @@ impl MailgunClient {
         };
 
         let template_data = self.serialize_template_data(&message.template)?;
+        let template_name = message.template.template_name();
+        let language = resolve_translation_language(message.locale.as_deref());
+        let subject = subject(template_name, language)
+            .ok_or_else(|| eyre!("No subject line for email template {template_name}"))?;
+        let template_version = template_version(&self.canonical_host, language);
 
         #[derive(Serialize, Debug)]
         struct SendParams<'a> {
@@ -186,11 +297,11 @@ impl MailgunClient {
         let params = SendParams {
             from: &settings.from,
             to: &message.to,
-            template: message.template.template_name(),
-            subject: message.template.subject(),
+            template: template_name,
+            subject,
             send_plaintext: "yes",
             template_variables: &template_data,
-            template_version: &self.template_version,
+            template_version: &template_version,
         };
 
         let domain = &settings.domain;
@@ -244,6 +355,7 @@ impl MailgunClient {
 
 #[cfg(test)]
 mod tests {
+    use mockito::Matcher;
     use serde_json::json;
 
     use super::*;
@@ -281,6 +393,7 @@ mod tests {
                     code: "asdf1234".into(),
                     username: "user".into(),
                 }),
+                locale: None,
             })
             .await;
 
@@ -296,6 +409,17 @@ mod tests {
         });
         let route = server
             .mock("POST", "/v3/example.com/messages")
+            .match_body(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("template".into(), "email-verification".into()),
+                Matcher::UrlEncoded(
+                    "subject".into(),
+                    SUBJECTS["email-verification"]["ko"].clone(),
+                ),
+                Matcher::UrlEncoded(
+                    "t:version".into(),
+                    template_version("https://example.com", "ko"),
+                ),
+            ]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(response.to_string())
@@ -317,6 +441,7 @@ mod tests {
                     code: "asdf1234".into(),
                     username: "user".into(),
                 }),
+                locale: Some("ko-KR".into()),
             })
             .await;
 
@@ -353,10 +478,96 @@ mod tests {
                 template: MailgunTemplate::PasswordChange(PasswordChangeData {
                     username: "user".into(),
                 }),
+                locale: None,
             })
             .await;
 
         route.assert_async().await;
         assert!(res.is_err(), "{:?}", res);
+    }
+
+    #[test]
+    fn template_versions() {
+        // server/lib/mail/email-templates.test.ts pins the same tags for the same inputs
+        let host = "https://shieldbattery.net";
+        assert_eq!(
+            template_version(host, "en"),
+            "6TWLTKiKLSzKmyewoKyh62poVoasmuXylMwYuOu5t8k="
+        );
+        assert_eq!(
+            template_version(host, "es"),
+            "+l5/wkcQvBwZd3CbFA2FcyjXzLRefO/XBjA/1bR1Apo="
+        );
+        assert_eq!(
+            template_version(host, "ko"),
+            "as+XHPtOHfzf7lJxrPBnKzk50x5SaUvmH3PkHUwdLOE="
+        );
+        assert_eq!(
+            template_version(host, "ru"),
+            "59KZgW+Ya77H9gotZcWQ1GWVQJUxDlwkIcjs8Uye3eU="
+        );
+        assert_eq!(
+            template_version(host, "zh-Hans"),
+            "OKpDrctPc1qF+MzaOxuojE2H84Ug47w5fS4xisVxTss="
+        );
+    }
+
+    #[test]
+    fn resolves_translation_languages() {
+        // common/i18n.test.ts tests resolveTranslationLanguage against these same cases
+        let cases: [(Option<&str>, &str); 25] = [
+            (None, "en"),
+            (Some(""), "en"),
+            (Some("en"), "en"),
+            (Some("en-US"), "en"),
+            (Some("ko"), "ko"),
+            (Some("ko-KR"), "ko"),
+            (Some("es"), "es"),
+            (Some("es-MX"), "es"),
+            (Some("es-419"), "es"),
+            (Some("ru-RU"), "ru"),
+            (Some("zh-Hans"), "zh-Hans"),
+            (Some("zh-CN"), "zh-Hans"),
+            (Some("zh-SG"), "zh-Hans"),
+            (Some("zh"), "zh-Hans"),
+            (Some("zh-Hans-CN"), "zh-Hans"),
+            (Some("ZH-hans-cn"), "zh-Hans"),
+            (Some("zh-TW"), "en"),
+            (Some("zh-HK"), "en"),
+            (Some("zh-US"), "en"),
+            (Some("zh-Hant"), "en"),
+            (Some("zh-Hant-CN"), "en"),
+            (Some("pt-BR"), "en"),
+            (Some("ko_KR"), "en"),
+            (Some("zh-cmn-Hans"), "en"),
+            (Some("not a locale"), "en"),
+        ];
+        for (locale, expected) in cases {
+            assert_eq!(
+                resolve_translation_language(locale),
+                expected,
+                "locale: {locale:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_template_has_subjects_in_every_language() {
+        for template_name in [
+            "email-change",
+            "email-verification",
+            "password-change",
+            "login-name-change",
+        ] {
+            for language in SUPPORTED_LANGUAGES {
+                assert!(
+                    SUBJECTS
+                        .get(template_name)
+                        .and_then(|s| s.get(language))
+                        .is_some_and(|s| !s.is_empty()),
+                    "missing subject for {template_name} in {language}"
+                );
+            }
+        }
     }
 }

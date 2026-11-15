@@ -1,5 +1,4 @@
-import { TranslationLanguage } from '../../common/i18n'
-import { getBestLanguage } from '../i18n/language-detector'
+import { resolveTranslationLanguage, TranslationLanguage } from '../../common/i18n'
 
 interface LeagueContent {
   name: string
@@ -15,7 +14,7 @@ interface LeagueContent {
 
 /** Resolves each field independently so partial translations retain the default content. */
 export function localizeLeague(league: LeagueContent, language: string) {
-  const selectedLanguage = getBestLanguage([language])
+  const selectedLanguage = resolveTranslationLanguage(language)
   const translation =
     selectedLanguage === TranslationLanguage.English
       ? undefined

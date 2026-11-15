@@ -166,6 +166,7 @@ import {
   createUser,
   findAllUsersWithEmail,
   findSelfById,
+  findUserByEitherNameAndEmail,
   findUserById,
   findUserByName,
   findUsersById,
@@ -283,14 +284,16 @@ function sendVerificationEmail({
   email,
   code,
   username,
+  locale,
 }: {
   email: string
   code: string
   username: string
+  locale: string | undefined
 }) {
   return sendMailTemplate({
     to: email,
-    subject: 'ShieldBattery Email Verification',
+    locale,
     templateName: 'email-verification',
     templateData: { code, username },
   })
@@ -508,6 +511,7 @@ export class UserApi {
           email,
           code,
           username: createdUser.user.loginName,
+          locale: createdUser.user.locale,
         })
       })
       .catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
@@ -578,11 +582,12 @@ export class UserApi {
 
     await sendMailTemplate({
       to: email,
-      subject: 'ShieldBattery Username Recovery',
+      // The accounts may disagree, so this uses the first listed one that has a locale
+      locale: users.find(user => user.locale)?.locale,
       templateName: 'username-recovery',
       templateData: {
         email,
-        usernames: users.map(user => ({ username: user.name })),
+        accounts: users.map(user => ({ loginName: user.loginName, displayName: user.name })),
       },
     })
   }
@@ -599,14 +604,9 @@ export class UserApi {
       }).required(),
     })
 
-    const user = await findUserByName(username)
+    const user = await findUserByEitherNameAndEmail(username, email)
     ctx.status = 204
     if (!user) {
-      return
-    }
-
-    const selfUser = await findSelfById(user.id)
-    if (!selfUser || selfUser.email !== email) {
       return
     }
 
@@ -624,11 +624,12 @@ export class UserApi {
     })
 
     await sendMailTemplate({
-      to: selfUser.email,
-      subject: 'ShieldBattery Password Reset',
+      to: user.email,
+      locale: user.locale,
       templateName: 'password-reset',
       templateData: {
         username: user.name,
+        loginName: user.loginName,
         code,
       },
     })
@@ -1127,6 +1128,7 @@ export class UserApi {
       email: user.email,
       code,
       username: user.loginName,
+      locale: user.locale,
     })
 
     ctx.status = 204

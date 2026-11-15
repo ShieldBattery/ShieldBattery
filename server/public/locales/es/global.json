@@ -130,10 +130,10 @@
       "password": {
         "alreadyHaveCodeLink": "¿Ya tienes un código?",
         "emailAddress": "Dirección de correo electrónico",
-        "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para que pongas una nueva contraseña.",
+        "explanationText": "Ingresa la dirección de correo de tu cuenta y su nombre de inicio de sesión o nombre para mostrar. Te enviaremos un correo con un código de reinicio para que pongas una nueva contraseña.",
         "sendResetEmail": "Envía el correo de reinicio",
         "title": "Solicitar restablecimiento de contraseña",
-        "username": "Nombre de usuario"
+        "username": "Nombre de inicio de sesión o para mostrar"
       },
       "reset": {
         "confirmPassword": "Confirmar nueva contraseña",

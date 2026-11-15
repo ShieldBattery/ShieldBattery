@@ -72,3 +72,53 @@ test('password reset flow', async ({ context, page }) => {
   await loginPage.loginWith(username, newPassword)
   await page.waitForSelector('[data-testid=notifications-button]')
 })
+
+test('password reset by display name reports the login name to log in with', async ({
+  context,
+  page,
+}) => {
+  await goToSignup(page)
+
+  const displayName = generateUsername()
+  const loginName = generateUsername()
+  const email = `${displayName}@example.org`
+  const password = 'password123'
+
+  await signupWith(page, { username: displayName, password, email })
+  await page.waitForSelector('[data-testid=notifications-button]')
+
+  // Give the account a login name that differs from its display name
+  await page.click('[data-testid=settings-button]')
+  await page.click('[data-testid=edit-login-name-button]')
+  await page.fill('input[name="currentPassword"]', password)
+  await page.fill('input[name="loginName"]', loginName)
+  await page.click(
+    '[data-testid=change-login-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
+  )
+  await expect(page.locator('[data-testid=change-login-name-dialog]')).toHaveCount(0)
+
+  await clearLocalState({ context, page })
+  await sentEmailChecker.resetEmailsFor(email)
+
+  // Either name identifies the account, and the email names the one that logs in
+  await page.goto('/forgot-password')
+  await page.fill('input[name="email"]', email)
+  await page.fill('input[name="username"]', displayName)
+  await page.click('[data-testid=submit-button]')
+  await page.waitForSelector('[data-testid=reset-password-form]')
+
+  const emails = await sentEmailChecker.retrieveSentEmails(email)
+  expect(emails).toHaveLength(1)
+  expect(emails[0].templateVariables.username).toBe(displayName)
+  expect(emails[0].templateVariables.loginName).toBe(loginName)
+
+  const newPassword = 'newpassword123'
+  await page.fill('input[name="code"]', emails[0].templateVariables.code)
+  await page.fill('input[name="password"]', newPassword)
+  await page.fill('input[name="confirmPassword"]', newPassword)
+  await page.click('[data-testid=submit-button]')
+  await page.click('[data-testid=continue-to-login]')
+
+  await loginPage.loginWith(loginName, newPassword)
+  await page.waitForSelector('[data-testid=notifications-button]')
+})
