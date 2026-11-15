@@ -205,6 +205,21 @@ fn update() {
     }
 }
 
+/// Looks at the live speed again and puts it back where it belongs if another program changed it.
+///
+/// The speed is otherwise only written when the window's state changes, so a speed some other
+/// program set after that would stay until the next focus change. Reading the live speed is a
+/// system call, too slow for every message pump, so this is for the moments that matter.
+pub fn recheck() {
+    if let Some(live) = live_speed() {
+        let applied = APPLIED_SPEED.swap(live, Ordering::Relaxed);
+        if applied != live {
+            info!("Windows mouse speed is {live}, not the {applied} applied here last");
+        }
+    }
+    update();
+}
+
 /// Whether the game window was in front (the foreground window, not minimized) when last checked,
 /// which [`check_window`] does every message pump, and how many times that has changed.
 pub(super) fn in_front() -> (bool, u32) {

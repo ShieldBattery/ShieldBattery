@@ -315,6 +315,10 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 // cursor centering belongs. SC:R's own centering happens later, inside game-loop
                 // init, and is dropped (see `BwScr::run_game_loop`).
                 forge::center_cursor_in_game_window();
+                // The mouse speed was applied when the window came to the front, well before the
+                // player first uses the mouse in the game. Another program may have changed it
+                // since, which nothing would notice before the next focus change.
+                forge::mouse_speed::recheck();
                 // Now that the turn hooks are live (game started), prime the netcode v2 pipe so the
                 // first in-game receive has turns to dispatch. No-op without a rally-point2 session.
                 bw.seed_netcode_v2_pipe();
