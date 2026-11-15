@@ -28,6 +28,9 @@ const LoadableReviewRequests = React.lazy(async () => ({
 const LoadableMapReports = React.lazy(async () => ({
   default: (await import('../maps/admin-map-reports')).AdminMapReports,
 }))
+const LoadableMapTags = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tags')).AdminMapTags,
+}))
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
@@ -337,6 +340,14 @@ export default function AdminPanel() {
           description: 'Reports about which files make up a map',
           icon: 'flag',
           reportKind: 'mapReports',
+        },
+        {
+          path: '/admin/maps/tags',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapTags,
+          title: 'Map tags',
+          description: 'The tags maps can be given',
+          icon: 'sell',
         },
       ],
     },

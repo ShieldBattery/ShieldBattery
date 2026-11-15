@@ -493,6 +493,27 @@ function makerFor(scenario: Scenario, viewer: ViewerId): ScenarioMaker {
   return scenario.maker ?? NO_MAKER
 }
 
+/**
+ * The tags of a scenario's map: two genres for a UMS map, Standard for a staff pick, none
+ * otherwise.
+ */
+function tagsFor(scenario: Scenario) {
+  if (scenario.map.kind === MapKind.Ums) {
+    return [
+      {
+        id: 'defense',
+        kind: MapKind.Ums,
+        name: 'Defense',
+        names: [{ locale: 'es', name: 'Defensa' }],
+      },
+      { id: 'co-op', kind: MapKind.Ums, name: 'Co-op', names: [] },
+    ]
+  }
+  return scenario.map.staffPick
+    ? [{ id: 'standard', kind: MapKind.Melee, name: 'Standard', names: [] }]
+    : []
+}
+
 /** The id of the single-file map a scenario's file is in. */
 function familyIdOf(scenario: Scenario): string {
   return `${scenario.map.id}-family`
@@ -518,6 +539,15 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
               listed,
               current: { id, name },
               ...maker,
+              tags: tagsFor(scenario),
+              // Staff edit any map's tags and the maker their own map's; anyone else only those of
+              // a listed map with no maker
+              canEditTags:
+                viewer !== 'loggedOut' &&
+                (isStaff ||
+                  viewer === 'maker' ||
+                  viewer === 'makerPublisher' ||
+                  (listed && !maker.owner)),
               defaultMap: null,
               ...(isStaff ? { defaultSetBy: null } : {}),
               files: [

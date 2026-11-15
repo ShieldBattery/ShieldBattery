@@ -11,10 +11,12 @@ import {
   ALL_MAP_PAGE_SUB_PAGES,
   MAP_PAGE_FILE_PARAM,
   MAP_REPORT_PARAM,
+  MapCatalogTab,
   mapFileIdFromSegment,
   mapIdFromRouteSegment,
   MapPageId,
   MapPageSubPage,
+  urlForMapCatalog,
   urlForMapCompare,
 } from '../../common/map-url'
 import {
@@ -38,7 +40,7 @@ import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
-import { FilledButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Divider } from '../material/menu/divider'
@@ -77,12 +79,14 @@ import {
   openMapOwnerRelinquishDialog,
   openMapPreviewDialog,
   openMapPublishDialog,
+  openMapTagsDialog,
   regenMapImage,
   removeFromMyMaps,
   updateMap,
 } from './action-creators'
 import { AddToCollectionButton } from './map-add-to-collection'
 import { MapBackButton } from './map-back-button'
+import { catalogSearchForTag } from './map-catalog-params'
 import { DescriptionForm, NameForm } from './map-edit-forms'
 import { correctedMapPageUrl, SelectedFileState, urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
@@ -105,6 +109,7 @@ import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
 import { fileChangeErrorText } from './map-publish'
 import { MapReportBar } from './map-report-bar'
+import { mapTagLabel } from './map-tags'
 import { useUnpublishMap } from './map-unpublish'
 
 const MapPageFamilyQuery = graphql(/* GraphQL */ `
@@ -129,6 +134,7 @@ const MapPageFamilyQuery = graphql(/* GraphQL */ `
         }
         ownerKind
         credit
+        ...MapPage_TagsFragment
         ...MapPageStats_FamilyFragment
         ...MapPageFiles_FamilyFragment
       }
@@ -352,6 +358,7 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
             <MapHeaderAndActions
               header={file}
               actions={file}
+              tags={family}
               family={{
                 id: family.id,
                 name: family.name,
@@ -804,15 +811,116 @@ export function MapByline({ owner, ownerKind, credit, publisher, publishedAt }: 
   )
 }
 
+const MapPage_TagsFragment = graphql(/* GraphQL */ `
+  fragment MapPage_TagsFragment on MapFamily {
+    id
+    tags {
+      id
+      kind
+      name
+      names {
+        locale
+        name
+      }
+    }
+    canEditTags
+  }
+`)
+
+const TagRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+`
+
+const TagChip = styled(RoomChip)`
+  color: var(--theme-on-surface);
+`
+
+const TagLink = styled(Link)`
+  display: flex;
+  border-radius: 999px;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:hover > ${TagChip} {
+    background-color: var(--theme-container-highest);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: 2px;
+  }
+`
+
+const TagEditButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+`
+
+/** Lines the label up with the text above it, past the button's own padding. */
+const AddTagsButton = styled(TextButton)`
+  align-self: flex-start;
+  margin-left: -12px;
+`
+
+/**
+ * The map's tags, each a link to every map with that tag, and the way to change them for a viewer
+ * who can.
+ */
+function MapTagRow({ family: familyRef }: { family: FragmentType<typeof MapPage_TagsFragment> }) {
+  const { t, i18n } = useTranslation()
+  const dispatch = useAppDispatch()
+  const family = useFragment(MapPage_TagsFragment, familyRef)
+  const openEditor = () => dispatch(openMapTagsDialog({ familyId: family.id }))
+
+  if (!family.tags.length) {
+    return family.canEditTags ? (
+      <AddTagsButton
+        label={t('maps.tags.addTags', 'Add tags')}
+        iconStart='add'
+        onClick={openEditor}
+      />
+    ) : null
+  }
+
+  const editLabel = t('maps.tags.editTitle', 'Edit tags')
+  return (
+    <TagRow>
+      {family.tags.map(tag => (
+        <TagLink key={tag.id} href={urlForMapCatalog(MapCatalogTab.All, catalogSearchForTag(tag))}>
+          <TagChip>{mapTagLabel(tag, i18n.language)}</TagChip>
+        </TagLink>
+      ))}
+      {family.canEditTags ? (
+        <Tooltip text={editLabel} position='bottom' tabIndex={-1}>
+          <TagEditButton
+            icon={<MaterialIcon icon='edit' size={18} />}
+            ariaLabel={editLabel}
+            onClick={openEditor}
+          />
+        </Tooltip>
+      ) : null}
+    </TagRow>
+  )
+}
+
 function MapHeader({
   map: mapRef,
   family,
+  tags,
   editing,
   onEditDone,
   onChanged,
 }: {
   map: FragmentType<typeof MapPage_HeaderFragment>
   family: ActionsFamily
+  tags: FragmentType<typeof MapPage_TagsFragment>
   editing: 'name' | 'description' | undefined
   onEditDone: () => void
   onChanged: () => void
@@ -927,6 +1035,7 @@ function MapHeader({
         publisher={map.listed && map.publishedAt ? (map.publisher ?? undefined) : undefined}
         publishedAt={map.listed ? (map.publishedAt ?? undefined) : undefined}
       />
+      <MapTagRow family={tags} />
       {family.current.id !== map.id ? (
         <Notice>
           <NotDefaultIcon icon='info' size={20} />
@@ -1081,11 +1190,13 @@ interface ActionsFamily {
 function MapHeaderAndActions({
   header,
   actions,
+  tags,
   family,
   onChanged,
 }: {
   header: FragmentType<typeof MapPage_HeaderFragment>
   actions: FragmentType<typeof MapPage_ActionsFragment>
+  tags: FragmentType<typeof MapPage_TagsFragment>
   family: ActionsFamily
   onChanged: () => void
 }) {
@@ -1095,6 +1206,7 @@ function MapHeaderAndActions({
       <MapHeader
         map={header}
         family={family}
+        tags={tags}
         editing={editing}
         onEditDone={() => setEditing(undefined)}
         onChanged={onChanged}

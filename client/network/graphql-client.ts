@@ -1,4 +1,4 @@
-import { Cache, cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
+import { Cache, cacheExchange, Data, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -56,7 +56,8 @@ function invalidateNewsPostLists(cache: Cache) {
  * Query fields whose results depend on which files make up each map, or on which file each map
  * gives players: the catalog shows each map's current file, a map page id resolves through the
  * maps, and the reports and history are about them. What claiming a map would do depends on its
- * listed files and who published them, so the claim preview is among them.
+ * listed files and who published them, so the claim preview is among them. A tag counts the listed
+ * maps whose current file is of its kind.
  */
 const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'maps',
@@ -66,6 +67,7 @@ const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'mapFamilyReports',
   'mapFamilyReportCount',
   'mapFamilyHistory',
+  'mapTags',
 ])
 
 const MAP_FAMILY_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
@@ -100,6 +102,9 @@ const USER_MAP_LISTING_FIELDS: ReadonlySet<string> = new Set(['favoriteMaps', 'm
  */
 const COLLECTION_LIST_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapCollections'])
 
+/** Query fields listing the map tags. */
+const MAP_TAG_LIST_FIELDS: ReadonlySet<string> = new Set(['mapTags'])
+
 /** Query fields listing and counting collection reports. */
 const COLLECTION_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'mapCollectionReports',
@@ -122,6 +127,38 @@ function invalidateUserMapListings(cache: Cache) {
   }
   for (const field of cache.inspectFields(userKey)) {
     if (USER_MAP_LISTING_FIELDS.has(field.fieldName)) {
+      cache.invalidate(userKey, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/** Whether a cached map listing field was filtered by tags. */
+function isTagFilteredListing(args: Record<string, unknown> | null | undefined): boolean {
+  const filter = args?.filter as { tags?: unknown } | null | undefined
+  return Array.isArray(filter?.tags) && filter.tags.length > 0
+}
+
+/**
+ * Invalidates what a change to a map's tags can affect: how many maps have each tag, the listings
+ * filtered by tags (the catalog's and the current user's), and the history. The map itself is kept,
+ * since `mapFamilySetTags` returns it with its tags.
+ */
+function invalidateMapTags(cache: Cache) {
+  for (const field of cache.inspectFields('Query')) {
+    if (
+      field.fieldName === 'mapTags' ||
+      field.fieldName === 'mapFamilyHistory' ||
+      (field.fieldName === 'maps' && isTagFilteredListing(field.arguments))
+    ) {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey !== 'string') {
+    return
+  }
+  for (const field of cache.inspectFields(userKey)) {
+    if (USER_MAP_LISTING_FIELDS.has(field.fieldName) && isTagFilteredListing(field.arguments)) {
       cache.invalidate(userKey, field.fieldName, field.arguments ?? undefined)
     }
   }
@@ -460,6 +497,34 @@ const cacheUpdates: UpdatesConfig = {
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     mapFamilyReportSetStatus: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
+    mapFamilySetTags: (_result, _args, cache) => invalidateMapTags(cache),
+    // A created tag goes at the end of its kind's tags. A tag created with a rule is given to the
+    // maps the rule holds for at once.
+    mapTagCreate: (_result, args, cache) => {
+      if (args.autoRule) {
+        invalidateMapTags(cache)
+      } else {
+        invalidateQueryFields(cache, MAP_TAG_LIST_FIELDS)
+      }
+    },
+    // Setting, changing or removing a tag's rule moves the tag between maps. The arguments don't
+    // tell whether the rule sent differs from the tag's, so every update invalidates what that can
+    // affect.
+    mapTagUpdate: (_result, _args, cache) => invalidateMapTags(cache),
+    // The result holds the whole list, in the order set
+    mapTagsSetOrder: (result, _args, cache) => {
+      if (result.mapTagsSetOrder) {
+        cache.link('Query', 'mapTags', result.mapTagsSetOrder as Data[])
+      }
+    },
+    // Deleting a tag takes it off every map, and listings filtered by it no longer are. Whatever
+    // holds the tag (a map's tags, the list) is refetched without it.
+    mapTagDelete: (result, args, cache) => {
+      if (result.mapTagDelete) {
+        cache.invalidate({ __typename: 'MapTag', id: args.id as string })
+        invalidateMapTags(cache)
+      }
+    },
     mapOwnerClaim: (_result, _args, cache) => invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
     mapOwnerRelinquish: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
@@ -497,6 +562,8 @@ const cacheKeys: KeyingConfig = {
   LeagueTranslation: NON_KEYED_EMBEDDED,
   MapForce: NON_KEYED_EMBEDDED,
   MapForcePlayer: NON_KEYED_EMBEDDED,
+  // A tag's name in one language, only ever read through its (keyed) MapTag
+  MapTagName: NON_KEYED_EMBEDDED,
   MatchmakerConfigDefaults: NON_KEYED_EMBEDDED,
   NewsPostTranslation: NON_KEYED_EMBEDDED,
   MatchmakerConfigView: NON_KEYED_EMBEDDED,

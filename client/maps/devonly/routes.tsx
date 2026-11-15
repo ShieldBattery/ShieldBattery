@@ -4,6 +4,7 @@ import { MapPageTest } from './map-page-test'
 import { MapPublishTest } from './map-publish-test'
 import { MapSearchTest } from './map-search-test'
 import { MapSpawnsTest } from './map-spawns-test'
+import { MapTagsTest } from './map-tags-test'
 import { MapTilesTest } from './map-tiles-test'
 
 export function DevMaps() {
@@ -16,6 +17,7 @@ export function DevMaps() {
         ['Publish dialog', 'publish', MapPublishTest],
         ['Map search', 'search', MapSearchTest],
         ['Map spawns', 'spawns', MapSpawnsTest],
+        ['Edit tags dialog', 'tags', MapTagsTest],
         ['Map tiles', 'tiles', MapTilesTest],
       ]}
     />

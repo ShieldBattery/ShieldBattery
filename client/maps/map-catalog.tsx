@@ -32,7 +32,9 @@ import {
 import {
   CatalogFilters,
   CatalogParams,
+  CatalogRowFilters,
   CatalogSort,
+  CLEARED_CATALOG_FILTERS,
   DEFAULT_CATALOG_FILTERS,
   defaultSortForListing,
   effectiveSort,
@@ -54,6 +56,7 @@ import {
   LocalMatchesLink,
   validateLocalMapView,
 } from './map-local-list'
+import { useMapTagList } from './map-tags'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom, useUploadMapFiles } from './map-uploads'
 
 interface StoredListWindow {
@@ -224,11 +227,13 @@ export function MapCatalogFrame({
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   useScrollMemory(scroller)
 
-  // Switching tabs keeps the filters and search, so the same maps are looked for on the next tab
+  // Switching tabs keeps the filters, tags and search, so the same maps are looked for on the next
+  // tab
   const onTabChange = (nextTab: MapCatalogTab) => {
     const params = parseCatalogParams(new URLSearchParams(location.search))
     const nextSearch = serializeCatalogParams({
       ...filtersOf(params),
+      tags: params.tags,
       search: params.search,
       sort: undefined,
     })
@@ -288,7 +293,8 @@ function listingForTab(tab: MapCatalogTab): MapListing {
  */
 export function useCatalogUrlParams(listing: MapListing) {
   const search = useLocationProperty(() => location.search)
-  const params = parseCatalogParams(new URLSearchParams(search))
+  const tagList = useMapTagList()
+  const params = parseCatalogParams(new URLSearchParams(search), tagList)
 
   const [savedFilters, setSavedFilters] = useUserLocalStorageValue<CatalogFilters>(
     'maps.catalog.filters',
@@ -315,7 +321,7 @@ export function useCatalogUrlParams(listing: MapListing) {
       return
     }
     const withDefaults = serializeCatalogParams(
-      { ...savedFilters, search: '', sort: savedSort },
+      { ...savedFilters, tags: [], search: '', sort: savedSort },
       current,
     )
     if (withDefaults !== current.toString()) {
@@ -331,7 +337,7 @@ export function useCatalogUrlParams(listing: MapListing) {
     transition(location.pathname + (nextSearch ? `?${nextSearch}` : ''))
   }
 
-  const onFiltersChange = (changes: Partial<CatalogFilters>) => {
+  const onFiltersChange = (changes: Partial<CatalogRowFilters>) => {
     const next = { ...params, ...changes }
     navigate(next)
     setSavedFilters(filtersOf(next))
@@ -347,10 +353,10 @@ export function useCatalogUrlParams(listing: MapListing) {
         setSavedSort(nextSort)
       }
     },
-    onClearFilters: () => onFiltersChange(DEFAULT_CATALOG_FILTERS),
+    onClearFilters: () => onFiltersChange(CLEARED_CATALOG_FILTERS),
     /** Applies a change of the search text. Meant for a {@link CatalogSearchInput}. */
     onSearchChange: (value: string) => {
-      const current = parseCatalogParams(new URLSearchParams(location.search))
+      const current = parseCatalogParams(new URLSearchParams(location.search), tagList)
       navigate(withSearch(current, value), replace)
     },
   }
@@ -498,6 +504,7 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
                       MapCatalogTab.Local,
                       serializeCatalogParams({
                         ...filtersOf(params),
+                        tags: params.tags,
                         search: searchText,
                         sort: undefined,
                       }),
