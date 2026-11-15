@@ -36,5 +36,6 @@ export async function signupWith(
   // NOTE(tec27): This one needs a position because otherwise it falls on a link and opens a
   // dialog
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
+  await page.check('input[name="rulesAgreement"]', { position: { x: 4, y: 4 } })
   await page.click('[data-testid=submit-button]')
 }

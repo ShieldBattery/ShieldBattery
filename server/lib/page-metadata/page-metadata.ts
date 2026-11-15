@@ -71,6 +71,12 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
     'How MMR, points and divisions work on the ShieldBattery ladder, and why ranks use points.',
   ),
   staticRoute(
+    '/rules',
+    'ShieldBattery Platform Rules',
+    'The rules for fair play, chat, and profiles that everyone on ShieldBattery is expected to ' +
+      'follow.',
+  ),
+  staticRoute(
     '/ladder/*?',
     'ShieldBattery Ladder',
     'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',

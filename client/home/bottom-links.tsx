@@ -7,6 +7,7 @@ import GithubLogo from '../icons/brands/github.svg?react'
 import PatreonLogo from '../icons/brands/patreon.svg?react'
 import Logo from '../logos/logo-no-bg.svg?react'
 import { Tooltip } from '../material/tooltip'
+import { RULES_PATH } from '../rules/rules-urls'
 import { titleSmall } from '../styles/typography'
 
 const Root = styled.div`
@@ -136,6 +137,9 @@ export function BottomLinks() {
         </li>
         <li>
           <BottomLink href='/faq'>{t('landing.bottomLinks.faq', 'FAQ')}</BottomLink>
+        </li>
+        <li>
+          <BottomLink href={RULES_PATH}>{t('landing.bottomLinks.rules', 'Rules')}</BottomLink>
         </li>
       </BottomLinksList>
       <BottomLinksList>

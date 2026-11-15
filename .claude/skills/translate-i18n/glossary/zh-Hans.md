@@ -114,3 +114,4 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
 - **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**条形码**, a player’s name→**名字**.

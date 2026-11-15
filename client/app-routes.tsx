@@ -11,6 +11,7 @@ import { Home } from './home/home'
 import { MainLayoutLoadingDotsArea } from './main-layout'
 import { AnimatedSwitch } from './navigation/animated-switch'
 import { StaticNewsRedirect } from './news/static-news-redirect'
+import { RULES_PATH } from './rules/rules-urls'
 import { TwitchOAuthCallback } from './twitch/twitch-oauth-callback'
 
 const AdminPanel = React.lazy(() => import('./admin/panel'))
@@ -67,6 +68,9 @@ const LadderGuidePage = React.lazy(async () => ({
 }))
 const MatchmakingGuidePage = React.lazy(async () => ({
   default: (await import('./guides/matchmaking-guide')).MatchmakingGuidePage,
+}))
+const RulesPage = React.lazy(async () => ({
+  default: (await import('./rules/rules')).RulesPage,
 }))
 const NewsPostPage = React.lazy(async () => ({
   default: (await import('./news/news-post-page')).NewsPostPage,
@@ -127,6 +131,7 @@ export function AppRoutes({
       <Route path='/news' component={NewsArchivePage} />
       <Route path='/play/*?' component={PlayRoot} />
       <Route path='/replays/*?' component={ReplaysRoot} />
+      <Route path={RULES_PATH} component={RulesPage} />
       <Route path='/static-news/:id' component={StaticNewsRedirect} />
       <Route path='/users/*?' component={ProfileRouteComponent} />
       <Route path='/whispers/*?' component={WhisperRouteComponent} />

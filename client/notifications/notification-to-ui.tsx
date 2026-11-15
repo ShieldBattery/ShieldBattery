@@ -19,6 +19,7 @@ import { LeagueStartNotificationUi } from '../leagues/league-start-notification-
 import { logger } from '../logging/logger'
 import { MatchmakingBanNotificationUi } from '../matchmaking/matchmaking-ban-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
+import { RulesUpdateNotificationUi } from '../rules/rules-update-notification-ui'
 import {
   FriendRequestNotificationUi,
   FriendStartNotificationUi,
@@ -32,6 +33,7 @@ import {
 export function notificationHasUi(notification: SbNotification) {
   switch (notification.type) {
     case NotificationType.PolicyUpdated:
+    case NotificationType.RulesUpdated:
     case NotificationType.FriendRequest:
     case NotificationType.FriendStart:
     case NotificationType.UserRestricted:
@@ -79,6 +81,10 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           read={notification.read}
           policyType={notification.policyType}
         />
+      )
+    case NotificationType.RulesUpdated:
+      return (
+        <RulesUpdateNotificationUi ref={ref} showDivider={showDivider} read={notification.read} />
       )
     case NotificationType.FriendRequest:
       return (

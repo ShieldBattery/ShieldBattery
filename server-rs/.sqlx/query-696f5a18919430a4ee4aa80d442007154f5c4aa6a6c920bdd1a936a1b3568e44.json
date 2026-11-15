@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT id as \"id: SbUserId\", name::TEXT as \"name!\",\n                        login_name::TEXT as \"login_name!\", email, email_verified,\n                        accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale, last_login_name_change,\n                        last_name_change, name_change_tokens, avatar_path, staff_badge\n                    FROM users\n                    WHERE id = $1\n                ",
+  "query": "\n                    SELECT id as \"id: SbUserId\", name::TEXT as \"name!\",\n                        login_name::TEXT as \"login_name!\", email, email_verified,\n                        accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, accepted_rules_version, locale,\n                        last_login_name_change, last_name_change, name_change_tokens,\n                        avatar_path, staff_badge\n                    FROM users\n                    WHERE id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -83,6 +83,17 @@
       },
       {
         "ordinal": 8,
+        "name": "accepted_rules_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "accepted_rules_version"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "locale",
         "type_info": "Text",
         "origin": {
@@ -93,7 +104,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "last_login_name_change",
         "type_info": "Timestamptz",
         "origin": {
@@ -104,7 +115,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "last_name_change",
         "type_info": "Timestamptz",
         "origin": {
@@ -115,7 +126,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "name_change_tokens",
         "type_info": "Int4",
         "origin": {
@@ -126,7 +137,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "avatar_path",
         "type_info": "Text",
         "origin": {
@@ -137,7 +148,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "staff_badge",
         "type_info": "Bool",
         "origin": {
@@ -162,6 +173,7 @@
       false,
       false,
       false,
+      false,
       true,
       true,
       true,
@@ -170,5 +182,5 @@
       false
     ]
   },
-  "hash": "86cae0bae3f011d6a8103eae6897c10bd25ffc425942a576d7330fede52a5691"
+  "hash": "696f5a18919430a4ee4aa80d442007154f5c4aa6a6c920bdd1a936a1b3568e44"
 }

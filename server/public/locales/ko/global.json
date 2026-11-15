@@ -193,7 +193,8 @@
       "reasonLabel": "사유:",
       "reporting": {
         "notification": "플레이어 신고가 제한되었습니다."
-      }
+      },
+      "viewRules": "규칙 보기"
     },
     "signup": {
       "ageConfirmation": "본인은 만13세 이상임을 확인합니다",
@@ -204,6 +205,7 @@
       "haveSignupCodeLink": "가입 코드가 있으신가요?",
       "password": "비밀번호",
       "readAndAgree": "나는 <2>서비스 약관</2>, <5>사용 정책</5>, 그리고 <8>개인정보 보호 정책</8>에 동의하고 읽었습니다",
+      "rulesAgreement": "나는 <2>플랫폼 규칙</2>을 읽었으며 이를 따르겠습니다",
       "signupCode": "가입 코드 (선택 사항)",
       "title": "계정 만들기",
       "username": "아이디"
@@ -1464,7 +1466,7 @@
     "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
     "badRequest": "신고를 제출할 수 없습니다. 세부 정보를 확인한 후 다시 시도해 주세요.",
     "closed": "이 게임의 신고가 마감되었습니다. 플레이어 신고는 게임 종료 후 24시간 동안만 가능합니다.",
-    "description": "이 게임에서 규칙을 위반한 플레이어를 신고합니다. 신고 내용은 ShieldBattery 스태프가 검토합니다.",
+    "description": "이 게임에서 <2>규칙</2>을 위반한 플레이어를 신고합니다. 신고 내용은 ShieldBattery 스태프가 검토합니다.",
     "details": "세부 정보",
     "detailsOptional": "세부 정보 (선택 사항)",
     "detailsRequiredForOther": "무슨 일이 있었는지 설명해 주세요.",
@@ -1597,6 +1599,7 @@
       "faq": "FAQ",
       "licenses": "라이선스",
       "privacyPolicy": "개인정보 처리방침",
+      "rules": "규칙",
       "termsOfService": "이용 약관"
     },
     "faq": {
@@ -2526,6 +2529,7 @@
       "logOutErrorMessage": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
       "logOutErrorTitle": "로그아웃에 실패했습니다",
       "reportBug": "버그 신고",
+      "rules": "플랫폼 규칙",
       "settings": "설정",
       "viewProfile": "프로필 보기",
       "whisperCloseError": "귓속말 세션을 종료하는 중 오류가 발생했습니다: {{errorMessage}}",
@@ -2693,6 +2697,14 @@
     "reportBug": "버그 신고",
     "title": "문제가 발생했습니다",
     "tryAgain": "다시 시도"
+  },
+  "rules": {
+    "consequences": "가이드라인을 지키지 않으면 채팅, 매치메이킹, 플랫폼 이용 제한 등의 조치를 받을 수 있습니다.",
+    "copyLink": "규칙 링크 복사",
+    "intro": "ShieldBattery에 오신 것을 환영합니다! 모든 분이 즐겁게 플랫폼을 이용할 수 있도록 다음 커뮤니티 가이드라인을 지켜 주시기 바랍니다.",
+    "list": "1. **정정당당하게 플레이해 주세요.** 핵, 매크로, 봇 등 모든 부정 프로그램 사용은 금지입니다.\n2. **서로 예의를 지켜주세요.** 욕설이나 비매너 행위는 삼가해주세요.\n3. **경기를 존중해 주세요.** 승패가 나기 전에 나가지 마세요.\n4. **닉네임 규칙을 지켜 주세요.** 바코드 닉네임처럼 읽기 어렵거나 직접 입력할 수 없는 닉네임은 사용할 수 없습니다.",
+    "title": "플랫폼 규칙",
+    "updateNotification": "ShieldBattery의 <2>플랫폼 규칙</2>이 업데이트되었습니다."
   },
   "settings": {
     "activity": {

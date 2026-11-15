@@ -5,6 +5,7 @@ import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
   ACCEPTABLE_USE_VERSION,
   PRIVACY_POLICY_VERSION,
+  RULES_VERSION,
   TERMS_OF_SERVICE_VERSION,
 } from '../../../common/policies/versions'
 import { SbPermissions } from '../../../common/users/permissions'
@@ -38,6 +39,7 @@ interface UserInternal {
   staffBadge: boolean
   emailVerified: boolean
   acceptedUsePolicyVersion: number
+  acceptedRulesVersion: number
   acceptedTermsVersion: number
   acceptedPrivacyVersion: number
   locale?: string
@@ -73,6 +75,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
+    acceptedRulesVersion: dbUser.accepted_rules_version,
     locale: dbUser.locale ?? undefined,
     lastLoginNameChange: dbUser.last_login_name_change ?? undefined,
     lastNameChange: dbUser.last_name_change ?? undefined,
@@ -104,6 +107,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     acceptedPrivacyVersion: userInternal.acceptedPrivacyVersion,
     acceptedTermsVersion: userInternal.acceptedTermsVersion,
     acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
+    acceptedRulesVersion: userInternal.acceptedRulesVersion,
     locale: userInternal.locale,
     lastLoginNameChange: userInternal.lastLoginNameChange,
     lastNameChange: userInternal.lastNameChange,
@@ -176,9 +180,11 @@ export async function createUser({
       const result = await client.query<DbUser>(sql`
       INSERT INTO users (name, login_name, email, created, signup_ip_address, email_verified,
         locale, accepted_privacy_version, accepted_terms_version, accepted_use_policy_version,
+        accepted_rules_version,
         signup_code_used)
       VALUES (${name}, ${name}, ${email}, ${createdDate}, ${ipAddress}, false, ${locale},
         ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION},
+        ${RULES_VERSION},
         ${signupCodeId})
       RETURNING *
     `)
@@ -276,6 +282,8 @@ export async function updateUser(
             return sql`accepted_terms_version = ${value}`
           case 'acceptedUsePolicyVersion':
             return sql`accepted_use_policy_version = ${value}`
+          case 'acceptedRulesVersion':
+            return sql`accepted_rules_version = ${value}`
           case 'locale':
             return sql`locale = ${value}`
           default:

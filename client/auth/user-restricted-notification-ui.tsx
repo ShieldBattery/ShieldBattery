@@ -5,10 +5,14 @@ import {
   RestrictionReason,
   restrictionReasonToLabel,
 } from '../../common/users/restrictions'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { ActionlessNotification } from '../notifications/notifications'
+import { TextButton } from '../material/button'
+import { ActionableNotification } from '../notifications/notifications'
+import { useAppDispatch } from '../redux-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { titleMedium } from '../styles/typography'
 
@@ -59,6 +63,7 @@ export function UserRestrictedNotificationUi({
   reason,
 }: UserRestrictedNotificationUiProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const longTimestampFormat = useFormat(longTimestamp)
 
   const reasonLabel = reason !== undefined ? restrictionReasonToLabel(reason, t) : undefined
@@ -96,7 +101,7 @@ export function UserRestrictedNotificationUi({
   }
 
   return (
-    <ActionlessNotification
+    <ActionableNotification
       ref={ref}
       showDivider={showDivider}
       read={read}
@@ -114,6 +119,13 @@ export function UserRestrictedNotificationUi({
           <SpecialText>{endText}</SpecialText>
         </span>
       }
+      actions={[
+        <TextButton
+          key='rules'
+          label={t('auth.restriction.viewRules', 'View rules')}
+          onClick={() => dispatch(openDialog({ type: DialogType.Rules }))}
+        />,
+      ]}
     />
   )
 }

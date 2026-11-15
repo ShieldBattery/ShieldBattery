@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { openDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { required } from '../forms/validators'
 import { GameReportReason } from '../gql/graphql'
@@ -13,7 +15,7 @@ import { Dialog } from '../material/dialog'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge, bodyLarge } from '../styles/typography'
 import { ReportGameMutation } from './report-game-mutation'
@@ -59,6 +61,7 @@ export function ReportGameDialog({
 }: ReportGameDialogProps) {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
+  const dispatch = useAppDispatch()
   const usersById = useAppSelector(s => s.users.byId)
   const [{ fetching }, reportGame] = useMutation(ReportGameMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -209,11 +212,18 @@ export function ReportGameDialog({
           {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : undefined}
 
           <BodyLarge>
-            {t(
-              'gameReport.description',
-              'Report a player for breaking the rules in this game. Reports are reviewed by ' +
-                'ShieldBattery staff.',
-            )}
+            <Trans t={t} i18nKey='gameReport.description'>
+              Report a player for breaking the{' '}
+              <a
+                href='#'
+                onClick={event => {
+                  event.preventDefault()
+                  dispatch(openDialog({ type: DialogType.Rules }))
+                }}>
+                rules
+              </a>{' '}
+              in this game. Reports are reviewed by ShieldBattery staff.
+            </Trans>
           </BodyLarge>
 
           <Select

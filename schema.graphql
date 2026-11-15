@@ -66,6 +66,7 @@ type CurrentUser {
 	acceptedPrivacyVersion: Int!
 	acceptedTermsVersion: Int!
 	acceptedUsePolicyVersion: Int!
+	acceptedRulesVersion: Int!
 	locale: String
 	"""
 	When the user last changed their login name (for rate limiting display)

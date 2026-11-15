@@ -233,6 +233,7 @@ pub struct CurrentUser {
     pub accepted_privacy_version: i32,
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
+    pub accepted_rules_version: i32,
     pub locale: Option<String>,
     /// When the user last changed their login name (for rate limiting display)
     pub last_login_name_change: Option<DateTime<Utc>>,
@@ -1453,8 +1454,9 @@ impl CurrentUserRepo {
                     SELECT id as "id: SbUserId", name::TEXT as "name!",
                         login_name::TEXT as "login_name!", email, email_verified,
                         accepted_privacy_version, accepted_terms_version,
-                        accepted_use_policy_version, locale, last_login_name_change,
-                        last_name_change, name_change_tokens, avatar_path, staff_badge
+                        accepted_use_policy_version, accepted_rules_version, locale,
+                        last_login_name_change, last_name_change, name_change_tokens,
+                        avatar_path, staff_badge
                     FROM users
                     WHERE id = $1
                 "#,
@@ -1496,6 +1498,7 @@ impl CurrentUserRepo {
                 accepted_privacy_version: row.accepted_privacy_version,
                 accepted_terms_version: row.accepted_terms_version,
                 accepted_use_policy_version: row.accepted_use_policy_version,
+                accepted_rules_version: row.accepted_rules_version,
                 locale: row.locale,
                 last_login_name_change: row.last_login_name_change,
                 last_name_change: row.last_name_change,
@@ -1536,6 +1539,10 @@ struct SelfUser {
     pub accepted_privacy_version: i32,
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
+    /// Cache entries that lack this field are treated as version 0 (no rules accepted yet), so
+    /// the field must tolerate being absent when deserializing.
+    #[serde(default)]
+    pub accepted_rules_version: i32,
     pub locale: Option<String>,
     #[serde(default, with = "ts_milliseconds_option")]
     pub last_login_name_change: Option<DateTime<Utc>>,
@@ -1569,6 +1576,7 @@ impl From<CachedCurrentUser> for CurrentUser {
             accepted_privacy_version: value.user.accepted_privacy_version,
             accepted_terms_version: value.user.accepted_terms_version,
             accepted_use_policy_version: value.user.accepted_use_policy_version,
+            accepted_rules_version: value.user.accepted_rules_version,
             locale: value.user.locale,
             last_login_name_change: value.user.last_login_name_change,
             last_name_change: value.user.last_name_change,
@@ -1598,6 +1606,7 @@ mod tests {
             "acceptedPrivacyVersion": 1,
             "acceptedTermsVersion": 1,
             "acceptedUsePolicyVersion": 1,
+            "acceptedRulesVersion": 1,
             "locale": "en-US",
             "lastLoginNameChange": 1755642889407,
             "lastNameChange": 1755642889407,
@@ -1616,6 +1625,7 @@ mod tests {
         assert_eq!(user.accepted_privacy_version, 1);
         assert_eq!(user.accepted_terms_version, 1);
         assert_eq!(user.accepted_use_policy_version, 1);
+        assert_eq!(user.accepted_rules_version, 1);
         assert_eq!(user.locale, Some("en-US".into()));
         assert_eq!(
             user.last_login_name_change,
@@ -1648,6 +1658,7 @@ mod tests {
             "emailVerified": true,
             "acceptedPrivacyVersion": 1,
             "acceptedTermsVersion": 1,
+            "acceptedRulesVersion": 1,
             "acceptedUsePolicyVersion": 1,
             "locale": null,
             "lastLoginNameChange": null,
@@ -1666,6 +1677,7 @@ mod tests {
         assert_eq!(user.accepted_privacy_version, 1);
         assert_eq!(user.accepted_terms_version, 1);
         assert_eq!(user.accepted_use_policy_version, 1);
+        assert_eq!(user.accepted_rules_version, 1);
         assert!(user.locale.is_none());
         assert!(user.last_login_name_change.is_none());
         assert!(user.last_name_change.is_none());
@@ -1700,6 +1712,8 @@ mod tests {
         assert_eq!(user.accepted_privacy_version, 1);
         assert_eq!(user.accepted_terms_version, 1);
         assert_eq!(user.accepted_use_policy_version, 1);
+        // The JSON above omits the field, as cache entries written without it do.
+        assert_eq!(user.accepted_rules_version, 0);
         assert!(user.locale.is_none());
         assert!(user.last_login_name_change.is_none());
         assert!(user.last_name_change.is_none());
@@ -1718,6 +1732,7 @@ mod tests {
             accepted_privacy_version: 1,
             accepted_terms_version: 1,
             accepted_use_policy_version: 1,
+            accepted_rules_version: 1,
             locale: None,
             last_login_name_change: None,
             last_name_change: None,

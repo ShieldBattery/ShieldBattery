@@ -136,4 +136,5 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
   (dodges a verb against a nominative mode label), Ranked {{mode}}→Рейтинговый {{mode}}. preorder
   skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
   «Открыть страницу Battle.net» clips in its slot beside the note.
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**баркод** (community loanword; штрихкод is the retail sense), a player’s name→**имя**.
 

@@ -134,4 +134,5 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
 - **Discord activity:** activity→활동, Ranked {{mode}}→**{{mode}} 래더** (matches
   `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
   section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**바코드**, a player’s name→**닉네임** (what players call their display name; never 아이디, which is the login name and is not what the rule covers). Cheating is spelled out as 핵, 매크로, 봇 등 부정 프로그램, and a game is a 경기. The rule list is in 해요체 (…해 주세요), friendlier than the 합니다체 around it.
 

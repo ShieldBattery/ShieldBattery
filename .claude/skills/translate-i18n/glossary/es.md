@@ -147,4 +147,5 @@ glossary and `terms/`, brand/proper nouns, register, general rules) and look ter
 - **Discord activity:** activity→actividad, Ranked {{mode}}→Clasificatoria {{mode}} (matches
   `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
+- **Platform rules (`rules.*`):** barcode (an unreadable `IIllIlI`-style name)→**barcode** (community loanword: los barcodes), a player’s name→**nombre**, type (on a keyboard)→**teclear** ("escribir a mano" means handwriting).
 

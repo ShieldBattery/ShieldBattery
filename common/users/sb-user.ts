@@ -44,6 +44,8 @@ export interface SelfUser extends SbUser {
   acceptedTermsVersion: number
   /** The last version of the acceptable use policy this user has seen/accepted. */
   acceptedUsePolicyVersion: number
+  /** The last version of the platform rules this user has seen/accepted. */
+  acceptedRulesVersion: number
   /**
    * The locale that this user has set, either as an explicit choice or as reported by their
    * browser. This string is a BCP 47 code that will be used locally to select from the available
@@ -76,6 +78,7 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
     acceptedPrivacyVersion: user.acceptedPrivacyVersion,
     acceptedTermsVersion: user.acceptedTermsVersion,
     acceptedUsePolicyVersion: user.acceptedUsePolicyVersion,
+    acceptedRulesVersion: user.acceptedRulesVersion,
     locale: user.locale,
     lastLoginNameChange: user.lastLoginNameChange ? Number(user.lastLoginNameChange) : undefined,
     lastNameChange: user.lastNameChange ? Number(user.lastNameChange) : undefined,
@@ -96,6 +99,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
     acceptedPrivacyVersion: userJson.acceptedPrivacyVersion,
     acceptedTermsVersion: userJson.acceptedTermsVersion,
     acceptedUsePolicyVersion: userJson.acceptedUsePolicyVersion,
+    acceptedRulesVersion: userJson.acceptedRulesVersion,
     locale: userJson.locale,
     lastLoginNameChange: userJson.lastLoginNameChange
       ? new Date(userJson.lastLoginNameChange)

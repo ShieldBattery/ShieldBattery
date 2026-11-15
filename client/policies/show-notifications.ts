@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useIsLoggedIn } from '../auth/auth-utils'
 import { useAppDispatch } from '../redux-hooks'
+import { addRulesNotificationIfNeeded } from '../rules/action-creators'
 import {
   addAcceptableUseNotificationIfNeeded,
   addPrivacyPolicyNotificationIfNeeded,
@@ -16,6 +17,7 @@ export function useShowPolicyNotificationsIfNeeded() {
       dispatch(addPrivacyPolicyNotificationIfNeeded())
       dispatch(addTermsOfServiceNotificationIfNeeded())
       dispatch(addAcceptableUseNotificationIfNeeded())
+      dispatch(addRulesNotificationIfNeeded())
     }
   }, [dispatch, isLoggedIn])
 }

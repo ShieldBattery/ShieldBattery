@@ -59,6 +59,7 @@ test('restricted names block signup', async ({ context, page }) => {
   await page.fill('input[name="confirmPassword"]', 'password123')
   await page.check('input[name="ageConfirmation"]')
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
+  await page.check('input[name="rulesAgreement"]', { position: { x: 4, y: 4 } })
   await page.click('[data-testid=submit-button]')
   // TODO(tec27): Would be nice to make this less dependent on exact content/translation
   await expect(
@@ -73,6 +74,7 @@ test('restricted names block signup', async ({ context, page }) => {
   await page.fill('input[name="confirmPassword"]', 'password123')
   await page.check('input[name="ageConfirmation"]')
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
+  await page.check('input[name="rulesAgreement"]', { position: { x: 4, y: 4 } })
   await page.click('[data-testid=submit-button]')
   // TODO(tec27): Would be nice to make this less dependent on exact content/translation
   await expect(

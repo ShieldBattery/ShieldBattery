@@ -144,6 +144,15 @@ export interface AcceptPoliciesResponse {
   user: SelfUserJson
 }
 
+export interface AcceptRulesRequest {
+  /** The version of the platform rules being accepted. */
+  version: number
+}
+
+export interface AcceptRulesResponse {
+  user: SelfUserJson
+}
+
 export interface ChangeLanguageRequest {
   language: TranslationLanguage
 }

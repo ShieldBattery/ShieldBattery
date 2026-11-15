@@ -40,6 +40,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@auth/acceptPolicies'](state, action) {
     state.self!.user = { ...action.payload.user }
   },
+  ['@auth/acceptRules'](state, action) {
+    state.self!.user = { ...action.payload.user }
+  },
   ['@auth/changeLanguage'](state, action) {
     state.self!.user = { ...action.payload.user }
   },
