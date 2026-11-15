@@ -38,18 +38,13 @@ import {
 } from './netcode-v2-game-event-service'
 
 // Bound parsing and signature-verification work before reading the body. This per-IP budget
-// accommodates both authenticated budgets (100 samples/s and 60 lifecycle events/minute), with
-// headroom for retries and their combined bursts. The caller cannot select it through body fields.
+// accommodates the authenticated periodic observation budget (100 samples/s) alongside lifecycle
+// notifications, which have no budget of their own, with headroom for retries and their combined
+// bursts. The caller cannot select it through body fields.
 const requestThrottle = createThrottle('netcodeV2GameEventRequests', {
   rate: 120,
   burst: 600,
   window: 1000,
-})
-
-const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
-  rate: 60,
-  burst: 300,
-  window: 60000,
 })
 
 const periodicEvidenceThrottle = createThrottle('netcodeV2PeriodicEvidence', {
@@ -293,14 +288,16 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
       await next()
     },
     (ctx, next) => {
-      // Only authenticated callers can spend these independent delivery budgets. Periodic
-      // observations must not consume the tokens reserved for lifecycle notifications.
+      // An authenticated lifecycle notification is never refused. Every one comes from the
+      // coordinator's single address, so a budget here would cap how many games the whole service
+      // can run, and the coordinator drops a notification it has retried for about a minute: a
+      // dropped `slotStarted` leaves its game's load unfinished. Periodic observations are safe to
+      // drop, so they alone are budgeted.
       const body = ctx.request.body
-      const throttle =
-        body && typeof body === 'object' && 'event' in body && body.event === 'slotEvidence'
-          ? periodicEvidenceThrottle
-          : gameEventsThrottle
-      return throttleMiddlewareFunc(throttle, throttleByIp, ctx, next)
+      if (body && typeof body === 'object' && 'event' in body && body.event === 'slotEvidence') {
+        return throttleMiddlewareFunc(periodicEvidenceThrottle, throttleByIp, ctx, next)
+      }
+      return next()
     },
     async ctx => {
       const input = ctx.request.body

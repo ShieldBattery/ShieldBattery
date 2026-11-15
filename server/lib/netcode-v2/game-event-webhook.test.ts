@@ -15,15 +15,13 @@ import {
 
 const buckets = vi.hoisted(() => ({
   requests: vi.fn(),
-  lifecycle: vi.fn(),
   periodic: vi.fn(),
 }))
 
 vi.mock('../throttle/create-throttle', () => ({
   default: (name: string) => {
     if (name === 'netcodeV2GameEventRequests') return { rateLimitWithWait: buckets.requests }
-    if (name === 'netcodeV2PeriodicEvidence') return { rateLimitWithWait: buckets.periodic }
-    return { rateLimitWithWait: buckets.lifecycle }
+    return { rateLimitWithWait: buckets.periodic }
   },
 }))
 vi.mock('../logging/logger', () => ({ default: { warn: vi.fn() } }))
@@ -538,7 +536,6 @@ describe('netcode-v2/game-event webhook HTTP routing', () => {
   beforeEach(async () => {
     vi.resetAllMocks()
     buckets.requests.mockResolvedValue({ limited: false, waitMs: 0 })
-    buckets.lifecycle.mockResolvedValue({ limited: false, waitMs: 0 })
     buckets.periodic.mockResolvedValue({ limited: false, waitMs: 0 })
     vi.mocked(checkGameEventWebhookAuth).mockResolvedValue(null)
     vi.mocked(recordSlotEvidenceNotification).mockResolvedValue('stored')
@@ -581,17 +578,7 @@ describe('netcode-v2/game-event webhook HTTP routing', () => {
     expect(buckets.requests).toHaveBeenCalledTimes(2)
     expect(buckets.requests).toHaveBeenCalledWith('127.0.0.1')
     expect(checkGameEventWebhookAuth).not.toHaveBeenCalled()
-    expect(buckets.lifecycle).not.toHaveBeenCalled()
     expect(buckets.periodic).not.toHaveBeenCalled()
-  })
-
-  test('exhausted lifecycle budget leaves periodic delivery available', async () => {
-    buckets.lifecycle.mockResolvedValue({ limited: true, waitMs: 1000 })
-    expect((await post(lifecycle)).statusCode).toBe(429)
-    expect((await post(periodic)).statusCode).toBe(204)
-    expect(checkGameEventWebhookAuth).toHaveBeenCalledTimes(2)
-    expect(recordSlotConnectedNotification).not.toHaveBeenCalled()
-    expect(recordSlotEvidenceNotification).toHaveBeenCalledExactlyOnceWith(periodic)
   })
 
   test.each([
@@ -671,7 +658,6 @@ describe('netcode-v2/game-event webhook HTTP routing', () => {
     expect(limited.statusCode).toBe(429)
     expect((await post(lifecycle)).statusCode).toBe(204)
     expect(buckets.periodic).toHaveBeenCalledTimes(2)
-    expect(buckets.lifecycle).toHaveBeenCalledExactlyOnceWith('127.0.0.1')
     expect(recordSlotEvidenceNotification).toHaveBeenCalledTimes(1)
     expect(recordSlotConnectedNotification).toHaveBeenCalledExactlyOnceWith(lifecycle)
     expect(recordSlotConnectedEvidenceNotification).not.toHaveBeenCalled()
@@ -697,7 +683,7 @@ describe('netcode-v2/game-event webhook HTTP routing', () => {
     expect(recordSlotEvidenceNotification).toHaveBeenCalledExactlyOnceWith(periodic)
   })
 
-  test('neither bucket bypasses signature verification or exposes schema errors first', async () => {
+  test('the periodic bucket is not consulted before signature verification or schema errors', async () => {
     vi.mocked(checkGameEventWebhookAuth).mockResolvedValue(401)
     for (const body of [periodic, lifecycle, { event: 'slotEvidence' }]) {
       expect((await post(body)).statusCode).toBe(401)
@@ -709,7 +695,6 @@ describe('netcode-v2/game-event webhook HTTP routing', () => {
     }
     expect(buckets.requests).toHaveBeenCalledTimes(3)
     expect(buckets.periodic).not.toHaveBeenCalled()
-    expect(buckets.lifecycle).not.toHaveBeenCalled()
     expect(recordSlotEvidenceNotification).not.toHaveBeenCalled()
     expect(recordSlotConnectedNotification).not.toHaveBeenCalled()
     expect(recordSlotConnectedEvidenceNotification).not.toHaveBeenCalled()
