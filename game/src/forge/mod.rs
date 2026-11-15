@@ -225,10 +225,13 @@ unsafe extern "system" fn wnd_proc_scr(
                     }
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
-                    // Opposite of the above, we are now running our own window loop again
+                    // Opposite of the above, we are now running our own window loop again. The
+                    // timer must not outlive the loop, whatever stage of loading it was started
+                    // in: a leftover timer keeps stepping lobby init from the main thread's
+                    // regular message dispatch for the rest of the load.
                     debug!("Exit size/move/menu loop {msg:#x}");
                     IN_SIZE_MOVE_MENU_LOOP.store(false, Ordering::Release);
-                    if with_forge(|f| !f.game_started && f.use_process_events) {
+                    if with_forge(|f| !f.game_started) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
 
                         if with_forge(|f| {

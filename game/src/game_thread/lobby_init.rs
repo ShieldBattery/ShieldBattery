@@ -47,6 +47,15 @@ impl LobbyInitCompleter {
         }
     }
 
+    /// Steps the lobby init once if [`step`](Self::step) has already started it, returning whether
+    /// the lobby init is completed. Never starts it.
+    pub fn step_if_started(&mut self) -> bool {
+        match self.state {
+            LobbyInitCompleterState::NotStarted => false,
+            _ => self.step(),
+        }
+    }
+
     /// Returns the time that a caller should wait until calling [LobbyInitCompleter::step] again.
     pub fn until_next_step(&self) -> u64 {
         match self.state {
@@ -123,5 +132,21 @@ impl RunningState {
                 .as_millis()
                 .min(turn_time_millis)))
         .min(16) as u64
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn step_if_started_leaves_an_unstarted_init_unstarted() {
+        let mut completer = LobbyInitCompleter::new();
+        assert!(!completer.step_if_started());
+        assert!(!completer.step_if_started());
+        assert!(matches!(
+            completer.state,
+            LobbyInitCompleterState::NotStarted
+        ));
     }
 }

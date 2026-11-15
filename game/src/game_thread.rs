@@ -219,9 +219,14 @@ pub fn step_lobby_init() -> bool {
 /// dispatched from inside SC:R's `process_events`). Stepping takes `LOBBY_INIT_COMPLETER` and then
 /// the event processing lock, so blocking on the completer while holding the event processing lock
 /// would deadlock against the async thread stepping in that order.
+///
+/// This never starts lobby init. Stepping it runs Storm's network step, which must not run before
+/// game setup has created or joined the lobby's Storm session: a step taken before then stalls
+/// Storm's lobby turns for good, so the game init command never goes through and the load hangs.
+/// Game setup starts lobby init (through [`step_lobby_init`]) once the session exists.
 pub fn try_step_lobby_init() -> bool {
     match LOBBY_INIT_COMPLETER.try_lock() {
-        Ok(mut completer) => completer.step(),
+        Ok(mut completer) => completer.step_if_started(),
         Err(_) => false,
     }
 }
