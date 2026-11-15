@@ -67,7 +67,7 @@ pub use families::graphql::{MapFamiliesMutation, MapFamiliesQuery};
 pub use families::owners_graphql::{MapOwnersMutation, MapOwnersQuery};
 pub use families::publish_graphql::{MapPublishingMutation, MapPublishingQuery};
 pub use families::tags_graphql::{MapTagsMutation, MapTagsQuery};
-pub use features_graphql::{MapFeaturesMutation, MapFeaturesQuery};
+pub use features_graphql::{MapFeaturesMutation, MapFeaturesQuery, PublishedMapFeatureMessage};
 
 pub struct MapsModule {
     db_pool: PgPool,
