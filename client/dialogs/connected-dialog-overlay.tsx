@@ -147,6 +147,12 @@ const MapOwnerEditDialog = React.lazy(async () => ({
 const MapOwnerRelinquishDialog = React.lazy(async () => ({
   default: (await import('../maps/map-owner-dialogs')).MapOwnerRelinquishDialog,
 }))
+const MapFeatureDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-feature-dialog')).MapFeatureDialog,
+}))
+const MapFeatureRemoveDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-feature-dialog')).MapFeatureRemoveDialog,
+}))
 const MapPublishDialog = React.lazy(async () => ({
   default: (await import('../maps/map-publish-dialog')).MapPublishDialog,
 }))
@@ -361,6 +367,10 @@ function getDialog(dialogType: DialogType): {
       return { component: MapFamilyActionDialog }
     case DialogType.MapFamilyReport:
       return { component: MapFamilyReportDialog }
+    case DialogType.MapFeature:
+      return { component: MapFeatureDialog }
+    case DialogType.MapFeatureRemove:
+      return { component: MapFeatureRemoveDialog }
     case DialogType.MapFileLink:
       return { component: MapFileLinkDialog }
     case DialogType.MapFileUnlink:

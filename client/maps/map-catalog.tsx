@@ -165,16 +165,19 @@ export function CatalogSearchInput({
   label,
   maxLength,
   onChange,
+  onSubmit,
 }: {
   value: string
   label: string
   /** The most characters that can be typed. */
   maxLength?: number
   /** Called with each change of the text, coalesced while typing quickly. */
-  onChange: (value: string) => void
+  onChange?: (value: string) => void
+  /** Called with the text when Enter is pressed. */
+  onSubmit?: (value: string) => void
 }) {
   const searchInputRef = useRef<SearchInputHandle>(null)
-  const onSearchChange = useCoalescedSearch(onChange)
+  const onSearchChange = useCoalescedSearch(value => onChange?.(value))
   useKeyListener({
     onKeyDown: event => {
       if (event.key !== '/' || event.ctrlKey || event.altKey || event.metaKey) {
@@ -200,6 +203,7 @@ export function CatalogSearchInput({
       ref={searchInputRef}
       searchQuery={value}
       onSearchChange={onSearchChange}
+      onEnter={onSubmit}
       label={label}
       maxLength={maxLength}
     />
@@ -228,13 +232,13 @@ export function MapCatalogFrame({
   useScrollMemory(scroller)
 
   // Switching tabs keeps the filters, tags and search, so the same maps are looked for on the next
-  // tab
+  // tab. Discover doesn't search, so the search stays behind.
   const onTabChange = (nextTab: MapCatalogTab) => {
     const params = parseCatalogParams(new URLSearchParams(location.search))
     const nextSearch = serializeCatalogParams({
       ...filtersOf(params),
       tags: params.tags,
-      search: params.search,
+      search: nextTab === MapCatalogTab.Discover ? '' : params.search,
       sort: undefined,
     })
     push(urlForMapCatalog(nextTab, nextSearch))
@@ -245,6 +249,7 @@ export function MapCatalogFrame({
       <HeaderBar>
         <Title>{t('maps.activity.title', 'Maps')}</Title>
         <Tabs activeTab={tab} onChange={onTabChange}>
+          <TabItem text={t('maps.discover.tab', 'Discover')} value={MapCatalogTab.Discover} />
           <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
           <TabItem
             text={t('maps.collections.tab', 'Collections')}
@@ -287,6 +292,18 @@ function listingForTab(tab: MapCatalogTab): MapListing {
 }
 
 /**
+ * The filters the viewer last picked in the catalog, which a visit with no filters in its URL
+ * starts from.
+ */
+export function useSavedCatalogFilters() {
+  return useUserLocalStorageValue<CatalogFilters>(
+    'maps.catalog.filters',
+    DEFAULT_CATALOG_FILTERS,
+    validateSavedFilters,
+  )
+}
+
+/**
  * The filters, sort and search of a listing of maps, as the page's URL holds them, and the ways to
  * change them. A visit with no filters in its URL starts from the viewer's saved ones. Filters are
  * saved for every listing alike, and sorts for each listing.
@@ -296,11 +313,7 @@ export function useCatalogUrlParams(listing: MapListing) {
   const tagList = useMapTagList()
   const params = parseCatalogParams(new URLSearchParams(search), tagList)
 
-  const [savedFilters, setSavedFilters] = useUserLocalStorageValue<CatalogFilters>(
-    'maps.catalog.filters',
-    DEFAULT_CATALOG_FILTERS,
-    validateSavedFilters,
-  )
+  const [savedFilters, setSavedFilters] = useSavedCatalogFilters()
   const [savedSort, setSavedSort] = useUserLocalStorageValue<CatalogSort | undefined>(
     `maps.catalog.sort.${listing}`,
     undefined,
@@ -391,14 +404,6 @@ export function useCatalogDensity() {
 export function MapCatalogRoute({ tab }: { tab: MapCatalogTab }) {
   useTrackPageView(`/maps/${tab}`)
   return <MapCatalog key={tab} tab={tab} />
-}
-
-/** Sends `/maps` to the All maps tab, keeping any filters in its URL. */
-export function MapCatalogRedirect() {
-  useEffect(() => {
-    replace(urlForMapCatalog(MapCatalogTab.All, location.search.slice(1)))
-  }, [])
-  return null
 }
 
 function MapCatalog({ tab }: { tab: MapCatalogTab }) {

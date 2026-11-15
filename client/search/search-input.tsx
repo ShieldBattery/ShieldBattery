@@ -17,6 +17,8 @@ export interface SearchInputHandle {
 interface SearchInputProps {
   searchQuery: string
   onSearchChange: (value: string) => void
+  /** Called with the field's text when Enter is pressed in it. */
+  onEnter?: (value: string) => void
   /** The field's label. Defaults to "Search". */
   label?: string
   /** The most characters that can be typed. */
@@ -28,6 +30,7 @@ interface SearchInputProps {
 export function SearchInput({
   searchQuery,
   onSearchChange,
+  onEnter,
   label,
   maxLength,
   className,
@@ -97,6 +100,7 @@ export function SearchInput({
       onChange={onInputChange}
       onFocus={onInputFocus}
       onBlur={onInputBlur}
+      onEnterKeyDown={onEnter ? () => onEnter(inputValue) : undefined}
       leadingIcons={[<MaterialIcon icon='search' key='search' />]}
       hasClearButton={true}
       inputProps={maxLength !== undefined ? { maxLength } : undefined}
