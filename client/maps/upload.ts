@@ -2,7 +2,7 @@ import { DEFAULT_MAX_FILE_SIZE_BYTES, FilesErrorCode } from '../../common/files'
 import { fetchJson } from '../network/fetch'
 import { postFormWithProgress } from '../network/upload-with-progress'
 
-export function getExtension(filePath: string) {
+function getExtension(filePath: string) {
   const index = filePath.lastIndexOf('.')
   if (index === -1) {
     return filePath.toLowerCase()

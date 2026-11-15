@@ -742,9 +742,9 @@ export interface MapOwnerAddFileDialogProps extends CommonDialogProps {
 }
 
 /**
- * Adds a file to a map the viewer owns: one they upload, a listed file of theirs that's alone in a
- * map of its own, or an unlisted one from their library, which is published into the map. The
- * file can become the map's recommended file along the way.
+ * Adds a file to a map the viewer owns, or to any map for staff: one they upload, a listed file of
+ * theirs that's alone in a map of its own, or an unlisted one from their library, which is
+ * published into the map. The file can become the map's recommended file along the way.
  */
 export function MapOwnerAddFileDialog({
   familyId,
@@ -792,7 +792,7 @@ export function MapOwnerAddFileDialog({
     if (!selfUser) {
       return
     }
-    const plan = planAddFile(addFileFacts(file), familyId, selfUser.id)
+    const plan = planAddFile(addFileFacts(file), familyId, selfUser.id, canManageMaps)
     switch (plan.kind) {
       case 'alreadyHere':
         await finishJoined(file.id)
@@ -900,6 +900,7 @@ export function MapOwnerAddFileDialog({
             <MapOwnerAddFileBody
               familyId={familyId}
               viewerId={selfUser.id}
+              viewerIsStaff={canManageMaps}
               listing={listing}
               busy={busy}
               errorMessage={errorMessage}
@@ -1004,6 +1005,8 @@ export function MapOwnerAddFileFrame({
 export interface MapOwnerAddFileBodyProps {
   familyId: string
   viewerId: SbUserId
+  /** Whether the viewer can manage maps, which lets them add files their maker couldn't. */
+  viewerIsStaff: boolean
   listing: AddFileListing
   busy?: AddFileBusy
   errorMessage?: string
@@ -1022,6 +1025,7 @@ export interface MapOwnerAddFileBodyProps {
 export function MapOwnerAddFileBody({
   familyId,
   viewerId,
+  viewerIsStaff,
   listing,
   busy,
   errorMessage,
@@ -1036,7 +1040,7 @@ export function MapOwnerAddFileBody({
   const published: AddFileData[] = []
   const unpublished: AddFileData[] = []
   for (const file of listing.files) {
-    const plan = planAddFile(addFileFacts(file), familyId, viewerId)
+    const plan = planAddFile(addFileFacts(file), familyId, viewerId, viewerIsStaff)
     if (plan.kind === 'link') {
       published.push(file)
     } else if (plan.kind === 'publish') {

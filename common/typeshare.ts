@@ -77,7 +77,6 @@ export interface SbPermissions {
   manageMatchmaking: boolean
   manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
-  massDeleteMaps: boolean
   moderateChatChannels: boolean
   manageNews: boolean
   manageBugReports: boolean

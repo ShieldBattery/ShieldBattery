@@ -1263,7 +1263,8 @@ function MapActions({
     }
   }
   const isOwner = !!selfUser && family.owner?.id === selfUser.id
-  if (isOwner && !restrictedFromPublishing) {
+  // Staff add files to any map, maker or not, whatever their own publishing restriction
+  if ((isOwner && !restrictedFromPublishing) || canManageMaps) {
     mapItems.push([
       t('maps.owner.addFileMenuItem', 'Add a file'),
       () => dispatch(openMapOwnerAddFileDialog({ familyId: family.id, mapName: family.name })),

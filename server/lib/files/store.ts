@@ -31,7 +31,6 @@ export interface FileStore {
    */
   readStream(filename: string): Promise<StoredFileStream>
   delete(filename: string, options: any): Promise<any>
-  deleteFiles(prefix: string, options: any): Promise<any>
   url(filename: string): string
   signedUrl(filename: string, options?: GetSignedUrlOptions): Promise<string>
 
