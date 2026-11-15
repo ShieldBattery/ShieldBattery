@@ -123,7 +123,7 @@ describe('lobbies/lobby-socket-api', () => {
       { getRegions: async () => [] } as unknown as GameServerRegionsService,
       { warmRegions: () => {} } as unknown as NetcodeV2Service,
       userSockets,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
       clientSockets,
       clock,
     )

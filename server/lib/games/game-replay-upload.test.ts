@@ -9,6 +9,7 @@ import { ParsedReplay } from '../../workers/replays/messages'
 import { parseReplay } from '../../workers/replays/replays'
 import { getUserGameRecord } from '../models/games-users'
 import { ReplayService } from '../replays/replay-service'
+import { FakeClock } from '../time/testing/fake-clock'
 import { GameApi } from './game-api'
 import { GameLifecycleEvents } from './game-lifecycle-events'
 
@@ -62,7 +63,7 @@ function makeApi(seed: unknown = 123) {
     {} as any,
     {} as any,
     {} as any,
-    new GameLifecycleEvents(),
+    new GameLifecycleEvents(new FakeClock()),
     {} as any,
   )
   return { api, gameResultService, gameLoader, replayService, banEnacter, replayViolations }

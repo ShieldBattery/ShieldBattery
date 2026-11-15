@@ -25,6 +25,7 @@ import { ActivityStatusService } from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { cancelGame, finalizeGameSetupCancellation, updateGameConfig } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
@@ -547,6 +548,7 @@ export class GameLoader {
     private restrictionService: RestrictionService,
     private netcodeV2Service: NetcodeV2Service,
     private activityStatusService: ActivityStatusService,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {}
 
   /**
@@ -743,7 +745,13 @@ export class GameLoader {
       // Marking the players as in-game before the load is resolved means the lobby/matchmaking
       // teardown that follows sees them as playing, and its attempt to clear their lobby/queue
       // status is a no-op instead of knocking them back to just being online.
-      this.activityStatusService.setInGame(client.userId, gameId, client)
+      //
+      // A user whose game has already ended is not marked: the report that would clear the in-game
+      // state has already come and gone, so setting it would leave it set with nothing left to
+      // clear it.
+      if (!this.gameLifecycleEvents.hasUserGameEnded(gameId, client.userId)) {
+        this.activityStatusService.setInGame(client.userId, gameId, client)
+      }
     }
 
     this.recentlyLoadedGames.add(gameId)

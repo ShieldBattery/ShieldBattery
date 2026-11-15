@@ -2643,6 +2643,18 @@ export class LobbyService {
     // The lobby left the public list when its countdown began; it belongs back on it now, marked as
     // having a game in progress, since it can be joined (onto the bench) again.
     this._publishListChange('add', lobby)
+
+    // End announcements are made once, and one made before the lobby had a run state for the game
+    // found nothing to update, so ends that are already on record are applied here.
+    if (this.gameLifecycleEvents.hasGameEnded(gameId)) {
+      this._endGameForEveryone(lobbyId, runState)
+    } else {
+      for (const userId of inGameUsers) {
+        if (this.gameLifecycleEvents.hasUserGameEnded(gameId, userId)) {
+          this._onUserGameEnded(gameId, userId)
+        }
+      }
+    }
   }
 
   /**

@@ -20,7 +20,9 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { getMapInfos } from '../maps/map-models'
+import { Clock } from '../time/clock'
 import { findUsersById } from '../users/user-model'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import {
   BaseGameLoaderError,
   GameLoader,
@@ -158,6 +160,7 @@ describe('games/game-loader/GameLoader', () => {
     >
   }
   let activityStatusService: { setInGame: ReturnType<typeof vi.fn> }
+  let gameLifecycleEvents: GameLifecycleEvents
   let gameLoader: GameLoader
 
   beforeEach(() => {
@@ -182,6 +185,7 @@ describe('games/game-loader/GameLoader', () => {
         .mockResolvedValue({ known: false, connectedSlots: [], startedSlots: [] }),
     }
     activityStatusService = { setInGame: vi.fn() }
+    gameLifecycleEvents = new GameLifecycleEvents(new Clock())
 
     gameLoader = new GameLoader(
       publisher as any,
@@ -201,6 +205,7 @@ describe('games/game-loader/GameLoader', () => {
         }),
       } as any,
       activityStatusService as any,
+      gameLifecycleEvents,
     )
   })
 
@@ -891,6 +896,27 @@ describe('games/game-loader/GameLoader', () => {
 
       expect(result.isOk()).toBe(true)
       expect(wasCancelPublished()).toBe(false)
+    })
+
+    test('does not mark anyone in-game when the game ended before the deadline recovered the load', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: false,
+        connectedSlots: [],
+        startedSlots: [0, 1],
+        closedSlots: [],
+        liveSlots: [],
+        closedKnown: false,
+        turnsKnown: false,
+        setupFinal: false,
+      })
+      const { load } = await startNetworkedLoad('game-ended-before-recovery')
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'game-ended-before-recovery' })
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + 5_000)
+      const result = await load
+
+      expect(result.isOk()).toBe(true)
+      expect(activityStatusService.setInGame).not.toHaveBeenCalled()
     })
 
     test('blames nobody when the coordinator pull keeps failing, whatever the webhooks said', async () => {
@@ -1866,6 +1892,35 @@ describe('games/game-loader/GameLoader', () => {
       }
     },
   )
+
+  test('does not mark a player in-game whose game ended before the load completed', async () => {
+    const { load } = await startNetworkedLoad('game-user-ended-early')
+    gameLifecycleEvents.emit('userGameEnded', { gameId: 'game-user-ended-early', userId: p1 })
+    gameLoader.registerGameAsLoaded('game-user-ended-early', p1)
+    gameLoader.registerGameAsLoaded('game-user-ended-early', p2)
+
+    const result = await load
+
+    expect(result.isOk()).toBe(true)
+    expect(activityStatusService.setInGame).toHaveBeenCalledTimes(1)
+    expect(activityStatusService.setInGame).toHaveBeenCalledWith(
+      p2,
+      'game-user-ended-early',
+      expect.objectContaining({ userId: p2 }),
+    )
+  })
+
+  test('marks nobody in-game when the whole game ended before the load completed', async () => {
+    const { load } = await startNetworkedLoad('game-ended-early')
+    gameLifecycleEvents.emit('gameEnded', { gameId: 'game-ended-early' })
+    gameLoader.registerGameAsLoaded('game-ended-early', p1)
+    gameLoader.registerGameAsLoaded('game-ended-early', p2)
+
+    const result = await load
+
+    expect(result.isOk()).toBe(true)
+    expect(activityStatusService.setInGame).not.toHaveBeenCalled()
+  })
 
   test('fails the load without distributing setup when persisting game config fails', async () => {
     asMockedFunction(updateGameConfig).mockRejectedValue(new Error('database unavailable'))

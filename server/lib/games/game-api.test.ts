@@ -6,6 +6,7 @@ import { RollbackStats } from '../../../common/games/rollback-stats'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { insertGameRollbackStats } from '../models/game-rollback-stats'
 import { getUserGameRecord } from '../models/games-users'
+import { FakeClock } from '../time/testing/fake-clock'
 import { GameApi } from './game-api'
 import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getNetcodeV2Session, wasUserInGame } from './game-models'
@@ -55,7 +56,7 @@ function makeRehomeApi({
     {} as any,
     netcodeV2Service as any,
     {} as any,
-    new GameLifecycleEvents(),
+    new GameLifecycleEvents(new FakeClock()),
     {} as any,
   )
   return { api, netcodeV2Service }
@@ -170,7 +171,7 @@ function makeStatusApi({
     maybeCancelLoading: vi.fn().mockReturnValue(true),
   }
   const activityStatusService = { clearInGame: vi.fn() }
-  const gameLifecycleEvents = new GameLifecycleEvents()
+  const gameLifecycleEvents = new GameLifecycleEvents(new FakeClock())
   const api = new GameApi(
     {} as any,
     gameLoader as any,
@@ -324,7 +325,7 @@ function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
     {} as any,
     netcodeV2Service as any,
     {} as any,
-    new GameLifecycleEvents(),
+    new GameLifecycleEvents(new FakeClock()),
     {} as any,
   )
   return { api, netcodeV2Service }
@@ -463,7 +464,7 @@ function makeRollbackStatsApi({ isLoading = false }: { isLoading?: boolean } = {
     {} as any,
     {} as any,
     {} as any,
-    new GameLifecycleEvents(),
+    new GameLifecycleEvents(new FakeClock()),
     {} as any,
   )
 }

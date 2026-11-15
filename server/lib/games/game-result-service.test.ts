@@ -445,7 +445,7 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
       {} as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
 
     // `maybeReconcileResults` and `publishReconciledGame` are exercised by their own tests
@@ -574,7 +574,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
     clock = new FakeClock()
     clock.setCurrentTime(1_000_000)
 
-    gameLifecycleEvents = new GameLifecycleEvents()
+    gameLifecycleEvents = new GameLifecycleEvents(new FakeClock())
     service = new GameResultService(
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
@@ -696,7 +696,7 @@ describe('games/game-result-service/GameResultService#submitGameResults', () => 
     clock = new FakeClock()
     clock.setCurrentTime(1_000_000)
 
-    gameLifecycleEvents = new GameLifecycleEvents()
+    gameLifecycleEvents = new GameLifecycleEvents(new FakeClock())
     service = new GameResultService(
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
@@ -851,7 +851,7 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
       {} as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
 
     forceReconcileGame = vi.spyOn(service, 'forceReconcileGame').mockResolvedValue(undefined)
@@ -993,7 +993,7 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
       { getSeasonForDate: vi.fn().mockResolvedValue([{ id: 1 }, undefined]) } as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
   })
 
@@ -1101,7 +1101,7 @@ describe('games/game-result-service/GameResultService lobby violations', () => {
       { getSeasonForDate: vi.fn().mockResolvedValue([SEASON, undefined]) } as any,
       new FakeClock(),
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
     vi.spyOn(service as any, 'publishReconciledGame').mockResolvedValue(undefined)
     asMockedFunction(recordGameLobbyViolation).mockResolvedValue({ inserted: true, userId: p1 })
@@ -1463,7 +1463,7 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
       { getSeasonForDate } as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
     // Publishing is covered by the reconcile path's own callers; here we only care that a committed
     // resolution triggers it.
@@ -2114,7 +2114,7 @@ describe('games/game-result-service replay violations', () => {
       { getSeasonForDate: vi.fn().mockResolvedValue([SEASON, undefined]) } as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      new GameLifecycleEvents(new FakeClock()),
     )
     game = {
       id: GAME_ID,

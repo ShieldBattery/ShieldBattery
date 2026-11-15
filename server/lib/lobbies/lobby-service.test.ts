@@ -395,7 +395,7 @@ describe('lobbies/lobby-service', () => {
       loadGameRequests.push(request)
       return Result.ok({ gameId: 'test-game-id' })
     })
-    gameLifecycleEvents = new GameLifecycleEvents()
+    gameLifecycleEvents = new GameLifecycleEvents(clock)
     activityStatusService = new ActivityStatusService(
       new TypedPublisher(nydus),
       userSockets,
@@ -3050,6 +3050,67 @@ describe('lobbies/lobby-service', () => {
       return await call?.[2]
     }
 
+    /**
+     * Creates a lobby with `host` and `joiner` seated and runs its countdown, with the game load
+     * held open until the returned `finishLoad` is called.
+     */
+    async function createLobbyLoading() {
+      let finishLoad!: () => void
+      loadGameMock.mockImplementationOnce(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        await new Promise<void>(resolve => {
+          finishLoad = resolve
+        })
+        return Result.ok({ gameId: 'test-game-id' })
+      })
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      return {
+        id,
+        finishLoad: async () => {
+          finishLoad()
+          await flushAsync()
+        },
+      }
+    }
+
+    test('a game whose every member ended before the load finished leaves no run state', async () => {
+      const { id, finishLoad } = await createLobbyLoading()
+      endGameFor(host)
+      endGameFor(joiner)
+
+      await finishLoad()
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'regroup',
+        game: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
+    })
+
+    test('a game that ended as a whole before the load finished leaves no run state', async () => {
+      const { id, finishLoad } = await createLobbyLoading()
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      await finishLoad()
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+    })
+
+    test('a member who ended before the load finished is left out of the run state', async () => {
+      const { id, finishLoad } = await createLobbyLoading()
+      endGameFor(joiner)
+
+      await finishLoad()
+
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([HOST_USER.id])
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'memberGameEnded',
+        userId: JOINER_USER.id,
+      })
+    })
+
     test('a started game keeps the lobby, with everyone in it and in their activity', async () => {
       const id = await createLobbyInGame()
 
@@ -3481,11 +3542,16 @@ describe('lobbies/lobby-service', () => {
       const id = await createLobbyInGame()
       endGameFor(host)
       endGameFor(joiner)
+      // Every game has its own id, and an end on record for one game says nothing about the next.
+      loadGameMock.mockImplementationOnce(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        return Result.ok({ gameId: 'second-game-id' })
+      })
 
       await runCountdown(host)
 
       expect(loadGameRequests).toHaveLength(2)
-      expect(lobbyService.runStates.get(id)!.gameId).toBe('test-game-id')
+      expect(lobbyService.runStates.get(id)!.gameId).toBe('second-game-id')
       expect(lobbyPublishes(id).filter(data => data?.type === 'gameStarted')).toHaveLength(2)
     })
   })
