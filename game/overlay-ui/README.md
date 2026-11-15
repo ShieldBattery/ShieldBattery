@@ -456,9 +456,15 @@ Pass arguments through the watcher after a `--`, e.g.
 | `--smoke`          | The same renders into a temp directory, printing one summary line. Exits 0 on success and non-zero on any failure, so CI can prove the pipeline runs. |
 | `--game-blending`  | Renders blend the way they do in game: straight-alpha colors blended by SC:R's renderer, rather than egui's premultiplied ones.                          |
 
+| `--lang <tag>`     | With `--render`: renders the translated screens (`PSEUDOLOCALE_PRESETS`) in that language (`es`, `ko`, `ru`, `zh-Hans`) instead of every preset in English. |
+| `--only <text>`    | With `--render`: keeps only the renders whose file name contains `<text>`, for looking at one screen without rendering them all.                          |
+
 `--render` and `--smoke` go through a small CPU rasterizer over the tessellated meshes, so they need
 neither a GPU nor a window. File names are `<scenario>-<preset>-<width>x<height>.png`, plus a
-`-pseudo` pass per translated screen.
+`-pseudo` pass per translated screen. With `--lang` the name gains the language,
+`<scenario>-<preset>-<tag>-<width>x<height>.png`, and a screen that is not in
+`PSEUDOLOCALE_PRESETS` is not rendered at all, so add a new translated screen's preset to that list
+before checking it in another language.
 
 ## Knobs
 

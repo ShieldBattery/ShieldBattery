@@ -1,11 +1,14 @@
 // Fixtures intentionally use i18next plural keys (foo_one/foo_other), which aren't camelCase.
 /* eslint-disable eslint-core/camelcase */
+import { execFileSync } from 'child_process'
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { describe, expect, test } from 'vitest'
 import {
   buildOrphans,
   buildPlan,
+  collectShowEntries,
   compareKeys,
   deleteDeep,
   enReferenceForCategory,
@@ -13,10 +16,15 @@ import {
   findSourcePluralBases,
   findStale,
   flatten,
+  localeExistsAtRef,
+  mergePlans,
   parseCsv,
+  planRename,
   pluralCategoriesFor,
+  resolveStaleBase,
   serializeLocale,
   setDeep,
+  splitByLanguage,
   splitPlural,
   tokensEqual,
 } from './i18n-translate'
@@ -267,5 +275,210 @@ describe('parseCsv (RFC-4180-ish)', () => {
       ['a', 'b'],
       ['c', 'd'],
     ])
+  })
+})
+
+describe('collectShowEntries', () => {
+  const locales = new Map([
+    [
+      'en',
+      flatten({
+        chat: {
+          block: 'Block',
+          userCount_one: '{{count}} member',
+          userCount_other: '{{count}} members',
+        },
+        lobby: { start: 'Start' },
+      }),
+    ],
+    [
+      'es',
+      flatten({
+        chat: { block: 'Bloquear', userCount_one: 'un miembro', userCount_other: 'miembros' },
+        old: { gone: 'Hola' },
+      }),
+    ],
+  ])
+
+  test('selects an exact key, a subtree, and groups plural forms into one entry', () => {
+    const { entries, unmatched } = collectShowEntries(locales, ['chat'], undefined)
+    expect(unmatched).toEqual([])
+    expect(entries.map(e => e.key)).toEqual(['chat.block', 'chat.userCount'])
+    const plural = entries[1]
+    expect(plural.plural).toBe(true)
+    expect(plural.values.get('es')).toEqual({ one: 'un miembro', other: 'miembros' })
+
+    expect(collectShowEntries(locales, ['lobby.start'], undefined).entries).toHaveLength(1)
+    // A dotted prefix matches whole path segments only.
+    expect(collectShowEntries(locales, ['cha'], undefined).entries).toEqual([])
+  })
+
+  test('reports prefixes that match nothing', () => {
+    expect(collectShowEntries(locales, ['chat', 'nope.'], undefined).unmatched).toEqual(['nope'])
+  })
+
+  test('grep matches a value in any language, including keys only a target has', () => {
+    const byEnglish = collectShowEntries(locales, [], /^block$/i).entries
+    expect(byEnglish.map(e => e.key)).toEqual(['chat.block'])
+    const byTarget = collectShowEntries(locales, [], /hola/i).entries
+    expect(byTarget.map(e => e.key)).toEqual(['old.gone'])
+    expect(byTarget[0].values.has('en')).toBe(false)
+  })
+
+  test('grep narrows a prefix selection', () => {
+    const { entries } = collectShowEntries(locales, ['chat'], /miembro/)
+    expect(entries.map(e => e.key)).toEqual(['chat.userCount'])
+  })
+})
+
+describe('mergePlans', () => {
+  const en = flatten({
+    a: 'Hello',
+    c: { n_one: '{{count}} member', n_other: '{{count}} members' },
+  })
+
+  test('lists each key once with the languages missing it and per-language plural forms', () => {
+    const es = buildPlan(en, flatten({ a: 'Hola' }), 'es')
+    const ko = buildPlan(en, flatten({}), 'ko')
+    const merged = mergePlans([es, ko])
+    expect(merged.languages).toEqual(['es', 'ko'])
+    expect(merged.items).toEqual([
+      { key: 'a', type: 'single', en: 'Hello', missing: ['ko'] },
+      {
+        key: 'c.n',
+        type: 'plural',
+        en: { one: '{{count}} member', other: '{{count}} members' },
+        missing: ['es', 'ko'],
+        required: { es: ['one', 'many', 'other'], ko: ['other'] },
+      },
+    ])
+  })
+})
+
+describe('splitByLanguage', () => {
+  test('buckets values per language, allowing a key to list only some languages', () => {
+    const { byLang, errors } = splitByLanguage(
+      { a: { es: 'Hola' }, 'c.n': { es: { one: 'x', other: 'y' }, ko: { other: 'z' } } },
+      ['es', 'ko'],
+    )
+    expect(errors).toEqual([])
+    expect(byLang.get('es')).toEqual({ a: 'Hola', 'c.n': { one: 'x', other: 'y' } })
+    expect(byLang.get('ko')).toEqual({ 'c.n': { other: 'z' } })
+  })
+
+  test('rejects unknown languages and values not keyed by language', () => {
+    const { errors } = splitByLanguage({ a: { fr: 'Salut' }, b: 'Hola' }, ['es'])
+    expect(errors).toHaveLength(2)
+    expect(errors[0]).toContain('unknown language "fr"')
+    expect(errors[1]).toContain('expected an object keyed by language')
+  })
+})
+
+describe('planRename', () => {
+  test('moves a leaf, a subtree and plural forms, keeping the suffix', () => {
+    const flat = flatten({ a: { b: '1', c: { d: '2' }, n_one: 'x', n_other: 'y' }, z: '3' })
+    expect(planRename(flat, 'a.c', 'q.c')).toEqual({ moves: [['a.c.d', 'q.c.d']], conflicts: [] })
+    expect(planRename(flat, 'a.n', 'a.m').moves).toEqual([
+      ['a.n_one', 'a.m_one'],
+      ['a.n_other', 'a.m_other'],
+    ])
+    expect(planRename(flat, 'a', 'x').moves).toHaveLength(4)
+    // "a.b" must not drag along "a.bb".
+    expect(planRename(flatten({ 'a.bb': '1' }), 'a.b', 'x').moves).toEqual([])
+  })
+
+  test('reports destinations that already exist, as a leaf or as a subtree', () => {
+    const flat = flatten({ a: { b: '1' }, x: { y: '2' }, w: '3' })
+    expect(planRename(flat, 'a.b', 'x.y').conflicts).toEqual(['x.y'])
+    expect(planRename(flat, 'a.b', 'x').conflicts).toEqual(['x'])
+    expect(planRename(flat, 'a.b', 'w.v').conflicts).toEqual(['w.v'])
+  })
+
+  test('does not treat the keys being moved as conflicts', () => {
+    const flat = flatten({ a: { b: '1' } })
+    expect(planRename(flat, 'a', 'a.inner').conflicts).toEqual([])
+  })
+})
+
+describe('stale base selection (git)', () => {
+  const runGit = (cwd: string, ...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd, encoding: 'utf8' },
+    ).trim()
+
+  function commitFiles(cwd: string, files: Record<string, string>, message: string): string {
+    for (const [rel, content] of Object.entries(files)) {
+      const file = path.join(cwd, rel)
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, content)
+    }
+    runGit(cwd, 'add', '-A')
+    runGit(cwd, 'commit', '-q', '-m', message)
+    return runGit(cwd, 'rev-parse', 'HEAD')
+  }
+
+  function withRepo(fn: (dir: string) => void): void {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-stale-'))
+    try {
+      runGit(dir, 'init', '-q', '-b', 'master')
+      fn(dir)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  const locale = (lang: string) => `server/public/locales/${lang}/global.json`
+
+  test('uses the last commit touching the language file when it predates the merge-base', () => {
+    withRepo(dir => {
+      const first = commitFiles(
+        dir,
+        { [locale('en')]: '{"a":"One"}', [locale('es')]: '{"a":"Uno"}', 'README.md': 'x' },
+        'locales',
+      )
+      commitFiles(dir, { [locale('en')]: '{"a":"Uno!"}' }, 'reword english')
+      const head = commitFiles(dir, { 'README.md': 'y' }, 'unrelated')
+
+      // On master the merge-base is HEAD; es was last touched at the first commit.
+      expect(resolveStaleBase('es', undefined, dir)).toEqual({
+        ref: first,
+        reason: 'last es change',
+      })
+      // A language whose file was never committed falls back to the merge-base.
+      expect(resolveStaleBase('ko', undefined, dir)).toEqual({ ref: head, reason: 'merge-base' })
+      expect(resolveStaleBase('es', first, dir)).toEqual({ ref: first, reason: '--since' })
+    })
+  })
+
+  test('uses the merge-base when the language file changed on the branch', () => {
+    withRepo(dir => {
+      const base = commitFiles(
+        dir,
+        { [locale('en')]: '{"a":"One"}', [locale('es')]: '{"a":"Uno"}' },
+        'locales',
+      )
+      runGit(dir, 'checkout', '-q', '-b', 'feature')
+      commitFiles(dir, { [locale('es')]: '{"a":"Una"}' }, 'retranslate')
+      expect(resolveStaleBase('es', undefined, dir)).toEqual({ ref: base, reason: 'merge-base' })
+    })
+  })
+
+  test('localeExistsAtRef is false for a ref before the file existed', () => {
+    withRepo(dir => {
+      const before = commitFiles(dir, { 'README.md': 'x' }, 'readme')
+      const after = commitFiles(dir, { [locale('en')]: '{"a":"One"}' }, 'locales')
+      expect(localeExistsAtRef('en', before, dir)).toBe(false)
+      expect(localeExistsAtRef('en', after, dir)).toBe(true)
+    })
   })
 })

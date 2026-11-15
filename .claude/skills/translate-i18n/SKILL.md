@@ -5,9 +5,9 @@ description: Generate and update ShieldBattery's i18next translations (es, ko, r
 
 # Translating ShieldBattery
 
-Our UI strings live in i18next JSON files at `server/public/locales/<lang>/global.json`. `en` is the
-source of truth (grown automatically by `pnpm gen-translations`, which only writes `en`). The other
-languages — `es`, `ko`, `ru`, `zh-Hans` — must be filled in by translating from `en`.
+Our UI strings live in i18next JSON files at `server/public/locales/<lang>/<namespace>.json`. `en` is
+the source of truth (grown automatically by `pnpm gen-translations`, which only writes `en`). The
+other languages (`es`, `ko`, `ru`, `zh-Hans`) must be filled in by translating from `en`.
 
 The goal is translations that are clearly better than generic machine translation. We get there by
 bringing in context an MT engine doesn't have: what ShieldBattery is, **where** each string appears in
@@ -15,16 +15,15 @@ the UI (a button vs. a tooltip vs. an error message), **who** is reading it, and
 of game/brand terms.
 
 **Audience and tone:** ShieldBattery serves a competitive StarCraft: Brood War community, roughly
-20–50 years old. Lean toward the more **casual, natural** register for each language — how a player
-would actually talk — rather than formal or corporate phrasing. Per-language specifics are in the
-glossary.
+20–50 years old. Lean toward the more **casual, natural** register for each language (how a player
+would actually talk) rather than formal or corporate phrasing. Per-language specifics are in
+`glossary/<lang>.md`.
 
 ## The division of labor
 
 All the mechanical, error-prone JSON work is done by a deterministic helper script, `pnpm run i18n`
-([tools/i18n-translate.ts](../../../tools/i18n-translate.ts)). **You never hand-edit the JSON files** —
-add new keys with `apply`, and change existing ones with `fix` (both validate tokens and re-format).
-The script:
+([tools/i18n-translate.ts](../../../tools/i18n-translate.ts)). **You never hand-edit the JSON files.**
+Add new keys with `apply`, change existing ones with `fix`, move keys with `rename`. The script:
 
 - finds keys present in `en` but missing in a target language (plural-aware)
 - finds orphan keys that no longer exist in `en` (to delete)
@@ -37,287 +36,272 @@ Your job is only to produce good translation **values**.
 
 ## Commands
 
-```bash
-pnpm run i18n status                       # overview: how many strings need translating / pruning per language
-pnpm run i18n plan <lang> <planFile>       # write the to-translate work list as JSON
-pnpm run i18n apply <lang> <resultFile>    # validate + merge translations for MISSING keys (writes nothing on error)
-pnpm run i18n fix <lang> <resultFile>      # validate + overwrite EXISTING translations (quality/register fixes)
-pnpm run i18n terms <lang> <query>         # look up Blizzard-matched glossary terms (matches source or target)
-pnpm run i18n stale [lang] [outFile]       # find translations whose English source changed (use --since <ref>)
-pnpm run i18n prune <lang>                 # delete orphan keys no longer present in `en`
-pnpm run i18n normalize <lang>             # reformat (indent/sort) only, no content change
-pnpm run i18n check <lang>                 # read-only audit: remaining work, orphans, token drift, format
-```
-
-Namespaces: every command works on one namespace file per language, `global.json` by default
-(the app). Pass `--ns game` (anywhere on the command line) to work on `game.json` instead: the
-in-game UI's strings, which live in the Rust game DLL (`tr!` / `tr_plural!` calls extracted by
-`tools/i18next-rust-plugin.mjs`) and are embedded into the DLL at build time. Do one namespace
-at a time, and treat game strings as in-game HUD/dialog text: short, read at a glance mid-match,
-often in caps labels (which are not uppercased for ko/zh-Hans).
-
-Languages: `es`, `ko`, `ru`, `zh-Hans`. `en` is the source and is never a target. (`en-XA`
-pseudolocale was removed — it's not in `supportedLngs`.)
-
-## Workflow (per language)
-
-Do one language at a time, start to finish.
-
-### 0. One-time: normalize formatting (recommended, separate commit)
-
-The non-`en` files were last written by Weblate using a different indent (4-space) and sort order.
-The first time you touch a language, its diff will be huge because the script re-formats it to match
-the extractor. To keep translation diffs reviewable, do the reformat as its own commit first:
+Run everything from the repo root. `<lang>` is `es`, `ko`, `ru` or `zh-Hans`; most commands also
+take `all`, and working on all four languages together is the normal way to use them. Use
+`pnpm run -s i18n …` to drop pnpm's echo line (`check` and `stale` exit non-zero when work remains,
+which without `-s` also prints an `ELIFECYCLE` line; that is not a crash).
 
 ```bash
-pnpm run i18n normalize es   # (and ko, ru, zh-Hans)
-git add server/public/locales && git commit -m "Normalize locale file formatting"
+pnpm run -s i18n status                          # both namespaces: to-translate / orphan counts per language
+pnpm run -s i18n show <keyOrPrefix>... [--grep <regex>]   # en + every language side by side
+pnpm run -s i18n plan <lang|all> <planFile>      # write the to-translate work list as JSON
+pnpm run -s i18n apply <lang|all> <resultFile>   # validate + merge translations for MISSING keys
+pnpm run -s i18n fix <lang|all> <resultFile>     # validate + overwrite EXISTING translations
+pnpm run -s i18n prune <lang|all>                # delete orphan keys no longer present in `en`
+pnpm run -s i18n check <lang|all>                # read-only audit: remaining work, orphans, token drift, format
+pnpm run -s i18n stale [lang|all] [outFile]      # translations whose English source was reworded
+pnpm run -s i18n rename <oldPrefix> <newPrefix>  # move a key or subtree in every target language
+pnpm run -s i18n terms <lang> <query>            # look up Blizzard-matched game terms
 ```
 
-After this, translation/prune diffs are clean content-only changes.
+**Namespaces.** `global.json` (the app) is the default. Pass `--ns game` (anywhere on the command
+line) for `game.json`: the in-game UI's strings, which live in the Rust game DLL (`tr!` /
+`tr_plural!` calls extracted by `tools/i18next-rust-plugin.mjs`) and are embedded into the DLL at
+build time. `status` covers both namespaces; every other command works on one at a time. Treat game
+strings as in-game HUD/dialog text: short, read at a glance mid-match, often in caps labels (which are
+not uppercased for ko/zh-Hans). Email templates (`email/locales`) are English-only and not part of
+this workflow.
 
-### 1. Get the work list
+## Workflow
+
+Do all four languages together: one round of context gathering, then consistent choices across
+languages.
+
+### 1. See what needs doing
 
 ```bash
-pnpm run i18n plan es /tmp/plan-es.json
+pnpm gen-translations            # only if English strings changed in code since `en` was last extracted
+pnpm run -s i18n status          # missing + orphans, both namespaces
+pnpm run -s i18n stale           # reworded English whose translations stayed behind (add --ns game too)
+pnpm run -s i18n plan all <scratchpad>/plan.json
 ```
 
-Each item is either:
-
-```jsonc
-{ "key": "chat.actions.block", "type": "single", "en": "Block" }
-```
-
-or, for plurals (note `required` lists exactly the forms this language needs):
+`plan all` writes one work list. Each item lists the languages missing it, and for plurals the forms
+each of those languages requires:
 
 ```jsonc
 {
-  "key": "chat.channelInfoCard.userCount",
-  "type": "plural",
-  "en": { "one": "{{count}} member", "other": "{{count}} members" },
-  "required": ["one", "few", "many", "other"], // ru example
+  "languages": ["zh-Hans", "ko", "ru", "es"],
+  "items": [
+    { "key": "chat.actions.block", "type": "single", "en": "Block", "missing": ["ru", "es"] },
+    {
+      "key": "chat.channelInfoCard.userCount",
+      "type": "plural",
+      "en": { "one": "{{count}} member", "other": "{{count}} members" },
+      "missing": ["ko", "es"],
+      "required": { "ko": ["other"], "es": ["one", "many", "other"] },
+    },
+  ],
 }
 ```
 
-### 2. Read the glossary
+Write plan and result files under your scratchpad directory with a normal Windows path, not `/tmp`.
 
-Read [glossary.md](./glossary.md) before translating. It defines brand/game terms that must be
-translated consistently (or kept in English), and the formality register for each language. If you
-establish a new term decision while translating, add it to the glossary.
+### 2. Read the glossary for the languages you're touching
 
-For specific terms, look them up in the Blizzard-matched glossary instead of guessing:
+[glossary.md](./glossary.md) is short and applies to every language (brand names, register table,
+general rules). Each language's term decisions and `game.json` conventions are in
+[glossary/\<lang\>.md](./glossary/). Read the common file plus the file for each language you are
+translating into. If you establish a new term decision while translating, add it to that language's
+file.
+
+For game terms (units, races, maps, tilesets, Blizzard's own UI words), look them up instead of
+guessing:
 
 ```bash
-pnpm run i18n terms ko Hunters      # → matching source/target/context rows from terms/ko.csv
+pnpm run -s i18n terms ko Hunters      # → matching source/target/context rows from terms/ko.csv
 ```
 
 It matches `source` or `target` (case-insensitive) and shows the `context` column, so it disambiguates
-senses (e.g. `Observer` → 옵저버 the unit vs 관전자 the spectator). If it returns nothing, the term
-isn't game-derived — fall back to the web research in step 3.
+senses (e.g. `Observer` → 옵저버 the unit vs 관전자 the spectator). It covers game nouns well and
+ShieldBattery UI vocabulary hardly at all; when it returns nothing, use step 3 and the web.
 
-### 2.5. Read the grain of the existing file
+### 3. Read the grain of the existing files
 
-**Before translating, sample the target file you're about to add to.** This is one of the biggest
-quality levers and it's easy to skip. Two things to check:
+**Before translating, look at the strings that will sit next to yours.** This is one of the biggest
+quality levers and it's easy to skip. `show` prints English and all four languages side by side:
 
-- **Register.** Skim the existing values (or grep for sentence endings) to see the dominant politeness
-  level, and match it — consistency within the file beats the glossary default. (Example: `ko`'s file
-  is overwhelmingly 합니다체, so new Korean strings should be too, even though the glossary's casual
-  default might suggest otherwise.)
-- **In-file term consistency.** Grep the existing translations for recurring domain terms before
-  inventing your own. If the file already renders "queue" as 대기열 and "map pool" as 맵 풀, match
-  that — don't introduce 큐 / a second variant.
+```bash
+pnpm run -s i18n show lobbies.slots               # a whole subtree: the neighbors of the new keys
+pnpm run -s i18n show --grep 'queue|대기열'        # every key whose value in any language matches
+pnpm run -s i18n show settings.game --grep 'skin' # a regex narrows within the prefix
+```
 
-If you spot existing strings that are wrong or inconsistent (bad MT, mixed register), note them — and
-fix them with `fix` (step 5.5) if asked.
+Check two things:
 
-### 3. Gather context for ambiguous strings
+- **Register.** Match the dominant politeness level of the file; consistency within the file beats
+  the glossary default. (Example: `ko`'s file is overwhelmingly 합니다체, so new Korean strings
+  should be too, even though the glossary's casual default might suggest otherwise.)
+- **In-file term consistency.** If the file already renders "queue" as 대기열 and "map pool" as
+  맵 풀, match that; don't introduce 큐 or a second variant.
 
-**From the codebase** — the dotted key path is itself strong context (`chat.actions.block` is clearly
-a chat action). For anything ambiguous — short single words ("Block", "Clear", "Stop"), strings whose
-meaning depends on surrounding UI, or anything with tricky interpolations — find where it's used:
+If you spot existing strings that are wrong or inconsistent (bad MT, mixed register, wrong sense),
+fix them with `fix` in the same pass when the improvement is clear.
 
-- Grep for the leaf key or a distinctive part of the path, e.g. search for `channelInfoCard` or the
-  English string itself across `client/` and `common/`.
+### 4. Gather context for ambiguous strings
+
+**From the codebase.** The dotted key path is itself strong context (`chat.actions.block` is clearly
+a chat action). For anything ambiguous (short single words like "Block", "Clear", "Stop"; strings
+whose meaning depends on surrounding UI; tricky interpolations), find where it's used:
+
+- Grep for the leaf key or the English string across `client/` and `common/` (or `game/` for the
+  game namespace).
 - Strings are used via `t('some.key')`, `<Trans i18nKey='some.key'>`, or with a `keyPrefix`. Reading
   the surrounding component tells you whether it's a button (keep it short!), a tooltip, a heading,
   an error message, etc.
 
-**From the web** — when you're unsure how the community actually refers to something, research it
-rather than guessing or translating literally. This is where you beat generic MT. Good cases to search:
+**From the web.** When you're unsure how the community actually refers to something, research it
+rather than translating literally. This is where you beat generic MT: map names and game mechanics
+(often kept in English or with a standard localized form; the Korean scene has its own conventions),
+esports jargon and slang, and established renderings of StarCraft terms (cross-check `terms/`).
 
-- **Map names** and **game mechanics** — ladder maps, build orders, and units often have established,
-  region-specific names the community uses (frequently kept in English, or with a standard localized
-  form). The Korean scene in particular has its own conventions, since it's the largest BW community.
-- **Esports / scene jargon and slang** — terms a casual player would recognize that a dictionary
-  translation would mangle.
-- **Established renderings** of StarCraft terms in the target language (cross-check against `terms/`).
+### 5. Translate and apply
 
-Use web search/fetch to confirm the term locals actually use; prefer that over a literal translation.
-
-**Optional — scout the space before translating.** When **string length** is clearly the concern
-(tight buttons, tabs, chips, table headers), peek at the rendered English first — the component's
-`devonly/` page at `/dev`, or the running web client — to know how much room you have. (The full
-rendered-UI pass happens after applying, in step 8.)
-
-Use all of this context to pick the right tone, length, and word sense.
-
-### 4. Translate
-
-Write a result file mapping each key to its translation:
+Write one result file for all languages with the **Write tool** (shell heredocs break on the
+apostrophes and quotes in translated text):
 
 ```jsonc
 {
   "translations": {
-    "chat.actions.block": "Bloquear",
+    "chat.actions.block": { "es": "Bloquear", "ru": "Заблокировать" },
     "chat.channelInfoCard.userCount": {
-      "one": "{{count}} участник",
-      "few": "{{count}} участника",
-      "many": "{{count}} участников",
-      "other": "{{count}} участника",
+      "es": {
+        "one": "{{count}} miembro",
+        "many": "{{count}} de miembros",
+        "other": "{{count}} miembros",
+      },
+      "ko": { "other": "{{count}}명" },
     },
   },
 }
 ```
 
-Hard rules (the script enforces these and will reject the apply otherwise):
+A key lists only the languages that need it. Then:
 
-- **Preserve every `{{interpolation}}` exactly** — same variable names, never translate them.
-- **Preserve every `<0>…</0>` / `<1/>` Trans tag exactly** — same numbers, same nesting. These map to
+```bash
+pnpm run -s i18n apply all <scratchpad>/result.json   # new keys
+pnpm run -s i18n fix all <scratchpad>/fixes.json      # same shape, for keys that already exist
+pnpm run -s i18n prune all                            # drop orphans (lists each one)
+```
+
+`apply all` / `fix all` validate every language first and write nothing if any entry fails; the
+errors name the language, key and form. On success they end with the `check` verdict per language,
+which should read `✓ clean` for each. `fix` prints a before → after for every change. (The
+single-language forms take `{ "translations": { "<key>": <value> } }` and behave the same way.)
+
+Hard rules (the script enforces these):
+
+- **Preserve every `{{interpolation}}` exactly**: same variable names, never translate them.
+- **Preserve every `<0>…</0>` / `<1/>` Trans tag exactly**: same numbers, same nesting. These map to
   React components; changing them breaks rendering.
-- **Provide every form in `required`** for plural items, and no extras. Each form must keep `{{count}}`.
+- **Provide every form in `required`** for plural items, and no extras. Each form keeps `{{count}}`.
 
 Quality guidelines:
 
-- Keep button/label strings short — translations often run longer than English; long strings overflow
-  UI. Check context (step 3) when unsure.
-- Match ShieldBattery's voice: a community platform for competitive StarCraft: Brood War players.
-  Friendly and direct, not corporate. Use the per-language register from the glossary.
+- Keep button/label strings short: translations often run longer than English, and long strings
+  overflow UI.
+- Match ShieldBattery's voice: friendly and direct, not corporate.
 - Translate meaning, not words. Idiomatic > literal.
-- Leave brand/proper terms per the glossary (e.g. "ShieldBattery" stays "ShieldBattery").
+- Leave brand/proper terms per the glossary ("ShieldBattery" stays "ShieldBattery").
 
-You can put all items for a language in one result file, or work in batches — `apply` accepts partial
-result files and reports how many items remain.
+`check` also flags **token drift in pre-existing translations** (strings whose interpolations don't
+match `en`, often leftover MT mistakes). Fix those while you're here.
 
-### 5. Apply
+### 6. Look at the strings in the real UI
 
-```bash
-pnpm run i18n apply es /tmp/result-es.json
-```
+Structural validation says nothing about fit or sense. Looking at the rendered screens is the only
+check that catches overflow in tight spots, awkward CJK line breaks, hard-to-read fonts, and
+**wrong-sense pre-existing translations** sitting next to your new strings (e.g. es rendered the
+Input settings page as "Aporte", "input" in the _contribution_ sense: obvious on screen, invisible in
+the JSON).
 
-If validation fails, it prints exactly which keys/forms are wrong and writes nothing. Correct the
-result file and re-run. Re-running `plan` after a partial apply gives you only what's left.
+**When it's required:** new or changed short labels (buttons, tabs, chips, table and panel headers,
+select options, HUD text), or a pass of more than about ten keys. For a few full sentences in roomy
+places (error messages, descriptions) you may skip it, but say in your summary that the strings were
+not seen on screen and why.
 
-### 5.5. Fix existing translations (optional)
+**When a string doesn't fit, shorten the translation.** Check how Blizzard words it (`terms`), then
+the abbreviations the file already uses (`show --grep`), and `fix` the string. Don't widen or reflow
+the layout to fit one language's label.
 
-`apply` only adds **missing** keys. To correct translations that already exist — bad MT, wrong
-register, the inconsistencies you noted in step 2.5 — use `fix` instead of hand-editing the JSON. Same
-result-file shape, same token validation, and it prints a before→after for every change:
+Prioritize the languages that run long (es, ru) and the tight layouts; ko/zh-Hans mostly run short.
+Fix what you find with `fix`, including pre-existing neighbors.
 
-```bash
-pnpm run i18n fix es /tmp/fixes-es.json
-```
-
-Only do this when the change is clearly an improvement (or the user asked). Use the English source as
-the token reference — `fix` rejects anything that drops or alters an `{{interpolation}}`/`<0>` tag.
-
-### 6. Prune orphans
-
-```bash
-pnpm run i18n prune es
-```
-
-Deletes keys that exist in `es` but no longer in `en` (the script lists each one).
-
-### 7. Verify clean
+**Web client screens** (anything reachable at `localhost:5555` without the app; `/dev` pages work for
+components that have one). A logged-out browser takes its language from `navigator.languages`, so
+open one browser session per language with that locale instead of clicking through settings:
 
 ```bash
-pnpm run i18n check es
+echo '{"browser":{"contextOptions":{"locale":"ru-RU","viewport":{"width":1600,"height":1000}}}}' > <scratchpad>/pw-ru.json
+playwright-cli -s=i18n open http://localhost:5555/<path> --config <scratchpad>/pw-ru.json
+playwright-cli -s=i18n screenshot
+playwright-cli -s=i18n close
 ```
 
-Should report `✓ clean` (0 to-translate, 0 orphans, 0 token drift, format normalized). `check` also
-flags **token drift in pre-existing translations** — strings already in the file whose interpolations
-don't match `en` (often leftover MT mistakes). Worth fixing those too while you're here.
+Locale tags: `es-ES`, `ko-KR`, `ru-RU`, `zh-CN` (Simplified; `zh-TW` does not match `zh-Hans`).
 
-Then move to the next language and repeat from step 1.
+**Electron-only screens** (create lobby, game settings, …): drive the real app (`dev-env` +
+`verify-app` skills) and switch language in Settings → Language like a user. The choice is stored on
+the account, so switch back to English when you're done (`pnpm run seed-dev` also resets the seeded
+`claude-*` accounts to English); an account left in another language breaks later text-based
+automation. Don't pipe `click` output to `/dev/null`: Playwright tells you when something "intercepts
+pointer events", and a swallowed error looks exactly like a broken app.
 
-### 8. Look at the strings in the real UI
+**Game namespace** (`--ns game`): the in-game UI renders offline, no game launch needed. From `game/`:
 
-After all languages are applied, **render the affected screens and look at them** — don't skip this.
-Structural validation (tokens, plurals) says nothing about fit or sense, and this pass reliably
-catches things nothing else does: overflow in tight spots, awkward CJK line breaks, spacing at
-digit/hanzi boundaries, convention mismatches against neighboring UI, and **wrong-sense pre-existing
-translations** sitting right next to your new strings (e.g. es rendered the Input settings page as
-"Aporte" — "input" in the _contribution_ sense — visible instantly, invisible in the JSON).
+```bash
+cargo run -q -p overlay-ui --features preview --bin overlay-preview -- \
+  --render <scratchpad>/render-ru --lang ru [--only <file-name-substring>]
+```
 
-How to do it cheaply:
-
-- Figure out where each new key renders (you did this in step 3). Web-reachable screens: check in a
-  browser against `localhost:5555`. Electron-gated screens (create lobby, game settings, …): drive
-  the real app (`dev-env` + `verify-app` skills). Components with `devonly/` pages can be checked at
-  `/dev` with mock data when real data is awkward to set up.
-- **Switching language:** use the settings UI (app-bar gear → Language) like a real user — it
-  persists across navigation and exercises the language screen itself. Automation gotchas, learned
-  the hard way: at the default 1280-wide viewport the pinned social sidebar overlays the app-bar
-  icon buttons, so the gear click is intercepted — `resize 1920 1080` (or close the sidebar) first.
-  And don't pipe `click` output to `/dev/null`: Playwright _tells you_ when something "intercepts
-  pointer events", and a swallowed error looks exactly like a broken app. For the web client
-  there's also a navigation-proof alternative: the initial language comes from
-  `navigator.languages` (`client/i18n/language-detector.ts`), so a browser launched with the
-  target locale comes up in that language with no UI steps.
-- Screenshot per language per screen and actually read them. Prioritize the languages that run long
-  (es/ru) and the tight layouts (chips, buttons, summary lines, select options); ko/zh mostly run
-  short. Exercise UI variants that swap strings (e.g. each game type's slots preview).
-- Fix what you find with `fix` (step 5.5) — including pre-existing neighbors, not just your new
-  strings.
+- The binary is `overlay-preview` (hyphen) and needs `--features preview`.
+- `--lang` renders only the screens listed in `PSEUDOLOCALE_PRESETS`
+  (`game/overlay-ui/src/bin/overlay_preview/scenarios/`). A new screen that isn't in that list
+  produces **no file and no error**; add its preset to the list first.
+- Output names carry the language: `<scenario>-<preset>-<lang>-<width>x<height>.png`. List the output
+  directory and confirm the files you expected exist before reading them; an empty render means the
+  preset or `--only` filter didn't match, not that the screen is fine.
+- The strings are embedded at build time, so a real game only shows them after `game\build.bat`.
 
 ## Keeping translations in sync when English changes
 
 `plan`/`apply` handle **missing** keys and `prune` handles **orphans**, but neither catches a key
-whose **English wording was reworded** while the translation stayed behind — the translation is still
-present and structurally valid, just translated from the old English. `check`'s token drift won't see
-it either (the `{{vars}}` didn't change). That's what `stale` is for.
+whose **English wording was reworded** while the translation stayed behind: the translation is still
+present and structurally valid, just translated from the old English. That's what `stale` is for.
 
-`stale` compares the English source at a git ref against now (parsing the JSON, so reformatting
-doesn't matter) and reports keys where English changed but the target didn't:
+`stale` compares the English source at a base ref against now and reports keys where English changed
+but the target didn't. The base is chosen per language: the merge-base with `origin/master`, or the
+last commit that touched that language's file when that commit is older (which is what makes the
+default useful on master itself). The output says which base each language used. Pass
+`--since <ref>` to compare against a specific commit, tag or branch instead.
 
 ```bash
-pnpm run i18n stale                       # summary: stale count per language (since merge-base w/ origin/master)
-pnpm run i18n stale ko                    # detail for one language: old vs new English + the stale translation
-pnpm run i18n stale ko /tmp/stale-ko.json # also write a work list to re-translate
-pnpm run i18n stale ko --since v1.2.0     # compare against any ref (tag/commit/branch) for a full back-audit
+pnpm run -s i18n stale                               # summary: stale count + base per language
+pnpm run -s i18n stale ko                            # detail: old vs new English + the stale translation
+pnpm run -s i18n stale ko <scratchpad>/stale-ko.json # also write a work list to re-translate
 ```
 
-Default base ref is the merge-base with `origin/master` (i.e. "what this branch changed"); pass
-`--since <ref>` for a wider audit. It exits non-zero when anything is stale, so it gates in CI.
+The work list has `enOld`, `enNew`, `required` (for plurals) and the stale `current` value.
+Re-translate each from `enNew`, write a `fix` result file, and run `fix`.
 
-**Re-translation loop** (reuses `fix`): `stale <lang> <outFile>` writes items with `enOld`, `enNew`,
-`required` (for plurals), and the current stale `current` value. Re-translate each from `enNew` (use
-`enOld`→`current` to see what the old translation said), write a `fix` result file, and run
-`pnpm run i18n fix <lang> <file>`. Then `stale` is clean again.
+## Renaming keys
 
-### CI sketch
+When code moves a key or a whole subtree (`transport.*` → `playbackControls.*`), carry the existing
+translations along instead of re-translating or hand-editing JSON:
 
-Add a job that fails a PR when English strings change without the translations being updated — this is
-what removes the "hope the author remembered" dependency:
-
-```yaml
-# .github/workflows/i18n-stale.yml (sketch)
-- run: git fetch origin master
-- run: pnpm run i18n stale --since origin/master
-# non-zero exit fails the job; the log lists exactly which keys/languages are stale.
+```bash
+pnpm gen-translations                                          # `en` gets the new keys
+pnpm run -s i18n rename transport playbackControls --ns game   # moves values + plural forms in all four languages
 ```
 
-(For a softer touch, run it as a non-blocking step that posts the stale list as a PR comment instead
-of failing.)
+It refuses, writing nothing, if any destination key already exists.
 
 ## Notes
 
-- Run everything from the repo root.
-- Commit suggestion: one commit per language (`"Translate es strings"`), or a normalize commit + a
-  translations commit, so review stays manageable.
-- The rendered-UI pass (step 8) is part of the workflow, not optional polish — translations don't
-  affect types or tests, so looking at the screens is the _only_ verification they get.
-- If you're translating a large backlog and want speed, this workflow parallelizes cleanly across
-  languages with the Workflow tool (one agent per language, or per batch of keys), but that's an
-  explicit opt-in — only do it if the user asks for an orchestrated run.
+- Small passes are cheap (a handful of keys is a minute or two); don't batch them up for later.
+  Untranslated keys accumulate on master otherwise.
+- Commits: a few keys can go in with the change that added them. For a large catch-up pass, one
+  commit per language keeps review manageable.
+- If you're translating a large backlog and want speed, this workflow parallelizes across languages
+  with the Workflow tool, but that's an explicit opt-in: only do it if the user asks for an
+  orchestrated run.
