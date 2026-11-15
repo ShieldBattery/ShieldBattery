@@ -2187,6 +2187,7 @@
       "bySbStaff": "由 SB 工作人员创建",
       "collectionActions": "合集操作",
       "create": "创建",
+      "createLobby": "创建房间",
       "curatedByStaff": "SB 工作人员精选",
       "deleted": "合集已删除",
       "deleteText_other": "这将删除该合集及其中 {{count}} 张地图的列表。",
@@ -2476,6 +2477,7 @@
       "weeklyGamesCaption_other": "每周游戏场数，最近 {{count}} 周"
     },
     "picker": {
+      "addAll": "全部添加",
       "addToCollection": "向“{{title}}”添加地图",
       "addToQueue": "将地图加入队列",
       "collectionCount_other": "这个合集中有 {{count}} 张地图",

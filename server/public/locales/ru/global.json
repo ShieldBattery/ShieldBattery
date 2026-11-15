@@ -2307,6 +2307,7 @@
       "bySbStaff": "от администрации SB",
       "collectionActions": "Действия с подборкой",
       "create": "Создать",
+      "createLobby": "Создать лобби",
       "curatedByStaff": "Подборка администрации SB",
       "deleted": "Подборка удалена",
       "deleteText_one": "Подборка и её список из {{count}} карты будут удалены.",
@@ -2647,6 +2648,7 @@
       "weeklyGamesCaption_other": "игр в неделю за последние {{count}} недели"
     },
     "picker": {
+      "addAll": "Добавить все",
       "addToCollection": "Добавить карты в «{{title}}»",
       "addToQueue": "Добавить карты в очередь",
       "collectionCount_one": "{{count}} карта в этой подборке",
