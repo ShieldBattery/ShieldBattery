@@ -736,6 +736,7 @@ function AppBar({
             <MenuItem
               icon={<MaterialIcon icon='logout' />}
               text={t('navigation.leftNav.logOut', 'Log out')}
+              testName='app-bar-logout'
               onClick={() => {
                 closeProfileOverlay()
                 dispatch(

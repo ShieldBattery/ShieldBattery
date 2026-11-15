@@ -355,6 +355,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
           label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
           onClick={() => triggerAccept()}
           disabled={acceptInProgress}
+          testName='accept-match-button'
         />
         <TimerCellRow>
           {timerCells}

@@ -111,6 +111,21 @@ async function main(): Promise<void> {
     // Mark every seeded account email-verified so the verification dialog never blocks flows.
     await pool.query('UPDATE users SET email_verified = true WHERE name = ANY($1)', [usernames])
 
+    // An account created without a locale adopts the signing-up client's language, so pin the
+    // seeded accounts to English to keep text-based automation locators valid.
+    await pool.query("UPDATE users SET locale = 'en' WHERE name = ANY($1)", [usernames])
+
+    // Seeded accounts never see the Discord activity prompt: it asks only while sharing is
+    // 'notAsked'.
+    await pool.query(
+      `INSERT INTO account_settings (user_id, settings)
+       SELECT id, '{"shareDiscordActivity": "off"}'::jsonb FROM users WHERE name = ANY($1)
+       ON CONFLICT (user_id) DO UPDATE SET
+         settings = account_settings.settings || EXCLUDED.settings,
+         updated_at = now()`,
+      [usernames],
+    )
+
     // Grant admins every permission. Rather than hardcode the column list (which grows over time),
     // flip every boolean column on the permissions table except the user_id key.
     const adminNames = ACCOUNTS.filter(a => a.admin).map(a => a.username)
