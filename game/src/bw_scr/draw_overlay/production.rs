@@ -339,18 +339,28 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
 }
 
 /// What one unit is making, as the selection panel reads it: the same production the panel of
-/// everything on the way reads, plus fighters built in a carrier or reaver and the queue behind
-/// production that has one.
+/// everything on the way reads, plus add-ons seen from their parent, fighters built in a carrier or
+/// reaver, and the queue behind production that has one.
 ///
 /// `None` for a unit that is making nothing, which is most of them.
 pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
-    let (production, progress) = unit_production(unit).or_else(|| fighter_production(unit))?;
+    let (production, progress, queue) = if unit.is_building_addon()
+        && let Some(addon) = unit.currently_building()
+    {
+        // The add-on already counts as a building under construction in the overview. Its
+        // parent only needs to show it in the selection panel, where it has no training queue.
+        (Production::Unit(addon.id()), unit_completion(addon), None)
+    } else {
+        let (production, progress) = unit_production(unit).or_else(|| fighter_production(unit))?;
+        let queue = queued_units(unit, production)
+            .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect());
+        (production, progress, queue)
+    };
     Some(ProductionProgressView {
         icon: production_icon(production, bw),
         name: production_name(production, bw),
         progress: progress.as_float(),
-        queue: queued_units(unit, production)
-            .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
+        queue,
         // A building under construction is made as itself, and so is a drone turning into one: by
         // then the unit already is the building it is becoming. A merging archon is likewise
         // already the archon it is becoming.
