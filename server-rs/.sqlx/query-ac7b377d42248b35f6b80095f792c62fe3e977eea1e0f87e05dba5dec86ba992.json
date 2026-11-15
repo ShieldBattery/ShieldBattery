@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT auto_rule FROM map_tags WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "auto_rule",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "auto_rule"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ac7b377d42248b35f6b80095f792c62fe3e977eea1e0f87e05dba5dec86ba992"
+}

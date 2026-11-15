@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_tags t\n            SET position = v.position, updated_at = now()\n            FROM (\n                SELECT id, (ord - 1)::integer AS position\n                FROM unnest($1::text[]) WITH ORDINALITY AS o(id, ord)\n            ) v\n            WHERE t.id = v.id AND t.position <> v.position\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "67da9dd0ea127e7683939ca2387021a0758de04be35c229c564b1e3223babab4"
+}

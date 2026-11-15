@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT owner_id as \"owner_id: SbUserId\" FROM map_families WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "owner_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "43ca6b30696c072f7b557ee176b13fd1e11b0a816e09d22a80aa6198f44135bf"
+}

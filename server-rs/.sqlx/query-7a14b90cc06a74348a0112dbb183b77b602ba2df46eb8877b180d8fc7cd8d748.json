@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT refresh_map_family_derived_tags(ARRAY[$1]::uuid[])",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "refresh_map_family_derived_tags",
+        "type_info": "Void",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7a14b90cc06a74348a0112dbb183b77b602ba2df46eb8877b180d8fc7cd8d748"
+}

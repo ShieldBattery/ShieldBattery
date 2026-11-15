@@ -23,6 +23,7 @@ use crate::maps::families::edit::{
 };
 use crate::maps::families::history::{self, HistoryDetails, HistoryEntry, MapFamilyHistoryKind};
 use crate::maps::families::owners;
+use crate::maps::families::tags::{self, TagDef, TagError, TagSource};
 use crate::maps::families::{lock_families, refresh_families, resolve_family_id};
 use crate::maps::parse::filter_color_codes;
 use crate::maps::similarity::{PublishSuggestion, publish_suggestions};
@@ -132,6 +133,8 @@ pub enum PublishError {
     #[error(transparent)]
     Edit(FamilyEditError),
     #[error(transparent)]
+    Tags(TagError),
+    #[error(transparent)]
     Other(#[from] eyre::Report),
 }
 
@@ -155,6 +158,15 @@ impl PublishError {
                 | Self::NotSuggested
                 | Self::HasExistingMap
         )
+    }
+}
+
+impl From<TagError> for PublishError {
+    fn from(error: TagError) -> Self {
+        match error {
+            TagError::Other(e) => Self::Other(e),
+            e => Self::Tags(e),
+        }
     }
 }
 
@@ -495,11 +507,18 @@ async fn check_answer_target(
 /// [`edit::move_file`] would: that move is recorded as a staff move. A file joined out of a family
 /// holding other files leaves those files where they are. A joined file is moved before it's
 /// listed, so it's only ever listed in the map it joins.
+///
+/// `tags`, when given, is checked as a tag set for the file before anything changes (see
+/// [`tags::check_list_for_file`]), and becomes its map's tags when the file stays the only file of
+/// its map: for a `Keep` or `Unsure` answer about a file alone in its map, whether the file is listed
+/// or held for review. They're set as [`tags::editor_source`] says `user` edits that map's tags,
+/// except that the map needn't be listed. Otherwise they're ignored.
 pub async fn publish(
     db: &PgPool,
     names: &NameChecker,
     file_id: SbMapId,
     answer: PublishAnswer,
+    tags: Option<&[String]>,
     user: SbUserId,
     staff: bool,
 ) -> Result<PublishOutcome, PublishError> {
@@ -516,6 +535,10 @@ pub async fn publish(
 
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_families(&mut tx).await?;
+    let requested_tags = match tags {
+        Some(tags) => Some(tags::check_list_for_file(&mut tx, file_id, tags).await?),
+        None => None,
+    };
     let file = load_file(&mut tx, file_id).await?;
     if file.listed {
         return Ok(PublishOutcome {
@@ -540,6 +563,14 @@ pub async fn publish(
             Err(e) => return Err(e),
         }
     }
+    let new_tags: Option<(Vec<TagDef>, TagSource)> = match requested_tags {
+        Some(requested) if stays_alone(&file, answer) => {
+            let source =
+                tags::check_at_publish(&mut tx, file.family_id, &requested, user, staff).await?;
+            Some((requested, source))
+        }
+        _ => None,
+    };
 
     if needs_review {
         let report_id = edit::insert_report(
@@ -552,6 +583,9 @@ pub async fn publish(
             user,
         )
         .await?;
+        if let Some((requested, source)) = new_tags {
+            tags::apply_at_publish(&mut tx, file.family_id, &requested, source, user).await?;
+        }
         tx.commit()
             .await
             .wrap_err("Failed to commit publish review")?;
@@ -604,8 +638,17 @@ pub async fn publish(
             }
         }
     };
+    if let Some((requested, source)) = new_tags {
+        tags::apply_at_publish(&mut tx, outcome.family_id, &requested, source, user).await?;
+    }
     tx.commit().await.wrap_err("Failed to commit publish")?;
     Ok(outcome)
+}
+
+/// Whether publishing `file` with `answer` leaves it the only file of its map, so it may set that
+/// map's tags.
+fn stays_alone(file: &PublishFile, answer: PublishAnswer) -> bool {
+    file.family_size == 1 && !matches!(answer, PublishAnswer::Join(_))
 }
 
 /// Lists a file as published by `published_by`, recorded as done by `actor`.
@@ -1312,6 +1355,26 @@ mod tests {
             PublishAnswer::Unsure(family).held(),
             Some((MapPublishReviewAnswer::Unsure, family))
         );
+    }
+
+    #[test]
+    fn tags_at_publish_apply_only_to_a_file_left_alone_in_its_map() {
+        let family = Uuid::from_u128(1);
+        let alone = file("Map");
+        assert!(stays_alone(&alone, PublishAnswer::Keep));
+        assert!(stays_alone(&alone, PublishAnswer::Unsure(family)));
+        assert!(!stays_alone(&alone, PublishAnswer::Join(family)));
+        let shared = PublishFile {
+            family_size: 2,
+            ..file("Map")
+        };
+        for answer in [
+            PublishAnswer::Keep,
+            PublishAnswer::Unsure(family),
+            PublishAnswer::Join(family),
+        ] {
+            assert!(!stays_alone(&shared, answer), "{answer:?}");
+        }
     }
 
     #[test]

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE map_families SET tags_edited_at = now(), updated_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65bb0c72181a5572ee8ba1fc4ec5b871ac3d8e854aa7ec81ecdf01eb38bb5e29"
+}
