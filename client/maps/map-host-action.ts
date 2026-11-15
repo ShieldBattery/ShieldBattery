@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { SbMapId } from '../../common/maps'
+import { MapCollectionId, SbMapId } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
@@ -10,6 +10,34 @@ import { navigateToLobby } from '../lobbies/lobby-url'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+
+/**
+ * Returns a function that opens the Create lobby screen at `url` (with its search params). Outside
+ * the app it offers the download instead, and a logged out viewer is sent to log in.
+ */
+function useOpenCreateLobby(): (url: string) => void {
+  const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+
+  return url => {
+    if (!IS_ELECTRON) {
+      dispatch(openDialog({ type: DialogType.Download }))
+    } else if (!selfUser) {
+      redirectToLogin(push)
+    } else {
+      push(url)
+    }
+  }
+}
+
+/**
+ * Returns a function that opens the Create lobby screen with a collection's first map selected and
+ * its next maps queued.
+ */
+export function useCollectionHostAction(): (collectionId: MapCollectionId) => void {
+  const openCreateLobby = useOpenCreateLobby()
+  return collectionId => openCreateLobby(urlPath`/play/lobbies/create?collection=${collectionId}`)
+}
 
 /**
  * Returns how a map file gets played from a map's page: hosting a lobby with it, or, while the
@@ -23,6 +51,7 @@ export function useMapHostAction(): {
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()
+  const openCreateLobby = useOpenCreateLobby()
 
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
@@ -31,15 +60,7 @@ export function useMapHostAction(): {
   const lobbyMapId = useAppSelector(s => s.lobby.info.map?.id)
   const isLobbyHost = IS_ELECTRON && inLobby && !!selfUser && lobbyHostId === selfUser.id
 
-  const host = (mapId: SbMapId) => {
-    if (!IS_ELECTRON) {
-      dispatch(openDialog({ type: DialogType.Download }))
-    } else if (!selfUser) {
-      redirectToLogin(push)
-    } else {
-      push(urlPath`/play/lobbies/create?map=${mapId}`)
-    }
-  }
+  const host = (mapId: SbMapId) => openCreateLobby(urlPath`/play/lobbies/create?map=${mapId}`)
 
   const switchLobbyMap = (mapId: SbMapId) => {
     if (lobbyMapId === mapId) {
