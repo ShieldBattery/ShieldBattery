@@ -225,6 +225,7 @@
       "openStarcraftSettings": "Open StarCraft settings",
       "sessionExpired": "Session expired",
       "tooManyAccounts": "This machine has reached the limit of created accounts. If you have a signup code, you can enter it to bypass this limit.",
+      "unsupportedMachine": "ShieldBattery can't be set up on this computer. Try signing up from a different computer.",
       "usernameTaken": "The username is not available."
     },
     "usernameValidator": {
@@ -2286,13 +2287,21 @@
     },
     "bannedDialog": {
       "bannedFor": "You are banned for:",
-      "description": "You have been temporarily banned from matchmaking for failing to ready up, or failing to join matches.",
+      "description": "You have been temporarily banned from matchmaking.",
       "title": "Banned from matchmaking"
     },
     "banNotification": {
       "ban": "You've been temporarily banned from matchmaking for not readying up or not loading into a match.",
       "endsOn": "This ban will end on:",
       "warning": "You received a matchmaking warning for not readying up or not loading into a match. Doing it again soon will get you temporarily banned from matchmaking."
+    },
+    "banReason": {
+      "banFailedToLoad": "You've been temporarily banned from matchmaking because your game failed to load into a match.",
+      "banLeft": "You've been temporarily banned from matchmaking for leaving a match before it started. Losing your connection to ShieldBattery counts as leaving.",
+      "banNotReady": "You've been temporarily banned from matchmaking for not readying up for a match in time.",
+      "warningFailedToLoad": "You received a matchmaking warning because your game failed to load into a match. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking.",
+      "warningLeft": "You received a matchmaking warning for leaving a match before it started. Losing your connection to ShieldBattery counts as leaving. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking.",
+      "warningNotReady": "You received a matchmaking warning for not readying up for a match in time. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking."
     },
     "disabledCard": {
       "days": "Days",
@@ -2375,6 +2384,7 @@
         "reviewSettings": "Choose a race and review the maps for each selected mode before searching.",
         "settingsLoading": "Settings are still loading",
         "somethingWentWrong": "Something went wrong :(",
+        "unsupportedMachine": "Ranked play isn't supported on this computer. Try playing from a different computer.",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
       "fixedMap": "Fixed map",
@@ -3466,6 +3476,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "ShieldBattery couldn't verify your StarCraft or ShieldBattery files, so the game wasn't started.",
+      "matchmakingCost": "Each match that fails to start this way counts toward a matchmaking ban.",
+      "repair": "Run Scan and Repair for StarCraft in the Battle.net app, then try again. If this keeps happening, reinstall ShieldBattery from shieldbattery.net.",
+      "title": "Game files couldn't be verified"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!",
       "middleContents": "This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.",

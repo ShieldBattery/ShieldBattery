@@ -24,9 +24,9 @@ export interface ResultSubmission {
  *
  * @param resultCode the reported result for the client
  * @param disconnectIsLoss whether or not disconnects count as a loss (and are therefor terminal).
- *     This handles older client reports where a dropped player that was not allied with a victor
- *     would not be marked as losing, and just be disconnected instead. This should generally be
- *     true if the result report contains any victories.
+ *     This handles reports where a dropped player that was not allied with a victor isn't marked as
+ *     losing, and is just disconnected instead (UMS reports, which pass through undigested). This
+ *     should generally be true if the result report contains any victories.
  */
 function isTerminal(resultCode: GameClientResult, disconnectIsLoss = false) {
   return (
@@ -104,8 +104,8 @@ export function reconcileResults(
         continue
       }
 
-      // Handle legacy client reports that don't properly force disconnect clients to a defeat when
-      // the game's victors are known
+      // Handle reports that don't force disconnected players to a defeat when the game's victors
+      // are known (UMS reports, which pass through undigested)
       let result = r
       if (disconnectIsLoss && r.result === GameClientResult.Disconnected) {
         result = {

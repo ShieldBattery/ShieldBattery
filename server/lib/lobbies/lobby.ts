@@ -493,7 +493,12 @@ export function setRace(
     })
   } else {
     return produce(lobby, draft => {
-      draft.teams[teamIndex].slots[slotIndex].race = newRace
+      const slot = draft.teams[teamIndex].slots[slotIndex]
+      slot.race = newRace
+      if (slot.id === draft.host.id) {
+        // The lobby's host is a copy of their slot, so it has to follow along with the change.
+        draft.host.race = newRace
+      }
     })
   }
 }
@@ -520,18 +525,22 @@ function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerI
       draft.teams[teamIndex].slots = slots
     })
   } else {
-    // The team which the player is leaving has other human players in it; find the new oldest human
-    // player in the team and:
-    //  1) create a new controlled open with controlledBy set to their ID
-    //  2) update any controlled slots with controlledBy set to the leaver's ID to that ID
+    // The team which the player is leaving has other human players in it. It keeps its controller
+    // unless the leaver is the one controlling it (or the team was full, leaving no controlled slot
+    // to say who does), in which case control passes to the oldest remaining human player. The
+    // leaver's slot becomes a controlled open belonging to that controller, along with any slots
+    // the leaver controlled.
     const oldestInTeam = team.slots
       .filter(slot => slot.type === SlotType.Human && slot.id !== id)
       .sort((a, b) => a.joinedAt - b.joinedAt)[0]
+    const controllerId =
+      team.slots.find(slot => slot.controlledBy !== undefined && slot.controlledBy !== id)
+        ?.controlledBy ?? oldestInTeam.id
     const slots = team.slots.map(slot => {
       if (slot.id === id) {
-        return createControlledOpen(slot.race, oldestInTeam.id)
+        return createControlledOpen(slot.race, controllerId)
       } else if (slot.controlledBy === id) {
-        return { ...slot, controlledBy: oldestInTeam.id }
+        return { ...slot, controlledBy: controllerId }
       } else {
         return slot
       }
@@ -564,6 +573,16 @@ export function reassignHost(lobby: Lobby): Lobby {
 }
 
 /**
+ * Returns the open slot a UMS player slot becomes once its occupant leaves it. The slot keeps the
+ * map data it was built from: its player id, and its race if the map forces one. A race the map
+ * leaves up to the player was the occupant's own pick, so it doesn't stay behind for whoever takes
+ * the slot next.
+ */
+function vacatedUmsSlot(slot: Slot): Slot {
+  return createOpen(slot.hasForcedRace ? slot.race : undefined, slot.hasForcedRace, slot.playerId)
+}
+
+/**
  * Removes the player at the specified `teamIndex` and `slotIndex` from a lobby, returning the
  * updated lobby. If the lobby is closed (e.g. because it no longer has anyone in it),
  * `undefined` will be returned. Note that if the host is being removed, a new, suitable host will
@@ -586,9 +605,7 @@ export function removePlayer(
   // team also never holds controlled slots, so a departing observer skips the controlled-team
   // cleanup even in game types whose player teams need it.
   const vacatedSlot =
-    isUms(lobby.gameType) && !team.isObserver
-      ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
-      : createOpen()
+    isUms(lobby.gameType) && !team.isObserver ? vacatedUmsSlot(toRemove) : createOpen()
   const updated =
     hasControlledOpens(lobby.gameType) && !team.isObserver
       ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
@@ -699,9 +716,7 @@ export function movePlayerToSlot(
     // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
     // Observer slots carry no map data, so they get a plain open slot even in UMS.
     const vacated =
-      isUms(lobby.gameType) && !sourceTeam.isObserver
-        ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
-        : createOpen()
+      isUms(lobby.gameType) && !sourceTeam.isObserver ? vacatedUmsSlot(originalSlot) : createOpen()
     updated = produce(updated, draft => {
       draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = vacated
     })
@@ -862,13 +877,12 @@ export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosi
   // Occupants are tracked by slot id rather than by position: placing one moves the occupants
   // around it, and in team melee/ffa can rebuild the slots of an emptied or filled team, but an
   // occupant's own slot keeps its id wherever it goes.
-  const occupantIds = getPlayerSlotPositions(lobby)
+  const occupants = getPlayerSlotPositions(lobby)
     .map(([teamIndex, slotIndex]) => lobby.teams[teamIndex].slots[slotIndex])
     .filter(isSlotOccupied)
-    .map(slot => slot.id)
 
   let updated = lobby
-  occupantIds.forEach((occupantId, i) => {
+  occupants.forEach(({ id: occupantId }, i) => {
     const [destTeamIndex, destSlotIndex] = positions[i]
     const [sourceTeamIndex, sourceSlotIndex] = findSlotById(updated, occupantId)
     if (sourceTeamIndex === undefined) {
@@ -884,7 +898,25 @@ export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosi
       : swapSlots(updated, sourceTeamIndex, sourceSlotIndex!, destTeamIndex, destSlotIndex)
   })
 
-  return updated
+  if (!isUms(lobby.gameType)) {
+    return updated
+  }
+  // Placing one occupant can send another through a slot on the way to their own, and a UMS slot
+  // with a forced race gives that race to whoever passes through it. Only the slot an occupant
+  // ends up in decides their race, so anyone landing in a slot that leaves the race up to them gets
+  // back the race they started with.
+  const startingRaces = new Map(occupants.map(slot => [slot.id, slot.race]))
+  updated = produce(updated, draft => {
+    for (const team of draft.teams) {
+      for (const slot of team.slots) {
+        const race = startingRaces.get(slot.id)
+        if (race !== undefined && !slot.hasForcedRace) {
+          slot.race = race
+        }
+      }
+    }
+  })
+  return reassignHost(updated)
 }
 
 /**
@@ -1212,8 +1244,17 @@ function findObserverSlotToFill(team: Team): number {
   return closedIndex !== -1 ? closedIndex : team.slots.findIndex(isSlotUnoccupied)
 }
 
-function countComputers(lobby: Lobby): number {
-  return getLobbySlots(lobby).filter(slot => slot.type === SlotType.Computer).length
+/**
+ * Returns the race of each computer opponent among a lobby's (non-UMS) computers. A team melee/ffa
+ * team of computers plays as a single player in the game, so it counts once, with the race its
+ * slots share; every other computer slot is an opponent of its own.
+ */
+function computerOpponentRaces(lobby: Lobby): RaceChar[] {
+  const isControlled = hasControlledOpens(lobby.gameType)
+  return lobby.teams.flatMap(team => {
+    const computers = team.slots.filter(slot => slot.type === SlotType.Computer)
+    return (isControlled ? computers.slice(0, 1) : computers).map(slot => slot.race)
+  })
 }
 
 /** The settings of a lobby that its host can change while it is gathering. */
@@ -1249,7 +1290,8 @@ export interface LobbySettings {
  * has just displaced onto it, and only into player slots — waiting for a seat is waiting to play,
  * so it never turns someone into an observer. Whoever still finds no slot keeps waiting, in the
  * order they were already in. Computers are added back after everyone else, and only as far as the
- * new layout has room for them.
+ * new layout has room for them. They come back as the opponents they were: a team melee/ffa team of
+ * computers is one computer, and a computer moving into team melee/ffa claims an empty team whole.
  *
  * The host has no claim on a seat beyond going first, so a change that leaves them without one
  * (turning observers off while they are observing a lobby whose player slots are all taken) puts
@@ -1386,27 +1428,19 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   if (!keepsLayout && !isUms(next.gameType)) {
     // UMS computers are part of the map, so they come back with the layout rather than from the
     // lobby that preceded it.
-    const races = getLobbySlots(lobby)
-      .filter(slot => slot.type === SlotType.Computer)
-      .map(slot => slot.race)
-    let placed = 0
-    while (placed < races.length) {
+    for (const race of computerOpponentRaces(lobby)) {
       // A controlled team is built around the humans in it and only holds computers as a whole
-      // team of them, so in those game types computers get a seat by claiming a team that is
-      // still empty; once none is left the remaining computers have nowhere to go. (The general
-      // seat search can't be used to find one: it ranks teams by open seats, which can prefer a
-      // human's team over a smaller empty one.)
+      // team of them, which plays as a single computer, so in those game types each computer gets
+      // a seat by claiming a team that is still empty; once none is left the remaining computers
+      // have nowhere to go. (The general seat search can't be used to find one: it ranks teams by
+      // open seats, which can prefer a human's team over a smaller empty one.)
       const seat = hasControlledOpens(next.gameType)
         ? findEmptyTeamSeat(updated)
         : findPlayerSeat(updated)
       if (!seat) {
         break
       }
-      const before = countComputers(updated)
-      updated = addPlayer(updated, seat[0], seat[1], createComputer(races[placed]))
-      // Adding a computer to an empty team in team melee/ffa fills the rest of that team with
-      // computers, which stands in for as many of the ones still to be placed.
-      placed += Math.max(1, countComputers(updated) - before)
+      updated = addPlayer(updated, seat[0], seat[1], createComputer(race))
     }
   }
 

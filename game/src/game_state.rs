@@ -1857,6 +1857,9 @@ fn build_replay_joined_players() -> Vec<JoinedPlayer> {
     joined_players
 }
 
+/// The countdown beeps as it starts and once per interval after, the last time as it ends.
+const COUNTDOWN_BEEPS: u32 = 6;
+
 async unsafe fn do_countdown() {
     let bw = get_bw();
 
@@ -1894,12 +1897,15 @@ async unsafe fn do_countdown() {
                 if beeps == 0 {
                     let countdown_start = Instant::now();
                     bw.set_countdown_start(countdown_start);
+                    crate::companion::countdown_started(
+                        countdown_interval.period() * (COUNTDOWN_BEEPS - 1),
+                    );
                 }
 
                 forge::play_countdown_beep();
                 beeps += 1;
 
-                if beeps == 6 {
+                if beeps == COUNTDOWN_BEEPS {
                     let turn_seq = bw.snet_next_turn_sequence_number();
                     debug!("Countdown complete at turn seq {turn_seq}");
                     break;

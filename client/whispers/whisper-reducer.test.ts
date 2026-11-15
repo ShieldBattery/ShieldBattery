@@ -97,6 +97,8 @@ function makeState(
     loadingNewer: overrides.loadingNewer ?? false,
     hasNewer: overrides.hasNewer ?? false,
     detachedNewestTime: overrides.detachedNewestTime,
+    // The fixtures only ever hold the target's messages past a detached window.
+    detachedNewestFromTargetTime: overrides.detachedNewestTime,
     windowGen: overrides.windowGen ?? 0,
     carriedClientMessages: overrides.carriedClientMessages ?? [],
     historyError: overrides.historyError,
@@ -122,6 +124,7 @@ function makeState(
     byId: new Map([[TARGET_ID, session]]),
     lastMessages: new Map(),
     conversationsLoaded: false,
+    windowGenFloor: 0,
   }
 
   return state as Immutable<WhisperState>
@@ -658,6 +661,119 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
       expect(sessionOf(result).hasUnread).toBe(true)
+    })
+  })
+
+  describe('a live message the loaded window already holds', () => {
+    test('keeps one copy of a message that a page delivered before its announcement', () => {
+      let state = makeState({ messages: [textMessage(100)] })
+
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([serverMessage(100), serverMessage(200)], {
+            hasMoreBefore: false,
+            hasMoreAfter: false,
+          }),
+          { aroundTime: 150 },
+        ),
+      )
+      state = whisperReducer(state, updateMessageAction(200))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+    })
+
+    test('still counts as an unread arrival while the read position is short of it', () => {
+      let state = makeState({ messages: [textMessage(100), textMessage(200)], lastReadTime: 100 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+
+    test('does not raise the unread flag once the read position covers it', () => {
+      let state = makeState({ messages: [textMessage(100), textMessage(200)], lastReadTime: 200 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(messageIdsOf(state)).toEqual(['text-100', 'text-200'])
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test('a covered message announced after its window was dropped does not raise the flag', () => {
+      let state = makeState({ lastReadTime: 200 })
+
+      state = whisperReducer(state, updateMessageAction(200, false))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+  })
+
+  describe('pages in flight for a window that no longer exists', () => {
+    // A page requested for the first window of a session, still in flight while the session is
+    // closed or the connection restarts and the session is opened again.
+    const stalePage = () =>
+      loadMessageHistoryAction(historyResponse([serverMessage(100)], { hasMoreBefore: false }), {
+        windowGen: 0,
+      })
+    const openAction = (): WhisperActions => ({
+      type: '@whispers/initSession',
+      payload: { target: TARGET_ID },
+    })
+
+    test('is discarded after the session is closed and opened again', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, {
+        type: '@whispers/closeSession',
+        payload: { target: TARGET_ID },
+      })
+      state = whisperReducer(state, openAction())
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+      expect(sessionOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after a reconnect opens the session again', () => {
+      let state = whisperReducer(makeState(), getWhisperSessionsAction(0))
+      state = whisperReducer(state, { type: '@network/connect' } as unknown as WhisperActions)
+      state = whisperReducer(state, getWhisperSessionsAction(0))
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+      expect(sessionOf(result).hasHistory).toBe(true)
+    })
+
+    test('is discarded after the session is opened over its existing window', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, openAction())
+
+      const result = whisperReducer(state, stalePage())
+
+      expect(messageIdsOf(result)).toEqual([])
+    })
+
+    test('does not match a window that was replaced several times before the session returned', () => {
+      let state = whisperReducer(makeState(), openAction())
+      state = whisperReducer(state, resetMessageWindowAction())
+      state = whisperReducer(state, resetMessageWindowAction())
+      const staleGen = sessionOf(state).windowGen
+      state = whisperReducer(state, {
+        type: '@whispers/closeSession',
+        payload: { target: TARGET_ID },
+      })
+      state = whisperReducer(state, openAction())
+      expect(sessionOf(state).windowGen).toBeGreaterThan(staleGen)
+
+      const result = whisperReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([serverMessage(100)]), { windowGen: staleGen }),
+      )
+
+      expect(messageIdsOf(result)).toEqual([])
     })
   })
 
@@ -1495,6 +1611,140 @@ describe('client/whispers/whisper-reducer', () => {
 
       expect(sessionOf(result).historyError).toBeUndefined()
       expect(sessionOf(result).newerError).toBe(false)
+    })
+  })
+
+  describe('unread messages whose window was dropped', () => {
+    test('stay unread when a read position that stops short of them arrives', () => {
+      // An older window with a message past its far end that arrived live and unseen.
+      let state = makeState({
+        messages: [textMessage(100)],
+        hasNewer: true,
+        activated: true,
+        lastReadTime: 100,
+      })
+      state = whisperReducer(state, updateMessageAction(500))
+      expect(sessionOf(state).hasUnread).toBe(true)
+
+      // Leaving the session drops the detached window, and the unseen message with it.
+      state = whisperReducer(state, deactivateSessionAction())
+      expect(sessionOf(state).messages).toEqual([])
+
+      // Another of the user's sessions reads part of the way.
+      state = whisperReducer(state, updateLastReadTimeAction(300))
+
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+
+    test('are read once a read position covers them', () => {
+      let state = makeState({ hasNewer: true, lastReadTime: 100 })
+      state = whisperReducer(state, updateMessageAction(500))
+      state = whisperReducer(state, resetMessageWindowAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(500))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    // The user's own message, loaded by a page ahead of its announcement, sitting past the read
+    // position of a session that is unread for another reason.
+    const ownMessage = (time: number): CommonTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test("don't include the user's own messages in a dropped window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(state, resetMessageWindowAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test("don't include the user's own messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      // Replacing the window with an older one leaves the own message past its far end.
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(sessionOf(state).hasNewer).toBe(true)
+      state = whisperReducer(state, deactivateSessionAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
+    })
+
+    test("still count the target's messages past a dropped detached window", () => {
+      let state = makeState({
+        messages: [textMessage(100), textMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      state = whisperReducer(state, deactivateSessionAction())
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(true)
+    })
+  })
+
+  describe("the user's own messages past the read position", () => {
+    // Loaded by a page ahead of its announcement.
+    const ownMessage = (time: number): CommonTextMessage => ({
+      ...textMessage(time),
+      id: `own-${time}`,
+      from: SELF_ID,
+    })
+
+    test('do not hold the flag up in a loaded window', () => {
+      const state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
+
+    test('do not hold the flag up past a detached window', () => {
+      let state = makeState({
+        messages: [textMessage(100), ownMessage(200)],
+        unread: true,
+        lastReadTime: 50,
+      })
+      state = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)], { hasMoreAfter: true }), {
+          aroundTime: 100,
+        }),
+      )
+      expect(sessionOf(state).detachedNewestTime).toBe(200)
+
+      state = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(state).hasUnread).toBe(false)
     })
   })
 

@@ -13,7 +13,9 @@
 //! so a change to one must be mirrored in the other.
 
 use serde::Deserialize;
+use serde::de::{MapAccess, Visitor};
 use std::collections::HashMap;
+use std::fmt;
 
 /// Environment variable holding the backbone table as a JSON object of `"id_a|id_b": rtt_ms` pairs.
 const BACKBONE_ENV_VAR: &str = "SB_REGION_BACKBONE_RTT_JSON";
@@ -84,8 +86,8 @@ impl BackboneRttTable {
     /// Parses the table from the JSON object form used by `SB_REGION_BACKBONE_RTT_JSON`, e.g.
     /// `{"us-east|eu-west": 90}`.
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
-        let raw: HashMap<String, f32> = serde_json::from_str(json)?;
-        Ok(Self::new(raw))
+        let raw: OrderedEntries = serde_json::from_str(json)?;
+        Ok(Self::new(raw.0))
     }
 
     /// Loads the operator override layer from `SB_REGION_BACKBONE_RTT_JSON`, falling back to an empty
@@ -140,6 +142,42 @@ impl BackboneRttTable {
             .and_then(|row| row.get(b))
             .copied()
             .unwrap_or(DEFAULT_BACKBONE_RTT_MS)
+    }
+}
+
+/// A JSON object's members in document order, so that when two keys canonicalize to the same pair
+/// the later one deterministically wins. A key repeated verbatim keeps its first position and takes
+/// its last value, as `JSON.parse` does on the Node side.
+struct OrderedEntries(Vec<(String, f32)>);
+
+impl<'de> Deserialize<'de> for OrderedEntries {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntriesVisitor;
+
+        impl<'de> Visitor<'de> for EntriesVisitor {
+            type Value = OrderedEntries;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("an object mapping region pair keys to round-trip times")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut entries: Vec<(String, f32)> = Vec::new();
+                let mut positions: HashMap<String, usize> = HashMap::new();
+                while let Some((key, rtt)) = map.next_entry::<String, f32>()? {
+                    match positions.get(&key) {
+                        Some(&i) => entries[i].1 = rtt,
+                        None => {
+                            positions.insert(key.clone(), entries.len());
+                            entries.push((key, rtt));
+                        }
+                    }
+                }
+                Ok(OrderedEntries(entries))
+            }
+        }
+
+        deserializer.deserialize_map(EntriesVisitor)
     }
 }
 
@@ -232,6 +270,17 @@ mod tests {
         ]);
         assert_eq!(table.rtt("us-east", "eu-west"), 55.0);
         assert_eq!(table.rtt("eu-west", "us-east"), 55.0);
+    }
+
+    #[test]
+    fn from_json_conflicting_spellings_of_a_pair_use_the_later_entry() {
+        // Repeated so a hash-order-dependent parse would almost surely disagree at least once.
+        for _ in 0..200 {
+            let table = BackboneRttTable::from_json(r#"{"a|b": 1, "b|a": 2}"#).unwrap();
+            assert_eq!(table.rtt("a", "b"), 2.0);
+            let table = BackboneRttTable::from_json(r#"{"b|a": 2, "a|b": 1}"#).unwrap();
+            assert_eq!(table.rtt("a", "b"), 1.0);
+        }
     }
 
     #[test]

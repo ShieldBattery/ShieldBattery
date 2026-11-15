@@ -9,7 +9,7 @@ import {
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
-import type { StoredResultReport } from '../models/games-users'
+import type { StoredRawResultReport } from '../models/games-users'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 import { reconcileResults, ResultSubmission } from './results'
 
@@ -90,7 +90,7 @@ function verdicts(
 function corroborated(
   reports: Array<[reporter: SbUserId, raw: StoredRawGameResults]>,
 ): Set<SbUserId> {
-  const stored: StoredResultReport[] = reports.map(([reporter, raw]) => ({
+  const stored: StoredRawResultReport[] = reports.map(([reporter, raw]) => ({
     kind: 'raw',
     reporter,
     raw,
@@ -840,12 +840,13 @@ describe('games/raw-results/deriveResultSubmission — evidence-based veto/synth
   test('ally-quit inversion: survivor report synthesizes the win, leaver report stays a loss', () => {
     const surv = survivorReport()
     const leaver = leaverReport()
-    // L never claims self-Victory (its own row is Playing), so it isn't corroborated.
+    // L's own report never credits L with a victory, so L isn't corroborated. S's report credits S
+    // with the last-standing victory, which corroborates S.
     const corroboratedVictors = corroborated([
       [makeSbUserId(S), surv],
       [makeSbUserId(L), leaver],
     ])
-    expect(corroboratedVictors.size).toBe(0)
+    expect(corroboratedVictors).toEqual(new Set([makeSbUserId(S)]))
 
     // Deriving the survivor's report: L's phantom quit-victory is vetoed (Rule A), leaving no victor,
     // so Rule B synthesizes S's last-standing victory and the victory branch defeats L.
@@ -1000,6 +1001,107 @@ describe('games/raw-results/deriveResultSubmission — evidence-based veto/synth
     })
   })
 
+  test("a winner's own last-standing verdict corroborates its quit-victory for its team", () => {
+    // Winners 10 and 11 are a team, 20 is alone. 11 left mid-game, then 20 was eliminated; 10 won
+    // and left, but its report was captured with nobody else still connected, so the win in it is
+    // the one derived for the last player standing rather than one BW recorded.
+    const W1 = makeSbUserId(10)
+    const W2 = makeSbUserId(11)
+    const L = makeSbUserId(20)
+    const teamAlliances = alliances({ 0: AlliedVictory, 1: AlliedVictory })
+    const winnerReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+      ],
+      netPlayers: netPlayers(1),
+    })
+    const departedTeammateReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 11,
+          bwPlayerId: 1,
+          stormId: 1,
+          race: 't',
+          victoryState: Playing,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 20,
+          bwPlayerId: 2,
+          stormId: 2,
+          race: 'p',
+          victoryState: Playing,
+          alliances: alliances({ 2: AlliedVictory }),
+        }),
+      ],
+      netPlayers: netPlayers(3),
+    })
+    const loserReport = report({
+      players: [
+        player({
+          userId: 10,
+          bwPlayerId: 0,
+          stormId: 0,
+          race: 'z',
+          victoryState: Victory,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 11,
+          bwPlayerId: 1,
+          stormId: 1,
+          race: 't',
+          victoryState: Defeat,
+          alliances: teamAlliances,
+        }),
+        player({
+          userId: 20,
+          bwPlayerId: 2,
+          stormId: 2,
+          race: 'p',
+          victoryState: Defeat,
+          alliances: alliances({ 2: AlliedVictory }),
+        }),
+      ],
+      netPlayers: netPlayers(3, { 0: { hasQuit: true }, 1: { hasQuit: true } }),
+    })
+
+    const captures: Array<[SbUserId, StoredRawGameResults]> = [
+      [W1, winnerReport],
+      [W2, departedTeammateReport],
+      [L, loserReport],
+    ]
+    const corroboratedVictors = corroborated(captures)
+    expect(corroboratedVictors).toEqual(new Set([W1]))
+
+    const submissions = captures.map(([reporter, raw]) =>
+      deriveResultSubmission(raw, reporter, { isUms: false, corroboratedVictors }),
+    )
+    const reconciled = reconcileResults([W1, W2, L], submissions, [[W1, W2], [L]])
+
+    expect(reconciled.disputed).toBe(false)
+    expect(Object.fromEntries([...reconciled.results].map(([id, r]) => [id, r.result]))).toEqual({
+      [W1]: 'win',
+      [W2]: 'win',
+      [L]: 'loss',
+    })
+  })
+
   test('team regression: a cleanly-departed allied-victory teammate is still brought along', () => {
     // The teammate (77) left mid-game and reads Disconnected (not Victory) in the survivor's capture,
     // so Rule A never touches them; the victory-branch expansion brings them to the win.
@@ -1146,7 +1248,7 @@ describe('games/raw-results — eliminated player still watching when the other 
 })
 
 describe('games/raw-results/computeCorroboratedVictors', () => {
-  function rawSelf(reporter: number, victoryState: GameClientResult): StoredResultReport {
+  function rawSelf(reporter: number, victoryState: GameClientResult): StoredRawResultReport {
     return {
       kind: 'raw',
       reporter: makeSbUserId(reporter),
@@ -1181,30 +1283,6 @@ describe('games/raw-results/computeCorroboratedVictors', () => {
   test('excludes a raw report whose own row is not a victory', () => {
     // Reporter 1 claims Playing for itself even though it claims 99 (someone else) is a victor.
     expect(computeCorroboratedVictors([rawSelf(1, Playing)])).toEqual(new Set())
-  })
-
-  test('includes a legacy self-victory claim and excludes a legacy non-victory', () => {
-    const legacyVictor: StoredResultReport = {
-      kind: 'legacy',
-      reporter: makeSbUserId(2),
-      time: 1000,
-      playerResults: [
-        [makeSbUserId(2), R(Victory, 'z')],
-        [makeSbUserId(3), R(Defeat, 'p')],
-      ],
-    }
-    const legacyLoser: StoredResultReport = {
-      kind: 'legacy',
-      reporter: makeSbUserId(3),
-      time: 1000,
-      playerResults: [
-        [makeSbUserId(2), R(Victory, 'z')],
-        [makeSbUserId(3), R(Defeat, 'p')],
-      ],
-    }
-    expect(computeCorroboratedVictors([legacyVictor, legacyLoser, null])).toEqual(
-      new Set([makeSbUserId(2)]),
-    )
   })
 
   test('a player with no stored report is never corroborated', () => {

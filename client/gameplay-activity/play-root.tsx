@@ -110,7 +110,12 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
           <TabsContainer>
             <Tabs activeTab={activeTab} onChange={onTabChange}>
               {ALL_TABS.map(tab => (
-                <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
+                <TabItem
+                  key={tab}
+                  value={tab}
+                  text={tabToLabel(t, tab, lobbyCount)}
+                  testName={`play-tab-${tab}`}
+                />
               ))}
             </Tabs>
           </TabsContainer>

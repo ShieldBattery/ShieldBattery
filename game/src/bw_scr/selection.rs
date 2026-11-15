@@ -328,7 +328,7 @@ const SELECTION_CIRCLE_POOL_LEN: usize = 0x50;
 /// How many images the static health bar pool holds, one per unit the local selection can hold.
 const HP_BAR_POOL_LEN: usize = 0xc;
 /// Sprite flag: the sprite is in the local selection and shows a health bar.
-const SPRITE_SELECTED: u8 = 0x8;
+pub(super) const SPRITE_SELECTED: u8 = 0x8;
 /// Sprite flag: the sprite shows a selection circle from images `SELECTION_CIRCLE_IMAGES`.
 const SPRITE_SELECTION_CIRCLE: u8 = 0x1;
 /// Sprite flags: how many teammates have the sprite selected, as a two-bit count; a sprite with

@@ -31,6 +31,7 @@ import { Clock } from '../time/clock'
 import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { clientAttestationFailed, isClientAttestationFailure } from '../users/client-attestation'
 import { ClientIdentifierString, joiClientIdentifiers } from '../users/client-ids'
+import { MAX_ENCODED_BODY_LENGTH } from '../users/client-proof'
 import { authorizeDevelopmentClients } from '../users/development-clients'
 import { LoginAttestationService } from '../users/login-attestation-service'
 import { convertUserApiErrors, UserApiError } from '../users/user-api-errors'
@@ -74,7 +75,7 @@ interface LogInRequestBody {
 const joiClientProof = () =>
   Joi.object<ClientProof>({
     keyId: Joi.number().integer().min(0).max(0xffffffff).required(),
-    body: Joi.string().max(360).required(),
+    body: Joi.string().max(MAX_ENCODED_BODY_LENGTH).required(),
     signature: Joi.string().max(88).required(),
   })
 

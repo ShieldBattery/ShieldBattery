@@ -65,6 +65,7 @@ export enum UserErrorCode {
   ClientSetupRequired = 'clientSetupRequired',
   ClientVerificationFailed = 'clientVerificationFailed',
   ClientUpdateRequired = 'clientUpdateRequired',
+  UnsupportedMachine = 'unsupportedMachine',
   InappropriateImage = 'inappropriateImage',
   AvatarUploadRestricted = 'avatarUploadRestricted',
 }

@@ -53,6 +53,12 @@ export interface WhisperSession {
    */
   detachedNewestTime?: number
   /**
+   * The newest time (epoch ms) of a message from the session's target known to lie past a detached
+   * window's far end: the part of `detachedNewestTime` that could be unread, since the user's own
+   * messages never are. This is what a dropped window adds to the unread extent.
+   */
+  detachedNewestFromTargetTime?: number
+  /**
    * Counts how many times the loaded window has been replaced or dropped. Every history request
    * carries the generation it was issued for, and the reducer discards responses that no longer
    * match, since a page has no boundary in common with a window it wasn't fetched for.
@@ -97,8 +103,9 @@ export interface WhisperSession {
    */
   lastReadTime?: number
   /**
-   * The server's word (epoch ms) on how far this session's unread messages ran when the client last
-   * initialized it. Seeded at init, where the session holds no messages and nothing else would say
+   * How far (epoch ms) this session's unread messages are known to run: the server's word when the
+   * client last initialized it, extended by what an unread session's window held when it was
+   * dropped. Seeded at init, where the session holds no messages and nothing else would say
    * that anything past the read position exists; without it a read position arriving from another
    * of the user's sessions would look like it covered a conversation this client knows nothing
    * about, and clear the badge over messages nobody has seen.
@@ -121,7 +128,7 @@ export interface WhisperSession {
   unreadLine?: UnreadLine
 }
 
-function defaultWhisperSession(target: SbUserId): WhisperSession {
+function defaultWhisperSession(target: SbUserId, windowGen: number): WhisperSession {
   return {
     target,
     messages: [],
@@ -130,7 +137,8 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     loadingNewer: false,
     hasNewer: false,
     detachedNewestTime: undefined,
-    windowGen: 0,
+    detachedNewestFromTargetTime: undefined,
+    windowGen,
     carriedClientMessages: [],
     historyError: undefined,
     newerError: false,
@@ -154,6 +162,14 @@ export interface WhisperState {
   lastMessages: Map<SbUserId, CommonTextMessage>
   /** Whether a page of the conversation list has loaded since connecting. */
   conversationsLoaded: boolean
+  /**
+   * The lowest generation a message window created from now on may take. Window generations only
+   * mean something while no two windows a conversation has ever had share one, since a page still
+   * in flight for a window that is gone (the session was closed, or the connection restarted, and
+   * the session was opened again) must not match its successor. This outlives the sessions
+   * themselves so that a re-created window always starts past everything its predecessors used.
+   */
+  windowGenFloor: number
 }
 
 const DEFAULT_STATE: Immutable<WhisperState> = {
@@ -161,6 +177,14 @@ const DEFAULT_STATE: Immutable<WhisperState> = {
   byId: new Map(),
   lastMessages: new Map(),
   conversationsLoaded: false,
+  windowGenFloor: 0,
+}
+
+/** Raises the floor for new windows' generations above everything `session` has used. */
+function retireWindowGen(state: WhisperState, session: WhisperSession | undefined) {
+  if (session) {
+    state.windowGenFloor = Math.max(state.windowGenFloor, session.windowGen + 1)
+  }
 }
 
 /** Records `message` as the newest one in its conversation with `target`, unless it's older. */
@@ -195,6 +219,22 @@ export function newestServerOriginTime(
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isServerOriginMessage(messages[i])) {
       return messages[i].time
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Returns the time (epoch ms) of the newest message in `session` from its target, or `undefined`
+ * if there is none. Only those can be unread: like the server's own unread extent, a session's
+ * unreadness never counts the user's own messages.
+ */
+function newestFromTargetTime(session: WhisperSession): number | undefined {
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const message = session.messages[i]
+    if (isServerOriginMessage(message) && (message as CommonTextMessage).from === session.target) {
+      return message.time
     }
   }
 
@@ -241,6 +281,22 @@ export function newestKnownWhisperTime(session: Immutable<WhisperSession>): numb
   const knownTimes = [
     newestServerOriginTime(session.messages),
     session.detachedNewestTime,
+    session.latestUnreadTime,
+  ].filter(t => t !== undefined)
+
+  return knownTimes.length ? Math.max(...knownTimes) : undefined
+}
+
+/**
+ * The newest time (epoch ms) of a message from the session's target known to exist: everything
+ * `newestKnownWhisperTime` covers except the user's own messages, which are never unread. A read
+ * position covering this leaves nothing in the session unread, even if the user's own messages run
+ * past it.
+ */
+function newestFromTargetKnownTime(session: WhisperSession): number | undefined {
+  const knownTimes = [
+    newestFromTargetTime(session),
+    session.detachedNewestFromTargetTime,
     session.latestUnreadTime,
   ].filter(t => t !== undefined)
 
@@ -314,6 +370,16 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
     return
   }
 
+  // A read position that already covers the message leaves nothing unread: the server can announce
+  // a message after a page that holds it has been read.
+  if (
+    arrival.time !== undefined &&
+    session.lastReadTime !== undefined &&
+    arrival.time <= session.lastReadTime
+  ) {
+    return
+  }
+
   session.hasUnread = true
 
   if (session.activated) {
@@ -331,7 +397,8 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
 
 /**
  * Advances a session's read position to `time`, never backwards, and lowers the unread flag once the
- * position in effect covers everything the client knows exists. Returns that effective position.
+ * position in effect covers every message from the target that the client knows exists. Returns
+ * that effective position.
  *
  * A detached window's present has run ahead of what's loaded, so the newest loaded message isn't the
  * newest one known to exist; the helper covers that. Clearing the flag against the loaded window
@@ -343,8 +410,8 @@ function advanceReadPosition(session: WhisperSession, time: number): number {
   }
   const effective = session.lastReadTime!
 
-  const newestKnownTime = newestKnownWhisperTime(session)
-  if (newestKnownTime === undefined || newestKnownTime <= effective) {
+  const newestFromTarget = newestFromTargetKnownTime(session)
+  if (newestFromTarget === undefined || newestFromTarget <= effective) {
     session.hasUnread = false
   }
 
@@ -450,11 +517,25 @@ function mergeCarriedMessages(session: WhisperSession) {
  * makes the reducer discard any page still in flight for the window that was just dropped.
  */
 function dropMessageWindow(session: WhisperSession) {
+  // An unread session's window can hold messages nobody has seen, which nothing else would
+  // remember once it is gone, and a read position that stops short of them must not call the
+  // session read. The user's own messages in it are never unread, so they don't extend it.
+  if (session.hasUnread) {
+    const droppedNewest = Math.max(
+      newestFromTargetTime(session) ?? -Infinity,
+      session.detachedNewestFromTargetTime ?? -Infinity,
+    )
+    if (droppedNewest > -Infinity) {
+      session.latestUnreadTime = Math.max(session.latestUnreadTime ?? -Infinity, droppedNewest)
+    }
+  }
+
   carryClientMessages(session)
   session.messages = []
   session.hasHistory = true
   session.hasNewer = false
   session.detachedNewestTime = undefined
+  session.detachedNewestFromTargetTime = undefined
   // In-flight requests for the dropped window will be discarded by the generation check when they
   // land, so their loading flags have to be lowered here or they'd stay raised forever.
   session.loadingHistory = false
@@ -530,7 +611,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         continue
       }
 
-      state.byId.set(session, defaultWhisperSession(session))
+      state.byId.set(session, defaultWhisperSession(session, state.windowGenFloor))
     }
 
     // Seeds each session's read position from the server, so the unread divider has somewhere to
@@ -569,7 +650,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@whispers/initSession'](state, action) {
     const { target } = action.payload
-    state.byId.set(target, defaultWhisperSession(target))
+    // Opening a session that already exists replaces its window, so that window is retired too.
+    retireWindowGen(state, state.byId.get(target))
+    state.byId.set(target, defaultWhisperSession(target, state.windowGenFloor))
     state.sessions = new Set([target, ...state.sessions])
   },
 
@@ -577,6 +660,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { target } = action.payload
 
     state.sessions.delete(target)
+    retireWindowGen(state, state.byId.get(target))
     state.byId.delete(target)
   },
 
@@ -604,6 +688,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     recordLastMessage(state, target, newMessage)
 
     const session = state.byId.get(target)
+    if (session && !session.hasNewer && session.messages.some(m => m.id === newMessage.id)) {
+      // A page can carry a message the server stored before announcing it, so the announcement may
+      // reach a window that already holds the message. The list keeps one copy.
+      if (isSelfMessage) {
+        recordSelfMessage(session, newMessage.time)
+      } else {
+        recordLiveArrival(session, { windowFocused, time: newMessage.time })
+      }
+      return
+    }
+
     if (session?.hasNewer) {
       // The loaded window sits behind the present, so this message belongs past the gap at its far
       // end rather than at the end of what's loaded. Remembering how far the present has run ahead
@@ -612,6 +707,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
+      if (newMessage.from === target) {
+        session.detachedNewestFromTargetTime = Math.max(
+          session.detachedNewestFromTargetTime ?? -Infinity,
+          newMessage.time,
+        )
+      }
       if (isSelfMessage) {
         recordSelfMessage(session, newMessage.time)
       } else {
@@ -761,6 +862,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       ) {
         session.hasNewer = false
         session.detachedNewestTime = undefined
+        session.detachedNewestFromTargetTime = undefined
       }
     }
 
@@ -813,6 +915,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       newestServerOriginTime(session.messages) ?? -Infinity,
       session.detachedNewestTime ?? -Infinity,
     )
+    const knownNewestFromTarget = Math.max(
+      newestFromTargetTime(session) ?? -Infinity,
+      session.detachedNewestFromTargetTime ?? -Infinity,
+    )
 
     // The fetched range doesn't have to touch what was loaded, so there may be no seam to splice
     // them together at and the window is replaced outright. A client-only message can't be
@@ -826,6 +932,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     if (action.payload.hasMoreAfter) {
       session.hasNewer = true
       session.detachedNewestTime = knownNewest === -Infinity ? undefined : knownNewest
+      session.detachedNewestFromTargetTime =
+        knownNewestFromTarget === -Infinity ? undefined : knownNewestFromTarget
     } else {
       // The server saw nothing newer than the replacement window, but a message that arrived
       // between its query running and this response landing exists only past the window's newer
@@ -838,9 +946,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       if (newestLoadedTime < knownNewest && knownNewest > knownNewestAtDispatch) {
         session.hasNewer = true
         session.detachedNewestTime = knownNewest
+        session.detachedNewestFromTargetTime =
+          knownNewestFromTarget === -Infinity ? undefined : knownNewestFromTarget
       } else {
         session.hasNewer = false
         session.detachedNewestTime = undefined
+        session.detachedNewestFromTargetTime = undefined
       }
     }
 
@@ -1054,7 +1165,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // read position can only ever lower an unread flag, never raise one, so it cannot put a badge
     // on a conversation nobody has heard from.
     if (!state.byId.has(targetId)) {
-      state.byId.set(targetId, defaultWhisperSession(targetId))
+      state.byId.set(targetId, defaultWhisperSession(targetId, state.windowGenFloor))
     }
     const session = state.byId.get(targetId)!
 
@@ -1079,7 +1190,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@network/connect']() {
-    return DEFAULT_STATE
+  ['@network/connect'](state) {
+    // Requests issued before the reconnect can still land after the sessions are opened again.
+    let windowGenFloor = state.windowGenFloor
+    for (const session of state.byId.values()) {
+      windowGenFloor = Math.max(windowGenFloor, session.windowGen + 1)
+    }
+    return { ...DEFAULT_STATE, windowGenFloor }
   },
 })

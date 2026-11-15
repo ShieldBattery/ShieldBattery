@@ -110,6 +110,10 @@ pub struct Player {
     /// This player's measured round-trip time (ms) to `region`. Present only alongside a `region`;
     /// a player missing either carries no latency signal.
     pub rtt_ms: Option<f32>,
+    /// Opaque id Node.js gives the search this entry belongs to. Matching ignores it; it's echoed
+    /// back with every match formed from the entry, so a match formed from an earlier search can
+    /// be told apart from one for the player's current search.
+    pub search_id: String,
     /// Per-mode opponents from this player's recent games, used to discourage rematches. Modes
     /// with no recent games have no entry.
     pub recent_opponents: HashMap<MatchmakingType, Vec<RecentOpponent>>,
@@ -872,6 +876,21 @@ impl<T: QueueSelector> Matchmaker<T> {
         Ok(entry)
     }
 
+    /// Removes a player's queue entry only if it belongs to the search `search_id`. An entry from
+    /// any other search is left in place, so a removal that arrives late can't remove the search
+    /// that replaced the one it was meant for.
+    pub fn remove_search(&mut self, id: usize, search_id: &str) -> Option<Player> {
+        let is_queued = self
+            .queue
+            .iter()
+            .any(|e| e.player.id == id && e.player.search_id == search_id);
+        if is_queued {
+            self.remove_player(id)
+        } else {
+            None
+        }
+    }
+
     pub fn remove_player(&mut self, id: usize) -> Option<Player> {
         let index = self.queue.iter().position(|x| x.player.id == id);
         if let Some(index) = index {
@@ -1165,8 +1184,10 @@ impl<T: QueueSelector> Matchmaker<T> {
 
                     let mut oldest_queue_time = queue_entries[0].entry.queue_time;
                     let mut count = 0;
-                    let mut mean = 0.0;
-                    let mut m2 = 0.0;
+                    // Accumulated in f64: deviations between finite f32 ratings can overflow f32,
+                    // which drives the variance negative (down to -inf) and the quality to +inf.
+                    let mut mean = 0.0f64;
+                    let mut m2 = 0.0f64;
                     let mut rating_variance_multiplier = 1.0_f32;
                     let mut lowest_rating = f32::INFINITY;
                     let mut highest_rating = f32::NEG_INFINITY;
@@ -1179,12 +1200,12 @@ impl<T: QueueSelector> Matchmaker<T> {
                         }
                         // Calculate variance with Welford's algorithm over effective ratings
                         count += 1;
-                        let r = q.effective_rating;
+                        let r = f64::from(q.effective_rating);
                         let delta = r - mean;
-                        mean += delta / count as f32;
+                        mean += delta / count as f64;
                         m2 += delta * (r - mean);
-                        lowest_rating = lowest_rating.min(r);
-                        highest_rating = highest_rating.max(r);
+                        lowest_rating = lowest_rating.min(q.effective_rating);
+                        highest_rating = highest_rating.max(q.effective_rating);
                     }
 
                     if mode_cfg.max_rating_spread > 0.0
@@ -1194,7 +1215,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                         return None;
                     }
 
-                    let variance = m2 / (count as f32 - 1.0);
+                    let variance = (m2 / (count as f64 - 1.0)) as f32;
                     let wait_time = now - oldest_queue_time;
                     let wait_seconds = wait_time.as_secs_f32();
                     let variance_penalty =
@@ -1315,6 +1336,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }
@@ -1339,6 +1361,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }
@@ -1858,6 +1881,7 @@ mod tests {
                         map_selections,
                         region: region.map(str::to_string),
                         rtt_ms,
+                        search_id: String::new(),
                         recent_opponents: HashMap::new(),
                     },
                     modes: mode.into(),
@@ -2243,6 +2267,23 @@ mod tests {
     }
 
     #[test]
+    fn remove_search_leaves_a_later_search_queued() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        matchmaker
+            .insert_player(Player {
+                search_id: "later".to_string(),
+                ..make_player(0, 1000.0, MatchmakingType::Match1v1)
+            })
+            .unwrap();
+
+        assert!(matchmaker.remove_search(0, "earlier").is_none());
+        assert_eq!(matchmaker.queue.len(), 1);
+        assert!(matchmaker.remove_search(0, "later").is_some());
+        assert!(matchmaker.queue.is_empty());
+    }
+
+    #[test]
     fn random_queue_selector_first_player_past_window_not_always_selected() {
         // With 0..i (buggy), the player at position `amount` (index `amount` in 0-based iteration)
         // would be selected 100% of the time. With 0..=i (correct), it should be selected roughly
@@ -2606,6 +2647,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         let certain = Player {
@@ -2620,6 +2662,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
 
@@ -2634,6 +2677,31 @@ mod tests {
             result[0].quality < 0.0,
             "uncertain player should cause negative quality at t=0: got {}",
             result[0].quality
+        );
+    }
+
+    #[test]
+    fn rating_spread_past_f32_range_is_not_a_perfect_match() {
+        // The ratings' difference overflows f32, so their variance must come out huge (and the
+        // match rejected), not as a negative penalty that makes the most lopsided pair possible
+        // look infinitely good.
+        let mut matchmaker = Matchmaker::with_queue_selector(default_config(), TestQueueSelector);
+        matchmaker
+            .insert_player(make_player(0, f32::MAX, MatchmakingType::Match1v1))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player(1, f32::MIN, MatchmakingType::Match1v1))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert!(
+            result.is_empty(),
+            "formed (quality, skill_variance) = {:?}",
+            result
+                .iter()
+                .map(|m| (m.quality, m.skill_variance))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -2665,6 +2733,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         let player_b = Player {
@@ -2688,6 +2757,7 @@ mod tests {
             map_selections: HashMap::new(),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         };
         matchmaker.insert_player(player_a).unwrap();
@@ -2727,6 +2797,7 @@ mod tests {
             map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
             region: None,
             rtt_ms: None,
+            search_id: String::new(),
             recent_opponents: HashMap::new(),
         }
     }

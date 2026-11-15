@@ -1079,7 +1079,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.warning('Error copying CASC log: ' + getErrorStack(err))
     }
 
-    for (const crashdumpFile of ['latest_crash.dmp', 'crash_stack.bin']) {
+    for (const crashdumpFile of ['latest_crash.dmp', 'crash_stack.bin', 'latest_hang.dmp']) {
       try {
         const dumpPath = path.join(logsDir, crashdumpFile)
         const stats = await fsPromises.stat(dumpPath)

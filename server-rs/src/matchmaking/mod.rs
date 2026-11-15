@@ -24,6 +24,8 @@ pub struct MatchedPlayer {
     /// Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
     /// via POST /matchmaker/requeue if the match fails to start.
     pub ticket: String,
+    /// The id Node.js gave the search this player was matched from, as sent in its queue request.
+    pub search_id: String,
 }
 
 /// Data carried by the [`PublishedMatchmakingMessage::MatchFound`] event.

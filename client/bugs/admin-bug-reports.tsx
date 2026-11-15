@@ -1,27 +1,68 @@
-import { useEffect, useRef, useState } from 'react'
-import styled from 'styled-components'
-import { Route, Switch } from 'wouter'
-import { BugReportJson, GetBugReportResponseJson } from '../../common/bugs'
+import { debounce } from 'lodash-es'
+import { ReactNode, useEffect, useEffectEvent, useRef, useState } from 'react'
+import styled, { css } from 'styled-components'
+import { Link, Route, Switch, useSearch } from 'wouter'
+import {
+  BugReportJson,
+  DEFAULT_BUG_REPORTS_PAGE_SIZE,
+  GetBugReportResponseJson,
+  MAX_BUG_REPORT_SEARCH_LENGTH,
+} from '../../common/bugs'
 import { urlPath } from '../../common/urls'
-import { longTimestamp, NarrowDuration } from '../i18n/date-formats'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { longTimestamp, longTimestampWithSeconds, narrowDuration } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { FilledButton } from '../material/button'
+import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { FilledButton, OutlinedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
-import { push } from '../navigation/routing'
+import { SelectOption } from '../material/select/option'
+import { Select } from '../material/select/select'
+import { push, replace } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch } from '../redux-hooks'
+import { useNow } from '../react/date-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { SearchInput } from '../search/search-input'
 import { selectableTextContainer } from '../styles/text-selection'
-import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
+import {
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
+  singleLine,
+  titleLarge,
+  titleMedium,
+} from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { adminGetBugReport, adminListBugReports, adminResolveBugReport } from './action-creators'
 
+/** The number of leading UUID characters people use to refer to a report. */
+const SHORT_ID_LENGTH = 8
+
+const SEARCH_DEBOUNCE_MS = 300
+
+const SEARCH_PARAM = 'search'
+const VERSION_PARAM = 'version'
+const RESOLVED_PARAM = 'resolved'
+
+/**
+ * The query string of the list page as it was last shown, so the detail page can link back to the
+ * same filtered list.
+ */
+let lastListQuery = ''
+
+/**
+ * Report IDs and versions are read and compared character by character, so they're set in a
+ * monospace face that keeps them aligned from row to row.
+ */
+const monospace = css`
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+`
+
 const Content = styled.div`
-  max-width: 960px;
+  max-width: 1280px;
   margin: 0 16px;
-  overflow-y: auto;
+  padding-bottom: 24px;
 `
 
 const PageHeadline = styled.div`
@@ -32,15 +73,28 @@ const HeadlineAndButton = styled.div`
   height: 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   margin-top: 8px;
   margin-bottom: 8px;
 `
 
-const ButtonWithCheckBox = styled.div`
+const HeadlineSpacer = styled.div`
+  flex-grow: 1;
+`
+
+const FilterBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+  margin-bottom: 16px;
+`
+
+const StyledSearchInput = styled(SearchInput)`
+  flex: 0 1 400px;
+`
+
+const VersionSelect = styled(Select)`
+  flex: 0 0 200px;
 `
 
 const ErrorText = styled.div`
@@ -48,70 +102,100 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const ReportTable = styled.div`
+const ErrorRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+`
+
+const EmptyText = styled.div`
+  ${bodyLarge};
+  padding: 32px 16px;
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
+const REPORT_COLUMNS = '96px 248px 168px 96px minmax(0, 1fr) 88px'
+
+const ReportTable = styled.div<{ $stale: boolean }>`
   width: 100%;
   border: 1px solid var(--theme-outline-variant);
   border-radius: 4px;
+
+  opacity: ${props => (props.$stale ? 0.56 : 1)};
+  transition: opacity 150ms linear;
 `
 
-const TableRow = styled.div`
-  height: 36px;
+const rowLayout = css`
+  height: 40px;
+  padding: 0 8px;
 
-  display: flex;
+  display: grid;
+  grid-template-columns: ${REPORT_COLUMNS};
   align-items: center;
+`
 
-  cursor: pointer;
+const TableHeader = styled.div`
+  ${rowLayout};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  border-bottom: 1px solid var(--theme-outline-variant);
+`
 
-  &:nth-child(even) {
+const ReportRow = styled(Link)<{ $resolved: boolean }>`
+  ${rowLayout};
+  ${bodyMedium};
+
+  /* Doubled to win over the global link colors and hover underline */
+  && {
+    color: ${props =>
+      props.$resolved ? 'var(--theme-on-surface-variant)' : 'var(--theme-on-surface)'};
+    text-decoration: none;
+  }
+
+  &:nth-of-type(even) {
     background-color: rgba(255, 255, 255, 0.04);
   }
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
     background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
   }
 `
 
-const TableHeader = styled(TableRow)`
-  cursor: default;
-  font-weight: 500;
+const Cell = styled.div`
+  ${singleLine};
+  min-width: 0;
+  padding: 0 8px;
 `
 
-const TableCell = styled.div`
-  height: 100%;
-  padding: 8px 16px;
-
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+const ShortIdCell = styled(Cell)`
+  ${monospace};
+  color: var(--theme-primary);
 `
 
-const NumericCell = styled(TableCell)`
+const MutedText = styled.span`
+  color: var(--theme-on-surface-variant);
+`
+
+const VersionCell = styled(Cell)`
+  ${monospace};
+`
+
+const RightAlignedCell = styled(Cell)`
   text-align: right;
+`
+
+const ResolvedCell = styled(Cell)`
   display: flex;
   justify-content: flex-end;
-`
-
-const DateCell = styled(NumericCell)`
-  width: 112px;
-  flex-grow: 0;
-  flex-shrink: 0;
-`
-
-const SubmitterCell = styled(TableCell)`
-  width: 128px;
-  flex-grow: 0;
-  flex-shrink: 0;
-`
-
-const DetailsCell = styled(TableCell)`
-  flex-grow: 1;
-`
-
-const ResolvedCell = styled(NumericCell)`
-  width: 96px;
-  flex-grow: 0;
-  flex-shrink: 0;
+  color: var(--theme-positive);
 `
 
 export function AdminBugReports() {
@@ -123,75 +207,255 @@ export function AdminBugReports() {
   )
 }
 
+interface BugReportListFilters {
+  search: string
+  appVersion: string
+  includeResolved: boolean
+}
+
+function filtersFromQuery(query: string): BugReportListFilters {
+  const params = new URLSearchParams(query)
+  return {
+    search: params.get(SEARCH_PARAM) ?? '',
+    appVersion: params.get(VERSION_PARAM) ?? '',
+    includeResolved: params.get(RESOLVED_PARAM) === 'true',
+  }
+}
+
+/**
+ * Writes filter changes into the current URL's query string, replacing the history entry so the
+ * list (and going back to it from a report) keeps them without each keystroke adding an entry.
+ */
+function updateFiltersInUrl(changes: Partial<BugReportListFilters>) {
+  const params = new URLSearchParams(location.search)
+  const setOrDelete = (name: string, value: string | undefined) => {
+    if (value) {
+      params.set(name, value)
+    } else {
+      params.delete(name)
+    }
+  }
+  if (changes.search !== undefined) {
+    setOrDelete(SEARCH_PARAM, changes.search)
+  }
+  if (changes.appVersion !== undefined) {
+    setOrDelete(VERSION_PARAM, changes.appVersion)
+  }
+  if (changes.includeResolved !== undefined) {
+    setOrDelete(RESOLVED_PARAM, changes.includeResolved ? 'true' : undefined)
+  }
+  replace({ pathname: location.pathname, search: params.toString() })
+}
+
+function shortId(reportId: string) {
+  return reportId.slice(0, SHORT_ID_LENGTH)
+}
+
+/** Formats a timestamp as `YYYY-MM-DD HH:MM:SS UTC`. */
+function formatUtc(time: number) {
+  return new Date(time).toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
+}
+
 function AdminBugReportsList() {
   const dispatch = useAppDispatch()
+  const query = useSearch()
+  const { search: rawSearch, appVersion, includeResolved } = filtersFromQuery(query)
+  // The server ignores surrounding whitespace, so it doesn't make for a different list
+  const search = rawSearch.trim().slice(0, MAX_BUG_REPORT_SEARCH_LENGTH)
+  const hasFilters = !!search || !!appVersion
+
   const [refreshToken, triggerRefresh] = useRefreshToken()
-  const [includeResolved, setIncludeResolved] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [bugReports, setBugReports] = useState<BugReportJson[]>()
+  const [reports, setReports] = useState<BugReportJson[]>()
+  const [hasMore, setHasMore] = useState(false)
+  const [appVersions, setAppVersions] = useState<string[]>([])
+  const [loadingPage, setLoadingPage] = useState<'first' | 'next'>()
   const [error, setError] = useState<Error>()
+  const [nextPageError, setNextPageError] = useState<Error>()
+  const abortRef = useRef(new AbortController())
+  const [debouncedSearchChange] = useState(() =>
+    debounce((value: string) => updateFiltersInUrl({ search: value }), SEARCH_DEBOUNCE_MS),
+  )
+
+  const load = (before: string | undefined) => {
+    abortRef.current.abort()
+    const abortController = new AbortController()
+    abortRef.current = abortController
+
+    dispatch(
+      adminListBugReports(
+        {
+          includeResolved,
+          search,
+          appVersion,
+          before,
+          limit: DEFAULT_BUG_REPORTS_PAGE_SIZE,
+        },
+        {
+          signal: abortController.signal,
+          onStart: () => {
+            setLoadingPage(before ? 'next' : 'first')
+            setNextPageError(undefined)
+            if (!before) {
+              setError(undefined)
+            }
+          },
+          onSuccess: response => {
+            setLoadingPage(undefined)
+            setReports(prev => (before ? (prev ?? []).concat(response.reports) : response.reports))
+            setHasMore(response.hasMore)
+            setAppVersions(response.appVersions)
+          },
+          onError: err => {
+            setLoadingPage(undefined)
+            if (before) {
+              setNextPageError(err)
+            } else {
+              setReports(undefined)
+              setError(err)
+            }
+          },
+        },
+      ),
+    )
+  }
+
+  const loadFirstPage = useEffectEvent(() => load(undefined))
 
   useEffect(() => {
-    dispatch(
-      adminListBugReports(includeResolved, {
-        onStart: () => {
-          setLoading(true)
-          setError(undefined)
-        },
-        onSuccess: response => {
-          setLoading(false)
-          setBugReports(response.reports)
-        },
-        onError: err => {
-          setLoading(false)
-          setError(err)
-        },
-      }),
+    loadFirstPage()
+  }, [includeResolved, search, appVersion, refreshToken])
+
+  useEffect(() => {
+    lastListQuery = query
+  }, [query])
+
+  useEffect(() => {
+    return () => {
+      abortRef.current.abort()
+      debouncedSearchChange.cancel()
+    }
+  }, [debouncedSearchChange])
+
+  const now = useNow(60_000)
+  const lastReport = reports?.at(-1)
+  const versionOptions =
+    appVersion && !appVersions.includes(appVersion) ? [appVersion, ...appVersions] : appVersions
+
+  let body: ReactNode
+  if (reports === undefined) {
+    body = error ? (
+      <ErrorRow>
+        <ErrorText>Couldn't load bug reports: {error.message}</ErrorText>
+        <OutlinedButton label='Retry' onClick={triggerRefresh} />
+      </ErrorRow>
+    ) : (
+      <LoadingDotsArea />
     )
-  }, [dispatch, refreshToken, includeResolved])
+  } else if (!reports.length) {
+    let emptyText = 'No bug reports.'
+    if (hasFilters) {
+      emptyText = 'No bug reports match these filters.'
+    } else if (!includeResolved) {
+      emptyText = 'No unresolved bug reports.'
+    }
+    body = <EmptyText>{emptyText}</EmptyText>
+  } else {
+    body = (
+      <InfiniteScrollList
+        nextLoadingEnabled={loadingPage !== 'first'}
+        isLoadingNext={loadingPage === 'next'}
+        hasNextData={hasMore}
+        refreshToken={`${includeResolved}|${search}|${appVersion}|${refreshToken}`}
+        nextError={
+          nextPageError ? (
+            <ErrorRow>
+              <ErrorText>Couldn't load more reports: {nextPageError.message}</ErrorText>
+              <OutlinedButton label='Retry' onClick={() => load(lastReport?.id)} />
+            </ErrorRow>
+          ) : undefined
+        }
+        onLoadNextData={() => load(lastReport?.id)}>
+        {reports.map(r => (
+          <BugReportRow key={r.id} report={r} now={now} />
+        ))}
+      </InfiniteScrollList>
+    )
+  }
 
   return (
     <Content>
       <HeadlineAndButton>
         <PageHeadline>Bug reports</PageHeadline>
-        {loading ? <LoadingDotsArea /> : null}
-        <ButtonWithCheckBox>
-          <CheckBox
-            label='Include resolved'
-            checked={includeResolved}
-            onChange={() => setIncludeResolved(!includeResolved)}
-          />
-          <FilledButton label='Refresh' onClick={triggerRefresh} />
-        </ButtonWithCheckBox>
+        {loadingPage ? <LoadingDotsArea /> : null}
+        <HeadlineSpacer />
+        <FilledButton label='Refresh' iconStart='refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
-      {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
-      <ReportTable>
+      <FilterBar>
+        <StyledSearchInput
+          label='Search ID, user or details'
+          searchQuery={rawSearch}
+          onSearchChange={debouncedSearchChange}
+        />
+        <VersionSelect
+          label='Version'
+          value={appVersion}
+          dense={true}
+          allowErrors={false}
+          onChange={(value: string) => updateFiltersInUrl({ appVersion: value })}>
+          <SelectOption value='' text='All versions' />
+          {versionOptions.map(v => (
+            <SelectOption key={v} value={v} text={v} />
+          ))}
+        </VersionSelect>
+        <CheckBox
+          label='Include resolved'
+          checked={includeResolved}
+          onChange={() => updateFiltersInUrl({ includeResolved: !includeResolved })}
+        />
+      </FilterBar>
+      <ReportTable $stale={loadingPage === 'first' && !!reports?.length}>
         <TableHeader>
-          <DateCell>Date</DateCell>
-          <SubmitterCell>Submitter</SubmitterCell>
-          <DetailsCell>Details</DetailsCell>
-          <ResolvedCell>Resolved</ResolvedCell>
+          <Cell>ID</Cell>
+          <Cell>Submitted</Cell>
+          <Cell>Submitter</Cell>
+          <Cell>Version</Cell>
+          <Cell>Details</Cell>
+          <RightAlignedCell>Resolved</RightAlignedCell>
         </TableHeader>
-        {(bugReports ?? []).map(r => (
-          <BugReportRow report={r} key={r.id} />
-        ))}
+        {body}
       </ReportTable>
     </Content>
   )
 }
 
-function BugReportRow({ report }: { report: BugReportJson }) {
+function SubmitterName({ userId }: { userId: SbUserId | undefined }) {
+  const name = useAppSelector(s => (userId ? s.users.byId.get(userId)?.name : undefined))
+  if (!userId) {
+    return <MutedText>Unknown user</MutedText>
+  }
+  return name ?? <MutedText>#{userId}</MutedText>
+}
+
+function BugReportRow({ report, now }: { report: BugReportJson; now: number }) {
+  const longTimestampFormat = useFormat(longTimestamp)
+  const narrowDurationFormat = useFormat(narrowDuration)
+
   return (
-    <TableRow onClick={() => push(urlPath`/admin/bug-reports/${report.id}`)}>
-      <DateCell>
-        <NarrowDuration to={report.createdAt} />
-      </DateCell>
-      <SubmitterCell>
-        {report.submitterId ? <ConnectedUsername userId={report.submitterId} /> : 'Unknown user'}
-      </SubmitterCell>
-      <DetailsCell>{report.details}</DetailsCell>
-      <ResolvedCell>{report.resolvedAt ? <MaterialIcon icon='check' /> : null}</ResolvedCell>
-    </TableRow>
+    <ReportRow href={urlPath`/admin/bug-reports/${report.id}`} $resolved={!!report.resolvedAt}>
+      <ShortIdCell title={report.id}>{shortId(report.id)}</ShortIdCell>
+      <Cell title={formatUtc(report.createdAt)}>
+        {longTimestampFormat.format(report.createdAt)}{' '}
+        <MutedText>· {narrowDurationFormat.format(report.createdAt, now)}</MutedText>
+      </Cell>
+      <Cell>
+        <SubmitterName userId={report.submitterId} />
+      </Cell>
+      <VersionCell>{report.appVersion ?? <MutedText>Unknown</MutedText>}</VersionCell>
+      <Cell title={report.details}>{report.details}</Cell>
+      <ResolvedCell title={report.resolvedAt ? 'Resolved' : undefined}>
+        {report.resolvedAt ? <MaterialIcon icon='check' size={20} /> : null}
+      </ResolvedCell>
+    </ReportRow>
   )
 }
 
@@ -214,8 +478,24 @@ const ItemLabel = styled.div`
   flex: 0 0 auto;
   text-align: right;
 `
+
 const ItemValue = styled.div`
   ${bodyLarge};
+  min-width: 0;
+  overflow-wrap: anywhere;
+`
+
+const MonospaceValue = styled(ItemValue)`
+  ${monospace};
+`
+
+const ShortIdPart = styled.span`
+  color: var(--theme-primary);
+  font-weight: 600;
+`
+
+const SecondaryValue = styled.span`
+  color: var(--theme-on-surface-variant);
 `
 
 const DetailsValue = styled.pre`
@@ -226,19 +506,20 @@ const DetailsValue = styled.pre`
 
   border-left: 1px solid var(--theme-outline-variant);
   font-family: inherit;
+  overflow-wrap: anywhere;
   white-space: pre-line;
 `
 
 function AdminBugReportView({ params: { reportId } }: { params: { reportId: string } }) {
   const dispatch = useAppDispatch()
-  const longTimestampFormat = useFormat(longTimestamp)
+  const longTimestampFormat = useFormat(longTimestampWithSeconds)
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const [loading, setLoading] = useState(false)
   const [bugReport, setBugReport] = useState<GetBugReportResponseJson>()
   const [error, setError] = useState<Error>()
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const onResolveClick = useStableCallback(() => {
+  const onResolveClick = () => {
     dispatch(
       adminResolveBugReport(reportId, {
         onStart: () => {
@@ -255,7 +536,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
         },
       }),
     )
-  })
+  }
 
   useEffect(() => {
     abortControllerRef.current?.abort()
@@ -280,25 +561,39 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
     )
   }, [dispatch, refreshToken, reportId])
 
+  const report = bugReport?.report
+
   return (
     <Content>
       <HeadlineAndButton>
-        <PageHeadline>Bug report</PageHeadline>
+        <TextButton
+          label='All bug reports'
+          iconStart='arrow_back'
+          onClick={() => push({ pathname: '/admin/bug-reports', search: lastListQuery })}
+        />
+        <PageHeadline>Bug report {shortId(reportId)}</PageHeadline>
         {loading ? <LoadingDotsArea /> : null}
-        <FilledButton label='Refresh' onClick={triggerRefresh} />
+        <HeadlineSpacer />
+        <FilledButton label='Refresh' iconStart='refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
-      {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
-      {bugReport ? (
+      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+      {report && bugReport ? (
         <Items>
           <Item>
             <ItemLabel>ID:</ItemLabel>
-            <ItemValue>{bugReport?.report.id}</ItemValue>
+            <MonospaceValue>
+              <ShortIdPart>{shortId(report.id)}</ShortIdPart>
+              {report.id.slice(SHORT_ID_LENGTH)}
+            </MonospaceValue>
           </Item>
           <Item>
             <ItemLabel>Submitter:</ItemLabel>
             <ItemValue>
-              {bugReport.report.submitterId ? (
-                <ConnectedUsername userId={bugReport.report.submitterId} />
+              {report.submitterId ? (
+                <>
+                  <ConnectedUsername userId={report.submitterId} />{' '}
+                  <SecondaryValue>(user ID {report.submitterId})</SecondaryValue>
+                </>
               ) : (
                 'Unknown user'
               )}
@@ -306,7 +601,16 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
           </Item>
           <Item>
             <ItemLabel>Submitted at:</ItemLabel>
-            <ItemValue>{longTimestampFormat.format(bugReport.report.createdAt)}</ItemValue>
+            <ItemValue>
+              {longTimestampFormat.format(report.createdAt)}{' '}
+              <SecondaryValue>({formatUtc(report.createdAt)})</SecondaryValue>
+            </ItemValue>
+          </Item>
+          <Item>
+            <ItemLabel>App version:</ItemLabel>
+            <ItemValue>
+              {report.appVersion ?? <SecondaryValue>Not recorded</SecondaryValue>}
+            </ItemValue>
           </Item>
           <Item>
             <ItemLabel>Log files:</ItemLabel>
@@ -322,19 +626,19 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
           </Item>
           <Item>
             <ItemLabel>Details:</ItemLabel>
-            <DetailsValue>{bugReport.report.details}</DetailsValue>
+            <DetailsValue>{report.details}</DetailsValue>
           </Item>
-          {bugReport.report.resolvedAt ? (
+          {report.resolvedAt ? (
             <>
               <Item>
                 <ItemLabel>Resolved at:</ItemLabel>
-                <ItemValue>{longTimestampFormat.format(bugReport.report.resolvedAt)}</ItemValue>
+                <ItemValue>{longTimestampFormat.format(report.resolvedAt)}</ItemValue>
               </Item>
               <Item>
                 <ItemLabel>Resolved by:</ItemLabel>
                 <ItemValue>
-                  {bugReport.report.resolverId ? (
-                    <ConnectedUsername userId={bugReport.report.resolverId} />
+                  {report.resolverId ? (
+                    <ConnectedUsername userId={report.resolverId} />
                   ) : (
                     'Unknown user'
                   )}

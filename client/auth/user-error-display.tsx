@@ -137,6 +137,16 @@ function UserError({ error }: { error: FetchError }) {
           )}
         </span>
       )
+    case UserErrorCode.UnsupportedMachine:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.unsupportedMachine',
+            "ShieldBattery can't be set up on this computer. Try signing up from a different " +
+              'computer.',
+          )}
+        </span>
+      )
 
     // InappropriateImage and AvatarUploadRestricted are only produced by the avatar upload flow,
     // which surfaces its own messages (see account-settings.tsx); they never reach this

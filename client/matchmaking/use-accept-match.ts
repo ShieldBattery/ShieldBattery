@@ -57,11 +57,11 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
   const retries = useRef(0)
   const [acceptInProgress, setAcceptInProgress] = useState(false)
 
-  const sendAccept = (generation: number) => {
+  const sendAccept = (generation: number, matchId: string) => {
     logger.debug('Accepting match...')
     setAcceptInProgress(true)
     dispatch(
-      acceptMatch({
+      acceptMatch(matchId, {
         signal: AbortSignal.timeout(ACCEPT_REQUEST_TIMEOUT_MS),
         callbackOnAbort: true,
         onSuccess: () => {
@@ -96,7 +96,7 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
               ) {
                 retries.current++
                 logger.debug(`Retrying accept match...`)
-                sendAccept(generation)
+                sendAccept(generation, matchId)
               } else {
                 setAcceptInProgress(false)
               }
@@ -111,9 +111,11 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
     // This hook can outlive a single match (the matchmaking widget stays mounted across a requeue),
     // so the retry budget applies per user-initiated accept rather than per hook lifetime.
     retries.current = 0
+    const foundMatch = store.get(foundMatchAtom)
+    if (!foundMatch) return
     const generation = store.get(foundMatchGenerationAtom)
     store.set(acceptRequestGenerationAtom, generation)
-    sendAccept(generation)
+    sendAccept(generation, foundMatch.matchId)
   }
 
   return { acceptInProgress, triggerAccept }

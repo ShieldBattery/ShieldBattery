@@ -102,14 +102,15 @@ itself. (Lobby launch mechanics — `c1` hosts, `c2` joins, host starts — are 
 skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both paths.)
 
 **Setup**:
-- Dev stack up incl. the app renderer dev server (`pnpm run dev`); two app instances logged in as
-  two seeded accounts (see **verify-app**). Launch them with `SB_APP_BACKGROUND=1` and
-  `SB_GAME_BACKGROUND=1` so neither the app nor its games steal the user's focus or cursor
-  (verify-app has the details). The exception is a run
-  where the user will play or leave the game themselves (the human graceful-leave finish below):
-  launch that instance without the flag.
-- **Rebuild the game DLL first**: `.\game\build.bat` from PowerShell (`cmd //c game\build.bat`
-  from Git Bash opens cmd interactively and does nothing). A stale
+- Dev stack up incl. the app renderer dev server (**dev-env**: `dev-stack.mjs start node rust
+  renderer`); two app instances logged in as two seeded accounts (**verify-app**:
+  `sb-app.mjs launch 2`, `launch 3`). Those launches set `SB_APP_BACKGROUND=1` and
+  `SB_GAME_BACKGROUND=1` so neither the app nor its games steal the user's focus or cursor. The
+  exception is a run where the user will play or leave the game themselves (the human
+  graceful-leave finish below): launch that instance with `--foreground`.
+- **Rebuild the game DLL first**: `node game/gates.mjs --only build` (add `build-x86` for the 32-bit
+  DLL), or `.\game\build.bat` from PowerShell (`cmd //c game\build.bat` from Git Bash opens cmd
+  interactively and does nothing). A stale
   injected DLL **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
   init) even when only a trivial source line changed — always build a current DLL. The running app
   injects `game/dist/shieldbattery_64.dll` at launch (`shieldbattery.dll` if the `launch32Bit`
@@ -118,10 +119,10 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
 **Drive a match**:
 1. Arm a ready-up auto-clicker on **each** client *before* queuing — the "Ready up" window is short
    and polling-then-clicking is too slow (a missed ready-up cancels the match AND bans you, below):
-   `playwright-cli -s=cN run-code "async page => { await page.getByRole('dialog').getByRole('button', { name: 'Ready up' }).click({ timeout: 150000 }); }"`
-   (scope it to the dialog: the page behind it has its own "Ready up" button, and an unscoped
-   locator fails strict mode the instant the match is found, leaving that client unreadied)
-   (run in background, one per client).
+   `playwright-cli -s=cN run-code "async page => { await page.getByTestId('accept-match-button').click({ timeout: 150000 }); }"`
+   (the dialog's own test id: the page behind it has a lobby "Ready up" button too, so a
+   role/name locator fails strict mode the instant the match is found, leaving that client
+   unreadied) (run in background, one per client).
 2. Queue both: navigate each to `/play/` (lands on `/play/matchmaking`), then
    `playwright-cli -s=cN click "getByRole('button', { name: 'Find match', exact: true })"`. Two
    equal/unrated players match in ~30s; the armed clickers ready both up instantly.

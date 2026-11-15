@@ -121,7 +121,7 @@ describe('matchmaking/matchmaking-ban-service game penalties', () => {
   test('keeps legacy calls outside the game claim transaction', async () => {
     const service = createService()
 
-    await service.banUser(USER_ID, IDS)
+    await service.banUser(USER_ID, IDS, 'left')
 
     expect(transact).not.toHaveBeenCalled()
     expect(addMatchmakingBan).toHaveBeenCalledWith(expect.anything(), undefined)
@@ -144,15 +144,20 @@ describe('matchmaking/matchmaking-ban-service dodge bans', () => {
   test('notifies a first offense as a warning', async () => {
     const service = createService()
 
-    await service.banUser(USER_ID, IDS)
+    await service.banUser(USER_ID, IDS, 'left')
 
     expect(addMatchmakingBan).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: USER_ID, banLevel: 0, banDurationMillis: 0 }),
+      expect.objectContaining({
+        userId: USER_ID,
+        banLevel: 0,
+        banDurationMillis: 0,
+        reason: 'left',
+      }),
       undefined,
     )
     expect(addNotification).toHaveBeenCalledExactlyOnceWith({
       userId: USER_ID,
-      data: { type: NotificationType.MatchmakingBan, bannedUntil: undefined },
+      data: { type: NotificationType.MatchmakingBan, bannedUntil: undefined, reason: 'left' },
     })
   })
 
@@ -163,7 +168,7 @@ describe('matchmaking/matchmaking-ban-service dodge bans', () => {
     })
     const service = createService()
 
-    await service.banUser(USER_ID, IDS)
+    await service.banUser(USER_ID, IDS, 'left')
 
     expect(addMatchmakingBan).toHaveBeenCalledWith(
       expect.objectContaining({ banLevel: 1, banDurationMillis: 15 * MINUTES }),
@@ -171,7 +176,11 @@ describe('matchmaking/matchmaking-ban-service dodge bans', () => {
     )
     expect(addNotification).toHaveBeenCalledExactlyOnceWith({
       userId: USER_ID,
-      data: { type: NotificationType.MatchmakingBan, bannedUntil: NOW + 15 * MINUTES },
+      data: {
+        type: NotificationType.MatchmakingBan,
+        bannedUntil: NOW + 15 * MINUTES,
+        reason: 'left',
+      },
     })
   })
 
@@ -179,7 +188,7 @@ describe('matchmaking/matchmaking-ban-service dodge bans', () => {
     addMatchmakingBan.mockRejectedValueOnce(new Error('insert failed'))
     const service = createService()
 
-    await expect(service.banUser(USER_ID, IDS)).rejects.toThrow('insert failed')
+    await expect(service.banUser(USER_ID, IDS, 'left')).rejects.toThrow('insert failed')
     expect(addNotification).not.toHaveBeenCalled()
   })
 })

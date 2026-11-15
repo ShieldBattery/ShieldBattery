@@ -36,6 +36,8 @@ export interface MatchedPlayer {
    * via POST /matchmaker/requeue if the match fails to start.
    */
   ticket: string
+  /** The id Node.js gave the search this player was matched from, as sent in its queue request. */
+  searchId: string
 }
 
 /** Data carried by the [`PublishedMatchmakingMessage::MatchFound`] event. */

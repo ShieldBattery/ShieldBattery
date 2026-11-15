@@ -116,18 +116,6 @@ export enum GameResultErrorCode {
   ReplaySeedMissing = 'ReplaySeedMissing',
 }
 
-/** The payload format for submitting game results to the server. */
-export interface SubmitGameResultsRequest {
-  /** The ID of the user submitting results. */
-  userId: SbUserId
-  /** The secret code the user was given to submit results with. */
-  resultCode: string
-  /** The elapsed time of the game, in milliseconds. */
-  time: number
-  /** Each player's result. */
-  playerResults: [playerId: SbUserId, result: GameClientPlayerResult][]
-}
-
 /**
  * The alliance relationship a player declares toward another player, using the same raw numeric
  * values StarCraft reports in its per-player alliance table.
@@ -187,13 +175,12 @@ export interface RawNetPlayer {
 }
 
 /**
- * The raw end-of-game report a modern game client submits, reaching the server via the netcode-v2
- * relay's signed webhook. Unlike the legacy `SubmitGameResultsRequest`, this carries the undigested
- * BW evidence and the server derives the per-player verdicts from it. Legacy reports are
- * distinguished by the absence of `version`.
+ * The end-of-game report a game client submits, reaching the server via the netcode-v2 relay's
+ * signed webhook. It carries the undigested BW evidence, and the server derives the per-player
+ * verdicts from it.
  */
 export interface RawGameResultsReport {
-  /** Marks this as a raw (v2) report; absent on legacy digested reports. */
+  /** The report format version. */
   version: 2
   /** The ID of the user submitting results. */
   userId: SbUserId
@@ -221,7 +208,11 @@ export interface StoredRawGameResults {
   localPlayerLoseType: GameClientLoseType | null
 }
 
-/** The stored form of a legacy digested report. */
+/**
+ * The stored form of a digested report, which game clients sent before they sent raw reports.
+ * Nothing writes this form any more, but old games' rows still hold it. It's read to show those
+ * games' reports and to resolve their disputes, never to reconcile them.
+ */
 export interface StoredLegacyGameResults {
   time: number
   playerResults: Array<[SbUserId, GameClientPlayerResult]>

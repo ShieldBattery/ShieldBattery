@@ -8,6 +8,7 @@ const TICK_MS = 100
 
 function makeMatch(acceptStart: number, acceptTimeTotalMillis = 30000): FoundMatch {
   return {
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
     acceptStart,

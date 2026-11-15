@@ -429,6 +429,7 @@ export class DraftState {
     const currentPicker = this.getCurrentPicker()
 
     return {
+      matchId: this.matchId,
       mapId: this.mapInfo.id,
       currentPicker: currentPicker
         ? { team: currentPicker.team, slot: currentPicker.slot }

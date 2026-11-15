@@ -9,7 +9,8 @@ import log from '../logging/logger'
 import { SessionReleaseCatalog, SessionReleaseKey } from '../netcode-v2/session-release-catalog'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import { ClientAttestation } from '../users/client-attestation'
-import { TestClientKey } from '../users/testing/client-proofs'
+import { MachineSupportRegistry } from '../users/machine-support-registry'
+import { TestClientKey, testReportBody } from '../users/testing/client-proofs'
 import { RequestSessionLookup } from './session-lookup'
 import { SocketAdmission } from './socket-admission'
 import { ClientSocketsManager, UserSocketsManager } from './socket-groups'
@@ -30,6 +31,7 @@ let sessionLookup: RequestSessionLookup
 let connector: NydusConnector
 let clock: FakeClock
 let admission: SocketAdmission
+let machineSupport: MachineSupportRegistry
 let clientSockets: ClientSocketsManager
 let userSockets: UserSocketsManager
 
@@ -71,12 +73,16 @@ function sessionIdOf(client: InspectableNydusClient) {
   return sessionLookup.fromSocket(client)!.sessionId
 }
 
-function answer(client: InspectableNydusClient, withProof = true) {
+function answer(client: InspectableNydusClient, withProof = true, body?: Buffer) {
   const challenge = challengeFor(client)!
   admission.attest(user.id, sessionIdOf(client), {
     attemptId: challenge.attemptId,
-    proof: withProof ? key.sign(challenge.nonce, challenge.requestHash) : undefined,
+    proof: withProof ? key.sign(challenge.nonce, challenge.requestHash, body) : undefined,
   })
+}
+
+function isSupported(clientId = 'client') {
+  return machineSupport.isSupported(user.id, clientId)
 }
 
 function isAdmitted() {
@@ -92,10 +98,12 @@ beforeEach(() => {
   connector = new NydusConnector(nydus, sessionLookup)
   clock = new FakeClock()
   clock.autoRunTimeouts = false
+  machineSupport = new MachineSupportRegistry()
   admission = new SocketAdmission(
     nydus,
     sessionLookup,
     new ClientAttestation({ getClientKeys: () => keys } as unknown as SessionReleaseCatalog),
+    machineSupport,
     clock,
   )
   clientSockets = new ClientSocketsManager(nydus, sessionLookup, admission)
@@ -120,6 +128,63 @@ test('without client keys, app sockets are admitted without a challenge', () => 
   expect(isAdmitted()).toBe(true)
   expect(connectionEvents(client)).toEqual([{ type: 'admitted' }])
   expect(toldAdmittedFirst(client)).toBe(true)
+  expect(isSupported()).toBe(true)
+})
+
+describe.each(['observe', 'required'])('machine support while attestation is %s', mode => {
+  beforeEach(() => {
+    vi.stubEnv('SB_REQUIRE_CLIENT_ATTESTATION', mode === 'required' ? 'true' : undefined)
+  })
+
+  test('clients count as supported until their proof arrives', () => {
+    connect()
+    expect(isSupported()).toBe(true)
+  })
+
+  test('a valid proof reporting an unsupported machine is recorded but still admitted', () => {
+    const client = connect()
+    expect(() => answer(client, true, testReportBody(1))).not.toThrow()
+    expect(isAdmitted()).toBe(true)
+    expect(client.close).not.toHaveBeenCalled()
+    expect(isSupported()).toBe(false)
+    expect(isSupported('other')).toBe(true)
+  })
+
+  test.each([
+    ['version 1', undefined],
+    ['version 3', testReportBody(0)],
+  ])('a valid %s proof reporting a supported machine is recorded as supported', (_, body) => {
+    answer(connect(), true, body)
+    expect(isSupported()).toBe(true)
+  })
+
+  test('the status is forgotten when the client disconnects', () => {
+    const client = connect()
+    answer(client, true, testReportBody(1))
+    client.disconnect()
+    expect(isSupported()).toBe(true)
+  })
+
+  test("a reconnected client's status outlives its old connection", () => {
+    const old = connect()
+    answer(old, true, testReportBody(0))
+    const reconnected = connect()
+    answer(reconnected, true, testReportBody(1))
+    old.disconnect()
+    expect(isSupported()).toBe(false)
+    reconnected.disconnect()
+    expect(isSupported()).toBe(true)
+  })
+
+  test("an old connection's status is forgotten once it closes", () => {
+    const old = connect()
+    answer(old, true, testReportBody(1))
+    const reconnected = connect()
+    answer(reconnected, true, testReportBody(0))
+    expect(isSupported()).toBe(false)
+    old.disconnect()
+    expect(isSupported()).toBe(true)
+  })
 })
 
 describe('observing', () => {
@@ -132,6 +197,18 @@ describe('observing', () => {
     ])
     expect(toldAdmittedFirst(client)).toBe(true)
     expect(() => answer(client)).not.toThrow()
+  })
+
+  test('an invalid proof records no machine support status', () => {
+    const client = connect()
+    const challenge = challengeFor(client)!
+    const proof = new TestClientKey().sign(
+      challenge.nonce,
+      challenge.requestHash,
+      testReportBody(1),
+    )
+    admission.attest(user.id, sessionIdOf(client), { attemptId: challenge.attemptId, proof })
+    expect(isSupported()).toBe(true)
   })
 
   test('missing proofs are recorded without refusing anything', () => {
@@ -208,12 +285,17 @@ describe('requiring proofs', () => {
   test('an invalid proof closes the socket', () => {
     const client = connect()
     const challenge = challengeFor(client)!
-    const proof = new TestClientKey().sign(challenge.nonce, challenge.requestHash)
+    const proof = new TestClientKey().sign(
+      challenge.nonce,
+      challenge.requestHash,
+      testReportBody(1),
+    )
     expect(() =>
       admission.attest(user.id, sessionIdOf(client), { attemptId: challenge.attemptId, proof }),
     ).toThrow(verificationFailure)
     expect(client.close).toHaveBeenCalled()
     expect(connectionEvents(client).at(-1)).toEqual(refused)
+    expect(isSupported()).toBe(true)
   })
 
   test('outdated builds are told to update', () => {

@@ -12,7 +12,7 @@ use crate::redis::RedisPool;
 use crate::state::AppState;
 use crate::users::SbUserId;
 use arc_swap::ArcSwap;
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get};
@@ -117,6 +117,8 @@ struct QueueRequest {
     /// The player's measured round-trip time (ms) to `region`. Present only alongside `region`.
     #[serde(default)]
     rtt_ms: Option<f32>,
+    /// Node.js's id for the search this request queues, echoed back with any match formed from it.
+    search_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -139,6 +141,8 @@ struct QueueTicket {
     region: Option<String>,
     #[serde(default)]
     rtt_ms: Option<f32>,
+    /// The search the player was queued for, which a requeue continues.
+    search_id: String,
     process_token: Uuid,
 }
 
@@ -183,6 +187,7 @@ fn build_player(
     region: Option<String>,
     rtt_ms: Option<f32>,
     queued_at: Instant,
+    search_id: String,
 ) -> Player {
     let mut ratings = HashMap::new();
     let mut map_selections = HashMap::new();
@@ -223,6 +228,7 @@ fn build_player(
         region,
         rtt_ms,
         recent_opponents,
+        search_id,
     }
 }
 
@@ -256,6 +262,7 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
             .collect(),
         region: entry.player.region.clone(),
         rtt_ms: entry.player.rtt_ms,
+        search_id: entry.player.search_id.clone(),
         queue_time: entry
             .queue_time
             .duration_since(matchmaker_start)
@@ -346,6 +353,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
             let make_matched_player = |entry: &QueueEntry| MatchedPlayer {
                 id: SbUserId::from(entry.player.id as i32),
                 ticket: build_ticket(entry, &state.process_token, matchmaker_start),
+                search_id: entry.player.search_id.clone(),
             };
 
             let event = PublishedMatchmakingMessage::MatchFound(MatchFoundMessage {
@@ -611,6 +619,7 @@ async fn insert_player(
         payload.region,
         payload.rtt_ms,
         Instant::now(),
+        payload.search_id,
     );
     {
         let mut matchmaker = lock_matchmaker(&state.matchmaker);
@@ -674,6 +683,7 @@ async fn requeue_player(
             ticket.region,
             ticket.rtt_ms,
             queue_time,
+            ticket.search_id,
         ),
         queue_time,
     ) {
@@ -687,12 +697,25 @@ async fn requeue_player(
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CancelQuery {
+    /// The search to remove. When given, the player's entry is only removed if it's from this
+    /// search, so a removal that arrives after the player's next search was queued leaves it alone.
+    search_id: Option<String>,
+}
+
 async fn cancel(
     State(state): State<MatchmakingApiState>,
     Path(id): Path<usize>,
+    Query(query): Query<CancelQuery>,
 ) -> impl IntoResponse {
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
-    if matchmaker.remove_player(id).is_some() {
+    let removed = match query.search_id {
+        Some(search_id) => matchmaker.remove_search(id, &search_id),
+        None => matchmaker.remove_player(id),
+    };
+    if removed.is_some() {
         StatusCode::NO_CONTENT.into_response()
     } else {
         (
@@ -749,6 +772,7 @@ mod tests {
             None,
             None,
             queued_at,
+            String::new(),
         );
         let opponents = &player.recent_opponents[&mode];
         assert_eq!(opponents.len(), 1, "invalid ages are dropped");
@@ -779,6 +803,7 @@ mod tests {
                 "id": 1,
                 "modeRatings": [{"mode": "1v1", "rating": 1500, "uncertainty": null}],
                 "queueTime": 0,
+                "searchId": "search-1",
                 "processToken": "00000000-0000-0000-0000-000000000000"
             }"#,
         )
@@ -816,6 +841,45 @@ mod tests {
         ));
         assert!(!Arc::ptr_eq(&distribution.load_full(), &snapshot));
         assert_eq!(distribution.load().mode_stats(mode).1, Some(1014.0));
+    }
+
+    #[test]
+    fn requeue_ticket_keeps_the_search_id() {
+        let start = Instant::now();
+        let player = build_player(
+            7,
+            vec![PlayerModeRatingDto {
+                mode: MatchmakingType::Match1v1,
+                rating: 1500.0,
+                uncertainty: None,
+                map_selections: None,
+                recent_opponents: vec![],
+            }],
+            None,
+            None,
+            start,
+            "search-7".to_string(),
+        );
+        let entry = QueueEntry {
+            queue_time: start,
+            modes: player.ratings.keys().copied().collect(),
+            player,
+        };
+        let token = Uuid::new_v4();
+
+        let encoded = build_ticket(&entry, &token, start);
+        let ticket: QueueTicket =
+            serde_json::from_slice(&BASE64_STANDARD.decode(encoded).unwrap()).unwrap();
+        let requeued = build_player(
+            ticket.id,
+            ticket.mode_ratings,
+            ticket.region,
+            ticket.rtt_ms,
+            start,
+            ticket.search_id,
+        );
+
+        assert_eq!(requeued.search_id, "search-7");
     }
 
     #[test]

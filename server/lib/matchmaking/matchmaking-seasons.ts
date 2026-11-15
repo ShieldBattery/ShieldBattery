@@ -22,7 +22,14 @@ export class MatchmakingSeasonsService {
   /** Retrieves all the seasons, ordered by start date, descending. */
   async getAllSeasons(): Promise<MatchmakingSeason[]> {
     if (!this.seasonsPromise) {
-      this.seasonsPromise = getMatchmakingSeasons()
+      const promise = getMatchmakingSeasons()
+      this.seasonsPromise = promise
+      // A failed load must not be kept, or every later read would fail the same way.
+      promise.catch(() => {
+        if (this.seasonsPromise === promise) {
+          this.seasonsPromise = undefined
+        }
+      })
     }
     return this.seasonsPromise
   }

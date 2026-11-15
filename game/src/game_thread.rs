@@ -194,7 +194,14 @@ pub fn run_event_loop() -> ! {
     let receive_requests = receive_requests
         .take()
         .expect("Channel to receive requests not set?");
-    while let Ok(msg) = receive_requests.recv() {
+    loop {
+        let received = {
+            let _idle = crate::stall_watch::idle();
+            receive_requests.recv()
+        };
+        let Ok(msg) = received else {
+            break;
+        };
         unsafe {
             handle_game_request(msg.request_type);
         }
@@ -219,9 +226,14 @@ pub fn step_lobby_init() -> bool {
 /// dispatched from inside SC:R's `process_events`). Stepping takes `LOBBY_INIT_COMPLETER` and then
 /// the event processing lock, so blocking on the completer while holding the event processing lock
 /// would deadlock against the async thread stepping in that order.
+///
+/// This never starts lobby init. Stepping it runs Storm's network step, which must not run before
+/// game setup has created or joined the lobby's Storm session: a step taken before then stalls
+/// Storm's lobby turns for good, so the game init command never goes through and the load hangs.
+/// Game setup starts lobby init (through [`step_lobby_init`]) once the session exists.
 pub fn try_step_lobby_init() -> bool {
     match LOBBY_INIT_COMPLETER.try_lock() {
-        Ok(mut completer) => completer.step(),
+        Ok(mut completer) => completer.step_if_started(),
         Err(_) => false,
     }
 }
@@ -807,6 +819,7 @@ pub fn map_name_for_filename() -> String {
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
 pub unsafe fn after_step_game() {
+    crate::stall_watch::beat();
     unsafe {
         let bw = get_bw();
         add_fow_sprites_for_replay_vision_change(bw);

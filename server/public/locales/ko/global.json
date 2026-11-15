@@ -225,6 +225,7 @@
       "openStarcraftSettings": "스타크래프트 설정 열기",
       "sessionExpired": "세션이 만료되었습니다",
       "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다.",
+      "unsupportedMachine": "이 컴퓨터에서는 ShieldBattery를 설정할 수 없습니다. 다른 컴퓨터에서 가입해 주세요.",
       "usernameTaken": "해당 아이디는 사용할 수 없습니다."
     },
     "usernameValidator": {
@@ -2252,13 +2253,21 @@
     },
     "bannedDialog": {
       "bannedFor": "이용 정지 기간:",
-      "description": "준비 완료를 하지 않거나 경기에 참여하지 않아 매치메이킹 이용이 일시 제한되었습니다.",
+      "description": "매치메이킹이 일시적으로 금지되었습니다.",
       "title": "매치메이킹 이용 정지"
     },
     "banNotification": {
       "ban": "준비하지 않았거나 경기에 로딩하지 않아 매치메이킹이 일시적으로 금지되었습니다.",
       "endsOn": "금지 종료 시각:",
       "warning": "준비하지 않았거나 경기에 로딩하지 않아 매치메이킹 경고를 받았습니다. 곧 다시 그러면 매치메이킹이 일시적으로 금지됩니다."
+    },
+    "banReason": {
+      "banFailedToLoad": "게임이 경기에 로딩되지 못해 매치메이킹이 일시적으로 금지되었습니다.",
+      "banLeft": "경기가 시작되기 전에 나가서 매치메이킹이 일시적으로 금지되었습니다. ShieldBattery와의 연결이 끊긴 경우도 나간 것으로 처리됩니다.",
+      "banNotReady": "제시간에 준비 완료하지 않아 매치메이킹이 일시적으로 금지되었습니다.",
+      "warningFailedToLoad": "게임이 경기에 로딩되지 못해 매치메이킹 경고를 받았습니다. 곧 다시 본인 때문에 경기가 시작되지 못하면 매치메이킹이 일시적으로 금지됩니다.",
+      "warningLeft": "경기가 시작되기 전에 나가서 매치메이킹 경고를 받았습니다. ShieldBattery와의 연결이 끊긴 경우도 나간 것으로 처리됩니다. 곧 다시 본인 때문에 경기가 시작되지 못하면 매치메이킹이 일시적으로 금지됩니다.",
+      "warningNotReady": "제시간에 준비 완료하지 않아 매치메이킹 경고를 받았습니다. 곧 다시 본인 때문에 경기가 시작되지 못하면 매치메이킹이 일시적으로 금지됩니다."
     },
     "disabledCard": {
       "days": "일",
@@ -2341,6 +2350,7 @@
         "reviewSettings": "검색하기 전에 종족을 선택하고 선택한 각 모드의 맵을 확인하세요.",
         "settingsLoading": "설정을 아직 불러오는 중입니다",
         "somethingWentWrong": "문제가 발생했습니다 :(",
+        "unsupportedMachine": "이 컴퓨터에서는 랭크전이 지원되지 않습니다. 다른 컴퓨터에서 플레이해 주세요.",
         "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
       },
       "fixedMap": "고정 맵",
@@ -3415,6 +3425,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "스타크래프트 또는 ShieldBattery 파일을 확인할 수 없어 게임을 시작하지 못했습니다.",
+      "matchmakingCost": "이렇게 시작하지 못한 경기가 쌓이면 매치메이킹이 금지됩니다.",
+      "repair": "Battle.net 런처에서 스타크래프트의 ‘검사 및 복구’를 실행한 후 다시 시도해 주세요. 문제가 계속되면 shieldbattery.net에서 ShieldBattery를 재설치해 주세요.",
+      "title": "게임 파일을 확인할 수 없습니다"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "가능하다면 이 파일들이 오탐(false positive)이라고 백신 업체에 신고해 주세요. 그래야 다른 사용자들에게도 이런 문제가 생기지 않을 거예요!",
       "middleContents": "이런 문제는 보통 설치된 백신 프로그램이 오탐(false positive)으로 잘못 판단해 파일에 조치를 취했을 때 발생합니다. 예외 목록에 해당 파일들을 추가하거나, 격리 해제 처리해야 할 수도 있어요. 또는 ShieldBattery를 다시 설치해 보는 것도 방법입니다.",

@@ -22,7 +22,12 @@ export function* range(start = 0, end = Number.MAX_SAFE_INTEGER, step = start <=
   }
 
   const numIterations = Math.ceil(Math.abs((end - start) / step))
-  for (let i = 0, value = start; i < numIterations; i++, value += step) {
+  for (let i = 0; i < numIterations; i++) {
+    const value = start + i * step
+    // Rounding in the iteration count can put the last value on or past `end`
+    if (step > 0 ? value >= end : value <= end) {
+      return
+    }
     yield value
   }
 }

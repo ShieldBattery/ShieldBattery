@@ -1,5 +1,6 @@
 import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
+import { MatchmakingBanReason } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
@@ -109,18 +110,19 @@ export class MatchmakingBanService {
   }
 
   /**
-   * Bans a user for not readying up or not loading into a match, automatically escalating the ban
-   * level as necessary, and notifies them of the ban (or warning) they received. The notification
-   * is stored, so a user who left by closing their app sees it the next time they connect.
+   * Bans a user for causing a match to fail to start, automatically escalating the ban level as
+   * necessary, and notifies them of the ban (or warning) they received and why. The notification is
+   * stored, so a user who left by closing their app sees it the next time they connect.
    */
   async banUser(
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
+    reason: MatchmakingBanReason,
   ): Promise<void> {
-    const { bannedUntil } = await this.escalateBan(userId, identifiers)
+    const { bannedUntil } = await this.escalateBan(userId, identifiers, undefined, reason)
     await this.notificationService.addNotification({
       userId,
-      data: { type: NotificationType.MatchmakingBan, bannedUntil },
+      data: { type: NotificationType.MatchmakingBan, bannedUntil, reason },
     })
   }
 
@@ -191,6 +193,7 @@ export class MatchmakingBanService {
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
     client?: DbClient,
+    reason?: MatchmakingBanReason,
   ): Promise<{ penalty: GamePenalty; bannedUntil: number | undefined }> {
     const now = this.clock.now()
     const unclearedBan = await checkUnclearedMatchmakingBan(
@@ -212,6 +215,7 @@ export class MatchmakingBanService {
         banLevel,
         banDurationMillis: banDuration,
         clearDurationMillis: clearDuration,
+        reason,
         now: new Date(now),
       },
       client,

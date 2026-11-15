@@ -225,6 +225,7 @@
       "openStarcraftSettings": "Abrir ajustes de StarCraft",
       "sessionExpired": "Sesión expirada",
       "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite.",
+      "unsupportedMachine": "No se puede configurar ShieldBattery en esta computadora. Intenta registrarte desde otra computadora.",
       "usernameTaken": "El nombre de usuario no está disponible."
     },
     "usernameValidator": {
@@ -2320,13 +2321,21 @@
     },
     "bannedDialog": {
       "bannedFor": "Estás baneado por:",
-      "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
+      "description": "Se te baneó temporalmente del emparejamiento.",
       "title": "Baneado del emparejamiento"
     },
     "banNotification": {
       "ban": "Se te baneó temporalmente del emparejamiento por no marcarte como listo o no cargar en un partido.",
       "endsOn": "Este baneo terminará el:",
       "warning": "Recibiste una advertencia de emparejamiento por no marcarte como listo o no cargar en un partido. Si vuelve a pasar pronto, se te baneará temporalmente del emparejamiento."
+    },
+    "banReason": {
+      "banFailedToLoad": "Se te baneó temporalmente del emparejamiento porque tu juego no pudo cargar un partido.",
+      "banLeft": "Se te baneó temporalmente del emparejamiento por abandonar un partido antes de que empezara. Perder la conexión con ShieldBattery cuenta como abandonar.",
+      "banNotReady": "Se te baneó temporalmente del emparejamiento por no marcarte como listo a tiempo para un partido.",
+      "warningFailedToLoad": "Recibiste una advertencia de emparejamiento porque tu juego no pudo cargar un partido. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento.",
+      "warningLeft": "Recibiste una advertencia de emparejamiento por abandonar un partido antes de que empezara. Perder la conexión con ShieldBattery cuenta como abandonar. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento.",
+      "warningNotReady": "Recibiste una advertencia de emparejamiento por no marcarte como listo a tiempo para un partido. Si otro partido no llega a empezar por tu causa pronto, se te baneará temporalmente del emparejamiento."
     },
     "disabledCard": {
       "days": "Días",
@@ -2409,6 +2418,7 @@
         "reviewSettings": "Elige una raza y revisa los mapas de cada modo seleccionado antes de buscar.",
         "settingsLoading": "Los ajustes aún se están cargando",
         "somethingWentWrong": "Algo salió mal :(",
+        "unsupportedMachine": "Las partidas clasificatorias no son compatibles con esta computadora. Intenta jugar desde otra computadora.",
         "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
       },
       "fixedMap": "Mapa fijo",
@@ -3517,6 +3527,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "ShieldBattery no pudo verificar tus archivos de StarCraft o de ShieldBattery, así que la partida no se inició.",
+      "matchmakingCost": "Cada partida que no se inicia por este motivo cuenta para un baneo de emparejamiento.",
+      "repair": "Usa “Analizar y reparar” con StarCraft en la app de Battle.net y vuelve a intentarlo. Si sigue pasando, reinstala ShieldBattery desde shieldbattery.net.",
+      "title": "No se pudieron verificar los archivos del juego"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
       "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",

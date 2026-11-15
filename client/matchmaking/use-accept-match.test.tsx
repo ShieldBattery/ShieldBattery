@@ -20,7 +20,7 @@ import { useAcceptMatch } from './use-accept-match'
 // call's spec is recorded so the test can answer them in order.
 const { acceptMatchMock, specs } = vi.hoisted(() => {
   const specs: Array<RequestHandlingSpec<void>> = []
-  const acceptMatchMock = vi.fn((spec: RequestHandlingSpec<void>) => {
+  const acceptMatchMock = vi.fn((_matchId: string, spec: RequestHandlingSpec<void>) => {
     specs.push(spec)
     return () => {}
   })
@@ -46,6 +46,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 function makeMatch(): FoundMatch {
   return {
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
     acceptStart: 0,
@@ -153,6 +154,17 @@ describe('client/matchmaking/use-accept-match', () => {
 
     expect(acceptMatchMock).toHaveBeenCalledTimes(2)
     expect(result.current.acceptInProgress).toBe(true)
+  })
+
+  test('names the match being accepted in every attempt', () => {
+    foundMatch()
+    const { result } = renderHook(() => useAcceptMatch(), { wrapper })
+
+    act(() => result.current.triggerAccept())
+    failLatest(new Error('network go boom'))
+    advance(RETRY_DELAY_MS)
+
+    expect(acceptMatchMock.mock.calls.map(([matchId]) => matchId)).toEqual(['match-1', 'match-1'])
   })
 
   test('drops a pending retry when a different match has been found', () => {

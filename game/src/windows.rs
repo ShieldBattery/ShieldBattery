@@ -150,6 +150,7 @@ pub fn resolve_precise_system_time() {
 }
 
 pub fn message_box(caption: &str, msg: &str) {
+    let _idle = crate::stall_watch::idle();
     unsafe {
         MessageBoxW(
             null_mut(),

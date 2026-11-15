@@ -79,6 +79,7 @@ function setSearchState({ searching, matched = false }: { searching: boolean; ma
     foundMatchAtom,
     matched
       ? {
+          matchId: 'match-1',
           matchmakingType: MatchmakingType.Match1v1,
           numPlayers: 2,
           acceptStart: 0,

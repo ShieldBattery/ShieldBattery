@@ -1,5 +1,5 @@
 import createDeferred, { Deferred } from '../../common/async/deferred'
-import { ReportedGameStatus } from '../../common/games/game-status'
+import { GameLaunchErrorKind, ReportedGameStatus } from '../../common/games/game-status'
 
 const waitingGames = new Map<string, Deferred<void>>()
 
@@ -13,9 +13,20 @@ const waitingGames = new Map<string, Deferred<void>>()
 const settledGames = new Map<string, ReportedGameStatus>()
 const MAX_SETTLED_GAMES = 8
 
+/** What {@link waitForActiveGame} rejects with when the game entered an error state. */
+export class ActiveGameError extends Error {
+  /** Why the launch failed, when it was for a reason the player can act on. */
+  readonly launchErrorKind?: GameLaunchErrorKind
+
+  constructor(status: ReportedGameStatus) {
+    super(status.extra)
+    this.launchErrorKind = status.launchErrorKind
+  }
+}
+
 /**
  * Returns a Promise that will resolve when a game with the specified ID enters playing state, or
- * rejects if it enters an error state. A game that already did either before this was called
+ * rejects with an {@link ActiveGameError} if it enters an error state. A game that already did either before this was called
  * settles the Promise immediately.
  *
  * Note that this will not time out, and there is no guarantee that a game with this ID has even
@@ -27,7 +38,7 @@ export function waitForActiveGame(gameId: string): Promise<void> {
     settledGames.delete(gameId)
     return settled.state === 'playing'
       ? Promise.resolve()
-      : Promise.reject(new Error(settled.extra))
+      : Promise.reject(new ActiveGameError(settled))
   }
 
   if (!waitingGames.has(gameId)) {
@@ -55,7 +66,7 @@ export function updateActiveGame(status: ReportedGameStatus) {
   if (status.state === 'playing') {
     waiting.resolve()
   } else {
-    waiting.reject(new Error(status.extra))
+    waiting.reject(new ActiveGameError(status))
   }
   waitingGames.delete(status.id)
 }

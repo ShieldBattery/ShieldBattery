@@ -13,6 +13,7 @@ import {
 
 function makeMatch(numPlayers = 2): FoundMatch {
   return {
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers,
     acceptStart: 0,

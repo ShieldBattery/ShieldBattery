@@ -15,11 +15,7 @@ import {
   NetcodeV2SlotEvidenceNotification,
   NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
-import {
-  GameResultErrorCode,
-  RawGameResultsReport,
-  SubmitGameResultsRequest,
-} from '../../../common/games/results'
+import { GameResultErrorCode, RawGameResultsReport } from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader } from '../games/game-loader'
 import {
@@ -200,7 +196,7 @@ const defaultForceReconcile: ForceReconcile = gameId =>
 /** The `submitGameResults` call `submitRelayResult` needs, factored out for injection in tests. */
 type SubmitGameResults = (args: {
   gameId: string
-  report: SubmitGameResultsRequest | RawGameResultsReport
+  report: RawGameResultsReport
   relayReportTime: Date
   relayReportFrame: number | null
   logger: Logger
@@ -278,7 +274,7 @@ async function submitRelayResult(
     )
     return false
   }
-  const report = value as SubmitGameResultsRequest | RawGameResultsReport
+  const report = value as RawGameResultsReport
 
   if (report.userId !== userId) {
     log.warn(

@@ -5,6 +5,7 @@ import { getErrorStack } from '../../common/errors'
 import { GameConfig, GameSource } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
+  AcceptMatchRequest,
   ALL_MATCHMAKING_TYPES,
   DraftChatMessageRequest,
   DraftLockPickRequest,
@@ -121,6 +122,12 @@ export function findMatch(
               'You must select at least one map in the settings for each chosen matchmaking type.',
             )
             break
+          case MatchmakingServiceErrorCode.UnsupportedMachine:
+            message = i18n.t(
+              'matchmaking.findMatch.errors.unsupportedMachine',
+              "Ranked play isn't supported on this computer. Try playing from a different computer.",
+            )
+            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,
@@ -232,10 +239,11 @@ export function cancelFindMatch(spec: RequestHandlingSpec<void>): ThunkAction {
   })
 }
 
-export function acceptMatch(spec: RequestHandlingSpec<void>): ThunkAction {
+export function acceptMatch(matchId: string, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async () => {
     await fetchJson<void>(apiUrl`matchmaking/accept`, {
       method: 'POST',
+      body: encodeBodyAsParams<AcceptMatchRequest>({ matchId }),
       signal: spec.signal,
     })
 
@@ -373,6 +381,15 @@ export function getMatchmakingBanStatus(
   })
 }
 
+/** The match of the draft this client is in, which every draft request names. */
+function currentDraftMatchId(): string {
+  const matchId = jotaiStore.get(draftStateAtom)?.matchId
+  if (!matchId) {
+    throw new Error('No draft is in progress')
+  }
+  return matchId
+}
+
 export function changeDraftRace(
   { race }: { race: RaceChar },
   spec: RequestHandlingSpec<void>,
@@ -382,6 +399,7 @@ export function changeDraftRace(
     await fetchJson<void>(apiUrl`matchmaking/draft/provisional-pick`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftProvisionalPickRequest>({
+        matchId: currentDraftMatchId(),
         race,
       }),
     })
@@ -415,6 +433,7 @@ export function lockInDraftRace(
     await fetchJson<void>(apiUrl`matchmaking/draft/lock-pick`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftLockPickRequest>({
+        matchId: currentDraftMatchId(),
         race,
       }),
     })
@@ -447,6 +466,7 @@ export function sendDraftChatMessage(
     await fetchJson<void>(apiUrl`matchmaking/draft/chat`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftChatMessageRequest>({
+        matchId: currentDraftMatchId(),
         message,
       }),
     })

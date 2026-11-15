@@ -9,6 +9,7 @@ import {
   makeSbChannelId,
   SbChannelId,
 } from '../../common/chat'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { channelFromMessageLink, ChannelLinkCard } from './channel-link-card'
 
@@ -73,6 +74,7 @@ function renderCard(
           moderatorIds: [],
         },
       ],
+      meta: { selfId: makeSbUserId(1) },
     })
   }
 

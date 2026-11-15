@@ -10,6 +10,7 @@ import { Clock } from '../time/clock'
 import { isUserBanned } from './ban-models'
 import { SignupProofService, VerifiedSignupRequest } from './signup-proof-service'
 import { UserApi } from './user-api'
+import { convertUserApiErrors, UserApiError } from './user-api-errors'
 import { UserIdentifierManager } from './user-identifier-manager'
 import { createUser } from './user-model'
 
@@ -138,7 +139,7 @@ test('machine checks and persistence use signed identifiers, ignoring supplied i
 })
 
 test('accepts a full native identifier envelope through request validation', async () => {
-  ctx.request.body.proof.body = Buffer.alloc(268).toString('base64')
+  ctx.request.body.proof.body = Buffer.alloc(397).toString('base64')
   await api.createUser(ctx)
   expect(service.verify).toHaveBeenCalledWith(
     expect.anything(),
@@ -146,6 +147,29 @@ test('accepts a full native identifier envelope through request validation', asy
     ctx.request.body.proof,
   )
   expect(manager.upsertAndReconcileRestrictions).toHaveBeenCalledWith(userId, signedIds)
+})
+
+test('rejects proof bodies longer than any identifier envelope', async () => {
+  ctx.request.body.proof.body = Buffer.alloc(400).toString('base64')
+  await expect(api.createUser(ctx)).rejects.toMatchObject({ status: 400 })
+  expect(service.verify).not.toHaveBeenCalled()
+})
+
+test('an unsupported machine never reaches account creation or preflight checks', async () => {
+  asMockedFunction(service.verify).mockRejectedValue(
+    new UserApiError(UserErrorCode.UnsupportedMachine, 'This machine is not supported'),
+  )
+  await expect(api.createUser(ctx)).rejects.toMatchObject({
+    code: UserErrorCode.UnsupportedMachine,
+  })
+  expect(createUser).not.toHaveBeenCalled()
+  expect(got.post).not.toHaveBeenCalled()
+  expect(manager.isSignupAllowed).not.toHaveBeenCalled()
+  expect(ctx.beginSession).not.toHaveBeenCalled()
+  await expect(convertUserApiErrors(ctx, () => api.createUser(ctx))).rejects.toMatchObject({
+    status: 403,
+    payload: { code: UserErrorCode.UnsupportedMachine },
+  })
 })
 
 test('a rejected proof never reaches account creation or preflight checks', async () => {

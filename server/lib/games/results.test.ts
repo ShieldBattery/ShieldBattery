@@ -355,7 +355,7 @@ describe('games/results/reconcileResults', () => {
   })
 
   test('2v2 with one player missing report and being disconnected', () => {
-    // Tests legacy clients that don't map disconnects-with-victories to losses
+    // Covers reports that don't map disconnects-with-victories to losses (as UMS reports don't)
     const results = [
       {
         reporter: makeSbUserId(2),

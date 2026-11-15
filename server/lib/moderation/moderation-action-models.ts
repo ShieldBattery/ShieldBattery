@@ -1,3 +1,4 @@
+import { MatchmakingBanReason } from '../../../common/matchmaking'
 import { ModerationAction, ModerationActionKind } from '../../../common/moderation-actions'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -296,9 +297,11 @@ async function queryMatchmakingBans(
     time_us: string
     expires_at: Date
     ban_level: number
+    reason: MatchmakingBanReason | null
   }>(sql`
     SELECT DISTINCT ON (m.created_at, m.triggered_by)
-      m.id, m.triggered_by AS user_id, ${microseconds(time)} AS time_us, m.expires_at, m.ban_level
+      m.id, m.triggered_by AS user_id, ${microseconds(time)} AS time_us, m.expires_at, m.ban_level,
+      m.reason
     FROM matchmaking_bans m
     WHERE m.triggered_by IS NOT NULL
       AND ${afterCursor(kind, time, sql`m.triggered_by`, 'int4', cursor)}
@@ -317,6 +320,7 @@ async function queryMatchmakingBans(
         userId: row.user_id,
         endTime: Number(row.expires_at),
         banLevel: row.ban_level,
+        reason: row.reason ?? undefined,
       },
     }
   })

@@ -6,25 +6,28 @@
 
 use std::collections::HashMap;
 
-use bw_dat::{Game, Race, Unit, UnitId};
-use egui::Color32;
+use bw_dat::{Game, OrderId, Race, Unit, UnitId};
+use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::kit::theme;
 use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
-    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    CarriedUnitView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, CountTuning,
     EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
     MapControlSideView, MapControlView, MatchupPlayerView, MatchupView, MilitaryPlayerView,
-    MilitaryView, ObserverView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView,
-    SelectedUnitView, SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView,
-    TeamCardView, TeamCardsView, TimelineEventView, TimelineView, UnitStatusView,
+    MilitaryView, ObserverView, OnScreenBaseView, OnScreenPlayerView, OnScreenUnitView,
+    OnScreenView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView, SelectedUnitView,
+    SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
+    TeamCardsView, TimelineEventView, TimelineView, UnitStatusView, WorkerJob,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
+use parking_lot::Mutex;
 
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
 use crate::bw_scr::stat_txt::{StatTxt, UnitStatus};
+use crate::bw_scr::unit_health_bars::{is_spellcaster, selection_circle_bottom};
 use crate::game_thread;
 
 use super::{
@@ -73,6 +76,387 @@ fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
             race: player_race(bw, player_id).1,
         })
         .collect()
+}
+
+/// Every unit of `players` in the main view, for the on-screen count's health bars and the groups
+/// it labels.
+///
+/// Read from the game's active list, which leaves out what is loaded into a transport or a bunker
+/// and so is not on the map to be seen. A unit is in the view when its center is. What is in it is
+/// anything of a player's that can be hurt and stands there in its own right, short of buildings
+/// (see [`in_on_screen_view`]); what is counted besides is narrower (see [`counts_on_screen`]).
+/// A worker at work is marked with what it is at (see [`worker_job`]).
+///
+/// A worker inside a refinery is off that list for as long as it is in there, and is in the view
+/// all the same where it is one of a base's workers (see [`workers_inside_refineries`]): the
+/// base's count would otherwise drop by one and come back with every trip into the gas.
+///
+/// Where a unit stands is given in shares of the game view, which for a watcher is the whole window:
+/// the console that would otherwise take the bottom of it is hidden for them.
+fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
+    let view = bw.map_view;
+    let share = |value: f32, origin: u32, span: u32| (value - origin as f32) / span.max(1) as f32;
+    let to_view = |x: f32, y: f32| {
+        pos2(
+            share(x, view.left, view.width),
+            share(y, view.top, view.height),
+        )
+    };
+    let mut units = Vec::new();
+    let mut kinds: Vec<UnitId> = Vec::new();
+    let town_halls: Vec<Unit> = bw
+        .active_units
+        .filter(|unit| unit.id().is_town_hall())
+        .collect();
+    let builders = builder_grouping();
+    let on_the_map = bw.active_units.map(|unit| (unit, true));
+    let inside = workers_inside_refineries(bw, players)
+        .into_iter()
+        .map(|unit| (unit, false));
+    for (unit, on_the_map) in on_the_map.chain(inside) {
+        let Some(player) = players
+            .iter()
+            .position(|player| player.player_id == unit.player())
+        else {
+            continue;
+        };
+        let position = unit.position();
+        if !view.contains(&position) || (on_the_map && !in_on_screen_view(unit)) {
+            continue;
+        }
+        let job = worker_job(unit, &town_halls, builders);
+        // Counted with its base's workers and nowhere else: there is nothing of it on the map
+        // for a label of its own to hang over.
+        if !on_the_map && !matches!(job, Some(WorkerJob::AtBase { .. })) {
+            continue;
+        }
+        let id = unit.id();
+        let kind = counts_on_screen(unit).then(|| {
+            kinds
+                .iter()
+                .position(|&kind| kind == id)
+                .unwrap_or_else(|| {
+                    kinds.push(id);
+                    kinds.len() - 1
+                })
+        });
+        let (x, y) = (f32::from(position.x), f32::from(position.y));
+        let body = id.dimensions();
+        let circle_bottom = unit
+            .sprite()
+            .and_then(|sprite| selection_circle_bottom(sprite.id()));
+        let drawn_above = drawn_above(i32::from(body.top), circle_bottom) as f32;
+        units.push(OnScreenUnitView {
+            // Only `None` before the game has allocated its units, which is before there are any
+            // to draw.
+            id: bw
+                .units
+                .as_ref()
+                .map_or(0, |units| units.to_unique_id(unit)),
+            player,
+            kind,
+            job,
+            orders: same_orders_number(bw, unit),
+            position: to_view(x, y),
+            top: to_view(x, y - drawn_above).y,
+            // Nothing to click on of a unit that is not on the map.
+            bounds: if on_the_map {
+                Rect::from_min_max(
+                    to_view(x - f32::from(body.left), y - f32::from(body.top)),
+                    to_view(
+                        x + f32::from(body.right) + 1.0,
+                        y + f32::from(body.bottom) + 1.0,
+                    ),
+                )
+            } else {
+                Rect::NOTHING
+            },
+        });
+    }
+    // The order the game itself ranks units in, highest first: the rank that decides whose portrait
+    // and voice a mixed selection gets. Kinds of equal rank go in the game's own order of unit ids,
+    // so a kind keeps its place whatever happens to the counts around it.
+    let mut order: Vec<usize> = (0..kinds.len()).collect();
+    order.sort_unstable_by_key(|&kind| (std::cmp::Reverse(kinds[kind].rank()), kinds[kind].0));
+    let mut place = vec![0; kinds.len()];
+    for (drawn, &kind) in order.iter().enumerate() {
+        place[kind] = drawn;
+    }
+    for unit in &mut units {
+        unit.kind = unit.kind.map(|kind| place[kind]);
+    }
+    OnScreenView {
+        players: players
+            .iter()
+            .map(|player| OnScreenPlayerView {
+                name: player.name.clone(),
+                color: player.color,
+                vision: player.vision,
+            })
+            .collect(),
+        kinds: order
+            .into_iter()
+            .map(|kind| production::unit_icon(kinds[kind], bw))
+            .collect(),
+        units,
+        bases: town_halls
+            .iter()
+            .map(|town_hall| {
+                let position = town_hall.position();
+                let circle_bottom = town_hall
+                    .sprite()
+                    .and_then(|sprite| selection_circle_bottom(sprite.id()));
+                let body_top = i32::from(town_hall.id().dimensions().top);
+                OnScreenBaseView {
+                    top: to_view(
+                        f32::from(position.x),
+                        f32::from(position.y) - drawn_above(body_top, circle_bottom) as f32,
+                    ),
+                }
+            })
+            .collect(),
+        map_view: Some(Rect::from_min_size(
+            pos2(view.left as f32, view.top as f32),
+            vec2(view.width as f32, view.height as f32),
+        )),
+        tuning: count_tuning(),
+    }
+}
+
+/// How the on-screen count's labels keep their places and move, which the debug window can change
+/// while a game runs.
+static COUNT_TUNING: Mutex<CountTuning> = Mutex::new(CountTuning::DEFAULT);
+
+pub(super) fn count_tuning() -> CountTuning {
+    *COUNT_TUNING.lock()
+}
+
+pub(super) fn set_count_tuning(motion: CountTuning) {
+    *COUNT_TUNING.lock() = motion;
+}
+
+/// How workers putting up buildings are grouped by the on-screen count, which the debug window can
+/// change while a game runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum BuilderGrouping {
+    /// In groups of their own.
+    Apart,
+    /// With the workers out gathering.
+    WithGatherers,
+    /// As any other unit is, with whatever stands by them.
+    WithArmy,
+}
+
+static BUILDER_GROUPING: Mutex<BuilderGrouping> = Mutex::new(BuilderGrouping::Apart);
+
+pub(super) fn builder_grouping() -> BuilderGrouping {
+    *BUILDER_GROUPING.lock()
+}
+
+pub(super) fn set_builder_grouping(grouping: BuilderGrouping) {
+    *BUILDER_GROUPING.lock() = grouping;
+}
+
+/// The work `unit` is at, for a worker at work, given every town hall on the map: one of the
+/// workers of the base of the town hall at an index of `town_halls`, gathering there or standing
+/// idle there (see [`base_worked`]), or putting up a building (see [`is_building_order`]), which
+/// `builders` can have counted with the workers of the base it is at or as no work at all.
+fn worker_job(unit: Unit, town_halls: &[Unit], builders: BuilderGrouping) -> Option<WorkerJob> {
+    if !unit.id().is_worker() {
+        return None;
+    }
+    let order = unit.order();
+    let at_base = || base_worked(unit, town_halls).map(|base| WorkerJob::AtBase { base });
+    if is_gathering_order(order) || is_idle_order(order) {
+        at_base()
+    } else if is_building_order(order) {
+        match builders {
+            BuilderGrouping::Apart => Some(WorkerJob::Building),
+            BuilderGrouping::WithGatherers => at_base().or(Some(WorkerJob::Building)),
+            BuilderGrouping::WithArmy => None,
+        }
+    } else {
+        None
+    }
+}
+
+/// How far from one of its owner's town halls, in pixels, a worker can be and still be working
+/// that base: past the far side of the furthest mineral patch or geyser a base is laid out with.
+const GATHERING_RANGE: i32 = 12 * 32;
+
+/// The base `unit` is at, as the index in `town_halls` of the nearest of its owner's town halls
+/// within [`GATHERING_RANGE`] of it, or `None` where it is at none of its owner's bases.
+///
+/// A worker on a gathering order is only gathering at one of those. One told to gather so that it
+/// slips through the units in its way, at a mineral line that is not its owner's, is on the same
+/// orders, and is there with the army it came with. So is not one on its way across the map to a
+/// base it has yet to reach.
+fn base_worked(unit: Unit, town_halls: &[Unit]) -> Option<usize> {
+    let position = unit.position();
+    let away = |town_hall: &Unit| {
+        let at = town_hall.position();
+        let across = i32::from(at.x) - i32::from(position.x);
+        let down = i32::from(at.y) - i32::from(position.y);
+        across * across + down * down
+    };
+    town_halls
+        .iter()
+        .enumerate()
+        .filter(|(_, town_hall)| town_hall.player() == unit.player())
+        .map(|(base, town_hall)| (base, away(town_hall)))
+        .filter(|&(_, away)| away <= GATHERING_RANGE * GATHERING_RANGE)
+        .min_by_key(|&(_, away)| away)
+        .map(|(base, _)| base)
+}
+
+/// Whether `order` is one of those a worker goes through to gather: on its way to a mineral patch
+/// or a geyser, waiting on it, mining it, carrying what it mined back, and, between those, waiting
+/// to be clear of the workers it passed through before it collides with units again. A worker is
+/// on that last one for a few frames of every trip, and a count that left it out then would lose
+/// and regain a worker each time.
+fn is_gathering_order(order: OrderId) -> bool {
+    use bw_dat::order;
+
+    (order::HARVEST.0..=order::HARVEST_INTERRUPTED_SHIELD_RECHARGE.0).contains(&order.0)
+        || order == order::RESET_COLLISION
+        || order == order::RESET_COLLISION_HARVESTER
+}
+
+/// Whether `order` is one a worker with nothing to do is on. One standing at a base of its owner's
+/// is one of that base's workers, as the worker a town hall has just made is until it is sent to
+/// gather; one told to move or attack is not, and is with whatever it was sent with.
+fn is_idle_order(order: OrderId) -> bool {
+    use bw_dat::order;
+
+    matches!(
+        order,
+        order::STOP | order::GUARD | order::PLAYER_GUARD | order::COMPUTER_AI
+    )
+}
+
+/// Whether `order` is one a worker is on to put up a building: an SCV on its way to the site and
+/// then building there, a probe on its way to warp one in, a drone on its way to become one.
+/// Repairing is not one of them: an SCV repairing is as often as not doing it in a fight.
+fn is_building_order(order: OrderId) -> bool {
+    use bw_dat::order;
+
+    matches!(
+        order,
+        order::SCV_BUILD
+            | order::CONSTRUCTING_BUILDING
+            | order::PROBE_BUILD
+            | order::PROBE_CREATE_BUILDING
+            | order::DRONE_BUILD
+            | order::DRONE_BUILD2
+    )
+}
+
+/// How far above where it stands, in pixels, what is drawn of a unit reaches, for a unit whose body
+/// reaches `body_top` above it and the bottom of whose selection circle is `circle_bottom` below.
+///
+/// The game keeps no such height for a unit. The circle is drawn at a unit's feet and a unit
+/// stands about where the middle of its art is, so its art reaches about as far up as its circle
+/// reaches down, which is further than its body does for anything that stands upright.
+fn drawn_above(body_top: i32, circle_bottom: Option<i32>) -> i32 {
+    body_top.max(circle_bottom.unwrap_or(0))
+}
+
+/// A number for the orders `unit` is on that two units on the same orders share: the same order
+/// at the same target unit, or with none, to the same place. `None` for a unit with nothing to
+/// do, or on an order that has no target or place.
+///
+/// Units a player sends somewhere together are given the one place where they stand apart, and
+/// places of their own, as far apart as they stand, where they stand close enough to keep their
+/// formation. So the units this does not match are the ones standing together already.
+fn same_orders_number(bw: &BwVars, unit: Unit) -> Option<u64> {
+    let order = unit.order();
+    if is_idle_order(order) {
+        return None;
+    }
+    let order = u64::from(order.0) << 32;
+    match unit.target() {
+        Some(target) => {
+            let target = bw.units.as_ref()?.to_unique_id(target);
+            Some((1 << 63) | order | u64::from(target))
+        }
+        None => {
+            let place = unit.target_pos();
+            (place.x != 0 || place.y != 0)
+                .then(|| order | (u64::from(place.x as u16) << 16) | u64::from(place.y as u16))
+        }
+    }
+}
+
+/// The workers of `players` that are inside a refinery, gathering from it.
+///
+/// The game takes a worker off the map while it is in there, and off the list of the units that
+/// are on it, so these are read from each player's own list of units, which keeps every unit the
+/// player has wherever it is. A worker in a refinery is one that is hidden while on a gathering
+/// order: what else hides a worker, a transport or a bunker, takes it off those orders.
+fn workers_inside_refineries(bw: &BwVars, players: &[StatsPlayer]) -> Vec<Unit> {
+    let mut inside = Vec::new();
+    for player in players {
+        // SAFETY: `first_player_unit` is the game's array of the first unit of each player's
+        // list, which a slot the panels report on has an entry in, and each unit on a list
+        // points to the next or to nothing.
+        let mut next = unsafe { *bw.first_player_unit.add(usize::from(player.player_id)) };
+        while let Some(unit) = unsafe { Unit::from_ptr(next) } {
+            if unit.id().is_worker() && unit.is_hidden() && is_gathering_order(unit.order()) {
+                inside.push(unit);
+            }
+            next = unsafe { (**unit).next_player_unit };
+        }
+    }
+    inside
+}
+
+/// The units on the map that the on-screen count named by the ids [`build_on_screen_view`] gave
+/// them (`ids`, sorted), to draw health bars under or to light up.
+pub(super) fn on_screen_units(bw: &BwVars, ids: &[u32]) -> Vec<Unit> {
+    let Some(units) = bw.units.as_ref().filter(|_| !ids.is_empty()) else {
+        return Vec::new();
+    };
+    bw.active_units
+        .filter(|&unit| {
+            in_on_screen_view(unit) && ids.binary_search(&units.to_unique_id(unit)).is_ok()
+        })
+        .collect()
+}
+
+/// Whether `unit` is in the on-screen count, with a health bar under it: anything that can be hurt
+/// and stands on the map in its own right, which leaves out the turret half of a unit already
+/// drawn, what a unit fires or lays, the markers a spell leaves, and hallucinations, whose bars
+/// would be bars of nothing. Buildings are left out too: they stand still where the watcher already
+/// knows them, and their bars would only crowd those of the units around them.
+fn in_on_screen_view(unit: Unit) -> bool {
+    use bw_dat::unit;
+
+    let id = unit.id();
+    !unit.is_invincible()
+        && !unit.is_hallucination()
+        && !id.is_building()
+        && !id.is_subunit()
+        && !id.is_powerup()
+        && !matches!(
+            id,
+            unit::SCARAB
+                | unit::INTERCEPTOR
+                | unit::SPIDER_MINE
+                | unit::NUCLEAR_MISSILE
+                | unit::SCANNER_SWEEP
+                | unit::MAP_REVEALER
+                | unit::DISRUPTION_WEB
+                | unit::DARK_SWARM
+        )
+}
+
+/// Whether `unit` is one the on-screen count counts: of what is in its view (see
+/// [`in_on_screen_view`]), what would be thought of as one of a player's units standing there,
+/// which is not larvae and eggs.
+fn counts_on_screen(unit: Unit) -> bool {
+    use bw_dat::unit;
+
+    !matches!(unit.id(), unit::LARVA | unit::EGG)
 }
 
 /// The observer panels as the last frame handed them to the shell, and what the ones reporting the
@@ -146,6 +530,7 @@ impl ObserverViewCache {
         let control_groups = build_control_groups_view(bw, &players, stats);
         let selection = build_selection_view(bw, &players);
         let map_control = build_map_control_view(&matchup, stats);
+        let on_screen = build_on_screen_view(bw, &players);
         let mut cache = match previous {
             Some(mut cache) => {
                 cache.view.matchup = matchup;
@@ -154,6 +539,7 @@ impl ObserverViewCache {
                 cache.view.control_groups = control_groups;
                 cache.view.selection = selection;
                 cache.view.map_control = map_control;
+                cache.view.on_screen = on_screen;
                 if cache.players != players {
                     cache.players = players;
                     cache.economy = None;
@@ -185,6 +571,7 @@ impl ObserverViewCache {
                     control_groups,
                     selection,
                     map_control,
+                    on_screen,
                 },
                 players,
                 economy: None,
@@ -825,13 +1212,6 @@ fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
     Some((u32::from(unit.death_timer()) / 10, max))
 }
 
-/// Whether units.dat marks this kind of unit a spellcaster, with an energy pool of its own.
-/// `bw_dat` names the flags either side of this one in the same word, but not this one.
-fn is_spellcaster(unit_id: UnitId) -> bool {
-    const SPELLCASTER: u32 = 0x0020_0000;
-    unit_id.flags() & SPELLCASTER != 0
-}
-
 /// The energy this unit tops out at, in the same 8.8 fixed point its current energy is in.
 ///
 /// The upgrade tables the maximum comes from are indexed by player slot and assert on anything past
@@ -1122,6 +1502,59 @@ mod tests {
         assert_eq!(add_series(total, &[10.0]), vec![11.0]);
         let total = add_series(Vec::new(), &[1.0]);
         assert_eq!(add_series(total, &[10.0, 20.0]), vec![11.0]);
+    }
+
+    #[test]
+    fn the_orders_a_worker_gathers_on_are_the_ones_between_a_resource_and_its_base() {
+        use bw_dat::order;
+
+        for gathering in [
+            order::HARVEST_MINERALS_MOVE,
+            order::HARVEST_MINERALS_START,
+            order::HARVEST_MINERALS,
+            order::RETURN_MINERALS,
+            order::HARVEST_GAS_MOVE,
+            order::HARVEST_GAS,
+            order::RETURN_GAS,
+            order::RESET_COLLISION,
+            order::RESET_COLLISION_HARVESTER,
+        ] {
+            assert!(is_gathering_order(gathering), "{gathering:?}");
+        }
+        for other in [order::MOVE, order::ATTACK_MOVE, order::STOP] {
+            assert!(!is_gathering_order(other), "{other:?}");
+        }
+        // A worker just made, or told to stop, has nothing to do; one sent somewhere has.
+        assert!(is_idle_order(order::PLAYER_GUARD) && is_idle_order(order::STOP));
+        assert!(!is_idle_order(order::MOVE) && !is_idle_order(order::ATTACK_MOVE));
+        assert!(!is_idle_order(order::HARVEST_MINERALS));
+    }
+
+    #[test]
+    fn the_orders_a_worker_builds_on_take_it_to_the_site_and_through_the_building() {
+        use bw_dat::order;
+
+        for building in [
+            order::SCV_BUILD,
+            order::CONSTRUCTING_BUILDING,
+            order::PROBE_BUILD,
+            order::DRONE_BUILD,
+        ] {
+            assert!(is_building_order(building), "{building:?}");
+            assert!(!is_gathering_order(building), "{building:?}");
+        }
+        for other in [order::REPAIR, order::MOVE, order::HARVEST_MINERALS] {
+            assert!(!is_building_order(other), "{other:?}");
+        }
+    }
+
+    #[test]
+    fn a_unit_is_drawn_as_far_up_as_its_circle_reaches_down_or_its_body_reaches_up() {
+        // A zealot: a body 5 pixels up from where it stands, a circle whose bottom is 15 below.
+        assert_eq!(drawn_above(5, Some(15)), 15);
+        // Something squat and wide, and something sprites.dat gives no circle.
+        assert_eq!(drawn_above(20, Some(12)), 20);
+        assert_eq!(drawn_above(7, None), 7);
     }
 
     #[test]

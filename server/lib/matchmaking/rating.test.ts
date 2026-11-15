@@ -5,7 +5,7 @@ import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../commo
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { ActiveLeagueUser } from '../leagues/league-models'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
-import { calculateChangedRatings } from './rating'
+import { adjustMatchmakingRatingForInactivity, calculateChangedRatings } from './rating'
 
 const GAME_ID = 'asdfzxcv'
 const GAME_DATE = new Date('2022-05-02T00:00:00.000Z')
@@ -2540,5 +2540,24 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     // Points also price in teammates: the weaker player's points sit at their rating target, so
     // they earn what their teammates do for an even win.
     expect(weakChange.pointsChange).toBeCloseTo(strongChange.pointsChange)
+  })
+})
+
+describe('matchmaking/rating/adjustMatchmakingRatingForInactivity', () => {
+  const LAST_PLAYED = new Date('2022-05-01T00:00:00.000Z')
+  const TWO_WEEKS_LATER = new Date('2022-05-15T00:00:00.000Z')
+
+  test('inactivity grows uncertainty below the cap', () => {
+    const mmr = createMatchmakingRating({ uncertainty: 100, lastPlayedDate: LAST_PLAYED })
+
+    expect(adjustMatchmakingRatingForInactivity(mmr, TWO_WEEKS_LATER).uncertainty).toBeGreaterThan(
+      100,
+    )
+  })
+
+  test('inactivity never lowers uncertainty that is already above the cap', () => {
+    const mmr = createMatchmakingRating({ uncertainty: 300, lastPlayedDate: LAST_PLAYED })
+
+    expect(adjustMatchmakingRatingForInactivity(mmr, TWO_WEEKS_LATER).uncertainty).toBe(300)
   })
 })

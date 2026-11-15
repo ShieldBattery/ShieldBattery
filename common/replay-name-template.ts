@@ -83,24 +83,39 @@ export function sanitizeReplayNameText(text: string): string {
 }
 
 /**
+ * Windows device names, which can't be used as a filename whatever extension follows them (`CON`,
+ * `nul.rep` and `COM1 .rep` all refer to the device).
+ */
+const RESERVED_DEVICE_NAME = /^(?:con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])$/i
+
+function isReservedDeviceName(name: string): boolean {
+  return RESERVED_DEVICE_NAME.test(name.split('.')[0].trimEnd())
+}
+
+/**
  * Fills in a template with the given token values, producing a filename without its extension.
  * The result is sanitized, cut to `MAX_REPLAY_NAME_LENGTH` and stripped of the trailing dots and
- * spaces Windows ignores; a template that renders to nothing falls back to the default template.
+ * spaces Windows ignores; a name that Windows reserves for a device gets a leading `_`. A template
+ * that renders to nothing falls back to the default template.
  */
 export function renderReplayNameTemplate(
   template: string,
   values: Readonly<Record<ReplayNameToken, string>>,
 ): string {
-  const render = (t: string) =>
-    Array.from(
-      parseReplayNameTemplate(t)
-        .map(p => sanitizeReplayNameText(p.kind === 'token' ? values[p.token] : p.text))
-        .join(''),
-    )
+  const finish = (name: string) =>
+    Array.from(name)
       .slice(0, MAX_REPLAY_NAME_LENGTH)
       .join('')
       .replace(/[. ]+$/, '')
       .trim()
+  const render = (t: string) => {
+    const name = finish(
+      parseReplayNameTemplate(t)
+        .map(p => sanitizeReplayNameText(p.kind === 'token' ? values[p.token] : p.text))
+        .join(''),
+    )
+    return isReservedDeviceName(name) ? finish('_' + name) : name
+  }
 
   return render(template) || render(DEFAULT_REPLAY_NAME_TEMPLATE)
 }

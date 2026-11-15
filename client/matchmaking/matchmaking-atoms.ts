@@ -38,6 +38,7 @@ export interface FindMatchSelection {
 export const findMatchSelectionAtom = atom<FindMatchSelection | undefined>(undefined)
 
 export interface FoundMatch {
+  matchId: string
   matchmakingType: MatchmakingType
   numPlayers: number
   /** The time when the accept process started (as returned by `window.performance.now()`). */
@@ -70,9 +71,9 @@ export const foundMatchAtom = atom(
 )
 
 /**
- * Counter identifying which found match `foundMatchAtom` currently holds. Matches carry no id of
- * their own in the events that describe them, so this is what tells one found match apart from the
- * next: it changes every time a match is found, replaced, or cleared. Code that starts an accept
+ * Counter identifying which found match `foundMatchAtom` currently holds. It changes every time a
+ * match is found, replaced, or cleared, even when the same match is delivered again (as it is after
+ * a reconnect), so it tells apart every stretch this client has spent accepting. Code that starts an accept
  * request records the generation it was sent for and compares it before acting on the result, so a
  * response that arrives after its match is gone can't be applied to the match that took its place.
  */

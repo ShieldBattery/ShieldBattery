@@ -150,14 +150,17 @@ export function adjustMatchmakingRatingForInactivity(
     return mmr
   }
 
-  let newUncertainty = mmr.uncertainty / 173.7178
+  const startUncertainty = mmr.uncertainty / 173.7178
+  // Inactivity only ever adds uncertainty, so a player who is already above the cap keeps theirs.
+  const maxUncertainty = Math.max(MAX_INCREASED_UNCERTAINTY, startUncertainty)
+  let newUncertainty = startUncertainty
   const periodsInactive = Math.floor(
     (Number(targetDate) - Number(mmr.lastPlayedDate)) / MATCHMAKING_INACTIVE_TIME_MS,
   )
   for (let i = 0; i < periodsInactive; i++) {
     const next = Math.sqrt(Math.pow(newUncertainty, 2) + Math.pow(mmr.volatility, 2))
-    if (next > MAX_INCREASED_UNCERTAINTY) {
-      newUncertainty = MAX_INCREASED_UNCERTAINTY
+    if (next > maxUncertainty) {
+      newUncertainty = maxUncertainty
       break
     }
 
@@ -477,6 +480,10 @@ function calcPointsChange({
     // For wins, bonus pool can up to double the point improvement, catch-up points included, so a
     // player who is far below their target spends their pool quickly. For losses, bonus pool can
     // offset up to the entire amount of the point loss.
+    //
+    // NOTE(tec27): A loss spends bonus even when the 0-point floor below would have absorbed it
+    // anyway. Otherwise a player could lose their way down to 0 points for free and keep their whole
+    // pool to double the wins that follow.
     bonusApplied = Math.min(bonusInfo.bonusAvailable, Math.abs(pointsChange))
     pointsChange = pointsChange + bonusApplied
   }

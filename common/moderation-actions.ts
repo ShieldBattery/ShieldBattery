@@ -1,3 +1,4 @@
+import { MatchmakingBanReason } from './matchmaking'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
@@ -70,6 +71,8 @@ export interface MatchmakingBanModerationAction extends BaseModerationAction {
   kind: ModerationActionKind.MatchmakingBan
   endTime: number
   banLevel: number
+  /** Why the ban was issued. Absent for bans recorded without a reason. */
+  reason?: MatchmakingBanReason
 }
 
 export type ModerationAction =

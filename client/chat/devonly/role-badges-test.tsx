@@ -145,6 +145,7 @@ const SEED_ACTIONS: ReduxAction[] = [
   {
     type: '@chat/getJoinedChannels',
     payload: [initialChannelData([MODERATOR, LONG_NAME_MODERATOR])],
+    meta: { selfId: VIEWER },
   },
   {
     type: '@chat/initActiveUsers',

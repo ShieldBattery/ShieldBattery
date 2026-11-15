@@ -37,6 +37,7 @@ const ACCEPT_TIME_MS = 30000
 /** A match whose accept window started `elapsedMillis` ago. */
 function makeMatch(elapsedMillis = 0): FoundMatch {
   return {
+    matchId: 'match-1',
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
     acceptStart: performance.now() - elapsedMillis,

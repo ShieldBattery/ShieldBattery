@@ -309,6 +309,9 @@ pub unsafe fn add_overlays(
 ) {
     unsafe {
         update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
+        if let Some((square, primitives)) = overlay_out.behind_minimap.take() {
+            draw_behind_minimap(state, bw, ui, square, primitives);
+        }
         for (layer, primitives) in overlay_out.primitives.into_iter() {
             let (layer, render_target) = match screen {
                 _ if layer <= LAST_UI_TARGET_LAYER => (layer, ui),
@@ -338,6 +341,74 @@ pub unsafe fn add_overlays(
             }
         }
         queue_free_textures(state, &mut overlay_out.textures_delta);
+    }
+}
+
+/// Draws `primitives` behind the minimap, whose square in the overlay's points is `square`: just
+/// before the first thing the game has queued to draw there, of what it draws to the UI's render
+/// target. Nothing is drawn where the game draws nothing there.
+///
+/// The game draws its view of the map into that target, a quad over all of it, and then its UI,
+/// the minimap in it. In SD the minimap is one quad of a picture the game has painted, see-through
+/// wherever it painted nothing; in HD it is several. Whichever comes first is found by where it
+/// is drawn. Draws are made in the order of their layers, and those of one layer in the order of a
+/// number each was given as it was queued, so what is drawn here is given the layer and number of
+/// that first draw, and it and every draw the game queued after it are numbered on past these.
+unsafe fn draw_behind_minimap(
+    state: &mut RenderState,
+    bw: &BwVars,
+    ui: &RenderTarget,
+    square: egui::Rect,
+    primitives: Vec<egui::ClippedPrimitive>,
+) {
+    /// How far outside the square, in shares of the screen, a draw can start and still be the
+    /// minimap's: what rounding the square to the game's pixels and back leaves.
+    const SLACK: f32 = 0.005;
+
+    unsafe {
+        let draw_sort = addr_of_mut!((*bw.commands).draw_sort_vector) as *mut scr::BwVector;
+        let queued = (*draw_sort).length;
+        let sorts = |length: usize| {
+            std::slice::from_raw_parts_mut((*draw_sort).data as *mut scr::DrawSort, length)
+        };
+        // Where a draw's vertices are in the same shares of the screen, counted up from its
+        // bottom left, as every vertex of the UI's draws starts with.
+        let across = square.left() * ui.w_recip - SLACK..=square.right() * ui.w_recip + SLACK;
+        let up =
+            1.0 - square.bottom() * ui.h_recip - SLACK..=1.0 - square.top() * ui.h_recip + SLACK;
+        let vertices = (*bw.vertex_buf).buffer.data as *const u8;
+        let first = sorts(queued)
+            .iter()
+            .filter(|sort| {
+                let command = &*sort.command;
+                if command.render_target_id != ui.id || command.used_vertex_count == 0 {
+                    return false;
+                }
+                let at = vertices.add(command.vertex_buffer_offset_bytes) as *const [f32; 2];
+                let [x, y] = at.read_unaligned();
+                across.contains(&x) && up.contains(&y)
+            })
+            .map(|sort| (sort.layer, sort.index))
+            .min();
+        let Some((layer, index)) = first else {
+            return;
+        };
+        for primitive in primitives {
+            if let epaint::Primitive::Mesh(mesh) = primitive.primitive
+                && let Err(e) = draw_egui_mesh(layer, state, mesh, bw, ui, &primitive.clip_rect)
+            {
+                warn_once!("Failed to draw mesh behind the minimap: {e}");
+            }
+        }
+        // Read again, as queuing more can have moved them.
+        let sorts = sorts((*draw_sort).length);
+        let (game, ours) = sorts.split_at_mut(queued);
+        for sort in game.iter_mut().filter(|sort| sort.index >= index) {
+            sort.index += ours.len() as u16;
+        }
+        for (place, sort) in ours.iter_mut().enumerate() {
+            sort.index = index + place as u16;
+        }
     }
 }
 

@@ -103,6 +103,8 @@ mod sprite_unit_map;
 mod stat_txt;
 pub(crate) mod thiscall;
 mod tick_gates;
+mod unit_health_bars;
+mod unit_highlights;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -405,6 +407,7 @@ pub struct BwScr {
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
+    draw_image: VirtualAddress,
     /// What draws the software cursor, and moves it above the overlay; `None` where the analysis
     /// cannot place it all, which leaves the cursor drawn under the overlay.
     software_cursor: Option<SoftwareCursor>,
@@ -477,6 +480,10 @@ pub struct BwScr {
     /// The overlay draws straight to the backbuffer like the game's own final pass does, so the
     /// render hook reading the HD mode off that pass must step past these.
     overlay_draw_commands: (AtomicU32, AtomicU32),
+    /// The units the on-screen count has the game draw health bars under.
+    unit_health_bars: unit_health_bars::UnitHealthBars,
+    /// The units of the on-screen count's group the watcher is pointing at, lit up as drawn.
+    unit_highlights: unit_highlights::UnitHighlights,
     /// The span of this frame's draw commands that are the software cursor's, which goes to the
     /// backbuffer as well and must be stepped past the same way.
     software_cursor_draw_commands: (AtomicU32, AtomicU32),
@@ -6544,6 +6551,11 @@ mod hooks {
     #[cfg(target_arch = "x86_64")]
     whack_hooks!(0, // cdecl
         !0 => LoadDdsgrpCursor(*const u8, bool, u64, usize) -> usize;
+    );
+
+    // Queues the draw commands of one image of a sprite. The image in ecx on 32-bit.
+    thiscall_hooks!(
+        !0 => DrawImage(*mut bw::Image);
     );
 
     #[cfg(target_arch = "x86")]

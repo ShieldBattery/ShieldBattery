@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { MatchmakingBanReason } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql, sqlConcat } from '../db/sql'
@@ -17,6 +18,8 @@ export interface MatchmakingBanRow {
   identifierType: number
   identifierHash: Buffer
   triggeredBy?: SbUserId
+  /** Why the ban was issued. Absent for bans that weren't for a failed match start. */
+  reason?: MatchmakingBanReason
   banLevel: number
   createdAt: Date
   expiresAt: Date
@@ -33,6 +36,7 @@ function convertMatchmakingBanRowFromDb(dbRow: DbMatchmakingBanRow): Matchmaking
     identifierType: dbRow.identifier_type,
     identifierHash: dbRow.identifier_hash,
     triggeredBy: dbRow.triggered_by !== null ? dbRow.triggered_by : undefined,
+    reason: dbRow.reason !== null ? dbRow.reason : undefined,
     banLevel: dbRow.ban_level,
     createdAt: dbRow.created_at,
     expiresAt: dbRow.expires_at,
@@ -102,14 +106,14 @@ export async function checkActiveMatchmakingBan(
         ),
         all_matching_bans AS (
           SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,
-            mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at
+            mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at, mb.reason
           FROM matchmaking_bans mb
           WHERE mb.triggered_by = ${userId} AND
             mb.cleared = false AND
             mb.expires_at > ${now}
           UNION
             SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,
-              mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at
+              mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at, mb.reason
             FROM matchmaking_bans mb
             JOIN matching_id_bans mib ON mb.id = mib.id
             WHERE mib.num_matches >= ${minSameIdentifiers}
@@ -196,14 +200,14 @@ export async function checkUnclearedMatchmakingBan(
         ),
         all_matching_bans AS (
           SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,
-            mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at
+            mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at, mb.reason
           FROM matchmaking_bans mb
           WHERE mb.triggered_by = ${userId} AND
             mb.cleared = false AND
             mb.clears_at > ${now}
           UNION
             SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,
-              mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at
+              mb.ban_level, mb.created_at, mb.expires_at, mb.clears_at, mb.reason
             FROM matchmaking_bans mb
             JOIN matching_id_bans mib ON mb.id = mib.id
             WHERE mib.num_matches >= ${minSameIdentifiers}
@@ -226,6 +230,7 @@ export async function addMatchmakingBan(
     banLevel,
     banDurationMillis,
     clearDurationMillis,
+    reason,
     now = new Date(),
   }: {
     userId: SbUserId
@@ -233,6 +238,7 @@ export async function addMatchmakingBan(
     banLevel: number
     banDurationMillis: number
     clearDurationMillis: number
+    reason?: MatchmakingBanReason
     now?: Date
   },
   withClient?: DbClient,
@@ -249,13 +255,13 @@ export async function addMatchmakingBan(
     await client.query<DbMatchmakingBanRow>(sql`
       INSERT INTO matchmaking_bans
         (identifier_type, identifier_hash, triggered_by, ban_level, created_at, expires_at,
-          clears_at)
+          clears_at, reason)
       VALUES
         ${sqlConcat(
           ', ',
           rows.map(
             ([type, hash]) =>
-              sql`(${type}, ${hash}, ${userId}, ${banLevel}, ${now}, ${expiresAt}, ${clearsAt})`,
+              sql`(${type}, ${hash}, ${userId}, ${banLevel}, ${now}, ${expiresAt}, ${clearsAt}, ${reason ?? null})`,
           ),
         )}
     `)

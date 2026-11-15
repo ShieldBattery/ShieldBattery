@@ -24,6 +24,7 @@ import {
   addPlayer,
   addToBench,
   applySettingsChange,
+  arrangeOccupants,
   closeSlot,
   createLobby,
   findAvailableSlot,
@@ -375,6 +376,13 @@ describe('Lobbies - melee', () => {
     lobby = setRace(lobby, t1!, s1!, 'z')
 
     expect(lobby.teams[t1!].slots[s1!].race).toBe('z')
+  })
+
+  test('should keep the host a copy of their slot when they change race', () => {
+    const lobby = setRace(BOXER_LOBBY, 0, 0, 'p')
+
+    expect(lobby.teams[0].slots[0].race).toBe('p')
+    expect(lobby.host).toEqual(lobby.teams[0].slots[0])
   })
 
   test('should support finding players by user id', () => {
@@ -909,6 +917,23 @@ describe('Lobbies - Team melee', () => {
     expect(controlledOpen.id).not.toEqual(TEAM_MELEE_2.host.id)
     evaluateControlledSlot(l.teams[0].slots[2], 'controlledOpen', 'r', babo.id)
     evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', 'r', babo.id)
+  })
+
+  test('should keep the controller of a team when another of its players leaves', () => {
+    // The first player into the empty team controls it, even once players who have been in the
+    // lobby longer join them
+    const controller = humanAt(1, 'r', 3000)
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, controller)
+    l = addPlayer(l, 1, 1, humanAt(2, 'r', 1000))
+    l = addPlayer(l, 1, 2, humanAt(3, 'r', 2000))
+
+    const removed = removePlayer(l, 1, 2, l.teams[1].slots[2])!
+    evaluateControlledSlot(removed.teams[1].slots[2], 'controlledOpen', 'r', controller.id)
+    evaluateControlledSlot(removed.teams[1].slots[3], 'controlledOpen', 'r', controller.id)
+
+    const moved = movePlayerToSlot(l, 1, 2, 0, 1)
+    evaluateControlledSlot(moved.teams[1].slots[2], 'controlledOpen', 'r', controller.id)
+    evaluateControlledSlot(moved.teams[1].slots[3], 'controlledOpen', 'r', controller.id)
   })
 
   test('should support moving players between slots in the same team', () => {
@@ -1466,6 +1491,68 @@ describe('Lobbies - Use map settings', () => {
     team1 = lobby.teams[0]
     evaluateUmsLobby(lobby, 3, 1, true, team1.slots[0])
     evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+  })
+
+  test('should reset a slot without a forced race to random once its occupant leaves', () => {
+    // The first force of Accipiter leaves the race up to the player
+    const babo = createHuman(makeSbUserId(1), 'z', false, 1)
+    let lobby = addPlayer(UMS_LOBBY_3, 0, 1, babo)
+    lobby = removePlayer(lobby, 0, 1, lobby.teams[0].slots[1])!
+    evaluateUmsSlot(lobby.teams[0].slots[1], 'open', undefined, 'r', false, 1)
+
+    lobby = setRace(lobby, 0, 0, 'p')
+    lobby = movePlayerToSlot(lobby, 0, 0, 0, 1)
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'r', false, 0)
+  })
+
+  test('should keep the races of occupants arranged past a slot with a forced race', () => {
+    // A force whose first slot forces protoss, followed by slots that leave the race up to the
+    // player
+    const map: MapInfo = {
+      ...UMS_MAP_3,
+      mapData: {
+        ...UMS_MAP_3.mapData,
+        umsForces: [
+          {
+            name: 'Players',
+            teamId: 1,
+            players: [
+              { id: 0, race: 'p', typeId: 6, computer: false },
+              { id: 1, race: 'any', typeId: 6, computer: false },
+              { id: 2, race: 'any', typeId: 6, computer: false },
+            ],
+          },
+          {
+            name: 'Others',
+            teamId: 2,
+            players: [{ id: 3, race: 'any', typeId: 6, computer: false }],
+          },
+        ],
+      },
+    }
+    let lobby = createLobby({
+      name: 'Arranged',
+      map,
+      gameType: GameType.UseMapSettings,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      allowObservers: false,
+    })
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z', false, 1))
+
+    // The host goes to the slot the other player is in, which swaps that player into the host's
+    // forced-protoss slot on their way to their own
+    lobby = arrangeOccupants(lobby, [
+      [0, 1],
+      [0, 2],
+      [0, 0],
+      [1, 0],
+    ])
+
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'p', true, 0)
+    evaluateUmsSlot(lobby.teams[0].slots[1], 'human', HOST_USER_ID, 'p', false, 1)
+    evaluateUmsSlot(lobby.teams[0].slots[2], 'human', makeSbUserId(1), 'z', false, 2)
+    expect(lobby.host).toEqual(lobby.teams[0].slots[1])
   })
 
   test('should support moving players between slots', () => {
@@ -2082,6 +2169,15 @@ const LOST_TEMPLE: MapInfo = {
 }
 
 /** The settings a lobby currently has, with the ones a test is changing applied on top. */
+function computerSlots(lobby: Lobby): Slot[] {
+  return lobby.teams.flatMap(team => team.slots).filter(slot => slot.type === 'computer')
+}
+
+/** Counts the player teams with computers in them, each of which plays as one in team melee. */
+function computerTeamCount(lobby: Lobby): number {
+  return lobby.teams.filter(team => team.slots.some(slot => slot.type === 'computer')).length
+}
+
 function settingsFor(lobby: Lobby, changes: Partial<LobbySettings> = {}): LobbySettings {
   return {
     map: lobby.map!,
@@ -2488,6 +2584,87 @@ describe('Lobbies - settings changes', () => {
       expect(team.slots.slice(1).every(slot => slot.type === 'controlledOpen')).toBe(true)
     }
     expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
+  })
+
+  test('should give each computer an empty team of its own when changing to a controlled type', () => {
+    let lobby = createLobby({
+      name: 'Comp stomp, but teams',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    const races: RaceChar[] = ['t', 'z', 'p', 'r']
+    races.forEach((race, i) => {
+      lobby = addPlayer(lobby, 0, i + 1, createComputer(race))
+    })
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamMelee, gameSubType: 4, numSlots: 8 }),
+    )
+
+    // A computer team plays as one computer, so filling a team with computers stands in for only
+    // one of them: each of the first three gets an empty team, and the fourth has none left
+    expect(updated.teams[0].slots[0].userId).toBe(HOST_USER_ID)
+    for (const [i, team] of updated.teams.slice(1).entries()) {
+      expect(team.slots.map(slot => [slot.type, slot.race])).toEqual([
+        ['computer', races[i]],
+        ['computer', races[i]],
+      ])
+    }
+  })
+
+  test('should turn a computer team into one computer when leaving a controlled game type', () => {
+    const lobby = addPlayer(TEAM_MELEE_2, 1, 0, createComputer('p'))
+    expect(lobby.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+
+    const melee = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.Melee, gameSubType: 0 }),
+    )
+    const teamMelee = applySettingsChange(lobby, settingsFor(lobby, { gameSubType: 4 }))
+
+    expect(computerSlots(melee).map(slot => slot.race)).toEqual(['p'])
+    expect(computerTeamCount(teamMelee)).toBe(1)
+    expect(computerSlots(teamMelee)).toHaveLength(2)
+  })
+
+  test('should keep the number of computers steady when switching game types back and forth', () => {
+    let lobby = createLobby({
+      name: 'Indecisive host',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    for (let i = 1; i <= 4; i++) {
+      lobby = addPlayer(lobby, 0, i, createComputer('t'))
+    }
+    const toTeamMelee = (l: Lobby) =>
+      applySettingsChange(
+        l,
+        settingsFor(l, { gameType: GameType.TeamMelee, gameSubType: 3, numSlots: 8 }),
+      )
+    const toMelee = (l: Lobby) =>
+      applySettingsChange(l, settingsFor(l, { gameType: GameType.Melee, gameSubType: 0 }))
+
+    // Teams of [3, 3, 2] with the host in the first leave room for two of the four computers, as
+    // a team of three and a team of two. Each of those is one computer again in melee, and the
+    // counts hold from then on rather than growing with the size of the teams.
+    for (let round = 0; round < 3; round++) {
+      lobby = toTeamMelee(lobby)
+      expect(computerTeamCount(lobby)).toBe(2)
+      expect(computerSlots(lobby)).toHaveLength(5)
+      lobby = toMelee(lobby)
+      expect(computerSlots(lobby)).toHaveLength(2)
+    }
   })
 
   test('should let people keep their races when a change builds a new team melee layout', () => {

@@ -148,6 +148,11 @@ pub enum Intent {
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
     /// only right behind a `Seek`, for a jump to something that happened somewhere in particular.
     LookAt(observer::MapPoint),
+    /// Center the game's view on the part of the map the minimap shows at this point, given in the
+    /// overlay's points, as a press there does in the game. The host asks it of the minimap's own
+    /// drawing rather than the shell working it out, because only the host knows where in the
+    /// minimap's square the game drew a map that is not square.
+    LookAtMinimapPoint(egui::Pos2),
     /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
     /// it runs at all. One intent rather than three, because the game carries all three in one
     /// command and sending a partial one would reset the other two.
@@ -278,6 +283,12 @@ pub struct FrameOutput {
     pub playback_controls_shown: bool,
     /// Whether a control acted this frame, which a host answers with the game's own button click.
     pub button_click: bool,
+    /// The units the on-screen count wants a health bar under this frame, by the ids the host gave
+    /// them, sorted. None while the count is not up.
+    pub health_bars: Vec<u32>,
+    /// The units of the on-screen count's group the pointer is over the label of, by the same
+    /// ids, sorted, for the host to light up.
+    pub highlighted_units: Vec<u32>,
 }
 
 /// The overlay's per-frame state machine. See the module docs.
@@ -317,6 +328,9 @@ pub struct Shell {
     setting_toast: Option<SettingToast>,
     /// A spectator hotkey activated a control between frames.
     hotkey_activation: bool,
+    /// Whether the on-screen count is up, which takes Alt pressed on its own to bring up but stays
+    /// while Alt is held, so Ctrl can then be added to pick with.
+    counting_on_screen: bool,
     intents: Vec<Intent>,
 }
 
@@ -344,6 +358,7 @@ impl Shell {
             alliances_draft: AlliancesDraft::default(),
             setting_toast: None,
             hotkey_activation: false,
+            counting_on_screen: false,
             intents: Vec::new(),
         }
     }
@@ -634,6 +649,12 @@ impl Shell {
         // way: they decide only whether the dock stands on its top edge, which without them it
         // never does.
         let observing = views.observer.is_some() && self.host.mode.is_spectating();
+        // Ctrl with Alt from the start is AltGr on many keyboards, not a request to see anything
+        // counted.
+        let (alt, ctrl) = ctx.input(|input| (input.modifiers.alt, input.modifiers.ctrl));
+        self.counting_on_screen =
+            self.hotkeys_active() && alt && (self.counting_on_screen || !ctrl);
+        let counting_on_screen = self.counting_on_screen;
         let placement = match views.observer {
             Some(view) if observing => self.observer.frame(
                 ctx,
@@ -673,6 +694,33 @@ impl Shell {
                 plate,
                 &mut hit_rects,
             );
+        }
+        // Drawn once every panel is, so its labels can be moved out from under them, and under
+        // them all. While it is up it takes the whole screen's presses, so a drag made with Alt
+        // held draws its counting box instead of selecting what is under it, and a press on the
+        // minimap moves the view without the game taking it for a ping; the wheel stays the
+        // game's, which zooms with it.
+        let mut health_bars = Vec::new();
+        let mut highlighted_units = Vec::new();
+        if let Some(view) = views.observer.filter(|_| observing) {
+            let screen = ctx.viewport_rect();
+            let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
+            let outcome = crate::observer::render_on_screen_view(
+                &view.on_screen,
+                ctx,
+                counting_on_screen,
+                screen,
+                &panels,
+                self.host.minimap_rect,
+            );
+            if let Some(point) = outcome.look {
+                self.intents.push(Intent::LookAtMinimapPoint(point));
+            }
+            health_bars = outcome.health_bars;
+            highlighted_units = outcome.highlighted;
+            if counting_on_screen {
+                hit_rects.push(HitRect::new(screen));
+            }
         }
 
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since
@@ -716,6 +764,8 @@ impl Shell {
             capture: self.capture(),
             playback_controls_shown,
             button_click: widgets::take_activation(ctx) || hotkey_activation,
+            health_bars,
+            highlighted_units,
         }
     }
 

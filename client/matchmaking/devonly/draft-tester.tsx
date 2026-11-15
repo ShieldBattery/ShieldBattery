@@ -111,6 +111,7 @@ function DraftTestInner() {
               resetDraftState(store)
 
               setDraftState({
+                matchId: 'dev-draft',
                 mapId: FightingSpirit.id,
                 currentPicker: undefined,
                 myTeamIndex: 0,

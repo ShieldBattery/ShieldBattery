@@ -64,8 +64,18 @@ export class BackboneRttTable {
    * `{"us-east|eu-west": 90}`.
    */
   static fromJson(json: string): BackboneRttTable {
-    const raw = JSON.parse(json) as Record<string, number>
-    return new BackboneRttTable(Object.entries(raw))
+    const raw: unknown = JSON.parse(json)
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw new Error('backbone RTT table must be a JSON object')
+    }
+    const entries: Array<[string, number]> = []
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error(`backbone RTT for ${JSON.stringify(key)} must be a finite number`)
+      }
+      entries.push([key, value])
+    }
+    return new BackboneRttTable(entries)
   }
 
   /**

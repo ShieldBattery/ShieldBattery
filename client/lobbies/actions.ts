@@ -4,6 +4,7 @@ import {
   LobbyBenchAddEvent,
   LobbyBenchRemoveEvent,
   LobbyChatEvent,
+  LobbyCountdownJson,
   LobbyInitEvent,
   LobbyKickEvent,
   LobbyLeaveEvent,
@@ -172,8 +173,7 @@ export interface LobbyUpdateCountdownCanceled {
 /** A lobby we're in is starting the game countdown. */
 export interface LobbyUpdateCountdownStart {
   type: '@lobbies/updateCountdownStart'
-  /** How many seconds are left before the game starts loading. */
-  payload: number
+  payload: LobbyCountdownJson
 }
 
 /** A second has ticked off the countdown for a lobby we're in. */

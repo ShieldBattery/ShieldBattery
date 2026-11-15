@@ -69,6 +69,16 @@ Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be wa
 Don't silence clippy with `#[allow]`; restructure so the lint doesn't fire (an allow needs a
 genuinely exceptional justification, commented in the code's own terms).
 
+**Run the gates with `node game/gates.mjs`** (from any directory or shell; Git Bash and PowerShell
+behave the same). It runs `cargo fmt --check`, debug clippy, release clippy and `cargo test
+--workspace`, runs every step even after a failure, and prints one PASS/FAIL line per step with the
+relevant compiler, clippy, fmt or panic output for failures plus the path of each step's full log.
+Release clippy matters because debug-only knobs can leave code that is dead in release builds. Add
+`--build` before handing off a change that will be launched: it also runs i686 release clippy and
+`build.bat` for both architectures, and reports the `dist/` DLL timestamps so a stale DLL is
+obvious. A locked DLL (a running game) is reported as such. `--only a,b` and `--skip a,b` select
+steps (`fmt`, `clippy`, `clippy-release`, `test`, `clippy-release-x86`, `build`, `build-x86`).
+
 **`scr-analysis` is a thin wrapper, not the analysis itself.** It exists to keep compile times fast
 (samase_scarf's macro-heavy code compiles once, optimized, in its own crate) and only wraps the
 `Analysis` methods the game crate actually uses. Before deciding a binary analysis is "missing,"

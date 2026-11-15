@@ -324,8 +324,8 @@ export interface NetcodeV2DesyncNotification {
 /**
  * A game result report webhook body, POSTed by the rally-point2 coordinator to the app server (as
  * one variant of `NetcodeV2GameEvent`) when a relay forwards a client's result report. The report
- * itself is the game client's `SubmitGameResultsRequest`/`RawGameResultsReport` JSON, carried as
- * opaque base64 bytes — rp2 never parses it, only relays it.
+ * itself is the game client's `RawGameResultsReport` JSON, carried as opaque base64 bytes — rp2
+ * never parses it, only relays it.
  *
  * `externalId`/`externalRef` are the correlation ids the app server attached at session create
  * (the game's `gameId` and the reporting player's `SbUserId`, respectively) and the coordinator

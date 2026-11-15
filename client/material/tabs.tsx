@@ -99,6 +99,8 @@ export interface TabItemProps<T> {
    * should not be passed directly.
    */
   onSelected?: (value: T) => void
+  /** Rendered as the tab button's `data-testid`. */
+  testName?: string
   ref?: React.Ref<HTMLButtonElement | null>
 }
 
@@ -111,6 +113,7 @@ export function TabItem<T>({
   onSelected,
   className,
   title: tooltipText,
+  testName,
   ref,
 }: TabItemProps<T>) {
   const onClick = useCallback(() => {
@@ -138,6 +141,7 @@ export function TabItem<T>({
       className={className}
       $isActiveTab={active ?? false}
       title={title}
+      data-testid={testName}
       {...buttonProps}>
       {typeof text === 'string' ? <TabTitle>{text}</TabTitle> : text}
       <Ripple ref={rippleRef} disabled={disabled} />

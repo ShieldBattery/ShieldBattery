@@ -63,7 +63,12 @@ export enum SlotAction {
 }
 
 /** One entry of a slot's menu: what it's called, and what picking it does. */
-type SlotMenuAction = [text: string, handler: () => void]
+interface SlotMenuAction {
+  /** Suffix of the item's `lobby-slot-action-` test id. */
+  id: string
+  text: string
+  handler: () => void
+}
 
 const RailRoot = styled.div`
   width: 360px;
@@ -468,55 +473,64 @@ function hostActionsFor(
   switch (slot.type) {
     case SlotType.Human:
     case SlotType.Observer:
-      actions.push([
-        t('lobbies.room.slotMenu.kick', 'Kick'),
-        () => onSlotAction(SlotAction.Kick, slot.id),
-      ])
-      actions.push([
-        t('lobbies.room.slotMenu.ban', 'Ban'),
-        () => onSlotAction(SlotAction.Ban, slot.id),
-      ])
+      actions.push({
+        id: 'kick',
+        text: t('lobbies.room.slotMenu.kick', 'Kick'),
+        handler: () => onSlotAction(SlotAction.Kick, slot.id),
+      })
+      actions.push({
+        id: 'ban',
+        text: t('lobbies.room.slotMenu.ban', 'Ban'),
+        handler: () => onSlotAction(SlotAction.Ban, slot.id),
+      })
       if (isObserverTeam && limits.canRemoveObserver) {
-        actions.push([
-          t('lobbies.room.slotMenu.moveIntoPlayerSlot', 'Move into a player slot'),
-          () => onSlotAction(SlotAction.RemoveObserver, slot.id),
-        ])
+        actions.push({
+          id: 'move-into-player-slot',
+          text: t('lobbies.room.slotMenu.moveIntoPlayerSlot', 'Move into a player slot'),
+          handler: () => onSlotAction(SlotAction.RemoveObserver, slot.id),
+        })
       } else if (!isObserverTeam && limits.canMakeObserver) {
-        actions.push([
-          t('lobbies.room.slotMenu.makeObserver', 'Make an observer'),
-          () => onSlotAction(SlotAction.MakeObserver, slot.id),
-        ])
+        actions.push({
+          id: 'make-observer',
+          text: t('lobbies.room.slotMenu.makeObserver', 'Make an observer'),
+          handler: () => onSlotAction(SlotAction.MakeObserver, slot.id),
+        })
       }
-      actions.push([
-        t('lobbies.slots.closeSlot', 'Close slot'),
-        () => onSlotAction(SlotAction.Close, slot.id),
-      ])
+      actions.push({
+        id: 'close-slot',
+        text: t('lobbies.slots.closeSlot', 'Close slot'),
+        handler: () => onSlotAction(SlotAction.Close, slot.id),
+      })
       break
     case SlotType.Computer:
-      actions.push([
-        t('lobbies.room.slotMenu.remove', 'Remove'),
-        () => onSlotAction(SlotAction.Kick, slot.id),
-      ])
-      actions.push([
-        t('lobbies.slots.closeSlot', 'Close slot'),
-        () => onSlotAction(SlotAction.Close, slot.id),
-      ])
+      actions.push({
+        id: 'remove',
+        text: t('lobbies.room.slotMenu.remove', 'Remove'),
+        handler: () => onSlotAction(SlotAction.Kick, slot.id),
+      })
+      actions.push({
+        id: 'close-slot',
+        text: t('lobbies.slots.closeSlot', 'Close slot'),
+        handler: () => onSlotAction(SlotAction.Close, slot.id),
+      })
       break
     case SlotType.UmsComputer:
       break
     case SlotType.Open:
     case SlotType.ControlledOpen:
-      actions.push([
-        t('lobbies.slots.closeSlot', 'Close slot'),
-        () => onSlotAction(SlotAction.Close, slot.id),
-      ])
+      actions.push({
+        id: 'close-slot',
+        text: t('lobbies.slots.closeSlot', 'Close slot'),
+        handler: () => onSlotAction(SlotAction.Close, slot.id),
+      })
       break
     case SlotType.Closed:
     case SlotType.ControlledClosed:
-      actions.push([
-        t('lobbies.slots.openSlot', 'Open slot'),
-        () => onSlotAction(SlotAction.Open, slot.id),
-      ])
+      actions.push({
+        id: 'open-slot',
+        text: t('lobbies.slots.openSlot', 'Open slot'),
+        handler: () => onSlotAction(SlotAction.Open, slot.id),
+      })
       break
     default:
       return assertUnreachable(slot.type)
@@ -530,10 +544,11 @@ function hostActionsFor(
     !isObserverTeam &&
     (slot.type === SlotType.Open || slot.type === SlotType.Closed)
   ) {
-    actions.push([
-      t('lobbies.slots.addComputer', 'Add computer'),
-      () => onSlotAction(SlotAction.AddComputer, slot.id),
-    ])
+    actions.push({
+      id: 'add-computer',
+      text: t('lobbies.slots.addComputer', 'Add computer'),
+      handler: () => onSlotAction(SlotAction.AddComputer, slot.id),
+    })
   }
 
   return actions
@@ -557,6 +572,7 @@ function SlotMenu({ actions }: { actions: ReadonlyArray<SlotMenuAction> }) {
         ariaHasPopup='menu'
         ariaExpanded={!!isOpen}
         onClick={openMenu}
+        testName='lobby-slot-actions'
       />
       <Popover
         open={isOpen}
@@ -566,11 +582,12 @@ function SlotMenu({ actions }: { actions: ReadonlyArray<SlotMenuAction> }) {
         originX='right'
         originY='top'>
         <MenuList dense>
-          {actions.map(([text, handler], i) => (
+          {actions.map(({ id, text, handler }) => (
             <MenuItem
-              key={i}
+              key={id}
               dense
               text={text}
+              testName={`lobby-slot-action-${id}`}
               onClick={() => {
                 handler()
                 closeMenu()
@@ -774,8 +791,16 @@ function BenchRow({
   const slotId = String(userId)
   const actions: SlotMenuAction[] = canManage
     ? [
-        [t('lobbies.room.slotMenu.kick', 'Kick'), () => onSlotAction(SlotAction.Kick, slotId)],
-        [t('lobbies.room.slotMenu.ban', 'Ban'), () => onSlotAction(SlotAction.Ban, slotId)],
+        {
+          id: 'kick',
+          text: t('lobbies.room.slotMenu.kick', 'Kick'),
+          handler: () => onSlotAction(SlotAction.Kick, slotId),
+        },
+        {
+          id: 'ban',
+          text: t('lobbies.room.slotMenu.ban', 'Ban'),
+          handler: () => onSlotAction(SlotAction.Ban, slotId),
+        },
       ]
     : []
 

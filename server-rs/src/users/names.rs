@@ -355,7 +355,7 @@ fn is_allowed_display_name_char(c: char) -> bool {
 /// description of the problem if it isn't. This only covers the format: whether a name is
 /// restricted or already taken by someone else is checked separately.
 ///
-/// This must stay in sync with `USERNAME_ALLOWED_CHARACTERS`, `USERNAME_MINLENGTH` and
+/// This must stay in sync with `USERNAME_PATTERN`, `USERNAME_MINLENGTH` and
 /// `USERNAME_MAXLENGTH` in `common/constants.ts`, which clients validate against before submitting
 /// a name.
 pub fn validate_display_name_format(name: &str) -> Result<(), &'static str> {
@@ -368,6 +368,10 @@ pub fn validate_display_name_format(name: &str) -> Result<(), &'static str> {
     }
     if name.len() > DISPLAY_NAME_MAX_LENGTH {
         return Err("Display name must be at most 16 characters");
+    }
+    // These collapse under URL path normalization, so they can't be addressed by name.
+    if name == "." || name == ".." {
+        return Err("Display name contains invalid characters");
     }
 
     Ok(())
@@ -424,6 +428,15 @@ mod tests {
         ] {
             assert_eq!(validate_display_name_format(name), Ok(()), "name: {name}");
         }
+    }
+
+    #[test]
+    fn display_name_format_rejects_dot_segments() {
+        assert!(validate_display_name_format(".").is_err());
+        assert!(validate_display_name_format("..").is_err());
+        assert_eq!(validate_display_name_format("..."), Ok(()));
+        assert_eq!(validate_display_name_format(".a"), Ok(()));
+        assert_eq!(validate_display_name_format("a.."), Ok(()));
     }
 
     #[test]

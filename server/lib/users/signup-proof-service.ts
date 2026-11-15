@@ -39,12 +39,15 @@ function requestHash(fields: SignupFields, nonce: Buffer): Buffer {
   ])
 }
 
-function identifiers(body: Buffer): ClientIdentifierString[] {
-  const result = parseIdentifierEnvelope(body)
-  if (result.length < MIN_IDENTIFIER_MATCHES) {
+function signedIdentifiers(body: Buffer): ClientIdentifierString[] {
+  const { identifiers, machineSupported } = parseIdentifierEnvelope(body)
+  if (!machineSupported) {
+    throw new UserApiError(UserErrorCode.UnsupportedMachine, 'This machine is not supported')
+  }
+  if (identifiers.length < MIN_IDENTIFIER_MATCHES) {
     throw new UserApiError(UserErrorCode.ClientSetupRequired, 'Client setup required')
   }
-  return result
+  return identifiers
 }
 
 export interface VerifiedSignupRequest {
@@ -104,7 +107,7 @@ export class SignupProofService {
     if (!request || request.expiresAt.getTime() <= this.clock.now()) invalidProof()
     if (!requestHash(fields, request.nonce).equals(request.requestHash)) invalidProof()
     const body = verifyClientProof(keys, proof, request.nonce, request.requestHash)
-    const clientIds = identifiers(body)
+    const clientIds = signedIdentifiers(body)
     return {
       clientIds,
       completedUserId: request.userId,

@@ -22,6 +22,8 @@ export type ClientAttestationOutcome =
 export interface ClientAttestationResult {
   outcome: ClientAttestationOutcome
   identifiers?: ClientIdentifierString[]
+  /** Whether a valid proof reported the client's machine as supported. */
+  machineSupported?: boolean
 }
 
 const attestationsTotalMetric = new Counter({
@@ -94,7 +96,7 @@ export class ClientAttestation {
     try {
       return {
         outcome: 'valid',
-        identifiers: parseIdentifierEnvelope(verifyClientProof(keys, proof, nonce, context)),
+        ...parseIdentifierEnvelope(verifyClientProof(keys, proof, nonce, context)),
       }
     } catch (err) {
       if (!httpErrors.isHttpError(err) || err.status !== 400) throw err

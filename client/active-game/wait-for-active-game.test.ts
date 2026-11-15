@@ -30,6 +30,13 @@ describe('waitForActiveGame', () => {
     await expect(waitForActiveGame('late-error')).rejects.toThrow('boom')
   })
 
+  test('rejects with the reason a launch failed when the status names one', async () => {
+    updateActiveGame({ ...status('kind-error', 'error', 'boom'), launchErrorKind: 'verification' })
+    await expect(waitForActiveGame('kind-error')).rejects.toMatchObject({
+      launchErrorKind: 'verification',
+    })
+  })
+
   test('does not settle a late waiter from a non-terminal status', async () => {
     updateActiveGame(status('late-launching', 'launching'))
     const result = await Promise.race([

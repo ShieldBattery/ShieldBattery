@@ -225,6 +225,7 @@
       "openStarcraftSettings": "打开星际争霸设置",
       "sessionExpired": "会话已过期",
       "tooManyAccounts": "该设备已达到创建账户的上限。如有注册码，可输入以绕过限制。",
+      "unsupportedMachine": "无法在这台电脑上设置 ShieldBattery。请尝试在其他电脑上注册。",
       "usernameTaken": "用户名不可用。"
     },
     "usernameValidator": {
@@ -2252,13 +2253,21 @@
     },
     "bannedDialog": {
       "bannedFor": "你已被封禁，时长：",
-      "description": "由于未准备或未按时加入比赛，你已被暂时禁止匹配。",
+      "description": "您已被暂时禁止匹配。",
       "title": "匹配封禁"
     },
     "banNotification": {
       "ban": "由于您未准备或未加载进入比赛，您已被暂时禁止匹配。",
       "endsOn": "封禁结束时间：",
       "warning": "由于您未准备或未加载进入比赛，您收到了一次匹配警告。如果短期内再次发生，您将被暂时禁止匹配。"
+    },
+    "banReason": {
+      "banFailedToLoad": "由于您的游戏未能加载进入比赛，您已被暂时禁止匹配。",
+      "banLeft": "由于您在比赛开始前离开，您已被暂时禁止匹配。与 ShieldBattery 断开连接也会被视为离开。",
+      "banNotReady": "由于您未及时准备，您已被暂时禁止匹配。",
+      "warningFailedToLoad": "由于您的游戏未能加载进入比赛，您收到了一次匹配警告。如果短期内再次因您导致比赛无法开始，您将被暂时禁止匹配。",
+      "warningLeft": "由于您在比赛开始前离开，您收到了一次匹配警告。与 ShieldBattery 断开连接也会被视为离开。如果短期内再次因您导致比赛无法开始，您将被暂时禁止匹配。",
+      "warningNotReady": "由于您未及时准备，您收到了一次匹配警告。如果短期内再次因您导致比赛无法开始，您将被暂时禁止匹配。"
     },
     "disabledCard": {
       "days": "天",
@@ -2341,6 +2350,7 @@
         "reviewSettings": "搜索前请选择种族，并检查每个所选模式的地图。",
         "settingsLoading": "设置仍在加载中",
         "somethingWentWrong": "出错了 :(",
+        "unsupportedMachine": "这台电脑不支持排位对局。请尝试在其他电脑上游玩。",
         "userOffline": "与服务器的连接中断，请重新连接后重试。"
       },
       "fixedMap": "固定地图",
@@ -3415,6 +3425,12 @@
     }
   },
   "starcraft": {
+    "gameVerificationFailed": {
+      "lead": "ShieldBattery 无法验证您的《星际争霸》或 ShieldBattery 文件，因此游戏未能启动。",
+      "matchmakingCost": "每场因此未能开始的对局都会被记录，多次出现将导致被禁止匹配。",
+      "repair": "请在战网客户端中对《星际争霸》执行“扫描和修复”，然后重试。如果问题仍然出现，请从 shieldbattery.net 重新安装 ShieldBattery。",
+      "title": "无法验证游戏文件"
+    },
     "shieldbatteryHealth": {
       "bottomContents": "如果可以的话，向您的杀毒软件供应商报告这些误报可以避免其他用户遭遇同样的问题！",
       "middleContents": "这通常是由于杀毒软件误报导致的。您可能需要将这些文件添加到信任区，或者让软件将它们移出隔离区。您也可以尝试重新安装ShieldBattery。",

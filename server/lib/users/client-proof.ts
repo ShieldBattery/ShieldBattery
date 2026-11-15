@@ -6,7 +6,13 @@ import { ClientIdentifierString } from './client-ids'
 
 const DOMAIN = Buffer.from('sb-client-request-v1\0', 'ascii')
 const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
-const MAX_BODY_BYTES = 268
+const IDENTIFIER_RECORD_BYTES = 33
+const MAX_IDENTIFIERS = 8
+const MAX_REPORT_BYTES = 128
+/** A version 3 envelope with every identifier and the longest report. */
+const MAX_BODY_BYTES = 4 + MAX_IDENTIFIERS * IDENTIFIER_RECORD_BYTES + 1 + MAX_REPORT_BYTES
+/** The longest base64 encoding of a client proof body. */
+export const MAX_ENCODED_BODY_LENGTH = Math.ceil(MAX_BODY_BYTES / 3) * 4
 
 export function invalidProof(): never {
   throw new httpErrors.BadRequest('Invalid client request')
@@ -51,26 +57,64 @@ export function verifyClientProof(
   return body
 }
 
-export function parseIdentifierEnvelope(body: Buffer): ClientIdentifierString[] {
-  if (body.length < 3 || (body[0] !== 1 && body[0] !== 2)) invalidProof()
+export interface IdentifierEnvelope {
+  identifiers: ClientIdentifierString[]
+  /** Whether the client reported its machine as supported. */
+  machineSupported: boolean
+}
+
+/**
+ * Parses a signed identifier envelope:
+ *
+ * - Version 1: `u8 version, u8 mask, u8 count`, then `count` (at most 6) identifier records.
+ * - Version 2: `u8 version, u16le mask, u8 count`, then `count` (at most 8) identifier records.
+ * - Version 3: version 2, then `u8 reportLength` (1 to 128) and that many report bytes. Report byte
+ *   0 is the machine's support status (0 is supported); the remaining bytes are reserved.
+ *
+ * Each identifier record is a `u8 kind` and a 32 byte hash, in ascending kind order. Versions 1 and
+ * 2 count as supported.
+ */
+export function parseIdentifierEnvelope(body: Buffer): IdentifierEnvelope {
+  if (body.length < 3 || body[0] < 1 || body[0] > 3) invalidProof()
   const format = body[0]
   const headerLength = format === 1 ? 3 : 4
   if (body.length < headerLength) invalidProof()
   const available = format === 1 ? body[1] : body.readUInt16LE(1)
   const count = body[headerLength - 1]
-  if (count > (format === 1 ? 6 : 8) || body.length !== headerLength + count * 33) invalidProof()
+  if (count > (format === 1 ? 6 : MAX_IDENTIFIERS)) invalidProof()
+  const identifiersEnd = headerLength + count * IDENTIFIER_RECORD_BYTES
+
+  let machineSupported = true
+  if (format === 3) {
+    if (body.length <= identifiersEnd) invalidProof()
+    const reportLength = body[identifiersEnd]
+    if (
+      reportLength < 1 ||
+      reportLength > MAX_REPORT_BYTES ||
+      body.length !== identifiersEnd + 1 + reportLength
+    ) {
+      invalidProof()
+    }
+    machineSupported = body[identifiersEnd + 1] === 0
+  } else if (body.length !== identifiersEnd) {
+    invalidProof()
+  }
+
   let previousKind = 0
   let mask = 0
-  const result: ClientIdentifierString[] = []
-  for (let offset = headerLength; offset < body.length; offset += 33) {
+  const identifiers: ClientIdentifierString[] = []
+  for (let offset = headerLength; offset < identifiersEnd; offset += IDENTIFIER_RECORD_BYTES) {
     const kind = body[offset]
-    if (kind <= previousKind || !(kind <= 6 || (format === 2 && (kind === 8 || kind === 9)))) {
+    if (kind <= previousKind || !(kind <= 6 || (format !== 1 && (kind === 8 || kind === 9)))) {
       invalidProof()
     }
     previousKind = kind
     mask |= 1 << (kind - 1)
-    result.push([kind, body.subarray(offset + 1, offset + 33).toString('hex')])
+    identifiers.push([
+      kind,
+      body.subarray(offset + 1, offset + IDENTIFIER_RECORD_BYTES).toString('hex'),
+    ])
   }
   if (available !== mask) invalidProof()
-  return result
+  return { identifiers, machineSupported }
 }

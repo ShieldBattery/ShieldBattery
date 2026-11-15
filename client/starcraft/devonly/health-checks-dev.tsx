@@ -5,6 +5,7 @@ import { FilledButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { TitleMedium } from '../../styles/typography'
+import { GameVerificationFailedDialog } from '../game-verification-failed-dialog'
 import { shieldBatteryFilesState, starcraftPathValid, starcraftVersionValid } from '../health-state'
 import { ShieldBatteryHealthDialog } from '../shieldbattery-health'
 import { StarcraftHealthCheckupDialog } from '../starcraft-health'
@@ -24,6 +25,7 @@ export function HealthChecksDev() {
       <Root>
         <StarcraftContent />
         <ShieldBatteryContent />
+        <VerificationContent />
       </Root>
     </Provider>
   )
@@ -92,6 +94,39 @@ function ShieldBatteryContent() {
       />
       {shown && (
         <ShieldBatteryHealthDialog
+          onCancel={() => {
+            setShown(false)
+          }}
+          close={() => {
+            setShown(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function VerificationContent() {
+  const [matchmaking, setMatchmaking] = useState(true)
+  const [shown, setShown] = useState(false)
+
+  return (
+    <div>
+      <TitleMedium>Game verification</TitleMedium>
+      <CheckBox
+        label='Matchmaking game'
+        checked={matchmaking}
+        onChange={e => setMatchmaking(e.target.checked)}
+      />
+      <FilledButton
+        label='Show Verification Failed Dialog'
+        onClick={() => {
+          setShown(true)
+        }}
+      />
+      {shown && (
+        <GameVerificationFailedDialog
+          matchmaking={matchmaking}
           onCancel={() => {
             setShown(false)
           }}

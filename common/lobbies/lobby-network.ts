@@ -252,6 +252,23 @@ export function isLaunchingLifecycle(lifecycle: LobbyLifecycle): boolean {
   return lifecycle === 'countingDown' || lifecycle === 'loading'
 }
 
+/** A lobby's countdown to loading its game, as of when it was serialized. */
+export interface LobbyCountdownJson {
+  /**
+   * How much of the countdown is left. A duration rather than the time it ends, so that following
+   * it doesn't depend on the client's clock agreeing with the server's.
+   */
+  remainingMs: number
+}
+
+/**
+ * How far a lobby that is launching its game has gotten, for a client arriving partway through (a
+ * bench join during the countdown or the load).
+ */
+export type LobbyLaunchJson =
+  | { phase: 'countingDown'; countdown: LobbyCountdownJson }
+  | { phase: 'loading' }
+
 /** The running game of a lobby that is `inGame`, and which members are still in it. */
 export interface LobbyRunStateJson {
   gameId: string
@@ -544,6 +561,8 @@ export interface LobbyInitEvent {
   lobby: Lobby
   /** The running game, when the lobby is `inGame` (e.g. for someone joining the bench mid-game). */
   runState?: LobbyRunStateJson
+  /** The game launch under way, when the lobby is `countingDown` or `loading`. */
+  launch?: LobbyLaunchJson
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
@@ -603,6 +622,7 @@ export interface LobbySlotChangeEvent {
 
 export interface LobbyStartCountdownEvent {
   type: 'startCountdown'
+  countdown: LobbyCountdownJson
 }
 
 export interface LobbyCancelCountdownEvent {

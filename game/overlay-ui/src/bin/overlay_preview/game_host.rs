@@ -126,6 +126,7 @@ impl GameHost {
         draw(&self.ctx);
         let mut output = self.ctx.end_pass();
         overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, output.pixels_per_point);
+        overlay_ui::kit::off_grid::leave_text_off_grid(&self.ctx, &mut output.shapes);
         let primitives = self.ctx.tessellate(output.shapes, output.pixels_per_point);
         let repaint_delay = output
             .viewport_output

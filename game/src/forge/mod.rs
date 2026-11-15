@@ -145,6 +145,7 @@ unsafe extern "system" fn wnd_proc_scr(
     wparam: usize,
     lparam: isize,
 ) -> isize {
+    crate::stall_watch::beat();
     unsafe {
         if std::thread::panicking() {
             // Avoid recursive locking due to panics
@@ -225,10 +226,13 @@ unsafe extern "system" fn wnd_proc_scr(
                     }
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
-                    // Opposite of the above, we are now running our own window loop again
+                    // Opposite of the above, we are now running our own window loop again. The
+                    // timer must not outlive the loop, whatever stage of loading it was started
+                    // in: a leftover timer keeps stepping lobby init from the main thread's
+                    // regular message dispatch for the rest of the load.
                     debug!("Exit size/move/menu loop {msg:#x}");
                     IN_SIZE_MOVE_MENU_LOOP.store(false, Ordering::Release);
-                    if with_forge(|f| !f.game_started && f.use_process_events) {
+                    if with_forge(|f| !f.game_started) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
 
                         if with_forge(|f| {
@@ -495,6 +499,11 @@ fn is_forge_window(hwnd: HWND) -> bool {
     FORGE_WINDOW.load(Ordering::Acquire) as *mut _ == hwnd
 }
 
+/// Whether Windows is running a modal size, move or menu loop for the game window on its thread.
+pub fn in_size_move_menu_loop() -> bool {
+    IN_SIZE_MOVE_MENU_LOOP.load(Ordering::Relaxed)
+}
+
 fn forge_inited() -> bool {
     FORGE_INITED.load(Ordering::Acquire)
 }
@@ -638,6 +647,7 @@ fn peek_message_w(
     remove: u32,
     orig: unsafe extern "C" fn(*mut MSG, HWND, u32, u32, u32) -> i32,
 ) -> i32 {
+    crate::stall_watch::beat();
     let removing = remove & PM_REMOVE != 0;
     let can_return_mouse_move =
         (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
@@ -1123,13 +1133,10 @@ pub unsafe fn run_wnd_proc() {
         //
         // MWMO_INPUTAVAILABLE also wakes for messages a previous drain left queued; without it, the
         // wait only returns for messages that arrived since the queue was last checked.
-        'outer: while MsgWaitForMultipleObjectsEx(
-            0,
-            null_mut(),
-            INFINITE,
-            QS_ALLINPUT,
-            MWMO_INPUTAVAILABLE,
-        ) != WAIT_FAILED
+        'outer: while {
+            let _idle = crate::stall_watch::idle();
+            MsgWaitForMultipleObjectsEx(0, null_mut(), INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE)
+        } != WAIT_FAILED
         {
             let mut msg: MSG = mem::zeroed();
             let mut done = PeekMessageW(
