@@ -5,7 +5,7 @@
 //!
 //! An owner who isn't restricted from publishing may pick their map's default file, remove any file
 //! from it, and add files they published to it (see [`edit`](super::edit) and
-//! [`publish`](super::publish)). Nothing else.
+//! [`publish`](super::publish)). Nothing else. Staff can do all of that on any map.
 //!
 //! Like every other family change, each owner change takes the families lock before touching
 //! anything and records one history entry.

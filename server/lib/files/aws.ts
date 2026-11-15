@@ -167,16 +167,6 @@ export default class Aws implements FileStore {
     return this.client.deleteObject(params)
   }
 
-  // Options object can contain any of the valid keys specified in the AWS SDK for the
-  // `deleteObjects` function.
-  async deleteFiles(prefix: string, options: any = {}) {
-    const normalized = this.getNormalizedPath(prefix)
-    const files = await this.client.listObjectsV2({ Prefix: normalized, Bucket: this.bucket })
-    const keys = (files.Contents ?? []).map(file => ({ Key: file.Key }))
-    const params = { Delete: { Objects: keys }, Bucket: this.bucket, ...formatOptions(options) }
-    return this.client.deleteObjects(params)
-  }
-
   url(filename: string, options: any = {}): string {
     if (!this.baseUrl) {
       throw new Error('`baseUrl` needs to be set to get the URL')

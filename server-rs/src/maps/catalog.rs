@@ -899,7 +899,6 @@ mod tests {
                 manage_matchmaking: false,
                 manage_matchmaking_seasons: false,
                 manage_matchmaking_times: false,
-                mass_delete_maps: false,
                 moderate_chat_channels: false,
                 manage_news: false,
                 manage_bug_reports: false,

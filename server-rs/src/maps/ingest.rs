@@ -18,7 +18,7 @@ use crate::async_rayon::spawn_rayon;
 use crate::configuration::Settings;
 use crate::file_store::{FileStore, WriteOptions};
 use crate::maps::catalog::resolve_map_id;
-use crate::maps::families::{join_identical_files_now, lock_families, refresh_families};
+use crate::maps::families::join_identical_files_now;
 use crate::maps::parse::{
     AnalysisTables, FINGERPRINT_VERSION, MAP_PARSER_VERSION, MapAnalysis, MapExtension,
     MapParseError, ParsedMap, ParsedMapFile, is_mojibake_of, map_file_hash, parse_map,
@@ -201,15 +201,13 @@ impl MapIngester {
         .await
     }
 
-    /// Stores an uploaded map and adds it to the uploader's library, or with `publish` (a staff
-    /// upload), publishes it as the uploader instead, unless it's already listed. A file that's
-    /// already stored isn't parsed again.
+    /// Stores an uploaded map and adds it to the uploader's library. A file that's already stored
+    /// isn't parsed again.
     pub async fn upload(
         &self,
         bytes: Vec<u8>,
         extension: MapExtension,
         uploaded_by: SbUserId,
-        publish: bool,
     ) -> Result<SbMapId, MapIngestError> {
         let hash = MapHash(map_file_hash(extension, &bytes));
         let existing = sqlx::query_scalar!(
@@ -235,47 +233,18 @@ impl MapIngester {
             }
         };
 
-        let mut tx = self
-            .db
-            .begin()
-            .await
-            .wrap_err("Failed to start transaction")?;
-        if publish {
-            // Listing the file can change which file of its family is current.
-            lock_families(&mut tx).await?;
-            let family_id = sqlx::query_scalar!(
-                r#"
-                    UPDATE maps
-                    SET published_by = $2, published_at = now(),
-                        delisted_by = NULL, delisted_at = NULL, delisted_kind = NULL,
-                        delisted_note = NULL
-                    WHERE id = $1 AND NOT listed
-                    RETURNING family_id
-                "#,
-                map_id as _,
-                uploaded_by as _,
-            )
-            .fetch_optional(&mut *tx)
-            .await
-            .wrap_err("Failed to publish map")?;
-            if let Some(family_id) = family_id {
-                refresh_families(&mut tx, &[family_id], true).await?;
-            }
-        } else {
-            sqlx::query!(
-                r#"
-                    INSERT INTO map_library (user_id, map_id, added_at)
-                    VALUES ($1, $2, now())
-                    ON CONFLICT (user_id, map_id) DO UPDATE SET added_at = now()
-                "#,
-                uploaded_by as _,
-                map_id as _,
-            )
-            .execute(&mut *tx)
-            .await
-            .wrap_err("Failed to add map to library")?;
-        }
-        tx.commit().await.wrap_err("Failed to commit map upload")?;
+        sqlx::query!(
+            r#"
+                INSERT INTO map_library (user_id, map_id, added_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (user_id, map_id) DO UPDATE SET added_at = now()
+            "#,
+            uploaded_by as _,
+            map_id as _,
+        )
+        .execute(&self.db)
+        .await
+        .wrap_err("Failed to add map to library")?;
 
         Ok(map_id)
     }

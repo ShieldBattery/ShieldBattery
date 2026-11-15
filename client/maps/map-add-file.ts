@@ -51,11 +51,22 @@ export type AddFilePlan =
   | { kind: 'unavailable'; reason: AddFileUnavailableReason; mapName: string }
 
 /**
- * Decides how `file` can join the map `familyId`, which `viewerId` owns. These are the server's
- * rules for publishing and linking a file, as far as the client can tell them: a file staff
- * delisted is only known as such to staff.
+ * Decides how `file` can join the map `familyId`, which `viewerId` owns or, with `staff`, manages
+ * as staff. These are the server's rules for publishing and linking a file, as far as the client
+ * can tell them: a file staff delisted is only known as such to staff.
+ *
+ * Staff can move any file into the map, so neither another map's maker or credit nor the file
+ * sharing its map with other files stops them, and they can publish a file staff delisted. Of the
+ * listed files in their library, though, only one they published that's alone in its map is
+ * offered: any other is a file of a map players already know it by, which staff move it out of
+ * from that map's Files card.
  */
-export function planAddFile(file: AddFileFacts, familyId: string, viewerId: SbUserId): AddFilePlan {
+export function planAddFile(
+  file: AddFileFacts,
+  familyId: string,
+  viewerId: SbUserId,
+  staff = false,
+): AddFilePlan {
   const unavailable = (reason: AddFileUnavailableReason): AddFilePlan => ({
     kind: 'unavailable',
     reason,
@@ -64,6 +75,7 @@ export function planAddFile(file: AddFileFacts, familyId: string, viewerId: SbUs
   const alone = file.family.fileCount <= 1
   // Moving a file out of a map it's alone in merges that map away
   const isProtected =
+    !staff &&
     alone &&
     (file.family.credited ||
       (file.family.ownerId !== undefined && file.family.ownerId !== viewerId))
@@ -78,13 +90,13 @@ export function planAddFile(file: AddFileFacts, familyId: string, viewerId: SbUs
     return isProtected ? unavailable('protected') : { kind: 'link' }
   }
 
-  if (file.staffDelisted) {
+  if (file.staffDelisted && !staff) {
     return unavailable('staffDelisted')
   } else if (!filterColorCodes(file.name).trim()) {
     return unavailable('noName')
   } else if (file.family.id === familyId) {
     return { kind: 'publish', answer: MapPublishAnswerKind.Keep }
-  } else if (!alone && file.family.listed) {
+  } else if (!staff && !alone && file.family.listed) {
     return unavailable('inOtherMap')
   } else if (isProtected) {
     return unavailable('protected')
