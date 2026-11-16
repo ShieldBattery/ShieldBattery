@@ -685,6 +685,7 @@ fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
                     id: view.units.len() as u32,
                     player: index,
                     kind: Some(kind),
+                    cargo: Vec::new(),
                     job: None,
                     orders: None,
                     position: spot,

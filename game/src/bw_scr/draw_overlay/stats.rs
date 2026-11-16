@@ -135,7 +135,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
             continue;
         }
         let id = unit.id();
-        let kind = counts_on_screen(unit).then(|| {
+        let mut kind_of = |id: UnitId| {
             kinds
                 .iter()
                 .position(|&kind| kind == id)
@@ -143,7 +143,18 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
                     kinds.push(id);
                     kinds.len() - 1
                 })
-        });
+        };
+        let kind = counts_on_screen(unit).then(|| kind_of(id));
+        // What a transport carries is counted with it: there is nothing of it on the map to
+        // count where it stands.
+        let cargo: Vec<usize> = match bw.units.as_ref() {
+            Some(all) if on_the_map && unit.has_loaded_units() => unit
+                .loaded_units(all)
+                .filter(|&loaded| counts_on_screen(loaded))
+                .map(|loaded| kind_of(loaded.id()))
+                .collect(),
+            _ => Vec::new(),
+        };
         let (x, y) = (f32::from(position.x), f32::from(position.y));
         let body = id.dimensions();
         let circle_bottom = unit
@@ -159,6 +170,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
                 .map_or(0, |units| units.to_unique_id(unit)),
             player,
             kind,
+            cargo,
             job,
             orders: same_orders_number(bw, unit),
             position: to_view(x, y),
@@ -188,6 +200,9 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
     }
     for unit in &mut units {
         unit.kind = unit.kind.map(|kind| place[kind]);
+        for kind in &mut unit.cargo {
+            *kind = place[*kind];
+        }
     }
     OnScreenView {
         players: players

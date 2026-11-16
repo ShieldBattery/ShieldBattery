@@ -149,6 +149,10 @@ pub struct OnScreenUnitView {
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
     /// health bar but is not counted (a larva or an egg).
     pub kind: Option<usize>,
+    /// What it carries, as the kind of each unit loaded in it, indices into [`OnScreenView::kinds`]:
+    /// what a dropship, shuttle or overlord has aboard, counted with it wherever it is counted,
+    /// since there is nothing of those on the map to count. Empty for anything else.
+    pub cargo: Vec<usize>,
     /// The work it is at, for a worker at work, which is grouped with the others at that work and
     /// never with an army standing among them. `None` for anything else, a worker pulled to fight
     /// included.
@@ -1179,15 +1183,18 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
         .collect()
 }
 
-/// How many of `units` there are of each kind, with the kind's icon, in the kinds' drawing order.
+/// How many of `units` there are of each kind, what they carry included, with the kind's icon, in
+/// the kinds' drawing order.
 fn count_kinds<'a>(
     view: &OnScreenView,
     units: impl IntoIterator<Item = &'a OnScreenUnitView>,
 ) -> Vec<(ProductionIcon, u32)> {
     let mut counts = vec![0u32; view.kinds.len()];
-    for kind in units.into_iter().filter_map(|unit| unit.kind) {
-        if let Some(count) = counts.get_mut(kind) {
-            *count += 1;
+    for unit in units {
+        for kind in unit.kind.into_iter().chain(unit.cargo.iter().copied()) {
+            if let Some(count) = counts.get_mut(kind) {
+                *count += 1;
+            }
         }
     }
     counts
@@ -1550,6 +1557,7 @@ mod tests {
             id,
             player: 0,
             kind: Some(0),
+            cargo: Vec::new(),
             job: None,
             orders: None,
             position,
@@ -2177,6 +2185,38 @@ mod tests {
         );
         assert_eq!(labels.len(), 1);
         assert_close(labels[0].anchor, pos2(510.0, 460.0));
+    }
+
+    #[test]
+    fn a_transport_is_counted_with_what_it_carries() {
+        let icon = |index| ProductionIcon {
+            texture: None,
+            index,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        };
+        // A dropship (kind 0) carrying two marines (kind 1) and a medic (kind 2), beside a marine
+        // on the ground.
+        let dropship = OnScreenUnitView {
+            cargo: vec![1, 1, 2],
+            ..unit_of(1, 0, 0, 0.5, 0.5)
+        };
+        let view = OnScreenView {
+            players: vec![nobody()],
+            kinds: vec![icon(0), icon(1), icon(2)],
+            units: vec![dropship, unit_of(2, 0, 1, 0.52, 0.5)],
+            ..Default::default()
+        };
+        let counts = |units: &[OnScreenUnitView]| -> Vec<(u16, u32)> {
+            count_kinds(&view, units)
+                .into_iter()
+                .map(|(icon, count)| (icon.index, count))
+                .collect()
+        };
+        assert_eq!(counts(&view.units), vec![(0, 1), (1, 3), (2, 1)]);
+        // Picked on its own, it still brings what it carries.
+        assert_eq!(counts(&view.units[..1]), vec![(0, 1), (1, 2), (2, 1)]);
     }
 
     #[test]
