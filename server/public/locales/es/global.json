@@ -3246,7 +3246,7 @@
       "title": "Juego",
       "video": {
         "alwaysStartSd": "Iniciar siempre las partidas con gráficos SD",
-        "alwaysStartSdNote": "Las partidas empiezan con gráficos SD aunque los gráficos HD estén activados. Puedes cambiar a HD durante la partida.",
+        "alwaysStartSdNote": "Las partidas que juegas empiezan con gráficos SD aunque los gráficos HD estén activados. Los replays y las partidas que observas no se ven afectados. Puedes cambiar a HD durante la partida.",
         "brightness": "Brillo",
         "customFpsLimit": "Límite de FPS personalizado",
         "displayMode": {

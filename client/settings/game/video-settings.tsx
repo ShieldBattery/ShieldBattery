@@ -463,7 +463,8 @@ export function GameVideoSettings() {
               <SettingsRowNote icon='info'>
                 {t(
                   'settings.game.video.alwaysStartSdNote',
-                  'Games start in SD graphics even if HD graphics is on. You can still switch to HD in game.',
+                  'Games you play in start in SD graphics even if HD graphics is on. Replays and games you ' +
+                    'observe are not affected. You can still switch to HD in game.',
                 )}
               </SettingsRowNote>
             ) : null}

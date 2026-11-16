@@ -368,8 +368,9 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   emulateTurnRate24Delay: boolean
 
   /**
-   * Whether every game starts in SD graphics regardless of the saved HD graphics setting. The saved
-   * setting is untouched, so toggling HD in game still works and still persists.
+   * Whether every game the user plays in starts in SD graphics regardless of the saved HD graphics
+   * setting. Replays and games they observe are not affected. The saved setting is untouched, so
+   * toggling HD in game still works and still persists.
    */
   alwaysStartSd: boolean
 

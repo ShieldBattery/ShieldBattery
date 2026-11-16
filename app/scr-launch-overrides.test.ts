@@ -64,10 +64,19 @@ describe('app/scr-launch-overrides', () => {
   })
 
   it('starts in SD when asked to, or when HD is disabled outright', () => {
-    expect(startsInSd({ alwaysStartSd: true })).toBe(true)
-    expect(startsInSd({ disableHd: true })).toBe(true)
-    expect(startsInSd({ alwaysStartSd: false, disableHd: false })).toBe(false)
-    expect(startsInSd({})).toBe(false)
+    const seated = { seatless: false }
+    expect(startsInSd({ alwaysStartSd: true }, seated)).toBe(true)
+    expect(startsInSd({ disableHd: true }, seated)).toBe(true)
+    expect(startsInSd({ alwaysStartSd: false, disableHd: false }, seated)).toBe(false)
+    expect(startsInSd({}, seated)).toBe(false)
+  })
+
+  it('leaves replays and observed games in HD unless HD is disabled outright', () => {
+    const seatless = { seatless: true }
+    expect(startsInSd({ alwaysStartSd: true }, seatless)).toBe(false)
+    expect(startsInSd({ alwaysStartSd: true, disableHd: true }, seatless)).toBe(true)
+    expect(startsInSd({ disableHd: true }, seatless)).toBe(true)
+    expect(startsInSd({}, seatless)).toBe(false)
   })
 
   it('drops the forced setting when reading back', () => {

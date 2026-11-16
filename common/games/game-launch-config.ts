@@ -47,6 +47,17 @@ export function isReplayLaunchConfig(config: GameLaunchConfig) {
   return isReplayMapInfo(config.setup.map)
 }
 
+/**
+ * Whether the local user has no seat in the launched game: they are watching a replay or sitting
+ * in an observer slot, rather than playing.
+ */
+export function isSeatlessLaunchConfig(config: GameLaunchConfig) {
+  return (
+    isReplayLaunchConfig(config) ||
+    config.setup.slots.some(s => s.type === SlotType.Observer && s.userId === config.localUser.id)
+  )
+}
+
 export function isReplayMapInfo(map: MapInfoJson | ReplayMapInfo): map is ReplayMapInfo {
   return (map as ReplayMapInfo).isReplay
 }
