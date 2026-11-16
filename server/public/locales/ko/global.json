@@ -3148,7 +3148,7 @@
       "title": "게임",
       "video": {
         "alwaysStartSd": "항상 SD 그래픽으로 게임 시작",
-        "alwaysStartSdNote": "HD 그래픽을 켜 두어도 게임이 SD 그래픽으로 시작됩니다. 게임 중에 HD로 전환할 수 있습니다.",
+        "alwaysStartSdNote": "HD 그래픽을 켜 두어도 직접 플레이하는 게임은 SD 그래픽으로 시작됩니다. 리플레이와 관전에는 적용되지 않습니다. 게임 중에 HD로 전환할 수 있습니다.",
         "brightness": "밝기",
         "customFpsLimit": "사용자 지정 FPS 제한",
         "displayMode": {

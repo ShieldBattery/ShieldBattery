@@ -3148,7 +3148,7 @@
       "title": "游戏",
       "video": {
         "alwaysStartSd": "始终以旧版图像启动游戏",
-        "alwaysStartSdNote": "即使开启了高清版图像，游戏也会以旧版图像启动。您仍可在游戏中切换到高清版。",
+        "alwaysStartSdNote": "即使开启了高清版图像，您参与的游戏也会以旧版图像启动。录像和观战不受影响。您仍可在游戏中切换到高清版。",
         "brightness": "亮度",
         "customFpsLimit": "自定义帧率上限",
         "displayMode": {

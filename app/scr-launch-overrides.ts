@@ -1,12 +1,18 @@
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
 
 /**
- * Whether a game launched with these settings must start in SD graphics: the player asked for it,
- * or the dev-only `disableHd` keeps the game out of HD entirely, which the game refuses to launch
- * with HD graphics on.
+ * Whether a game launched with these settings must start in SD graphics: the player asked for it
+ * for the games they play in, or the dev-only `disableHd` keeps the game out of HD entirely, which
+ * the game refuses to launch with HD graphics on.
+ *
+ * @param seatless whether the local user only watches the game (a replay, or an observer slot).
+ *   `alwaysStartSd` does not apply to those.
  */
-export function startsInSd(settings: Readonly<Partial<LocalSettings>>): boolean {
-  return Boolean(settings.alwaysStartSd || settings.disableHd)
+export function startsInSd(
+  settings: Readonly<Partial<LocalSettings>>,
+  { seatless }: { seatless: boolean },
+): boolean {
+  return Boolean(settings.disableHd || (settings.alwaysStartSd && !seatless))
 }
 
 /** SC:R's name for the HD graphics setting in its settings file. */

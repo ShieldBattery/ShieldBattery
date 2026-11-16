@@ -17,6 +17,7 @@ import {
   GameLaunchConfig,
   isReplayLaunchConfig,
   isReplayMapInfo,
+  isSeatlessLaunchConfig,
 } from '../../common/games/game-launch-config'
 import {
   GameLaunchErrorKind,
@@ -28,7 +29,6 @@ import {
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
-import { SlotType } from '../../common/lobbies/slot'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -323,9 +323,15 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
-  private launchGameProcess(gameId: string): Promise<void> {
+  private launchGameProcess(gameId: string, config: GameLaunchConfig): Promise<void> {
     this.emit('gameProcessLaunching', gameId)
-    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
+    return doLaunch(
+      gameId,
+      this.serverPort,
+      this.localSettings,
+      this.scrSettings,
+      isSeatlessLaunchConfig(config),
+    )
       .then(
         async ({ proc, releaseGpuPreference }) => {
           try {
@@ -373,7 +379,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const gameId = config.setup.gameId
-    const activeGamePromise = this.launchGameProcess(gameId)
+    const activeGamePromise = this.launchGameProcess(gameId, config)
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -456,7 +462,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       status: { state: GameStatus.Unknown, extra: null },
     }
     this.watchOnlyGames.set(gameId, game)
-    game.promise = this.launchGameProcess(gameId)
+    game.promise = this.launchGameProcess(gameId, config)
     log.verbose(`Creating new watch-only game ${gameId}`)
     this.setStatus(game, GameStatus.Launching)
     return gameId
@@ -589,9 +595,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     // A viewer with no seat (replay watcher or observer) gets the seatless resolution, which
     // degrades relational palettes that assume a "you" exists.
-    const seatless =
-      isReplayLaunchConfig(config) ||
-      config.setup.slots.some(s => s.type === SlotType.Observer && s.userId === config.localUser.id)
+    const seatless = isSeatlessLaunchConfig(config)
     const resolvedTeamColors = seatless
       ? resolveSeatlessTeamColors(resolvedLocal)
       : resolveTeamColors(resolvedLocal)
@@ -602,7 +606,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', id, 'settings', {
       local,
       scr: applyLaunchOverridesToSettings(await this.scrSettings.get(), {
-        alwaysStartSd: startsInSd(resolvedLocal),
+        alwaysStartSd: startsInSd(resolvedLocal, { seatless }),
       }),
       settingsFilePath: this.scrSettings.gameFilepath,
       monitorBounds,
@@ -1209,6 +1213,7 @@ async function doLaunch(
   serverPort: number,
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
+  seatless: boolean,
 ) {
   const settings = await localSettings.get()
   const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
@@ -1239,7 +1244,7 @@ async function doLaunch(
   }
 
   // Ensure that our local settings file is up-to-date with the current settings
-  await scrSettings.writeGameSettingsFile(startsInSd(settings))
+  await scrSettings.writeGameSettingsFile(startsInSd(settings, { seatless }))
 
   const userDataPath = app.getPath('userData')
   try {
