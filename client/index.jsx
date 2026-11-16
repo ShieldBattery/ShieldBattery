@@ -1,6 +1,7 @@
 import { enableArrayMethods, enableMapSet } from 'immer'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { resolveTranslationLanguage } from '../common/i18n'
 import { TypedIpcRenderer } from '../common/ipc'
 import { App } from './app'
 import { audioManager } from './audio/audio-manager'
@@ -9,7 +10,6 @@ import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import './dom/window-focus'
 import i18n, { getStartupLanguage, initI18next, rememberLanguage } from './i18n/i18next'
-import { getBestLanguage } from './i18n/language-detector'
 import log from './logging/logger'
 import { installHistoryEntryKeys } from './navigation/history-entry-key'
 import { fetchJson } from './network/fetch'
@@ -204,7 +204,7 @@ rootElemPromise
       })
 
       if (locale) {
-        const language = getBestLanguage([locale])
+        const language = resolveTranslationLanguage(locale)
         rememberLanguage(language)
         await i18n.changeLanguage(language)
       }
