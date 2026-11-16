@@ -5,7 +5,7 @@
 //! chain of such pairs joins (single linkage). Whether two units are joined depends on nothing but
 //! where those two stand, and whether they were together the frame before, so panning the view, or
 //! a unit coming into it somewhere else, never splits or joins a group it does not reach. Two that
-//! were together keep a longer reach (see [`KEEP_TOGETHER`]), so a unit at the edge of a group
+//! were together keep a longer reach (see [`Reach::keep_together`]), so a unit at the edge of a group
 //! moving about it, as workers mining do, does not flicker in and out of it.
 //!
 //! The reach is measured on the map, so a group is the same units in a window of any size: about
@@ -39,15 +39,21 @@ use egui::Pos2;
 
 use super::WorkerJob;
 
-/// How far apart on the map, in its pixels, two units can stand and still be together.
-const UNIT_REACH: f32 = 96.0;
-
-/// How close on the screen, in points, two units always are together: about half a label, so the
-/// labels of two groups always have room to stand apart.
-const LABEL_ROOM: f32 = 96.0;
-
-/// How much further than its reach two units that were together the frame before stay together.
-const KEEP_TOGETHER: f32 = 1.25;
+/// How far apart two units can stand and still be together.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct Reach {
+    /// How far apart on the map, in its pixels, two units can stand and still be together.
+    pub units: f32,
+    /// How far apart on the map, in its pixels, two units on the same orders can stand and still be
+    /// together.
+    pub same_orders: f32,
+    /// How close on the screen, in points, two units always are together: about half a label, so
+    /// the labels of two groups always have room to stand apart.
+    pub label_room: f32,
+    /// How much further than its reach two units that were together the frame before stay
+    /// together.
+    pub keep_together: f32,
+}
 
 /// A unit to group: where it stands on the screen, the work it is at, if it is a worker at work,
 /// and the orders it is on, as a number two units on the same orders share.
@@ -59,21 +65,26 @@ pub(super) struct Member {
 
 /// Splits `members` into the groups they stand in, each as indices into `members`, in the order of
 /// each group's first member. `points_per_map_pixel` is how many points on the screen one of the
-/// map's pixels takes up, or 0 where that is not known, which leaves only [`LABEL_ROOM`].
-/// `same_orders_reach` is how far apart on the map, in its pixels, two units on the same orders
-/// can stand and still be together. `were_together` says whether two members, by index, the lower
-/// first, were in one group the frame before.
+/// map's pixels takes up, or 0 where that is not known, which leaves only `reach.label_room`.
+/// `reach` is how far apart units can stand and still be together. `were_together` says whether
+/// two members, by index, the lower first, were in one group the frame before.
 ///
 /// Not every pair of units is measured: with every unit a player has on one screen, that is more
 /// pairs than there is time for in a frame. The groups are the same as if every pair had been.
 pub(super) fn stand_together(
     members: &[Member],
     points_per_map_pixel: f32,
-    same_orders_reach: f32,
+    reach: Reach,
     were_together: impl Fn(usize, usize) -> bool,
 ) -> Vec<Vec<usize>> {
-    let reach = (UNIT_REACH * points_per_map_pixel).max(LABEL_ROOM);
-    let same_orders_reach = (same_orders_reach * points_per_map_pixel).max(reach);
+    let Reach {
+        units,
+        same_orders,
+        label_room,
+        keep_together,
+    } = reach;
+    let reach = (units * points_per_map_pixel).max(label_room);
+    let same_orders_reach = (same_orders * points_per_map_pixel).max(reach);
     let mut parent: Vec<usize> = (0..members.len()).collect();
 
     // A base's workers are together wherever they stand, and with nothing else. Everything else
@@ -108,7 +119,7 @@ pub(super) fn stand_together(
     // through in order across the screen, each against the ones after it that are near enough.
     let mut squares: Vec<_> = by_square.iter().collect();
     squares.sort_unstable_by_key(|&(&square, _)| square);
-    let rings = (same_orders_reach * KEEP_TOGETHER / square_size).ceil() as i32;
+    let rings = (same_orders_reach * keep_together / square_size).ceil() as i32;
     for (at, &(&(x, y), ours)) in squares.iter().enumerate() {
         for &(&(other_x, other_y), theirs) in &squares[at + 1..] {
             if other_x - x > rings {
@@ -130,7 +141,7 @@ pub(super) fn stand_together(
                         .find(|&&b| {
                             let (first, second) = (&members[a], &members[b]);
                             let kept = if were_together(a.min(b), a.max(b)) {
-                                KEEP_TOGETHER
+                                keep_together
                             } else {
                                 1.0
                             };
@@ -301,8 +312,13 @@ mod tests {
     /// map.
     const SCALE: f32 = 3.0;
 
-    /// How far units on the same orders reach, in the map's pixels.
-    const SAME_ORDERS_REACH: f32 = 220.0;
+    /// How far units reach.
+    const REACH: Reach = Reach {
+        units: 96.0,
+        same_orders: 220.0,
+        label_room: 96.0,
+        keep_together: 1.25,
+    };
 
     fn unit(x: f32, y: f32) -> Member {
         Member {
@@ -333,7 +349,7 @@ mod tests {
     }
 
     fn group_sizes(members: &[Member], scale: f32) -> Vec<usize> {
-        let mut sizes: Vec<usize> = stand_together(members, scale, SAME_ORDERS_REACH, |_, _| false)
+        let mut sizes: Vec<usize> = stand_together(members, scale, REACH, |_, _| false)
             .iter()
             .map(Vec::len)
             .collect();
@@ -373,31 +389,28 @@ mod tests {
             gatherer(340.0, 300.0),
         ];
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false),
+            stand_together(&members, SCALE, REACH, |_, _| false),
             vec![vec![0, 2, 4], vec![1, 3]]
         );
         // Apart however far out the view is, and whatever they were the frame before.
         assert_eq!(group_sizes(&members, 0.0), vec![2, 3]);
-        assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| true).len(),
-            2
-        );
+        assert_eq!(stand_together(&members, SCALE, REACH, |_, _| true).len(), 2);
         // A worker pulled off the line to fight is one of the army.
         members[2].job = None;
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false),
+            stand_together(&members, SCALE, REACH, |_, _| false),
             vec![vec![0, 4], vec![1, 2, 3]]
         );
         // And one putting up a building there is neither the army's nor the line's.
         members[2].job = Some(WorkerJob::Building);
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false),
+            stand_together(&members, SCALE, REACH, |_, _| false),
             vec![vec![0, 4], vec![1, 3], vec![2]]
         );
         // Two of them at one site are together.
         members[1].job = Some(WorkerJob::Building);
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false),
+            stand_together(&members, SCALE, REACH, |_, _| false),
             vec![vec![0, 4], vec![1, 2], vec![3]]
         );
     }
@@ -506,11 +519,17 @@ mod tests {
     fn stand_together_by_pairs(
         members: &[Member],
         points_per_map_pixel: f32,
-        same_orders_reach: f32,
+        reach: Reach,
         were_together: impl Fn(usize, usize) -> bool,
     ) -> Vec<Vec<usize>> {
-        let reach = (UNIT_REACH * points_per_map_pixel).max(LABEL_ROOM);
-        let same_orders_reach = (same_orders_reach * points_per_map_pixel).max(reach);
+        let Reach {
+            units,
+            same_orders,
+            label_room,
+            keep_together,
+        } = reach;
+        let reach = (units * points_per_map_pixel).max(label_room);
+        let same_orders_reach = (same_orders * points_per_map_pixel).max(reach);
         let mut parent: Vec<usize> = (0..members.len()).collect();
         for (a, first) in members.iter().enumerate() {
             for (b, second) in members.iter().enumerate().skip(a + 1) {
@@ -519,7 +538,7 @@ mod tests {
                 }
                 let same_base = matches!(first.job, Some(WorkerJob::AtBase { .. }));
                 let kept = if were_together(a, b) {
-                    KEEP_TOGETHER
+                    keep_together
                 } else {
                     1.0
                 };
@@ -594,8 +613,8 @@ mod tests {
                 |a: usize, b: usize| (a * 31 + b * 17 + seed as usize).is_multiple_of(3);
             for scale in [0.0, 0.4, 1.0, 3.0] {
                 assert_eq!(
-                    stand_together(&members, scale, SAME_ORDERS_REACH, were_together),
-                    stand_together_by_pairs(&members, scale, SAME_ORDERS_REACH, were_together),
+                    stand_together(&members, scale, REACH, were_together),
+                    stand_together_by_pairs(&members, scale, REACH, were_together),
                     "seed {seed} at {scale} points to a pixel",
                 );
             }
@@ -655,13 +674,13 @@ mod tests {
             unit(100.0 + gap, 100.0),
             unit(130.0 + gap, 100.0),
         ];
-        let before = stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false);
+        let before = stand_together(&members, SCALE, REACH, |_, _| false);
         let shift = vec2(37.25, -11.5);
         for member in &mut members {
             member.at += shift;
         }
         members.push(unit(2000.0, 1200.0));
-        let after = stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false);
+        let after = stand_together(&members, SCALE, REACH, |_, _| false);
         assert_eq!(before, vec![vec![0, 1], vec![2, 3]]);
         assert_eq!(after, vec![vec![0, 1], vec![2, 3], vec![4]]);
     }
@@ -682,19 +701,13 @@ mod tests {
         // A little over the reach apart: two groups, unless they were one the frame before.
         let members = [unit(100.0, 100.0), unit(100.0 + 100.0 * SCALE, 100.0)];
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false).len(),
+            stand_together(&members, SCALE, REACH, |_, _| false).len(),
             2
         );
-        assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| true).len(),
-            1
-        );
+        assert_eq!(stand_together(&members, SCALE, REACH, |_, _| true).len(), 1);
         // And well past it, apart whatever they were.
         let apart = [unit(100.0, 100.0), unit(100.0 + 150.0 * SCALE, 100.0)];
-        assert_eq!(
-            stand_together(&apart, SCALE, SAME_ORDERS_REACH, |_, _| true).len(),
-            2
-        );
+        assert_eq!(stand_together(&apart, SCALE, REACH, |_, _| true).len(), 2);
     }
 
     #[test]
@@ -706,9 +719,9 @@ mod tests {
             unit(110.0, 100.0),
         ];
         assert_eq!(
-            stand_together(&members, SCALE, SAME_ORDERS_REACH, |_, _| false),
+            stand_together(&members, SCALE, REACH, |_, _| false),
             vec![vec![0, 2], vec![1, 3]]
         );
-        assert!(stand_together(&[], SCALE, SAME_ORDERS_REACH, |_, _| false).is_empty());
+        assert!(stand_together(&[], SCALE, REACH, |_, _| false).is_empty());
     }
 }

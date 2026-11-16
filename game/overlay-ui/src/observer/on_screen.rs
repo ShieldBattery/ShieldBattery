@@ -225,9 +225,21 @@ pub struct CountTuning {
     /// before they are counted that way: what keeps units that drift apart and close up again as
     /// they move from being split and joined, and their labels moved, each time.
     pub regroup_secs: f32,
+    /// How far apart two units can stand and still be together (see [`grouping`]).
+    pub unit_reach: f32,
     /// How far apart two units on the same orders can stand and still be together, which is
     /// further than units are otherwise (see [`grouping`]).
     pub same_orders_reach: f32,
+    /// How close on the screen, in points, two units always are together: zoomed out, where
+    /// `unit_reach` is closer on the screen than this, groups merge so that their labels have
+    /// room to stand apart.
+    pub label_room: f32,
+    /// How much further than their reach two units that were together the frame before stay
+    /// together, so a unit at a group's edge does not flicker in and out of it.
+    pub keep_together: f32,
+    /// Whether the count stays up without Alt, counting everything in view where nothing is
+    /// picked, and taking no presses: an aid for tuning the rest while watching what it does.
+    pub keep_up: bool,
 }
 
 impl CountTuning {
@@ -237,7 +249,11 @@ impl CountTuning {
         settle_secs: 0.03,
         least_speed: 192.0,
         regroup_secs: 1.0,
+        unit_reach: 96.0,
         same_orders_reach: 220.0,
+        label_room: 96.0,
+        keep_together: 1.25,
+        keep_up: false,
     };
 }
 
@@ -462,9 +478,16 @@ pub fn render_on_screen_view(
     game_press: Option<Pos2>,
 ) -> OnScreenOutcome {
     let id = count_id();
-    let Followed { pick, look, pinned } =
-        follow_pick(ctx, shown, view, screen, panels, minimap, game_press);
-    let up = shown || pinned;
+    let Followed {
+        mut pick,
+        look,
+        pinned,
+    } = follow_pick(ctx, shown, view, screen, panels, minimap, game_press);
+    let kept_up = view.tuning.keep_up && !shown && !pinned;
+    if kept_up {
+        pick = Pick::Everything;
+    }
+    let up = shown || pinned || kept_up;
     let health_bars = if up {
         health_bars(view, &pick, screen)
     } else {
@@ -969,7 +992,12 @@ fn as_they_stand(
     let stand = grouping::stand_together(
         &members,
         points_per_map_pixel,
-        motion.same_orders_reach,
+        grouping::Reach {
+            units: motion.unit_reach,
+            same_orders: motion.same_orders_reach,
+            label_room: motion.label_room,
+            keep_together: motion.keep_together,
+        },
         were_together,
     );
     let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();

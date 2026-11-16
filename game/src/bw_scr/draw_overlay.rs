@@ -975,6 +975,9 @@ impl OverlayState {
                 }
                 if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
+                    if bw.is_replay_or_obs {
+                        self.add_on_screen_count_debug_ui(&ctx);
+                    }
                 }
             } else {
                 self.was_loading = true;
@@ -1204,6 +1207,26 @@ impl OverlayState {
         self.force_add_ui_rect(&res, true);
     }
 
+    /// The on-screen count's tuning, in a window of its own that starts out open where no panel
+    /// covers it: it is tuned while watching what it does, which the Debug window, closed and under
+    /// the top-left panels, is in the way of.
+    fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context) {
+        let screen = ctx.viewport_rect();
+        let res = egui::Window::new("On-screen count tuning")
+            .default_pos((
+                screen.right() - 480.0,
+                screen.top() + screen.height() * 0.16,
+            ))
+            .default_open(true)
+            .movable(true)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(screen.height() * 0.6)
+                    .show(ui, on_screen_count_debug_ui);
+            });
+        self.force_add_ui_rect(&res, true);
+    }
+
     fn add_debug_ui_contents(&mut self, bw: &BwVars, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.collapsing("Egui settings", |ui| {
             ctx.settings_ui(ui);
@@ -1222,7 +1245,6 @@ impl OverlayState {
         });
         let tileset = unsafe { (**bw.game).tileset };
         ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
-        ui.collapsing("On-screen count", on_screen_count_debug_ui);
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -2042,8 +2064,26 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
         ui.radio_value(&mut builders, grouping, text);
     }
     ui.separator();
-    ui.label("Labels");
     let mut motion = stats::count_tuning();
+    ui.checkbox(&mut motion.keep_up, "Keep the count up without Alt");
+    ui.separator();
+    ui.label("Groups (32 map px is a tile)");
+    ui.add(Slider::new(&mut motion.unit_reach, 16.0..=384.0).text("Reach (map px)"));
+    ui.add(
+        Slider::new(&mut motion.same_orders_reach, 16.0..=1024.0)
+            .text("Reach on the same orders (map px)"),
+    );
+    ui.add(
+        Slider::new(&mut motion.label_room, 0.0..=256.0)
+            .text("Reach at least, zoomed out (screen pt)"),
+    );
+    ui.add(
+        Slider::new(&mut motion.keep_together, 1.0..=2.0)
+            .text("Reach kept by units already together (x)"),
+    );
+    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
+    ui.separator();
+    ui.label("Labels");
     ui.add(
         Slider::new(&mut motion.slack_share, 0.0..=1.0)
             .text("Slack (share of half the group's size)"),
@@ -2051,11 +2091,6 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
     ui.add(Slider::new(&mut motion.slack_least, 0.0..=64.0).text("Slack at least (map px)"));
     ui.add(Slider::new(&mut motion.settle_secs, 0.0..=0.5).text("Move time (s)"));
     ui.add(Slider::new(&mut motion.least_speed, 0.0..=600.0).text("Slowest move (map px/s)"));
-    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
-    ui.add(
-        Slider::new(&mut motion.same_orders_reach, 96.0..=1024.0)
-            .text("Reach on the same orders (map px)"),
-    );
     ui.separator();
     ui.label("Units of the group pointed at");
     let mut look = unit_highlights::look();
