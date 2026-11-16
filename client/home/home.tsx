@@ -304,7 +304,10 @@ const LiveGamesRoot = styled.div`
 
 export function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFragment> }) {
   const { t } = useTranslation()
-  const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
+  // Graphcache hands back a field whose resolver errored as null, despite the schema marking the
+  // live feeds non-null, and keeps the query's other fields. A failed feed shows as empty rather
+  // than taking down the rest of Home.
+  const liveGames = useFragment(LiveGames_FeedFragment, query)?.liveGames ?? []
 
   return liveGames.length > 0 ? (
     <HomeSection>
@@ -335,7 +338,8 @@ export function LiveStreamsFeed({
   query?: FragmentType<typeof LiveStreams_FeedFragment>
 }) {
   const { t } = useTranslation()
-  const { liveStreams } = useFragment(LiveStreams_FeedFragment, query) ?? { liveStreams: [] }
+  // Null when the feed's resolver errored, the same as `liveGames` in `LiveGamesFeed`.
+  const liveStreams = useFragment(LiveStreams_FeedFragment, query)?.liveStreams ?? []
 
   if (liveStreams.length === 0) {
     return null
