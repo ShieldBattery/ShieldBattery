@@ -5,8 +5,8 @@
 //! chain of such pairs joins (single linkage). Whether two units are joined depends on nothing but
 //! where those two stand, and whether they were together the frame before, so panning the view, or
 //! a unit coming into it somewhere else, never splits or joins a group it does not reach. Two that
-//! were together keep a longer reach (see [`Reach::keep_together`]), so a unit at the edge of a group
-//! moving about it, as workers mining do, does not flicker in and out of it.
+//! were together keep a longer reach (see [`Reach::keep_together`]), so a unit at the edge of a
+//! group moving about it, as workers mining do, does not flicker in and out of it.
 //!
 //! The reach is measured on the map, so a group is the same units in a window of any size: about
 //! three tiles, which keeps a clump and the stragglers at its edge together and an army a few
@@ -634,9 +634,9 @@ mod tests {
         let gaps = [0.0, 130.0, 250.0, 380.0, 500.0];
         let flight: Vec<Member> = gaps.iter().map(|&x| sent(x, Some(7))).collect();
         assert_eq!(group_sizes(&flight, SCALE), vec![5]);
-        // With nothing to do, or each sent somewhere else, they are five.
-        let idle: Vec<Member> = gaps.iter().map(|&x| sent(x, None)).collect();
-        assert_eq!(group_sizes(&idle, SCALE), vec![1, 1, 1, 1, 1]);
+        // On orders none of them can share, or each sent somewhere else, they are five.
+        let unshared: Vec<Member> = gaps.iter().map(|&x| sent(x, None)).collect();
+        assert_eq!(group_sizes(&unshared, SCALE), vec![1, 1, 1, 1, 1]);
         let scattered: Vec<Member> = (0u64..)
             .zip(gaps)
             .map(|(orders, x)| sent(x, Some(orders)))

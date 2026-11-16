@@ -1207,10 +1207,10 @@ impl OverlayState {
         self.force_add_ui_rect(&res, true);
     }
 
-    /// The on-screen count's tuning, in a window of its own that starts out open where no panel
-    /// covers it: it is tuned while watching what it does, which the Debug window, closed and under
-    /// the top-left panels, is in the way of. `map_view_width` is how many of the map's pixels the
-    /// game view shows across.
+    /// The on-screen count's tuning, in a window of its own where no panel covers it, closed until
+    /// it is opened: it is tuned while watching what it does, which the Debug window, under the
+    /// top-left panels, is in the way of. `map_view_width` is how many of the map's pixels the game
+    /// view shows across.
     fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context, map_view_width: u32) {
         let screen = ctx.viewport_rect();
         let res = egui::Window::new("On-screen count tuning")
@@ -1218,7 +1218,7 @@ impl OverlayState {
                 screen.right() - 480.0,
                 screen.top() + screen.height() * 0.16,
             ))
-            .default_open(true)
+            .default_open(false)
             .movable(true)
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical()

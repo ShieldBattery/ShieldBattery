@@ -149,9 +149,10 @@ pub struct OnScreenUnitView {
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
     /// health bar but is not counted (a larva or an egg).
     pub kind: Option<usize>,
-    /// What it carries, as the kind of each unit loaded in it, indices into [`OnScreenView::kinds`]:
-    /// what a dropship, shuttle or overlord has aboard, counted with it wherever it is counted,
-    /// since there is nothing of those on the map to count. Empty for anything else.
+    /// What it carries, as the kind of each unit loaded in it, indices into
+    /// [`OnScreenView::kinds`]: what a dropship, shuttle or overlord has aboard, counted with it
+    /// wherever it is counted, since there is nothing of those on the map to count. Empty for
+    /// anything else.
     pub cargo: Vec<usize>,
     /// The work it is at, for a worker at work, which is grouped with the others at that work and
     /// never with an army standing among them. `None` for anything else, a worker pulled to fight
