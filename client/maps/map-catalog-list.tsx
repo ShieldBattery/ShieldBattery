@@ -38,7 +38,6 @@ import {
   normalizeFilterTags,
   tagFilterGroups,
   tagFilterLabel,
-  tagsForLens,
   useMapTagList,
 } from './map-tags'
 import { MapTile, MapTilePick, MapTileSignal, PendingMapTile } from './map-tile'
@@ -371,7 +370,6 @@ export function CatalogFilterRow({
   onClearFilters: () => void
 }) {
   const { t } = useTranslation()
-  const tagList = useMapTagList()
   const searching = !!params.search.trim()
   const sorts = searching && offersBestMatch ? [CatalogSort.BestMatch, ...browseSorts] : browseSorts
 
@@ -392,11 +390,7 @@ export function CatalogFilterRow({
       <LensControl
         ariaLabel={t('maps.catalog.lens', 'Map type')}
         value={params.lens}
-        onChange={lens => {
-          // Tags of the other kind of map no longer apply
-          const tags = tagsForLens(params.tags, lens, tagList)
-          onFiltersChange(tags.length === params.tags.length ? { lens } : { lens, tags })
-        }}
+        onChange={lens => onFiltersChange({ lens })}
         segments={[
           { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
           { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },

@@ -56,7 +56,7 @@ import {
   LocalMatchesLink,
   validateLocalMapView,
 } from './map-local-list'
-import { useMapTagList } from './map-tags'
+import { applyFilterChanges, useMapTagList } from './map-tags'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom, useUploadMapFiles } from './map-uploads'
 
 interface StoredListWindow {
@@ -338,7 +338,7 @@ export function useCatalogUrlParams(listing: MapListing) {
   }
 
   const onFiltersChange = (changes: Partial<CatalogRowFilters>) => {
-    const next = { ...params, ...changes }
+    const next = applyFilterChanges(params, changes, tagList)
     navigate(next)
     setSavedFilters(filtersOf(next))
   }

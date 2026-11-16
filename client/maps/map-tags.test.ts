@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { MapKind, MapLens, MapPublishAnswerKind } from '../gql/graphql'
 import { publishErrorText } from './map-publish'
 import {
+  applyFilterChanges,
   mapTagLabel,
   normalizeFilterTags,
   parseTagsParam,
@@ -136,6 +137,35 @@ describe('client/maps/map-tags', () => {
     expect(tagsForLens(['defense', 'zombies'], MapLens.Ums, TAG_LIST)).toEqual(['defense'])
     // Without the list, the kinds aren't known
     expect(tagsForLens(tags, MapLens.Melee, undefined)).toEqual(tags)
+  })
+
+  describe('applyFilterChanges', () => {
+    const params = { lens: MapLens.Ums, tags: ['defense', 'co-op'], players: 2 }
+
+    test('drops the other kind of tags when only the lens changes', () => {
+      expect(applyFilterChanges(params, { lens: MapLens.Melee }, TAG_LIST)).toEqual({
+        lens: MapLens.Melee,
+        tags: [],
+        players: 2,
+      })
+    })
+
+    test('keeps explicit tags given with a lens change', () => {
+      expect(
+        applyFilterChanges(params, { lens: MapLens.Melee, tags: ['standard'] }, TAG_LIST).tags,
+      ).toEqual(['standard'])
+    })
+
+    test('leaves tags alone when the lens does not change', () => {
+      const result = applyFilterChanges(params, { players: 4 }, TAG_LIST)
+      expect(result).toEqual({ ...params, players: 4 })
+    })
+
+    test('keeps every tag without a tag list', () => {
+      expect(applyFilterChanges(params, { lens: MapLens.Melee }, undefined).tags).toEqual(
+        params.tags,
+      )
+    })
   })
 
   test('labels the filter chip', () => {

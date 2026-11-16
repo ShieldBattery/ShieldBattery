@@ -45,7 +45,7 @@ import {
   validateLocalMapView,
 } from './map-local-list'
 import { MapPickerCollections, PickerCollection } from './map-picker-collections'
-import { tagsForLens, useMapTagList } from './map-tags'
+import { applyFilterChanges, tagsForLens, useMapTagList } from './map-tags'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom } from './map-uploads'
 
 /** What picking a map in the picker does. */
@@ -379,6 +379,7 @@ export function MapPicker({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const saved = useSavedPickerChoices()
+  const tagList = useMapTagList()
   const [storedSession, setSession] = useAtom(mapPickerSessionAtom)
   const session = storedSession ?? newSession(saved.tab, saved.filters)
   const { tab, params } = session
@@ -412,10 +413,10 @@ export function MapPicker({
   }
 
   const onFiltersChange = (changes: Partial<CatalogRowFilters>) => {
-    const next = { ...params, ...changes }
+    const next = applyFilterChanges(params, changes, tagList)
     updateSession(s => ({
       ...s,
-      params: { ...s.params, ...changes },
+      params: applyFilterChanges(s.params, changes, tagList),
       lensFromGameType: s.lensFromGameType && changes.lens === undefined,
     }))
     saved.setFilters(filtersOf(next))

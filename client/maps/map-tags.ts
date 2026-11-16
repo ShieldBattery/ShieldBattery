@@ -98,6 +98,22 @@ export function serializeTagsParam(ids: Iterable<string>): string {
 }
 
 /**
+ * `params` with `changes` applied. Changing the lens without naming tags also drops the tags of the
+ * other kind of map (see {@link tagsForLens}), so a listing never holds tags its lens can't show.
+ */
+export function applyFilterChanges<P extends { lens: MapLens; tags: ReadonlyArray<string> }>(
+  params: P,
+  changes: Partial<NoInfer<P>>,
+  tagList: ReadonlyArray<{ id: string; kind: MapKind }> | undefined,
+): P {
+  const next = { ...params, ...changes }
+  if (changes.lens !== undefined && changes.tags === undefined) {
+    next.tags = tagsForLens(params.tags, changes.lens, tagList)
+  }
+  return next
+}
+
+/**
  * The tags of `tags` that still apply once the listing shows `lens`: the ones of the other kind of
  * map are dropped, as are ones `tagList` doesn't have. Until `tagList` is loaded the kinds aren't
  * known, so every tag is kept.
