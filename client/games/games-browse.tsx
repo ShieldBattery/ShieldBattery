@@ -390,6 +390,8 @@ function MapShelf({
 
 function LiveGamesShelf() {
   const { t } = useTranslation()
+  // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
+  // hiding the live games feed if there are no live games anyway.
   // Fetched once per visit to the page, never from the cache, so a game that finished since the
   // last visit doesn't linger. It isn't refreshed while the page stays open.
   const [{ data }] = useQuery({
@@ -516,15 +518,14 @@ export function AllGamesBrowse({ onSeeAll }: { onSeeAll: (target: SeeAllTarget) 
 
 function RecentSummary({ gameIds, userId }: { gameIds: ReadonlyArray<string>; userId: SbUserId }) {
   const { t } = useTranslation()
-  const results = useAppSelector(s =>
-    gameIds
-      .slice(0, SUMMARY_GAMES)
-      .map(id => {
-        const game = s.games.byId.get(id)
-        return game ? getResultFor(game, userId) : undefined
-      })
-      .filter((r): r is 'win' | 'loss' => r !== undefined),
-  )
+  const gamesById = useAppSelector(s => s.games.byId)
+  const results = gameIds
+    .slice(0, SUMMARY_GAMES)
+    .map(id => {
+      const game = gamesById.get(id)
+      return game ? getResultFor(game, userId) : undefined
+    })
+    .filter((r): r is 'win' | 'loss' => r !== undefined)
   if (!results.length) {
     return null
   }

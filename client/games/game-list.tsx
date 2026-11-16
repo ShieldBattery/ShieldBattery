@@ -43,8 +43,13 @@ const HeaderActions = styled.div`
   gap: 8px;
 `
 
-/** The URL `view` param's value for the filtered list (absent means the browse view). */
-const LIST_VIEW = 'list'
+/**
+ * The path segment of the filtered list. The list has a pathname of its own, separate from the
+ * browse view's, so each list opened from the browse view is a new history visit: the list view
+ * keeps its loaded games, scroll position and selection per visit, and a list opened with other
+ * filters must not pick those up.
+ */
+export const GAMES_LIST_SEGMENT = 'list'
 
 /** Builds the games page URL for a tab and view, with the given list filters. */
 function gamesPageUrl(tab: GamesTab, list: boolean, params: Readonly<Record<string, string>> = {}) {
@@ -52,14 +57,13 @@ function gamesPageUrl(tab: GamesTab, list: boolean, params: Readonly<Record<stri
   if (tab === 'mine') {
     search.set('tab', 'mine')
   }
-  if (list) {
-    search.set('view', LIST_VIEW)
-  }
   for (const [key, value] of Object.entries(params)) {
     search.set(key, value)
   }
   const searchString = search.toString()
-  return '/games' + (searchString ? `?${searchString}` : '')
+  return (
+    (list ? `/games/${GAMES_LIST_SEGMENT}` : '/games') + (searchString ? `?${searchString}` : '')
+  )
 }
 
 // ---- Main component --------------------------------------------------------------------------
@@ -69,14 +73,12 @@ function gamesPageUrl(tab: GamesTab, list: boolean, params: Readonly<Record<stri
  * it the filtered list that "See all" and the Filters button open. Which one shows, and the
  * list's filters, live in the URL, so back and forward move between them.
  */
-export function GameList() {
+export function GameList({ showList }: { showList: boolean }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const [tabParam] = useLocationSearchParam('tab')
-  const [viewParam] = useLocationSearchParam('view')
   const tab: GamesTab = tabParam === 'mine' && selfUser ? 'mine' : 'all'
-  const showList = viewParam === LIST_VIEW
 
   // The games list virtualizes against this container and remembers its scroll position itself.
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null)
