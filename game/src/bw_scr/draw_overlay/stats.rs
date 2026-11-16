@@ -108,6 +108,10 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
         .active_units
         .filter(|unit| unit.id().is_town_hall())
         .collect();
+    let halls: Vec<(u8, bw::Point)> = town_halls
+        .iter()
+        .map(|town_hall| (town_hall.player(), town_hall.position()))
+        .collect();
     let builders = builder_grouping();
     let on_the_map = bw.active_units.map(|unit| (unit, true));
     let inside = workers_inside_refineries(bw, players)
@@ -124,7 +128,7 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
         if !view.contains(&position) || (on_the_map && !in_on_screen_view(unit)) {
             continue;
         }
-        let job = worker_job(unit, &town_halls, builders);
+        let job = worker_job(unit, &halls, builders);
         // Counted with its base's workers and nowhere else: there is nothing of it on the map
         // for a label of its own to hang over.
         if !on_the_map && !matches!(job, Some(WorkerJob::AtBase { .. })) {
@@ -257,17 +261,24 @@ pub(super) fn set_builder_grouping(grouping: BuilderGrouping) {
     *BUILDER_GROUPING.lock() = grouping;
 }
 
-/// The work `unit` is at, for a worker at work, given every town hall on the map: one of the
-/// workers of the base of the town hall at an index of `town_halls`, gathering there or standing
-/// idle there (see [`base_worked`]), or putting up a building (see [`is_building_order`]), which
-/// `builders` can have counted with the workers of the base it is at or as no work at all.
-fn worker_job(unit: Unit, town_halls: &[Unit], builders: BuilderGrouping) -> Option<WorkerJob> {
+/// The work `unit` is at, for a worker at work, given every town hall on the map as its owner and
+/// where it stands: one of the workers of the base of the town hall at an index of `halls`,
+/// gathering there (see [`base_gathered_at`]) or standing idle there (see [`base_worked`]), or
+/// putting up a building (see [`is_building_order`]), which `builders` can have counted with the
+/// workers of the base it is at or as no work at all.
+fn worker_job(
+    unit: Unit,
+    halls: &[(u8, bw::Point)],
+    builders: BuilderGrouping,
+) -> Option<WorkerJob> {
     if !unit.id().is_worker() {
         return None;
     }
     let order = unit.order();
-    let at_base = || base_worked(unit, town_halls).map(|base| WorkerJob::AtBase { base });
-    if is_gathering_order(order) || is_idle_order(order) {
+    let at_base = || base_worked(unit, halls).map(|base| WorkerJob::AtBase { base });
+    if is_gathering_order(order) {
+        base_gathered_at(unit, halls).map(|base| WorkerJob::AtBase { base })
+    } else if is_idle_order(order) {
         at_base()
     } else if is_building_order(order) {
         match builders {
@@ -284,29 +295,75 @@ fn worker_job(unit: Unit, town_halls: &[Unit], builders: BuilderGrouping) -> Opt
 /// that base: past the far side of the furthest mineral patch or geyser a base is laid out with.
 const GATHERING_RANGE: i32 = 12 * 32;
 
-/// The base `unit` is at, as the index in `town_halls` of the nearest of its owner's town halls
-/// within [`GATHERING_RANGE`] of it, or `None` where it is at none of its owner's bases.
+/// The base an idle or building `unit` is at, as the index in `halls` of the nearest of its
+/// owner's town halls within [`GATHERING_RANGE`] of it, or `None` where it is at none of its
+/// owner's bases.
+fn base_worked(unit: Unit, halls: &[(u8, bw::Point)]) -> Option<usize> {
+    nearest_base(unit.position(), unit.player(), halls)
+}
+
+/// The base a gathering `unit` is at, as the index in `halls`: the nearest of its owner's town
+/// halls to where it gathers (see [`gathering_place`]), once the worker itself is within
+/// [`GATHERING_RANGE`] of that town hall. `None` where what it gathers from is at none of its
+/// owner's bases, or it has yet to get there.
 ///
-/// A worker on a gathering order is only gathering at one of those. One told to gather so that it
-/// slips through the units in its way, at a mineral line that is not its owner's, is on the same
-/// orders, and is there with the army it came with. So is not one on its way across the map to a
-/// base it has yet to reach.
-fn base_worked(unit: Unit, town_halls: &[Unit]) -> Option<usize> {
-    let position = unit.position();
-    let away = |town_hall: &Unit| {
-        let at = town_hall.position();
-        let across = i32::from(at.x) - i32::from(position.x);
-        let down = i32::from(at.y) - i32::from(position.y);
-        across * across + down * down
-    };
-    town_halls
+/// A worker sent to gather at another base is on its way there, with the workers sent with it,
+/// until it arrives, and is at no base it passes on the way. And a town hall that stands nearer
+/// the worker than the one it gathers for, a hatchery made for its larvae beside a mineral line,
+/// does not take it from its base. A worker told to gather so that it slips through the units in
+/// its way, at a mineral line that is not its owner's, is at no base of its owner's, and is there
+/// with the army it came with.
+fn base_gathered_at(unit: Unit, halls: &[(u8, bw::Point)]) -> Option<usize> {
+    let at = unit.position();
+    let place = gathering_place(unit).unwrap_or(at);
+    base_for_gathering(place, at, unit.player(), halls)
+}
+
+/// The index in `halls` of the base of `player`'s that a worker standing `at` and gathering from
+/// `place` is at (see [`base_gathered_at`]).
+fn base_for_gathering(
+    place: bw::Point,
+    at: bw::Point,
+    player: u8,
+    halls: &[(u8, bw::Point)],
+) -> Option<usize> {
+    let base = nearest_base(place, player, halls)?;
+    (distance_squared(halls[base].1, at) <= GATHERING_RANGE * GATHERING_RANGE).then_some(base)
+}
+
+/// Where the resource a gathering `unit` gathers from stands: the mineral patch or refinery it is
+/// on its way to or mining, or, while it carries what it mined back, the one it goes back to after.
+/// `None` where the game has given it none.
+fn gathering_place(unit: Unit) -> Option<bw::Point> {
+    if let Some(target) = unit.target() {
+        let id = target.id();
+        if id.is_resource_container() || id.is_gas_building() {
+            return Some(target.position());
+        }
+    }
+    // SAFETY: `unit` is a worker, so the first of its unit-specific fields are a worker's.
+    let place = unsafe { (**unit).unit_specific.worker.harvest_target_pos };
+    (place.x != 0 || place.y != 0).then_some(place)
+}
+
+/// The index in `halls` of the nearest of `player`'s town halls within [`GATHERING_RANGE`] of
+/// `place`.
+fn nearest_base(place: bw::Point, player: u8, halls: &[(u8, bw::Point)]) -> Option<usize> {
+    halls
         .iter()
         .enumerate()
-        .filter(|(_, town_hall)| town_hall.player() == unit.player())
-        .map(|(base, town_hall)| (base, away(town_hall)))
+        .filter(|&(_, &(owner, _))| owner == player)
+        .map(|(base, &(_, at))| (base, distance_squared(at, place)))
         .filter(|&(_, away)| away <= GATHERING_RANGE * GATHERING_RANGE)
         .min_by_key(|&(_, away)| away)
         .map(|(base, _)| base)
+}
+
+/// How far apart two points on the map are, squared.
+fn distance_squared(a: bw::Point, b: bw::Point) -> i32 {
+    let across = i32::from(a.x) - i32::from(b.x);
+    let down = i32::from(a.y) - i32::from(b.y);
+    across * across + down * down
 }
 
 /// Whether `order` is one of those a worker goes through to gather: on its way to a mineral patch
@@ -1502,6 +1559,48 @@ mod tests {
         assert_eq!(add_series(total, &[10.0]), vec![11.0]);
         let total = add_series(Vec::new(), &[1.0]);
         assert_eq!(add_series(total, &[10.0, 20.0]), vec![11.0]);
+    }
+
+    #[test]
+    fn a_gathering_worker_is_at_the_base_of_what_it_gathers_from_once_it_gets_there() {
+        let point = |x: i16, y: i16| bw::Point { x, y };
+        // A main, a natural 40 tiles away with a hatchery made for its larvae halfway between,
+        // and the other player's base beside the natural.
+        let main = point(500, 500);
+        let macro_hatch = point(1140, 500);
+        let natural = point(1780, 500);
+        let halls = [
+            (0, main),
+            (0, macro_hatch),
+            (0, natural),
+            (1, point(1780, 700)),
+        ];
+        let natural_patch = point(1780, 280);
+
+        // Sent from the main to the natural: at no base as it passes the hatchery on the way,
+        // and at the natural once it gets there.
+        assert_eq!(
+            base_for_gathering(natural_patch, point(1140, 560), 0, &halls),
+            None
+        );
+        assert_eq!(
+            base_for_gathering(natural_patch, point(1700, 380), 0, &halls),
+            Some(2)
+        );
+        // Mining the main, nearer the hatchery than the main on the far side of its line, it is
+        // still the main's.
+        let far_patch = point(780, 500);
+        assert_eq!(
+            base_for_gathering(far_patch, point(840, 500), 0, &halls),
+            Some(0)
+        );
+        // Gathering where its owner has no base, it is at none, whoever's base is there.
+        assert_eq!(
+            base_for_gathering(point(1780, 920), point(1780, 880), 0, &halls),
+            None
+        );
+        // An idle one is at whichever of its owner's town halls it stands nearest.
+        assert_eq!(nearest_base(point(1130, 520), 0, &halls), Some(1));
     }
 
     #[test]
