@@ -45,7 +45,7 @@ pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
 pub use on_screen::{
     CountTuning, OnScreenBaseView, OnScreenOutcome, OnScreenPlayerView, OnScreenUnitView,
-    OnScreenView, WorkerJob, render_on_screen_view,
+    OnScreenView, WorkerJob, forget_on_screen_count, render_on_screen_view,
 };
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,

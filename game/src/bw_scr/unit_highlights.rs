@@ -6,8 +6,9 @@
 //! Only the queued commands are changed, and they are made afresh every frame.
 //!
 //! Not every sprite shader takes the whole constant. The ones for HD sprites under real-time
-//! lighting read only its alpha, so with that setting on a unit is drawn as it always is, and it
-//! is the overlay's veil over everything else that sets it apart.
+//! lighting read only its alpha, so with that setting on a unit is drawn as it always is, and
+//! nothing on the map marks the units of the group pointed at: only the label pointed at, edged
+//! in light, says which group it is.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

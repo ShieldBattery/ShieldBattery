@@ -31,7 +31,7 @@ mod replay;
 #[cfg(test)]
 mod test_support;
 
-use egui::{Context, Key, Modifiers, Rect};
+use egui::{Context, Key, Modifiers, Pos2, Rect};
 use serde::{Deserialize, Serialize};
 
 use crate::alliances::{AlliancesAction, AlliancesDraft, AlliancesMenu, AlliancesView};
@@ -284,7 +284,8 @@ pub struct FrameOutput {
     /// Whether a control acted this frame, which a host answers with the game's own button click.
     pub button_click: bool,
     /// The units the on-screen count wants a health bar under this frame, by the ids the host gave
-    /// them, sorted. None while the count is not up.
+    /// them, sorted. None while the count is not up, which it is while Alt is held and while a pick
+    /// it made stays up after.
     pub health_bars: Vec<u32>,
     /// The units of the on-screen count's group the pointer is over the label of, by the same
     /// ids, sorted, for the host to light up.
@@ -331,6 +332,9 @@ pub struct Shell {
     /// Whether the on-screen count is up, which takes Alt pressed on its own to bring up but stays
     /// while Alt is held, so Ctrl can then be added to pick with.
     counting_on_screen: bool,
+    /// Where the game took a press of the primary button since the last frame, in the overlay's
+    /// points (see [`Shell::game_took_primary_press`]).
+    game_primary_press: Option<Pos2>,
     intents: Vec<Intent>,
 }
 
@@ -359,6 +363,7 @@ impl Shell {
             setting_toast: None,
             hotkey_activation: false,
             counting_on_screen: false,
+            game_primary_press: None,
             intents: Vec::new(),
         }
     }
@@ -696,31 +701,36 @@ impl Shell {
             );
         }
         // Drawn once every panel is, so its labels can be moved out from under them, and under
-        // them all. While it is up it takes the whole screen's presses, so a drag made with Alt
-        // held draws its counting box instead of selecting what is under it, and a press on the
-        // minimap moves the view without the game taking it for a ping; the wheel stays the
-        // game's, which zooms with it.
+        // them all. While Alt holds it up it takes the whole screen's presses, so a drag made with
+        // Alt held draws its counting box instead of selecting what is under it, and a press on
+        // the minimap moves the view without the game taking it for a ping; the wheel stays the
+        // game's, which zooms with it. A pick it keeps up after Alt takes nothing.
         let mut health_bars = Vec::new();
         let mut highlighted_units = Vec::new();
-        if let Some(view) = views.observer.filter(|_| observing) {
-            let screen = ctx.viewport_rect();
-            let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
-            let outcome = crate::observer::render_on_screen_view(
-                &view.on_screen,
-                ctx,
-                counting_on_screen,
-                screen,
-                &panels,
-                self.host.minimap_rect,
-            );
-            if let Some(point) = outcome.look {
-                self.intents.push(Intent::LookAtMinimapPoint(point));
+        let game_primary_press = self.game_primary_press.take();
+        match views.observer.filter(|_| observing) {
+            Some(view) => {
+                let screen = ctx.viewport_rect();
+                let panels: Vec<Rect> = hit_rects.iter().map(|hit| hit.rect).collect();
+                let outcome = crate::observer::render_on_screen_view(
+                    &view.on_screen,
+                    ctx,
+                    counting_on_screen,
+                    screen,
+                    &panels,
+                    self.host.minimap_rect,
+                    game_primary_press,
+                );
+                if let Some(point) = outcome.look {
+                    self.intents.push(Intent::LookAtMinimapPoint(point));
+                }
+                health_bars = outcome.health_bars;
+                highlighted_units = outcome.highlighted;
+                if counting_on_screen {
+                    hit_rects.push(HitRect::new(screen));
+                }
             }
-            health_bars = outcome.health_bars;
-            highlighted_units = outcome.highlighted;
-            if counting_on_screen {
-                hit_rects.push(HitRect::new(screen));
-            }
+            None => crate::observer::forget_on_screen_count(ctx),
         }
 
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since
@@ -860,6 +870,14 @@ impl Shell {
         }
         self.replay.send_queued_seek(ctx, view, &mut self.intents);
         outcome.map(|outcome| outcome.rect)
+    }
+
+    /// Records a press of the primary button that the game itself received, at `at` in the
+    /// overlay's points, for the next frame to answer. Only a press the game took is reported: one
+    /// an overlay surface took is the overlay's own input. A watcher's press on the game's view
+    /// lets go of what the on-screen count kept picked after Alt was let go.
+    pub fn game_took_primary_press(&mut self, at: Pos2) {
+        self.game_primary_press = Some(at);
     }
 
     /// Lets go of a held button's key once `is_down` says it is no longer down, or once the modal

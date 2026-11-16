@@ -1738,6 +1738,9 @@ impl OverlayState {
                             self.bw_mouse_down[button_idx]
                         };
                         self.bw_mouse_down[button_idx] = pressed && deliver;
+                        if pressed && deliver && button == PointerButton::Primary {
+                            self.shell.game_took_primary_press(pos);
+                        }
                         return if deliver { None } else { Some(0) };
                     }
                     self.bw_mouse_down[button_idx] = false;
@@ -2057,9 +2060,6 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
     ui.label("Units of the group pointed at");
     let mut look = unit_highlights::look();
     ui.add(Slider::new(&mut look.lit, 1.0..=3.0).text("Their brightness (no real-time lighting)"));
-    ui.add(Slider::new(&mut motion.veil, 0.0..=1.0).text("Veil over everything else"));
-    ui.add(Slider::new(&mut motion.spot_margin, 0.0..=96.0).text("Light past a unit (map px)"));
-    ui.add(Slider::new(&mut motion.spot_fade, 1.0..=192.0).text("Light's fade (map px)"));
     if ui.button("Reset").clicked() {
         motion = CountTuning::DEFAULT;
         builders = BuilderGrouping::Apart;

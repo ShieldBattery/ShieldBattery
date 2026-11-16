@@ -1,5 +1,6 @@
 //! The on-screen count: what each player has in the part of the map the watcher is looking at,
-//! shown for as long as Alt is held.
+//! shown for as long as Alt is held, and what of it the watcher picked, for as long as it stays
+//! picked.
 //!
 //! A fight on screen is read as who has what there, and the stats wings only answer that for the
 //! whole map. This answers it on the map itself. Every unit in view, short of buildings, gets a
@@ -13,19 +14,28 @@
 //! the map than its band and tiles do, each edged with a dark line that sets it apart from units of
 //! its player's color. All of it is drawn under the panels and dialogs.
 //!
-//! Units are picked with the mouse much as the game selects them, and once picked they are the only
-//! ones counted and given bars, labelled where they go, until Alt is let go. Dragging a box picks
-//! the units inside it, and while the box is being dragged it is drawn, with a label per player hung
-//! over it counting what it covers. Clicking a unit picks it, and with Ctrl, every unit its owner has
-//! of its kind in view. With Shift, what is picked is added to what already was, and a click on what
-//! already was takes it back out. A click on nothing goes back to everything in view.
+//! Units are picked with Alt held and the mouse, much as the game selects them, and once picked
+//! they are the only ones counted and given bars. A player's picked units in view are one group
+//! however far apart they stand, on one label hung over the middle of the top of them, which
+//! follows them where they go. Dragging a box picks the units inside it, and while the box is being
+//! dragged it is drawn, with a label per player hung over it counting what it covers. Clicking a
+//! unit picks it, and with Ctrl, every unit its owner has of its kind in view. With Shift, what is
+//! picked is added to what already was, and a click on what already was takes it back out. A click
+//! on nothing goes back to everything in view.
 //!
-//! What makes a group is how near its units stand on the map, so a group is the same units in a
-//! window of any size, but never nearer on the screen than two labels need to stand apart: zoomed
-//! out, groups apart on the map come close together on the screen and share a label (see
-//! [`grouping`]). The workers gathering at a base are one group of their own, apart from an army
-//! standing among them and labelled over the base's town hall, where the label stays put as they
-//! go back and forth. Workers putting up buildings make groups of their own too.
+//! What is picked stays up once Alt is let go, its labels and bars drawn just as they were, and the
+//! count takes no input while it does: every click is the game's. A press of the primary button
+//! that the game takes on its view lets the pick go, its labels fading out as they stood. A press
+//! on the minimap leaves it up, as the watcher moves the view there to look at it, and so does a
+//! press of the other button or one a panel takes. Holding Alt again lets the pick go and counts
+//! everything in view. With nothing picked, the count fades out as Alt is let go.
+//!
+//! Short of a pick, what makes a group is how near its units stand on the map, so a group is the
+//! same units in a window of any size, but never nearer on the screen than two labels need to
+//! stand apart: zoomed out, groups apart on the map come close together on the screen and share a
+//! label (see [`grouping`]). The workers gathering at a base are one group of their own, apart from
+//! an army standing among them and labelled over the base's town hall, where the label stays put as
+//! they go back and forth. Workers putting up buildings make groups of their own too.
 //!
 //! A group's label keeps its place on the map while its units mill about under it, as workers
 //! mining do, and is only moved once the group has got out from under it, and then no further than
@@ -34,9 +44,9 @@
 //! [`settle`]). While it moves, it is drawn where it is rather than on the nearest whole pixels,
 //! which would step it along out of time with the units it follows.
 //!
-//! Pointing at a group's label shows which units it counts: a veil darkens the game view but for
-//! a spot of light left on each of them (see [`veil_mesh`]), and their ids are handed to the host
-//! to light the units themselves up where it can.
+//! Pointing at a group's label while Alt is held shows which units it counts: the label is edged
+//! in light, and the units' ids are handed to the host to light the units themselves up where it
+//! can.
 
 mod grouping;
 
@@ -44,8 +54,8 @@ use std::collections::HashMap;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Area, Color32, Context, Id, Mesh, Order, Pos2, Rect, Sense, Shape, Stroke, StrokeKind,
-    Ui, Vec2, pos2, vec2,
+    Align, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2,
+    pos2, vec2,
 };
 
 use crate::kit::motion;
@@ -218,13 +228,6 @@ pub struct CountTuning {
     /// How far apart two units on the same orders can stand and still be together, which is
     /// further than units are otherwise (see [`grouping`]).
     pub same_orders_reach: f32,
-    /// How dark the veil over the game view is while a group's label is pointed at, from 0, no
-    /// veil at all, to 1, black.
-    pub veil: f32,
-    /// How far past a unit of the group pointed at the spot of light on it reaches before the veil
-    /// starts to come back, and how far it takes to come back in full.
-    pub spot_margin: f32,
-    pub spot_fade: f32,
 }
 
 impl CountTuning {
@@ -235,9 +238,6 @@ impl CountTuning {
         least_speed: 192.0,
         regroup_secs: 1.0,
         same_orders_reach: 220.0,
-        veil: 0.56,
-        spot_margin: 12.0,
-        spot_fade: 28.0,
     };
 }
 
@@ -268,33 +268,25 @@ struct Label<'a> {
     was: Option<u32>,
 }
 
-/// What the count keeps of the frame before, while it is drawn: the groups, each one's label by
-/// the group's key, and the labels on their way out.
+/// What the count keeps of the frame before, while it is drawn: the groups, how they were made,
+/// each one's label by the group's key, and the labels on their way out.
 #[derive(Clone, Default)]
 struct Memory {
     groups: grouping::Groups,
+    grouping: Grouping,
     labels: HashMap<u32, Kept>,
     leaving: Vec<Leaving>,
-    /// How far in the veil is, from 0 to 1, and the units it leaves lit, by id, sorted: those of
-    /// the group last pointed at, kept while the veil goes so that it goes as it stood.
-    veil: f32,
-    lit: Vec<u32>,
 }
 
-/// How long, in seconds, the veil takes to cover most of the way in or out.
-const VEIL_SECS: f32 = 0.04;
-
-/// How big the squares the veil is made of are, in points. Its darkness is set at their corners
-/// and runs evenly between, so they are small beside the fade at the edge of a spot of light.
-const VEIL_CELL: f32 = 12.0;
-
-/// A place the veil leaves lit: a circle on the screen, and how far past its edge the veil takes
-/// to come back in full.
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Spot {
-    center: Pos2,
-    radius: f32,
-    fade: f32,
+/// How the units a count takes in are made into groups, each with a label.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Grouping {
+    /// Into the groups they stand in (see [`grouping`]), as everything in view is.
+    #[default]
+    AsTheyStand,
+    /// Each player's into one group, wherever they stand, as picked units are: the watcher picked
+    /// them to be counted together.
+    OnePerPlayer,
 }
 
 /// A group's label as it was the frame before: where it was, and what was on it, which is what is
@@ -410,15 +402,28 @@ fn in_box(unit: &OnScreenUnitView, dragged: Rect, screen: Rect) -> bool {
 
 /// The box being dragged, as where it started and where the pointer is, the units picked, and
 /// whether the button went down on the minimap and has not come up, kept from frame to frame while
-/// the count is up, and, of what was picked, while it fades out after.
+/// the count is up, and, of what was picked, while it stays up after and while it fades out.
 #[derive(Clone, Default)]
 struct PickState {
     drag: Option<(Pos2, Pos2)>,
     picked: Option<Vec<u32>>,
     steering: bool,
-    /// Whether the count has gone since this was picked, which leaves it to be forgotten when the
-    /// count next comes up.
+    /// Whether Alt has been let go since this was picked, which leaves it to be forgotten when Alt
+    /// is next held.
     gone: bool,
+    /// Whether a press the game took on its view has let go of what stayed picked after Alt, which
+    /// is kept only for its labels to fade out as they stood.
+    dropped: bool,
+}
+
+/// What [`follow_pick`] makes of a frame.
+struct Followed {
+    pick: Pick,
+    /// Where on the minimap the watcher is pressing, while they are (see [`OnScreenOutcome::look`]).
+    look: Option<Pos2>,
+    /// Whether what is picked stays up with Alt let go: drawn and given bars as it was while Alt
+    /// was held, taking no input.
+    pinned: bool,
 }
 
 /// What a frame of the on-screen count asks of the host.
@@ -429,8 +434,9 @@ pub struct OnScreenOutcome {
     /// ping, which says nothing to anyone from a watcher.
     pub look: Option<Pos2>,
     /// The units to draw a health bar under, by id, sorted: every unit in view while the count
-    /// is up, or the ones picked. Drawn by the host, in among the units as the game draws a
-    /// selected unit's, where a bar drawn here would lie over whatever stands in front of it.
+    /// is up, or the ones picked, while Alt is held and for as long as they stay picked after.
+    /// Drawn by the host, in among the units as the game draws a selected unit's, where a bar
+    /// drawn here would lie over whatever stands in front of it.
     pub health_bars: Vec<u32>,
     /// The units of the group whose label the pointer is over, by id, sorted, for the host to
     /// light up on the map: which units a label is counting is not always plain from where it
@@ -439,8 +445,10 @@ pub struct OnScreenOutcome {
 }
 
 /// Draws the labels, fading them in and out together, and says which units get health bars.
-/// `screen` is the rect the game view fills, `panels` the rects of the overlay's panels, and
-/// `minimap` the minimap's square where it is up.
+/// `shown` is whether Alt is held for the count, `screen` the rect the game view fills, `panels`
+/// the rects of the overlay's panels, `minimap` the minimap's square where it is up, and
+/// `game_press` where the game took a press of the primary button since the frame before, if it
+/// took one.
 ///
 /// Drawn under every panel and dialog, which cover what they stand over of the map anyway, with
 /// each label moved out from under the panels where it can be.
@@ -451,10 +459,13 @@ pub fn render_on_screen_view(
     screen: Rect,
     panels: &[Rect],
     minimap: Option<Rect>,
+    game_press: Option<Pos2>,
 ) -> OnScreenOutcome {
-    let id = Id::new("sb_on_screen_units");
-    let (pick, look) = follow_pick(ctx, id.with("pick"), shown, view, screen, panels, minimap);
-    let health_bars = if shown {
+    let id = count_id();
+    let Followed { pick, look, pinned } =
+        follow_pick(ctx, shown, view, screen, panels, minimap, game_press);
+    let up = shown || pinned;
+    let health_bars = if up {
         health_bars(view, &pick, screen)
     } else {
         Vec::new()
@@ -467,11 +478,12 @@ pub fn render_on_screen_view(
     let mut drawn = false;
     let mut highlighted = Vec::new();
     // Pinned to the units they count, so they fade in and out where they stand rather than
-    // sliding, and quickly: the count is up for as long as a key is held and no longer.
+    // sliding, and quickly: the count is up for as long as a key is held, or a pick stays, and no
+    // longer.
     motion::presence_area_quick(
         ctx,
         id.with("presence"),
-        shown && !view.units.is_empty(),
+        up && !view.units.is_empty(),
         area,
         |ui| {
             drawn = true;
@@ -483,19 +495,36 @@ pub fn render_on_screen_view(
                 .unwrap_or_default();
             let on_map = OnMap::new(view.map_view, screen);
             let seconds = ui.input(|input| input.stable_dt);
+            let grouping = match pick {
+                Pick::Everything => Grouping::AsTheyStand,
+                Pick::Dragging { .. } | Pick::Picked(_) => Grouping::OnePerPlayer,
+            };
+            // Groups made one per player are no groups the units stand in: carried on from, they
+            // would keep the units of a pick together for a while after it has gone.
+            let fresh;
+            let groups_before =
+                if grouping == Grouping::AsTheyStand && before.grouping == Grouping::OnePerPlayer {
+                    fresh = grouping::Groups {
+                        next_key: before.groups.next_key,
+                        ..Default::default()
+                    };
+                    &fresh
+                } else {
+                    &before.groups
+                };
             let (mut labels, groups) = match &pick {
                 Pick::Dragging { dragged, adding_to } => {
                     paint_box(ui, *dragged);
                     let mut labels = box_labels(view, *dragged, screen);
                     let (grouped, groups) =
-                        group_labels(view, on_map, &before.groups, seconds, |unit| {
+                        group_labels(view, on_map, groups_before, seconds, grouping, |unit| {
                             !in_box(unit, *dragged, screen)
                                 && adding_to.binary_search(&unit.id).is_ok()
                         });
                     labels.extend(grouped);
                     (labels, groups)
                 }
-                _ => group_labels(view, on_map, &before.groups, seconds, |unit| {
+                _ => group_labels(view, on_map, groups_before, seconds, grouping, |unit| {
                     pick.includes(unit, screen)
                 }),
             };
@@ -505,7 +534,7 @@ pub fn render_on_screen_view(
             let placed = place_labels(ui, labels, screen, &panels);
             let (placed, labels) = settle(placed, &before.labels, on_map, view.tuning, seconds);
             let leaving = leaving_labels(&before, &groups, &labels, view.tuning, seconds);
-            // Nothing is pointed at while a box is being dragged, or once the count is going.
+            // Nothing is pointed at while a box is being dragged, or without Alt held.
             let pointing = shown && !matches!(pick, Pick::Dragging { .. });
             let pointer = ui
                 .input(|input| input.pointer.hover_pos())
@@ -519,29 +548,6 @@ pub fn render_on_screen_view(
                     .map(|(unit, _)| *unit)
                     .collect();
                 highlighted.sort_unstable();
-            }
-            // The veil comes and goes quickly rather than at once, and goes with the spots it had.
-            let veil = {
-                let target = if hovered.is_some() { 1.0 } else { 0.0 };
-                let now =
-                    before.veil + (target - before.veil) * (1.0 - (-seconds / VEIL_SECS).exp());
-                if (target - now).abs() < 0.02 {
-                    target
-                } else {
-                    ui.ctx().request_repaint();
-                    now
-                }
-            };
-            let lit = match hovered {
-                Some(_) => highlighted.clone(),
-                None if veil > 0.0 => before.lit.clone(),
-                None => Vec::new(),
-            };
-            let darkness = view.tuning.veil * veil;
-            if darkness > 0.0 {
-                let spots = lit_spots(view, &lit, on_map);
-                ui.painter()
-                    .add(Shape::mesh(veil_mesh(screen, &spots, darkness)));
             }
             let pixels_per_point = ui.ctx().pixels_per_point();
             let paint = |ui: &Ui, label: &Label, rect: Rect, moving: bool| {
@@ -596,21 +602,21 @@ pub fn render_on_screen_view(
                     memory_id,
                     Memory {
                         groups,
+                        grouping,
                         labels,
                         leaving,
-                        veil,
-                        lit,
                     },
                 )
             });
         },
     );
-    // Kept until the last of the count has faded, so that it fades as it stood.
+    // Kept until the last of the count has faded, so that it fades as it stood, and a pick that
+    // stays up is kept through frames with none of it to draw.
     if !drawn {
         ctx.data_mut(|data| {
             data.remove::<Memory>(memory_id);
-            if !shown {
-                data.remove::<PickState>(id.with("pick"));
+            if !up {
+                data.remove::<PickState>(pick_id());
             }
         });
     }
@@ -621,85 +627,24 @@ pub fn render_on_screen_view(
     }
 }
 
-/// The spots of light the veil leaves on the units `lit` (by id, sorted): a circle around what is
-/// drawn of each, with the margin and fade the view's tuning gives. A unit that is not on the map
-/// to be seen, a worker inside a refinery, has none.
-fn lit_spots(view: &OnScreenView, lit: &[u32], on_map: OnMap) -> Vec<Spot> {
-    let screen = on_map.screen;
-    let scale = on_map.points_per_pixel().x;
-    view.units
-        .iter()
-        .filter(|unit| unit.bounds.is_finite() && lit.binary_search(&unit.id).is_ok())
-        .map(|unit| {
-            let body = body_on_screen(unit, screen);
-            let top = on_screen(pos2(unit.position.x, unit.top), screen).y;
-            let drawn = Rect::from_min_max(pos2(body.left(), top.min(body.top())), body.max);
-            Spot {
-                center: drawn.center(),
-                radius: drawn.width().max(drawn.height()) / 2.0 + view.tuning.spot_margin * scale,
-                fade: view.tuning.spot_fade * scale,
-            }
-        })
-        .collect()
+/// What the count keeps from frame to frame is kept under.
+fn count_id() -> Id {
+    Id::new("sb_on_screen_units")
 }
 
-/// The veil over `screen`: black at `darkness` (0 to 1) everywhere but in `spots`, where there is
-/// none of it, and coming back in full over each spot's fade past its edge.
-///
-/// A veil over the whole view rather than a darkening of the things in it, so that everything
-/// that is not being pointed out goes back together: the ground and the water with the units on
-/// them, under any graphics setting, since it is drawn over what the game has drawn.
-fn veil_mesh(screen: Rect, spots: &[Spot], darkness: f32) -> Mesh {
-    let columns = (screen.width() / VEIL_CELL).ceil().max(1.0) as usize;
-    let rows = (screen.height() / VEIL_CELL).ceil().max(1.0) as usize;
-    let step = vec2(
-        screen.width() / columns as f32,
-        screen.height() / rows as f32,
-    );
-    let across = columns + 1;
-    let corner =
-        |column: usize, row: usize| screen.min + vec2(column as f32 * step.x, row as f32 * step.y);
-    // How much light each corner of the squares is in, from 0 to 1.
-    let mut light = vec![0.0f32; across * (rows + 1)];
-    for spot in spots {
-        let reach = spot.radius + spot.fade;
-        let cells = |from: f32, step: f32, most: usize| {
-            let first = ((from - reach) / step).floor().clamp(0.0, most as f32) as usize;
-            let last = ((from + reach) / step).ceil().clamp(0.0, most as f32) as usize;
-            first..=last
-        };
-        for row in cells(spot.center.y - screen.top(), step.y, rows) {
-            for column in cells(spot.center.x - screen.left(), step.x, columns) {
-                let past = corner(column, row).distance(spot.center) - spot.radius;
-                let back = (past / spot.fade.max(f32::EPSILON)).clamp(0.0, 1.0);
-                // Eased at both ends, so a spot has no edge to it.
-                let lit = 1.0 - back * back * (3.0 - 2.0 * back);
-                let at = &mut light[row * across + column];
-                *at = at.max(lit);
-            }
-        }
-    }
-    let mut mesh = Mesh::default();
-    mesh.reserve_vertices(light.len());
-    mesh.reserve_triangles(columns * rows * 2);
-    for row in 0..=rows {
-        for column in 0..=columns {
-            let dark = darkness.clamp(0.0, 1.0) * (1.0 - light[row * across + column]);
-            mesh.colored_vertex(
-                corner(column, row),
-                Color32::from_black_alpha((dark * 255.0).round() as u8),
-            );
-        }
-    }
-    for row in 0..rows {
-        for column in 0..columns {
-            let first = (row * across + column) as u32;
-            let below = first + across as u32;
-            mesh.add_triangle(first, first + 1, below);
-            mesh.add_triangle(first + 1, below + 1, below);
-        }
-    }
-    mesh
+/// What is picked, and how, is kept under.
+fn pick_id() -> Id {
+    count_id().with("pick")
+}
+
+/// Forgets what is picked and everything the count keeps from frame to frame, for a host that has
+/// stopped watching a game: a pick that stayed up must not come back in a game watched later.
+pub fn forget_on_screen_count(ctx: &Context) {
+    let id = count_id();
+    ctx.data_mut(|data| {
+        data.remove::<PickState>(pick_id());
+        data.remove::<Memory>(id.with("memory"));
+    });
 }
 
 /// The key of the group whose label `pointer` is over: the last drawn of those it is over, which
@@ -734,17 +679,21 @@ fn health_bars(view: &OnScreenView, pick: &Pick, screen: Rect) -> Vec<u32> {
 /// long as the button stays down. A press on one of `panels` is the panel's, and picks nothing
 /// either: the units under a panel are not what a click on its controls is after, and a click
 /// there would otherwise drop what was picked. A box that started on the map can be dragged over
-/// a panel all the same. All of it is dropped with the count, but for what was picked, which is
-/// what is counted while the count fades out.
+/// a panel all the same.
+///
+/// All of it is dropped once Alt is let go, but for what was picked, which stays up until
+/// `game_press`, a press of the primary button the game took, lands anywhere but the minimap, and
+/// is then still counted while the count fades out. Holding Alt again starts over.
 fn follow_pick(
     ctx: &Context,
-    id: Id,
     shown: bool,
     view: &OnScreenView,
     screen: Rect,
     panels: &[Rect],
     minimap: Option<Rect>,
-) -> (Pick, Option<Pos2>) {
+    game_press: Option<Pos2>,
+) -> Followed {
+    let id = pick_id();
     let mut state = ctx
         .data(|data| data.get_temp::<PickState>(id))
         .unwrap_or_default();
@@ -752,12 +701,21 @@ fn follow_pick(
         state.drag = None;
         state.steering = false;
         state.gone = true;
-        let pick = match &state.picked {
-            Some(ids) => Pick::Picked(ids.clone()),
-            None => Pick::Everything,
+        // The watcher moves the view with the minimap to look at what they picked.
+        let on_the_view = |at: Pos2| !minimap.is_some_and(|minimap| minimap.contains(at));
+        if game_press.is_some_and(on_the_view) {
+            state.dropped = true;
+        }
+        let (pick, pinned) = match &state.picked {
+            Some(ids) => (Pick::Picked(ids.clone()), !state.dropped),
+            None => (Pick::Everything, false),
         };
         ctx.data_mut(|data| data.insert_temp(id, state));
-        return (pick, None);
+        return Followed {
+            pick,
+            look: None,
+            pinned,
+        };
     }
     if state.gone {
         state = PickState::default();
@@ -832,7 +790,11 @@ fn follow_pick(
         (None, None) => Pick::Everything,
     };
     ctx.data_mut(|data| data.insert_temp(id, state));
-    (pick, look)
+    Followed {
+        pick,
+        look,
+        pinned: false,
+    }
 }
 
 /// What is picked once `chosen` is: it alone, or with `adding` what was picked as well. Where
@@ -902,20 +864,19 @@ fn body_on_screen(unit: &OnScreenUnitView, screen: Rect) -> Rect {
     )
 }
 
-/// The labels for every group of every player's counted units that `included` lets through (see
-/// the module's own docs for what makes a group), and the groups themselves, to be kept for the
-/// next frame. `before` is the groups of the frame before, `seconds` ago.
+/// The labels for every group of every player's counted units that `included` lets through, made
+/// as `grouping` makes them (see the module's own docs for what makes a group), and the groups
+/// themselves, to be kept for the next frame. `before` is the groups of the frame before, `seconds`
+/// ago.
 fn group_labels<'a>(
     view: &'a OnScreenView,
     on_map: OnMap,
     before: &grouping::Groups,
     seconds: f32,
+    grouping: Grouping,
     included: impl Fn(&OnScreenUnitView) -> bool,
 ) -> (Vec<Label<'a>>, grouping::Groups) {
     let screen = on_map.screen;
-    let points_per_map_pixel = on_map
-        .map_view
-        .map_or(0.0, |map_view| screen.width() / map_view.width());
     let motion = view.tuning;
     let slack_least = on_map.points_per_pixel() * motion.slack_least;
     let mut labels = Vec::new();
@@ -929,41 +890,12 @@ fn group_labels<'a>(
             .iter()
             .filter(|unit| unit.player == index && unit.kind.is_some() && included(unit))
             .collect();
-        let members: Vec<grouping::Member> = units
-            .iter()
-            .map(|unit| grouping::Member {
-                at: on_screen(unit.position, screen),
-                job: unit.job,
-                orders: unit.orders,
-            })
-            .collect();
-        let were_together = |a: usize, b: usize| {
-            let group = |i: usize| before.group_of.get(&units[i].id);
-            group(a).is_some_and(|group_a| group(b) == Some(group_a))
+        let settled = match grouping {
+            Grouping::AsTheyStand => {
+                as_they_stand(&units, on_map, motion, before, &mut groups, seconds)
+            }
+            Grouping::OnePerPlayer => one_group(&units, before, &mut groups),
         };
-        let stand = grouping::stand_together(
-            &members,
-            points_per_map_pixel,
-            motion.same_orders_reach,
-            were_together,
-        );
-        let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();
-        let at_a_base: Vec<bool> = stand
-            .iter()
-            .map(|standing| {
-                let first = standing.first().and_then(|&member| units[member].job);
-                matches!(first, Some(WorkerJob::AtBase { .. }))
-            })
-            .collect();
-        let settled = grouping::settle_into_groups(
-            &stand,
-            &at_a_base,
-            &ids,
-            before,
-            &mut groups,
-            seconds,
-            motion.regroup_secs,
-        );
         for (key, members) in settled {
             let members: Vec<&OnScreenUnitView> = members.into_iter().map(|i| units[i]).collect();
             let top = members
@@ -978,8 +910,11 @@ fn group_labels<'a>(
                     .collect::<Vec<_>>(),
             );
             // A base's workers are labelled at the base, which leaves the label nowhere to go.
+            // Picked ones are labelled where they stand, with whatever else was picked.
             let base = match work_of(&members) {
-                Some(WorkerJob::AtBase { base }) => view.bases.get(base),
+                Some(WorkerJob::AtBase { base }) if grouping == Grouping::AsTheyStand => {
+                    view.bases.get(base)
+                }
                 _ => None,
             };
             let (anchor, slack) = match base {
@@ -1002,6 +937,80 @@ fn group_labels<'a>(
         }
     }
     (labels, groups)
+}
+
+/// The groups one player's `units` stand in (see [`grouping`]), each with its key and its members
+/// as indices into `units`, settled from `before`, `seconds` ago, with what is kept of them added to
+/// `after`.
+fn as_they_stand(
+    units: &[&OnScreenUnitView],
+    on_map: OnMap,
+    motion: CountTuning,
+    before: &grouping::Groups,
+    after: &mut grouping::Groups,
+    seconds: f32,
+) -> Vec<(u32, Vec<usize>)> {
+    let screen = on_map.screen;
+    let points_per_map_pixel = on_map
+        .map_view
+        .map_or(0.0, |map_view| screen.width() / map_view.width());
+    let members: Vec<grouping::Member> = units
+        .iter()
+        .map(|unit| grouping::Member {
+            at: on_screen(unit.position, screen),
+            job: unit.job,
+            orders: unit.orders,
+        })
+        .collect();
+    let were_together = |a: usize, b: usize| {
+        let group = |i: usize| before.group_of.get(&units[i].id);
+        group(a).is_some_and(|group_a| group(b) == Some(group_a))
+    };
+    let stand = grouping::stand_together(
+        &members,
+        points_per_map_pixel,
+        motion.same_orders_reach,
+        were_together,
+    );
+    let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();
+    let at_a_base: Vec<bool> = stand
+        .iter()
+        .map(|standing| {
+            let first = standing.first().and_then(|&member| units[member].job);
+            matches!(first, Some(WorkerJob::AtBase { .. }))
+        })
+        .collect();
+    grouping::settle_into_groups(
+        &stand,
+        &at_a_base,
+        &ids,
+        before,
+        after,
+        seconds,
+        motion.regroup_secs,
+    )
+}
+
+/// One player's `units` as one group, or none where there are none, with what is kept of it added
+/// to `after`. Its key is the one of the group most of them were in the frame before, as `before`
+/// has them, so that it keeps its key for as long as it lasts, or a new one where none of them was
+/// in a group.
+fn one_group(
+    units: &[&OnScreenUnitView],
+    before: &grouping::Groups,
+    after: &mut grouping::Groups,
+) -> Vec<(u32, Vec<usize>)> {
+    if units.is_empty() {
+        return Vec::new();
+    }
+    let key = carried_on_from(units, &before.group_of).unwrap_or_else(|| {
+        after.next_key += 1;
+        after.next_key - 1
+    });
+    for unit in units {
+        after.group_of.insert(unit.id, key);
+    }
+    vec![(key, (0..units.len()).collect())]
 }
 
 /// The work most of `members` are at, or `None` where most are at none. A group is all at one
@@ -1552,7 +1561,7 @@ mod tests {
             modifiers,
             ..FrameInput::default()
         };
-        frame(ctx, view, input, events).0
+        frame(ctx, view, input, events).pick
     }
 
     /// What one frame of the count is given besides its events.
@@ -1561,6 +1570,8 @@ mod tests {
         modifiers: egui::Modifiers,
         panels: Vec<Rect>,
         minimap: Option<Rect>,
+        /// Where the game took a press of the primary button since the frame before.
+        game_press: Option<Pos2>,
         /// How long after the frame before it this one comes, which is long enough by default for
         /// no two clicks to be taken for a double-click.
         seconds: f64,
@@ -1573,9 +1584,35 @@ mod tests {
                 modifiers: egui::Modifiers::NONE,
                 panels: Vec::new(),
                 minimap: None,
+                game_press: None,
                 seconds: 0.5,
             }
         }
+    }
+
+    /// The screen every test frame is drawn on.
+    const SCREEN: Rect = Rect::from_min_max(Pos2::ZERO, pos2(1000.0, 1000.0));
+
+    /// Runs one frame of `events` through the context, the way a host does, with `draw` drawing it.
+    fn run(
+        ctx: &Context,
+        input: &FrameInput,
+        mut events: Vec<egui::Event>,
+        draw: impl FnMut(&mut Ui),
+    ) {
+        // As the host reports them, after the frame's other events.
+        events.push(egui::Event::ModifiersChanged(input.modifiers));
+        let time = ctx.input(|state| state.time) + input.seconds;
+        let mut out = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(SCREEN),
+                time: Some(time),
+                events,
+                ..Default::default()
+            },
+            draw,
+        );
+        out.textures_delta.clear();
     }
 
     /// What [`follow_pick`] makes of one frame of `events`.
@@ -1583,34 +1620,43 @@ mod tests {
         ctx: &Context,
         view: &OnScreenView,
         input: FrameInput,
-        mut events: Vec<egui::Event>,
-    ) -> (Pick, Option<Pos2>) {
-        let screen = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 1000.0));
-        let mut result = (Pick::Everything, None);
-        // As the host reports them, after the frame's other events.
-        events.push(egui::Event::ModifiersChanged(input.modifiers));
-        let time = ctx.input(|state| state.time) + input.seconds;
-        let mut out = ctx.run_ui(
-            egui::RawInput {
-                screen_rect: Some(screen),
-                time: Some(time),
-                events,
-                ..Default::default()
-            },
-            |_| {
-                result = follow_pick(
-                    ctx,
-                    Id::new("pick"),
-                    input.shown,
-                    view,
-                    screen,
-                    &input.panels,
-                    input.minimap,
-                )
-            },
-        );
-        out.textures_delta.clear();
-        result
+        events: Vec<egui::Event>,
+    ) -> Followed {
+        let mut result = None;
+        run(ctx, &input, events, |_| {
+            result = Some(follow_pick(
+                ctx,
+                input.shown,
+                view,
+                SCREEN,
+                &input.panels,
+                input.minimap,
+                input.game_press,
+            ))
+        });
+        result.expect("the frame ran")
+    }
+
+    /// What one whole frame of the count, drawn, asks of the host.
+    fn count_frame(
+        ctx: &Context,
+        view: &OnScreenView,
+        input: FrameInput,
+        events: Vec<egui::Event>,
+    ) -> OnScreenOutcome {
+        let mut result = None;
+        run(ctx, &input, events, |_| {
+            result = Some(render_on_screen_view(
+                view,
+                ctx,
+                input.shown,
+                SCREEN,
+                &input.panels,
+                input.minimap,
+                input.game_press,
+            ))
+        });
+        result.expect("the frame ran")
     }
 
     /// What is picked after a click at `x`, `y` in shares of the view with `modifiers` held.
@@ -1676,7 +1722,7 @@ mod tests {
     }
 
     #[test]
-    fn a_dragged_box_keeps_counting_what_it_covered_until_the_count_goes() {
+    fn a_dragged_box_picks_what_it_covered_and_the_pick_outlives_alt_until_alt_comes_back() {
         let ctx = Context::default();
         let view = OnScreenView {
             units: vec![unit_at(7, 0.2, 0.2), unit_at(9, 0.8, 0.8)],
@@ -1699,16 +1745,50 @@ mod tests {
         pick_frame(&ctx, &view, true, vec![button(end, true)]);
         let clicked = pick_frame(&ctx, &view, true, vec![button(end, false)]);
         assert!(matches!(clicked, Pick::Everything));
-        // And letting go of Alt forgets a pick, once the count has faded out counting it.
+        // Picked again, it stays up once Alt is let go, and the pointer picks nothing then.
         pick_frame(&ctx, &view, true, vec![button(start, true)]);
         pick_frame(&ctx, &view, true, vec![egui::Event::PointerMoved(end)]);
         pick_frame(&ctx, &view, true, vec![button(end, false)]);
-        let fading = pick_frame(&ctx, &view, false, vec![]);
-        assert!(matches!(&fading, Pick::Picked(ids) if ids == &[7]));
-        assert!(matches!(
-            pick_frame(&ctx, &view, true, vec![]),
-            Pick::Everything
-        ));
+        let let_go = || FrameInput {
+            shown: false,
+            ..FrameInput::default()
+        };
+        let pinned = frame(&ctx, &view, let_go(), vec![]);
+        assert!(matches!(&pinned.pick, Pick::Picked(ids) if ids == &[7]));
+        assert!(pinned.pinned);
+        let on_unit = pos2(800.0, 800.0);
+        frame(&ctx, &view, let_go(), vec![button(on_unit, true)]);
+        let clicked = frame(&ctx, &view, let_go(), vec![button(on_unit, false)]);
+        assert!(matches!(&clicked.pick, Pick::Picked(ids) if ids == &[7]));
+        assert!(clicked.pinned);
+        // Holding Alt again goes back to everything.
+        let again = frame(&ctx, &view, FrameInput::default(), vec![]);
+        assert!(matches!(again.pick, Pick::Everything));
+        assert!(!again.pinned);
+    }
+
+    #[test]
+    fn a_press_the_game_takes_on_its_view_lets_a_pick_go_and_one_on_the_minimap_does_not() {
+        let ctx = Context::default();
+        let view = OnScreenView {
+            units: vec![unit_at(7, 0.5, 0.5)],
+            ..Default::default()
+        };
+        let minimap = Rect::from_min_size(pos2(0.0, 800.0), vec2(200.0, 200.0));
+        let let_go = |game_press| FrameInput {
+            shown: false,
+            minimap: Some(minimap),
+            game_press,
+            ..FrameInput::default()
+        };
+        click(&ctx, &view, egui::Modifiers::NONE, 0.5, 0.5);
+        let on_minimap = frame(&ctx, &view, let_go(Some(pos2(100.0, 900.0))), vec![]);
+        assert!(on_minimap.pinned);
+        let on_view = frame(&ctx, &view, let_go(Some(pos2(500.0, 300.0))), vec![]);
+        // Still what is counted while its labels fade, but no longer up.
+        assert!(matches!(&on_view.pick, Pick::Picked(ids) if ids == &[7]));
+        assert!(!on_view.pinned);
+        assert!(!frame(&ctx, &view, let_go(None), vec![]).pinned);
     }
 
     #[test]
@@ -1725,7 +1805,7 @@ mod tests {
                 panels: vec![panel],
                 ..FrameInput::default()
             };
-            frame(&ctx, &view, input, events).0
+            frame(&ctx, &view, input, events).pick
         };
         // With the first unit picked, a click on the panel neither picks the unit under it nor
         // drops the pick, as a click on the bare map beside it would.
@@ -1849,10 +1929,10 @@ mod tests {
         };
         frame(&ctx, &view, quick(), vec![egui::Event::PointerMoved(at)]);
         frame(&ctx, &view, quick(), vec![button(at, true)]);
-        let (once, _) = frame(&ctx, &view, quick(), vec![button(at, false)]);
+        let once = frame(&ctx, &view, quick(), vec![button(at, false)]).pick;
         assert_eq!(picked(&once), [1]);
         frame(&ctx, &view, quick(), vec![button(at, true)]);
-        let (twice, _) = frame(&ctx, &view, quick(), vec![button(at, false)]);
+        let twice = frame(&ctx, &view, quick(), vec![button(at, false)]).pick;
         assert_eq!(picked(&twice), [1, 2]);
     }
 
@@ -1875,17 +1955,23 @@ mod tests {
             on_minimap(),
             vec![egui::Event::PointerMoved(at)],
         );
-        let (_, pressed) = frame(&ctx, &view, on_minimap(), vec![button(at, true)]);
+        let pressed = frame(&ctx, &view, on_minimap(), vec![button(at, true)]).look;
         assert_eq!(pressed, Some(at));
         // Dragged off the minimap's edge, the look stays on its edge.
         let off = vec![egui::Event::PointerMoved(pos2(400.0, 900.0))];
-        let (dragging, held) = frame(&ctx, &view, on_minimap(), off);
+        let Followed {
+            pick: dragging,
+            look: held,
+            ..
+        } = frame(&ctx, &view, on_minimap(), off);
         assert!(matches!(dragging, Pick::Everything));
         assert_eq!(held, Some(pos2(200.0, 900.0)));
         let let_go = vec![button(pos2(400.0, 900.0), false)];
-        let (released, _) = frame(&ctx, &view, on_minimap(), let_go);
+        let released = frame(&ctx, &view, on_minimap(), let_go).pick;
         assert!(matches!(released, Pick::Everything));
-        let (after, look) = frame(&ctx, &view, on_minimap(), vec![]);
+        let Followed {
+            pick: after, look, ..
+        } = frame(&ctx, &view, on_minimap(), vec![]);
         assert!(matches!(after, Pick::Everything));
         assert_eq!(look, None);
     }
@@ -2052,7 +2138,14 @@ mod tests {
             units: vec![tall, unit_at(2, 0.52, 0.5)],
             ..Default::default()
         };
-        let (labels, _) = group_labels(&view, on_map(), &Default::default(), 0.016, |_| true);
+        let (labels, _) = group_labels(
+            &view,
+            on_map(),
+            &Default::default(),
+            0.016,
+            Grouping::AsTheyStand,
+            |_| true,
+        );
         assert_eq!(labels.len(), 1);
         assert_close(labels[0].anchor, pos2(510.0, 460.0));
     }
@@ -2079,8 +2172,14 @@ mod tests {
             ..Default::default()
         };
         let anchor = |view: &OnScreenView| {
-            let (mut labels, _) =
-                group_labels(view, on_map(), &Default::default(), 0.016, |_| true);
+            let (mut labels, _) = group_labels(
+                view,
+                on_map(),
+                &Default::default(),
+                0.016,
+                Grouping::AsTheyStand,
+                |_| true,
+            );
             assert_eq!(labels.len(), 1);
             // Wherever it hung before, it hangs over the town hall.
             let kept = Kept {
@@ -2096,6 +2195,263 @@ mod tests {
         view.units[0].position = pos2(0.45, 0.35);
         view.units[1].position = pos2(0.95, 0.6);
         assert_close(anchor(&view), pos2(400.0, 200.0));
+    }
+
+    #[test]
+    fn picked_workers_are_labelled_where_they_stand_with_the_rest_of_the_pick() {
+        let mut view = OnScreenView {
+            players: vec![nobody()],
+            kinds: vec![no_icon()],
+            units: vec![unit_at(1, 0.7, 0.5), unit_at(2, 0.9, 0.3)],
+            bases: vec![OnScreenBaseView {
+                top: pos2(0.4, 0.2),
+            }],
+            ..Default::default()
+        };
+        view.units[0].job = Some(WorkerJob::AtBase { base: 0 });
+        let picked = |before: &grouping::Groups| {
+            group_labels(
+                &view,
+                on_map(),
+                before,
+                0.016,
+                Grouping::OnePerPlayer,
+                |_| true,
+            )
+        };
+        let (labels, groups) = picked(&Default::default());
+        assert_eq!(labels.len(), 1);
+        // Over the middle of where they stand, at the top of the higher of them.
+        assert_close(labels[0].anchor, pos2(800.0, 295.0));
+        // And the same group the next frame.
+        let (again, _) = picked(&groups);
+        assert_eq!(again[0].key, labels[0].key);
+        assert_eq!(again[0].was, labels[0].key);
+    }
+
+    fn no_icon() -> ProductionIcon {
+        ProductionIcon {
+            texture: None,
+            index: 0,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        }
+    }
+
+    /// A context with the overlay's own fonts, which the labels are laid out with.
+    fn fonts_ctx() -> Context {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx
+    }
+
+    /// Two players' units over 500 pixels of map, each player's standing far apart from each
+    /// other: units 1 and 2 across the middle, 3 and 4 from near the top left to near the bottom
+    /// right.
+    fn far_apart() -> OnScreenView {
+        OnScreenView {
+            players: vec![nobody(), nobody()],
+            kinds: vec![no_icon()],
+            units: vec![
+                unit_of(1, 0, 0, 0.1, 0.5),
+                unit_of(2, 0, 0, 0.9, 0.5),
+                unit_of(3, 1, 0, 0.3, 0.2),
+                unit_of(4, 1, 0, 0.7, 0.8),
+            ],
+            map_view: on_map().map_view,
+            ..Default::default()
+        }
+    }
+
+    /// What the count keeps of the last frame it drew.
+    fn memory(ctx: &Context) -> Memory {
+        ctx.data(|data| data.get_temp::<Memory>(count_id().with("memory")))
+            .unwrap_or_default()
+    }
+
+    /// The label of `owner`'s units the count kept from the last frame, and the rect it was drawn
+    /// in.
+    fn label_of_owner(ctx: &Context, owner: usize) -> (Kept, Rect) {
+        let kept = memory(ctx)
+            .labels
+            .into_values()
+            .find(|kept| kept.owner == owner)
+            .expect("a label of the owner's");
+        let rect =
+            Rect::from_min_size(kept.drawn - vec2(kept.size.x / 2.0, kept.size.y), kept.size);
+        (kept, rect)
+    }
+
+    /// What the count asks of the host on the frame a box dragged from `from` to `to` with Alt held
+    /// is let go.
+    fn drag_count(
+        ctx: &Context,
+        view: &OnScreenView,
+        modifiers: egui::Modifiers,
+        from: Pos2,
+        to: Pos2,
+    ) -> OnScreenOutcome {
+        let held = || FrameInput {
+            modifiers,
+            ..FrameInput::default()
+        };
+        count_frame(ctx, view, held(), vec![egui::Event::PointerMoved(from)]);
+        count_frame(ctx, view, held(), vec![button(from, true)]);
+        count_frame(ctx, view, held(), vec![egui::Event::PointerMoved(to)]);
+        count_frame(ctx, view, held(), vec![button(to, false)])
+    }
+
+    /// A frame with Alt let go.
+    fn let_go() -> FrameInput {
+        FrameInput {
+            shown: false,
+            ..FrameInput::default()
+        }
+    }
+
+    #[test]
+    fn a_pick_is_one_label_per_player_however_far_apart_from_the_frame_it_is_made() {
+        let ctx = fonts_ctx();
+        let view = far_apart();
+        count_frame(&ctx, &view, FrameInput::default(), vec![]);
+        // Counted as they stand, every unit is a group of its own.
+        assert_eq!(memory(&ctx).labels.len(), 4);
+        let none = egui::Modifiers::NONE;
+        drag_count(&ctx, &view, none, pos2(10.0, 10.0), pos2(990.0, 990.0));
+        let picked = memory(&ctx);
+        let mut owners: Vec<usize> = picked.labels.values().map(|kept| kept.owner).collect();
+        owners.sort_unstable();
+        assert_eq!(owners, [0, 1]);
+        let group = |id: u32| picked.groups.group_of[&id];
+        assert_eq!(group(1), group(2));
+        assert_eq!(group(3), group(4));
+        // Hung over the middle of where the first player's stand, at the top of what is drawn of
+        // them.
+        let on_map = OnMap::new(view.map_view, SCREEN);
+        let (first, rect) = label_of_owner(&ctx, 0);
+        assert_close(on_map.screen_point(first.hung), pos2(500.0, 495.0));
+        // Pointing at it lights all of them up, by the group it was the frame before.
+        let pointer = vec![egui::Event::PointerMoved(rect.center())];
+        let pointed = count_frame(&ctx, &view, FrameInput::default(), pointer);
+        assert_eq!(pointed.highlighted, [1, 2]);
+        assert_eq!(memory(&ctx).groups.group_of[&1], group(1));
+    }
+
+    #[test]
+    fn while_shift_adds_a_box_to_a_pick_what_was_picked_outside_it_is_one_label_per_player() {
+        let ctx = fonts_ctx();
+        let view = far_apart();
+        let none = egui::Modifiers::NONE;
+        drag_count(&ctx, &view, none, pos2(10.0, 450.0), pos2(990.0, 550.0));
+        let shift = || FrameInput {
+            modifiers: egui::Modifiers::SHIFT,
+            ..FrameInput::default()
+        };
+        let from = pos2(250.0, 150.0);
+        count_frame(&ctx, &view, shift(), vec![egui::Event::PointerMoved(from)]);
+        count_frame(&ctx, &view, shift(), vec![button(from, true)]);
+        let to = egui::Event::PointerMoved(pos2(350.0, 250.0));
+        let dragging = count_frame(&ctx, &view, shift(), vec![to]);
+        assert_eq!(dragging.health_bars, [1, 2, 3]);
+        // The box's own label is kept by no group.
+        let memory = memory(&ctx);
+        assert_eq!(memory.labels.len(), 1);
+        assert_eq!(memory.groups.group_of[&1], memory.groups.group_of[&2]);
+    }
+
+    #[test]
+    fn a_pick_stays_up_with_its_bars_once_alt_is_let_go_until_alt_is_held_again() {
+        let ctx = fonts_ctx();
+        let view = far_apart();
+        let none = egui::Modifiers::NONE;
+        let held = drag_count(&ctx, &view, none, pos2(10.0, 450.0), pos2(990.0, 550.0));
+        assert_eq!(held.health_bars, [1, 2]);
+        let (before, rect) = label_of_owner(&ctx, 0);
+        let pinned = count_frame(&ctx, &view, let_go(), vec![]);
+        assert_eq!(pinned.health_bars, [1, 2]);
+        // Drawn just where it was.
+        let (after, _) = label_of_owner(&ctx, 0);
+        assert_close(after.drawn, before.drawn);
+        // Pointing at it lights nothing up.
+        let pointer = vec![egui::Event::PointerMoved(rect.center())];
+        let pointed = count_frame(&ctx, &view, let_go(), pointer);
+        assert!(pointed.highlighted.is_empty());
+        assert_eq!(pointed.health_bars, [1, 2]);
+        // Panning onto bare ground, and then onto none of it, leaves it picked.
+        let bare = OnScreenView {
+            units: Vec::new(),
+            ..far_apart()
+        };
+        for _ in 0..10 {
+            assert!(
+                count_frame(&ctx, &bare, let_go(), vec![])
+                    .health_bars
+                    .is_empty()
+            );
+        }
+        let others = OnScreenView {
+            units: far_apart()
+                .units
+                .into_iter()
+                .filter(|unit| unit.player == 1)
+                .collect(),
+            ..far_apart()
+        };
+        for _ in 0..10 {
+            assert!(
+                count_frame(&ctx, &others, let_go(), vec![])
+                    .health_bars
+                    .is_empty()
+            );
+        }
+        let back = count_frame(&ctx, &view, let_go(), vec![]);
+        assert_eq!(back.health_bars, [1, 2]);
+        // Holding Alt again counts everything, as it stands from the first frame.
+        let again = count_frame(&ctx, &view, FrameInput::default(), vec![]);
+        assert_eq!(again.health_bars, [1, 2, 3, 4]);
+        assert_eq!(memory(&ctx).labels.len(), 4);
+    }
+
+    #[test]
+    fn a_press_the_game_takes_on_its_view_lets_a_pick_go_as_it_stood() {
+        let ctx = fonts_ctx();
+        let view = far_apart();
+        let minimap = Rect::from_min_size(pos2(0.0, 800.0), vec2(200.0, 200.0));
+        let pressed = |game_press| FrameInput {
+            minimap: Some(minimap),
+            game_press,
+            ..let_go()
+        };
+        let none = egui::Modifiers::NONE;
+        drag_count(&ctx, &view, none, pos2(10.0, 450.0), pos2(990.0, 550.0));
+        let on_minimap = count_frame(&ctx, &view, pressed(Some(pos2(100.0, 900.0))), vec![]);
+        assert_eq!(on_minimap.health_bars, [1, 2]);
+        let mut keys: Vec<u32> = memory(&ctx).labels.into_keys().collect();
+        keys.sort_unstable();
+        let on_view = FrameInput {
+            seconds: 0.005,
+            ..pressed(Some(pos2(500.0, 300.0)))
+        };
+        assert!(
+            count_frame(&ctx, &view, on_view, vec![])
+                .health_bars
+                .is_empty()
+        );
+        // Its labels fade out counting what was picked, not everything.
+        let mut fading: Vec<u32> = memory(&ctx).labels.into_keys().collect();
+        fading.sort_unstable();
+        assert_eq!(fading, keys);
+        // And once they have, it is forgotten.
+        for _ in 0..30 {
+            assert!(
+                count_frame(&ctx, &view, let_go(), vec![])
+                    .health_bars
+                    .is_empty()
+            );
+        }
+        let kept = ctx.data(|data| data.get_temp::<PickState>(pick_id()));
+        assert!(kept.is_none());
     }
 
     #[test]
@@ -2217,59 +2573,6 @@ mod tests {
         };
         let left = groups_of(&[(2, 8)]);
         assert!(leaving_labels(&before, &left, &now, motion, 0.016).is_empty());
-    }
-
-    #[test]
-    fn the_veil_is_dark_everywhere_but_in_the_spots_and_comes_back_past_their_edges() {
-        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(480.0, 240.0));
-        let spot = Spot {
-            center: pos2(120.0, 120.0),
-            radius: 24.0,
-            fade: 48.0,
-        };
-        let mesh = veil_mesh(screen, &[spot], 0.5);
-        // A corner for every 12 points either way, the whole screen covered.
-        assert_eq!(mesh.vertices.len(), 41 * 21);
-        assert_eq!(mesh.indices.len(), 40 * 20 * 6);
-        let dark_at = |x: f32, y: f32| {
-            let at = pos2(x, y);
-            let vertex = mesh.vertices.iter().find(|vertex| vertex.pos == at);
-            vertex.map(|vertex| vertex.color.a())
-        };
-        // None of it in the spot, all of it well away, and part of it in between.
-        assert_eq!(dark_at(120.0, 120.0), Some(0));
-        assert_eq!(dark_at(132.0, 120.0), Some(0));
-        assert_eq!(dark_at(480.0, 240.0), Some(128));
-        assert_eq!(dark_at(120.0, 204.0), Some(128));
-        let between = dark_at(168.0, 120.0).unwrap();
-        assert!(between > 0 && between < 128, "{between}");
-        // No spots: dark all over. A spot off the screen changes nothing on it.
-        let off = Spot {
-            center: pos2(-500.0, -500.0),
-            ..spot
-        };
-        for mesh in [veil_mesh(screen, &[], 0.5), veil_mesh(screen, &[off], 0.5)] {
-            assert!(mesh.vertices.iter().all(|vertex| vertex.color.a() == 128));
-        }
-    }
-
-    #[test]
-    fn a_spot_of_light_is_left_around_what_is_drawn_of_each_unit_pointed_out() {
-        let mut tall = unit_at(1, 0.5, 0.5);
-        tall.top = 0.46;
-        let mut inside = unit_at(3, 0.2, 0.2);
-        inside.bounds = Rect::NOTHING;
-        let view = OnScreenView {
-            units: vec![tall, unit_at(2, 0.7, 0.7), inside],
-            ..Default::default()
-        };
-        // Two points to a pixel of the map: a margin of 12 pixels is 24 points.
-        let spots = lit_spots(&view, &[1, 3], on_map());
-        assert_eq!(spots.len(), 1);
-        // From the top of what is drawn of it, 460, to the bottom of its body, 505.
-        assert_close(spots[0].center, pos2(500.0, 482.5));
-        assert!((spots[0].radius - (22.5 + 24.0)).abs() < 1e-2);
-        assert!((spots[0].fade - 56.0).abs() < 1e-2);
     }
 
     #[test]

@@ -334,9 +334,11 @@ rather than in a panel. Every unit in the main view gets the health bar SC:R dra
 unit. The overlay only says which units get one (`FrameOutput::health_bars`); the host has the game
 draw them, each in with its unit's sprite as a selected unit's is, so a bar is covered by whatever
 stands in front of its unit. Buildings get none, and a unit in the watcher's selection keeps the
-game's own. Pointing at a group's label shows which units it counts: a veil darkens the game view
-but for a soft spot of light left on each of them, and their ids are handed to the host
-(`FrameOutput::highlighted_units`) to brighten the units themselves where its renderer can. Each player's units are split into the groups they stand in, every group getting a label
+game's own. Pointing at a group's label with Alt held edges the label in light and hands the ids
+of the units it counts to the host (`FrameOutput::highlighted_units`) to brighten the units
+themselves where its renderer can (not under real-time lighting, whose sprite shaders ignore the
+color the brightening is done with); nothing else of the game view changes. With nothing picked, each player's units are split into the
+groups they stand in, every group getting a label
 hung just above it: the player's name on a thin band of their own color, over a tile per kind of
 unit in the group (its icon, or its code without an atlas, and how many), highest rank first
 (units.dat's rank, the one that decides whose portrait and voice a mixed selection gets), six to a
@@ -365,18 +367,30 @@ line that sets them apart from units of its player's color, and nothing else of 
 each count is on a dark badge hanging off its tile's corner, sized to read on a 720p stream. The
 count is drawn under every panel and dialog, and labels over a dragged box are drawn 1.3 times as
 large. With Alt held, units are picked as the game selects them, and once picked only they are
-counted and given bars, labelled where they go, until Alt is let go: dragging a box picks the units
-in it (drawn while it is dragged, with a label per player stacked over it counting what it covers),
-clicking a unit picks it, and `Ctrl`-clicking or double-clicking one picks every unit its owner has
-of its kind in view. `Shift` adds a box or click to what is already picked, and a `Shift`-click on
-what already is takes it back out; a plain click on nothing goes back to everything (the DLL turns
-down the keyboard-layout switch Windows asks for when Alt and Shift held for such a click are let
-go). Ctrl and Shift count as they are held when the button comes up, and Ctrl can be added once the
-count is up. A press or drag on the minimap picks nothing and moves the view there as it does
-without Alt, where the game would take it for a ping; the host turns the point into a place on the
-map from where the minimap last drew the map, which only it knows for a map that is not square.
-While the count is up the shell takes the whole screen's presses (not the wheel), so picking does
-not select anything in the game. The host hands over every unit in view with its id, owner, kind,
+counted and given bars: dragging a box picks the units in it (drawn while it is dragged, with a
+label per player stacked over it counting what it covers), clicking a unit picks it, and
+`Ctrl`-clicking or double-clicking one picks every unit its owner has of its kind in view. `Shift`
+adds a box or click to what is already picked, and a `Shift`-click on what already is takes it back
+out; a plain click on nothing goes back to everything (the DLL turns down the keyboard-layout switch
+Windows asks for when Alt and Shift held for such a click are let go). Ctrl and Shift count as they
+are held when the button comes up, and Ctrl can be added once the count is up. A player's picked
+units in view are one group however far apart they stand, from the frame the button comes up: one
+label hung over the middle of the top of them (never over a town hall), which keeps its place and
+follows them as any group's does; while `Shift` drags a box onto a pick, what was picked outside
+the box is likewise one label per player beside the box's. A pick stays up once Alt is let go,
+its labels and bars drawn just as they were, and the count then takes no input at all (no hit
+rect, no pointing, no picking), so every click is the game's. A primary-button press the game
+itself takes on its view lets the pick go, its labels fading out as they stood: the host reports
+each such press with `Shell::game_took_primary_press`, the DLL only for a press it delivered to
+BW. A press on the minimap (the watcher moving the view to look at what they picked), a
+secondary-button press, or a press an overlay panel takes leaves it up, and so does panning
+across ground with none of it in view. Holding Alt again lets the pick go and counts everything in
+view afresh; with nothing picked, the count fades out as Alt is let go. The shell forgets the pick
+on any frame it is not watching a game. A press or drag on the minimap with Alt held picks nothing
+and moves the view there as it does without Alt, where the game would take it for a ping; the host
+turns the point into a place on the map from where the minimap last drew the map, which only it
+knows for a map that is not square. While Alt holds the count up the shell takes the whole
+screen's presses (not the wheel), so picking does not select anything in the game. The host hands over every unit in view with its id, owner, kind,
 position, body box, health and shields, in shares of the game view; the DLL reads them from the
 game's active list, gives a bar to anything that can be hurt (leaving out turrets, what a unit fires
 or lays, spell markers and hallucinations) and counts the same less buildings, larvae and eggs; fog

@@ -19,10 +19,10 @@ mod virtual_screen;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use egui::{Align2, Color32, Event, FontId, Rect, Vec2, pos2};
+use egui::{Align2, Color32, Event, FontId, PointerButton, Rect, Vec2, pos2};
 use image::RgbaImage;
 use overlay_ui::i18n::{self, Locale};
-use overlay_ui::shell::{InputCapture, KeyboardCapture, ModalId, PointerCapture, Shell};
+use overlay_ui::shell::{HitRect, InputCapture, KeyboardCapture, ModalId, PointerCapture, Shell};
 
 use crate::game_host::{GameHost, PassInput};
 use crate::knobs::{Backdrop, Knobs};
@@ -425,6 +425,9 @@ struct PreviewApp {
     status: Option<Status>,
     /// The overlay clock's reading on the pass the end-of-game screen came up, while it is up.
     end_card_shown_at: Option<f64>,
+    /// The rects the shell reported as its own on the last pass, which decide whether a press is
+    /// the overlay's or the emulated game's until the next one.
+    last_hit_rects: Vec<HitRect>,
 }
 
 impl PreviewApp {
@@ -450,6 +453,7 @@ impl PreviewApp {
             backdrop_error: None,
             status: None,
             end_card_shown_at: None,
+            last_hit_rects: Vec::new(),
         }
     }
 
@@ -513,6 +517,7 @@ impl PreviewApp {
         });
         let events = self.host.translate_events(&host_events, modifiers, &blit);
         let mut events = self.offer_keys_to_shell(events);
+        self.report_game_presses(&events);
         // Last move of the pass wins, so a pinned pointer appended here overrides the window's own
         // wherever it happens to be, including the `PointerGone` it sends on its way off the
         // emulated screen.
@@ -542,6 +547,7 @@ impl PreviewApp {
                 outcome = scenarios::render(knobs, scenario_state, elapsed, ctx, shell);
             },
         );
+        self.last_hit_rects.clone_from(&outcome.hit_rects);
         let end_card_up = outcome.top_modal.and_then(ModalId::game_result).is_some();
         self.end_card_shown_at = end_card_up.then(|| self.end_card_shown_at.unwrap_or(elapsed));
         self.scenario_ui.disconnect.note_clicks(
@@ -789,6 +795,35 @@ impl PreviewApp {
                 _ => true,
             })
             .collect()
+    }
+
+    /// Tells the shell about every primary press on the emulated screen that no surface of the
+    /// overlay's took, the way the game DLL tells it about each press it lets through to the game:
+    /// the backdrop stands in for the game's view. Decided by the rects and capture the last pass
+    /// reported, as the DLL decides a press arriving between frames.
+    fn report_game_presses(&mut self, events: &[Event]) {
+        let blocked = self
+            .status
+            .as_ref()
+            .is_some_and(|status| status.capture.blocks_game_pointer());
+        if blocked {
+            return;
+        }
+        for event in events {
+            if let Event::PointerButton {
+                pos,
+                button: PointerButton::Primary,
+                pressed: true,
+                ..
+            } = event
+                && !self
+                    .last_hit_rects
+                    .iter()
+                    .any(|hit| hit.rect.contains(*pos))
+            {
+                self.shell.game_took_primary_press(*pos);
+            }
+        }
     }
 }
 
