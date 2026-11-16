@@ -154,9 +154,10 @@ pub struct OnScreenUnitView {
     /// included.
     pub job: Option<WorkerJob>,
     /// The orders it is on, as a number that is the same for two units on the same orders: told to
-    /// go to the same place, or to do the same thing to the same target. Units sent somewhere
-    /// together are grouped from further apart than others are. `None` for a unit with nothing
-    /// to do.
+    /// go to the same place, or to do the same thing to the same target, or both at rest, stopped,
+    /// holding their positions, burrowed or sieged. Units sent somewhere together, or at rest
+    /// together, are grouped from further apart than others are. `None` for a unit on orders
+    /// nothing else can share.
     pub orders: Option<u64>,
     /// Where it stands, in shares of the game view (0 to 1 across and down it).
     pub position: Pos2,

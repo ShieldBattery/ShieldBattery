@@ -16,7 +16,9 @@
 //!
 //! Two units on the same orders, sent to the same place or at the same target, have a longer reach
 //! between them: units sent somewhere together string out along the way, the faster ahead of the
-//! slower, and are still the one force their player is moving. The orders only lengthen the
+//! slower, and are still the one force their player is moving. So do two at rest, whether stopped,
+//! holding their positions, burrowed or sieged: an army at rest spreads out where it stands, as a
+//! line of sieged tanks does, and is still the one force. The orders only lengthen the
 //! reach. Units standing together are a group whatever each has been told to do, as the marines
 //! and medics of one army are while each is told something else.
 //!

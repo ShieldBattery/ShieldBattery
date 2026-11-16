@@ -408,6 +408,39 @@ fn is_building_order(order: OrderId) -> bool {
     )
 }
 
+/// The orders number every unit at rest shares (see [`same_orders_number`]), which no order with a
+/// target or a place is given: those have the order in bits 32 to 39 and, with a target, the top
+/// bit.
+const AT_REST: u64 = 1 << 62;
+
+/// Whether `order` is one a unit is at rest on, for a unit whose kind goes back to
+/// `return_to_idle` when it has nothing to do: stopped or idle, holding its position, burrowed, or
+/// sieged, as its kind is when it has nothing to do, or on its way into or out of one of those.
+/// A tank sieging up beside the sieged ones is with them already, and one unsieging is about to be
+/// on its way. Attacking is not at rest: what an idle unit attacks is its own target.
+fn is_at_rest_order(order: OrderId, return_to_idle: OrderId) -> bool {
+    use bw_dat::order;
+
+    is_idle_order(order)
+        || order == return_to_idle
+        || matches!(
+            order,
+            order::HOLD_POSITION
+                | order::MEDIC_HOLD_POSITION
+                | order::CARRIER_HOLD_POSITION
+                | order::REAVER_HOLD_POSITION
+                | order::CARRIER_STOP
+                | order::REAVER_STOP
+                | order::CARRIER_IDLE
+                | order::REAVER_IDLE
+                | order::MEDIC
+                | order::BURROW
+                | order::BURROWED
+                | order::SIEGE_MODE
+                | order::TANK_MODE
+        )
+}
+
 /// How far above where it stands, in pixels, what is drawn of a unit reaches, for a unit whose body
 /// reaches `body_top` above it and the bottom of whose selection circle is `circle_bottom` below.
 ///
@@ -419,16 +452,20 @@ fn drawn_above(body_top: i32, circle_bottom: Option<i32>) -> i32 {
 }
 
 /// A number for the orders `unit` is on that two units on the same orders share: the same order
-/// at the same target unit, or with none, to the same place. `None` for a unit with nothing to
-/// do, or on an order that has no target or place.
+/// at the same target unit, or with none, to the same place, or any order at rest (see
+/// [`is_at_rest_order`]). `None` for a unit on an order that has no target or place.
 ///
 /// Units a player sends somewhere together are given the one place where they stand apart, and
 /// places of their own, as far apart as they stand, where they stand close enough to keep their
 /// formation. So the units this does not match are the ones standing together already.
+///
+/// Units at rest all share one number, whatever each was last told: an army that has stopped is
+/// one force whether each of its units is stopped, holding its position, burrowed or sieged, and
+/// what place an order at rest is left with is only where the unit was last sent.
 fn same_orders_number(bw: &BwVars, unit: Unit) -> Option<u64> {
     let order = unit.order();
-    if is_idle_order(order) {
-        return None;
+    if is_at_rest_order(order, unit.id().return_to_idle_order()) {
+        return Some(AT_REST);
     }
     let order = u64::from(order.0) << 32;
     match unit.target() {
@@ -1601,6 +1638,38 @@ mod tests {
         );
         // An idle one is at whichever of its owner's town halls it stands nearest.
         assert_eq!(nearest_base(point(1130, 520), 0, &halls), Some(1));
+    }
+
+    #[test]
+    fn stopped_holding_burrowed_and_sieged_are_all_at_rest() {
+        use bw_dat::order;
+
+        for at_rest in [
+            order::STOP,
+            order::PLAYER_GUARD,
+            order::HOLD_POSITION,
+            order::MEDIC_HOLD_POSITION,
+            order::BURROWED,
+            order::SIEGE_MODE,
+        ] {
+            assert!(
+                is_at_rest_order(at_rest, order::PLAYER_GUARD),
+                "{at_rest:?}"
+            );
+        }
+        // Whatever a kind goes back to with nothing to do is at rest for that kind.
+        assert!(is_at_rest_order(order::NOTHING, order::NOTHING));
+        assert!(!is_at_rest_order(order::NOTHING, order::PLAYER_GUARD));
+        for busy in [
+            order::MOVE,
+            order::ATTACK_MOVE,
+            order::ATTACK_UNIT,
+            order::PATROL,
+            order::FOLLOW,
+            order::MEDIC_HEAL,
+        ] {
+            assert!(!is_at_rest_order(busy, order::PLAYER_GUARD), "{busy:?}");
+        }
     }
 
     #[test]

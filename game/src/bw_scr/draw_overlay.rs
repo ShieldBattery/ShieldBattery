@@ -976,7 +976,7 @@ impl OverlayState {
                 if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
                     if bw.is_replay_or_obs {
-                        self.add_on_screen_count_debug_ui(&ctx);
+                        self.add_on_screen_count_debug_ui(&ctx, bw.map_view.width);
                     }
                 }
             } else {
@@ -1209,8 +1209,9 @@ impl OverlayState {
 
     /// The on-screen count's tuning, in a window of its own that starts out open where no panel
     /// covers it: it is tuned while watching what it does, which the Debug window, closed and under
-    /// the top-left panels, is in the way of.
-    fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context) {
+    /// the top-left panels, is in the way of. `map_view_width` is how many of the map's pixels the
+    /// game view shows across.
+    fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context, map_view_width: u32) {
         let screen = ctx.viewport_rect();
         let res = egui::Window::new("On-screen count tuning")
             .default_pos((
@@ -1222,7 +1223,7 @@ impl OverlayState {
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical()
                     .max_height(screen.height() * 0.6)
-                    .show(ui, on_screen_count_debug_ui);
+                    .show(ui, |ui| on_screen_count_debug_ui(ui, map_view_width));
             });
         self.force_add_ui_rect(&res, true);
     }
@@ -2047,8 +2048,9 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
 }
 
 /// Live controls for the on-screen count: how its labels keep their places and move between them,
-/// and how workers putting up buildings are grouped.
-fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
+/// and how workers putting up buildings are grouped, with how far each reach is on the screen as
+/// it is now, for a game view `map_view_width` of the map's pixels across.
+fn on_screen_count_debug_ui(ui: &mut egui::Ui, map_view_width: u32) {
     use overlay_ui::observer::CountTuning;
     use stats::BuilderGrouping;
 
@@ -2071,7 +2073,7 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
     ui.add(Slider::new(&mut motion.unit_reach, 16.0..=384.0).text("Reach (map px)"));
     ui.add(
         Slider::new(&mut motion.same_orders_reach, 16.0..=1024.0)
-            .text("Reach on the same orders (map px)"),
+            .text("Reach on the same orders or at rest (map px)"),
     );
     ui.add(
         Slider::new(&mut motion.label_room, 0.0..=256.0)
@@ -2082,6 +2084,30 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
             .text("Reach kept by units already together (x)"),
     );
     ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
+    // What the reaches come to on the screen as it is now, the way the grouping works them out:
+    // each is at least the one before it.
+    if map_view_width > 0 {
+        let points_per_pixel = ui.ctx().viewport_rect().width() / map_view_width as f32;
+        let reach = motion.unit_reach * points_per_pixel;
+        let floored = reach.max(motion.label_room);
+        let same_orders = (motion.same_orders_reach * points_per_pixel).max(floored);
+        ui.label(format!(
+            "Now: {:.1} tiles across, a tile is {:.0} pt",
+            map_view_width as f32 / 32.0,
+            32.0 * points_per_pixel,
+        ));
+        ui.label(if reach >= motion.label_room {
+            format!("Reach is {reach:.0} pt on screen (decides)")
+        } else {
+            format!(
+                "Reach is {reach:.0} pt on screen, so \"at least\" decides: {:.0} pt",
+                motion.label_room
+            )
+        });
+        ui.label(format!(
+            "Same orders or at rest: {same_orders:.0} pt on screen"
+        ));
+    }
     ui.separator();
     ui.label("Labels");
     ui.add(
