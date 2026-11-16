@@ -14,7 +14,9 @@ import {
   GameReplayInfo,
   GET_GAMES_LIMIT,
   GetGameResponse,
+  GetGamesBrowseResponse,
   GetGamesResponse,
+  GetMyGamesBrowseResponse,
   GetPendingReviewRequestsResponse,
   ManuallyResolveGameRequest,
   ManuallyResolveGameResponse,
@@ -44,6 +46,7 @@ import {
 import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { parseReplay } from '../../workers/replays/replays'
+import { withDbClient } from '../db'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -57,6 +60,7 @@ import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
+import { getReplayInfosForGames } from '../replays/replay-info'
 import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-models'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -70,6 +74,7 @@ import { ActivityStatusService } from '../users/activity-status-service'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { GameBrowseService, loadMyGamesShelves } from './game-browse'
 import { GameLifecycleEvents } from './game-lifecycle-events'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
@@ -331,6 +336,7 @@ async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
 @httpApi('/games')
 @httpBeforeAll(convertServiceErrors)
 export class GameApi {
+  // eslint-disable-next-line max-params
   constructor(
     private gameResultService: GameResultService,
     private gameLoader: GameLoader,
@@ -340,6 +346,7 @@ export class GameApi {
     private activityStatusService: ActivityStatusService,
     private gameLifecycleEvents: GameLifecycleEvents,
     private reviewRequestService: ReviewRequestService,
+    private gameBrowseService: GameBrowseService,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -479,7 +486,7 @@ export class GameApi {
       includeShort,
     })
 
-    const { users, maps, replays } = await getGameListSideData({
+    const { users, maps, replays, mmrChanges } = await getGameListSideData({
       games,
       currentUserId: ctx.session?.user?.id,
       replayService: this.replayService,
@@ -492,6 +499,57 @@ export class GameApi {
       users,
       hasMoreGames: games.length >= GET_GAMES_LIMIT,
       replays,
+      mmrChanges,
+    }
+  }
+
+  @httpGet('/browse')
+  @httpBefore(throttleMiddleware(gamesListThrottle, throttleByUserOrIp))
+  async browseGames(ctx: RouterContext): Promise<GetGamesBrowseResponse> {
+    const viewerId = ctx.session?.user?.id
+    const { shelves, games, users, maps, mmrChanges, yourRace, topMaps } =
+      await this.gameBrowseService.getAllGamesShelves(viewerId)
+    // Which replays a viewer can download depends on who they are, so these aren't cached.
+    const replays = await getReplayInfosForGames({
+      games,
+      currentUserId: viewerId,
+      mapNameById: new Map(maps.map(m => [m.id, m.name])),
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
+    return {
+      shelves,
+      yourRace,
+      topMaps,
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      replays,
+      mmrChanges,
+    }
+  }
+
+  @httpGet('/browse/mine')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(gamesListThrottle, throttleByUserOrIp))
+  async browseMyGames(ctx: RouterContext): Promise<GetMyGamesBrowseResponse> {
+    const userId = ctx.session!.user.id
+    const { shelves, games } = await withDbClient(client => loadMyGamesShelves(client, userId))
+
+    const { users, maps, replays, mmrChanges } = await getGameListSideData({
+      games,
+      currentUserId: userId,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
+    return {
+      shelves,
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      replays,
+      mmrChanges,
     }
   }
 

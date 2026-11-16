@@ -9,7 +9,12 @@ import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder/ladder'
 import { MapInfoJson } from '../maps'
-import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
+import {
+  MatchmakingSeasonJson,
+  MatchmakingType,
+  PublicMatchmakingRatingChangeJson,
+  SeasonId,
+} from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
 import type { SbPermissions } from '../typeshare'
 import { RestrictionKind, RestrictionReason } from './restrictions'
@@ -79,6 +84,7 @@ export interface GetUserProfileResponse {
     maps: MapInfoJson[]
     users: SbUser[]
     replays: GameReplayInfo[]
+    mmrChanges: PublicMatchmakingRatingChangeJson[]
   }
   seasons: MatchmakingSeasonJson[]
 }
@@ -112,6 +118,7 @@ export interface GetMatchHistoryResponse {
   users: SbUser[]
   hasMoreGames: boolean
   replays: GameReplayInfo[]
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
 }
 
 export interface GetUserRankingHistoryResponse {

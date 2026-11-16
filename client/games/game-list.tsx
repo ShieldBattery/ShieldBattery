@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useQuery } from 'urql'
-import { FragmentType, graphql, useFragment } from '../gql'
-import { elevationPlus1 } from '../material/shadows'
+import { useSelfUser } from '../auth/auth-utils'
+import { OutlinedButton, TextButton } from '../material/button'
+import { TabItem, Tabs } from '../material/tabs'
+import { useLocationSearchParam } from '../navigation/router-hooks'
+import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { ContainerLevel, containerStyles } from '../styles/colors'
-import { singleLine, titleLarge } from '../styles/typography'
+import { getMatchHistory } from '../users/action-creators'
 import { getGames } from './action-creators'
 import { GameListFilters, GameListView } from './game-list-view'
-import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
+import { AllGamesBrowse, GamesTab, MyGamesBrowse, SeeAllTarget } from './games-browse'
 import { GameListSearchPage } from './use-game-list-search'
 
 // ---- Layout ----------------------------------------------------------------------------------
@@ -18,93 +19,74 @@ import { GameListSearchPage } from './use-game-list-search'
 const PageColumn = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   min-height: 100%;
   padding: 24px 0;
 `
 
-const Title = styled.div`
-  ${titleLarge};
-  ${singleLine};
+const PageHeader = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
 `
 
-/**
- * Widths of the live-games strip below which its grid drops a column. Each step keeps a card from
- * falling under roughly 290px, the point where a card's map thumbnail, gaps and two team columns
- * no longer leave room for a race icon and a readable name per player.
- */
-const LIVE_GAMES_TWO_COLUMNS_BELOW_PX = 900
-const LIVE_GAMES_ONE_COLUMN_BELOW_PX = 600
-
-const LiveGamesRoot = styled.div`
-  container: live-games / inline-size;
+const TabsArea = styled.div`
+  flex: 1 1 360px;
+  max-width: 480px;
 `
 
-const GameEntriesRoot = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding-top: 8px;
+const HeaderActions = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
 
-  @container live-games (width < ${LIVE_GAMES_TWO_COLUMNS_BELOW_PX}px) {
-    grid-template-columns: repeat(2, 1fr);
+/** The URL `view` param's value for the filtered list (absent means the browse view). */
+const LIST_VIEW = 'list'
+
+/** Builds the games page URL for a tab and view, with the given list filters. */
+function gamesPageUrl(tab: GamesTab, list: boolean, params: Readonly<Record<string, string>> = {}) {
+  const search = new URLSearchParams()
+  if (tab === 'mine') {
+    search.set('tab', 'mine')
   }
-
-  @container live-games (width < ${LIVE_GAMES_ONE_COLUMN_BELOW_PX}px) {
-    grid-template-columns: 1fr;
+  if (list) {
+    search.set('view', LIST_VIEW)
   }
-`
-
-const StyledLiveGameEntry = styled(LiveGameEntry)`
-  ${elevationPlus1};
-  ${containerStyles(ContainerLevel.Low)};
-  border-radius: 4px;
-`
-
-const GamesListQuery = graphql(/* GraphQL */ `
-  query GamesPageContent {
-    ...LiveGames_FeedFragment
+  for (const [key, value] of Object.entries(params)) {
+    search.set(key, value)
   }
-`)
-
-function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFragment> }) {
-  const { t } = useTranslation()
-  const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
-
-  return liveGames.length > 0 ? (
-    <LiveGamesRoot>
-      <Title>{t('games.liveGames.title', 'Live games')}</Title>
-      <GameEntriesRoot>
-        {liveGames.map(liveGame => (
-          <StyledLiveGameEntry key={liveGame.id} query={liveGame} />
-        ))}
-      </GameEntriesRoot>
-    </LiveGamesRoot>
-  ) : null
+  const searchString = search.toString()
+  return '/games' + (searchString ? `?${searchString}` : '')
 }
 
 // ---- Main component --------------------------------------------------------------------------
 
+/**
+ * The games page: a browse view of shelves (All games, and My games when signed in), and behind
+ * it the filtered list that "See all" and the Filters button open. Which one shows, and the
+ * list's filters, live in the URL, so back and forward move between them.
+ */
 export function GameList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+  const [tabParam] = useLocationSearchParam('tab')
+  const [viewParam] = useLocationSearchParam('view')
+  const tab: GamesTab = tabParam === 'mine' && selfUser ? 'mine' : 'all'
+  const showList = viewParam === LIST_VIEW
 
   // The games list virtualizes against this container and remembers its scroll position itself.
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null)
 
-  // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
-  // hiding the live games feed if there are no live games anyway.
-  // TODO(marko): This is a one-shot query (nothing re-executes it), so finished games linger in the
-  // "Live games" section and can briefly show up in both sections. Matches the home feed for now,
-  // but if this page is meant to feel live we should re-run it periodically.
-  const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
-
-  const loadPage = (
+  const loadAllGamesPage = (
     filters: GameListFilters,
     offset: number,
     signal: AbortSignal,
-  ): Promise<GameListSearchPage> => {
-    return new Promise((resolve, reject) => {
+  ): Promise<GameListSearchPage> =>
+    new Promise((resolve, reject) => {
       dispatch(
         getGames(
           { ...filters, offset },
@@ -118,22 +100,97 @@ export function GameList() {
         ),
       )
     })
+
+  const loadMyGamesPage = (
+    filters: GameListFilters,
+    offset: number,
+    signal: AbortSignal,
+  ): Promise<GameListSearchPage> =>
+    new Promise((resolve, reject) => {
+      dispatch(
+        getMatchHistory(
+          selfUser!.id,
+          { ...filters, offset },
+          {
+            signal,
+            onSuccess: result => {
+              resolve({ gameIds: result.games.map(g => g.id), hasMoreGames: result.hasMoreGames })
+            },
+            onError: err => reject(err),
+          },
+        ),
+      )
+    })
+
+  const onSeeAll = (target: SeeAllTarget) => push(gamesPageUrl(target.tab, true, target.params))
+
+  let content: React.ReactNode
+  if (showList && tab === 'mine') {
+    content = (
+      <GameListView
+        key='mine'
+        loadPage={loadMyGamesPage}
+        surface='matchHistory'
+        scrollParent={scrollParent}
+        showRankedCustom={true}
+        showResult={true}
+        forUserId={selfUser!.id}
+        noResultsText={t('user.matchHistory.noMatchingGames', 'No matching games.')}
+        errorText={t(
+          'user.matchHistory.retrievingError',
+          'There was an error retrieving the match history.',
+        )}
+      />
+    )
+  } else if (showList) {
+    content = (
+      <GameListView
+        key='all'
+        loadPage={loadAllGamesPage}
+        surface='games'
+        scrollParent={scrollParent}
+        showSourceFilter={true}
+        showResult={true}
+        noResultsText={t('games.list.noMatchingGames', 'No matching games.')}
+        errorText={t('games.list.retrievingError', 'There was an error retrieving the games.')}
+      />
+    )
+  } else if (tab === 'mine') {
+    content = <MyGamesBrowse key='mine' onSeeAll={onSeeAll} />
+  } else {
+    content = <AllGamesBrowse key='all' onSeeAll={onSeeAll} />
   }
 
   return (
     <CenteredContentContainer $fullWidth={true} data-content-fullbleed='' ref={setScrollParent}>
       <PageColumn>
-        <LiveGamesFeed query={data} />
+        <PageHeader>
+          <TabsArea>
+            <Tabs activeTab={tab} onChange={value => push(gamesPageUrl(value, false))}>
+              <TabItem text={t('games.browse.tabs.all', 'All games')} value='all' />
+              {selfUser ? (
+                <TabItem text={t('games.browse.tabs.mine', 'My games')} value='mine' />
+              ) : null}
+            </Tabs>
+          </TabsArea>
+          <HeaderActions>
+            {showList ? (
+              <TextButton
+                label={t('games.browse.back', 'Browse')}
+                iconStart='arrow_back'
+                onClick={() => push(gamesPageUrl(tab, false))}
+              />
+            ) : (
+              <OutlinedButton
+                label={t('games.browse.searchAndFilter', 'Search and filter')}
+                iconStart='search'
+                onClick={() => push(gamesPageUrl(tab, true))}
+              />
+            )}
+          </HeaderActions>
+        </PageHeader>
 
-        <GameListView
-          loadPage={loadPage}
-          surface='games'
-          scrollParent={scrollParent}
-          showSourceFilter={true}
-          showResult={true}
-          noResultsText={t('games.list.noMatchingGames', 'No matching games.')}
-          errorText={t('games.list.retrievingError', 'There was an error retrieving the games.')}
-        />
+        {content}
       </PageColumn>
     </CenteredContentContainer>
   )

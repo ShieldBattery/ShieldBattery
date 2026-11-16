@@ -207,6 +207,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, users)
   },
 
+  ['@games/browseGames'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
   ['@leagues/getLeagueGames'](state, { payload: { users } }) {
     updateUsers(state, users)
   },

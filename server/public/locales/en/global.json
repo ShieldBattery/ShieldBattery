@@ -1512,6 +1512,49 @@
     "activity": {
       "title": "Games"
     },
+    "browse": {
+      "back": "Browse",
+      "liveCount_one": "{{count}} in progress",
+      "liveCount_other": "{{count}} in progress",
+      "lossShort": "L",
+      "mapGameCount_one": "{{count}} game this week",
+      "mapGameCount_other": "{{count}} games this week",
+      "noGamesYet": "You haven't played any games yet.",
+      "scrollBack": "Scroll back",
+      "scrollForward": "Scroll forward",
+      "searchAndFilter": "Search and filter",
+      "seeAll": "See all",
+      "shelf": {
+        "custom": "Custom games",
+        "live": "Live games",
+        "longest": "Your longest games",
+        "losses": "Losses worth a second look",
+        "maps": "Browse by map",
+        "marathons": "Marathons",
+        "marathonsSubtitle": "Games that went past 30 minutes",
+        "ranked1v1": "Ranked 1v1",
+        "ranked2v2": "Ranked 2v2",
+        "ranked3v3": "3v3 BGH",
+        "recent": "Recent games",
+        "teamGames": "Team games",
+        "vsProtoss": "Against Protoss",
+        "vsTerran": "Against Terran",
+        "vsZerg": "Against Zerg",
+        "yourRace": "Because you play {{race}}"
+      },
+      "summary_one": "Your last game",
+      "summary_other": "Your last {{count}} games",
+      "tabs": {
+        "all": "All games",
+        "mine": "My games"
+      },
+      "winShort": "W"
+    },
+    "card": {
+      "live": "Live",
+      "openLive": "Open this live game",
+      "select": "Show this game"
+    },
     "dayHeader": {
       "today": "Today",
       "yesterday": "Yesterday"

@@ -3,8 +3,10 @@ import {
   GameReplayDebugInfo,
   GameReplayInfo,
   GetGameResponse,
+  GetGamesBrowseResponse,
   GetGamesQueryParams,
   GetGamesResponse,
+  GetMyGamesBrowseResponse,
   ReviewRequestResponse,
 } from '../../common/games/games'
 import { formatReplayTimestamp, REPLAY_TIMESTAMP_PARAM } from '../../common/games/replay-timestamp'
@@ -137,6 +139,28 @@ export function getGames(
       payload: result,
     })
 
+    return result
+  })
+}
+
+/** Loads every shelf of the games browse view's All games tab. */
+export function browseGames(spec: RequestHandlingSpec<GetGamesBrowseResponse>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetGamesBrowseResponse>(apiUrl`games/browse`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@games/browseGames', payload: result })
+    return result
+  })
+}
+
+/** Loads every shelf of the games browse view's My games tab, for the signed-in user. */
+export function browseMyGames(spec: RequestHandlingSpec<GetMyGamesBrowseResponse>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetMyGamesBrowseResponse>(apiUrl`games/browse/mine`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@games/browseGames', payload: result })
     return result
   })
 }

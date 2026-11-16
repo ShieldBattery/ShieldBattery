@@ -37,7 +37,8 @@ type Documents = {
   '\n  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)\n  }\n': typeof types.ResolveSiblingReportsDocument
   '\n  query GameFeedback($gameId: UUID!) {\n    gameFeedback(gameId: $gameId) {\n      id\n      closesAt\n      given {\n        userId\n        kind\n      }\n      commendsRemaining\n      commendsAvailableAt\n      recentCommends {\n        userId\n        availableAt\n      }\n    }\n  }\n': typeof types.GameFeedbackDocument
   '\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n': typeof types.CommendPlayerDocument
-  '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n': typeof types.GamesPageContentDocument
+  '\n  query GamesBrowseLiveGames {\n    liveGames {\n      id\n      ...GamesBrowse_LiveGameFragment\n    }\n  }\n': typeof types.GamesBrowseLiveGamesDocument
+  '\n  fragment GamesBrowse_LiveGameFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n            name\n          }\n          race\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n  }\n': typeof types.GamesBrowse_LiveGameFragmentFragmentDoc
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n': typeof types.LiveGames_FeedFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n          }\n          ...LiveGames_FeedEntryPlayersFragment\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n\n    ...LiveGames_FeedEntryMapAndTypeFragment\n  }\n': typeof types.LiveGames_FeedEntryFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryPlayersFragment on GamePlayer {\n    user {\n      id\n      name\n    }\n    race\n  }\n': typeof types.LiveGames_FeedEntryPlayersFragmentFragmentDoc
@@ -127,8 +128,10 @@ const documents: Documents = {
     types.GameFeedbackDocument,
   '\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n':
     types.CommendPlayerDocument,
-  '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n':
-    types.GamesPageContentDocument,
+  '\n  query GamesBrowseLiveGames {\n    liveGames {\n      id\n      ...GamesBrowse_LiveGameFragment\n    }\n  }\n':
+    types.GamesBrowseLiveGamesDocument,
+  '\n  fragment GamesBrowse_LiveGameFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n            name\n          }\n          race\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n  }\n':
+    types.GamesBrowse_LiveGameFragmentFragmentDoc,
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n':
     types.LiveGames_FeedFragmentFragmentDoc,
   '\n  fragment LiveGames_FeedEntryFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n          }\n          ...LiveGames_FeedEntryPlayersFragment\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n\n    ...LiveGames_FeedEntryMapAndTypeFragment\n  }\n':
@@ -368,8 +371,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n',
-): (typeof documents)['\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n']
+  source: '\n  query GamesBrowseLiveGames {\n    liveGames {\n      id\n      ...GamesBrowse_LiveGameFragment\n    }\n  }\n',
+): (typeof documents)['\n  query GamesBrowseLiveGames {\n    liveGames {\n      id\n      ...GamesBrowse_LiveGameFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment GamesBrowse_LiveGameFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n            name\n          }\n          race\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n  }\n',
+): (typeof documents)['\n  fragment GamesBrowse_LiveGameFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n            name\n          }\n          race\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

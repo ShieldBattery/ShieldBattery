@@ -1,6 +1,7 @@
 import Joi from 'joi'
 import { Logger } from 'pino'
 import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
+import { GameSource } from '../../../common/games/configuration'
 import {
   ALL_GAME_FORMATS,
   GameDurationFilter,
@@ -14,9 +15,14 @@ import {
   MAX_GAMES_OFFSET,
 } from '../../../common/games/games'
 import { MapInfo } from '../../../common/maps'
+import {
+  PublicMatchmakingRatingChangeJson,
+  toPublicMatchmakingRatingChangeJson,
+} from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { getMapInfos } from '../maps/map-models'
+import { getMatchmakingRatingChangesForGames } from '../matchmaking/models'
 import { getReplayInfosForGames } from '../replays/replay-info'
 import { ReplayService } from '../replays/replay-service'
 import { findUsersById } from '../users/user-model'
@@ -44,7 +50,8 @@ export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
 })
 
 /**
- * Collects the side data (players, maps, replay download info) needed to turn a list of
+ * Collects the side data (players, maps, replay download info, and the rating changes of ranked
+ * games) needed to turn a list of
  * `GameRecord`s into a response body. Shared by every endpoint that returns a paginated games
  * list (the public games list, a user's match history, a league's games) so they stay consistent
  * in what side data they attach and how.
@@ -59,7 +66,34 @@ export async function getGameListSideData({
   currentUserId: SbUserId | undefined
   replayService: ReplayService
   logger: Logger
-}): Promise<{ users: SbUser[]; maps: MapInfo[]; replays: GameReplayInfo[] }> {
+}): Promise<{
+  users: SbUser[]
+  maps: MapInfo[]
+  replays: GameReplayInfo[]
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
+}> {
+  const { users, maps, mmrChanges } = await getGameListViewerFreeSideData(games)
+  const mapNameById = new Map(maps.map(m => [m.id, m.name]))
+  const replays = await getReplayInfosForGames({
+    games,
+    currentUserId,
+    mapNameById,
+    replayService,
+    logger,
+  })
+
+  return { users, maps, replays, mmrChanges }
+}
+
+/**
+ * The part of `getGameListSideData` that's the same for every viewer: everything but the replays,
+ * whose access (and so whether they're listed at all) depends on who is asking.
+ */
+export async function getGameListViewerFreeSideData(games: ReadonlyArray<GameRecord>): Promise<{
+  users: SbUser[]
+  maps: MapInfo[]
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
+}> {
   const uniqueUsers = new Set<SbUserId>()
   const uniqueMaps = new Set(games.map(g => g.mapId))
   for (const g of games) {
@@ -72,19 +106,20 @@ export async function getGameListSideData({
     }
   }
 
-  const [users, maps] = await Promise.all([
+  // Only reconciled matchmaking games have rating changes worth showing.
+  const rankedGameIds = games
+    .filter(g => g.config.gameSource === GameSource.Matchmaking && g.results)
+    .map(g => g.id)
+
+  const [users, maps, mmrChanges] = await Promise.all([
     findUsersById(Array.from(uniqueUsers.values())),
     getMapInfos(Array.from(uniqueMaps.values())),
+    getMatchmakingRatingChangesForGames(rankedGameIds),
   ])
 
-  const mapNameById = new Map(maps.map(m => [m.id, m.name]))
-  const replays = await getReplayInfosForGames({
-    games,
-    currentUserId,
-    mapNameById,
-    replayService,
-    logger,
-  })
-
-  return { users, maps, replays }
+  return {
+    users,
+    maps,
+    mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+  }
 }

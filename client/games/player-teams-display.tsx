@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getResultLabel, getResultShortLabel, ReconciledResult } from '../../common/games/results'
+import { MatchmakingDivision, matchmakingDivisionToLabel } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
+import { DivisionIcon } from '../matchmaking/rank-icon'
+import { Tooltip } from '../material/tooltip'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { PlayerResultChip } from './result-chip'
@@ -85,6 +88,17 @@ const PlayerRandomIcon = styled(RaceIcon)`
   }
 `
 
+const PlayerDivisionTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+  height: 20px;
+  margin-right: 4px;
+`
+
+const PlayerDivision = styled(DivisionIcon)`
+  width: 20px;
+  height: 20px;
+`
+
 interface PlayerRaceProps {
   race: RaceChar
   isRandom: boolean
@@ -121,6 +135,8 @@ export interface PlayerTeamsDisplayPlayer {
    * win/loss/draw marker ahead of the race icon.
    */
   result?: ReconciledResult
+  /** The player's rank in a ranked game, rendered as a badge ahead of the race icon. */
+  division?: MatchmakingDivision
 }
 
 /**
@@ -157,6 +173,14 @@ export function PlayerTeamsDisplay({
                     title={getResultLabel(player.result, t)}>
                     {getResultShortLabel(player.result, t)}
                   </PlayerResultChip>
+                ) : null}
+                {player.division !== undefined ? (
+                  <PlayerDivisionTooltip
+                    text={matchmakingDivisionToLabel(player.division, t)}
+                    position='top'
+                    tabIndex={-1}>
+                    <PlayerDivision division={player.division} size={20} />
+                  </PlayerDivisionTooltip>
                 ) : null}
                 <PlayerRace race={player.race} isRandom={player.isRandom} />
                 {player.userId !== undefined ? (

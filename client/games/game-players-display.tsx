@@ -10,6 +10,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
+import { useGameDivisions } from './game-divisions'
 import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from './player-teams-display'
 
 function usePlayersSelector(game: Immutable<GameRecordJson>) {
@@ -171,6 +172,8 @@ export function GamePlayersDisplay({
     return new Map<SbUserId, ReconciledPlayerResult>(Array.isArray(results) ? results : [])
   }, [results])
 
+  const divisionById = useGameDivisions(game)
+
   const toDisplayPlayer = (player: GameConfigPlayer): PlayerTeamsDisplayPlayer => {
     const playerResult = player.isComputer ? undefined : resultsById.get(player.id)
     return {
@@ -181,6 +184,7 @@ export function GamePlayersDisplay({
         : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player')),
       userId: interactiveNames && !player.isComputer ? player.id : undefined,
       result: showPlayerResults ? playerResult?.result : undefined,
+      division: player.isComputer ? undefined : divisionById?.get(player.id),
     }
   }
 

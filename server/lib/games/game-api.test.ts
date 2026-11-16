@@ -58,6 +58,7 @@ function makeRehomeApi({
     {} as any,
     new GameLifecycleEvents(new FakeClock()),
     {} as any,
+    {} as any,
   )
   return { api, netcodeV2Service }
 }
@@ -180,6 +181,7 @@ function makeStatusApi({
     {} as any,
     activityStatusService as any,
     gameLifecycleEvents,
+    {} as any,
     {} as any,
   )
   return { api, gameLoader, activityStatusService, gameLifecycleEvents }
@@ -327,6 +329,7 @@ function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
     {} as any,
     new GameLifecycleEvents(new FakeClock()),
     {} as any,
+    {} as any,
   )
   return { api, netcodeV2Service }
 }
@@ -465,6 +468,7 @@ function makeRollbackStatsApi({ isLoading = false }: { isLoading?: boolean } = {
     {} as any,
     {} as any,
     new GameLifecycleEvents(new FakeClock()),
+    {} as any,
     {} as any,
   )
 }
