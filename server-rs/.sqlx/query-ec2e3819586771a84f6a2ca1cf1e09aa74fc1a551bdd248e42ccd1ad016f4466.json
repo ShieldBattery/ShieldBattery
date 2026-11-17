@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_tags\n            SET name = COALESCE($2, name), names = COALESCE($3, names), updated_at = now()\n            WHERE id = $1\n            RETURNING id, kind, name, names as \"names: Json<BTreeMap<String, String>>\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "names: Json<BTreeMap<String, String>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "names"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ec2e3819586771a84f6a2ca1cf1e09aa74fc1a551bdd248e42ccd1ad016f4466"
+}

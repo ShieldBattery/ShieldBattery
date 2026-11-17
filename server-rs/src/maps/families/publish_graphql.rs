@@ -20,6 +20,7 @@ use crate::maps::families::owners_graphql::notify_file_move;
 use crate::maps::families::publish::{
     self, PublishAnswer, PublishBlock, PublishError, PublishPreview,
 };
+use crate::maps::families::tags_graphql::tag_error;
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::PublishSuggestion;
 use crate::redis::RedisPool;
@@ -74,6 +75,7 @@ pub(crate) async fn publish_map_publish_message(
 fn publish_error(error: PublishError) -> async_graphql::Error {
     match error {
         PublishError::Edit(error) => edit_error(error),
+        PublishError::Tags(error) => tag_error(error),
         PublishError::Other(e) => async_graphql::Error::new(format!("{e:?}")),
         error => {
             let code = match &error {
@@ -299,11 +301,18 @@ impl MapPublishingMutation {
     /// `mapFamilyMoveFile` would move it. A file that's already listed is left as it is. A file
     /// whose name or description needs a look is held for staff instead (`heldForReview`), who
     /// list it or not.
+    ///
+    /// `tags` sets the tags of the file's map when the file is left as the only file of its map
+    /// (`KEEP` or `UNSURE` for a file without an `existingMap`, including when the file is held for
+    /// review), as `mapFamilySetTags` would but without needing the map to be listed or counting
+    /// toward the hourly limit; otherwise it's ignored. An invalid tag set refuses the publish before
+    /// anything changes. Null leaves the map's tags alone.
     async fn map_publish(
         &self,
         ctx: &Context<'_>,
         file_id: SbMapId,
         answer: MapPublishAnswerInput,
+        tags: Option<Vec<String>>,
     ) -> Result<MapPublishResult> {
         let user = require_current_user(ctx)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
@@ -327,6 +336,7 @@ impl MapPublishingMutation {
             ctx.data::<NameChecker>()?,
             file_id,
             answer,
+            tags.as_deref(),
             user.id,
             staff,
         )

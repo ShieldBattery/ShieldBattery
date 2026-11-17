@@ -18,6 +18,7 @@ use crate::maps::collections;
 use crate::maps::collections::pools::MapLadderPoolsLoader;
 use crate::maps::compare;
 use crate::maps::families::graphql::{MapFamily, load_family};
+use crate::maps::families::tag_list::existing_tag_ids;
 use crate::maps::search::{
     DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
     MapSearchRepo, MapSort,
@@ -554,9 +555,14 @@ async fn load_listing(
     after: Option<String>,
     first: Option<i32>,
 ) -> Result<(MapListingRequest, MapListingPage)> {
-    let request = MapListingRequest::new(scope, filter, sort, after.as_deref(), first)
+    let mut request = MapListingRequest::new(scope, filter, sort, after.as_deref(), first)
         .map_err(listing_error)?;
-    let page = ctx.data::<MapSearchRepo>()?.load_page(&request).await?;
+    let repo = ctx.data::<MapSearchRepo>()?;
+    if !request.tags().is_empty() {
+        let known = existing_tag_ids(repo.db(), request.tags()).await?;
+        request.retain_tags(|id| known.contains(id));
+    }
+    let page = repo.load_page(&request).await?;
     Ok((request, page))
 }
 
