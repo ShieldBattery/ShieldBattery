@@ -85,6 +85,7 @@ import { GamePointsRefundService, GamePointsRefundServiceError } from './game-po
 import GameResultService, {
   ALL_MANUAL_GAME_RESULTS,
   GameResultServiceError,
+  isResultsExempt,
 } from './game-result-service'
 import { deriveResultSubmission } from './raw-results'
 import { ReviewRequestService, ReviewRequestServiceError } from './review-request-service'
@@ -885,6 +886,16 @@ export class GameApi {
       gameId,
       userId,
     })
+
+    if (isResultsExempt(game.config)) {
+      // The replay is already stored, so a failure here must not fail the upload: the client would
+      // only retry into the already-linked early return above.
+      try {
+        await this.gameResultService.recordExemptGameLength(gameId, parseResult.value.header.frames)
+      } catch (err) {
+        logger.error({ err }, 'error recording exempt game length')
+      }
+    }
 
     ctx.status = 204
   }

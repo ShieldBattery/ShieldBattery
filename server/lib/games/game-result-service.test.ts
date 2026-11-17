@@ -65,6 +65,7 @@ import {
   lockGameAndCheckUnavailableForReconciliation,
   lockGameForLobbyViolation,
   lockGameForManualResolution,
+  raiseExemptGameLength,
   setManuallyResolvedResult,
   setReconciledResult,
 } from './game-models'
@@ -92,6 +93,7 @@ vi.mock('./game-models', async () => {
     lockGameForManualResolution: vi.fn(),
     setManuallyResolvedResult: vi.fn(),
     setReconciledResult: vi.fn(),
+    raiseExemptGameLength: vi.fn(),
   }
 })
 
@@ -538,6 +540,90 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
 
     await expect(service.maybeScheduleKnownCompleteReconcile(GAME_ID)).resolves.toBeUndefined()
     expect(maybeReconcileResults).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-result-service/GameResultService#recordExemptGameLength', () => {
+  const GAME_ID = 'game-1'
+
+  let service: GameResultService
+  let publish: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    publish = vi.fn()
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      {} as any,
+      new FakeClock(),
+      {} as any,
+      new GameLifecycleEvents(new FakeClock()),
+    )
+    asMockedFunction(getGameRecord).mockResolvedValue({
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config: matchmakingConfig(DEFAULT_TEAMS, { resultsExempt: true }),
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: 42_000,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+      manuallyResolved: false,
+    })
+  })
+
+  test('converts frames to milliseconds and publishes the updated game', async () => {
+    asMockedFunction(raiseExemptGameLength).mockResolvedValue(true)
+
+    await service.recordExemptGameLength(GAME_ID, 1000)
+
+    expect(raiseExemptGameLength).toHaveBeenCalledExactlyOnceWith(GAME_ID, 42_000)
+    expect(publish).toHaveBeenCalledExactlyOnceWith(
+      GameResultService.getGameSubPath(GAME_ID),
+      expect.objectContaining({
+        type: 'update',
+        game: expect.objectContaining({ id: GAME_ID, gameLength: 42_000 }),
+        mmrChanges: [],
+      }),
+    )
+  })
+
+  test('does not publish when the stored length did not change', async () => {
+    asMockedFunction(raiseExemptGameLength).mockResolvedValue(false)
+
+    await service.recordExemptGameLength(GAME_ID, 1000)
+
+    expect(publish).not.toHaveBeenCalled()
+  })
+
+  test('clamps an overlong replay to the integer column range', async () => {
+    asMockedFunction(raiseExemptGameLength).mockResolvedValue(true)
+
+    await service.recordExemptGameLength(GAME_ID, 0xffff_ffff)
+
+    expect(raiseExemptGameLength).toHaveBeenCalledExactlyOnceWith(GAME_ID, 2_147_483_647)
+  })
+
+  test('clamps a negative frame count to zero', async () => {
+    asMockedFunction(raiseExemptGameLength).mockResolvedValue(false)
+
+    await service.recordExemptGameLength(GAME_ID, -5)
+
+    expect(raiseExemptGameLength).toHaveBeenCalledExactlyOnceWith(GAME_ID, 0)
+  })
+
+  test.each([NaN, Infinity, -Infinity])('ignores a non-finite frame count (%j)', async frames => {
+    await service.recordExemptGameLength(GAME_ID, frames)
+
+    expect(raiseExemptGameLength).not.toHaveBeenCalled()
+    expect(publish).not.toHaveBeenCalled()
   })
 })
 

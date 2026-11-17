@@ -316,10 +316,11 @@ pub(crate) async fn lock_and_check_feedback(
     Ok(())
 }
 
-/// Whether a game takes `kind` feedback at `now`. Once the game has results, both commends and
+/// Whether a game takes `kind` feedback at `now`. Once the game has a recorded length (a game with
+/// results always does, and a results-exempt game gets one from a replay), both commends and
 /// reports are open until [`closes_at`]. Before that, only reports are: a player can report what
 /// they see while the game is still being played, for up to [`FEEDBACK_WINDOW`] after it started (by
-/// then, a game without results isn't going to get any).
+/// then, a game without a length isn't going to get one).
 fn feedback_open(
     kind: GameFeedbackKind,
     start_time: DateTime<Utc>,
@@ -333,8 +334,8 @@ fn feedback_open(
     }
 }
 
-/// When a game's feedback window closes, or `None` if the game has no results yet (`game_length` is
-/// written together with them).
+/// When a game's feedback window closes, or `None` if the game has no recorded length yet. A game
+/// with results always has one, and a results-exempt game gets one from a replay.
 fn closes_at(start_time: DateTime<Utc>, game_length_ms: Option<i32>) -> Option<DateTime<Utc>> {
     game_length_ms
         .map(|ms| start_time + chrono::Duration::milliseconds(i64::from(ms)) + FEEDBACK_WINDOW)

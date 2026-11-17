@@ -20,6 +20,7 @@ import {
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
   getRecentMatchmakingOpponents,
+  raiseExemptGameLength,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
   setNetcodeV2SessionMapping,
@@ -145,6 +146,24 @@ describe('games/game-models/setNetcodeV2SessionMapping', () => {
   test('returns false when the game is missing or already bound to another session', async () => {
     mockDbClient([])
     expect(await setNetcodeV2SessionMapping('game-1', 100, [])).toBe(false)
+  })
+})
+
+describe('games/game-models/raiseExemptGameLength', () => {
+  test('only raises the length of an unresolved exempt game', async () => {
+    const query = mockDbClient([{}])
+    expect(await raiseExemptGameLength('game-1', 90_000)).toBe(true)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('results IS NULL')
+    expect(template.text).toContain('canceled_at IS NULL')
+    expect(template.text).toContain("(config->>'resultsExempt')::boolean IS TRUE")
+    expect(template.text).toMatch(/game_length IS NULL OR game_length < \$\d+/)
+    expect(template.values).toEqual([90_000, 'game-1', 90_000])
+  })
+
+  test('returns false when no row changed', async () => {
+    mockDbClient([])
+    expect(await raiseExemptGameLength('game-1', 90_000)).toBe(false)
   })
 })
 

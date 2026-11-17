@@ -281,6 +281,33 @@ export async function setReconciledResult(
 }
 
 /**
+ * Raises the recorded length of a results-exempt game to `lengthMs`. An exempt game never
+ * reconciles, so its length comes from its players' replays and keeps the longest one, since each
+ * replay ends when its player left. Returns whether the stored length changed.
+ */
+export async function raiseExemptGameLength(
+  gameId: string,
+  lengthMs: number,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      UPDATE games
+      SET game_length = ${lengthMs}
+      WHERE id = ${gameId}
+        AND results IS NULL
+        AND canceled_at IS NULL
+        AND (config->>'resultsExempt')::boolean IS TRUE
+        AND (game_length IS NULL OR game_length < ${lengthMs})
+    `)
+    return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
+/**
  * Locks a game's row for the remainder of the current transaction and returns the dispute state a
  * manual resolution has to decide against, or `undefined` if the game row no longer exists. Reading
  * this under the lock is what makes two admins resolving the same game concurrently safe: the first

@@ -36,16 +36,17 @@ function makeContext(): RouterContext {
 }
 
 function setReplaySeed(seed: unknown): ParsedReplay {
-  const replay = { header: { startTime: seed } } as ParsedReplay
+  const replay = { header: { startTime: seed, frames: 1000 } } as ParsedReplay
   vi.mocked(parseReplay).mockImplementation(() =>
     Result.fromAsyncCatching(async () => Result.ok(replay)),
   )
   return replay
 }
 
-function makeApi(seed: unknown = 123) {
+function makeApi(seed: unknown = 123, resultsExempt = false) {
   const gameResultService = {
-    retrieveGame: vi.fn().mockResolvedValue({ config: { seed } }),
+    retrieveGame: vi.fn().mockResolvedValue({ config: { seed, resultsExempt } }),
+    recordExemptGameLength: vi.fn().mockResolvedValue(undefined),
   }
   const gameLoader = { isLoading: vi.fn().mockReturnValue(false) }
   const banEnacter = { enactBan: vi.fn().mockResolvedValue(undefined) }
@@ -97,6 +98,36 @@ describe('GameApi#submitGameReplay', () => {
       expect(ctx.status).toBe(204)
     },
   )
+
+  test('records the length of an exempt game from the replay frames', async () => {
+    const { api, gameResultService, replayService } = makeApi(123, true)
+    const ctx = makeContext()
+
+    await api.submitGameReplay(ctx)
+
+    expect(replayService.storeReplay).toHaveBeenCalledOnce()
+    expect(gameResultService.recordExemptGameLength).toHaveBeenCalledExactlyOnceWith(GAME_ID, 1000)
+    expect(ctx.status).toBe(204)
+  })
+
+  test('does not record a length for a game that reconciles', async () => {
+    const { api, gameResultService } = makeApi(123, false)
+
+    await api.submitGameReplay(makeContext())
+
+    expect(gameResultService.recordExemptGameLength).not.toHaveBeenCalled()
+  })
+
+  test('still responds 204 when recording the length fails', async () => {
+    const { api, gameResultService, replayService } = makeApi(123, true)
+    gameResultService.recordExemptGameLength.mockRejectedValue(new Error('database unavailable'))
+    const ctx = makeContext()
+
+    await api.submitGameReplay(ctx)
+
+    expect(replayService.storeReplay).toHaveBeenCalledOnce()
+    expect(ctx.status).toBe(204)
+  })
 
   test('persists protection before banning the uploader', async () => {
     setReplaySeed(124)

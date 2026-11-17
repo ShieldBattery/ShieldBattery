@@ -17,6 +17,7 @@ import {
   getTeamsFromConfig,
   MatchupString,
 } from '../../../common/games/matchups'
+import { MS_PER_GAME_FRAME } from '../../../common/games/replay-timestamp'
 import {
   ALL_GAME_CLIENT_ALLIANCE_STATES,
   ALL_GAME_CLIENT_LOSE_TYPES,
@@ -110,7 +111,7 @@ import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { GameLifecycleEvents } from './game-lifecycle-events'
-import { getGameRecord } from './game-models'
+import { getGameRecord, raiseExemptGameLength } from './game-models'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
@@ -412,6 +413,9 @@ export function haveAllRequiredReportersReported(
 ): boolean {
   return humans.filter(id => !divergedUserIds.has(id)).every(id => reportedHumans.has(id))
 }
+
+/** The largest value `games.game_length`, a 32-bit integer, can hold. */
+const MAX_GAME_LENGTH_MS = 2_147_483_647
 
 /** How often the reconciliation job should run. */
 const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
@@ -1742,6 +1746,30 @@ export default class GameResultService {
         )
       }
     }
+  }
+
+  /**
+   * Records a results-exempt game's length from the frame count of a player's replay, keeping the
+   * longest across players, and tells the game's subscribers when it changed. Exempt games never
+   * reconcile, so there is no matchmaking or league work to publish.
+   */
+  async recordExemptGameLength(gameId: string, replayFrames: number): Promise<void> {
+    const lengthMs = replayFrames * MS_PER_GAME_FRAME
+    if (!Number.isFinite(lengthMs)) {
+      return
+    }
+    // A replay's frame count is client-controlled, and `games.game_length` is a 32-bit integer.
+    const clamped = Math.min(Math.max(Math.trunc(lengthMs), 0), MAX_GAME_LENGTH_MS)
+    if (!(await raiseExemptGameLength(gameId, clamped))) {
+      return
+    }
+
+    const game = await this.retrieveGame(gameId)
+    this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
+      type: 'update',
+      game: toGameRecordJson(game),
+      mmrChanges: [],
+    })
   }
 
   static getGameSubPath(gameId: string) {
