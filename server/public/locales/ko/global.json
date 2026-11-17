@@ -2320,10 +2320,38 @@
       "mapName": "맵 이름",
       "mapNameRequired": "맵 이름을 입력해 주세요"
     },
+    "discover": {
+      "becauseYouPlayed": "{{name}} 플레이 기반 추천",
+      "browseByTag": "태그로 찾아보기",
+      "collectionOfTheWeek": "이주의 컬렉션",
+      "fresh": "새로 나온 맵",
+      "freshSubtitle": "최근 60일간의 새 맵과 새 버전",
+      "jumpBackIn": "다시 플레이하기",
+      "loadError": "맵을 불러올 수 없습니다",
+      "mapmakers": "맵 제작자",
+      "mapmakersSubtitle": "이번 달 맵이 가장 많이 플레이된 제작자",
+      "mapOfTheWeek": "이주의 맵",
+      "onTheRise": "떠오르는 맵",
+      "playedAgo": "{{time}} 플레이",
+      "recommendationNoTags": "아직 안 해본 맵",
+      "recommendationOneTag": "아직 안 해본 {{tag}} 맵",
+      "recommendationThreeTags": "아직 안 해본 {{first}}, {{second}}, {{third}} 맵",
+      "recommendationTwoTags": "아직 안 해본 {{first}}, {{second}} 맵",
+      "showAll": "모두 보기",
+      "tab": "둘러보기",
+      "tagWithCount_other": "{{tag}} · {{count}}",
+      "trending": "이번 주 인기 급상승",
+      "verifiedMakerTooltip": "운영진이 이 사용자가 일부 맵의 제작자임을 확인했습니다",
+      "viewCollection": "컬렉션 보기"
+    },
     "familySearch": {
       "files_other": "파일 {{count}}개",
       "noResults": "맵을 찾을 수 없습니다.",
       "search": "맵을 검색하거나 맵 링크를 붙여 넣으세요"
+    },
+    "feature": {
+      "collectionOfTheWeekNotification": "<0>{{name}}</0> 컬렉션이 이주의 컬렉션으로 선정되었습니다",
+      "mapOfTheWeekNotification": "<0>{{name}}</0> 맵이 이주의 맵으로 선정되었습니다"
     },
     "files": {
       "compare": "비교",
@@ -2439,6 +2467,8 @@
       "linkCopyError": "링크를 복사할 수 없습니다",
       "liveNow": "지금 진행 중",
       "loadError": "이 맵을 불러올 수 없습니다",
+      "mapOfTheWeek": "이주의 맵",
+      "mapOfTheWeekOn": "이주의 맵 · {{date}}",
       "matchmakingType": "매치메이킹 유형",
       "matchupBarLabel": "{{left}} {{leftRate}}, {{right}} {{rightRate}}",
       "matchupGames_other": "{{count}}게임",
@@ -2498,6 +2528,7 @@
     "publish": {
       "alreadyListed": "이미 게시된 파일입니다.",
       "approvedNotification": "<1>{{name}}</1> 맵이 검토를 거쳐 목록에 올라갔습니다.",
+      "badTags": "이 맵에는 사용할 수 없는 태그입니다.",
       "button": "게시",
       "delistedNotification": "운영진이 <1>{{name}}</1> 맵을 목록에서 내렸습니다.",
       "delistedNotificationNote": "운영진 메모: “{{note}}”",
@@ -2544,6 +2575,8 @@
       "sameTriggers": "같은 트리거",
       "separateMap": "아니요, 별개의 맵입니다",
       "staffDelisted": "운영진이 이 파일을 목록에서 내렸기 때문에 게시할 수 없습니다.",
+      "tagLocked": "이 맵에는 운영진이나 제작자가 지정한 태그가 있어, 선택한 태그로는 바꿀 수 없습니다.",
+      "tagsHaveMaker": "이 맵에는 다른 제작자가 있으며, 태그는 제작자가 지정합니다.",
       "terrainPercent": "지형 {{percent}}% 동일",
       "title": "맵 게시",
       "unlinked": "{{mapName}}에서 제외했습니다",
@@ -2587,6 +2620,23 @@
         "removed": "즐겨찾기에서 제거했습니다",
         "removeError": "맵을 즐겨찾기에서 제거할 수 없습니다"
       }
+    },
+    "tags": {
+      "addTags": "태그 추가",
+      "badRequest": "이 맵에는 사용할 수 없는 태그입니다.",
+      "editTitle": "태그 편집",
+      "emailUnverified": "맵 태그를 변경하려면 이메일 주소를 인증하십시오.",
+      "error": "태그를 저장할 수 없습니다. 나중에 다시 시도해 주십시오.",
+      "filter": "태그",
+      "filterAny": "모든 태그",
+      "filterMore": "{{tag}} +{{more}}",
+      "hasMaker": "이제 이 맵에 제작자가 있어, 태그는 제작자가 지정합니다.",
+      "locked": "제거한 태그 중 하나는 운영진이나 맵 제작자가 지정한 것이라 그대로 유지됩니다.",
+      "lockedTooltip": "이 태그는 제거할 수 없습니다",
+      "notListed": "게시되지 않은 맵이라 태그를 변경할 수 없습니다.",
+      "rateLimited": "지난 1시간 동안 맵 태그를 너무 많이 변경했습니다. 나중에 다시 시도해 주십시오.",
+      "restricted": "맵 게시가 제한되어 있어 맵 태그를 변경할 수 없습니다.",
+      "selectedCount": "{{selected}}/{{max}}"
     },
     "thumbnail": {
       "addToStarred": "즐겨찾기에 추가",
