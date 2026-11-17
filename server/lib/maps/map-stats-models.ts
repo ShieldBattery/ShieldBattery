@@ -45,19 +45,6 @@ function gameHumans(asOf: Date) {
 }
 
 /**
- * The median game length over the last 90 days of the rows of `played` (aliased `p`, with
- * `results_exempt` and `kind`). On a melee file, games without results requirements (against
- * computers, or with a single player) are left out: there a game against computers is practice and
- * often ends early, so it would skew the length of the games between people. On a UMS file playing
- * against the computer is the game, so every game with a known length counts.
- */
-const MEDIAN_LENGTH_90D = sql`
-  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
-    FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL AND
-      (p.kind = 'ums' OR NOT p.results_exempt)))
-`
-
-/**
  * The median number of humans in the games of the last 90 days with two or more, of the rows of
  * `played` (aliased `p`). NULL when fewer than `MIN_PARTY_GAMES` such games.
  */
@@ -120,10 +107,9 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
   await client.query(sql`DELETE FROM map_stats`)
   await client.query(sql`
     WITH played AS (
-      SELECT g.id, g.map_id, g.start_time, g.game_length, m.kind,
+      SELECT g.id, g.map_id, g.start_time, g.game_length,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
         g.config->>'gameSource' = 'LOBBY' AS is_lobby,
-        (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
         ${gameHumans(asOf)} AS humans
       FROM games g
       INNER JOIN maps m ON m.id = g.map_id
@@ -161,7 +147,8 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       count(*) FILTER (WHERE p.in_90d),
       COALESCE(pl.players, 0),
       count(*),
-      ${MEDIAN_LENGTH_90D},
+      round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
+        FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL)),
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
@@ -189,15 +176,14 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
   await client.query(sql`DELETE FROM map_family_stats`)
   await client.query(sql`
     WITH families AS (
-      SELECT id AS map_id, family_id, kind
+      SELECT id AS map_id, family_id
       FROM maps
       WHERE family_id IN (SELECT family_id FROM maps GROUP BY family_id HAVING count(*) > 1)
     ),
     played AS (
-      SELECT g.id, f.family_id, g.start_time, g.game_length, f.kind,
+      SELECT g.id, f.family_id, g.start_time, g.game_length,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
         g.config->>'gameSource' = 'LOBBY' AS is_lobby,
-        (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
         ${gameHumans(asOf)} AS humans
       FROM games g
       INNER JOIN families f ON f.map_id = g.map_id
@@ -235,7 +221,8 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
       count(*) FILTER (WHERE p.in_90d),
       COALESCE(pl.players, 0),
       count(*),
-      ${MEDIAN_LENGTH_90D},
+      round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
+        FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL)),
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
