@@ -63,10 +63,20 @@ function isBlockedReason(code: unknown): code is MapPublishBlockedReason {
 
 /**
  * What a failed publish or link tells the user, given the error code the server sent. The server
- * uses blocked reasons as codes.
+ * uses blocked reasons as codes. `sentTags` says whether the publish set the map's tags, which
+ * `BAD_REQUEST` and `FORBIDDEN` are then about.
  */
-export function publishErrorText(code: unknown, t: TFunction): string {
-  if (code === 'NOT_SUGGESTED') {
+export function publishErrorText(code: unknown, t: TFunction, sentTags = false): string {
+  if (code === 'TAG_LOCKED') {
+    return t(
+      'maps.publish.tagLocked',
+      'This map has a tag set by staff or its maker that your tags would remove.',
+    )
+  } else if (sentTags && code === 'BAD_REQUEST') {
+    return t('maps.publish.badTags', "These tags can't be used on this map.")
+  } else if (sentTags && code === 'FORBIDDEN') {
+    return t('maps.publish.tagsHaveMaker', "Someone else is this map's maker, who sets its tags.")
+  } else if (code === 'NOT_SUGGESTED') {
     return t('maps.publish.notSuggested', 'That map is no longer suggested for this file.')
   } else if (isBlockedReason(code)) {
     return publishBlockedReasonText(code, t)

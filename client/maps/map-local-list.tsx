@@ -41,8 +41,8 @@ import {
   MapPickOptions,
 } from './map-catalog-list'
 import {
-  CatalogFilters,
   CatalogParams,
+  CatalogRowFilters,
   CatalogSort,
   isNarrowed,
   LOCAL_SORTS,
@@ -142,7 +142,7 @@ export interface LocalMapListProps {
   folder: string | undefined
   /** When set, choosing a map picks it (uploading it first if the server doesn't have it). */
   pick?: MapPickOptions
-  onFiltersChange: (changes: Partial<CatalogFilters>) => void
+  onFiltersChange: (changes: Partial<CatalogRowFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
   onClearFilters: () => void
@@ -155,7 +155,9 @@ export interface LocalMapListProps {
  * searched and sorted locally, either as one list or folder by folder. Files the server already has
  * show as the server's map; the rest are read from the file and uploaded when chosen.
  */
-export function LocalMapList(props: LocalMapListProps) {
+export function LocalMapList(listProps: LocalMapListProps) {
+  // Files on disk have no tags, so a tags filter left in the params doesn't apply here
+  const props = { ...listProps, params: { ...listProps.params, tags: [] } }
   return (
     <Suspense
       fallback={

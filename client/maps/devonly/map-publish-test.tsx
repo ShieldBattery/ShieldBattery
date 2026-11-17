@@ -2,7 +2,7 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import { makeSbMapId, MapInfoJson } from '../../../common/maps'
 import { makeFragmentData } from '../../gql'
-import { MapPublishBlockedReason } from '../../gql/graphql'
+import { MapKind, MapPublishBlockedReason } from '../../gql/graphql'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { titleMedium } from '../../styles/typography'
 import { MapFileImage_FileFragment } from '../map-image'
@@ -12,6 +12,7 @@ import {
   MapPublish_SuggestionFragment,
   PublishDialogContents,
 } from '../map-publish-dialog'
+import { DEV_TAG_LIST } from './map-tags-test'
 import { BigGameHunters, FightingSpirit } from './maps-for-testing'
 
 type ScenarioId =
@@ -70,10 +71,12 @@ const FILE = makeFragmentData(
   {
     id: FILE_ID,
     name: 'Fighting Spirit 1.4 (fixed ramps)',
+    kind: MapKind.Melee,
     family: {
       id: 'f00d-family',
       name: 'Fighting Spirit 1.4 (fixed ramps)',
       current: { id: FILE_ID },
+      tags: [],
     },
     file: fileImage(FightingSpirit, 'f00d-file'),
   },
@@ -222,6 +225,7 @@ export function MapPublishTest() {
           preview={PREVIEWS[scenarioId]}
           file={FILE}
           ownedMaps={ownedMapsFor(scenarioId)}
+          tagList={DEV_TAG_LIST}
           sending={false}
           errorMessage={
             scenarioId === 'error' ? 'That map is no longer suggested for this file.' : undefined

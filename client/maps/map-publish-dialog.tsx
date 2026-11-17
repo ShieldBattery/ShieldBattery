@@ -12,6 +12,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
+  MapKind,
   MapPublish_FileFragmentFragment,
   MapPublish_SuggestionFragmentFragment,
   MapPublishAnswerKind,
@@ -42,6 +43,8 @@ import { MakeRecommendedCheckBox, useMakeRecommended } from './map-make-recommen
 import { pickOrOnlyChoice } from './map-owner'
 import { errorCode } from './map-owner-actions'
 import { publishBlockedReasonText, publishErrorText, publishEvidenceText } from './map-publish'
+import { MapTagNames, publishTagsToSend, useMapTagList } from './map-tags'
+import { MapTagToggleChips } from './map-tags-dialog'
 
 /** A map suggested as the one a file is a version of, and how alike their files are. */
 export const MapPublish_SuggestionFragment = graphql(/* GraphQL */ `
@@ -70,10 +73,14 @@ export const MapPublish_FileFragment = graphql(/* GraphQL */ `
   fragment MapPublish_FileFragment on SbMap {
     id
     name
+    kind
     family {
       id
       name
       current {
+        id
+      }
+      tags {
         id
       }
     }
@@ -137,8 +144,8 @@ const MapLinkSuggestionsQuery = graphql(/* GraphQL */ `
 `)
 
 const PublishMutation = graphql(/* GraphQL */ `
-  mutation MapPublish($fileId: SbMapId!, $answer: MapPublishAnswerInput!) {
-    mapPublish(fileId: $fileId, answer: $answer) {
+  mutation MapPublish($fileId: SbMapId!, $answer: MapPublishAnswerInput!, $tags: [String!]) {
+    mapPublish(fileId: $fileId, answer: $answer, tags: $tags) {
       id
       heldForReview
       file {
@@ -317,6 +324,17 @@ const PairName = styled.div`
   ${titleSmall};
   ${singleLine};
   color: var(--theme-on-surface);
+`
+
+const TagsField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const TagsLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const EvidenceLine = styled.div`
@@ -553,15 +571,18 @@ export interface PublishDialogContentsProps {
   file: FragmentType<typeof MapPublish_FileFragment>
   /** The listed maps the current user owns, which the file can join. */
   ownedMaps?: ReadonlyArray<OwnedMap>
+  /** The server's list of map tags, once loaded. */
+  tagList?: ReadonlyArray<{ id: string; kind: MapKind } & MapTagNames>
   /** Whether a publish is being sent. */
   sending: boolean
   /** Why the last publish failed, if it did. */
   errorMessage?: string
   /**
    * Publishes the file as `answer` says. `makeRecommended` is set when the file joins a map the
-   * current user owns and they asked for it to become that map's recommended file.
+   * current user owns and they asked for it to become that map's recommended file. `tags` are the
+   * tags to give the file's map, or null to leave them as they are.
    */
-  onPublish: (answer: PublishAnswer, makeRecommended: boolean) => void
+  onPublish: (answer: PublishAnswer, makeRecommended: boolean, tags: string[] | null) => void
   onCancel: () => void
   close: () => void
 }
@@ -574,6 +595,7 @@ export function PublishDialogContents({
   preview: previewRef,
   file: fileRef,
   ownedMaps,
+  tagList,
   sending,
   errorMessage,
   onPublish,
@@ -587,6 +609,10 @@ export function PublishDialogContents({
   const [chosen, setChosen] = useState<string>()
   const [ownedPick, setOwnedPick] = useState<string>()
   const [makeRecommended, setMakeRecommended] = useState(true)
+  const initialTags = file.family.tags.map(tag => tag.id)
+  const [pickedTags, setPickedTags] = useState<string[]>()
+  const selectedTags = pickedTags ?? initialTags
+  const tagOptions = tagList?.filter(tag => tag.kind === file.kind) ?? []
 
   const fileName = filterColorCodes(file.name)
   const isOwned = (familyId: string | undefined) =>
@@ -613,10 +639,24 @@ export function PublishDialogContents({
     kind,
     family: suggestion ? { id: suggestion.family.id, name: suggestion.family.name } : undefined,
   })
+  // Whether the publisher picks where the file goes from a list, rather than with the buttons
+  const choosesFromList =
+    !preview.blockedReason &&
+    !preview.existingMap &&
+    (suggestions.length > 1 || ownedChoices.length > 0)
+  // Whether publishing leaves the file as the only file of its map, which can then get tags: it
+  // isn't in a map with other files, and where a list picks the answer, the option chosen keeps the
+  // file as a map of its own (with nothing chosen yet, or a map to join chosen, it doesn't). The
+  // picked tags are kept while the row is hidden.
+  const offersTags =
+    !preview.blockedReason &&
+    !preview.existingMap &&
+    (!choosesFromList || chosenValue === NONE_VALUE)
   const publishAs = (answer: PublishAnswer) =>
     onPublish(
       answer,
       answer.kind === MapPublishAnswerKind.Join && isOwned(answer.family?.id) && makeRecommended,
+      offersTags ? publishTagsToSend(answer.kind, initialTags, selectedTags) : null,
     )
   /** The map the file would join, which offers making it the recommended file if it's owned. */
   let joinTarget: string | undefined
@@ -778,6 +818,17 @@ export function PublishDialogContents({
             )}
           </MutedText>
         ) : null}
+        {offersTags && tagOptions.length ? (
+          <TagsField>
+            <TagsLabel>{t('maps.tags.filter', 'Tags')}</TagsLabel>
+            <MapTagToggleChips
+              options={tagOptions}
+              selected={selectedTags}
+              disabled={sending}
+              onChange={setPickedTags}
+            />
+          </TagsField>
+        ) : null}
       </Layout>
     </StyledDialog>
   )
@@ -831,6 +882,7 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
   })
   const file = useFragment(MapPublish_FileFragment, data?.map)
   const ownedMaps = useOwnedMaps()
+  const tagList = useMapTagList()
   const [{ fetching: sending }, publish] = useMutation(PublishMutation)
   const makeFileRecommended = useMakeRecommended()
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -843,13 +895,13 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
     )
   }
 
-  const onPublish = (answer: PublishAnswer, makeRecommended: boolean) => {
+  const onPublish = (answer: PublishAnswer, makeRecommended: boolean, tags: string[] | null) => {
     setErrorMessage(undefined)
-    publish({ fileId, answer: { kind: answer.kind, familyId: answer.family?.id } })
+    publish({ fileId, answer: { kind: answer.kind, familyId: answer.family?.id }, tags })
       .then(async result => {
         if (result.error || !result.data) {
           const code = result.error ? errorCode(result.error) : undefined
-          setErrorMessage(publishErrorText(code, t))
+          setErrorMessage(publishErrorText(code, t, tags !== null))
           if (code === 'NOT_SUGGESTED') {
             reload()
           }
@@ -895,6 +947,7 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
       preview={data.mapPublishPreview}
       file={data.map}
       ownedMaps={ownedMaps}
+      tagList={tagList}
       sending={sending}
       errorMessage={errorMessage}
       onPublish={onPublish}

@@ -153,6 +153,15 @@ const MapOwnerRelinquishDialog = React.lazy(async () => ({
 const MapPublishDialog = React.lazy(async () => ({
   default: (await import('../maps/map-publish-dialog')).MapPublishDialog,
 }))
+const MapTagsDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-tags-dialog')).MapTagsDialog,
+}))
+const MapTagEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tag-dialogs')).MapTagEditDialog,
+}))
+const MapTagDeleteDialog = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tag-dialogs')).MapTagDeleteDialog,
+}))
 const MapPreviewDialog = React.lazy(async () => ({
   default: (await import('../maps/map-preview')).MapPreviewDialog,
 }))
@@ -371,6 +380,12 @@ function getDialog(dialogType: DialogType): {
       return { component: MapPreviewDialog }
     case DialogType.MapPublish:
       return { component: MapPublishDialog }
+    case DialogType.MapTagDelete:
+      return { component: MapTagDeleteDialog }
+    case DialogType.MapTagEdit:
+      return { component: MapTagEditDialog }
+    case DialogType.MapTags:
+      return { component: MapTagsDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
     case DialogType.GameVerificationFailed:
