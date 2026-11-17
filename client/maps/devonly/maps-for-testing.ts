@@ -14,6 +14,7 @@ export const FightingSpirit: MapInfoJson = {
   hash: '0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c',
   name: 'Fighting Spirit',
   description: 'Something something fighting spirit',
+  kind: 'melee',
   publishedBy: makeSbUserId(27),
   publishedAt: 1630903355713,
   visibility: MapVisibility.Official,

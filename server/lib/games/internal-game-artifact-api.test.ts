@@ -60,6 +60,7 @@ const MAP: MapInfo = {
   hash: MAP_HASH,
   name: 'Fighting Spirit',
   description: '',
+  kind: 'melee',
   publishedBy: makeSbUserId(1),
   publishedAt: new Date(1787600000000),
   visibility: 'OFFICIAL' as any,
