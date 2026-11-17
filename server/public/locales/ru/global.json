@@ -2461,6 +2461,33 @@
       "mapName": "Название карты",
       "mapNameRequired": "Введите название карты"
     },
+    "discover": {
+      "becauseYouPlayed": "Потому что Вы играли на {{name}}",
+      "browseByTag": "Поиск по тегам",
+      "collectionOfTheWeek": "Подборка недели",
+      "fresh": "Свежее из мастерской",
+      "freshSubtitle": "Новые карты и новые версии за последние 60 дней",
+      "jumpBackIn": "Сыграть снова",
+      "loadError": "Не удалось загрузить карты",
+      "mapmakers": "Авторы карт",
+      "mapmakersSubtitle": "Авторы, на чьих картах играли больше всего в этом месяце",
+      "mapOfTheWeek": "Карта недели",
+      "onTheRise": "Набирает популярность",
+      "playedAgo": "Последняя игра: {{time}}",
+      "recommendationNoTags": "Карты, на которых Вы ещё не играли",
+      "recommendationOneTag": "«{{tag}}»: карты, на которых Вы ещё не играли",
+      "recommendationThreeTags": "«{{first}}», «{{second}}» и «{{third}}»: карты, на которых Вы ещё не играли",
+      "recommendationTwoTags": "«{{first}}» и «{{second}}»: карты, на которых Вы ещё не играли",
+      "showAll": "Показать все",
+      "tab": "Интересное",
+      "tagWithCount_one": "{{tag}} · {{count}}",
+      "tagWithCount_few": "{{tag}} · {{count}}",
+      "tagWithCount_many": "{{tag}} · {{count}}",
+      "tagWithCount_other": "{{tag}} · {{count}}",
+      "trending": "В тренде на этой неделе",
+      "verifiedMakerTooltip": "Администрация подтвердила, что этот пользователь — автор некоторых из этих карт",
+      "viewCollection": "Открыть подборку"
+    },
     "familySearch": {
       "files_one": "{{count}} файл",
       "files_few": "{{count}} файла",
@@ -2468,6 +2495,10 @@
       "files_other": "{{count}} файла",
       "noResults": "Карты не найдены.",
       "search": "Найдите карту или вставьте ссылку на неё"
+    },
+    "feature": {
+      "collectionOfTheWeekNotification": "<0>{{name}}</0> — подборка недели",
+      "mapOfTheWeekNotification": "<0>{{name}}</0> — карта недели"
     },
     "files": {
       "compare": "Сравнить",
@@ -2595,6 +2626,8 @@
       "linkCopyError": "Не удалось скопировать ссылку",
       "liveNow": "Идут сейчас",
       "loadError": "Не удалось загрузить карту",
+      "mapOfTheWeek": "Карта недели",
+      "mapOfTheWeekOn": "Карта недели · {{date}}",
       "matchmakingType": "Тип матчмейкинга",
       "matchupBarLabel": "{{left}} {{leftRate}}, {{right}} {{rightRate}}",
       "matchupGames_one": "{{count}} игра",
@@ -2675,6 +2708,7 @@
     "publish": {
       "alreadyListed": "Этот файл уже опубликован.",
       "approvedNotification": "Ваша карта <1>{{name}}</1> прошла проверку и теперь опубликована.",
+      "badTags": "Эти теги нельзя использовать для этой карты.",
       "button": "Опубликовать",
       "delistedNotification": "Администрация убрала Вашу карту <1>{{name}}</1> из каталога.",
       "delistedNotificationNote": "Комментарий: «{{note}}»",
@@ -2721,6 +2755,8 @@
       "sameTriggers": "те же триггеры",
       "separateMap": "Нет, это отдельная карта",
       "staffDelisted": "Администрация убрала этот файл из каталога, поэтому его нельзя опубликовать.",
+      "tagLocked": "У этой карты есть тег, заданный администрацией или автором, а Ваши теги его убрали бы.",
+      "tagsHaveMaker": "У этой карты другой автор, теги задаёт он.",
       "terrainPercent": "{{percent}}% совпадение местности",
       "title": "Опубликовать карту",
       "unlinked": "Убрано из карты {{mapName}}",
@@ -2764,6 +2800,23 @@
         "removed": "Удалено из избранного",
         "removeError": "Не удалось удалить карту из избранного"
       }
+    },
+    "tags": {
+      "addTags": "Добавить теги",
+      "badRequest": "Эти теги нельзя использовать для этой карты.",
+      "editTitle": "Изменить теги",
+      "emailUnverified": "Подтвердите адрес электронной почты, чтобы изменять теги карт.",
+      "error": "Не удалось сохранить теги. Повторите попытку позже.",
+      "filter": "Теги",
+      "filterAny": "Любые теги",
+      "filterMore": "{{tag}} +{{more}}",
+      "hasMaker": "У этой карты теперь есть автор, теги задаёт он.",
+      "locked": "Один из убранных Вами тегов задан администрацией или автором карты, поэтому он остаётся.",
+      "lockedTooltip": "Вы не можете убрать этот тег",
+      "notListed": "Эта карта не опубликована, поэтому её теги нельзя изменить.",
+      "rateLimited": "За последний час Вы изменили слишком много тегов карт. Повторите попытку позже.",
+      "restricted": "Вам ограничена публикация карт, поэтому Вы не можете изменять теги карт.",
+      "selectedCount": "{{selected}} из {{max}}"
     },
     "thumbnail": {
       "addToStarred": "Добавить в избранное",
