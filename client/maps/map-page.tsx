@@ -59,7 +59,6 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import {
   bodyLarge,
   bodyMedium,
-  bodySmall,
   displayMedium,
   displaySmall,
   labelLarge,
@@ -71,6 +70,7 @@ import {
   openMapDownloadDialog,
   openMapFamilyActionDialog,
   openMapFamilyReportDialog,
+  openMapFeatureDialog,
   openMapFileLinkDialog,
   openMapFileUnlinkDialog,
   openMapOwnerAddFileDialog,
@@ -86,10 +86,12 @@ import {
 } from './action-creators'
 import { AddToCollectionButton } from './map-add-to-collection'
 import { MapBackButton } from './map-back-button'
+import { MapByline } from './map-byline'
 import { catalogSearchForTag } from './map-catalog-params'
 import { DescriptionForm, NameForm } from './map-edit-forms'
 import { correctedMapPageUrl, SelectedFileState, urlForMapFile } from './map-family-files'
 import { useToggleMapFavorite } from './map-favorites'
+import { featuredChipText } from './map-feature-weeks'
 import { useMapHostAction } from './map-host-action'
 import { MapFileImage } from './map-image'
 import { claimMenuState } from './map-owner'
@@ -109,6 +111,7 @@ import { MapMatchupsCard, MapStatsCard } from './map-page-stats'
 import { umsForceLayout } from './map-page-summaries'
 import { fileChangeErrorText } from './map-publish'
 import { MapReportBar } from './map-report-bar'
+import { TagChip, TagLink } from './map-tag-chip'
 import { mapTagLabel } from './map-tags'
 import { useUnpublishMap } from './map-unpublish'
 
@@ -135,6 +138,7 @@ const MapPageFamilyQuery = graphql(/* GraphQL */ `
         ownerKind
         credit
         ...MapPage_TagsFragment
+        ...MapPage_FeaturedFragment
         ...MapPageStats_FamilyFragment
         ...MapPageFiles_FamilyFragment
       }
@@ -359,6 +363,7 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
               header={file}
               actions={file}
               tags={family}
+              featured={family}
               family={{
                 id: family.id,
                 name: family.name,
@@ -660,16 +665,6 @@ const Title = styled.h1`
   }
 `
 
-const Byline = styled.div`
-  ${bodySmall};
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--theme-on-surface-variant);
-`
-
 const Notice = styled.div`
   ${bodyMedium};
   display: flex;
@@ -723,92 +718,34 @@ const FromFileName = styled.div`
   user-select: text;
 `
 
-/** Sized to sit in the byline's line of small text. */
-const VerifiedChip = styled(RoomChip)`
-  padding: 2px 6px;
+const MapPage_FeaturedFragment = graphql(/* GraphQL */ `
+  fragment MapPage_FeaturedFragment on MapFamily {
+    id
+    featuredWeeks
+  }
+`)
 
-  display: flex;
-  align-items: center;
-  gap: 2px;
-`
-
-/** A maker staff credited the map to, who has no account to link to. */
-const CreditedMaker = styled.span`
-  color: var(--theme-on-surface);
-`
-
-export interface MapBylineProps {
-  /** The map's maker, if it has one. */
-  owner?: { id: SbUserId }
-  ownerKind?: MapOwnerKind
-  /** The maker's name staff credited the map to, for a maker with no account. */
-  credit?: string
-  /** Who published the shown file, while it's listed. */
-  publisher?: { id: SbUserId }
-  publishedAt?: string
-}
+/** The newest week's start, as the page's other dates show, but in UTC like the weeks are. */
+const featuredWeekFormat = dateTimeFormat({
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
 
 /**
- * Who made the map and who published the shown file, on one line. The maker is the map's owner,
- * marked Verified when staff confirmed them, or else the name staff credited the map to.
+ * The text of the header's chip for a map that was the map of the week: just that while it is,
+ * otherwise with the latest week it was. Undefined for a map that never was.
  */
-export function MapByline({ owner, ownerKind, credit, publisher, publishedAt }: MapBylineProps) {
+function useFeaturedChipText(
+  familyRef: FragmentType<typeof MapPage_FeaturedFragment>,
+): string | undefined {
   const { t } = useTranslation()
-  const publishedDate = useFormat(publishedDateFormat)
-  const date = publishedAt ? publishedDate.format(new Date(publishedAt)) : undefined
-
-  let publishedPart: React.ReactNode
-  if (publisher && date) {
-    publishedPart =
-      owner?.id === publisher.id ? (
-        <span>{t('maps.page.publishedOn', { defaultValue: 'Published {{date}}', date })}</span>
-      ) : (
-        <>
-          <span>{t('maps.page.publishedBy', 'Published by')}</span>
-          <ConnectedUsername userId={publisher.id} />
-          <span>·</span>
-          <span>{date}</span>
-        </>
-      )
-  }
-
-  let makerPart: React.ReactNode
-  if (owner) {
-    makerPart = (
-      <>
-        <span>{t('maps.page.by', 'by')}</span>
-        <ConnectedUsername userId={owner.id} />
-        {ownerKind === MapOwnerKind.Staff ? (
-          <Tooltip
-            text={t('maps.page.verifiedTooltip', 'Staff confirmed this user made the map')}
-            position='bottom'>
-            <VerifiedChip>
-              <MaterialIcon icon='verified' size={14} filled={true} />
-              {t('maps.page.verified', 'Verified')}
-            </VerifiedChip>
-          </Tooltip>
-        ) : null}
-      </>
-    )
-  } else if (credit) {
-    makerPart = (
-      <>
-        <span>{t('maps.page.by', 'by')}</span>
-        <CreditedMaker>{credit}</CreditedMaker>
-      </>
-    )
-  }
-
-  if (!makerPart && !publishedPart) {
-    return null
-  }
-  return (
-    <Byline>
-      {makerPart}
-      {makerPart && publishedPart ? <span>·</span> : null}
-      {publishedPart}
-    </Byline>
-  )
+  const family = useFragment(MapPage_FeaturedFragment, familyRef)
+  const weekFormat = useFormat(featuredWeekFormat)
+  // When the page first rendered is recent enough to tell the current week by
+  const [now] = useState(() => Date.now())
+  return featuredChipText(family.featuredWeeks, now, date => weekFormat.format(date), t)
 }
 
 const MapPage_TagsFragment = graphql(/* GraphQL */ `
@@ -832,30 +769,6 @@ const TagRow = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-`
-
-const TagChip = styled(RoomChip)`
-  color: var(--theme-on-surface);
-`
-
-const TagLink = styled(Link)`
-  display: flex;
-  border-radius: 999px;
-  color: inherit;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: none;
-  }
-
-  &:hover > ${TagChip} {
-    background-color: var(--theme-container-highest);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-primary);
-    outline-offset: 2px;
-  }
 `
 
 const TagEditButton = styled(IconButton)`
@@ -914,6 +827,7 @@ function MapHeader({
   map: mapRef,
   family,
   tags,
+  featured,
   editing,
   onEditDone,
   onChanged,
@@ -921,6 +835,7 @@ function MapHeader({
   map: FragmentType<typeof MapPage_HeaderFragment>
   family: ActionsFamily
   tags: FragmentType<typeof MapPage_TagsFragment>
+  featured: FragmentType<typeof MapPage_FeaturedFragment>
   editing: 'name' | 'description' | undefined
   onEditDone: () => void
   onChanged: () => void
@@ -960,7 +875,8 @@ function MapHeader({
     )
   }
 
-  const hasChips = map.staffPick || !map.listed || poolTypes.length > 0
+  const featuredText = useFeaturedChipText(featured)
+  const hasChips = map.staffPick || !map.listed || poolTypes.length > 0 || !!featuredText
 
   let delistedText: React.ReactNode
   if (delisted?.delistedAt) {
@@ -1000,6 +916,7 @@ function MapHeader({
     <Header>
       {hasChips ? (
         <Chips>
+          {featuredText ? <RoomChip>{featuredText}</RoomChip> : null}
           {map.staffPick ? <RoomChip>{t('maps.page.staffPick', 'Staff pick')}</RoomChip> : null}
           {!map.listed ? <RoomChip>{t('maps.page.unlisted', 'Unlisted')}</RoomChip> : null}
           {poolTypes.map(type => {
@@ -1191,12 +1108,14 @@ function MapHeaderAndActions({
   header,
   actions,
   tags,
+  featured,
   family,
   onChanged,
 }: {
   header: FragmentType<typeof MapPage_HeaderFragment>
   actions: FragmentType<typeof MapPage_ActionsFragment>
   tags: FragmentType<typeof MapPage_TagsFragment>
+  featured: FragmentType<typeof MapPage_FeaturedFragment>
   family: ActionsFamily
   onChanged: () => void
 }) {
@@ -1207,6 +1126,7 @@ function MapHeaderAndActions({
         map={header}
         family={family}
         tags={tags}
+        featured={featured}
         editing={editing}
         onEditDone={() => setEditing(undefined)}
         onChanged={onChanged}
@@ -1491,6 +1411,15 @@ function MapActions({
         ),
     ])
     mapItems.push(
+      [
+        'Feature as map of the week',
+        () =>
+          dispatch(
+            openMapFeatureDialog({
+              target: { mapId: map.id, familyId: family.id, name: filterColorCodes(family.name) },
+            }),
+          ),
+      ],
       ['Maker', () => dispatch(openMapOwnerEditDialog({ familyId: family.id }))],
       [
         'Merge into another map',

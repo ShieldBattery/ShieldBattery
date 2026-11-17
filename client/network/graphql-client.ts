@@ -105,6 +105,9 @@ const COLLECTION_LIST_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapCollectio
 /** Query fields listing the map tags. */
 const MAP_TAG_LIST_FIELDS: ReadonlySet<string> = new Set(['mapTags'])
 
+/** Query fields holding staff picks: the one the Discover page shows, and the schedule. */
+const MAP_FEATURE_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapFeature', 'mapFeatures'])
+
 /** Query fields listing and counting collection reports. */
 const COLLECTION_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'mapCollectionReports',
@@ -183,6 +186,61 @@ function invalidateCollectionLists(cache: Cache) {
   if (typeof userKey === 'string') {
     invalidateEntityField(cache, userKey, 'mapCollections')
   }
+}
+
+/**
+ * The cache keys of the maps (families) of the cached staff picks: the ones the Discover page shows
+ * (`mapFeature`) and the ones the schedule lists (`mapFeatures`).
+ */
+function cachedFeatureFamilyKeys(cache: Cache): Set<string> {
+  const keys = new Set<string>()
+  const addFeature = (featureKey: unknown) => {
+    const mapKey = typeof featureKey === 'string' ? cache.resolve(featureKey, 'map') : undefined
+    const familyKey = typeof mapKey === 'string' ? cache.resolve(mapKey, 'family') : undefined
+    if (typeof familyKey === 'string') {
+      keys.add(familyKey)
+    }
+  }
+  for (const field of cache.inspectFields('Query')) {
+    if (field.fieldName === 'mapFeature') {
+      addFeature(cache.resolve('Query', field.fieldKey))
+    } else if (field.fieldName === 'mapFeatures') {
+      const connection = cache.resolve('Query', field.fieldKey)
+      if (typeof connection !== 'string') {
+        continue
+      }
+      const edges = cache.resolve(connection, 'edges')
+      for (const edge of Array.isArray(edges) ? edges : []) {
+        addFeature(typeof edge === 'string' ? cache.resolve(edge, 'node') : undefined)
+      }
+      const nodes = cache.resolve(connection, 'nodes')
+      for (const node of Array.isArray(nodes) ? nodes : []) {
+        addFeature(node)
+      }
+    }
+  }
+  return keys
+}
+
+/**
+ * Invalidates what a change to the staff pick of a week can affect: the pick the Discover page
+ * shows, the schedule, and the featured weeks of the maps involved. Those are the maps of the picks
+ * cached before the change (one of which the change may have replaced), and the map of
+ * `mapFeature`, the pick the change made, if any. Only the `featuredWeeks` field of each is
+ * invalidated, never the map, so a result returning it stays whole.
+ */
+function invalidateMapFeatures(cache: Cache, mapFeature?: { map?: { id: string } | null }) {
+  const familyKeys = cachedFeatureFamilyKeys(cache)
+  const pickedFamilyKey = mapFeature?.map
+    ? cache.resolve({ __typename: 'SbMap', id: mapFeature.map.id }, 'family')
+    : undefined
+  if (typeof pickedFamilyKey === 'string') {
+    familyKeys.add(pickedFamilyKey)
+  }
+  for (const key of familyKeys) {
+    invalidateEntityField(cache, key, 'featuredWeeks')
+  }
+  invalidateQueryFields(cache, MAP_FEATURE_QUERY_FIELDS)
 }
 
 const MapFamilyViewerCollectionIdsFragment = graphql(/* GraphQL */ `
@@ -515,6 +573,12 @@ const cacheUpdates: UpdatesConfig = {
         invalidateMapTags(cache)
       }
     },
+    mapFeatureSet: (result, _args, cache) =>
+      invalidateMapFeatures(
+        cache,
+        result.mapFeatureSet as { map?: { id: string } | null } | undefined,
+      ),
+    mapFeatureRemove: (_result, _args, cache) => invalidateMapFeatures(cache),
     mapOwnerClaim: (_result, _args, cache) => invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
     mapOwnerRelinquish: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),

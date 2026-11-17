@@ -18,7 +18,7 @@ import { BigGameHunters, FightingSpirit } from './maps-for-testing'
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.now()
 
-function tileMap({
+export function tileMap({
   id,
   name,
   kind = MapKind.Melee,

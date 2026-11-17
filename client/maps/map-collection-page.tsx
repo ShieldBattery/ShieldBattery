@@ -43,6 +43,7 @@ import {
   openMapCollectionEditDialog,
   openMapCollectionHideDialog,
   openMapCollectionReportDialog,
+  openMapFeatureDialog,
 } from './action-creators'
 import {
   CatalogSearchInput,
@@ -716,6 +717,14 @@ function CollectionActions({
         () => dispatch(openMapCollectionHideDialog({ collectionId: collection.id, title })),
       ])
     }
+  }
+  // Only a collection everyone can see can be the staff pick of a week
+  if (canManageMaps && collection.public) {
+    moderationItems.push([
+      'Feature as collection of the week',
+      () =>
+        dispatch(openMapFeatureDialog({ target: { collectionId: collection.id, name: title } })),
+    ])
   }
   const menuGroups = [editItems, moderationItems].filter(group => group.length)
   const menuItemCount = menuGroups.reduce((sum, group) => sum + group.length, 0)

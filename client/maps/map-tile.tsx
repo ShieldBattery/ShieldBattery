@@ -94,7 +94,7 @@ const NEW_MAP_MS = 7 * 24 * 60 * 60 * 1000
  * The trending score from which a map counts as rising: lobby play this week at least 2 standard
  * deviations above what the weeks before it predict.
  */
-const RISING_TRENDING_SCORE = 200
+export const RISING_TRENDING_SCORE = 200
 
 /** Which fact the line under a tile's name shows, chosen to explain the order of the list. */
 export enum MapTileSignal {
