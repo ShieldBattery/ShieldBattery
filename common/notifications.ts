@@ -1,6 +1,6 @@
 import { SbChannelId } from './chat'
 import { TranslationLanguage } from './i18n'
-import { SbMapId } from './maps'
+import { MapCollectionId, MapFamilyId, SbMapId } from './maps'
 import { MatchmakingBanReason } from './matchmaking'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
@@ -53,6 +53,8 @@ export enum NotificationType {
   MapPublishApproved = 'mapPublishApproved',
   /** Something changed about who is the maker (owner) of a map the user made or claimed. */
   MapOwner = 'mapOwner',
+  /** A map or collection the user made is the staff pick of the week. */
+  MapFeatured = 'mapFeatured',
 }
 
 export type SbNotification =
@@ -77,6 +79,7 @@ export type SbNotification =
   | MapFileDelistedNotification
   | MapPublishApprovedNotification
   | MapOwnerNotification
+  | MapFeaturedNotification
 
 export interface BaseNotification {
   /**
@@ -312,4 +315,26 @@ export interface MapOwnerNotification extends BaseNotification {
   /** The map's name when the change happened. May contain StarCraft color codes. */
   mapName: string
   event: MapOwnerNotificationEvent
+}
+
+/** What a weekly staff pick points at, with the name it had when the notification was sent. */
+export type MapFeaturedNotificationPick =
+  | {
+      kind: 'map'
+      /** The ID of the map (family). May be an old ID that now resolves to a merged map. */
+      id: MapFamilyId
+      /** The name of the map's current file. May contain StarCraft color codes. */
+      name: string
+    }
+  | {
+      kind: 'collection'
+      id: MapCollectionId
+      /** The collection's title. */
+      name: string
+    }
+
+/** Tells a player that a map or collection they made is the map or collection of the week. */
+export interface MapFeaturedNotification extends BaseNotification {
+  type: NotificationType.MapFeatured
+  pick: MapFeaturedNotificationPick
 }

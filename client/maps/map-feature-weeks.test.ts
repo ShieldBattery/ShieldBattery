@@ -10,7 +10,6 @@ import {
   initialFeatureWeek,
   replacesText,
   TakenWeek,
-  weekStartOf,
 } from './map-feature-weeks'
 
 /** Returns each string's default text with its `{{placeholders}}` filled in. */
@@ -30,19 +29,6 @@ const THIS_WEEK = Date.parse('2026-11-09T00:00:00Z')
 const NEXT_WEEK = Date.parse('2026-11-16T00:00:00Z')
 
 describe('client/maps/map-feature-weeks', () => {
-  test('starts weeks on Monday at 00:00 UTC', () => {
-    expect(weekStartOf(NOW).toISOString()).toBe('2026-11-09T00:00:00.000Z')
-    expect(weekStartOf(Date.parse('2026-11-09T00:00:00Z')).toISOString()).toBe(
-      '2026-11-09T00:00:00.000Z',
-    )
-    expect(weekStartOf(Date.parse('2026-11-08T23:59:59Z')).toISOString()).toBe(
-      '2026-11-02T00:00:00.000Z',
-    )
-    expect(weekStartOf(Date.parse('2027-01-01T12:00:00Z')).toISOString()).toBe(
-      '2026-12-28T00:00:00.000Z',
-    )
-  })
-
   test('writes days and weeks in UTC', () => {
     expect(formatDayMonth(new Date(THIS_WEEK))).toBe('9 Nov')
     expect(formatWeekRange(new Date(THIS_WEEK))).toBe('9 Nov to 15 Nov 2026')

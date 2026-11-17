@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Link } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { weekStartOf } from '../../common/map-feature-weeks'
 import { urlForMapCollection } from '../../common/map-url'
 import { makeMapCollectionId } from '../../common/maps'
 import { MapFeatureDialogData } from '../dialogs/dialog-type'
@@ -29,7 +30,7 @@ import {
   MapFeaturePick_FeatureFragment,
   MapFeatureRemoveMutation,
 } from './map-feature-actions'
-import { formatWeekRange, weekStartOf } from './map-feature-weeks'
+import { formatWeekRange } from './map-feature-weeks'
 import { errorCode } from './map-owner-actions'
 
 // An admin-only page, so it isn't translated.

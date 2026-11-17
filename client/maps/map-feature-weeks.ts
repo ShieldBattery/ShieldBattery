@@ -1,4 +1,5 @@
 import { TFunction } from 'i18next'
+import { weekStartOf } from '../../common/map-feature-weeks'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WEEK_MS = 7 * DAY_MS
@@ -23,17 +24,6 @@ const MONTHS = [
   'Nov',
   'Dec',
 ] as const
-
-/**
- * The start of the week holding `time`, as features count weeks: the Monday before it (or of it)
- * at 00:00 UTC.
- */
-export function weekStartOf(time: Date | number): Date {
-  const startOfDay = Math.floor(Number(time) / DAY_MS) * DAY_MS
-  // getUTCDay is 0 for Sunday; Monday starts the week
-  const daysSinceMonday = (new Date(startOfDay).getUTCDay() + 6) % 7
-  return new Date(startOfDay - daysSinceMonday * DAY_MS)
-}
 
 /** A date as its day and month in UTC, the way staff tools show weeks: "10 Nov". */
 export function formatDayMonth(date: Date): string {
