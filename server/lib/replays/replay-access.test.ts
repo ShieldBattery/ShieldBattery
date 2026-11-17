@@ -136,3 +136,34 @@ describe('canUserAccessReplay', () => {
     expect(canUserAccessReplay(game, makeSbUserId(0))).toBe(false)
   })
 })
+
+function soloConfig(): GameConfig {
+  return {
+    gameType: GameType.UseMapSettings,
+    gameSubType: 0,
+    gameSource: GameSource.Solo,
+    lockedAlliances: false,
+    teams: [
+      [{ id: USER, race: 'z', isComputer: false }],
+      [{ id: makeSbUserId(0), race: 't', isComputer: true }],
+    ],
+  }
+}
+
+describe('canUserAccessReplay for solo games', () => {
+  test('are accessible to the person who played them', () => {
+    expect(canUserAccessReplay(makeGameRecord(soloConfig()), USER)).toBe(true)
+  })
+
+  test('are not accessible to anyone else', () => {
+    expect(canUserAccessReplay(makeGameRecord(soloConfig()), OTHER_USER)).toBe(false)
+  })
+
+  test('are not accessible without a user', () => {
+    expect(canUserAccessReplay(makeGameRecord(soloConfig()), undefined)).toBe(false)
+  })
+
+  test('are not accessible through the computer slot', () => {
+    expect(canUserAccessReplay(makeGameRecord(soloConfig()), makeSbUserId(0))).toBe(false)
+  })
+})

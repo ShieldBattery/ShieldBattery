@@ -1655,6 +1655,66 @@ describe('games/game-loader/GameLoader', () => {
     await load
   })
 
+  test('sets up a solo game with its player as the host and completes it locally', async () => {
+    const player1 = makePlayer(p1)
+    const computer: PlayerInfo = {
+      id: 'slot-computer',
+      race: 'z',
+      playerId: 1,
+      teamId: 2,
+      type: SlotType.UmsComputer,
+      typeId: 5,
+    }
+    registerActiveClients([player1.player])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1)])
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId: 'game-solo',
+      resultCodes: new Map([[p1, 'code-1']]),
+    } as any)
+
+    const load = gameLoader.loadGame({
+      players: [player1.player],
+      playerInfos: [computer, player1.playerInfo],
+      mapId,
+      gameConfig: {
+        gameSource: GameSource.Solo,
+        gameType: GameType.UseMapSettings,
+        gameSubType: 0,
+        teams: [
+          [{ id: makeSbUserId(0), race: 'z', isComputer: true }],
+          [{ id: p1, race: 'r', isComputer: false }],
+        ],
+        lockedAlliances: false,
+      },
+    })
+    for (let i = 0; i < 100; i++) {
+      await Promise.resolve()
+    }
+
+    expect(gameLoader.isLocalOnlyLoad('game-solo')).toBe(true)
+    expect(netcodeV2Service.createSessionForGame).not.toHaveBeenCalled()
+    const setups = publisher.publish.mock.calls
+      .filter((call: any[]) => call[1]?.type === 'setGameConfig')
+      .map((call: any[]) => call[1].setup)
+    expect(setups).toHaveLength(1)
+    expect(setups[0]).toMatchObject({
+      host: player1.playerInfo,
+      slots: [computer, player1.playerInfo],
+      gameType: GameType.UseMapSettings,
+      useLegacyLimits: false,
+      starcraftCompatibleReplays: true,
+      disableAllianceChanges: false,
+      useNetcodeV2: false,
+      resultCode: 'code-1',
+    })
+    expect(setups[0].matchmakingType).toBeUndefined()
+
+    gameLoader.registerGameAsLoaded('game-solo', p1)
+    const result = await load
+    expect(result.isOk() && result.value.gameId).toBe('game-solo')
+    expect(activityStatusService.setInGame).toHaveBeenCalledWith(p1, 'game-solo', expect.anything())
+  })
+
   test('reports a networked load as not local-only', async () => {
     const { load } = await startNetworkedLoad('game-networked-flag')
 

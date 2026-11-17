@@ -64,11 +64,16 @@ export const gamePageMetadata: PageMetadataResolver = async (params, context) =>
   const mapName = map?.name ?? 'Unknown Map'
   const date = DATE_FORMAT.format(game.startTime)
 
-  const description =
-    game.config.gameSource === GameSource.Matchmaking
-      ? `Ranked ${matchmakingTypeToLabel(game.config.gameSourceExtra.type, englishT)} game on ` +
-        `${mapName}, played ${date}.`
-      : `Custom game on ${mapName}, played ${date}.`
+  let description: string
+  if (game.config.gameSource === GameSource.Matchmaking) {
+    description =
+      `Ranked ${matchmakingTypeToLabel(game.config.gameSourceExtra.type, englishT)} game on ` +
+      `${mapName}, played ${date}.`
+  } else if (game.config.gameSource === GameSource.Solo) {
+    description = `Solo game on ${mapName}, played ${date}.`
+  } else {
+    description = `Custom game on ${mapName}, played ${date}.`
+  }
 
   return {
     url: `${context.canonicalHost}/games/${encodePrettyId(gameId)}`,

@@ -610,6 +610,7 @@ const cacheKeys: KeyingConfig = {
   // make a field that combines those fields into something unique)
   GameConfigDataLobby: NON_KEYED_EMBEDDED,
   GameConfigDataMatchmaking: NON_KEYED_EMBEDDED,
+  GameConfigDataSolo: NON_KEYED_EMBEDDED,
   GamePlayer: NON_KEYED_EMBEDDED,
   GameReportReplay: NON_KEYED_EMBEDDED,
   GameReportUserStats: NON_KEYED_EMBEDDED,

@@ -51,6 +51,7 @@ pub struct MapWeeklyActivity {
     pub id: String,
     /// The start of the week: midnight UTC on its Monday.
     pub week_start: DateTime<Utc>,
+    /// Games whose map the players picked themselves: lobby games and solo games.
     pub lobby_games: i32,
     pub matchmaking_games: i32,
 }
@@ -226,7 +227,8 @@ fn week_starts(today: NaiveDate, weeks: i32) -> Vec<NaiveDate> {
         .collect()
 }
 
-/// One entry per week in `starts`, with weeks missing from `games` (lobby, matchmaking) as zero.
+/// One entry per week in `starts`, with weeks missing from `games` (lobby and solo, matchmaking)
+/// as zero.
 /// Each entry's id is `id_prefix` and the week.
 fn fill_weeks(
     id_prefix: &str,
@@ -265,7 +267,7 @@ pub async fn load_weekly_activity(
     let rows = sqlx::query!(
         r#"
             SELECT date_trunc('week', day::timestamp)::date as "week_start!",
-                COALESCE(sum(games) FILTER (WHERE game_source = 'LOBBY'), 0)::bigint
+                COALESCE(sum(games) FILTER (WHERE game_source IN ('LOBBY', 'SOLO')), 0)::bigint
                     as "lobby_games!",
                 COALESCE(sum(games) FILTER (WHERE game_source = 'MATCHMAKING'), 0)::bigint
                     as "matchmaking_games!"

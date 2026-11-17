@@ -163,6 +163,8 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>, t: TFunction):
       defaultValue: `Ranked {{matchmakingType}}`,
       matchmakingType: matchmakingTypeToLabel(game.config.gameSourceExtra.type, t),
     })
+  } else if (game.config.gameSource === GameSource.Solo) {
+    return t('game.gameSource.solo', 'Solo game')
   }
 
   return assertUnreachable(game.config)

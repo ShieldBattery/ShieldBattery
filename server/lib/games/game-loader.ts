@@ -481,6 +481,24 @@ function getGeneralGameSetup({
       turnRate,
       userLatency,
     }
+  } else if (gameConfig.gameSource === GameSource.Solo) {
+    return {
+      gameId,
+      name: 'ShieldBattery Solo',
+      map: toMapInfoJson(map),
+      gameType: gameConfig.gameType,
+      gameSubType: gameConfig.gameSubType,
+      slots: playerInfos,
+      // The one human in the game is the one who launched it
+      host: playerInfos.find(p => p.type === 'human' && p.userId)!,
+      users,
+      seed,
+      turnRate,
+      userLatency,
+      useLegacyLimits: false,
+      starcraftCompatibleReplays: true,
+      disableAllianceChanges: gameConfig.lockedAlliances,
+    }
   } else {
     return gameConfig satisfies never
   }

@@ -5,6 +5,7 @@ import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   BenchedUser,
+  createUmsForceSlots,
   findSlotById,
   getLobbySlots,
   getLobbySlotsWithIndexes,
@@ -39,7 +40,6 @@ import {
   createHuman,
   createObserver,
   createOpen,
-  createUmsComputer,
   Slot,
   SlotType,
 } from '../../../common/lobbies/slot'
@@ -279,55 +279,35 @@ function createInitialTeams(
   gameSubType: number,
   numSlots: number,
 ): Team[] {
+  if (isUms(gameType)) {
+    // Each of the map's forces is a team, holding the slots the map gives it
+    return map.mapData.umsForces.map(force => ({
+      name: force.name,
+      teamId: force.teamId,
+      isObserver: false,
+      ...createUmsForceSlots(force),
+    }))
+  }
+
   // When creating a lobby, we first create all the individual slots for the lobby, and then we
   // distribute each of the slots into their respective teams. The number of slots in each team is
   // fixed for the lifetime of the lobby; only the contents of the slots ever change.
   const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.mapData.umsForces)
-  let slots: Slot[]
-  if (!isUms(gameType)) {
-    slots = Array.from({ length: numSlots }, () => createOpen())
-  } else {
-    slots = map.mapData.umsForces.flatMap(force =>
-      force.players.map(player => {
-        const playerId = player.id
-        const playerRace = player.race
-        const race = playerRace !== 'any' ? playerRace : 'r'
-        const hasForcedRace = playerRace !== 'any'
-        return player.computer
-          ? createUmsComputer(race, playerId, player.typeId)
-          : createOpen(race, hasForcedRace, playerId)
-      }),
-    )
-  }
-
+  const slots = Array.from({ length: numSlots }, () => createOpen())
   const teamNames = getTeamNames({ gameType, gameSubType, umsForces: map.mapData.umsForces })
   const teamCount = numTeams(gameType, gameSubType, map.mapData.umsForces)
   const teams: Team[] = []
   let slotIndex = 0
   for (let teamIndex = 0; teamIndex < teamCount; teamIndex++) {
-    let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
-    let hiddenSlots: Slot[]
+    const teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
     slotIndex += slotsPerTeam[teamIndex]
-    // Game types whose teams aren't named (melee, FFA, 1v1) have no entry for this team
-    const teamName = teamNames[teamIndex] ?? ''
-    let teamId: number
-    if (isUms(gameType)) {
-      // Player type 5 means regular computer and 6 means human
-      const isHiddenSlot = (player: Slot) => player.typeId !== 5 && player.typeId !== 6
-      teamId = map.mapData.umsForces[teamIndex].teamId
-      hiddenSlots = teamSlots.filter(isHiddenSlot)
-      teamSlots = teamSlots.filter(slot => !isHiddenSlot(slot))
-    } else {
-      hiddenSlots = []
-      teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
-    }
-
     teams.push({
-      name: teamName,
-      teamId,
+      // Game types whose teams aren't named (melee, FFA, 1v1) have no entry for this team
+      name: teamNames[teamIndex] ?? '',
+      teamId: isTeamType(gameType) ? teamIndex + 1 : teamIndex,
       isObserver: false,
       slots: teamSlots,
-      hiddenSlots,
+      hiddenSlots: [],
     })
   }
 

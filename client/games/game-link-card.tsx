@@ -312,8 +312,8 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
 }
 
 /**
- * Returns the label for a game's type on a card. Every non-custom game is ranked, so ranked games
- * leave that out and show just their matchmaking type.
+ * Returns the label for a game's type on a card. Ranked games leave out that they're ranked (only
+ * matchmaking has types) and show just their matchmaking type.
  */
 function getCardGameTypeLabel(game: ReadonlyDeep<GameRecordJson>, t: TFunction): string {
   return game.config.gameSource === GameSource.Matchmaking

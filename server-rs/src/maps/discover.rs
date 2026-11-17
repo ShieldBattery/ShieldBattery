@@ -20,7 +20,8 @@ pub const DEFAULT_RECENT_MAPS: i32 = 6;
 const MAX_RECENT_MAPS: i32 = 12;
 /// How many of a user's most recent games `recentMaps` looks through.
 const RECENT_GAMES: i64 = 200;
-/// How many of the maps a user played most in lobbies are tried as the seed of a recommendation.
+/// How many of the maps a user chose to play most (in lobbies or alone) are tried as the seed of a
+/// recommendation.
 const RECOMMENDATION_SEEDS: i64 = 5;
 /// The fewest maps a seed must give for its recommendation to be shown.
 const MIN_RECOMMENDED_MAPS: usize = 4;
@@ -122,8 +123,8 @@ pub struct MapRecommendation {
     map_ids: Vec<SbMapId>,
 }
 
-/// Maps sharing tags with a map the current user played in lobbies lately (the seed), which they
-/// haven't played lately themselves.
+/// Maps sharing tags with a map the current user chose to play lately, in a lobby or alone (the
+/// seed), which they haven't played lately themselves.
 #[Object]
 impl MapRecommendation {
     /// The seed map's id.
@@ -157,10 +158,11 @@ struct RecommendationRow {
     map_id: Uuid,
 }
 
-/// Recommends maps to `user_id` from the tags of a map they played in lobbies.
+/// Recommends maps to `user_id` from the tags of a map they chose to play, in a lobby or alone.
 ///
 /// The seeds are the listed maps fitting `lens` with a tag that applies, that the user played in
-/// lobby games in the last 28 days, the most games first, then the most recently played; the first
+/// lobby or solo games in the last 28 days (matchmaking picks its maps, so its games say nothing
+/// about what the user likes), the most games first, then the most recently played; the first
 /// five are tried in turn. A seed's results are listed maps of its kind sharing an applying tag with
 /// it (for a melee seed, also with as many players), other than the seed and the maps the user
 /// played in any game in the last 90 days: the most shared tags first, then the most games in the
@@ -174,7 +176,7 @@ pub async fn load_map_recommendation(
     let db = ctx.data::<MapSearchRepo>()?.db();
     let mut query = QueryBuilder::<Postgres>::new(
         "WITH played AS ( \
-            SELECT pm.family_id, g.start_time, g.config->>'gameSource' = 'LOBBY' AS lobby \
+            SELECT pm.family_id, g.start_time, g.config->>'gameSource' IN ('LOBBY', 'SOLO') AS chosen \
             FROM games_users gu \
             INNER JOIN games g ON g.id = gu.game_id \
             INNER JOIN maps pm ON pm.id = g.map_id \
@@ -194,7 +196,7 @@ pub async fn load_map_recommendation(
             FROM played p \
             INNER JOIN map_families fam ON fam.id = p.family_id AND fam.listed \
             INNER JOIN maps cur ON cur.id = fam.current_map_id \
-            WHERE p.lobby AND p.start_time >= now() - interval '28 days' \
+            WHERE p.chosen AND p.start_time >= now() - interval '28 days' \
                 AND EXISTS ( \
                     SELECT 1 FROM map_family_tags st \
                     INNER JOIN map_tags stt ON stt.id = st.tag_id AND stt.kind = cur.kind \

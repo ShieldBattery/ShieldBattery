@@ -106,7 +106,8 @@ pub enum MapSort {
     /// Best search matches first, then the most played in the last 28 days. Without a search, the
     /// same as `POPULAR_28D`.
     Relevance,
-    /// Maps whose lobby play is rising fastest first, then the most played in the last 28 days.
+    /// Maps whose play in lobbies and solo games is rising fastest first, then the most played in
+    /// the last 28 days.
     Trending,
     /// Most games in the last 7 days first.
     #[graphql(name = "POPULAR_7D")]

@@ -265,9 +265,9 @@ pub struct MapStats {
     #[graphql(name = "medianLength90d")]
     pub median_length_90d: Option<i32>,
     pub last_played_at: DateTime<Utc>,
-    /// How far lobby play in the last 7 days exceeds what the 3 weeks before it predict, in
-    /// hundredths of a standard deviation. 0 for maps that aren't rising or that fewer than 5
-    /// people played in lobbies this week. Updated hourly.
+    /// How far play in lobbies and solo games in the last 7 days exceeds what the 3 weeks before
+    /// it predict, in hundredths of a standard deviation. 0 for maps that aren't rising or that
+    /// fewer than 5 people played in lobbies or alone this week. Updated hourly.
     pub trending_score: i32,
     /// Games in the last 28 days played by one person alone.
     #[graphql(name = "soloGames28d")]

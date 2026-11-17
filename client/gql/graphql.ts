@@ -355,7 +355,10 @@ export enum MapSort {
    * same as `POPULAR_28D`.
    */
   Relevance = 'RELEVANCE',
-  /** Maps whose lobby play is rising fastest first, then the most played in the last 28 days. */
+  /**
+   * Maps whose play in lobbies and solo games is rising fastest first, then the most played in
+   * the last 28 days.
+   */
   Trending = 'TRENDING',
 }
 
@@ -846,6 +849,7 @@ export type ChannelActivityQuery = {
             Array<{ race: Types.RaceChar; user: { id: Types.SbUserId; name: string } | null }>
           >
         }
+      | { __typename: 'GameConfigDataSolo' }
   }>
 }
 
@@ -901,6 +905,12 @@ export type AdminGameReportQuery = {
           }
         | {
             __typename: 'GameConfigDataMatchmaking'
+            teams: Array<
+              Array<{ isComputer: boolean; user: { id: Types.SbUserId; name: string } | null }>
+            >
+          }
+        | {
+            __typename: 'GameConfigDataSolo'
             teams: Array<
               Array<{ isComputer: boolean; user: { id: Types.SbUserId; name: string } | null }>
             >
@@ -1050,6 +1060,7 @@ export type LiveGames_FeedEntryFragmentFragment = ({
           >
         >
       }
+    | { __typename: 'GameConfigDataSolo' }
   currentRanks: Array<{
     id: string
     userId: Types.SbUserId
@@ -1099,6 +1110,7 @@ export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
           | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }
       }
+    | { __typename: 'GameConfigDataSolo' }
 } & { ' $fragmentName'?: 'LiveGames_FeedEntryMapAndTypeFragmentFragment' }
 
 export type ReportGameMutationVariables = Exact<{
@@ -8481,6 +8493,48 @@ export const AdminGameReportDocument = {
                               typeCondition: {
                                 kind: 'NamedType',
                                 name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                              },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'teams' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'isComputer' },
+                                        },
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'user' },
+                                          selectionSet: {
+                                            kind: 'SelectionSet',
+                                            selections: [
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'id' },
+                                              },
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'name' },
+                                              },
+                                            ],
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'InlineFragment',
+                              typeCondition: {
+                                kind: 'NamedType',
+                                name: { kind: 'Name', value: 'GameConfigDataSolo' },
                               },
                               selectionSet: {
                                 kind: 'SelectionSet',

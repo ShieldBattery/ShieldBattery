@@ -76,7 +76,7 @@ export interface GameSetup {
   users: SbUser[]
   /** For matchmaking, each player's standing in the match's mode going into the game. */
   ranks?: GamePlayerRank[]
-  /** The matchmaking type of the match this game is for, or `undefined` for a lobby game. */
+  /** The matchmaking type of the match this game is for, or `undefined` for any other game. */
   matchmakingType?: MatchmakingType
   /**
    * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use

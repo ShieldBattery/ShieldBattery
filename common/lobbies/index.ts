@@ -1,12 +1,12 @@
 import { GameServerRegionId } from '../game-server-regions'
 import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, gameTypeAllowsAllianceChanges, isTeamType } from '../games/game-type'
-import { MapInfo } from '../maps'
+import { MapForce, MapForcePlayer, MapInfo } from '../maps'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
 import { LobbyVisibility } from './lobby-visibility'
 import { SbLobbyId } from './sb-lobby-id'
-import { Slot, SlotType } from './slot'
+import { createOpen, createUmsComputer, Slot, SlotType } from './slot'
 
 /**
  * The number of observer slots a lobby that allows observers has. These are in addition to the
@@ -157,6 +157,47 @@ export function adjustedGameSubType({
     const maxTeams = Math.min(4, slots)
     return Math.min(maxTeams, Math.max(2, subType))
   }
+}
+
+/**
+ * The BW slot type id of a regular computer. Together with 6 (a human) these are the only slot types
+ * a lobby shows; any other computer slot (rescuable, neutral, ...) is hidden but still sent to the
+ * game.
+ */
+const UMS_COMPUTER_TYPE_ID = 5
+/** The BW slot type id of a human player. */
+const UMS_HUMAN_TYPE_ID = 6
+
+/** Whether a UMS slot is one a lobby keeps out of sight, though the game still needs it. */
+export function isHiddenUmsSlot(slot: Readonly<{ typeId: number }>): boolean {
+  return slot.typeId !== UMS_COMPUTER_TYPE_ID && slot.typeId !== UMS_HUMAN_TYPE_ID
+}
+
+/**
+ * Creates the slots one force of a UMS map starts out with, before anyone takes a seat: a computer
+ * the map places becomes a UMS computer, and any other player an open slot. A slot whose race the
+ * map leaves free (`'any'`) starts as random and can be changed; any other race is forced.
+ *
+ * `hiddenSlots` are the force's computers that aren't regular computers (see `Team.hiddenSlots`).
+ * Both lists keep the force's order.
+ */
+export function createUmsForceSlots(force: Readonly<MapForce>): {
+  slots: Slot[]
+  hiddenSlots: Slot[]
+} {
+  const all = force.players.map(createUmsSlot)
+  return {
+    slots: all.filter(slot => !isHiddenUmsSlot(slot)),
+    hiddenSlots: all.filter(isHiddenUmsSlot),
+  }
+}
+
+function createUmsSlot(player: Readonly<MapForcePlayer>): Slot {
+  const race = player.race !== 'any' ? player.race : 'r'
+  const hasForcedRace = player.race !== 'any'
+  return player.computer
+    ? createUmsComputer(race, player.id, player.typeId)
+    : createOpen(race, hasForcedRace, player.id)
 }
 
 /**

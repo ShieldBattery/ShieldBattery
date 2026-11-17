@@ -13,6 +13,7 @@ const MAX_MAP_NAME_LENGTH = 20
  * - "SB-1v1-Fighting_Spirit-1703692800"
  * - "SB-2v2-Neo_Sylphid-1703692800"
  * - "SB-Lobby-Fastest_Map_Ever_M-1703692800" (truncated)
+ * - "SB-Solo-Marine_Training-1703692800"
  */
 export function generateReplayFilename(game: GameRecord, mapName: string): string {
   const gameTypeLabel = getGameTypeLabel(game)
@@ -47,6 +48,9 @@ function getGameTypeLabel(game: GameRecord): string {
       default:
         return 'Ranked'
     }
+  }
+  if (game.config.gameSource === GameSource.Solo) {
+    return 'Solo'
   }
   return 'Lobby'
 }

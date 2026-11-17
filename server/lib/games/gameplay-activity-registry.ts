@@ -5,7 +5,8 @@ import { ClientSocketsGroup } from '../websockets/socket-groups'
 
 interface RegisteredActivity {
   client: ClientSocketsGroup
-  status: GameplayActivityStatus
+  /** The status the activity shows the user's friends, if it shows one. */
+  status: GameplayActivityStatus | undefined
 }
 
 @singleton()
@@ -17,12 +18,15 @@ export class GameplayActivityRegistry {
   /**
    * Attempts to register a client as owning the active gameplay activity for a user.
    *
+   * @param status what the activity shows the user's friends, or `undefined` for an activity that
+   *   leaves whatever they see as it is.
+   *
    * @returns true if no other client was registered for the user, false otherwise.
    */
   registerActiveClient(
     userId: SbUserId,
     client: ClientSocketsGroup,
-    status: GameplayActivityStatus,
+    status: GameplayActivityStatus | undefined,
   ): boolean {
     if (!client.isConnected()) {
       throw new Error('Cannot register a disconnected client')
@@ -33,7 +37,9 @@ export class GameplayActivityRegistry {
     }
 
     this.userClients.set(userId, { client, status })
-    this.activityStatusService.setActivity(userId, status)
+    if (status) {
+      this.activityStatusService.setActivity(userId, status)
+    }
     return true
   }
 
@@ -72,7 +78,9 @@ export class GameplayActivityRegistry {
     }
 
     this.userClients.delete(userId)
-    this.activityStatusService.clearActivity(userId, registered.status)
+    if (registered.status) {
+      this.activityStatusService.clearActivity(userId, registered.status)
+    }
     return true
   }
 
@@ -81,11 +89,11 @@ export class GameplayActivityRegistry {
    * reassert it. A running game overrides the activity's status with in-game, and clearing that
    * leaves the user looking merely online even though they are still in the lobby or queue that
    * started the game, so the holder says so again once the game is over. No-op for a user with no
-   * registered activity.
+   * registered activity, or one whose activity shows no status.
    */
   reapplyStatus(userId: SbUserId): void {
     const registered = this.userClients.get(userId)
-    if (!registered) {
+    if (!registered?.status) {
       return
     }
 

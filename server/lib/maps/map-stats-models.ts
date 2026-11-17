@@ -31,6 +31,13 @@ const PLAYED_GAME = sql`
 `
 
 /**
+ * Matches games (aliased `g`) whose map the players picked for themselves rather than having it
+ * picked for them: lobby games and solo games, as opposed to matchmaking. These are what the
+ * `lobby_*` stat columns (and so the trending score) count, despite the columns' names.
+ */
+const IS_CHOSEN_GAME = sql`g.config->>'gameSource' IN ('LOBBY', 'SOLO')`
+
+/**
  * The number of humans (its `games_users` rows; computers and observers have none) in a game
  * (aliased `g`) of the last 90 days, NULL for older games. Every stat that reads it covers 90 days
  * at most, and leaving older games out keeps a full-history snapshot from counting the players of
@@ -122,7 +129,7 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
     WITH played AS (
       SELECT g.id, g.map_id, g.start_time, g.game_length, m.kind,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
-        g.config->>'gameSource' = 'LOBBY' AS is_lobby,
+        ${IS_CHOSEN_GAME} AS is_chosen,
         (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
         ${gameHumans(asOf)} AS humans
       FROM games g
@@ -140,7 +147,7 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       SELECT p.map_id, count(DISTINCT gu.user_id) AS players
       FROM played p
       INNER JOIN games_users gu ON gu.game_id = p.id
-      WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
+      WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
       GROUP BY p.map_id
     ),
     solo_players AS (
@@ -165,9 +172,9 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
-        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
+        WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (
-        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
+        WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
       COALESCE(lp.players, 0),
       count(*) FILTER (
         WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
@@ -196,7 +203,7 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
     played AS (
       SELECT g.id, f.family_id, g.start_time, g.game_length, f.kind,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
-        g.config->>'gameSource' = 'LOBBY' AS is_lobby,
+        ${IS_CHOSEN_GAME} AS is_chosen,
         (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
         ${gameHumans(asOf)} AS humans
       FROM games g
@@ -214,7 +221,7 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
       SELECT p.family_id, count(DISTINCT gu.user_id) AS players
       FROM played p
       INNER JOIN games_users gu ON gu.game_id = p.id
-      WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
+      WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
       GROUP BY p.family_id
     ),
     solo_players AS (
@@ -239,9 +246,9 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
-        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
+        WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (
-        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
+        WHERE p.is_chosen AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
       COALESCE(lp.players, 0),
       count(*) FILTER (
         WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),

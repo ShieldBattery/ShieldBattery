@@ -9,6 +9,8 @@ import { GameType } from './game-type'
 export enum GameSource {
   Lobby = 'LOBBY',
   Matchmaking = 'MATCHMAKING',
+  /** A game one person launched by themselves, with no lobby, on a map of their choosing. */
+  Solo = 'SOLO',
 }
 
 export const ALL_GAME_SOURCES: ReadonlyArray<GameSource> = Object.values(GameSource)
@@ -64,8 +66,9 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
    * time and never changes.
    *
    * Matchmaking always has at least two human players and never includes computer players, so this
-   * only ever applies to lobby games. Records created before this field existed won't have it set;
-   * readers should treat a missing value as `false`.
+   * never applies to matchmaking games, while a solo game has a single human and so is always
+   * exempt. Records created before this field existed won't have it set; readers should treat a
+   * missing value as `false`.
    */
   resultsExempt?: boolean
 }
@@ -147,7 +150,16 @@ export type MatchmakingExtra =
 
 export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 
-export type GameConfig = LobbyGameConfig | MatchmakingGameConfig
+/**
+ * A solo game records no source extra. The field is kept (as optional) so that a kind of solo game
+ * that needs one can add it without changing the records that have none.
+ */
+export type SoloGameConfig = SetOptional<
+  BaseGameConfig<GameSource.Solo, undefined>,
+  'gameSourceExtra'
+>
+
+export type GameConfig = LobbyGameConfig | MatchmakingGameConfig | SoloGameConfig
 
 /** Returns the type of the `gameSourceExtra` param for a given `GameSource` type. */
 export type GameSourceExtraType<Source extends GameSource> = (GameConfig & {

@@ -102,6 +102,15 @@ const AdminGameReportQuery = graphql(/* GraphQL */ `
               }
             }
           }
+          ... on GameConfigDataSolo {
+            teams {
+              isComputer
+              user {
+                id
+                name
+              }
+            }
+          }
         }
       }
       replay {

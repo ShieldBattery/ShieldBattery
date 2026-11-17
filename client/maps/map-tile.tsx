@@ -91,8 +91,8 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
 const NEW_MAP_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
- * The trending score from which a map counts as rising: lobby play this week at least 2 standard
- * deviations above what the weeks before it predict.
+ * The trending score from which a map counts as rising: play in lobbies and solo games this week
+ * at least 2 standard deviations above what the weeks before it predict.
  */
 export const RISING_TRENDING_SCORE = 200
 

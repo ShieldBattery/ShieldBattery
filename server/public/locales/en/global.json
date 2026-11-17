@@ -1193,7 +1193,8 @@
     "gameAnomaly": "Game anomalies detected",
     "gameSource": {
       "custom": "Custom game",
-      "ranked": "Ranked {{matchmakingType}}"
+      "ranked": "Ranked {{matchmakingType}}",
+      "solo": "Solo game"
     },
     "gameType": {
       "captureTheFlag": "Capture the flag",

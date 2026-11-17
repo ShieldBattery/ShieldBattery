@@ -156,6 +156,28 @@ describe('games/game-page-meta', () => {
       expect(result?.description).toBe('Custom game on Fighting Spirit, played July 14, 2026.')
     })
 
+    test('resolves a solo game', async () => {
+      getGameRecordMock.mockResolvedValueOnce({
+        ...BASE_GAME,
+        config: {
+          gameSource: GameSource.Solo,
+          gameType: GameType.UseMapSettings,
+          gameSubType: 0,
+          teams: [
+            [{ id: ALICE_ID, race: 'z', isComputer: false }],
+            [{ id: makeSbUserId(0), race: 'p', isComputer: true }],
+          ],
+        },
+      })
+      findUsersByIdAsMapMock.mockResolvedValueOnce(new Map([[ALICE_ID, ALICE]]))
+      getMapInfosMock.mockResolvedValueOnce([FIGHTING_SPIRIT])
+
+      const result = await gamePageMetadata({ id: PRETTY_ID }, CONTEXT)
+
+      expect(result?.title).toBe('Alice vs Computer')
+      expect(result?.description).toBe('Solo game on Fighting Spirit, played July 14, 2026.')
+    })
+
     test('falls back to "Unknown Map" and the default image when the map row is missing', async () => {
       getGameRecordMock.mockResolvedValueOnce({ ...BASE_GAME })
       findUsersByIdAsMapMock.mockResolvedValueOnce(

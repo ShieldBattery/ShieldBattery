@@ -11,6 +11,7 @@ const LISTED_VISIBILITY: LobbyVisibility = 'listed'
  * - Lobby games with `listed` visibility: any user can access, since the game itself was public
  * - Other lobby games (unlisted, or predating the visibility field): only participants can
  *   access, where participants include team members and observers
+ * - Solo games: only the person who played it can access
  */
 export function canUserAccessReplay(game: GameRecord, userId: SbUserId | undefined): boolean {
   if (game.config.gameSource === GameSource.Matchmaking) {
@@ -22,16 +23,24 @@ export function canUserAccessReplay(game: GameRecord, userId: SbUserId | undefin
       return true
     }
 
-    if (!userId) {
-      return false
-    }
-    // Check if user was a participant, either playing or observing
-    const allPlayers = game.config.teams.flat()
-    return (
-      allPlayers.some(p => !p.isComputer && p.id === userId) ||
-      (game.config.observers?.includes(userId) ?? false)
-    )
+    return wasParticipant(game, userId)
+  }
+
+  if (game.config.gameSource === GameSource.Solo) {
+    return wasParticipant(game, userId)
   }
 
   return false
+}
+
+/** Whether `userId` was in the game, either playing or observing. */
+function wasParticipant(game: GameRecord, userId: SbUserId | undefined): boolean {
+  if (!userId) {
+    return false
+  }
+  const allPlayers = game.config.teams.flat()
+  return (
+    allPlayers.some(p => !p.isComputer && p.id === userId) ||
+    (game.config.observers?.includes(userId) ?? false)
+  )
 }

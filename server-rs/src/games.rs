@@ -297,6 +297,16 @@ pub struct GameConfigData<ExtraT: OutputType> {
     pub game_source_extra: ExtraT,
 }
 
+/// The configuration of a game one person launched by themselves. Solo games record no source
+/// extra, so unlike the other sources this has no `gameSourceExtra`.
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
+#[serde(rename_all = "camelCase")]
+pub struct GameConfigDataSolo {
+    pub game_type: GameType,
+    pub game_sub_type: u8,
+    pub teams: Vec<Vec<GamePlayer>>,
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, SimpleObject)]
 #[serde(rename_all = "camelCase")]
 pub struct LobbyExtra {
@@ -441,6 +451,7 @@ pub enum MatchmakingExtra {
 pub enum GameConfig {
     Lobby(GameConfigData<LobbyExtra>),
     Matchmaking(GameConfigData<MatchmakingExtra>),
+    Solo(GameConfigDataSolo),
 }
 
 pub struct GamesRepo {
@@ -532,12 +543,12 @@ pub struct LiveGameCandidate {
 }
 
 impl LiveGameCandidate {
-    /// Identifies the game's matchmaking type, for spreading picks across types. Lobby games
-    /// (which never reach the live games query) all share one key.
+    /// Identifies the game's matchmaking type, for spreading picks across types. Games from any
+    /// other source (which never reach the live games query) all share one key.
     fn type_key(&self) -> Option<std::mem::Discriminant<MatchmakingExtra>> {
         match &self.game.config.0 {
             GameConfig::Matchmaking(data) => Some(std::mem::discriminant(&data.game_source_extra)),
-            GameConfig::Lobby(_) => None,
+            GameConfig::Lobby(_) | GameConfig::Solo(_) => None,
         }
     }
 }
@@ -774,6 +785,36 @@ mod tests {
             6,
         );
         assert_eq!(ids(&picked), vec![8, 7, 6, 5, 4, 3]);
+    }
+
+    #[test]
+    fn reads_a_stored_solo_game_config() {
+        let config: GameConfig = serde_json::from_value(serde_json::json!({
+            "gameSource": "SOLO",
+            "gameType": "ums",
+            "gameSubType": 0,
+            "teams": [
+                [{ "id": 7, "race": "t", "isComputer": false }],
+                [{ "id": 0, "race": "z", "isComputer": true }],
+                [],
+            ],
+            "lockedAlliances": false,
+            "resultsExempt": true,
+            "useNetcodeV2": false,
+            "seed": 123,
+        }))
+        .unwrap();
+
+        let GameConfig::Solo(data) = config else {
+            panic!("expected a solo config, got {config:?}");
+        };
+        assert_eq!(data.game_type, GameType::UseMapSettings);
+        assert_eq!(data.game_sub_type, 0);
+        assert_eq!(data.teams.len(), 3);
+        assert_eq!(data.teams[0][0].id, SbUserId(7));
+        assert!(!data.teams[0][0].is_computer);
+        assert!(data.teams[1][0].is_computer);
+        assert!(data.teams[2].is_empty());
     }
 
     #[test]
