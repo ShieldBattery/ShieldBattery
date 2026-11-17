@@ -8,7 +8,9 @@ use async_graphql::connection::{Connection, CursorType, Edge, EmptyFields, Opaqu
 use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::{Context, Object, Result};
 use chrono::{DateTime, NaiveDate, Utc};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::graphql::errors::graphql_error;
@@ -23,6 +25,7 @@ use crate::maps::features::{
     week_of, week_start,
 };
 use crate::maps::search::{MapLens, MapSearchRepo};
+use crate::redis::RedisPool;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{SbUser, SbUserId};
 
@@ -30,6 +33,30 @@ use crate::users::{SbUser, SbUserId};
 const DEFAULT_PAGE_SIZE: i32 = 30;
 /// The most picks one page of `mapFeatures` may hold.
 const MAX_PAGE_SIZE: i32 = 100;
+
+/// Messages published to Node (via Redis pub/sub) about the weekly picks. Node tells the maker of
+/// the running week's pick, once, that it is the map or collection of the week.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedMapFeatureMessage {
+    /// The pick of a week was set to another map or collection, or its blurb changed. `week` is the
+    /// instant the week starts. Only sent for the week that is running.
+    #[serde(rename_all = "camelCase")]
+    PickChanged { week: DateTime<Utc> },
+}
+
+/// Publishes a map feature message. Best-effort: a failed publish only delays a notification until
+/// the next time Node looks for one, so it doesn't fail the request.
+async fn publish_feature_message(ctx: &Context<'_>, message: PublishedMapFeatureMessage) {
+    let Some(redis) = ctx.data_opt::<RedisPool>() else {
+        tracing::warn!("no RedisPool available to publish a map feature message");
+        return;
+    };
+    if let Err(err) = redis.publish(message).await {
+        tracing::error!("failed to publish map feature message: {err:?}");
+    }
+}
 
 fn feature_error(error: FeatureError) -> async_graphql::Error {
     match error.code() {
@@ -296,6 +323,15 @@ impl MapFeaturesMutation {
         let feature = features::set(db, week, target, &blurb, user.id, viewer)
             .await
             .map_err(feature_error)?;
+        if week == week_of(Utc::now()) {
+            publish_feature_message(
+                ctx,
+                PublishedMapFeatureMessage::PickChanged {
+                    week: week_start(week),
+                },
+            )
+            .await;
+        }
         Ok(MapFeature::stored(feature))
     }
 
