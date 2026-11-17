@@ -201,6 +201,22 @@ export type PublishedMapFamilyReportMessage =
     }
 
 /**
+ * Messages published to Node (via Redis pub/sub) about the weekly picks. Node tells the maker of
+ * the running week's pick, once, that it is the map or collection of the week.
+ */
+export type PublishedMapFeatureMessage =
+  /**
+   * The pick of a week was set to another map or collection, or its blurb changed. `week` is the
+   * instant the week starts. Only sent for the week that is running.
+   */
+  | {
+      type: 'pickChanged'
+      data: {
+        week: string
+      }
+    }
+
+/**
  * Messages published to Node (via Redis pub/sub) about changes to who owns a map, for the users
  * they concern. Node turns them into notifications. `name` is the map's name (its current file's
  * name) when the change was made.
@@ -318,6 +334,7 @@ export type PublishedMessage =
   | { type: 'mapFamilyReport'; data: PublishedMapFamilyReportMessage }
   | { type: 'mapPublish'; data: PublishedMapPublishMessage }
   | { type: 'mapOwner'; data: PublishedMapOwnerMessage }
+  | { type: 'mapFeature'; data: PublishedMapFeatureMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

@@ -19,6 +19,7 @@ import { GameCommendNotificationService } from './lib/games/game-commend-notific
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import { computeTranslationHashes } from './lib/i18n/translation-hashes'
+import { MapFeatureNotifier } from './lib/maps/map-feature-notifier'
 import { MapOwnerNotificationService } from './lib/maps/map-owner-notification-service'
 import { MapPublishNotificationService } from './lib/maps/map-publish-notification-service'
 import { NewsService } from './lib/news/news-service'
@@ -44,11 +45,13 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   // TODO(tec27): Move this somewhere better if we have any other news-related stuff and/or
   // services that don't have an attached HTTP API to hang off of
   container.resolve(NewsService)
-  // Have no HTTP API of their own; resolved here so their Redis subscriptions are set up at boot.
+  // Have no HTTP API of their own; resolved here so their Redis subscriptions (and jobs) are set up
+  // at boot.
   container.resolve(GameReportNotificationService)
   container.resolve(GameCommendNotificationService)
   container.resolve(MapPublishNotificationService)
   container.resolve(MapOwnerNotificationService)
+  container.resolve(MapFeatureNotifier)
 
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())
