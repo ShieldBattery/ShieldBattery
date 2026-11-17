@@ -359,15 +359,6 @@ export enum MapStartLocationChangeKind {
   Removed = 'REMOVED',
 }
 
-/**
- * A rule by which a melee tag is given to maps automatically, from their files. At most one tag
- * has each rule.
- */
-export enum MapTagAutoRule {
-  /** Maps whose current file is a melee map averaging more than 5,000 minerals per mineral field. */
-  RichMinerals = 'RICH_MINERALS',
-}
-
 /** A map tag's name in a language other than English. */
 export type MapTagNameInput = {
   /**
@@ -1299,7 +1290,6 @@ export type AdminMapTagCreateMutationVariables = Exact<{
   name: string
   kind: MapKind
   names?: Array<MapTagNameInput> | MapTagNameInput | null | undefined
-  autoRule?: MapTagAutoRule | null | undefined
 }>
 
 export type AdminMapTagCreateMutation = {
@@ -1307,7 +1297,6 @@ export type AdminMapTagCreateMutation = {
     id: string
     kind: MapKind
     name: string
-    autoRule: MapTagAutoRule | null
     usageCount: number
     names: Array<{ locale: string; name: string }>
   }
@@ -1317,7 +1306,6 @@ export type AdminMapTagUpdateMutationVariables = Exact<{
   id: string
   name?: string | null | undefined
   names?: Array<MapTagNameInput> | MapTagNameInput | null | undefined
-  autoRule?: MapTagAutoRule | null | undefined
 }>
 
 export type AdminMapTagUpdateMutation = {
@@ -1325,7 +1313,6 @@ export type AdminMapTagUpdateMutation = {
     id: string
     kind: MapKind
     name: string
-    autoRule: MapTagAutoRule | null
     usageCount: number
     names: Array<{ locale: string; name: string }>
   }
@@ -1338,7 +1325,6 @@ export type AdminMapTagsQuery = {
     id: string
     kind: MapKind
     name: string
-    autoRule: MapTagAutoRule | null
     usageCount: number
     names: Array<{ locale: string; name: string }>
   }>
@@ -1354,7 +1340,6 @@ export type AdminMapTagsSetOrderMutation = {
     id: string
     kind: MapKind
     name: string
-    autoRule: MapTagAutoRule | null
     usageCount: number
     names: Array<{ locale: string; name: string }>
   }>
@@ -9640,11 +9625,6 @@ export const AdminMapTagCreateDocument = {
             },
           },
         },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'autoRule' } },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapTagAutoRule' } },
-        },
       ],
       selectionSet: {
         kind: 'SelectionSet',
@@ -9668,11 +9648,6 @@ export const AdminMapTagCreateDocument = {
                 name: { kind: 'Name', value: 'names' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
               },
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'autoRule' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'autoRule' } },
-              },
             ],
             selectionSet: {
               kind: 'SelectionSet',
@@ -9691,7 +9666,6 @@ export const AdminMapTagCreateDocument = {
                     ],
                   },
                 },
-                { kind: 'Field', name: { kind: 'Name', value: 'autoRule' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
               ],
             },
@@ -9733,11 +9707,6 @@ export const AdminMapTagUpdateDocument = {
             },
           },
         },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'autoRule' } },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapTagAutoRule' } },
-        },
       ],
       selectionSet: {
         kind: 'SelectionSet',
@@ -9761,11 +9730,6 @@ export const AdminMapTagUpdateDocument = {
                 name: { kind: 'Name', value: 'names' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
               },
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'autoRule' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'autoRule' } },
-              },
             ],
             selectionSet: {
               kind: 'SelectionSet',
@@ -9784,7 +9748,6 @@ export const AdminMapTagUpdateDocument = {
                     ],
                   },
                 },
-                { kind: 'Field', name: { kind: 'Name', value: 'autoRule' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
               ],
             },
@@ -9824,7 +9787,6 @@ export const AdminMapTagsDocument = {
                     ],
                   },
                 },
-                { kind: 'Field', name: { kind: 'Name', value: 'autoRule' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
               ],
             },
@@ -9900,7 +9862,6 @@ export const AdminMapTagsSetOrderDocument = {
                     ],
                   },
                 },
-                { kind: 'Field', name: { kind: 'Name', value: 'autoRule' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
               ],
             },

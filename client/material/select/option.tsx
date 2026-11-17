@@ -20,8 +20,6 @@ export interface SelectOptionProps {
   /** An optional second line of smaller, muted text rendered below `text`. */
   secondaryText?: string
   value: unknown
-  /** Whether the option is shown but can't be chosen. */
-  disabled?: boolean
   focused?: boolean
   selected?: boolean
   dense?: boolean
@@ -31,7 +29,6 @@ export interface SelectOptionProps {
 export function SelectOption({
   text,
   secondaryText,
-  disabled,
   focused,
   selected,
   dense,
@@ -46,7 +43,6 @@ export function SelectOption({
       text={text}
       secondaryText={secondaryText}
       dense={dense}
-      disabled={disabled}
       focused={focused}
       $selected={selected}
       onClick={onOptionClick}

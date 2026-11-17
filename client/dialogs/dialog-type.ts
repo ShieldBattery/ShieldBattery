@@ -13,7 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { MapKind, MapTagAutoRule } from '../gql/graphql'
+import { MapKind } from '../gql/graphql'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
@@ -505,11 +505,7 @@ export interface MapTagEditDialogData {
     name: string
     /** The tag's names in other languages. */
     names: Array<{ locale: string; name: string }>
-    /** The rule by which the server gives the tag to maps, if any. */
-    autoRule: MapTagAutoRule | null
   }
-  /** The rules other tags have, each with the English name of the tag that has it. */
-  takenRules: Partial<Record<MapTagAutoRule, string>>
 }
 
 type MapTagEditDialogPayload = BaseDialogPayload<typeof DialogType.MapTagEdit, MapTagEditDialogData>

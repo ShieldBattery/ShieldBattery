@@ -56,10 +56,10 @@ type Documents = {
   '\n  mutation AdminMapOwnerClaimGrant($claimId: UUID!) {\n    mapOwnerClaimGrant(claimId: $claimId) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n      family {\n        id\n        ...MapOwner_FamilyOwnerFragment\n      }\n    }\n  }\n': typeof types.AdminMapOwnerClaimGrantDocument
   '\n  mutation AdminMapOwnerClaimReject($claimId: UUID!) {\n    mapOwnerClaimReject(claimId: $claimId) {\n      id\n      status\n      resolvedAt\n      resolvedBy {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapOwnerClaimRejectDocument
   '\n  query AdminMapCollectionReports($after: String, $first: Int!) {\n    mapCollectionReports(open: true, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          note\n          createdAt\n          reporter {\n            id\n          }\n          collection {\n            id\n            title\n            owner {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n': typeof types.AdminMapCollectionReportsDocument
-  '\n  mutation AdminMapTagCreate(\n    $name: String!\n    $kind: MapKind!\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagCreate(name: $name, kind: $kind, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagCreateDocument
-  '\n  mutation AdminMapTagUpdate(\n    $id: String!\n    $name: String\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagUpdate(id: $id, name: $name, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagUpdateDocument
-  '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagsDocument
-  '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagsSetOrderDocument
+  '\n  mutation AdminMapTagCreate($name: String!, $kind: MapKind!, $names: [MapTagNameInput!]) {\n    mapTagCreate(name: $name, kind: $kind, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagCreateDocument
+  '\n  mutation AdminMapTagUpdate($id: String!, $name: String, $names: [MapTagNameInput!]) {\n    mapTagUpdate(id: $id, name: $name, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagUpdateDocument
+  '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagsDocument
+  '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n': typeof types.AdminMapTagsSetOrderDocument
   '\n  mutation AdminMapTagDelete($id: String!) {\n    mapTagDelete(id: $id)\n  }\n': typeof types.AdminMapTagDeleteDocument
   '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    staffPick\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n': typeof types.MapSearchTest_MapFragmentDoc
   '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestMapsDocument
@@ -290,13 +290,13 @@ const documents: Documents = {
     types.AdminMapOwnerClaimRejectDocument,
   '\n  query AdminMapCollectionReports($after: String, $first: Int!) {\n    mapCollectionReports(open: true, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        node {\n          id\n          note\n          createdAt\n          reporter {\n            id\n          }\n          collection {\n            id\n            title\n            owner {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n':
     types.AdminMapCollectionReportsDocument,
-  '\n  mutation AdminMapTagCreate(\n    $name: String!\n    $kind: MapKind!\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagCreate(name: $name, kind: $kind, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n':
+  '\n  mutation AdminMapTagCreate($name: String!, $kind: MapKind!, $names: [MapTagNameInput!]) {\n    mapTagCreate(name: $name, kind: $kind, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n':
     types.AdminMapTagCreateDocument,
-  '\n  mutation AdminMapTagUpdate(\n    $id: String!\n    $name: String\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagUpdate(id: $id, name: $name, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n':
+  '\n  mutation AdminMapTagUpdate($id: String!, $name: String, $names: [MapTagNameInput!]) {\n    mapTagUpdate(id: $id, name: $name, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n':
     types.AdminMapTagUpdateDocument,
-  '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n':
+  '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n':
     types.AdminMapTagsDocument,
-  '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n':
+  '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n':
     types.AdminMapTagsSetOrderDocument,
   '\n  mutation AdminMapTagDelete($id: String!) {\n    mapTagDelete(id: $id)\n  }\n':
     types.AdminMapTagDeleteDocument,
@@ -857,26 +857,26 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation AdminMapTagCreate(\n    $name: String!\n    $kind: MapKind!\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagCreate(name: $name, kind: $kind, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n',
-): (typeof documents)['\n  mutation AdminMapTagCreate(\n    $name: String!\n    $kind: MapKind!\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagCreate(name: $name, kind: $kind, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n']
+  source: '\n  mutation AdminMapTagCreate($name: String!, $kind: MapKind!, $names: [MapTagNameInput!]) {\n    mapTagCreate(name: $name, kind: $kind, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapTagCreate($name: String!, $kind: MapKind!, $names: [MapTagNameInput!]) {\n    mapTagCreate(name: $name, kind: $kind, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation AdminMapTagUpdate(\n    $id: String!\n    $name: String\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagUpdate(id: $id, name: $name, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n',
-): (typeof documents)['\n  mutation AdminMapTagUpdate(\n    $id: String!\n    $name: String\n    $names: [MapTagNameInput!]\n    $autoRule: MapTagAutoRule\n  ) {\n    mapTagUpdate(id: $id, name: $name, names: $names, autoRule: $autoRule) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n']
+  source: '\n  mutation AdminMapTagUpdate($id: String!, $name: String, $names: [MapTagNameInput!]) {\n    mapTagUpdate(id: $id, name: $name, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapTagUpdate($id: String!, $name: String, $names: [MapTagNameInput!]) {\n    mapTagUpdate(id: $id, name: $name, names: $names) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n',
-): (typeof documents)['\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n']
+  source: '\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapTags {\n    mapTags {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n',
-): (typeof documents)['\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      autoRule\n      usageCount\n    }\n  }\n']
+  source: '\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapTagsSetOrder($kind: MapKind!, $ids: [String!]!) {\n    mapTagsSetOrder(kind: $kind, ids: $ids) {\n      id\n      kind\n      name\n      names {\n        locale\n        name\n      }\n      usageCount\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

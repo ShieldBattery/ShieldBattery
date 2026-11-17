@@ -498,19 +498,9 @@ const cacheUpdates: UpdatesConfig = {
     mapFamilyReportSetStatus: (_result, _args, cache) =>
       invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
     mapFamilySetTags: (_result, _args, cache) => invalidateMapTags(cache),
-    // A created tag goes at the end of its kind's tags. A tag created with a rule is given to the
-    // maps the rule holds for at once.
-    mapTagCreate: (_result, args, cache) => {
-      if (args.autoRule) {
-        invalidateMapTags(cache)
-      } else {
-        invalidateQueryFields(cache, MAP_TAG_LIST_FIELDS)
-      }
-    },
-    // Setting, changing or removing a tag's rule moves the tag between maps. The arguments don't
-    // tell whether the rule sent differs from the tag's, so every update invalidates what that can
-    // affect.
-    mapTagUpdate: (_result, _args, cache) => invalidateMapTags(cache),
+    // A created tag goes at the end of its kind's tags, and no map has it yet. The list is
+    // refetched to include it.
+    mapTagCreate: (_result, _args, cache) => invalidateQueryFields(cache, MAP_TAG_LIST_FIELDS),
     // The result holds the whole list, in the order set
     mapTagsSetOrder: (result, _args, cache) => {
       if (result.mapTagsSetOrder) {

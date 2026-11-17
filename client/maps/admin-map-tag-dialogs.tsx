@@ -7,11 +7,9 @@ import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { MapTagDeleteDialogData, MapTagEditDialogData } from '../dialogs/dialog-type'
 import { graphql } from '../gql'
-import { MapKind, MapTagAutoRule } from '../gql/graphql'
+import { MapKind } from '../gql/graphql'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { bodyLarge, bodyMedium, bodySmall } from '../styles/typography'
 import { errorCode } from './map-owner-actions'
@@ -23,13 +21,8 @@ import { tagIdForName } from './map-tags'
 const MAX_TAG_NAME_CHARS = 24
 
 const MapTagCreateMutation = graphql(/* GraphQL */ `
-  mutation AdminMapTagCreate(
-    $name: String!
-    $kind: MapKind!
-    $names: [MapTagNameInput!]
-    $autoRule: MapTagAutoRule
-  ) {
-    mapTagCreate(name: $name, kind: $kind, names: $names, autoRule: $autoRule) {
+  mutation AdminMapTagCreate($name: String!, $kind: MapKind!, $names: [MapTagNameInput!]) {
+    mapTagCreate(name: $name, kind: $kind, names: $names) {
       id
       kind
       name
@@ -37,20 +30,14 @@ const MapTagCreateMutation = graphql(/* GraphQL */ `
         locale
         name
       }
-      autoRule
       usageCount
     }
   }
 `)
 
 const MapTagUpdateMutation = graphql(/* GraphQL */ `
-  mutation AdminMapTagUpdate(
-    $id: String!
-    $name: String
-    $names: [MapTagNameInput!]
-    $autoRule: MapTagAutoRule
-  ) {
-    mapTagUpdate(id: $id, name: $name, names: $names, autoRule: $autoRule) {
+  mutation AdminMapTagUpdate($id: String!, $name: String, $names: [MapTagNameInput!]) {
+    mapTagUpdate(id: $id, name: $name, names: $names) {
       id
       kind
       name
@@ -58,7 +45,6 @@ const MapTagUpdateMutation = graphql(/* GraphQL */ `
         locale
         name
       }
-      autoRule
       usageCount
     }
   }
@@ -104,19 +90,6 @@ function nameProblem(value: string, needsId: boolean): string | undefined {
   return undefined
 }
 
-/** The rules a melee tag can be given by, in the order they're offered. */
-const AUTO_RULES: ReadonlyArray<MapTagAutoRule> = [MapTagAutoRule.RichMinerals]
-
-/** The name of the maps `rule` gives a tag to. */
-function autoRuleLabel(rule: MapTagAutoRule): string {
-  switch (rule) {
-    case MapTagAutoRule.RichMinerals:
-      return 'Maps with rich minerals'
-    default:
-      return assertUnreachable(rule)
-  }
-}
-
 /** What a failed save of a tag tells staff, given the error code the server sent. */
 function saveErrorText(code: unknown): string {
   switch (code) {
@@ -157,23 +130,17 @@ const HelperText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const RuleSelect = styled(Select)`
-  margin-top: 16px;
-`
-
 const BodyText = styled.div`
   ${bodyLarge};
 `
 
 /**
  * Adds a tag of `kind` at the end of that kind's tags, or changes `tag`: its English name, its names
- * in the other languages the app is translated into and, for a melee tag, the rule by which the
- * server gives it to maps.
+ * in the other languages the app is translated into.
  */
 export function MapTagEditDialog({
   kind,
   tag,
-  takenRules,
   onCancel,
   close,
 }: MapTagEditDialogData & CommonDialogProps) {
@@ -184,11 +151,8 @@ export function MapTagEditDialog({
   const [names, setNames] = useState<ReadonlyMap<string, string>>(
     () => new Map(tag?.names.map(n => [n.locale, n.name])),
   )
-  const [autoRule, setAutoRule] = useState<MapTagAutoRule | null>(tag?.autoRule ?? null)
   /** Why the server refused the English name, until it's changed. */
   const [nameRefusal, setNameRefusal] = useState<string>()
-  /** Why the server refused the rule, until it's changed. */
-  const [ruleRefusal, setRuleRefusal] = useState<string>()
   const [errorMessage, setErrorMessage] = useState<string>()
 
   const nameError = nameRefusal ?? nameProblem(name, !tag)
@@ -196,10 +160,7 @@ export function MapTagEditDialog({
     OTHER_LANGUAGES.map(language => [language, nameProblem(names.get(language) ?? '', false)]),
   )
   const invalid =
-    !name.trim() ||
-    !!nameError ||
-    !!ruleRefusal ||
-    Array.from(languageErrors.values()).some(error => !!error)
+    !name.trim() || !!nameError || Array.from(languageErrors.values()).some(error => !!error)
   // Every name it had is sent back, including ones in languages without a field here, since the
   // names sent replace all of them
   const namesToSend = Array.from(names, ([locale, value]) => ({
@@ -209,7 +170,6 @@ export function MapTagEditDialog({
   const unchanged =
     !!tag &&
     name.trim() === tag.name &&
-    autoRule === tag.autoRule &&
     namesToSend.length === tag.names.length &&
     namesToSend.every(n => tag.names.some(t => t.locale === n.locale && t.name === n.name))
 
@@ -218,10 +178,9 @@ export function MapTagEditDialog({
       return
     }
     setErrorMessage(undefined)
-    // The rule is always sent: on an update, leaving it out would remove it as well
     const request = tag
-      ? updateTag({ id: tag.id, name: name.trim(), names: namesToSend, autoRule })
-      : createTag({ name: name.trim(), kind, names: namesToSend, autoRule })
+      ? updateTag({ id: tag.id, name: name.trim(), names: namesToSend })
+      : createTag({ name: name.trim(), kind, names: namesToSend })
     request
       .then(result => {
         if (!result.error) {
@@ -231,8 +190,6 @@ export function MapTagEditDialog({
         const code = errorCode(result.error)
         if (code === 'NAME_TAKEN') {
           setNameRefusal('Another tag already has this name.')
-        } else if (code === 'RULE_TAKEN') {
-          setRuleRefusal('Another tag already has this rule.')
         } else if (code === 'BAD_REQUEST') {
           setNameRefusal("This name can't be used.")
         } else {
@@ -293,38 +250,6 @@ export function MapTagEditDialog({
           />
         ))}
         <HelperText>Left empty, a language shows the English name.</HelperText>
-        {kind === MapKind.Melee ? (
-          <>
-            <RuleSelect
-              label='Assign automatically'
-              value={autoRule}
-              errorText={ruleRefusal}
-              disabled={saving}
-              onChange={(value: MapTagAutoRule | null) => {
-                setAutoRule(value)
-                setRuleRefusal(undefined)
-              }}>
-              <SelectOption value={null} text='Never' />
-              {AUTO_RULES.map(rule => {
-                const takenBy = takenRules[rule]
-                return (
-                  <SelectOption
-                    key={rule}
-                    value={rule}
-                    text={
-                      takenBy ? `${autoRuleLabel(rule)} (${takenBy} has this)` : autoRuleLabel(rule)
-                    }
-                    disabled={!!takenBy}
-                  />
-                )
-              })}
-            </RuleSelect>
-            <HelperText>
-              Applies to maps whose tags nobody has edited. Rich minerals means over 5,000 per
-              field.
-            </HelperText>
-          </>
-        ) : null}
       </Layout>
     </StyledDialog>
   )

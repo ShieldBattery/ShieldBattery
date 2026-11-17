@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { MapKind, MapTagAutoRule } from '../gql/graphql'
-import { movedTagOrder, orderedTags, takenAutoRules } from './admin-map-tags'
+import { MapKind } from '../gql/graphql'
+import { movedTagOrder, orderedTags } from './admin-map-tags'
 
 const TAGS = [
   { id: 'standard', kind: MapKind.Melee },
@@ -60,16 +60,5 @@ describe('client/maps/admin-map-tags', () => {
       'defense',
       'bound',
     ])
-  })
-
-  test('names the tag holding each rule, leaving out the tag being edited', () => {
-    const tags = [
-      { id: 'money', name: 'Money', autoRule: MapTagAutoRule.RichMinerals },
-      { id: 'island', name: 'Island', autoRule: null },
-    ]
-    expect(takenAutoRules(tags, undefined)).toEqual({ [MapTagAutoRule.RichMinerals]: 'Money' })
-    expect(takenAutoRules(tags, 'island')).toEqual({ [MapTagAutoRule.RichMinerals]: 'Money' })
-    expect(takenAutoRules(tags, 'money')).toEqual({})
-    expect(takenAutoRules([], undefined)).toEqual({})
   })
 })

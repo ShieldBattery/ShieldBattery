@@ -1,10 +1,9 @@
 import { ReactNode, useEffect, useEffectEvent, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { graphql } from '../gql'
-import { AdminMapTagsQuery, MapKind, MapTagAutoRule } from '../gql/graphql'
+import { AdminMapTagsQuery, MapKind } from '../gql/graphql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { TextButton } from '../material/button'
@@ -18,8 +17,6 @@ import { MoveDirection } from './map-collection-order'
 import { errorCode } from './map-owner-actions'
 import {
   MapRow,
-  MapRowChip,
-  MapRowChipTooltip,
   MapRowControlButton,
   MapRowControls,
   MapRowListGroup,
@@ -42,7 +39,6 @@ const AdminMapTagsQueryDocument = graphql(/* GraphQL */ `
         locale
         name
       }
-      autoRule
       usageCount
     }
   }
@@ -58,7 +54,6 @@ const MapTagsSetOrderMutation = graphql(/* GraphQL */ `
         locale
         name
       }
-      autoRule
       usageCount
     }
   }
@@ -121,30 +116,6 @@ export function movedTagOrder(
   ids[index] = ids[neighborIndex]
   ids[neighborIndex] = id
   return { kind: moved.kind, ids }
-}
-
-/** The rules the tags other than `exceptId` have, each with the English name of the tag that has it. */
-export function takenAutoRules(
-  tags: ReadonlyArray<{ id: string; name: string; autoRule: MapTagAutoRule | null }>,
-  exceptId: string | undefined,
-): Partial<Record<MapTagAutoRule, string>> {
-  const taken: Partial<Record<MapTagAutoRule, string>> = {}
-  for (const tag of tags) {
-    if (tag.autoRule && tag.id !== exceptId) {
-      taken[tag.autoRule] = tag.name
-    }
-  }
-  return taken
-}
-
-/** What the chip on a tag with the rule `rule` tells staff. */
-function autoRuleText(rule: MapTagAutoRule): string {
-  switch (rule) {
-    case MapTagAutoRule.RichMinerals:
-      return 'Given automatically to melee maps with rich minerals (over 5,000 per field)'
-    default:
-      return assertUnreachable(rule)
-  }
 }
 
 /** What a failed change of the list tells staff, given the error code the server sent. */
@@ -323,11 +294,7 @@ export function AdminMapTags() {
               <TextButton
                 label='Add tag'
                 iconStart='add'
-                onClick={() =>
-                  dispatch(
-                    openMapTagEditDialog({ kind, takenRules: takenAutoRules(tags, undefined) }),
-                  )
-                }
+                onClick={() => dispatch(openMapTagEditDialog({ kind }))}
               />
             </SectionHeader>,
             sectionTags.length ? (
@@ -344,13 +311,7 @@ export function AdminMapTags() {
                       dispatch(
                         openMapTagEditDialog({
                           kind,
-                          tag: {
-                            id: tag.id,
-                            name: tag.name,
-                            names: tag.names,
-                            autoRule: tag.autoRule,
-                          },
-                          takenRules: takenAutoRules(tags, tag.id),
+                          tag: { id: tag.id, name: tag.name, names: tag.names },
                         }),
                       )
                     }
@@ -424,11 +385,6 @@ function TagListRow({
           <MapRowName>{tag.name}</MapRowName>
           {/* A tag keeps the id it was created with, which is what links to it use */}
           {tag.id !== tagIdForName(tag.name) ? <IdText>{tag.id}</IdText> : null}
-          {tag.autoRule ? (
-            <MapRowChipTooltip text={autoRuleText(tag.autoRule)} position='top'>
-              <MapRowChip>Auto</MapRowChip>
-            </MapRowChipTooltip>
-          ) : null}
         </MapRowNameLine>
       </MapRowPlaceholder>
       <MapRowControls $slots={4}>
