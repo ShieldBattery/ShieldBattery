@@ -43,6 +43,7 @@ const FULL_MAP_INFO: MapInfoJson = {
   hash: 'deadbeef',
   name: 'Fighting Spirit',
   description: 'A classic 2-player map.',
+  kind: 'melee',
   publishedBy: makeSbUserId(7),
   publishedAt: 1234567890,
   visibility: MapVisibility.Official,

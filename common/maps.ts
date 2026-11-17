@@ -231,11 +231,18 @@ export interface MapData {
   parserVersion: number
 }
 
+/**
+ * Which way a map file is meant to be played: `melee` for a regular game type, `ums` for the Use
+ * Map Settings game type. Which one a file is decided by the database's `maps.kind` column.
+ */
+export type MapInfoKind = 'melee' | 'ums'
+
 export interface MapInfo {
   id: SbMapId
   hash: string
   name: string
   description: string
+  kind: MapInfoKind
   /** The user who listed the map, if it's listed (`visibility` is not `Unlisted`). */
   publishedBy?: SbUserId
   publishedAt?: Date

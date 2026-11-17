@@ -4,6 +4,7 @@ import {
   MapFamilyId,
   MapForce,
   MapInfo,
+  MapInfoKind,
   MapSortType,
   MapStartLocation,
   MapVisibility,
@@ -25,6 +26,7 @@ type DbMapInfo = Dbify<{
   hash: Buffer
   name: string
   description: string
+  kind: MapInfoKind
   staffPick: boolean
   listed: boolean
   publishedBy: SbUserId | null
@@ -54,6 +56,7 @@ const MAP_INFO_COLUMNS = sql`
   m.hash,
   m.name,
   COALESCE(m.public_description, m.description) AS description,
+  m.kind,
   map_family_is_staff_pick(m.family_id) AS staff_pick,
   m.listed,
   m.published_by,
@@ -101,6 +104,7 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
     hash: props.hash.toString('hex'),
     name: props.name,
     description: props.description,
+    kind: props.kind,
     // A delisted map keeps its publishing record, but only a listed map has a publisher
     publishedBy: props.listed ? (props.published_by ?? undefined) : undefined,
     publishedAt: props.listed ? (props.published_at ?? undefined) : undefined,
