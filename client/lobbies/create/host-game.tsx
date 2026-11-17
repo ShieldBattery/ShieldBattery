@@ -40,6 +40,7 @@ import {
   SectionHeader,
 } from './game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, useMapPickerState } from './game-setup-page'
+import { gameTypeForSelectedMap } from './map-game-type'
 import { VisibilityPicker } from './visibility-picker'
 
 const LoadingContainer = styled.div`
@@ -265,6 +266,10 @@ function HostGameContent({
   const prefsAllowObservers = useAppSelector(s => s.lobbyPreferences.allowObservers)
   const prefsSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const prefsRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
+  // The preselected map is only passed in once its info is in the store
+  const preselectedMapKind = useAppSelector(s =>
+    preselectedMapId ? s.maps.byId.get(preselectedMapId)?.kind : undefined,
+  )
 
   // Captured once when this mounts (which only happens once preferences have loaded): the form's
   // starting point. Later preference changes -- including this component's own autosaves as the
@@ -272,7 +277,10 @@ function HostGameContent({
   // edit would keep overwriting what the user is typing.
   const [initial] = useState(() => ({
     name: prefsName,
-    gameType: prefsGameType ?? GameType.Melee,
+    gameType: gameTypeForSelectedMap(
+      prefsGameType ?? GameType.Melee,
+      preselectedMapKind ?? 'melee',
+    ),
     gameSubType: prefsGameSubType,
     useLegacyLimits: prefsUseLegacyLimits ?? false,
     starcraftCompatibleReplays: prefsStarcraftCompatibleReplays ?? true,
