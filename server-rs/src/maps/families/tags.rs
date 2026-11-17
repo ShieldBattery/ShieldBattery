@@ -799,7 +799,7 @@ mod tests {
     #[test]
     fn locked_tags_are_the_ones_a_higher_source_set() {
         let tags = [
-            ("standard", TagSource::Derived),
+            ("rich-minerals", TagSource::Derived),
             ("team", TagSource::Player),
             ("island", TagSource::Maker),
             ("money", TagSource::Staff),

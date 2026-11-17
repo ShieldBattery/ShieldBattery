@@ -87,15 +87,12 @@ impl TagListError {
 pub enum AutoRule {
     /// Maps whose current file is a melee map averaging more than 5,000 minerals per mineral field.
     RichMinerals,
-    /// Maps whose current file is a melee map and that have a file in a ladder map pool.
-    LadderPool,
 }
 
 impl AutoRule {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::RichMinerals => "rich_minerals",
-            Self::LadderPool => "ladder_pool",
         }
     }
 
@@ -104,7 +101,6 @@ impl AutoRule {
     pub fn from_db(rule: &str) -> Option<Self> {
         match rule {
             "rich_minerals" => Some(Self::RichMinerals),
-            "ladder_pool" => Some(Self::LadderPool),
             _ => None,
         }
     }
@@ -681,9 +677,8 @@ mod tests {
 
     #[test]
     fn rules_round_trip() {
-        for rule in [AutoRule::RichMinerals, AutoRule::LadderPool] {
-            assert_eq!(AutoRule::from_db(rule.as_str()), Some(rule));
-        }
+        let rule = AutoRule::RichMinerals;
+        assert_eq!(AutoRule::from_db(rule.as_str()), Some(rule));
         assert_eq!(AutoRule::from_db("money"), None);
     }
 

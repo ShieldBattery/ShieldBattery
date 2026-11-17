@@ -9,15 +9,14 @@
 -- then UMS tags.
 --
 -- `auto_rule` makes `refresh_map_family_derived_tags` give the tag to the maps the rule holds for:
--- `rich_minerals` or `ladder_pool` (see that function). Only melee tags have one, and at most one
--- tag has each rule.
+-- `rich_minerals` (see that function). Only melee tags have one, and at most one tag has each rule.
 CREATE TABLE map_tags (
   id text PRIMARY KEY,
   kind text NOT NULL CHECK (kind IN ('melee', 'ums')),
   position integer NOT NULL,
   name text NOT NULL,
   names jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(names) = 'object'),
-  auto_rule text CHECK (auto_rule IN ('rich_minerals', 'ladder_pool')),
+  auto_rule text CHECK (auto_rule IN ('rich_minerals')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT map_tags_position_key UNIQUE (kind, position) DEFERRABLE INITIALLY DEFERRED,
@@ -63,10 +62,8 @@ ALTER TABLE map_family_history
 --
 -- `rich_minerals`: the map's current file is a melee map averaging more than 5,000 minerals per
 -- mineral field.
--- `ladder_pool`: the map's current file is a melee map, and some file of it is in a ladder map pool.
 --
--- The rules are independent, so a map can get both tags. A derived row of a tag without a rule
--- never holds.
+-- A derived row of a tag without a rule never holds.
 CREATE FUNCTION refresh_map_family_derived_tags(ids uuid[]) RETURNS void
   LANGUAGE plpgsql AS $$
 BEGIN
@@ -86,17 +83,6 @@ BEGIN
     FROM families d
     INNER JOIN map_tags t ON t.auto_rule = 'rich_minerals'
     WHERE d.kind = 'melee' AND d.rich_minerals
-    UNION ALL
-    SELECT d.id, t.id
-    FROM families d
-    INNER JOIN map_tags t ON t.auto_rule = 'ladder_pool'
-    WHERE d.kind = 'melee' AND EXISTS (
-      SELECT 1
-      FROM maps m
-      INNER JOIN collection_maps cm ON cm.map_id = m.id
-      INNER JOIN collections c ON c.id = cm.collection_id AND c.kind = 'ladder_pool'
-      WHERE m.family_id = d.id
-    )
   ),
   removed AS (
     DELETE FROM map_family_tags t
