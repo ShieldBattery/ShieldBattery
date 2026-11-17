@@ -27,7 +27,7 @@ pub const MAX_SEARCH_LENGTH: usize = 200;
 const FUZZY_MIN_CHARS: usize = 4;
 /// The minimum `word_similarity` for a fuzzy match.
 const FUZZY_THRESHOLD: f64 = 0.5;
-const CURSOR_VERSION: u32 = 1;
+const CURSOR_VERSION: u32 = 2;
 /// The most tags one listing can filter by.
 pub const MAX_FILTER_TAGS: usize = 5;
 
@@ -41,6 +41,17 @@ pub enum MapLens {
     Melee,
     /// Use Map Settings maps: custom games, scenarios and other non-melee maps.
     Ums,
+}
+
+impl MapLens {
+    /// The `maps.kind` this lens keeps, or `None` for every kind.
+    pub fn kind(self) -> Option<&'static str> {
+        match self {
+            MapLens::All => None,
+            MapLens::Melee => Some("melee"),
+            MapLens::Ums => Some("ums"),
+        }
+    }
 }
 
 /// A size class, by the larger of a map's width and height (in tiles).
@@ -104,8 +115,9 @@ pub enum MapSort {
     Popular90d,
     /// Most games ever first.
     PopularAllTime,
-    /// Most recently published (or, in a user's maps, favorites or a collection, most recently
-    /// added) first.
+    /// In the listed maps, the maps whose current file (the file each map is shown as) was
+    /// published most recently first. In a user's library, favorites or a collection, the most
+    /// recently added first.
     Newest,
     /// Most favorited first.
     MostFavorited,
@@ -136,7 +148,8 @@ pub struct MapFilter {
     pub tilesets: Option<Vec<i32>>,
     #[graphql(default)]
     pub eud: EudFilter,
-    /// Only maps published at or after this time.
+    /// Only maps whose file shown in the listing was published at or after this time: for a map
+    /// listed as its current file, when that file was published.
     pub published_since: Option<DateTime<Utc>>,
     /// Only staff picks (`true`) or only maps that aren't staff picks (`false`).
     pub staff_pick: Option<bool>,
@@ -154,8 +167,7 @@ pub struct MapFilter {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MapScope {
     /// Every family with a listed file, each as its current file. Filters apply to the current
-    /// file, except that a search matches any of the family's listed files and `publishedSince`
-    /// matches the family's most recently published file.
+    /// file, except that a search matches any of the family's listed files.
     Listed,
     /// A user's library, listed or not.
     Library(SbUserId),
@@ -637,8 +649,8 @@ pub struct DbSbMap {
 #[derive(Debug, Clone)]
 pub struct MapListingRow {
     pub map: DbSbMap,
-    /// When the map was added to the library or favorites being listed (for listed maps, when its
-    /// family's most recently published file was published). `None` if that isn't known.
+    /// When the map was added to the library, favorites or collection being listed (for listed
+    /// maps, when the file shown was published). `None` if that isn't known.
     pub added_at: Option<DateTime<Utc>>,
     pub cursor: MapCursor,
 }
@@ -823,26 +835,52 @@ const MAP_SORT_COLUMNS: &str = "COALESCE(s.games_7d, 0) AS sort_games_7d, \
     COALESCE(s.trending_score, 0) AS sort_trending_score, \
     COALESCE(f.favorites, 0) AS sort_favorites";
 
-/// The columns sort keys read for a family shown as its current file: the family's stats, falling
-/// back to the file's own for families of one file (or too new to have stats). Reads
-/// [`FAMILY_JOINS`].
-const FAMILY_SORT_COLUMNS: &str = "COALESCE(fs.games_7d, s.games_7d, 0) AS sort_games_7d, \
-    COALESCE(fs.games_28d, s.games_28d, 0) AS sort_games_28d, \
-    COALESCE(fs.games_90d, s.games_90d, 0) AS sort_games_90d, \
-    COALESCE(fs.games_total, s.games_total, 0) AS sort_games_total, \
-    COALESCE(fs.players_90d, s.players_90d, 0) AS sort_players_90d, \
-    COALESCE(fs.trending_score, s.trending_score, 0) AS sort_trending_score, \
-    COALESCE(f.favorites, 0) AS sort_favorites";
+/// A play stat (a column of both `map_stats` and `map_family_stats`) of a family shown as its
+/// current file: the family's stats `fs`, falling back to the file's own `s` for families of one
+/// file (or too new to have stats), and 0 for a map never played. Expands to a string literal, for
+/// use in `concat!`.
+macro_rules! family_stat {
+    ($column:literal) => {
+        concat!("COALESCE(fs.", $column, ", s.", $column, ", 0)")
+    };
+}
+pub(crate) use family_stat;
 
 /// The joins of a listing of families, each as its current file `m`: the family `fam` and its
-/// stats `fs`.
-const FAMILY_JOINS: &str = " JOIN map_families fam ON fam.id = m.family_id \
-    AND fam.current_map_id = m.id \
-    LEFT JOIN map_family_stats fs ON fs.family_id = fam.id";
+/// stats `fs`. Expands to a string literal, for use in `concat!`.
+macro_rules! family_joins {
+    () => {
+        " JOIN map_families fam ON fam.id = m.family_id \
+         AND fam.current_map_id = m.id \
+         LEFT JOIN map_family_stats fs ON fs.family_id = fam.id"
+    };
+}
 
-/// When a listed family's most recently published file was published.
-const FAMILY_PUBLISHED_AT: &str = "(SELECT max(lm.published_at) FROM maps lm \
-    WHERE lm.family_id = fam.id AND lm.listed)";
+/// The columns sort keys read for a family shown as its current file (see [`family_stat`]). Reads
+/// [`FAMILY_JOINS`] and the file's stats `s`.
+const FAMILY_SORT_COLUMNS: &str = concat!(
+    family_stat!("games_7d"),
+    " AS sort_games_7d, ",
+    family_stat!("games_28d"),
+    " AS sort_games_28d, ",
+    family_stat!("games_90d"),
+    " AS sort_games_90d, ",
+    family_stat!("games_total"),
+    " AS sort_games_total, ",
+    family_stat!("players_90d"),
+    " AS sort_players_90d, ",
+    family_stat!("trending_score"),
+    " AS sort_trending_score, \
+    COALESCE(f.favorites, 0) AS sort_favorites"
+);
+
+/// See [`family_joins`].
+const FAMILY_JOINS: &str = family_joins!();
+
+/// The joins [`family_stat`] reads, after `FROM maps m`: every family shown as its current file `m`,
+/// with the family `fam`, its stats `fs` and the file's stats `s`.
+pub(crate) const FAMILY_STATS_JOINS: &str =
+    concat!(family_joins!(), " LEFT JOIN map_stats s ON s.map_id = m.id");
 
 /// The joins of a collection's maps, after `FROM collection_maps cm`: the map `m` each entry shows
 /// (its map's current file, or its exact file), that file's family `fam`, and for map entries the
@@ -862,7 +900,7 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
         MapScope::Listed | MapScope::Favorites(_) | MapScope::Collection { .. }
     );
     let added_at = match scope {
-        MapScope::Listed => FAMILY_PUBLISHED_AT,
+        MapScope::Listed => "m.published_at",
         MapScope::Library(_) => "l.added_at",
         MapScope::Favorites(_) => "fm.added_at",
         MapScope::Collection { .. } => "cm.added_at",
@@ -943,13 +981,7 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             }
         }
     }
-    let published_at = match scope {
-        MapScope::Listed => FAMILY_PUBLISHED_AT,
-        MapScope::Library(_) | MapScope::Favorites(_) | MapScope::Collection { .. } => {
-            "m.published_at"
-        }
-    };
-    push_filters(qb, filter, published_at);
+    push_filters(qb, filter);
 }
 
 /// Emits the search rank of `m` for `search`, which is 0 when it doesn't match. Ranks are
@@ -1009,9 +1041,8 @@ fn push_search_rank(qb: &mut QueryBuilder<Postgres>, m: &str, search: &SearchQue
     qb.push(" THEN 200 ELSE 0 END");
 }
 
-/// Appends ` AND <condition>` for every filter that is set. `published_at` is the expression
-/// `publishedSince` compares with.
-fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, published_at: &str) {
+/// Appends ` AND <condition>` for every filter that is set. Every filter reads the file shown, `m`.
+fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
     match filter.lens {
         MapLens::All => {}
         MapLens::Melee => {
@@ -1063,7 +1094,7 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, publ
         }
     }
     if let Some(published_since) = filter.published_since {
-        qb.push(format_args!(" AND {published_at} >= "));
+        qb.push(" AND m.published_at >= ");
         qb.push_bind(published_since);
     }
     match filter.staff_pick {
@@ -1602,7 +1633,7 @@ mod tests {
         })
         .unwrap();
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_filters(&mut qb, &filter, "m.published_at");
+        push_filters(&mut qb, &filter);
         assert_eq!(
             qb.sql().as_str(),
             " AND ((TRUE AND greatest(m.width, m.height) <= 64) OR \
@@ -1641,7 +1672,7 @@ mod tests {
             })
             .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
-            push_filters(&mut qb, &filter, "m.published_at");
+            push_filters(&mut qb, &filter);
             assert_eq!(qb.sql().as_str(), expected);
         }
     }
@@ -1683,7 +1714,7 @@ mod tests {
             })
             .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
-            push_filters(&mut qb, &filter, "m.published_at");
+            push_filters(&mut qb, &filter);
             assert_eq!(qb.sql().as_str(), expected);
         }
     }
@@ -1807,7 +1838,7 @@ mod tests {
     }
 
     #[test]
-    fn published_since_reads_the_family_in_the_listed_scope() {
+    fn published_since_and_newest_read_the_file_shown_in_every_scope() {
         let filter = MapFilter {
             published_since: Some(Utc::now()),
             ..Default::default()
@@ -1820,13 +1851,23 @@ mod tests {
                 .as_str()
                 .to_string()
         };
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+            COLLECTION,
+        ] {
+            let sql = sql(scope);
+            assert!(sql.contains(" AND m.published_at >= "), "{sql}");
+            assert!(!sql.contains("max(lm.published_at)"), "{sql}");
+        }
+        // In the listed scope `NEWEST` sorts by the current file's own date, the date it shows
         let listed = sql(MapScope::Listed);
         assert!(
-            listed.contains(&format!(" AND {FAMILY_PUBLISHED_AT} >= ")),
+            listed
+                .contains("CASE WHEN isfinite(m.published_at) THEN m.published_at END AS added_at"),
             "{listed}"
         );
-        let library = sql(MapScope::Library(SbUserId(1)));
-        assert!(library.contains(" AND m.published_at >= "), "{library}");
     }
 
     #[test]
@@ -1951,7 +1992,7 @@ mod tests {
 
         let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_filters(&mut qb, &filter, "m.published_at");
+        push_filters(&mut qb, &filter);
         assert_eq!(qb.sql().as_str(), "");
     }
 

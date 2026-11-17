@@ -36,6 +36,7 @@ use crate::maps::families::tags_graphql::{
     MapTag, can_edit_tags, family_tags, viewer_locked_tag_ids,
 };
 use crate::maps::families::{resolve_family_id, resolve_map_page_id};
+use crate::maps::features_graphql::family_featured_weeks;
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::{self, SimilarFile};
 use crate::maps::stats::{self, DEFAULT_ACTIVITY_WEEKS, MapWeeklyActivity};
@@ -409,6 +410,12 @@ impl MapFamily {
     /// their email and aren't restricted from publishing. Players' hourly limit isn't considered.
     async fn can_edit_tags(&self, ctx: &Context<'_>) -> Result<bool> {
         can_edit_tags(ctx, &self.0).await
+    }
+
+    /// The weeks in which the map was the staff pick leading the Discover page, each as the instant
+    /// it starts (a Monday at 00:00 UTC), up to and including the current week, newest first.
+    async fn featured_weeks(&self, ctx: &Context<'_>) -> Result<Vec<DateTime<Utc>>> {
+        family_featured_weeks(ctx, self.0.id).await
     }
 
     /// Play statistics summed over every file of the map, or null if none has been played.
