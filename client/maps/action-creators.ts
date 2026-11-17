@@ -17,6 +17,8 @@ import { openDialog } from '../dialogs/action-creators'
 import {
   DialogType,
   MapFamilyActionKind,
+  MapFeatureDialogData,
+  MapFeatureRemoveDialogData,
   MapTagDeleteDialogData,
   MapTagEditDialogData,
 } from '../dialogs/dialog-type'
@@ -339,6 +341,19 @@ export function openMapTagEditDialog(initData: MapTagEditDialogData) {
 /** Opens the dialog that confirms deleting a map tag that maps have. */
 export function openMapTagDeleteDialog(initData: MapTagDeleteDialogData) {
   return openDialog({ type: DialogType.MapTagDelete, initData })
+}
+
+/**
+ * Opens the dialog for staff to make a map or a collection the staff pick of a week, or to change
+ * the blurb of a week's pick.
+ */
+export function openMapFeatureDialog(initData: MapFeatureDialogData) {
+  return openDialog({ type: DialogType.MapFeature, initData })
+}
+
+/** Opens the dialog that confirms removing the staff pick of a week. */
+export function openMapFeatureRemoveDialog(initData: MapFeatureRemoveDialogData) {
+  return openDialog({ type: DialogType.MapFeatureRemove, initData })
 }
 
 /** Opens the dialog for staff to change who made a map: its owner and its credit. */

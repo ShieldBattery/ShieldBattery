@@ -148,4 +148,10 @@ describe('common/map-url', () => {
       '/maps/yours?lens=ums&q=bound',
     )
   })
+
+  test('puts the Discover tab at /maps itself', () => {
+    expect(urlForMapCatalog(MapCatalogTab.Discover)).toBe('/maps')
+    expect(urlForMapCatalog(MapCatalogTab.Discover, 'lens=ums')).toBe('/maps?lens=ums')
+    expect(ALL_MAP_CATALOG_TABS[0]).toBe(MapCatalogTab.Discover)
+  })
 })

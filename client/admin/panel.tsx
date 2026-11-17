@@ -28,6 +28,9 @@ const LoadableReviewRequests = React.lazy(async () => ({
 const LoadableMapReports = React.lazy(async () => ({
   default: (await import('../maps/admin-map-reports')).AdminMapReports,
 }))
+const LoadableMapFeatures = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-features')).AdminMapFeatures,
+}))
 const LoadableMapTags = React.lazy(async () => ({
   default: (await import('../maps/admin-map-tags')).AdminMapTags,
 }))
@@ -340,6 +343,14 @@ export default function AdminPanel() {
           description: 'Reports about which files make up a map',
           icon: 'flag',
           reportKind: 'mapReports',
+        },
+        {
+          path: '/admin/maps/featured',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapFeatures,
+          title: 'Featured maps',
+          description: 'The map or collection of the week on the Discover page',
+          icon: 'star',
         },
         {
           path: '/admin/maps/tags',
