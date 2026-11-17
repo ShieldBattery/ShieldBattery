@@ -2395,6 +2395,10 @@
       "noResults": "No maps found.",
       "search": "Search maps, or paste a map link"
     },
+    "feature": {
+      "collectionOfTheWeekNotification": "<0>{{name}}</0> is collection of the week",
+      "mapOfTheWeekNotification": "<0>{{name}}</0> is map of the week"
+    },
     "files": {
       "compare": "Compare",
       "fileActions": "File actions",
