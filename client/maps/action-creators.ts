@@ -14,7 +14,12 @@ import {
 import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
-import { DialogType, MapFamilyActionKind } from '../dialogs/dialog-type'
+import {
+  DialogType,
+  MapFamilyActionKind,
+  MapTagDeleteDialogData,
+  MapTagEditDialogData,
+} from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
 import i18n from '../i18n/i18next'
@@ -319,6 +324,21 @@ export function openMapOwnerClaimDialog(initData: { familyId: string; ownerName?
 /** Opens the dialog that confirms giving up a map that staff confirmed the user made. */
 export function openMapOwnerRelinquishDialog(initData: { onConfirm: () => void }) {
   return openDialog({ type: DialogType.MapOwnerRelinquish, initData })
+}
+
+/** Opens the dialog that sets which tags a map has. */
+export function openMapTagsDialog(initData: { familyId: string }) {
+  return openDialog({ type: DialogType.MapTags, initData })
+}
+
+/** Opens the dialog for staff to add a map tag to the list, or to change one. */
+export function openMapTagEditDialog(initData: MapTagEditDialogData) {
+  return openDialog({ type: DialogType.MapTagEdit, initData })
+}
+
+/** Opens the dialog that confirms deleting a map tag that maps have. */
+export function openMapTagDeleteDialog(initData: MapTagDeleteDialogData) {
+  return openDialog({ type: DialogType.MapTagDelete, initData })
 }
 
 /** Opens the dialog for staff to change who made a map: its owner and its credit. */

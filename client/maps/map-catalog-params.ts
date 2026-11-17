@@ -1,6 +1,7 @@
 import { LocalMapKind, LocalMapQuery, LocalMapSize, LocalMapSort } from '../../common/map-library'
 import { ALL_TILESETS, Tileset } from '../../common/maps'
-import { EudFilter, MapFilter, MapLens, MapSizeClass, MapSort } from '../gql/graphql'
+import { EudFilter, MapFilter, MapKind, MapLens, MapSizeClass, MapSort } from '../gql/graphql'
+import { lensForKind, parseTagsParam, serializeTagsParam } from './map-tags'
 
 /** The order the catalog lists maps in, as offered to the viewer. */
 export enum CatalogSort {
@@ -190,15 +191,31 @@ export const DEFAULT_CATALOG_FILTERS: CatalogFilters = {
   verified: false,
 }
 
+/**
+ * Everything the catalog's filter row sets: the saved filters, and the tags. Tags travel in the URL
+ * like the search text and are never saved, so a visit to the catalog doesn't start out filtered by
+ * a tag picked long ago.
+ */
+export interface CatalogRowFilters extends CatalogFilters {
+  /** Tag ids a map must all have, in a stable order (see `normalizeFilterTags`). */
+  tags: ReadonlyArray<string>
+}
+
+/** The filter row's filters, all cleared. */
+export const CLEARED_CATALOG_FILTERS: CatalogRowFilters = { ...DEFAULT_CATALOG_FILTERS, tags: [] }
+
 /** Everything the catalog's URL search string describes. */
-export interface CatalogParams extends CatalogFilters {
+export interface CatalogParams extends CatalogRowFilters {
   search: string
   /** The sort picked in the URL, if any (see {@link effectiveSort}). */
   sort?: CatalogSort
 }
 
-export function hasNonDefaultFilters(filters: CatalogFilters): boolean {
+export function hasNonDefaultFilters(
+  filters: CatalogFilters & { tags?: ReadonlyArray<string> },
+): boolean {
   return (
+    !!filters.tags?.length ||
     filters.lens !== MapLens.All ||
     filters.players !== undefined ||
     filters.sizes.length > 0 ||
@@ -220,6 +237,7 @@ const PARAM_NAMES = [
   'eud',
   'staff-pick',
   'verified',
+  'tags',
 ]
 
 /** Whether `search` sets any of the catalog's params. */
@@ -238,8 +256,15 @@ function parseList<T>(value: string | null, bySlug: ReadonlyMap<T, string>): T[]
     .map(([item]) => item)
 }
 
-/** Reads the catalog's params from a URL search string. Unknown values fall back to defaults. */
-export function parseCatalogParams(search: URLSearchParams): CatalogParams {
+/**
+ * Reads the catalog's params from a URL search string. Unknown values fall back to defaults. The
+ * tags are kept as `normalizeFilterTags` keeps them with `tagList`, the server's list of tags once
+ * it's loaded.
+ */
+export function parseCatalogParams(
+  search: URLSearchParams,
+  tagList?: ReadonlyArray<{ id: string }>,
+): CatalogParams {
   const playersParam = search.get('players')
   const sortParam = search.get('sort')
   return {
@@ -256,6 +281,7 @@ export function parseCatalogParams(search: URLSearchParams): CatalogParams {
     eud: fromSlug(search.get('eud'), EUD_SLUGS) ?? EudFilter.Any,
     staffPick: search.get('staff-pick') === '1',
     verified: search.get('verified') === '1',
+    tags: parseTagsParam(search.get('tags'), tagList),
   }
 }
 
@@ -290,11 +316,15 @@ export function serializeCatalogParams(
   set('eud', EUD_SLUGS.get(params.eud))
   set('staff-pick', params.staffPick ? '1' : undefined)
   set('verified', params.verified ? '1' : undefined)
+  set('tags', serializeTagsParam(params.tags))
   // Commas are legal in a query string, and keep shared links readable (`size=small,huge`)
   return search.toString().replaceAll('%2C', ',')
 }
 
-/** The params with only the filters taken from `params`, for saving as the viewer's defaults. */
+/**
+ * The params with only the filters taken from `params`, for saving as the viewer's defaults. Tags
+ * aren't among them.
+ */
 export function filtersOf(params: CatalogFilters): CatalogFilters {
   return {
     lens: params.lens,
@@ -356,8 +386,8 @@ function toLocalSort(sort: CatalogSort): LocalMapSort {
 }
 
 /**
- * The local map index query for the params, without paging. The Staff picks and Verified filters have
- * no meaning for files on disk and are left out.
+ * The local map index query for the params, without paging. The Staff picks, Verified and tags
+ * filters have no meaning for files on disk and are left out.
  */
 export function toLocalMapQuery(
   params: CatalogParams,
@@ -422,7 +452,22 @@ export function toMapFilter(params: CatalogParams): MapFilter {
     eud: params.eud,
     staffPick: params.staffPick || undefined,
     verified: params.verified || undefined,
+    tags: params.tags.length ? [...params.tags] : undefined,
   }
+}
+
+/**
+ * The URL search string of the catalog showing the maps with the tag `tag`, with no other filters:
+ * the lens of the tag's kind and the tag.
+ */
+export function catalogSearchForTag(tag: { id: string; kind: MapKind }): string {
+  return serializeCatalogParams({
+    ...CLEARED_CATALOG_FILTERS,
+    lens: lensForKind(tag.kind),
+    tags: [tag.id],
+    search: '',
+    sort: undefined,
+  })
 }
 
 /**
