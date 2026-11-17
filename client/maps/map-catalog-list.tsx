@@ -13,6 +13,7 @@ import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { IconButton, TextButton } from '../material/button'
 import { FilterChip } from '../material/filter-chip'
+import { Divider } from '../material/menu/divider'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { SegmentedButtonGroup } from '../material/segmented-button'
 import { Tooltip } from '../material/tooltip'
@@ -22,15 +23,23 @@ import {
   ALL_CATALOG_PLAYERS,
   ALL_MAP_SIZE_CLASSES,
   BROWSE_SORTS,
-  CatalogFilters,
   CatalogParams,
   CatalogPlayers,
+  CatalogRowFilters,
   CatalogSort,
   catalogSortToMapSort,
   hasNonDefaultFilters,
   MapListing,
   ServerMapListing,
 } from './map-catalog-params'
+import {
+  mapTagLabel,
+  MAX_FILTER_TAGS,
+  normalizeFilterTags,
+  tagFilterGroups,
+  tagFilterLabel,
+  useMapTagList,
+} from './map-tags'
 import { MapTile, MapTilePick, MapTileSignal, PendingMapTile } from './map-tile'
 import { mapLibraryVersionAtom, pendingMapUploadsAtom } from './map-uploads'
 
@@ -274,6 +283,54 @@ function toggled<T>(values: ReadonlyArray<T>, value: T): T[] {
   return values.includes(value) ? values.filter(v => v !== value) : [...values, value]
 }
 
+/**
+ * The catalog's Tags filter: the tags of the chosen lens that some listed map has, and the ones
+ * picked, any {@link MAX_FILTER_TAGS} of which can be picked at once.
+ */
+function TagFilterChip({
+  params,
+  onFiltersChange,
+}: {
+  params: CatalogParams
+  onFiltersChange: (changes: Partial<CatalogRowFilters>) => void
+}) {
+  const { t, i18n } = useTranslation()
+  const tagList = useMapTagList()
+  const groups = tagFilterGroups(tagList ?? [], params.lens, params.tags)
+  const full = params.tags.length >= MAX_FILTER_TAGS
+
+  return (
+    <FilterChip
+      label={tagFilterLabel(params.tags, tagList, i18n.language, t)}
+      selected={params.tags.length > 0}>
+      <SelectableMenuItem
+        text={t('maps.tags.filterAny', 'Any tags')}
+        selected={params.tags.length === 0}
+        onClick={() => onFiltersChange({ tags: [] })}
+      />
+      {groups.flatMap((group, i) => [
+        ...(i > 0 ? [<Divider key={`divider-${i}`} $dense={true} />] : []),
+        ...group.map(tag => {
+          const selected = params.tags.includes(tag.id)
+          return (
+            <SelectableMenuItem
+              key={tag.id}
+              text={mapTagLabel(tag, i18n.language)}
+              selected={selected}
+              disabled={!selected && full}
+              onClick={() =>
+                onFiltersChange({
+                  tags: normalizeFilterTags(toggled(params.tags, tag.id), tagList),
+                })
+              }
+            />
+          )
+        }),
+      ])}
+    </FilterChip>
+  )
+}
+
 /** The row of lens, filter, sort and density controls above a listing of maps. */
 export function CatalogFilterRow({
   params,
@@ -298,13 +355,16 @@ export function CatalogFilterRow({
   sorts?: ReadonlyArray<CatalogSort>
   /** Whether Best match is offered while searching. */
   offersBestMatch?: boolean
-  /** Whether the Staff picks and Verified filters, which only the server's listings have, show. */
+  /**
+   * Whether the Tags, Staff picks and Verified filters, which only the server's listings have,
+   * show.
+   */
   showServerFilters?: boolean
   /** Shown next to the count, e.g. a link to the same search elsewhere. */
   besideCount?: React.ReactNode
   /** Shown before the density toggle, e.g. a choice of how to lay out the listing. */
   viewToggle?: React.ReactNode
-  onFiltersChange: (changes: Partial<CatalogFilters>) => void
+  onFiltersChange: (changes: Partial<CatalogRowFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
   onClearFilters: () => void
@@ -405,6 +465,7 @@ export function CatalogFilterRow({
       </FilterChip>
       {showServerFilters ? (
         <>
+          <TagFilterChip params={params} onFiltersChange={onFiltersChange} />
           <FilterChip
             label={t('maps.catalog.staffPicks', 'Staff picks')}
             selected={params.staffPick}
@@ -662,7 +723,7 @@ export function MapCatalogList({
   pick?: MapPickOptions
   /** Shown next to the count, e.g. a link to the same search among the maps on this PC. */
   besideCount?: React.ReactNode
-  onFiltersChange: (changes: Partial<CatalogFilters>) => void
+  onFiltersChange: (changes: Partial<CatalogRowFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
   onClearFilters: () => void

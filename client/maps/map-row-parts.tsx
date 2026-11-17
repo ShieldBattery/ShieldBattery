@@ -13,7 +13,7 @@ const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits:
  * A part of a map row beside its link, which a list of rows lines up in a column of its own (see
  * {@link MapRowList}).
  */
-export type MapRowColumn = 'recommended' | 'file' | 'games' | 'controls' | 'star'
+export type MapRowColumn = 'recommended' | 'file' | 'games' | 'count' | 'controls' | 'star'
 
 /**
  * The column tracks of a list of map rows: the link's, taking whatever space the others leave, then

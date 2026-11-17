@@ -359,6 +359,17 @@ export enum MapStartLocationChangeKind {
   Removed = 'REMOVED',
 }
 
+/** A map tag's name in a language other than English. */
+export type MapTagNameInput = {
+  /**
+   * The language's locale code (e.g. `zh-Hans`): 2 or 3 letters, then any number of `-` and 2 to
+   * 8 letters or digits. Not `en`, which is the tag's own name.
+   */
+  locale: string
+  /** Trimmed; left empty, the language shows the English name. */
+  name: string
+}
+
 export type MatchmakerConfigInput = {
   global: MatchmakerModeConfigOverridesInput
   maxPlayersExamined?: number | null | undefined
@@ -1274,6 +1285,71 @@ export type AdminMapCollectionReportsQuery = {
     }>
   }
 }
+
+export type AdminMapTagCreateMutationVariables = Exact<{
+  name: string
+  kind: MapKind
+  names?: Array<MapTagNameInput> | MapTagNameInput | null | undefined
+}>
+
+export type AdminMapTagCreateMutation = {
+  mapTagCreate: {
+    id: string
+    kind: MapKind
+    name: string
+    usageCount: number
+    names: Array<{ locale: string; name: string }>
+  }
+}
+
+export type AdminMapTagUpdateMutationVariables = Exact<{
+  id: string
+  name?: string | null | undefined
+  names?: Array<MapTagNameInput> | MapTagNameInput | null | undefined
+}>
+
+export type AdminMapTagUpdateMutation = {
+  mapTagUpdate: {
+    id: string
+    kind: MapKind
+    name: string
+    usageCount: number
+    names: Array<{ locale: string; name: string }>
+  }
+}
+
+export type AdminMapTagsQueryVariables = Exact<{ [key: string]: never }>
+
+export type AdminMapTagsQuery = {
+  mapTags: Array<{
+    id: string
+    kind: MapKind
+    name: string
+    usageCount: number
+    names: Array<{ locale: string; name: string }>
+  }>
+}
+
+export type AdminMapTagsSetOrderMutationVariables = Exact<{
+  kind: MapKind
+  ids: Array<string> | string
+}>
+
+export type AdminMapTagsSetOrderMutation = {
+  mapTagsSetOrder: Array<{
+    id: string
+    kind: MapKind
+    name: string
+    usageCount: number
+    names: Array<{ locale: string; name: string }>
+  }>
+}
+
+export type AdminMapTagDeleteMutationVariables = Exact<{
+  id: string
+}>
+
+export type AdminMapTagDeleteMutation = { mapTagDelete: string }
 
 export type MapSearchTest_MapFragment = {
   id: Types.SbMapId
@@ -2517,6 +2593,7 @@ export type MapPageFamilyQuery = {
       owner: { id: Types.SbUserId; name: string } | null
     } & {
       ' $fragmentRefs'?: {
+        MapPage_TagsFragmentFragment: MapPage_TagsFragmentFragment
         MapPageStats_FamilyFragmentFragment: MapPageStats_FamilyFragmentFragment
         MapPageFiles_FamilyFragmentFragment: MapPageFiles_FamilyFragmentFragment
       }
@@ -2593,6 +2670,17 @@ export type MapPage_HeaderFragmentFragment = {
     delistedBy: { id: Types.SbUserId; name: string } | null
   } | null
 } & { ' $fragmentName'?: 'MapPage_HeaderFragmentFragment' }
+
+export type MapPage_TagsFragmentFragment = {
+  id: string
+  canEditTags: boolean
+  tags: Array<{
+    id: string
+    kind: MapKind
+    name: string
+    names: Array<{ locale: string; name: string }>
+  }>
+} & { ' $fragmentName'?: 'MapPage_TagsFragmentFragment' }
 
 export type MapPage_ActionsFragmentFragment = {
   id: Types.SbMapId
@@ -2738,7 +2826,8 @@ export type MapPublish_SuggestionFragmentFragment = {
 export type MapPublish_FileFragmentFragment = {
   id: Types.SbMapId
   name: string
-  family: { id: string; name: string; current: { id: Types.SbMapId } }
+  kind: MapKind
+  family: { id: string; name: string; current: { id: Types.SbMapId }; tags: Array<{ id: string }> }
   file: { id: string } & {
     ' $fragmentRefs'?: { MapFileImage_FileFragmentFragment: MapFileImage_FileFragmentFragment }
   }
@@ -2801,6 +2890,7 @@ export type MapLinkSuggestionsQuery = {
 export type MapPublishMutationVariables = Exact<{
   fileId: Types.SbMapId
   answer: MapPublishAnswerInput
+  tags?: Array<string> | string | null | undefined
 }>
 
 export type MapPublishMutation = {
@@ -2921,6 +3011,54 @@ export type MapFamilyReportSetStatusMutation = {
     resolvedAt: string | null
     resolvedBy: { id: Types.SbUserId } | null
   }
+}
+
+export type MapTagsDialogFamilyQueryVariables = Exact<{
+  id: string
+}>
+
+export type MapTagsDialogFamilyQuery = {
+  mapFamily: {
+    id: string
+    family: {
+      id: string
+      lockedTagIds: Array<string>
+      canEditTags: boolean
+      current: { id: Types.SbMapId; kind: MapKind }
+      tags: Array<{ id: string; kind: MapKind }>
+    }
+  } | null
+}
+
+export type MapFamilySetTagsMutationVariables = Exact<{
+  mapId: Types.SbMapId
+  tags: Array<string> | string
+}>
+
+export type MapFamilySetTagsMutation = {
+  mapFamilySetTags: {
+    id: string
+    lockedTagIds: Array<string>
+    canEditTags: boolean
+    tags: Array<{
+      id: string
+      kind: MapKind
+      name: string
+      names: Array<{ locale: string; name: string }>
+    }>
+  }
+}
+
+export type MapTagListQueryVariables = Exact<{ [key: string]: never }>
+
+export type MapTagListQuery = {
+  mapTags: Array<{
+    id: string
+    kind: MapKind
+    name: string
+    mapCount: number
+    names: Array<{ locale: string; name: string }>
+  }>
 }
 
 export type MapThumbnailLadderPoolsQueryVariables = Exact<{
@@ -5495,6 +5633,46 @@ export const MapPage_HeaderFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<MapPage_HeaderFragmentFragment, unknown>
+export const MapPage_TagsFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapPage_TagsFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamily' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'tags' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'canEditTags' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapPage_TagsFragmentFragment, unknown>
 export const MapPage_ActionsFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -5588,6 +5766,7 @@ export const MapPublish_FileFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'family' },
@@ -5599,6 +5778,14 @@ export const MapPublish_FileFragmentFragmentDoc = {
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'tags' },
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
@@ -9403,6 +9590,323 @@ export const AdminMapCollectionReportsDocument = {
   AdminMapCollectionReportsQuery,
   AdminMapCollectionReportsQueryVariables
 >
+export const AdminMapTagCreateDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminMapTagCreate' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapKind' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
+          type: {
+            kind: 'ListType',
+            type: {
+              kind: 'NonNullType',
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapTagNameInput' } },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTagCreate' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'name' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'names' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapTagCreateMutation, AdminMapTagCreateMutationVariables>
+export const AdminMapTagUpdateDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminMapTagUpdate' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
+          type: {
+            kind: 'ListType',
+            type: {
+              kind: 'NonNullType',
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapTagNameInput' } },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTagUpdate' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'name' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'names' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'names' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapTagUpdateMutation, AdminMapTagUpdateMutationVariables>
+export const AdminMapTagsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminMapTags' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTags' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapTagsQuery, AdminMapTagsQueryVariables>
+export const AdminMapTagsSetOrderDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminMapTagsSetOrder' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapKind' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'ids' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTagsSetOrder' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'ids' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'ids' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'usageCount' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapTagsSetOrderMutation, AdminMapTagsSetOrderMutationVariables>
+export const AdminMapTagDeleteDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminMapTagDelete' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTagDelete' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMapTagDeleteMutation, AdminMapTagDeleteMutationVariables>
 export const MapSearchTestMapsDocument = {
   kind: 'Document',
   definitions: [
@@ -16638,6 +17142,10 @@ export const MapPageFamilyDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'credit' } },
                       {
                         kind: 'FragmentSpread',
+                        name: { kind: 'Name', value: 'MapPage_TagsFragment' },
+                      },
+                      {
+                        kind: 'FragmentSpread',
                         name: { kind: 'Name', value: 'MapPageStats_FamilyFragment' },
                       },
                       {
@@ -16676,6 +17184,41 @@ export const MapPageFamilyDocument = {
               ],
             },
           },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'MapPage_TagsFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFamily' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'tags' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'canEditTags' } },
         ],
       },
     },
@@ -18209,6 +18752,7 @@ export const MapPublishPreviewDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'family' },
@@ -18220,6 +18764,14 @@ export const MapPublishPreviewDocument = {
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'tags' },
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
@@ -18403,6 +18955,7 @@ export const MapLinkSuggestionsDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'family' },
@@ -18414,6 +18967,14 @@ export const MapLinkSuggestionsDocument = {
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'current' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'tags' },
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
@@ -18465,6 +19026,17 @@ export const MapPublishDocument = {
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapPublishAnswerInput' } },
           },
         },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'tags' } },
+          type: {
+            kind: 'ListType',
+            type: {
+              kind: 'NonNullType',
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+            },
+          },
+        },
       ],
       selectionSet: {
         kind: 'SelectionSet',
@@ -18482,6 +19054,11 @@ export const MapPublishDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'answer' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'answer' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'tags' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'tags' } },
               },
             ],
             selectionSet: {
@@ -19117,6 +19694,207 @@ export const MapFamilyReportSetStatusDocument = {
   MapFamilyReportSetStatusMutation,
   MapFamilyReportSetStatusMutationVariables
 >
+export const MapTagsDialogFamilyDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapTagsDialogFamily' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamily' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'family' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'current' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'tags' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                          ],
+                        },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'lockedTagIds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'canEditTags' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapTagsDialogFamilyQuery, MapTagsDialogFamilyQueryVariables>
+export const MapFamilySetTagsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapFamilySetTags' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'tags' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapFamilySetTags' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'mapId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'tags' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'tags' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'tags' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'names' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'lockedTagIds' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'canEditTags' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapFamilySetTagsMutation, MapFamilySetTagsMutationVariables>
+export const MapTagListDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapTagList' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapTags' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'names' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'locale' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'mapCount' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapTagListQuery, MapTagListQueryVariables>
 export const MapThumbnailLadderPoolsDocument = {
   kind: 'Document',
   definitions: [

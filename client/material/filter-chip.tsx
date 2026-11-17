@@ -122,7 +122,8 @@ export interface FilterChipProps {
   onClick?: (event: React.MouseEvent) => void
   /**
    * Optional menu items to show in a dropdown. When provided, the chip will show a dropdown
-   * arrow and open a menu when clicked. Use `SelectableMenuItem` components as children.
+   * arrow and open a menu when clicked. Use `SelectableMenuItem` components as children, with a
+   * `Divider` between groups of them if needed.
    */
   children?: React.ReactNode
   className?: string
@@ -157,8 +158,9 @@ export function FilterChip({
 
   const composedRef = useMultiplexRef(ref, anchorRef)
 
-  const menuItems = React.Children.toArray(children).filter(child => isMenuItem(child))
-  const hasMenu = menuItems.length > 0
+  // Decorative children (e.g. dividers) are shown among the menu items as they are
+  const menuChildren = React.Children.toArray(children)
+  const hasMenu = menuChildren.some(child => isMenuItem(child))
 
   const [buttonProps, rippleRef] = useButtonState({
     disabled,
@@ -174,11 +176,13 @@ export function FilterChip({
     },
   })
 
-  const clonedMenuItems = menuItems.map((item, index) => {
-    return React.cloneElement(item, {
-      key: index,
+  const clonedMenuItems = menuChildren.map(child => {
+    if (!isMenuItem(child)) {
+      return child
+    }
+    return React.cloneElement(child, {
       onClick: event => {
-        item.props.onClick?.(event)
+        child.props.onClick?.(event)
         closePopover()
       },
     })

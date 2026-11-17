@@ -13,6 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { MapKind } from '../gql/graphql'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
@@ -70,6 +71,9 @@ export enum DialogType {
   MapOwnerRelinquish = 'mapOwnerRelinquish',
   MapPreview = 'mapPreview',
   MapPublish = 'mapPublish',
+  MapTagDelete = 'mapTagDelete',
+  MapTagEdit = 'mapTagEdit',
+  MapTags = 'mapTags',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
@@ -490,6 +494,45 @@ type MapOwnerRelinquishDialogPayload = BaseDialogPayload<
   }
 >
 
+/** What the dialog that adds a map tag, or changes one, is opened with. */
+export interface MapTagEditDialogData {
+  /** The kind of map the tag is for. */
+  kind: MapKind
+  /** The tag to change, as it is. Unset adds a tag of `kind` at the end of the list. */
+  tag?: {
+    id: string
+    /** The tag's English name. */
+    name: string
+    /** The tag's names in other languages. */
+    names: Array<{ locale: string; name: string }>
+  }
+}
+
+type MapTagEditDialogPayload = BaseDialogPayload<typeof DialogType.MapTagEdit, MapTagEditDialogData>
+
+/** What the dialog confirming the deletion of a map tag that maps have is opened with. */
+export interface MapTagDeleteDialogData {
+  /** The tag's English name. */
+  name: string
+  /** How many maps have the tag. */
+  usageCount: number
+  /** Deletes the tag once the user confirms. */
+  onConfirm: () => void
+}
+
+type MapTagDeleteDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapTagDelete,
+  MapTagDeleteDialogData
+>
+
+type MapTagsDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapTags,
+  {
+    /** The map whose tags are edited. */
+    familyId: string
+  }
+>
+
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
@@ -709,6 +752,9 @@ export type DialogPayload =
   | MapOwnerRelinquishDialogPayload
   | MapPreviewDialogPayload
   | MapPublishDialogPayload
+  | MapTagDeleteDialogPayload
+  | MapTagEditDialogPayload
+  | MapTagsDialogPayload
   | MarkdownDialogPayload
   | GameVerificationFailedDialogPayload
   | MatchCanceledDialogPayload
