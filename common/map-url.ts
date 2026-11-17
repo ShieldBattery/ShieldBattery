@@ -25,6 +25,11 @@ export const ALL_MAP_PAGE_SUB_PAGES: ReadonlyArray<MapPageSubPage> = Object.valu
  * pages.
  */
 export enum MapCatalogTab {
+  /**
+   * The front page of the map browser, with rails of maps picked in different ways. It lives at
+   * `/maps` itself; `/maps/discover` only leads there.
+   */
+  Discover = 'discover',
   All = 'all',
   /** The collections the viewer can browse (see {@link MAP_COLLECTIONS_SEGMENT}). */
   Collections = 'collections',
@@ -37,7 +42,7 @@ export const ALL_MAP_CATALOG_TABS: ReadonlyArray<MapCatalogTab> = Object.values(
 
 /** Returns the URL of a map catalog tab, with an optional query string (without the `?`). */
 export function urlForMapCatalog(tab: MapCatalogTab, search?: string): string {
-  const base = urlPath`/maps/${tab}`
+  const base = tab === MapCatalogTab.Discover ? '/maps' : urlPath`/maps/${tab}`
   return search ? `${base}?${search}` : base
 }
 
