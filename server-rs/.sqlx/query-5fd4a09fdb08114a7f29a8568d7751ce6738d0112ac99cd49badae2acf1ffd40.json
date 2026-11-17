@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT t.tag_id, count(*) as \"count!\"\n                FROM map_family_tags t\n                INNER JOIN map_tags mt ON mt.id = t.tag_id\n                INNER JOIN map_families f ON f.id = t.family_id AND f.listed\n                INNER JOIN maps cur ON cur.id = f.current_map_id AND cur.kind = mt.kind\n                WHERE t.tag_id = ANY($1)\n                GROUP BY t.tag_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "tag_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "5fd4a09fdb08114a7f29a8568d7751ce6738d0112ac99cd49badae2acf1ffd40"
+}
