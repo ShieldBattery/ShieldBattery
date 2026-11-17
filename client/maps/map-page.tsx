@@ -55,6 +55,8 @@ import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { usePlayAloneAction } from '../solo-games/play-alone-action'
+import { canPlayFileAlone, playAloneLeads } from '../solo-games/play-alone-model'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
   bodyLarge,
@@ -1000,11 +1002,21 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
   fragment MapPage_ActionsFragment on SbMap {
     id
     name
+    kind
     listed
     isFavorited
     inLibrary
     publisher {
       id
+    }
+    file {
+      id
+      umsForces {
+        players {
+          isComputer
+          typeId
+        }
+      }
     }
     moderation @include(if: $canManageMaps) {
       id
@@ -1154,6 +1166,7 @@ function MapActions({
   const selfUser = useSelfUser()
   const canManageMaps = useHasAnyPermission('manageMaps')
   const { isLobbyHost, play } = useMapHostAction()
+  const playAlone = usePlayAloneAction()
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
   const unpublish = useUnpublishMap()
@@ -1445,21 +1458,38 @@ function MapActions({
     ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
     : t('maps.thumbnail.addToStarred', 'Add to Starred')
 
+  const canPlayAlone = canPlayFileAlone(map.kind, map.file.umsForces)
+  // The page keeps a single filled button, for whichever way of playing the map leads
+  const playAloneIsPrimary = canPlayAlone && playAloneLeads(map.file.umsForces)
+  const HostButton = playAloneIsPrimary ? OutlinedButton : FilledButton
+  const PlayAloneButton = playAloneIsPrimary ? FilledButton : OutlinedButton
+  const hostButton = isLobbyHost ? (
+    <HostButton
+      key='host'
+      label={t('maps.page.useInMyLobby', 'Use in my lobby')}
+      iconStart='swap_horiz'
+      onClick={() => play(map.id)}
+    />
+  ) : (
+    <HostButton
+      key='host'
+      label={t('maps.page.hostLobby', 'Host a lobby')}
+      iconStart='add'
+      onClick={() => play(map.id)}
+    />
+  )
+  const playAloneButton = canPlayAlone ? (
+    <PlayAloneButton
+      key='playAlone'
+      label={t('maps.page.playAlone', 'Play alone')}
+      iconStart='person'
+      onClick={() => playAlone(map.id)}
+    />
+  ) : null
+
   return (
     <ActionRow>
-      {isLobbyHost ? (
-        <FilledButton
-          label={t('maps.page.useInMyLobby', 'Use in my lobby')}
-          iconStart='swap_horiz'
-          onClick={() => play(map.id)}
-        />
-      ) : (
-        <FilledButton
-          label={t('maps.page.hostLobby', 'Host a lobby')}
-          iconStart='add'
-          onClick={() => play(map.id)}
-        />
-      )}
+      {playAloneIsPrimary ? [playAloneButton, hostButton] : [hostButton, playAloneButton]}
       {!map.listed && selfUser && (map.inLibrary || canManageMaps) ? (
         <OutlinedButton
           label={t('maps.publish.button', 'Publish')}

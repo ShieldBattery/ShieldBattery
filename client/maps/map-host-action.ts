@@ -12,22 +12,32 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 
 /**
- * Returns a function that opens the Create lobby screen at `url` (with its search params). Outside
- * the app it offers the download instead, and a logged out viewer is sent to log in.
+ * Returns a function that runs `action` for a way of playing a map that needs the app and an
+ * account. Outside the app it offers the download instead, and a logged out viewer is sent to log
+ * in.
  */
-function useOpenCreateLobby(): (url: string) => void {
+export function usePlayGate(): (action: () => void) => void {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
 
-  return url => {
+  return action => {
     if (!IS_ELECTRON) {
       dispatch(openDialog({ type: DialogType.Download }))
     } else if (!selfUser) {
       redirectToLogin(push)
     } else {
-      push(url)
+      action()
     }
   }
+}
+
+/**
+ * Returns a function that opens the Create lobby screen at `url` (with its search params), behind
+ * the `usePlayGate` checks.
+ */
+function useOpenCreateLobby(): (url: string) => void {
+  const playGate = usePlayGate()
+  return url => playGate(() => push(url))
 }
 
 /**

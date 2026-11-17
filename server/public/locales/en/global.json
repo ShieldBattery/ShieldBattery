@@ -2542,6 +2542,7 @@
       "openLobbies": "Open lobbies",
       "pastLadderPools_one": "In {{count}} past ladder pool",
       "pastLadderPools_other": "In {{count}} past ladder pools",
+      "playAlone": "Play alone",
       "players": "Players",
       "players90d": "players, last 90 days",
       "publishedBy": "Published by",
@@ -3950,6 +3951,42 @@
       "buttonTooltip": "Toggle social (ALT + H)",
       "pinTooltip": "Pin sidebar",
       "unpinTooltip": "Unpin sidebar"
+    }
+  },
+  "soloGames": {
+    "errors": {
+      "alreadyInActivity": "You're already in a lobby, searching for a match, or starting another game.",
+      "alreadyInGame": "You're already playing a game.",
+      "generic": "Couldn't start the game. Please try again.",
+      "invalidRace": "The map doesn't let that slot pick its race. The map may have changed, so try opening it again.",
+      "invalidSlot": "That slot can't be played from. The map may have changed, so try opening it again.",
+      "mapNotFound": "This map could not be found.",
+      "mapNotPlayableAlone": "This map can't be played alone.",
+      "noActiveClient": "Couldn't reach the server from the app. Check your connection and try again.",
+      "throttled": "Too many requests, try again in a moment."
+    },
+    "launchFailed": {
+      "clientFailed": "The game failed to load.",
+      "internal": "Something went wrong on the server while starting the game.",
+      "reportBug": "Report a bug",
+      "timeout": "The game took too long to start."
+    },
+    "playAlone": {
+      "against": "Against",
+      "busyInGame": "You can start once you're out of your game.",
+      "busyInLobby": "Leave your lobby to play alone.",
+      "busySearching": "Stop searching for a match to play alone.",
+      "computerForce_one": "{{force}} · {{count}} computer",
+      "computerForce_other": "{{force}} · {{count}} computers",
+      "loadError": "Couldn't load this map.",
+      "notFound": "This map could not be found.",
+      "notPlayable": "This map can't be played alone. It needs a slot for you and a computer to play against.",
+      "playAs": "Play as",
+      "race": "Race",
+      "slotLabel": "{{force}} · Slot {{number}}",
+      "start": "Start",
+      "title": "Play alone",
+      "unnamedForce": "Force {{number}}"
     }
   },
   "starcraft": {

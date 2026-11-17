@@ -192,6 +192,9 @@ const NewsPostSettingsDialog = React.lazy(async () => ({
 const PostMatchDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/post-match-dialog')).PostMatchDialog,
 }))
+const PlayAloneDialog = React.lazy(async () => ({
+  default: (await import('../solo-games/play-alone-dialog')).PlayAloneDialog,
+}))
 const ExternalLinkDialog = React.lazy(async () => ({
   default: (await import('../navigation/external-link-dialog')).ExternalLinkDialog,
 }))
@@ -408,6 +411,8 @@ function getDialog(dialogType: DialogType): {
       return { component: NewsPostDeleteConfirmation }
     case DialogType.NewsPostSettings:
       return { component: NewsPostSettingsDialog }
+    case DialogType.PlayAlone:
+      return { component: PlayAloneDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:

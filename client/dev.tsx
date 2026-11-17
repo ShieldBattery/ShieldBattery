@@ -16,6 +16,7 @@ import { DevPageMetadata } from './page-metadata/devonly/routes'
 import { DotsTest } from './progress/devonly/dots-test'
 import { DevReplays } from './replays/devonly/routes'
 import { DevSettings } from './settings/devonly/routes'
+import { DevSoloGames } from './solo-games/devonly/routes'
 import { DevStarcraft } from './starcraft/devonly/dev-starcraft'
 import { DevTwitch } from './twitch/devonly/dev-twitch'
 import { DevUsers } from './users/devonly/routes'
@@ -64,6 +65,7 @@ export default function Dev() {
             ['Progress indicators', 'progress', DotsTest],
             ['Replay components', 'replays', DevReplays],
             ['Settings components', 'settings', DevSettings],
+            ['Solo games', 'solo-games', DevSoloGames],
             ['Starcraft', 'starcraft', DevStarcraft],
             ['Twitch components', 'twitch', DevTwitch],
             ['User components', 'users', DevUsers],

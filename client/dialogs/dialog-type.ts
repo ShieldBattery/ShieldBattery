@@ -81,6 +81,7 @@ export enum DialogType {
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
+  PlayAlone = 'playAlone',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RefundGamePoints = 'refundGamePoints',
@@ -650,6 +651,13 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
     onApply: (settings: NewsPostSettingsValues) => void
   }
 >
+type PlayAloneDialogPayload = BaseDialogPayload<
+  typeof DialogType.PlayAlone,
+  {
+    /** The map file to play. */
+    mapId: SbMapId
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -799,6 +807,7 @@ export type DialogPayload =
   | MatchmakingBannedDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
+  | PlayAloneDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RefundGamePointsDialogPayload

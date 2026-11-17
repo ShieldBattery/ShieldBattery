@@ -2928,10 +2928,15 @@ export type MapPage_TagsFragmentFragment = {
 export type MapPage_ActionsFragmentFragment = {
   id: Types.SbMapId
   name: string
+  kind: MapKind
   listed: boolean
   isFavorited: boolean
   inLibrary: boolean
   publisher: { id: Types.SbUserId } | null
+  file: {
+    id: string
+    umsForces: Array<{ players: Array<{ isComputer: boolean; typeId: number }> }>
+  }
   moderation?: {
     id: string
     publishedAt: string | null
@@ -6461,6 +6466,7 @@ export const MapPage_ActionsFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           { kind: 'Field', name: { kind: 'Name', value: 'inLibrary' } },
@@ -6470,6 +6476,36 @@ export const MapPage_ActionsFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'file' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'umsForces' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'players' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'isComputer' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'typeId' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
             },
           },
           {
@@ -19794,6 +19830,7 @@ export const MapPageFileDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           { kind: 'Field', name: { kind: 'Name', value: 'inLibrary' } },
@@ -19803,6 +19840,36 @@ export const MapPageFileDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'file' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'umsForces' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'players' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'isComputer' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'typeId' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
             },
           },
           {

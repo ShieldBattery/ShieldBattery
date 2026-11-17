@@ -248,7 +248,11 @@ function makeMap({
       originalDescription,
       tileset: Tileset.Jungle,
       isEud: false,
-      umsForces,
+      // Every slot listed here is one a lobby shows: a human slot, or a regular computer
+      umsForces: umsForces.map(force => ({
+        ...force,
+        players: force.players.map(p => ({ ...p, typeId: p.isComputer ? 5 : 6 })),
+      })),
       analysis: baseCount === null ? null : { id: `${id}-file`, baseCount },
     },
   }

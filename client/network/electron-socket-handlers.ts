@@ -13,6 +13,7 @@ import logger from '../logging/logger'
 import matchmaking from '../matchmaking/socket-handlers'
 import replays from '../replays/ipc-handlers'
 import settings from '../settings/ipc-handlers'
+import soloGames from '../solo-games/socket-handlers'
 import systemBar from '../system-bar/ipc-handlers'
 import idleReporting from '../users/idle-reporting'
 import { SocketHandler, SocketHandlerParams } from './socket-handler'
@@ -55,6 +56,7 @@ const electronHandlers: SocketHandler[] = [
   matchmaking,
   replays,
   settings,
+  soloGames,
   systemBar,
 ]
 
