@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_features AS mf (week, family_id, collection_id, blurb, created_by)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (week) DO UPDATE SET\n                family_id = EXCLUDED.family_id,\n                collection_id = EXCLUDED.collection_id,\n                blurb = EXCLUDED.blurb,\n                updated_at = now(),\n                created_by = CASE\n                    WHEN mf.family_id IS NOT DISTINCT FROM EXCLUDED.family_id\n                        AND mf.collection_id IS NOT DISTINCT FROM EXCLUDED.collection_id\n                    THEN mf.created_by ELSE EXCLUDED.created_by END,\n                created_at = CASE\n                    WHEN mf.family_id IS NOT DISTINCT FROM EXCLUDED.family_id\n                        AND mf.collection_id IS NOT DISTINCT FROM EXCLUDED.collection_id\n                    THEN mf.created_at ELSE now() END,\n                notified_at = CASE\n                    WHEN mf.family_id IS NOT DISTINCT FROM EXCLUDED.family_id\n                        AND mf.collection_id IS NOT DISTINCT FROM EXCLUDED.collection_id\n                    THEN mf.notified_at END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9335ca7a1f8f46a79c1491ae6452eceee360f7f1472c573165f752676fc2945a"
+}

@@ -108,8 +108,9 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   ),
   staticRoute(
     '/maps',
-    'ShieldBattery Maps',
-    'Browse StarCraft: Brood War maps on ShieldBattery, with stats from every game played on them.',
+    'Discover Maps on ShieldBattery',
+    'Discover StarCraft: Brood War maps on ShieldBattery: the map of the week, maps on the rise, ' +
+      'new maps, and the mapmakers behind them.',
   ),
   staticRoute('/news', 'ShieldBattery News', 'The latest news and updates from ShieldBattery.'),
   staticRoute(

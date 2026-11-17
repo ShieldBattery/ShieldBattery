@@ -27,6 +27,7 @@ use uuid::Uuid;
 use crate::maps::SbMapId;
 use crate::maps::collections::retire_family_entries;
 use crate::maps::families::owners::RetiredOwnership;
+use crate::maps::features::retire_family_features;
 
 /// Takes the lock held by every transaction that changes which family a file is in, a family's
 /// default, or whether a file is listed. Must be taken before changing anything, so two writers
@@ -60,8 +61,8 @@ pub(crate) async fn refresh_families(
 /// Deletes the families in `from`, which must hold no files anymore, leaving each one's id (and
 /// the ids that were aliases of it) as an alias of the family at the same index in `into`. Their
 /// collection entries (including stars) and open owner claims move along, one per collection or
-/// user and family. Their tags are dropped (`into` keeps its own), and their owners and credits are
-/// lost: returns the families that had either.
+/// user and family, and so do the weeks they were featured in. Their tags are dropped (`into` keeps
+/// its own), and their owners and credits are lost: returns the families that had either.
 pub(crate) async fn retire_families(
     tx: &mut Transaction<'_, Postgres>,
     from: &[Uuid],
@@ -99,6 +100,7 @@ pub(crate) async fn retire_families(
     .await
     .wrap_err("Failed to add family aliases")?;
     retire_family_entries(tx, from, into).await?;
+    retire_family_features(tx, from, into).await?;
     sqlx::query!("DELETE FROM map_families WHERE id = ANY($1)", from)
         .execute(&mut **tx)
         .await
