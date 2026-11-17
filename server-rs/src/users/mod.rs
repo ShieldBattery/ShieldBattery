@@ -36,10 +36,11 @@ use crate::email::{
 use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
-use crate::maps::search::{MapFilter, MapSort};
+use crate::maps::search::{MapFilter, MapLens, MapSort};
 use crate::maps::{
-    FavoriteMapConnection, MapCollection, MapLibraryConnection, load_favorite_maps,
-    load_map_library, viewer_collections,
+    DEFAULT_RECENT_MAPS, FavoriteMapConnection, MapCollection, MapLibraryConnection,
+    MapRecommendation, RecentMap, load_favorite_maps, load_map_library, load_map_recommendation,
+    load_recent_maps, viewer_collections,
 };
 use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
@@ -313,6 +314,30 @@ impl CurrentUser {
     /// saved and can still see, most recently saved first.
     async fn map_collections(&self, ctx: &Context<'_>) -> Result<Vec<MapCollection>> {
         viewer_collections(ctx, self.id).await
+    }
+
+    /// The different maps this user played in their most recent games (of any kind, canceled
+    /// games aside), the most recently played first; `first` of them (at most 12). Includes maps
+    /// that aren't listed, except where every file of the map the user played was delisted by
+    /// staff.
+    async fn recent_maps(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default_with = "DEFAULT_RECENT_MAPS")] first: i32,
+    ) -> Result<Vec<RecentMap>> {
+        load_recent_maps(ctx, self.id, first).await
+    }
+
+    /// Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
+    /// the last 28 days: listed maps of that map's kind (for a melee map, also with as many
+    /// players) sharing a tag with it, that the user hasn't played in the last 90 days. Null when
+    /// none of the 5 maps they played most in lobbies gives at least 4.
+    async fn map_recommendation(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default)] lens: MapLens,
+    ) -> Result<Option<MapRecommendation>> {
+        load_map_recommendation(ctx, self.id, lens).await
     }
 }
 

@@ -10,9 +10,10 @@ use crate::game_reports::{GameReportsMutation, GameReportsQuery};
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
 use crate::maps::{
-    MapCollectionsMutation, MapCollectionsQuery, MapFamiliesMutation, MapFamiliesQuery,
-    MapOwnersMutation, MapOwnersQuery, MapPublishingMutation, MapPublishingQuery, MapTagsMutation,
-    MapTagsQuery, MapsMutation, MapsQuery,
+    MapCollectionsMutation, MapCollectionsQuery, MapDiscoverQuery, MapFamiliesMutation,
+    MapFamiliesQuery, MapFeaturesMutation, MapFeaturesQuery, MapOwnersMutation, MapOwnersQuery,
+    MapPublishingMutation, MapPublishingQuery, MapTagsMutation, MapTagsQuery, MapsMutation,
+    MapsQuery,
 };
 use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
 use crate::matchmaking::history::MatchmakingHistoryQuery;
@@ -35,6 +36,8 @@ pub struct Query(
     MapOwnersQuery,
     MapTagsQuery,
     MapCollectionsQuery,
+    MapFeaturesQuery,
+    MapDiscoverQuery,
     NewsQuery,
     TwitchQuery,
     UsersQuery,
@@ -52,6 +55,7 @@ pub struct Mutation(
     MapOwnersMutation,
     MapTagsMutation,
     MapCollectionsMutation,
+    MapFeaturesMutation,
     NewsMutation,
     TwitchMutation,
     UsersMutation,
