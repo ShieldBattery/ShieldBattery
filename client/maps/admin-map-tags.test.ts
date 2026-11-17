@@ -64,19 +64,12 @@ describe('client/maps/admin-map-tags', () => {
 
   test('names the tag holding each rule, leaving out the tag being edited', () => {
     const tags = [
-      { id: 'standard', name: 'Standard', autoRule: MapTagAutoRule.LadderPool },
       { id: 'money', name: 'Money', autoRule: MapTagAutoRule.RichMinerals },
       { id: 'island', name: 'Island', autoRule: null },
     ]
-    expect(takenAutoRules(tags, undefined)).toEqual({
-      [MapTagAutoRule.LadderPool]: 'Standard',
-      [MapTagAutoRule.RichMinerals]: 'Money',
-    })
-    expect(takenAutoRules(tags, 'money')).toEqual({ [MapTagAutoRule.LadderPool]: 'Standard' })
-    expect(takenAutoRules(tags, 'island')).toEqual({
-      [MapTagAutoRule.LadderPool]: 'Standard',
-      [MapTagAutoRule.RichMinerals]: 'Money',
-    })
+    expect(takenAutoRules(tags, undefined)).toEqual({ [MapTagAutoRule.RichMinerals]: 'Money' })
+    expect(takenAutoRules(tags, 'island')).toEqual({ [MapTagAutoRule.RichMinerals]: 'Money' })
+    expect(takenAutoRules(tags, 'money')).toEqual({})
     expect(takenAutoRules([], undefined)).toEqual({})
   })
 })

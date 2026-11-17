@@ -105,18 +105,13 @@ function nameProblem(value: string, needsId: boolean): string | undefined {
 }
 
 /** The rules a melee tag can be given by, in the order they're offered. */
-const AUTO_RULES: ReadonlyArray<MapTagAutoRule> = [
-  MapTagAutoRule.RichMinerals,
-  MapTagAutoRule.LadderPool,
-]
+const AUTO_RULES: ReadonlyArray<MapTagAutoRule> = [MapTagAutoRule.RichMinerals]
 
 /** The name of the maps `rule` gives a tag to. */
 function autoRuleLabel(rule: MapTagAutoRule): string {
   switch (rule) {
     case MapTagAutoRule.RichMinerals:
       return 'Maps with rich minerals'
-    case MapTagAutoRule.LadderPool:
-      return 'Maps in a ladder pool'
     default:
       return assertUnreachable(rule)
   }

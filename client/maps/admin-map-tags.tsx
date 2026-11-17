@@ -142,8 +142,6 @@ function autoRuleText(rule: MapTagAutoRule): string {
   switch (rule) {
     case MapTagAutoRule.RichMinerals:
       return 'Given automatically to melee maps with rich minerals (over 5,000 per field)'
-    case MapTagAutoRule.LadderPool:
-      return 'Given automatically to melee maps with a file in a ladder pool'
     default:
       return assertUnreachable(rule)
   }

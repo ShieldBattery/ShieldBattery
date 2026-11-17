@@ -364,8 +364,6 @@ export enum MapStartLocationChangeKind {
  * has each rule.
  */
 export enum MapTagAutoRule {
-  /** Maps whose current file is a melee map and that have a file in a ladder map pool. */
-  LadderPool = 'LADDER_POOL',
   /** Maps whose current file is a melee map averaging more than 5,000 minerals per mineral field. */
   RichMinerals = 'RICH_MINERALS',
 }
