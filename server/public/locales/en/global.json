@@ -2557,6 +2557,7 @@
     "publish": {
       "alreadyListed": "This file is already published.",
       "approvedNotification": "Your map <1>{{name}}</1> was reviewed and is now listed.",
+      "badTags": "These tags can't be used on this map.",
       "button": "Publish",
       "delistedNotification": "Staff took your map <1>{{name}}</1> out of the listings.",
       "delistedNotificationNote": "Their note: “{{note}}”",
@@ -2603,6 +2604,8 @@
       "sameTriggers": "same triggers",
       "separateMap": "No, it's a separate map",
       "staffDelisted": "Staff took this file out of the listings, so it can't be published.",
+      "tagLocked": "This map has a tag set by staff or its maker that your tags would remove.",
+      "tagsHaveMaker": "Someone else is this map's maker, who sets its tags.",
       "terrainPercent": "{{percent}}% same terrain",
       "title": "Publish map",
       "unlinked": "Removed from {{mapName}}",
@@ -2646,6 +2649,23 @@
         "removed": "Removed from Starred",
         "removeError": "Couldn't remove the map from Starred"
       }
+    },
+    "tags": {
+      "addTags": "Add tags",
+      "badRequest": "These tags can't be used on this map.",
+      "editTitle": "Edit tags",
+      "emailUnverified": "Verify your email address to change map tags.",
+      "error": "Couldn't save the tags. Please try again later.",
+      "filter": "Tags",
+      "filterAny": "Any tags",
+      "filterMore": "{{tag}} +{{more}}",
+      "hasMaker": "This map has a maker now, who sets its tags.",
+      "locked": "One of the tags you removed was set by staff or the map's maker, so it stays.",
+      "lockedTooltip": "You can't remove this tag",
+      "notListed": "This map isn't published, so its tags can't be changed.",
+      "rateLimited": "You've changed a lot of map tags in the last hour. Try again later.",
+      "restricted": "You're restricted from publishing maps, so you can't change map tags.",
+      "selectedCount": "{{selected}} of {{max}}"
     },
     "thumbnail": {
       "addToStarred": "Add to Starred",

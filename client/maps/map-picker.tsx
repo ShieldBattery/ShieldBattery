@@ -23,7 +23,9 @@ import {
 import {
   CatalogFilters,
   CatalogParams,
+  CatalogRowFilters,
   CatalogSort,
+  CLEARED_CATALOG_FILTERS,
   DEFAULT_CATALOG_FILTERS,
   defaultPickerSortForListing,
   effectiveSort,
@@ -43,6 +45,7 @@ import {
   validateLocalMapView,
 } from './map-local-list'
 import { MapPickerCollections, PickerCollection } from './map-picker-collections'
+import { applyFilterChanges, tagsForLens, useMapTagList } from './map-tags'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom } from './map-uploads'
 
 /** What picking a map in the picker does. */
@@ -197,7 +200,7 @@ function useSavedPickerChoices() {
 function newSession(tab: PickerTab, filters: CatalogFilters): MapPickerSession {
   return {
     tab,
-    params: { ...filters, search: '', sort: undefined },
+    params: { ...filters, tags: [], search: '', sort: undefined },
     lensFromGameType: false,
     windows: new Map(),
   }
@@ -207,6 +210,7 @@ function newSession(tab: PickerTab, filters: CatalogFilters): MapPickerSession {
 export function useMapPickerSession() {
   const saved = useSavedPickerChoices()
   const setSession = useSetAtom(mapPickerSessionAtom)
+  const tagList = useMapTagList()
 
   return {
     /**
@@ -220,13 +224,21 @@ export function useMapPickerSession() {
         if (isUms && session.params.lens !== MapLens.Ums) {
           return {
             ...session,
-            params: { ...session.params, lens: MapLens.Ums },
+            params: {
+              ...session.params,
+              lens: MapLens.Ums,
+              tags: tagsForLens(session.params.tags, MapLens.Ums, tagList),
+            },
             lensFromGameType: true,
           }
         } else if (!isUms && session.lensFromGameType) {
           return {
             ...session,
-            params: { ...session.params, lens: saved.filters.lens },
+            params: {
+              ...session.params,
+              lens: saved.filters.lens,
+              tags: tagsForLens(session.params.tags, saved.filters.lens, tagList),
+            },
             lensFromGameType: false,
           }
         }
@@ -238,7 +250,7 @@ export function useMapPickerSession() {
       setSession(prev => ({
         ...(prev ?? newSession(saved.tab, saved.filters)),
         tab: MapListing.Yours,
-        params: { ...DEFAULT_CATALOG_FILTERS, search: '', sort: CatalogSort.Newest },
+        params: { ...CLEARED_CATALOG_FILTERS, search: '', sort: CatalogSort.Newest },
         lensFromGameType: false,
       }))
     },
@@ -367,6 +379,7 @@ export function MapPicker({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const saved = useSavedPickerChoices()
+  const tagList = useMapTagList()
   const [storedSession, setSession] = useAtom(mapPickerSessionAtom)
   const session = storedSession ?? newSession(saved.tab, saved.filters)
   const { tab, params } = session
@@ -399,11 +412,11 @@ export function MapPicker({
     saved.setTab(nextTab)
   }
 
-  const onFiltersChange = (changes: Partial<CatalogFilters>) => {
-    const next = { ...params, ...changes }
+  const onFiltersChange = (changes: Partial<CatalogRowFilters>) => {
+    const next = applyFilterChanges(params, changes, tagList)
     updateSession(s => ({
       ...s,
-      params: { ...s.params, ...changes },
+      params: applyFilterChanges(s.params, changes, tagList),
       lensFromGameType: s.lensFromGameType && changes.lens === undefined,
     }))
     saved.setFilters(filtersOf(next))
@@ -545,7 +558,7 @@ export function MapPicker({
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onDensityChange={saved.setDensity}
-        onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
+        onClearFilters={() => onFiltersChange(CLEARED_CATALOG_FILTERS)}
         onViewChange={saved.setLocalView}
         onFolderChange={folder => updateSession(s => ({ ...s, localFolder: folder }))}
       />
@@ -569,7 +582,7 @@ export function MapPicker({
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onDensityChange={saved.setDensity}
-        onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
+        onClearFilters={() => onFiltersChange(CLEARED_CATALOG_FILTERS)}
       />
     )
   }
