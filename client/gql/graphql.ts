@@ -189,6 +189,11 @@ export type MapFilter = {
    */
   search?: string | null | undefined
   sizes?: Array<MapSizeClass> | null | undefined
+  /**
+   * Only maps played alone (`true`): maps with a single human slot, and maps at least 3
+   * different people played alone in the last 28 days. With `false`, only the other maps.
+   */
+  solo?: boolean | null | undefined
   /** Only staff picks (`true`) or only maps that aren't staff picks (`false`). */
   staffPick?: boolean | null | undefined
   /**
@@ -343,6 +348,8 @@ export enum MapSort {
   Popular_90D = 'POPULAR_90D',
   /** Most games ever first. */
   PopularAllTime = 'POPULAR_ALL_TIME',
+  /** The most games with two or more people in the last 28 days first. */
+  PopularTogether_28D = 'POPULAR_TOGETHER_28D',
   /**
    * Best search matches first, then the most played in the last 28 days. Without a search, the
    * same as `POPULAR_28D`.

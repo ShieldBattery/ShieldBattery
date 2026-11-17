@@ -269,6 +269,16 @@ pub struct MapStats {
     /// hundredths of a standard deviation. 0 for maps that aren't rising or that fewer than 5
     /// people played in lobbies this week. Updated hourly.
     pub trending_score: i32,
+    /// Games in the last 28 days played by one person alone.
+    #[graphql(name = "soloGames28d")]
+    pub solo_games_28d: i32,
+    /// Different people who played it alone in the last 28 days.
+    #[graphql(name = "soloPlayers28d")]
+    pub solo_players_28d: i32,
+    /// The usual number of people in a game with two or more (the median over the last 90 days).
+    /// Null when there were fewer than 5 such games.
+    #[graphql(name = "partySize90d")]
+    pub party_size_90d: Option<i32>,
 }
 
 #[ComplexObject]
@@ -294,6 +304,9 @@ impl From<DbSbMap> for SbMap {
                 median_length_90d: row.median_length_90d,
                 last_played_at,
                 trending_score: row.trending_score,
+                solo_games_28d: row.solo_games_28d,
+                solo_players_28d: row.solo_players_28d,
+                party_size_90d: row.party_size_90d,
             }),
             _ => None,
         };
@@ -870,6 +883,9 @@ mod tests {
                 median_length_90d: None,
                 last_played_at: None,
                 trending_score: 0,
+                solo_games_28d: 0,
+                solo_players_28d: 0,
+                party_size_90d: None,
                 favorites: 0,
                 first_seen_at: published_at,
                 family_id: Uuid::nil(),

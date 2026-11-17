@@ -30,6 +30,10 @@ const FUZZY_THRESHOLD: f64 = 0.5;
 const CURSOR_VERSION: u32 = 2;
 /// The most tags one listing can filter by.
 pub const MAX_FILTER_TAGS: usize = 5;
+/// How many different people must have played a map alone in the last 28 days for the `solo`
+/// filter to count it as played alone, whatever its slots. One person repeating a map alone says
+/// little about how it's meant to be played.
+const MIN_SOLO_PLAYERS: i32 = 3;
 
 /// Which kind of maps to show.
 #[derive(Enum, Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -110,6 +114,9 @@ pub enum MapSort {
     /// Most games in the last 28 days first.
     #[graphql(name = "POPULAR_28D")]
     Popular28d,
+    /// The most games with two or more people in the last 28 days first.
+    #[graphql(name = "POPULAR_TOGETHER_28D")]
+    PopularTogether28d,
     /// Most games in the last 90 days first.
     #[graphql(name = "POPULAR_90D")]
     Popular90d,
@@ -143,6 +150,9 @@ pub struct MapFilter {
     pub players: Option<Vec<i32>>,
     /// Only maps with at least this many player slots.
     pub min_players: Option<i32>,
+    /// Only maps played alone (`true`): maps with a single human slot, and maps at least 3
+    /// different people played alone in the last 28 days. With `false`, only the other maps.
+    pub solo: Option<bool>,
     pub sizes: Option<Vec<MapSizeClass>>,
     /// Tileset ids to include.
     pub tilesets: Option<Vec<i32>>,
@@ -327,6 +337,9 @@ pub struct NormalizedFilter {
     // Left out when empty, so cursors from listings without it keep their hash
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tags: Vec<String>,
+    // Left out when unset, for the same reason as `tags`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    solo: Option<bool>,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -384,6 +397,7 @@ impl NormalizedFilter {
             owner: filter.owner,
             verified: filter.verified,
             tags,
+            solo: filter.solo,
         })
     }
 
@@ -463,6 +477,12 @@ fn sort_keys(sort: MapSort) -> &'static [SortKey] {
         SORT_NAME,
         ID,
     ];
+    const POPULAR_TOGETHER_28D: &[SortKey] = &[
+        int_key("-(c.sort_games_28d - c.sort_solo_games_28d)"),
+        int_key("-c.sort_players_90d"),
+        SORT_NAME,
+        ID,
+    ];
     const POPULAR_90D: &[SortKey] = &[
         int_key("-c.sort_games_90d"),
         int_key("-c.sort_players_90d"),
@@ -498,6 +518,7 @@ fn sort_keys(sort: MapSort) -> &'static [SortKey] {
         MapSort::Trending => TRENDING,
         MapSort::Popular7d => POPULAR_7D,
         MapSort::Popular28d => POPULAR_28D,
+        MapSort::PopularTogether28d => POPULAR_TOGETHER_28D,
         MapSort::Popular90d => POPULAR_90D,
         MapSort::PopularAllTime => POPULAR_ALL_TIME,
         MapSort::Newest => NEWEST,
@@ -602,6 +623,9 @@ const DB_SB_MAP_COLUMNS: &str = concat!(
     COALESCE(s.players_90d, 0) AS players_90d, \
     s.median_length_90d, s.last_played_at, \
     COALESCE(s.trending_score, 0) AS trending_score, \
+    COALESCE(s.solo_games_28d, 0) AS solo_games_28d, \
+    COALESCE(s.solo_players_28d, 0) AS solo_players_28d, \
+    s.party_size_90d, \
     COALESCE(f.favorites, 0) AS favorites, m.first_seen_at"
 );
 
@@ -641,6 +665,9 @@ pub struct DbSbMap {
     pub median_length_90d: Option<i32>,
     pub last_played_at: Option<DateTime<Utc>>,
     pub trending_score: i32,
+    pub solo_games_28d: i32,
+    pub solo_players_28d: i32,
+    pub party_size_90d: Option<i32>,
     pub favorites: i32,
     pub first_seen_at: DateTime<Utc>,
 }
@@ -829,6 +856,7 @@ fn push_rows(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &Normaliz
 /// The columns sort keys read, from the file's own stats and its family's favorites.
 const MAP_SORT_COLUMNS: &str = "COALESCE(s.games_7d, 0) AS sort_games_7d, \
     COALESCE(s.games_28d, 0) AS sort_games_28d, \
+    COALESCE(s.solo_games_28d, 0) AS sort_solo_games_28d, \
     COALESCE(s.games_90d, 0) AS sort_games_90d, \
     COALESCE(s.games_total, 0) AS sort_games_total, \
     COALESCE(s.players_90d, 0) AS sort_players_90d, \
@@ -863,6 +891,8 @@ const FAMILY_SORT_COLUMNS: &str = concat!(
     " AS sort_games_7d, ",
     family_stat!("games_28d"),
     " AS sort_games_28d, ",
+    family_stat!("solo_games_28d"),
+    " AS sort_solo_games_28d, ",
     family_stat!("games_90d"),
     " AS sort_games_90d, ",
     family_stat!("games_total"),
@@ -981,7 +1011,7 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             }
         }
     }
-    push_filters(qb, filter);
+    push_filters(qb, filter, families);
 }
 
 /// Emits the search rank of `m` for `search`, which is 0 when it doesn't match. Ranks are
@@ -1041,8 +1071,10 @@ fn push_search_rank(qb: &mut QueryBuilder<Postgres>, m: &str, search: &SearchQue
     qb.push(" THEN 200 ELSE 0 END");
 }
 
-/// Appends ` AND <condition>` for every filter that is set. Every filter reads the file shown, `m`.
-fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
+/// Appends ` AND <condition>` for every filter that is set. Every filter reads the file shown, `m`,
+/// and its stats `s`. With `families`, the listing shows families and also joins [`FAMILY_JOINS`]
+/// (or, in a collection, [`COLLECTION_JOINS`]), so play stats are read with [`family_stat`].
+fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, families: bool) {
     match filter.lens {
         MapLens::All => {}
         MapLens::Melee => {
@@ -1060,6 +1092,18 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
     if let Some(min_players) = filter.min_players {
         qb.push(" AND m.player_count >= ");
         qb.push_bind(min_players);
+    }
+    if let Some(solo) = filter.solo {
+        qb.push(if solo { " AND " } else { " AND NOT " });
+        qb.push("(m.player_count = 1 OR ");
+        qb.push(if families {
+            family_stat!("solo_players_28d")
+        } else {
+            "COALESCE(s.solo_players_28d, 0)"
+        });
+        qb.push(" >= ");
+        qb.push_bind(MIN_SOLO_PLAYERS);
+        qb.push(")");
     }
     if !filter.sizes.is_empty() {
         qb.push(" AND (");
@@ -1228,11 +1272,12 @@ mod tests {
 
     use super::*;
 
-    const ALL_SORTS: [MapSort; 11] = [
+    const ALL_SORTS: [MapSort; 12] = [
         MapSort::Relevance,
         MapSort::Trending,
         MapSort::Popular7d,
         MapSort::Popular28d,
+        MapSort::PopularTogether28d,
         MapSort::Popular90d,
         MapSort::PopularAllTime,
         MapSort::Newest,
@@ -1522,11 +1567,16 @@ mod tests {
 
     #[test]
     fn sort_keys_emit_matching_order_and_comparison() {
-        let cases: [(MapSort, &str); 4] = [
+        let cases: [(MapSort, &str); 5] = [
             (
                 MapSort::Relevance,
                 ", (-c.rank)::bigint AS k0, (-c.sort_games_28d)::bigint AS k1, \
                  (c.sort_name) AS k2, (c.id) AS k3",
+            ),
+            (
+                MapSort::PopularTogether28d,
+                ", (-(c.sort_games_28d - c.sort_solo_games_28d))::bigint AS k0, \
+                 (-c.sort_players_90d)::bigint AS k1, (c.sort_name) AS k2, (c.id) AS k3",
             ),
             (
                 MapSort::Popular90d,
@@ -1602,6 +1652,7 @@ mod tests {
                 owner: Some(SbUserId(1)),
                 verified: Some(true),
                 tags: Some(vec!["defense".into()]),
+                solo: Some(true),
             },
         ] {
             let request =
@@ -1633,7 +1684,7 @@ mod tests {
         })
         .unwrap();
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_filters(&mut qb, &filter);
+        push_filters(&mut qb, &filter, false);
         assert_eq!(
             qb.sql().as_str(),
             " AND ((TRUE AND greatest(m.width, m.height) <= 64) OR \
@@ -1672,7 +1723,7 @@ mod tests {
             })
             .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
-            push_filters(&mut qb, &filter);
+            push_filters(&mut qb, &filter, false);
             assert_eq!(qb.sql().as_str(), expected);
         }
     }
@@ -1714,7 +1765,7 @@ mod tests {
             })
             .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
-            push_filters(&mut qb, &filter);
+            push_filters(&mut qb, &filter, false);
             assert_eq!(qb.sql().as_str(), expected);
         }
     }
@@ -1899,6 +1950,10 @@ mod tests {
                 sort(scope, search(), Some(MapSort::CollectionOrder)),
                 MapSort::Relevance
             );
+            assert_eq!(
+                sort(scope, None, Some(MapSort::PopularTogether28d)),
+                MapSort::PopularTogether28d
+            );
         }
 
         // A cursor from a listing that asked for `COLLECTION_ORDER` outside a collection continues
@@ -1992,7 +2047,7 @@ mod tests {
 
         let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
         let mut qb = QueryBuilder::<Postgres>::new("");
-        push_filters(&mut qb, &filter);
+        push_filters(&mut qb, &filter, false);
         assert_eq!(qb.sql().as_str(), "");
     }
 
@@ -2056,6 +2111,160 @@ mod tests {
             one.listing_hash(MapScope::Listed),
             two.listing_hash(MapScope::Listed)
         );
+    }
+
+    #[test]
+    fn solo_filter_normalizes_and_hashes_only_when_set() {
+        let solo = |solo| {
+            NormalizedFilter::new(MapFilter {
+                solo,
+                ..Default::default()
+            })
+            .unwrap()
+        };
+        let any = NormalizedFilter::new(MapFilter::default()).unwrap();
+        assert_eq!(solo(None), any);
+        assert_eq!(solo(Some(true)).solo, Some(true));
+        assert_eq!(solo(Some(false)).solo, Some(false));
+
+        // A filter without it serializes without the field, so the hash of a listing that doesn't
+        // set it (and every cursor it handed out) depends only on the other filters
+        assert_eq!(
+            serde_json::to_string(&any).unwrap(),
+            r#"{"search":null,"lens":"All","players":[],"min_players":null,"sizes":[],"tilesets":[],"eud":"Any","published_since":null,"staff_pick":null,"owner":null,"verified":null}"#
+        );
+        let hashes =
+            [None, Some(true), Some(false)].map(|s| solo(s).listing_hash(MapScope::Listed));
+        assert_eq!(hashes[0], any.listing_hash(MapScope::Listed));
+        assert_ne!(hashes[0], hashes[1]);
+        assert_ne!(hashes[0], hashes[2]);
+        assert_ne!(hashes[1], hashes[2]);
+    }
+
+    #[test]
+    fn solo_filter_reads_the_stats_of_what_is_listed() {
+        let family_solo_players = family_stat!("solo_players_28d");
+        for (scope, players) in [
+            (MapScope::Listed, family_solo_players),
+            (MapScope::Favorites(SbUserId(1)), family_solo_players),
+            (COLLECTION, family_solo_players),
+            (
+                MapScope::Library(SbUserId(1)),
+                "COALESCE(s.solo_players_28d, 0)",
+            ),
+        ] {
+            for (solo, negation) in [(true, " AND "), (false, " AND NOT ")] {
+                let request = MapListingRequest::new(
+                    scope,
+                    Some(MapFilter {
+                        solo: Some(solo),
+                        ..Default::default()
+                    }),
+                    None,
+                    None,
+                    None,
+                )
+                .unwrap();
+                let sql = request.build_query().sql().as_str().to_string();
+                let condition = format!("{negation}(m.player_count = 1 OR {players} >= $");
+                assert!(sql.contains(&condition), "{scope:?} {solo}: {sql}");
+                let count = request.build_count_query().sql().as_str().to_string();
+                assert!(count.contains(&condition), "{scope:?} {solo}: {count}");
+            }
+        }
+
+        for (families, players) in [
+            (true, family_solo_players),
+            (false, "COALESCE(s.solo_players_28d, 0)"),
+        ] {
+            let filter = NormalizedFilter::new(MapFilter {
+                solo: Some(true),
+                ..Default::default()
+            })
+            .unwrap();
+            let mut qb = QueryBuilder::<Postgres>::new("");
+            push_filters(&mut qb, &filter, families);
+            assert_eq!(
+                qb.sql().as_str(),
+                format!(" AND (m.player_count = 1 OR {players} >= $1)")
+            );
+        }
+
+        let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
+        for families in [true, false] {
+            let mut qb = QueryBuilder::<Postgres>::new("");
+            push_filters(&mut qb, &filter, families);
+            assert_eq!(qb.sql().as_str(), "");
+        }
+    }
+
+    #[test]
+    fn popular_together_reads_solo_games_in_every_scope() {
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+            COLLECTION,
+        ] {
+            let request =
+                MapListingRequest::new(scope, None, Some(MapSort::PopularTogether28d), None, None)
+                    .unwrap();
+            let sql = request.build_query().sql().as_str().to_string();
+            assert!(sql.contains(" AS sort_solo_games_28d"), "{scope:?}: {sql}");
+            assert!(sql.contains(" ORDER BY k0, k1, k2, k3"), "{scope:?}: {sql}");
+        }
+        assert!(FAMILY_SORT_COLUMNS.contains(concat!(
+            family_stat!("solo_games_28d"),
+            " AS sort_solo_games_28d"
+        )));
+        assert!(MAP_SORT_COLUMNS.contains("COALESCE(s.solo_games_28d, 0) AS sort_solo_games_28d"));
+    }
+
+    #[test]
+    fn popular_together_cursor_round_trips() {
+        let filter = NormalizedFilter::new(MapFilter {
+            solo: Some(false),
+            ..Default::default()
+        })
+        .unwrap();
+        for scope in [MapScope::Listed, COLLECTION] {
+            let cursor = sample_cursor(MapSort::PopularTogether28d, &filter, scope);
+            let encoded = OpaqueCursor(cursor.clone()).encode_cursor();
+            let decoded = OpaqueCursor::<MapCursor>::decode_cursor(&encoded).unwrap();
+            assert_eq!(decoded.0, cursor);
+
+            let request = |filter: Option<MapFilter>, sort| {
+                MapListingRequest::new(scope, filter, sort, Some(&encoded), Some(3))
+            };
+            let solo = || {
+                Some(MapFilter {
+                    solo: Some(false),
+                    ..Default::default()
+                })
+            };
+            let bound = request(solo(), Some(MapSort::PopularTogether28d))
+                .unwrap()
+                .after
+                .unwrap();
+            assert_eq!(
+                bound,
+                [
+                    BoundKey::Int(-42),
+                    BoundKey::Int(-42),
+                    BoundKey::Text("lost temple".into()),
+                    BoundKey::Uuid(Uuid::nil()),
+                ]
+            );
+            // The cursor names its sort, so it doesn't continue a listing in any other one
+            assert_eq!(
+                request(solo(), Some(MapSort::Popular28d)).map(|_| ()),
+                Err(MapListingError::CursorMismatch)
+            );
+            assert_eq!(
+                request(None, Some(MapSort::PopularTogether28d)).map(|_| ()),
+                Err(MapListingError::CursorMismatch)
+            );
+        }
     }
 
     #[test]

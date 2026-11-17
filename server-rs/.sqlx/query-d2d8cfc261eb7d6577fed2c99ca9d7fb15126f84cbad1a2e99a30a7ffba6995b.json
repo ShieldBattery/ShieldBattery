@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT family_id, games_7d, games_28d, games_90d, games_total, players_90d,\n                    median_length_90d, last_played_at, trending_score\n                FROM map_family_stats\n                WHERE family_id = ANY($1)\n            ",
+  "query": "\n                SELECT family_id, games_7d, games_28d, games_90d, games_total, players_90d,\n                    median_length_90d, last_played_at, trending_score, solo_games_28d,\n                    solo_players_28d, party_size_90d\n                FROM map_family_stats\n                WHERE family_id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -101,6 +101,39 @@
             "name": "trending_score"
           }
         }
+      },
+      {
+        "ordinal": 9,
+        "name": "solo_games_28d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "solo_games_28d"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "solo_players_28d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "solo_players_28d"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "party_size_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_stats",
+            "name": "party_size_90d"
+          }
+        }
       }
     ],
     "parameters": {
@@ -117,8 +150,11 @@
       false,
       true,
       false,
-      false
+      false,
+      false,
+      false,
+      true
     ]
   },
-  "hash": "61ffb53946bce22ba562d41701333169fef0f4009e2ae0cc0eaf0ae0d2fafc1e"
+  "hash": "d2d8cfc261eb7d6577fed2c99ca9d7fb15126f84cbad1a2e99a30a7ffba6995b"
 }

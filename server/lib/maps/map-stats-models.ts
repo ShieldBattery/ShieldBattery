@@ -14,6 +14,12 @@ const REFRESHED_DAYS = 7
 const MIN_DECIDED_GAME_LENGTH_MS = 2 * 60 * 1000
 
 /**
+ * The fewest games with two or more humans in the last 90 days that a map needs before it gets a
+ * usual party size. With fewer, one odd game would decide it.
+ */
+const MIN_PARTY_GAMES = 5
+
+/**
  * Matches games (aliased `g`) that were actually played on their map. Games without results
  * requirements (against computers, or with a single player) never receive results, so for those
  * not being canceled is the only signal available.
@@ -22,6 +28,43 @@ const PLAYED_GAME = sql`
   g.canceled_at IS NULL AND (
     jsonb_typeof(g.results) = 'array' OR (g.config->>'resultsExempt')::boolean IS TRUE
   )
+`
+
+/**
+ * The number of humans (its `games_users` rows; computers and observers have none) in a game
+ * (aliased `g`) of the last 90 days, NULL for older games. Every stat that reads it covers 90 days
+ * at most, and leaving older games out keeps a full-history snapshot from counting the players of
+ * every game ever played.
+ */
+function gameHumans(asOf: Date) {
+  return sql`
+    CASE WHEN g.start_time >= ${asOf}::timestamptz - interval '90 days' THEN
+      (SELECT count(*) FROM games_users WHERE game_id = g.id)
+    END
+  `
+}
+
+/**
+ * The median game length over the last 90 days of the rows of `played` (aliased `p`, with
+ * `results_exempt` and `kind`). On a melee file, games without results requirements (against
+ * computers, or with a single player) are left out: there a game against computers is practice and
+ * often ends early, so it would skew the length of the games between people. On a UMS file playing
+ * against the computer is the game, so every game with a known length counts.
+ */
+const MEDIAN_LENGTH_90D = sql`
+  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
+    FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL AND
+      (p.kind = 'ums' OR NOT p.results_exempt)))
+`
+
+/**
+ * The median number of humans in the games of the last 90 days with two or more, of the rows of
+ * `played` (aliased `p`). NULL when fewer than `MIN_PARTY_GAMES` such games.
+ */
+const PARTY_SIZE_90D = sql`
+  CASE WHEN count(*) FILTER (WHERE p.in_90d AND p.humans >= 2) >= ${MIN_PARTY_GAMES}::integer THEN
+    percentile_disc(0.5) WITHIN GROUP (ORDER BY p.humans) FILTER (WHERE p.in_90d AND p.humans >= 2)
+  END
 `
 
 export interface MapStatsRefreshResult {
@@ -77,9 +120,11 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
   await client.query(sql`DELETE FROM map_stats`)
   await client.query(sql`
     WITH played AS (
-      SELECT g.id, g.map_id, g.start_time, g.game_length,
+      SELECT g.id, g.map_id, g.start_time, g.game_length, m.kind,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
-        g.config->>'gameSource' = 'LOBBY' AS is_lobby
+        g.config->>'gameSource' = 'LOBBY' AS is_lobby,
+        (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
+        ${gameHumans(asOf)} AS humans
       FROM games g
       INNER JOIN maps m ON m.id = g.map_id
       WHERE ${PLAYED_GAME} AND g.start_time <= ${asOf}
@@ -97,10 +142,18 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       INNER JOIN games_users gu ON gu.game_id = p.id
       WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
       GROUP BY p.map_id
+    ),
+    solo_players AS (
+      SELECT p.map_id, count(DISTINCT gu.user_id) AS players
+      FROM played p
+      INNER JOIN games_users gu ON gu.game_id = p.id
+      WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'
+      GROUP BY p.map_id
     )
     INSERT INTO map_stats (
       map_id, games_7d, games_28d, games_90d, players_90d, games_total, median_length_90d,
-      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d
+      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d,
+      solo_games_28d, solo_players_28d, party_size_90d
     )
     SELECT p.map_id,
       count(*) FILTER (WHERE p.start_time >= ${asOf}::timestamptz - interval '7 days'),
@@ -108,19 +161,23 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       count(*) FILTER (WHERE p.in_90d),
       COALESCE(pl.players, 0),
       count(*),
-      round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
-        FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL)),
+      ${MEDIAN_LENGTH_90D},
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
-      COALESCE(lp.players, 0)
+      COALESCE(lp.players, 0),
+      count(*) FILTER (
+        WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
+      COALESCE(sp.players, 0),
+      ${PARTY_SIZE_90D}
     FROM played p
     LEFT JOIN players pl ON pl.map_id = p.map_id
     LEFT JOIN lobby_players lp ON lp.map_id = p.map_id
-    GROUP BY p.map_id, pl.players, lp.players
+    LEFT JOIN solo_players sp ON sp.map_id = p.map_id
+    GROUP BY p.map_id, pl.players, lp.players, sp.players
   `)
 }
 
@@ -132,14 +189,16 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
   await client.query(sql`DELETE FROM map_family_stats`)
   await client.query(sql`
     WITH families AS (
-      SELECT id AS map_id, family_id
+      SELECT id AS map_id, family_id, kind
       FROM maps
       WHERE family_id IN (SELECT family_id FROM maps GROUP BY family_id HAVING count(*) > 1)
     ),
     played AS (
-      SELECT g.id, f.family_id, g.start_time, g.game_length,
+      SELECT g.id, f.family_id, g.start_time, g.game_length, f.kind,
         g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
-        g.config->>'gameSource' = 'LOBBY' AS is_lobby
+        g.config->>'gameSource' = 'LOBBY' AS is_lobby,
+        (g.config->>'resultsExempt')::boolean IS TRUE AS results_exempt,
+        ${gameHumans(asOf)} AS humans
       FROM games g
       INNER JOIN families f ON f.map_id = g.map_id
       WHERE ${PLAYED_GAME} AND g.start_time <= ${asOf}
@@ -157,10 +216,18 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
       INNER JOIN games_users gu ON gu.game_id = p.id
       WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
       GROUP BY p.family_id
+    ),
+    solo_players AS (
+      SELECT p.family_id, count(DISTINCT gu.user_id) AS players
+      FROM played p
+      INNER JOIN games_users gu ON gu.game_id = p.id
+      WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'
+      GROUP BY p.family_id
     )
     INSERT INTO map_family_stats (
       family_id, games_7d, games_28d, games_90d, players_90d, games_total, median_length_90d,
-      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d
+      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d,
+      solo_games_28d, solo_players_28d, party_size_90d
     )
     SELECT p.family_id,
       count(*) FILTER (WHERE p.start_time >= ${asOf}::timestamptz - interval '7 days'),
@@ -168,19 +235,23 @@ async function refreshFamilyStats(client: DbClient, asOf: Date) {
       count(*) FILTER (WHERE p.in_90d),
       COALESCE(pl.players, 0),
       count(*),
-      round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
-        FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL)),
+      ${MEDIAN_LENGTH_90D},
       max(p.start_time),
       ${asOf},
       count(*) FILTER (
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
       count(*) FILTER (
         WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
-      COALESCE(lp.players, 0)
+      COALESCE(lp.players, 0),
+      count(*) FILTER (
+        WHERE p.humans = 1 AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
+      COALESCE(sp.players, 0),
+      ${PARTY_SIZE_90D}
     FROM played p
     LEFT JOIN players pl ON pl.family_id = p.family_id
     LEFT JOIN lobby_players lp ON lp.family_id = p.family_id
-    GROUP BY p.family_id, pl.players, lp.players
+    LEFT JOIN solo_players sp ON sp.family_id = p.family_id
+    GROUP BY p.family_id, pl.players, lp.players, sp.players
   `)
 }
 

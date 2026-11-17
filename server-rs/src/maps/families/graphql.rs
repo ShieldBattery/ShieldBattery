@@ -172,7 +172,8 @@ impl Loader<Uuid> for MapFamilyStatsLoader {
         let rows = sqlx::query!(
             r#"
                 SELECT family_id, games_7d, games_28d, games_90d, games_total, players_90d,
-                    median_length_90d, last_played_at, trending_score
+                    median_length_90d, last_played_at, trending_score, solo_games_28d,
+                    solo_players_28d, party_size_90d
                 FROM map_family_stats
                 WHERE family_id = ANY($1)
             "#,
@@ -196,6 +197,9 @@ impl Loader<Uuid> for MapFamilyStatsLoader {
                         median_length_90d: row.median_length_90d,
                         last_played_at: row.last_played_at,
                         trending_score: row.trending_score,
+                        solo_games_28d: row.solo_games_28d,
+                        solo_players_28d: row.solo_players_28d,
+                        party_size_90d: row.party_size_90d,
                     },
                 )
             })
