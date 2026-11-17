@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM map_family_tags WHERE family_id = $1 AND tag_id = ANY($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d3ddb7e9a6f6f99a93df2e75e1bea585be803f1e726636ac70f47f8f0b8a5b98"
+}

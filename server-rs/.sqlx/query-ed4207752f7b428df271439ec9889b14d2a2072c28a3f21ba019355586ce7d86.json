@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT count(*) as \"count!\"\n            FROM map_family_history\n            WHERE actor = $1 AND kind = 'set_tags' AND created_at > now() - interval '1 hour'\n                AND details->>'tagSource' = 'player'\n                AND NOT COALESCE((details->>'fromPublish')::boolean, false)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ed4207752f7b428df271439ec9889b14d2a2072c28a3f21ba019355586ce7d86"
+}

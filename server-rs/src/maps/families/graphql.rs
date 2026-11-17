@@ -32,6 +32,9 @@ use crate::maps::families::edit::{
 use crate::maps::families::history::{self, MapFamilyHistory};
 use crate::maps::families::owners::MapOwnerKind;
 use crate::maps::families::owners_graphql::{notify_file_move, notify_ownership_removed};
+use crate::maps::families::tags_graphql::{
+    MapTag, can_edit_tags, family_tags, viewer_locked_tag_ids,
+};
 use crate::maps::families::{resolve_family_id, resolve_map_page_id};
 use crate::maps::search::MapSearchRepo;
 use crate::maps::similarity::{self, SimilarFile};
@@ -387,6 +390,25 @@ impl MapFamily {
         #[graphql(default_with = "DEFAULT_FAMILY_POOLS")] first: i32,
     ) -> Result<Vec<MapCollection>> {
         family_ladder_pools(ctx, self.0.id, first).await
+    }
+
+    /// The map's tags, in list order. Only tags of its current file's kind count.
+    async fn tags(&self, ctx: &Context<'_>) -> Result<Vec<MapTag>> {
+        family_tags(ctx, self.0.id).await
+    }
+
+    /// The ids of the map's tags the viewer can't remove, because someone who outranks them set
+    /// them (staff over the map's maker over players). Empty when logged out, and when the viewer
+    /// can't edit the map's tags.
+    async fn locked_tag_ids(&self, ctx: &Context<'_>) -> Result<Vec<String>> {
+        viewer_locked_tag_ids(ctx, &self.0).await
+    }
+
+    /// Whether the viewer can edit the map's tags: they can manage maps, they're its maker (and
+    /// not restricted from publishing), or the map is listed and has no maker, and they've verified
+    /// their email and aren't restricted from publishing. Players' hourly limit isn't considered.
+    async fn can_edit_tags(&self, ctx: &Context<'_>) -> Result<bool> {
+        can_edit_tags(ctx, &self.0).await
     }
 
     /// Play statistics summed over every file of the map, or null if none has been played.

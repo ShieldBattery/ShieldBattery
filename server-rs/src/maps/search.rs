@@ -28,6 +28,8 @@ const FUZZY_MIN_CHARS: usize = 4;
 /// The minimum `word_similarity` for a fuzzy match.
 const FUZZY_THRESHOLD: f64 = 0.5;
 const CURSOR_VERSION: u32 = 1;
+/// The most tags one listing can filter by.
+pub const MAX_FILTER_TAGS: usize = 5;
 
 /// Which kind of maps to show.
 #[derive(Enum, Copy, Clone, Debug, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -143,6 +145,9 @@ pub struct MapFilter {
     /// Only verified maps (`true`): staff picks, and maps whose ownership staff granted. With
     /// `false`, only the other maps.
     pub verified: Option<bool>,
+    /// Only maps (families) with every one of these tags (at most 5 tag ids; an id that names no
+    /// tag is ignored). A tag only counts on a map whose current file is of the tag's kind.
+    pub tags: Option<Vec<String>>,
 }
 
 /// Which set of maps a listing pages through.
@@ -307,6 +312,9 @@ pub struct NormalizedFilter {
     staff_pick: Option<bool>,
     owner: Option<SbUserId>,
     verified: Option<bool>,
+    // Left out when empty, so cursors from listings without it keep their hash
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tags: Vec<String>,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -327,6 +335,8 @@ pub enum MapListingError {
     InvalidCursor,
     #[error("cursor does not match this query; start again without `after`")]
     CursorMismatch,
+    #[error("at most {MAX_FILTER_TAGS} tags can be filtered by")]
+    TooManyTags,
 }
 
 fn sorted_dedup<T: Ord>(values: Option<Vec<T>>) -> Vec<T> {
@@ -345,6 +355,10 @@ impl NormalizedFilter {
             Some(s) => SearchQuery::new(s),
             None => None,
         };
+        let tags = sorted_dedup(filter.tags);
+        if tags.len() > MAX_FILTER_TAGS {
+            return Err(MapListingError::TooManyTags);
+        }
         Ok(Self {
             search,
             lens: filter.lens,
@@ -357,6 +371,7 @@ impl NormalizedFilter {
             staff_pick: filter.staff_pick,
             owner: filter.owner,
             verified: filter.verified,
+            tags,
         })
     }
 
@@ -684,6 +699,18 @@ impl MapListingRequest {
 
     pub fn has_cursor(&self) -> bool {
         self.after.is_some()
+    }
+
+    /// The tag ids the listing filters by, which haven't been checked against the tag list.
+    pub fn tags(&self) -> &[String] {
+        &self.filter.tags
+    }
+
+    /// Keeps only the tag ids `keep` is true of in the listing's filter (to drop the ones naming no
+    /// tag). Cursors stay bound to the tags as requested, so a listing keeps paging while its tags
+    /// change.
+    pub fn retain_tags(&mut self, keep: impl FnMut(&String) -> bool) {
+        self.filter.tags.retain(keep);
     }
 
     fn build_query(&self) -> QueryBuilder<Postgres> {
@@ -1060,7 +1087,26 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter, publ
         qb.push(if verified { " AND " } else { " AND NOT " });
         qb.push(VERIFIED);
     }
+    // Like `owner`, read through the file's family. The tags are distinct, so a family has all of
+    // them when it matches as many of them as there are.
+    if !filter.tags.is_empty() {
+        qb.push(" AND m.family_id IN (");
+        qb.push(TAGGED_FAMILIES);
+        qb.push_bind(filter.tags.clone());
+        qb.push(") GROUP BY tft.family_id HAVING count(*) = ");
+        qb.push_bind(filter.tags.len() as i64);
+        qb.push(")");
+    }
 }
+
+/// The start of a query for the families having tags, which continues with the bound array of tag
+/// ids. A tag only counts on a family whose current file is of the tag's kind. The subquery doesn't
+/// refer to `m`, so the planner runs it once per query rather than once per row.
+const TAGGED_FAMILIES: &str = "SELECT tft.family_id FROM map_family_tags tft \
+     JOIN map_tags tt ON tt.id = tft.tag_id \
+     JOIN map_families tfam ON tfam.id = tft.family_id \
+     JOIN maps tcur ON tcur.id = tfam.current_map_id AND tcur.kind = tt.kind \
+     WHERE tft.tag_id = ANY(";
 
 /// Whether the map `m` is in is verified: it's a staff pick, or staff granted its ownership.
 const VERIFIED: &str = concat!(
@@ -1524,6 +1570,7 @@ mod tests {
                 staff_pick: Some(true),
                 owner: Some(SbUserId(1)),
                 verified: Some(true),
+                tags: Some(vec!["defense".into()]),
             },
         ] {
             let request =
@@ -1871,6 +1918,102 @@ mod tests {
                  JOIN collections fc ON fc.id = fm.collection_id AND fc.kind = 'starred'"
             ),
             "{favorites}"
+        );
+    }
+
+    #[test]
+    fn tag_filters_read_the_family_in_every_scope() {
+        let filter = MapFilter {
+            tags: Some(vec!["co-op".into(), "defense".into(), "co-op".into()]),
+            ..Default::default()
+        };
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+            COLLECTION,
+        ] {
+            let request =
+                MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
+            assert_eq!(request.tags(), ["co-op", "defense"]);
+            let sql = request.build_query().sql().as_str().to_string();
+            assert!(
+                sql.contains(&format!(" AND m.family_id IN ({TAGGED_FAMILIES}$")),
+                "{sql}"
+            );
+            assert!(
+                sql.contains(") GROUP BY tft.family_id HAVING count(*) = $"),
+                "{sql}"
+            );
+            let count = request.build_count_query().sql().as_str().to_string();
+            assert!(count.contains(TAGGED_FAMILIES), "{count}");
+        }
+
+        let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let mut qb = QueryBuilder::<Postgres>::new("");
+        push_filters(&mut qb, &filter, "m.published_at");
+        assert_eq!(qb.sql().as_str(), "");
+    }
+
+    #[test]
+    fn dropped_tags_leave_the_filter_but_not_the_cursor() {
+        let filter = MapFilter {
+            tags: Some(vec!["gone".into(), "defense".into()]),
+            ..Default::default()
+        };
+        let mut request =
+            MapListingRequest::new(MapScope::Listed, Some(filter), None, None, None).unwrap();
+        let hash = request.listing_hash.clone();
+        request.retain_tags(|id| id != "gone");
+        assert_eq!(request.tags(), ["defense"]);
+        assert_eq!(request.listing_hash, hash);
+
+        request.retain_tags(|_| false);
+        let sql = request.build_query().sql().as_str().to_string();
+        assert!(!sql.contains(TAGGED_FAMILIES), "{sql}");
+    }
+
+    #[test]
+    fn tag_filters_are_capped_and_hash_only_when_set() {
+        let tags = |n: usize| MapFilter {
+            tags: Some((0..n).map(|i| format!("t{i}")).collect()),
+            ..Default::default()
+        };
+        assert!(NormalizedFilter::new(tags(MAX_FILTER_TAGS)).is_ok());
+        assert_eq!(
+            NormalizedFilter::new(tags(MAX_FILTER_TAGS + 1)),
+            Err(MapListingError::TooManyTags)
+        );
+        // Repeats don't count toward the cap
+        let repeated = MapFilter {
+            tags: Some(vec!["a".into(); MAX_FILTER_TAGS + 1]),
+            ..Default::default()
+        };
+        assert!(NormalizedFilter::new(repeated).is_ok());
+
+        let any = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let empty = NormalizedFilter::new(MapFilter {
+            tags: Some(vec![]),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(
+            any.listing_hash(MapScope::Listed),
+            empty.listing_hash(MapScope::Listed)
+        );
+        assert!(
+            !serde_json::to_string(&any).unwrap().contains("tags"),
+            "an empty tag filter leaves the hashed filter as it was"
+        );
+        let one = NormalizedFilter::new(tags(1)).unwrap();
+        let two = NormalizedFilter::new(tags(2)).unwrap();
+        assert_ne!(
+            any.listing_hash(MapScope::Listed),
+            one.listing_hash(MapScope::Listed)
+        );
+        assert_ne!(
+            one.listing_hash(MapScope::Listed),
+            two.listing_hash(MapScope::Listed)
         );
     }
 

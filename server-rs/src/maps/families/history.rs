@@ -1,5 +1,5 @@
-//! The record of every change made to families, family reports, file listings and map owners, one
-//! entry per action.
+//! The record of every change made to families, family reports, file listings, map owners and map
+//! tags, one entry per action.
 
 use async_graphql::{Context, Enum, Object, Result};
 use chrono::{DateTime, Utc};
@@ -13,6 +13,7 @@ use crate::maps::SbMapId;
 use crate::maps::catalog::{SbMap, load_sb_map, load_user};
 use crate::maps::families::edit::MapFamilyReportStatus;
 use crate::maps::families::owners::{MapOwnerKind, RetiredOwner};
+use crate::maps::families::tags::TagSource;
 use crate::users::{SbUser, SbUserId};
 
 /// What kind of change a history entry records.
@@ -49,6 +50,8 @@ pub enum MapFamilyHistoryKind {
     RemoveOwner,
     /// Staff set or cleared the maker's name a map is credited to.
     SetCredit,
+    /// A map's tags were changed: by staff, its maker or a player, or by publishing its file.
+    SetTags,
 }
 
 impl MapFamilyHistoryKind {
@@ -69,6 +72,7 @@ impl MapFamilyHistoryKind {
             Self::SetOwner => "set_owner",
             Self::RemoveOwner => "remove_owner",
             Self::SetCredit => "set_credit",
+            Self::SetTags => "set_tags",
         }
     }
 
@@ -88,6 +92,7 @@ impl MapFamilyHistoryKind {
             "set_owner" => Self::SetOwner,
             "remove_owner" => Self::RemoveOwner,
             "set_credit" => Self::SetCredit,
+            "set_tags" => Self::SetTags,
             _ => Self::MoveFile,
         }
     }
@@ -146,6 +151,15 @@ pub struct HistoryDetails {
     /// The owner and credit of the family the change merged away, lost with it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retired_owner: Option<RetiredOwner>,
+    /// The map's tags before and after the change, in list order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Change<Vec<String>>>,
+    /// Who changed the map's tags: staff, its maker or a player.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_source: Option<TagSource>,
+    /// Whether the tags were set by publishing the map's file.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub from_publish: bool,
 }
 
 /// One change to record.
@@ -404,6 +418,16 @@ impl MapFamilyHistory {
             .and_then(|r| r.credit.as_deref())
     }
 
+    /// The map's tags before the change, in list order. Only for `SET_TAGS`.
+    async fn tags_before(&self) -> Option<&[String]> {
+        self.details.0.tags.as_ref().map(|c| c.before.as_slice())
+    }
+
+    /// The map's tags after the change, in list order. Only for `SET_TAGS`.
+    async fn tags_after(&self) -> Option<&[String]> {
+        self.details.0.tags.as_ref().map(|c| c.after.as_slice())
+    }
+
     async fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
@@ -526,7 +550,45 @@ mod tests {
         let older: HistoryDetails =
             serde_json::from_value(serde_json::json!({ "note": "spam" })).unwrap();
         assert_eq!(older.owner, None);
+        assert_eq!(older.tags, None);
+        assert!(!older.from_publish);
         assert_eq!(older.retired_owner, None);
         assert!(serde_json::to_value(&older).unwrap().get("owner").is_none());
+    }
+
+    #[test]
+    fn tag_details_round_trip() {
+        let details = HistoryDetails {
+            tags: Some(Change {
+                before: vec!["money".into()],
+                after: vec!["standard".into(), "team".into()],
+            }),
+            tag_source: Some(TagSource::Player),
+            from_publish: true,
+            ..Default::default()
+        };
+        let json = serde_json::to_value(&details).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "tags": { "before": ["money"], "after": ["standard", "team"] },
+                "tagSource": "player",
+                "fromPublish": true,
+            })
+        );
+        let back: HistoryDetails = serde_json::from_value(json).unwrap();
+        assert_eq!(back.tags, details.tags);
+        assert_eq!(back.tag_source, Some(TagSource::Player));
+        assert!(back.from_publish);
+        let edit = HistoryDetails {
+            from_publish: false,
+            ..details
+        };
+        assert!(
+            serde_json::to_value(&edit)
+                .unwrap()
+                .get("fromPublish")
+                .is_none()
+        );
     }
 }

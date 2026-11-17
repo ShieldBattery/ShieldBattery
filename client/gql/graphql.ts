@@ -188,6 +188,11 @@ export type MapFilter = {
   sizes?: Array<MapSizeClass> | null | undefined
   /** Only staff picks (`true`) or only maps that aren't staff picks (`false`). */
   staffPick?: boolean | null | undefined
+  /**
+   * Only maps (families) with every one of these tags (at most 5 tag ids; an id that names no
+   * tag is ignored). A tag only counts on a map whose current file is of the tag's kind.
+   */
+  tags?: Array<string> | null | undefined
   /** Tileset ids to include. */
   tilesets?: Array<number> | null | undefined
   /**
