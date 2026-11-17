@@ -1,23 +1,22 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT name FROM map_tags WHERE auto_rule = $1 AND id IS DISTINCT FROM $2",
+  "query": "SELECT kind FROM map_tags WHERE id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "name",
+        "name": "kind",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "map_tags",
-            "name": "name"
+            "name": "kind"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
         "Text"
       ]
     },
@@ -25,5 +24,5 @@
       false
     ]
   },
-  "hash": "26e94047d029a47ac088db53f2b872db1eedc031ede8125ee3056edc82a50be2"
+  "hash": "3b155aa91a85528434df32d4a6212d0eb05d6a399910226cccee5e62487d81bc"
 }

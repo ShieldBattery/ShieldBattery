@@ -1,23 +1,16 @@
 //! The list of map tags (`map_tags`), which staff manage: creating, renaming, translating, ordering
-//! and deleting tags, and giving melee tags an [`AutoRule`]. What a map's tags are, and who may set
-//! them, is [`super::tags`].
+//! and deleting tags. What a map's tags are, and who may set them, is [`super::tags`].
 //!
 //! A tag's id is made from its English name when it's created and never changes, so links and
 //! history keep working after a rename; its kind never changes either. Names are unique, and tags
 //! ordered, within each kind. Deleting a tag takes it off every map without recording it in their
 //! history.
-//!
-//! The database gives a tag with a rule to the maps the rule holds for, as `derived` rows (see
-//! `refresh_map_family_derived_tags`). Every change of which tag has a rule refreshes the derived
-//! tags of every map before it commits, so the change shows at once.
 
 use std::collections::{BTreeMap, HashSet};
 
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::types::Json;
 use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
-
-use crate::maps::families::lock_families;
 
 /// The most characters a tag name can have, in any language.
 pub const MAX_TAG_NAME_CHARS: usize = 24;
@@ -46,10 +39,6 @@ pub enum TagListError {
     TooManyNames,
     #[error("the order must list every tag of the kind exactly once")]
     BadOrder,
-    #[error("only melee tags can be given automatically")]
-    RuleNotMelee,
-    #[error("another tag (\"{0}\") already has this rule")]
-    RuleTaken(String),
     #[error(transparent)]
     Other(#[from] eyre::Report),
 }
@@ -71,38 +60,10 @@ impl TagListError {
             | Self::EnglishLocale
             | Self::RepeatedLocale(_)
             | Self::TooManyNames
-            | Self::BadOrder
-            | Self::RuleNotMelee => "BAD_REQUEST",
+            | Self::BadOrder => "BAD_REQUEST",
             Self::NameTaken(_) => "NAME_TAKEN",
-            Self::RuleTaken(_) => "RULE_TAKEN",
             Self::Other(_) => return None,
         })
-    }
-}
-
-/// A rule by which a melee tag is given to maps automatically, from their files. At most one tag
-/// has each rule.
-#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq)]
-#[graphql(name = "MapTagAutoRule")]
-pub enum AutoRule {
-    /// Maps whose current file is a melee map averaging more than 5,000 minerals per mineral field.
-    RichMinerals,
-}
-
-impl AutoRule {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::RichMinerals => "rich_minerals",
-        }
-    }
-
-    /// The rule stored as `rule` in `map_tags.auto_rule`. `None` for anything else, which the
-    /// table's check refuses.
-    pub fn from_db(rule: &str) -> Option<Self> {
-        match rule {
-            "rich_minerals" => Some(Self::RichMinerals),
-            _ => None,
-        }
     }
 }
 
@@ -116,7 +77,6 @@ pub struct TagRecord {
     pub name: String,
     /// The names in other languages, by locale code.
     pub names: BTreeMap<String, String>,
-    pub auto_rule: Option<AutoRule>,
 }
 
 /// A `map_tags` row as the queries here return it.
@@ -125,7 +85,6 @@ struct TagRow {
     kind: String,
     name: String,
     names: Json<BTreeMap<String, String>>,
-    auto_rule: Option<String>,
 }
 
 impl From<TagRow> for TagRecord {
@@ -135,7 +94,6 @@ impl From<TagRow> for TagRecord {
             kind: row.kind,
             name: row.name,
             names: row.names.0,
-            auto_rule: row.auto_rule.as_deref().and_then(AutoRule::from_db),
         }
     }
 }
@@ -145,7 +103,7 @@ pub async fn load_tag_list<'e>(db: impl PgExecutor<'e>) -> eyre::Result<Vec<TagR
     let rows = sqlx::query_as!(
         TagRow,
         r#"
-            SELECT id, kind, name, names as "names: Json<BTreeMap<String, String>>", auto_rule
+            SELECT id, kind, name, names as "names: Json<BTreeMap<String, String>>"
             FROM map_tags
             ORDER BY CASE kind WHEN 'melee' THEN 0 ELSE 1 END, position
         "#,
@@ -280,12 +238,8 @@ fn check_order(ids: &[String], order: &[String]) -> Result<(), TagListError> {
 }
 
 /// Takes the lock every change to the tag list holds until it commits, so they happen one at a
-/// time: a new tag's id and position, and the checks that a name and a rule are free, rely on it.
-/// Reading tags and setting maps' tags don't wait for it.
-///
-/// A change that refreshes maps' derived tags takes the families lock after this one and before it
-/// changes any row: transactions holding the families lock never wait for this lock, but they do
-/// wait for the row lock of a tag being changed or deleted.
+/// time: a new tag's id and position, and the check that a name is free, rely on it. Reading tags
+/// and setting maps' tags don't wait for it.
 async fn lock_tag_list(tx: &mut Transaction<'_, Postgres>) -> eyre::Result<()> {
     sqlx::query("LOCK TABLE map_tags IN SHARE ROW EXCLUSIVE MODE")
         .execute(&mut **tx)
@@ -323,45 +277,13 @@ async fn check_name_free(
     }
 }
 
-/// Fails with [`TagListError::RuleTaken`] if a tag other than `except` has `rule`.
-async fn check_rule_free(
-    tx: &mut Transaction<'_, Postgres>,
-    rule: AutoRule,
-    except: Option<&str>,
-) -> Result<(), TagListError> {
-    let holder = sqlx::query_scalar!(
-        "SELECT name FROM map_tags WHERE auto_rule = $1 AND id IS DISTINCT FROM $2",
-        rule.as_str(),
-        except,
-    )
-    .fetch_optional(&mut **tx)
-    .await
-    .wrap_err("Failed to check the tag rule")?;
-    match holder {
-        Some(name) => Err(TagListError::RuleTaken(name)),
-        None => Ok(()),
-    }
-}
-
-/// Makes the derived tags of every map match which tags have rules. The families lock must be held
-/// already (see [`lock_tag_list`]).
-async fn refresh_all_derived_tags(tx: &mut Transaction<'_, Postgres>) -> eyre::Result<()> {
-    sqlx::query!("SELECT refresh_map_family_derived_tags(ARRAY(SELECT id FROM map_families))")
-        .execute(&mut **tx)
-        .await
-        .wrap_err("Failed to refresh the maps' derived tags")?;
-    Ok(())
-}
-
 /// Adds a tag of `kind` (`melee` or `ums`) at the end of its kind's tags, with the English name
-/// `name`, the names in other languages `names` (locale code, name) and the rule `auto_rule`, which
-/// only a melee tag can have.
+/// `name` and the names in other languages `names` (locale code, name).
 pub async fn create(
     db: &PgPool,
     name: &str,
     kind: &str,
     names: impl IntoIterator<Item = (String, String)>,
-    auto_rule: Option<AutoRule>,
 ) -> Result<TagRecord, TagListError> {
     let name = clean_name(name)?;
     let names = clean_names(names)?;
@@ -369,16 +291,9 @@ pub async fn create(
     if base.is_empty() {
         return Err(TagListError::NoIdInName);
     }
-    if auto_rule.is_some() && kind != "melee" {
-        return Err(TagListError::RuleNotMelee);
-    }
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_tag_list(&mut tx).await?;
     check_name_free(&mut tx, &name, kind, None).await?;
-    if let Some(rule) = auto_rule {
-        check_rule_free(&mut tx, rule, None).await?;
-        lock_families(&mut tx).await?;
-    }
     let taken: HashSet<String> = sqlx::query_scalar!("SELECT id FROM map_tags")
         .fetch_all(&mut *tx)
         .await
@@ -389,83 +304,59 @@ pub async fn create(
     let tag = sqlx::query_as!(
         TagRow,
         r#"
-            INSERT INTO map_tags (id, kind, position, name, names, auto_rule)
-            SELECT $1, $2, COALESCE(max(position) + 1, 0), $3, $4, $5
+            INSERT INTO map_tags (id, kind, position, name, names)
+            SELECT $1, $2, COALESCE(max(position) + 1, 0), $3, $4
             FROM map_tags
             WHERE kind = $2
-            RETURNING id, kind, name, names as "names: Json<BTreeMap<String, String>>", auto_rule
+            RETURNING id, kind, name, names as "names: Json<BTreeMap<String, String>>"
         "#,
         id,
         kind,
         name,
         Json(&names) as _,
-        auto_rule.map(AutoRule::as_str),
     )
     .fetch_one(&mut *tx)
     .await
     .wrap_err("Failed to create the tag")?;
-    if auto_rule.is_some() {
-        refresh_all_derived_tags(&mut tx).await?;
-    }
     tx.commit().await.wrap_err("Failed to commit the new tag")?;
     Ok(tag.into())
 }
 
-/// Changes the tag `id`: `name`, when given, becomes its English name, `names`, when given,
-/// replaces all its names in other languages (locale code, name), and `auto_rule`, when given,
-/// becomes its rule (`None` for none), which only a melee tag can have.
+/// Changes the tag `id`: `name`, when given, becomes its English name, and `names`, when given,
+/// replaces all its names in other languages (locale code, name).
 pub async fn update(
     db: &PgPool,
     id: &str,
     name: Option<&str>,
     names: Option<Vec<(String, String)>>,
-    auto_rule: Option<Option<AutoRule>>,
 ) -> Result<TagRecord, TagListError> {
     let name = name.map(clean_name).transpose()?;
     let names = names.map(clean_names).transpose()?;
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_tag_list(&mut tx).await?;
-    let current = sqlx::query!("SELECT kind, auto_rule FROM map_tags WHERE id = $1", id)
+    let kind = sqlx::query_scalar!("SELECT kind FROM map_tags WHERE id = $1", id)
         .fetch_optional(&mut *tx)
         .await
         .wrap_err("Failed to look up the tag")?
         .ok_or(TagListError::NotFound)?;
     if let Some(name) = &name {
-        check_name_free(&mut tx, name, &current.kind, Some(id)).await?;
-    }
-    let current_rule = current.auto_rule.as_deref().and_then(AutoRule::from_db);
-    let rule_change = auto_rule.filter(|rule| *rule != current_rule);
-    if let Some(new_rule) = rule_change {
-        if let Some(rule) = new_rule {
-            if current.kind != "melee" {
-                return Err(TagListError::RuleNotMelee);
-            }
-            check_rule_free(&mut tx, rule, Some(id)).await?;
-        }
-        lock_families(&mut tx).await?;
+        check_name_free(&mut tx, name, &kind, Some(id)).await?;
     }
     let tag = sqlx::query_as!(
         TagRow,
         r#"
             UPDATE map_tags
-            SET name = COALESCE($2, name), names = COALESCE($3, names),
-                auto_rule = CASE WHEN $4::boolean THEN $5::text ELSE auto_rule END,
-                updated_at = now()
+            SET name = COALESCE($2, name), names = COALESCE($3, names), updated_at = now()
             WHERE id = $1
-            RETURNING id, kind, name, names as "names: Json<BTreeMap<String, String>>", auto_rule
+            RETURNING id, kind, name, names as "names: Json<BTreeMap<String, String>>"
         "#,
         id,
         name,
         names.as_ref().map(Json) as _,
-        rule_change.is_some(),
-        rule_change.flatten().map(AutoRule::as_str),
     )
     .fetch_one(&mut *tx)
     .await
     .wrap_err("Failed to update the tag")?;
-    if rule_change.is_some() {
-        refresh_all_derived_tags(&mut tx).await?;
-    }
     tx.commit()
         .await
         .wrap_err("Failed to commit the tag update")?;
@@ -512,21 +403,13 @@ pub async fn set_order(
 pub async fn delete(db: &PgPool, id: &str) -> Result<(), TagListError> {
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
     lock_tag_list(&mut tx).await?;
-    let has_rule = sqlx::query_scalar!("SELECT auto_rule FROM map_tags WHERE id = $1", id)
-        .fetch_optional(&mut *tx)
-        .await
-        .wrap_err("Failed to look up the tag")?
-        .ok_or(TagListError::NotFound)?
-        .is_some();
-    if has_rule {
-        lock_families(&mut tx).await?;
-    }
-    sqlx::query!("DELETE FROM map_tags WHERE id = $1", id)
+    let deleted = sqlx::query!("DELETE FROM map_tags WHERE id = $1", id)
         .execute(&mut *tx)
         .await
-        .wrap_err("Failed to delete the tag")?;
-    if has_rule {
-        refresh_all_derived_tags(&mut tx).await?;
+        .wrap_err("Failed to delete the tag")?
+        .rows_affected();
+    if deleted == 0 {
+        return Err(TagListError::NotFound);
     }
     tx.commit()
         .await
@@ -673,13 +556,6 @@ mod tests {
             Ok(n) if n.len() == MAX_TAG_NAMES
         ));
         assert!(matches!(clean_names(many), Err(TagListError::TooManyNames)));
-    }
-
-    #[test]
-    fn rules_round_trip() {
-        let rule = AutoRule::RichMinerals;
-        assert_eq!(AutoRule::from_db(rule.as_str()), Some(rule));
-        assert_eq!(AutoRule::from_db("money"), None);
     }
 
     #[test]

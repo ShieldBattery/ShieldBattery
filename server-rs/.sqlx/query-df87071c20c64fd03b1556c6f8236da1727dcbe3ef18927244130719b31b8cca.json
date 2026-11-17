@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE map_tags\n            SET name = COALESCE($2, name), names = COALESCE($3, names),\n                auto_rule = CASE WHEN $4::boolean THEN $5::text ELSE auto_rule END,\n                updated_at = now()\n            WHERE id = $1\n            RETURNING id, kind, name, names as \"names: Json<BTreeMap<String, String>>\", auto_rule\n        ",
+  "query": "\n            SELECT id, kind, name, names as \"names: Json<BTreeMap<String, String>>\"\n            FROM map_tags\n            ORDER BY CASE kind WHEN 'melee' THEN 0 ELSE 1 END, position\n        ",
   "describe": {
     "columns": [
       {
@@ -46,35 +46,17 @@
             "name": "names"
           }
         }
-      },
-      {
-        "ordinal": 4,
-        "name": "auto_rule",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "map_tags",
-            "name": "auto_rule"
-          }
-        }
       }
     ],
     "parameters": {
-      "Left": [
-        "Text",
-        "Text",
-        "Jsonb",
-        "Bool",
-        "Text"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
       false,
       false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "8286da7e9495f2c867eb2129e7e37a40e09b19a5fe2015ae641df85e71a13d50"
+  "hash": "df87071c20c64fd03b1556c6f8236da1727dcbe3ef18927244130719b31b8cca"
 }

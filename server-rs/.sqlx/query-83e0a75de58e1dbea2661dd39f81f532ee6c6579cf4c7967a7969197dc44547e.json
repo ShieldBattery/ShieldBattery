@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO map_tags (id, kind, position, name, names, auto_rule)\n            SELECT $1, $2, COALESCE(max(position) + 1, 0), $3, $4, $5\n            FROM map_tags\n            WHERE kind = $2\n            RETURNING id, kind, name, names as \"names: Json<BTreeMap<String, String>>\", auto_rule\n        ",
+  "query": "\n            INSERT INTO map_tags (id, kind, position, name, names)\n            SELECT $1, $2, COALESCE(max(position) + 1, 0), $3, $4\n            FROM map_tags\n            WHERE kind = $2\n            RETURNING id, kind, name, names as \"names: Json<BTreeMap<String, String>>\"\n        ",
   "describe": {
     "columns": [
       {
@@ -46,17 +46,6 @@
             "name": "names"
           }
         }
-      },
-      {
-        "ordinal": 4,
-        "name": "auto_rule",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "map_tags",
-            "name": "auto_rule"
-          }
-        }
       }
     ],
     "parameters": {
@@ -64,17 +53,15 @@
         "Text",
         "Text",
         "Text",
-        "Jsonb",
-        "Text"
+        "Jsonb"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "339f20889a44af397abe92fe30634a0e09fd0048b1f9d3715784e415030b74b6"
+  "hash": "83e0a75de58e1dbea2661dd39f81f532ee6c6579cf4c7967a7969197dc44547e"
 }

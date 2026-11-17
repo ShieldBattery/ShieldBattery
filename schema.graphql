@@ -2156,10 +2156,6 @@ type MapTag {
 	"""
 	names: [MapTagName!]!
 	"""
-	The rule by which the server gives the tag to maps whose tags nobody has edited, if any.
-	"""
-	autoRule: MapTagAutoRule
-	"""
 	How many listed maps have the tag.
 	"""
 	mapCount: Int!
@@ -2168,17 +2164,6 @@ type MapTag {
 	file: the maps deleting the tag would take it off.
 	"""
 	usageCount: Int!
-}
-
-"""
-A rule by which a melee tag is given to maps automatically, from their files. At most one tag
-has each rule.
-"""
-enum MapTagAutoRule {
-	"""
-	Maps whose current file is a melee map averaging more than 5,000 minerals per mineral field.
-	"""
-	RICH_MINERALS
 }
 
 """
@@ -2582,30 +2567,25 @@ type Mutation {
 	"""
 	mapFamilySetTags(mapId: SbMapId!, tags: [String!]!): MapFamily!
 	"""
-	Adds a tag of `kind` at the end of that kind's tags, with the English name `name`, the names
-	in other languages `names` and the rule `autoRule`. Names are trimmed, and must be 1 to 24
-	characters without control characters (`BAD_REQUEST`); a name in another language left empty
-	is dropped. No other tag of the kind may have the same English name, ignoring case
-	(`NAME_TAKEN`). A locale code that doesn't look like one, `en`, a locale given twice or more
-	than 20 of them is `BAD_REQUEST`. The tag's id is made from its English name: lowercase,
-	every run of characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at
-	either end, at most 32 characters, and `-2`, `-3`, ... added when another tag of either kind
-	has it. A name without any of those characters is `BAD_REQUEST`.
-	
-	Only a melee tag can have a rule (`BAD_REQUEST`), and no other tag may have the same rule
-	(`RULE_TAKEN`). A tag created with a rule is given at once to the maps whose tags nobody has
-	edited and that the rule holds for. Only available to users who can manage maps.
+	Adds a tag of `kind` at the end of that kind's tags, with the English name `name` and the
+	names in other languages `names`. Names are trimmed, and must be 1 to 24 characters without
+	control characters (`BAD_REQUEST`); a name in another language left empty is dropped. No
+	other tag of the kind may have the same English name, ignoring case (`NAME_TAKEN`). A locale
+	code that doesn't look like one, `en`, a locale given twice or more than 20 of them is
+	`BAD_REQUEST`. The tag's id is made from its English name: lowercase, every run of
+	characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at either end, at
+	most 32 characters, and `-2`, `-3`, ... added when another tag of either kind has it. A name
+	without any of those characters is `BAD_REQUEST`. Only available to users who can manage
+	maps.
 	"""
-	mapTagCreate(name: String!, kind: MapKind!, names: [MapTagNameInput!], autoRule: MapTagAutoRule): MapTag!
+	mapTagCreate(name: String!, kind: MapKind!, names: [MapTagNameInput!]): MapTag!
 	"""
 	Changes a tag (`NOT_FOUND` if there's none with the id): `name`, when given, becomes its
-	English name, `names`, when given, replaces all its names in other languages, and
-	`autoRule`, when given, becomes its rule (`null` for none), by the rules of `mapTagCreate`.
-	Its id and kind never change. Changing the rule takes the tag off the maps it was derived
-	for and gives it to the maps the new rule holds for, among the maps whose tags nobody has
-	edited. Only available to users who can manage maps.
+	English name, and `names`, when given, replaces all its names in other languages, by the
+	rules of `mapTagCreate`. Its id and kind never change. Only available to users who can
+	manage maps.
 	"""
-	mapTagUpdate(id: String!, name: String, names: [MapTagNameInput!], autoRule: MapTagAutoRule): MapTag!
+	mapTagUpdate(id: String!, name: String, names: [MapTagNameInput!]): MapTag!
 	"""
 	Puts the tags of `kind` in the order of `ids`, which must list every tag of that kind
 	exactly once (`BAD_REQUEST`). The other kind's order is kept. Returns every tag, in list

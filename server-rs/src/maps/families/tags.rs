@@ -4,11 +4,9 @@
 //! everywhere, and the map's next tag edit removes them.
 //!
 //! Who set a tag decides who may take it off again: staff outrank the map's maker (its owner), who
-//! outranks players, who outrank tags derived from the map's files (by the database function
-//! `refresh_map_family_derived_tags`, which keeps them up to date until someone edits the map's
-//! tags). Players may edit the tags of a listed map that has no maker, if they could publish maps,
-//! and only so often. A file's publisher may also set its map's tags while publishing it, when the
-//! file is the map's only file.
+//! outranks players. Players may edit the tags of a listed map that has no maker, if they could
+//! publish maps, and only so often. A file's publisher may also set its map's tags while publishing
+//! it, when the file is the map's only file.
 //!
 //! Like every other family change, a tag edit takes the families lock before touching anything and
 //! records one history entry.
@@ -38,8 +36,6 @@ pub const MAX_PLAYER_TAG_EDITS_PER_HOUR: i64 = 30;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TagSource {
-    /// Derived from the map's files.
-    Derived,
     /// A player, while the map had no maker.
     Player,
     /// The map's maker (its owner).
@@ -51,10 +47,9 @@ pub enum TagSource {
 impl TagSource {
     fn rank(self) -> u8 {
         match self {
-            Self::Derived => 0,
-            Self::Player => 1,
-            Self::Maker => 2,
-            Self::Staff => 3,
+            Self::Player => 0,
+            Self::Maker => 1,
+            Self::Staff => 2,
         }
     }
 
@@ -65,19 +60,20 @@ impl TagSource {
 
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Derived => "derived",
             Self::Player => "player",
             Self::Maker => "maker",
             Self::Staff => "staff",
         }
     }
 
-    pub fn from_db(source: &str) -> Self {
+    /// The source stored as `source` in `map_family_tags.source`. Fails for anything else, which the
+    /// table's check refuses.
+    pub fn from_db(source: &str) -> eyre::Result<Self> {
         match source {
-            "player" => Self::Player,
-            "maker" => Self::Maker,
-            "staff" => Self::Staff,
-            _ => Self::Derived,
+            "player" => Ok(Self::Player),
+            "maker" => Ok(Self::Maker),
+            "staff" => Ok(Self::Staff),
+            _ => Err(eyre::eyre!("unknown map tag source {source:?}")),
         }
     }
 }
@@ -345,14 +341,15 @@ async fn load_rows(conn: &mut PgConnection, family_id: Uuid) -> eyre::Result<Vec
     .fetch_all(&mut *conn)
     .await
     .wrap_err("Failed to load the map's tags")?;
-    Ok(rows
-        .into_iter()
-        .map(|row| TagRow {
-            tag_id: row.tag_id,
-            source: TagSource::from_db(&row.source),
-            applies: row.applies,
+    rows.into_iter()
+        .map(|row| {
+            Ok(TagRow {
+                tag_id: row.tag_id,
+                source: TagSource::from_db(&row.source)?,
+                applies: row.applies,
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// What a tag edit changes.
@@ -438,13 +435,6 @@ async fn write(
     .execute(&mut **tx)
     .await
     .wrap_err("Failed to add the map's tags")?;
-    sqlx::query!(
-        "UPDATE map_families SET tags_edited_at = now(), updated_at = now() WHERE id = $1",
-        family_id,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to mark the map's tags edited")?;
     history::record(
         tx,
         HistoryEntry {
@@ -576,14 +566,12 @@ pub(crate) async fn check_at_publish(
         load_editor(tx, actor).await?
     };
     let source = editor_source(staff, owner_id, false, actor, &editor, true)?;
-    // Derived rows never lock anything, so refreshing them before applying can't change this
     plan(&load_rows(tx, family_id).await?, requested, source)?;
     Ok(source)
 }
 
 /// Makes `requested` the tags of `family_id` on behalf of `actor` publishing its only file, editing
-/// as `source` (from [`check_at_publish`]). Its derived tags are brought up to date first, so a set
-/// matching them changes nothing.
+/// as `source` (from [`check_at_publish`]). A set equal to the map's current tags changes nothing.
 pub(crate) async fn apply_at_publish(
     tx: &mut Transaction<'_, Postgres>,
     family_id: Uuid,
@@ -591,13 +579,6 @@ pub(crate) async fn apply_at_publish(
     source: TagSource,
     actor: SbUserId,
 ) -> Result<(), TagError> {
-    sqlx::query!(
-        "SELECT refresh_map_family_derived_tags(ARRAY[$1]::uuid[])",
-        family_id,
-    )
-    .execute(&mut **tx)
-    .await
-    .wrap_err("Failed to refresh the map's derived tags")?;
     let rows = load_rows(tx, family_id).await?;
     if let Some(plan) = plan(&rows, requested, source)? {
         write(tx, family_id, plan, source, actor, true).await?;
@@ -634,19 +615,18 @@ mod tests {
 
     #[test]
     fn sources_round_trip_and_rank() {
-        for source in [
-            TagSource::Derived,
-            TagSource::Player,
-            TagSource::Maker,
-            TagSource::Staff,
-        ] {
-            assert_eq!(TagSource::from_db(source.as_str()), source);
+        for source in [TagSource::Player, TagSource::Maker, TagSource::Staff] {
+            assert_eq!(TagSource::from_db(source.as_str()).unwrap(), source);
             assert!(source.outranks_or_equals(source));
-            assert!(source.outranks_or_equals(TagSource::Derived));
+            assert!(source.outranks_or_equals(TagSource::Player));
             assert!(TagSource::Staff.outranks_or_equals(source));
         }
         assert!(!TagSource::Player.outranks_or_equals(TagSource::Maker));
+        assert!(!TagSource::Player.outranks_or_equals(TagSource::Staff));
         assert!(!TagSource::Maker.outranks_or_equals(TagSource::Staff));
+        for unknown in ["admin", "", "Staff"] {
+            assert!(TagSource::from_db(unknown).is_err(), "{unknown:?}");
+        }
     }
 
     #[test]
@@ -724,7 +704,7 @@ mod tests {
     fn the_same_set_changes_nothing() {
         let rows = [
             row("defense", TagSource::Staff),
-            row("co-op", TagSource::Derived),
+            row("co-op", TagSource::Player),
         ];
         let requested = [def("defense", 4), def("co-op", 8)];
         assert_eq!(plan(&rows, &requested, TagSource::Player).unwrap(), None);
@@ -747,8 +727,7 @@ mod tests {
             (TagSource::Player, TagSource::Staff, false),
             (TagSource::Maker, TagSource::Staff, false),
             (TagSource::Player, TagSource::Player, true),
-            (TagSource::Player, TagSource::Derived, true),
-            (TagSource::Maker, TagSource::Derived, true),
+            (TagSource::Maker, TagSource::Maker, true),
             (TagSource::Maker, TagSource::Player, true),
             (TagSource::Staff, TagSource::Staff, true),
             (TagSource::Staff, TagSource::Maker, true),
@@ -799,7 +778,6 @@ mod tests {
     #[test]
     fn locked_tags_are_the_ones_a_higher_source_set() {
         let tags = [
-            ("rich-minerals", TagSource::Derived),
             ("team", TagSource::Player),
             ("island", TagSource::Maker),
             ("money", TagSource::Staff),

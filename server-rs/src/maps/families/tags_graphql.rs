@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use async_graphql::dataloader::{DataLoader, Loader};
-use async_graphql::{Context, InputObject, MaybeUndefined, Object, Result, SimpleObject};
+use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use color_eyre::eyre::WrapErr;
 use sqlx::PgPool;
 use sqlx::types::Json;
@@ -15,7 +15,7 @@ use crate::graphql::errors::graphql_error;
 use crate::maps::SbMapId;
 use crate::maps::catalog::{MapKind, is_staff, require_current_user, resolve_existing_map_id};
 use crate::maps::families::graphql::{MapFamily, MapFamilyRow, load_family};
-use crate::maps::families::tag_list::{self, AutoRule, TagListError, TagRecord};
+use crate::maps::families::tag_list::{self, TagListError, TagRecord};
 use crate::maps::families::tags::{
     self, EditorState, STAFF_EDITOR, TagError, TagSource, editor_source, locked_tag_ids,
 };
@@ -85,11 +85,6 @@ impl MapTag {
                 name: name.clone(),
             })
             .collect()
-    }
-
-    /// The rule by which the server gives the tag to maps whose tags nobody has edited, if any.
-    async fn auto_rule(&self) -> Option<AutoRule> {
-        self.0.auto_rule
     }
 
     /// How many listed maps have the tag.
@@ -236,7 +231,7 @@ impl Loader<Uuid> for MapFamilyTagsLoader {
         let rows = sqlx::query!(
             r#"
                 SELECT t.family_id, t.tag_id, mt.kind, mt.name,
-                    mt.names as "names: Json<BTreeMap<String, String>>", mt.auto_rule, t.source
+                    mt.names as "names: Json<BTreeMap<String, String>>", t.source
                 FROM map_family_tags t
                 INNER JOIN map_tags mt ON mt.id = t.tag_id
                 INNER JOIN map_families f ON f.id = t.family_id
@@ -257,9 +252,8 @@ impl Loader<Uuid> for MapFamilyTagsLoader {
                     kind: row.kind,
                     name: row.name,
                     names: row.names.0,
-                    auto_rule: row.auto_rule.as_deref().and_then(AutoRule::from_db),
                 },
-                source: TagSource::from_db(&row.source),
+                source: TagSource::from_db(&row.source)?,
             });
         }
         Ok(tags
@@ -404,19 +398,16 @@ impl MapTagsMutation {
         load_family(ctx, family_id).await
     }
 
-    /// Adds a tag of `kind` at the end of that kind's tags, with the English name `name`, the names
-    /// in other languages `names` and the rule `autoRule`. Names are trimmed, and must be 1 to 24
-    /// characters without control characters (`BAD_REQUEST`); a name in another language left empty
-    /// is dropped. No other tag of the kind may have the same English name, ignoring case
-    /// (`NAME_TAKEN`). A locale code that doesn't look like one, `en`, a locale given twice or more
-    /// than 20 of them is `BAD_REQUEST`. The tag's id is made from its English name: lowercase,
-    /// every run of characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at
-    /// either end, at most 32 characters, and `-2`, `-3`, ... added when another tag of either kind
-    /// has it. A name without any of those characters is `BAD_REQUEST`.
-    ///
-    /// Only a melee tag can have a rule (`BAD_REQUEST`), and no other tag may have the same rule
-    /// (`RULE_TAKEN`). A tag created with a rule is given at once to the maps whose tags nobody has
-    /// edited and that the rule holds for. Only available to users who can manage maps.
+    /// Adds a tag of `kind` at the end of that kind's tags, with the English name `name` and the
+    /// names in other languages `names`. Names are trimmed, and must be 1 to 24 characters without
+    /// control characters (`BAD_REQUEST`); a name in another language left empty is dropped. No
+    /// other tag of the kind may have the same English name, ignoring case (`NAME_TAKEN`). A locale
+    /// code that doesn't look like one, `en`, a locale given twice or more than 20 of them is
+    /// `BAD_REQUEST`. The tag's id is made from its English name: lowercase, every run of
+    /// characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at either end, at
+    /// most 32 characters, and `-2`, `-3`, ... added when another tag of either kind has it. A name
+    /// without any of those characters is `BAD_REQUEST`. Only available to users who can manage
+    /// maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_tag_create(
         &self,
@@ -424,7 +415,6 @@ impl MapTagsMutation {
         name: String,
         kind: MapKind,
         names: Option<Vec<MapTagNameInput>>,
-        auto_rule: Option<AutoRule>,
     ) -> Result<MapTag> {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let tag = tag_list::create(
@@ -432,7 +422,6 @@ impl MapTagsMutation {
             &name,
             kind_str(kind),
             name_pairs(names.unwrap_or_default()),
-            auto_rule,
         )
         .await
         .map_err(tag_list_error)?;
@@ -440,11 +429,9 @@ impl MapTagsMutation {
     }
 
     /// Changes a tag (`NOT_FOUND` if there's none with the id): `name`, when given, becomes its
-    /// English name, `names`, when given, replaces all its names in other languages, and
-    /// `autoRule`, when given, becomes its rule (`null` for none), by the rules of `mapTagCreate`.
-    /// Its id and kind never change. Changing the rule takes the tag off the maps it was derived
-    /// for and gives it to the maps the new rule holds for, among the maps whose tags nobody has
-    /// edited. Only available to users who can manage maps.
+    /// English name, and `names`, when given, replaces all its names in other languages, by the
+    /// rules of `mapTagCreate`. Its id and kind never change. Only available to users who can
+    /// manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_tag_update(
         &self,
@@ -452,18 +439,11 @@ impl MapTagsMutation {
         id: String,
         name: Option<String>,
         names: Option<Vec<MapTagNameInput>>,
-        auto_rule: MaybeUndefined<AutoRule>,
     ) -> Result<MapTag> {
         let db = ctx.data::<MapSearchRepo>()?.db();
-        let tag = tag_list::update(
-            db,
-            &id,
-            name.as_deref(),
-            names.map(name_pairs),
-            auto_rule.into(),
-        )
-        .await
-        .map_err(tag_list_error)?;
+        let tag = tag_list::update(db, &id, name.as_deref(), names.map(name_pairs))
+            .await
+            .map_err(tag_list_error)?;
         Ok(MapTag(tag))
     }
 
