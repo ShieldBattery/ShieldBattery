@@ -331,6 +331,29 @@ function TagFilterChip({
   )
 }
 
+/** The choice of which kind of maps to show: all of them, melee maps or UMS maps. */
+export function CatalogLensControl({
+  lens,
+  onChange,
+}: {
+  lens: MapLens
+  onChange: (lens: MapLens) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <LensControl
+      ariaLabel={t('maps.catalog.lens', 'Map type')}
+      value={lens}
+      onChange={onChange}
+      segments={[
+        { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
+        { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
+        { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
+      ]}
+    />
+  )
+}
+
 /** The row of lens, filter, sort and density controls above a listing of maps. */
 export function CatalogFilterRow({
   params,
@@ -387,16 +410,7 @@ export function CatalogFilterRow({
 
   return (
     <FilterRow>
-      <LensControl
-        ariaLabel={t('maps.catalog.lens', 'Map type')}
-        value={params.lens}
-        onChange={lens => onFiltersChange({ lens })}
-        segments={[
-          { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
-          { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
-          { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
-        ]}
-      />
+      <CatalogLensControl lens={params.lens} onChange={lens => onFiltersChange({ lens })} />
       <FilterChip label={playersLabel(params.players, t)} selected={params.players !== undefined}>
         <SelectableMenuItem
           text={t('maps.catalog.playersAny', 'Any number of players')}

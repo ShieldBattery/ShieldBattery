@@ -63,6 +63,8 @@ export enum DialogType {
   MapDownload = 'mapDownload',
   MapFamilyAction = 'mapFamilyAction',
   MapFamilyReport = 'mapFamilyReport',
+  MapFeature = 'mapFeature',
+  MapFeatureRemove = 'mapFeatureRemove',
   MapFileLink = 'mapFileLink',
   MapFileUnlink = 'mapFileUnlink',
   MapOwnerAddFile = 'mapOwnerAddFile',
@@ -446,6 +448,38 @@ type MapFileLinkDialogPayload = BaseDialogPayload<
   }
 >
 
+/** What the dialog that sets the staff pick of a week is opened with. */
+export interface MapFeatureDialogData {
+  /**
+   * What to make the staff pick of a week: the map `familyId` (given by one of its files), or a
+   * collection, with the name the dialog shows for it.
+   */
+  target:
+    | { mapId: SbMapId; familyId: string; name: string }
+    | { collectionId: string; name: string }
+  /** The week (as the instant it starts) whose pick is edited. Unset lets staff choose one. */
+  week?: string
+  /** The blurb the dialog starts out with. */
+  blurb?: string
+}
+
+type MapFeatureDialogPayload = BaseDialogPayload<typeof DialogType.MapFeature, MapFeatureDialogData>
+
+/** What the dialog confirming the removal of a week's staff pick is opened with. */
+export interface MapFeatureRemoveDialogData {
+  /** The days of the week whose pick is removed, as staff read them. */
+  weekText: string
+  /** The name of the week's pick. */
+  name: string
+  /** Removes the pick once the user confirms. */
+  onConfirm: () => void
+}
+
+type MapFeatureRemoveDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFeatureRemove,
+  MapFeatureRemoveDialogData
+>
+
 type MapFileUnlinkDialogPayload = BaseDialogPayload<
   typeof DialogType.MapFileUnlink,
   {
@@ -745,6 +779,8 @@ export type DialogPayload =
   | MapFamilyActionDialogPayload
   | MapFamilyReportDialogPayload
   | MapFileLinkDialogPayload
+  | MapFeatureDialogPayload
+  | MapFeatureRemoveDialogPayload
   | MapFileUnlinkDialogPayload
   | MapOwnerAddFileDialogPayload
   | MapOwnerClaimDialogPayload

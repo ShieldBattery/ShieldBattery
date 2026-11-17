@@ -22,6 +22,7 @@ import { IsolatedReduxProvider } from '../../lobbies/devonly/isolated-redux'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { bodySmall, titleMedium } from '../../styles/typography'
 import { ClaimRow, ClaimRowData, ClaimsTableFrame } from '../admin-map-reports'
+import { MapByline, MapBylineProps } from '../map-byline'
 import { MapFileImage_FileFragment } from '../map-image'
 import {
   AddFileBusy,
@@ -32,7 +33,6 @@ import {
   MapOwnerClaimDialog,
   MapOwnerEditDialog,
 } from '../map-owner-dialogs'
-import { MapByline, MapBylineProps } from '../map-page'
 import { BigGameHunters, FightingSpirit } from './maps-for-testing'
 
 // Ids well above the ones a development database hands out, so background user fetches can't
