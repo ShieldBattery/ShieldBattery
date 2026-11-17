@@ -218,6 +218,7 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
     hash,
     name,
     description: '',
+    kind: 'melee',
     publishedBy: makeSbUserId(1),
     publishedAt: Date.now(),
     visibility: MapVisibility.Public,

@@ -102,6 +102,7 @@ function makeMapInfo(): MapInfo {
     hash: 'hash',
     name: 'Test Map',
     description: '',
+    kind: 'melee',
     publishedBy: p1,
     publishedAt: new Date(0),
     visibility: MapVisibility.Public,
