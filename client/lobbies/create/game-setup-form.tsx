@@ -24,6 +24,7 @@ import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
 import { warpFieldDescription, WarpFieldFixesInfo } from '../warp-field'
+import { gameTypeForSelectedMap } from './map-game-type'
 import { SlotsPreview } from './slots-preview'
 import { TeamSplitPicker } from './team-split-picker'
 
@@ -385,27 +386,34 @@ export function GameSetupForm({
   const selectedMapInfo = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
 
   const changeMap = (newMapId: SbMapId) => {
-    if (isTeamType(gameType)) {
-      // Every path that delivers a pickable map (recent maps, the server browser, local uploads)
-      // has already put its info in the store, so the new slot count is available in the same
-      // event that changes the map and the sub-type never exists in an invalid state. The thunk
-      // runs synchronously; it exists just to read the new map's info from the store.
-      dispatch((_dispatch, getState) => {
-        const newMapInfo = getState().maps.byId.get(newMapId)
-        if (newMapInfo) {
-          const subType = getInputValue('gameSubType')
-          const adjusted = adjustedGameSubType({
-            gameType,
-            subType,
-            prevSlots: selectedMapInfo?.mapData.slots,
-            slots: newMapInfo.mapData.slots,
-          })
-          if (adjusted !== subType) {
-            setInputValue('gameSubType', adjusted)
-          }
+    // Every path that delivers a pickable map (recent maps, the server browser, local uploads)
+    // has already put its info in the store, so the new map's slot count and kind are available in
+    // the same event that changes the map and the sub-type never exists in an invalid state. The
+    // thunk runs synchronously; it exists just to read the new map's info from the store.
+    dispatch((_dispatch, getState) => {
+      const newMapInfo = getState().maps.byId.get(newMapId)
+      if (!newMapInfo) {
+        return
+      }
+
+      if (isTeamType(gameType)) {
+        const subType = getInputValue('gameSubType')
+        const adjusted = adjustedGameSubType({
+          gameType,
+          subType,
+          prevSlots: selectedMapInfo?.mapData.slots,
+          slots: newMapInfo.mapData.slots,
+        })
+        if (adjusted !== subType) {
+          setInputValue('gameSubType', adjusted)
         }
-      })
-    }
+      }
+
+      const impliedGameType = gameTypeForSelectedMap(gameType, newMapInfo.kind)
+      if (impliedGameType !== gameType) {
+        changeGameType(impliedGameType)
+      }
+    })
     setInputValue('mapId', newMapId)
   }
 

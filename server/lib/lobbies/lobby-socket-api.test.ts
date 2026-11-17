@@ -36,6 +36,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
+  kind: 'melee',
   publishedBy: makeSbUserId(1),
   publishedAt: new Date(0),
   visibility: MapVisibility.Official,

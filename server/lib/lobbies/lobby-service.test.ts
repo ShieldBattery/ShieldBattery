@@ -102,6 +102,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
+  kind: 'melee',
   publishedBy: makeSbUserId(1),
   publishedAt: new Date(0),
   visibility: MapVisibility.Official,
@@ -138,6 +139,7 @@ const UMS_MAP: MapInfo = {
   id: makeSbMapId('team-micro'),
   hash: '13579',
   name: 'Team Micro',
+  kind: 'ums',
   mapData: {
     ...BIG_GAME_HUNTERS.mapData,
     originalName: 'Team Micro',
@@ -1733,6 +1735,34 @@ describe('lobbies/lobby-service', () => {
       expect(() =>
         lobbyService.kickPlayer({ client: otherHost.client, slotId: openSlot.id }),
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
+    })
+  })
+
+  describe('createLobby with Use Map Settings', () => {
+    test('creating on a map with no human force slot is rejected and leaves no lobby', async () => {
+      // Big Game Hunters has no UMS forces to take its settings from
+      await expect(
+        createLobby(host, 'UMS lobby', 'listed', false, GameType.UseMapSettings),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidGameType })
+
+      expect(lobbyService.getListedSummaries()).toEqual([])
+      // The failed create didn't take the host's gameplay activity
+      await expect(createLobby(host, 'Melee lobby', 'listed')).resolves.toBeDefined()
+    })
+
+    test('creating on a map with human force slots works', async () => {
+      asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
+
+      const { id } = await lobbyService.createLobby({
+        name: 'UMS lobby',
+        map: UMS_MAP.id,
+        gameType: GameType.UseMapSettings,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+
+      expect(lobbyService.getListedSummaries().map(l => l.id)).toEqual([id])
     })
   })
 

@@ -729,23 +729,16 @@ export class LobbyService {
     if (!mapInfo) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
     }
-    checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
+    const settings = validatedLobbySettings({
+      map: mapInfo,
+      gameType,
+      gameSubType: gameSubType ?? 0,
+      allowObservers: allowObservers ?? false,
+      useLegacyLimits: useLegacyLimits ?? false,
+      starcraftCompatibleReplays: starcraftCompatibleReplays ?? true,
+      lockedAlliances: lockedAlliances ?? false,
+    })
     const fetchedQueue = mapQueue !== undefined ? await fetchMapQueue(mapQueue) : []
-
-    let numSlots
-    switch (gameType) {
-      case 'oneVOne':
-        // 1v1 mode always has 2 player slots
-        numSlots = 2
-        break
-      case 'teamMelee':
-      case 'teamFfa':
-        // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
-        numSlots = 8
-        break
-      default:
-        numSlots = mapInfo.mapData.slots
-    }
 
     const lobbyVisibility = visibility ?? 'listed'
 
@@ -753,16 +746,16 @@ export class LobbyService {
       name,
       map: mapInfo,
       mapQueue: fetchedQueue,
-      gameType,
-      gameSubType: gameSubType ?? undefined,
-      numSlots,
+      gameType: settings.gameType,
+      gameSubType: settings.gameSubType,
+      numSlots: settings.numSlots,
       hostUserId: client.userId,
       hostRace: race,
       hostRegion,
-      allowObservers: allowObservers ?? false,
-      useLegacyLimits,
-      starcraftCompatibleReplays,
-      lockedAlliances,
+      allowObservers: settings.allowObservers,
+      useLegacyLimits: settings.useLegacyLimits,
+      starcraftCompatibleReplays: settings.starcraftCompatibleReplays,
+      lockedAlliances: settings.lockedAlliances,
       visibility: lobbyVisibility,
     })
 
