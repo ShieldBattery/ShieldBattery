@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT u.id as \"id!: SbUserId\", u.email_verified,\n                EXISTS (\n                    SELECT 1 FROM user_restrictions r\n                    WHERE r.user_id = u.id AND r.kind = 'map_publishing'::restriction_kind\n                        AND r.start_time <= now() AND r.end_time > now()\n                ) as \"restricted!\"\n            FROM users u\n            WHERE u.id = ANY($1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email_verified",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "email_verified"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "restricted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "cc9641409139720a4ef7937700af687a72b61e63f139126abd28670a82872928"
+}

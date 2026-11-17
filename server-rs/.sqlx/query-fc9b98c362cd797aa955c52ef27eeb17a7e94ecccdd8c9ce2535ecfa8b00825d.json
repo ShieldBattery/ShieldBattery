@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT t.family_id, t.tag_id, mt.kind, mt.name,\n                    mt.names as \"names: Json<BTreeMap<String, String>>\", t.source\n                FROM map_family_tags t\n                INNER JOIN map_tags mt ON mt.id = t.tag_id\n                INNER JOIN map_families f ON f.id = t.family_id\n                INNER JOIN maps cur ON cur.id = f.current_map_id AND cur.kind = mt.kind\n                WHERE t.family_id = ANY($1)\n                ORDER BY t.family_id, mt.position\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tag_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "tag_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "names: Json<BTreeMap<String, String>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_tags",
+            "name": "names"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fc9b98c362cd797aa955c52ef27eeb17a7e94ecccdd8c9ce2535ecfa8b00825d"
+}

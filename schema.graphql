@@ -1078,6 +1078,22 @@ type MapFamily {
 	"""
 	ladderPools(first: Int! = 20): [MapCollection!]!
 	"""
+	The map's tags, in list order. Only tags of its current file's kind count.
+	"""
+	tags: [MapTag!]!
+	"""
+	The ids of the map's tags the viewer can't remove, because someone who outranks them set
+	them (staff over the map's maker over players). Empty when logged out, and when the viewer
+	can't edit the map's tags.
+	"""
+	lockedTagIds: [String!]!
+	"""
+	Whether the viewer can edit the map's tags: they can manage maps, they're its maker (and
+	not restricted from publishing), or the map is listed and has no maker, and they've verified
+	their email and aren't restricted from publishing. Players' hourly limit isn't considered.
+	"""
+	canEditTags: Boolean!
+	"""
 	Play statistics summed over every file of the map, or null if none has been played.
 	Recomputed hourly; until then a map's stats are its current file's.
 	"""
@@ -1212,6 +1228,14 @@ type MapFamilyHistory {
 	(`otherFamilyId`) was credited to, lost with it.
 	"""
 	retiredCredit: String
+	"""
+	The map's tags before the change, in list order. Only for `SET_TAGS`.
+	"""
+	tagsBefore: [String!]
+	"""
+	The map's tags after the change, in list order. Only for `SET_TAGS`.
+	"""
+	tagsAfter: [String!]
 	createdAt: DateTime!
 }
 
@@ -1280,6 +1304,10 @@ enum MapFamilyHistoryKind {
 	Staff set or cleared the maker's name a map is credited to.
 	"""
 	SET_CREDIT
+	"""
+	A map's tags were changed: by staff, its maker or a player, or by publishing its file.
+	"""
+	SET_TAGS
 }
 
 """
@@ -1525,6 +1553,11 @@ input MapFilter {
 	`false`, only the other maps.
 	"""
 	verified: Boolean
+	"""
+	Only maps (families) with every one of these tags (at most 5 tag ids; an id that names no
+	tag is ignored). A tag only counts on a map whose current file is of the tag's kind.
+	"""
+	tags: [String!]
 }
 
 type MapForce {
@@ -2101,6 +2134,65 @@ type MapStats {
 }
 
 """
+A word from a list staff manage describing what kind of map a map is (e.g. "Defense").
+"""
+type MapTag {
+	"""
+	Fixed when the tag is created, from its English name at the time: renaming the tag keeps it.
+	"""
+	id: String!
+	"""
+	The kind of map the tag is for. A tag only counts on a map whose current file is of this
+	kind.
+	"""
+	kind: MapKind!
+	"""
+	The tag's English name.
+	"""
+	name: String!
+	"""
+	The tag's names in other languages, in locale code order. A language without one shows the
+	English name.
+	"""
+	names: [MapTagName!]!
+	"""
+	How many listed maps have the tag.
+	"""
+	mapCount: Int!
+	"""
+	How many maps hold the tag at all, listed or not and whatever the kind of their current
+	file: the maps deleting the tag would take it off.
+	"""
+	usageCount: Int!
+}
+
+"""
+A map tag's name in a language other than English.
+"""
+type MapTagName {
+	"""
+	The language's locale code (e.g. `zh-Hans`).
+	"""
+	locale: String!
+	name: String!
+}
+
+"""
+A map tag's name in a language other than English.
+"""
+input MapTagNameInput {
+	"""
+	The language's locale code (e.g. `zh-Hans`): 2 or 3 letters, then any number of `-` and 2 to
+	8 letters or digits. Not `en`, which is the tag's own name.
+	"""
+	locale: String!
+	"""
+	Trimmed; left empty, the language shows the English name.
+	"""
+	name: String!
+}
+
+"""
 Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
 """
 scalar MapVisibility
@@ -2373,8 +2465,14 @@ type Mutation {
 	`mapFamilyMoveFile` would move it. A file that's already listed is left as it is. A file
 	whose name or description needs a look is held for staff instead (`heldForReview`), who
 	list it or not.
+	
+	`tags` sets the tags of the file's map when the file is left as the only file of its map
+	(`KEEP` or `UNSURE` for a file without an `existingMap`, including when the file is held for
+	review), as `mapFamilySetTags` would but without needing the map to be listed or counting
+	toward the hourly limit; otherwise it's ignored. An invalid tag set refuses the publish before
+	anything changes. Null leaves the map's tags alone.
 	"""
-	mapPublish(fileId: SbMapId!, answer: MapPublishAnswerInput!): MapPublishResult!
+	mapPublish(fileId: SbMapId!, answer: MapPublishAnswerInput!, tags: [String!]): MapPublishResult!
 	"""
 	Lists the file of an open `PUBLISH_REVIEW` report, as published by the user who published
 	it, and resolves the report. If this lists the file, the report's `publishAnswer` is then
@@ -2458,6 +2556,47 @@ type Mutation {
 	Rejects a claim waiting for staff. Only available to users who can manage maps.
 	"""
 	mapOwnerClaimReject(claimId: UUID!): MapOwnerClaim!
+	"""
+	Sets the tags of the map a file is in: `tags` is every tag the map should have, at most 3,
+	each of the kind of the map's current file. Tags of the other kind are removed. Users who
+	can manage maps can set any map's tags; the map's maker (while not restricted from
+	publishing) can set theirs; anyone else can set the tags of a listed map with no maker if
+	they've verified their email and aren't restricted from publishing, up to 30 times an hour.
+	A tag set by someone who outranks the current user (staff over the maker over players)
+	can't be removed (`TAG_LOCKED`). Setting the tags the map already has changes nothing.
+	"""
+	mapFamilySetTags(mapId: SbMapId!, tags: [String!]!): MapFamily!
+	"""
+	Adds a tag of `kind` at the end of that kind's tags, with the English name `name` and the
+	names in other languages `names`. Names are trimmed, and must be 1 to 24 characters without
+	control characters (`BAD_REQUEST`); a name in another language left empty is dropped. No
+	other tag of the kind may have the same English name, ignoring case (`NAME_TAKEN`). A locale
+	code that doesn't look like one, `en`, a locale given twice or more than 20 of them is
+	`BAD_REQUEST`. The tag's id is made from its English name: lowercase, every run of
+	characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at either end, at
+	most 32 characters, and `-2`, `-3`, ... added when another tag of either kind has it. A name
+	without any of those characters is `BAD_REQUEST`. Only available to users who can manage
+	maps.
+	"""
+	mapTagCreate(name: String!, kind: MapKind!, names: [MapTagNameInput!]): MapTag!
+	"""
+	Changes a tag (`NOT_FOUND` if there's none with the id): `name`, when given, becomes its
+	English name, and `names`, when given, replaces all its names in other languages, by the
+	rules of `mapTagCreate`. Its id and kind never change. Only available to users who can
+	manage maps.
+	"""
+	mapTagUpdate(id: String!, name: String, names: [MapTagNameInput!]): MapTag!
+	"""
+	Puts the tags of `kind` in the order of `ids`, which must list every tag of that kind
+	exactly once (`BAD_REQUEST`). The other kind's order is kept. Returns every tag, in list
+	order. Only available to users who can manage maps.
+	"""
+	mapTagsSetOrder(kind: MapKind!, ids: [String!]!): [MapTag!]!
+	"""
+	Deletes a tag (`NOT_FOUND` if there's none with the id), taking it off every map. Returns
+	the deleted tag's id. Only available to users who can manage maps.
+	"""
+	mapTagDelete(id: String!): String!
 	"""
 	Creates a private collection of the current user's (at most 100), or with `staff`, a staff
 	collection (only for users who can manage maps). The title must be 3 to 50 characters
@@ -2826,6 +2965,10 @@ type Query {
 	How many claims have a status. Only available to users who can manage maps.
 	"""
 	mapOwnerClaimCount(status: MapOwnerClaimStatus! = OPEN): Int!
+	"""
+	Every map tag, in list order: melee tags first, then UMS tags.
+	"""
+	mapTags: [MapTag!]!
 	"""
 	Looks up a collection by id. Null when there's no such collection or the viewer can't see
 	it.

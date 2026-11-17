@@ -16,6 +16,9 @@ pub mod owners;
 pub mod owners_graphql;
 pub mod publish;
 pub mod publish_graphql;
+pub mod tag_list;
+pub mod tags;
+pub mod tags_graphql;
 
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::{PgExecutor, PgPool, Postgres, Transaction};
@@ -57,7 +60,8 @@ pub(crate) async fn refresh_families(
 /// Deletes the families in `from`, which must hold no files anymore, leaving each one's id (and
 /// the ids that were aliases of it) as an alias of the family at the same index in `into`. Their
 /// collection entries (including stars) and open owner claims move along, one per collection or
-/// user and family. Their owners and credits are lost: returns the families that had either.
+/// user and family. Their tags are dropped (`into` keeps its own), and their owners and credits are
+/// lost: returns the families that had either.
 pub(crate) async fn retire_families(
     tx: &mut Transaction<'_, Postgres>,
     from: &[Uuid],

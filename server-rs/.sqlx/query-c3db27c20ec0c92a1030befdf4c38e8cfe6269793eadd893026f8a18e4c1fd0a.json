@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT t.tag_id, t.source, mt.kind = cur.kind as \"applies!\"\n            FROM map_family_tags t\n            INNER JOIN map_tags mt ON mt.id = t.tag_id\n            INNER JOIN map_families f ON f.id = t.family_id\n            INNER JOIN maps cur ON cur.id = f.current_map_id\n            WHERE t.family_id = $1\n            ORDER BY mt.position\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "tag_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "applies!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "c3db27c20ec0c92a1030befdf4c38e8cfe6269793eadd893026f8a18e4c1fd0a"
+}
