@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH recent AS (\n                SELECT gu.game_id\n                FROM games_users gu\n                WHERE gu.user_id = $1\n                ORDER BY gu.start_time DESC\n                LIMIT $2\n            )\n            SELECT fam.id as \"family_id!\", fam.current_map_id as \"map_id!: SbMapId\",\n                max(g.start_time) as \"last_played_at!\"\n            FROM recent r\n            INNER JOIN games g ON g.id = r.game_id\n            INNER JOIN maps pm ON pm.id = g.map_id\n            INNER JOIN map_families fam ON fam.id = pm.family_id\n            WHERE g.canceled_at IS NULL\n                AND (fam.listed OR pm.delisted_kind IS DISTINCT FROM 'staff')\n            GROUP BY fam.id, fam.current_map_id\n            ORDER BY max(g.start_time) DESC, fam.id\n            LIMIT $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "current_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_played_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "64b92a9bf899be09b7a0b0317cef7c3ee0ad513fd9e6957ea1750c837e175812"
+}

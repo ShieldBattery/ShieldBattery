@@ -26,6 +26,7 @@ use crate::maps::families::graphql::{MapFamilyFilesLoader, MapFamilyLoader, MapF
 use crate::maps::families::tags_graphql::{
     MapFamilyTagsLoader, MapTagCountLoader, MapTagUsageLoader, TagEditorLoader,
 };
+use crate::maps::features_graphql::MapFeaturedWeeksLoader;
 use crate::maps::ingest::map_image_path;
 use crate::maps::parse::MapStartLocation;
 use crate::maps::render::{MAP_JPEG_SIZE, MapImageFormat};
@@ -40,7 +41,10 @@ pub mod api;
 mod catalog;
 pub mod collections;
 mod compare;
+mod discover;
 pub mod families;
+mod features;
+mod features_graphql;
 pub mod ingest;
 pub mod parse;
 pub mod render;
@@ -55,10 +59,15 @@ pub use catalog::{
 pub use collections::graphql::{
     MapCollection, MapCollectionsMutation, MapCollectionsQuery, viewer_collections,
 };
+pub use discover::{
+    DEFAULT_RECENT_MAPS, MapDiscoverQuery, MapRecommendation, RecentMap, load_map_recommendation,
+    load_recent_maps,
+};
 pub use families::graphql::{MapFamiliesMutation, MapFamiliesQuery};
 pub use families::owners_graphql::{MapOwnersMutation, MapOwnersQuery};
 pub use families::publish_graphql::{MapPublishingMutation, MapPublishingQuery};
 pub use families::tags_graphql::{MapTagsMutation, MapTagsQuery};
+pub use features_graphql::{MapFeaturesMutation, MapFeaturesQuery};
 
 pub struct MapsModule {
     db_pool: PgPool,
@@ -115,6 +124,10 @@ impl SchemaBuilderModule for MapsModule {
             ))
             .data(DataLoader::new(
                 TagEditorLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                MapFeaturedWeeksLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
             .data(DataLoader::new(

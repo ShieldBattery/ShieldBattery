@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT fam.id, fam.listed\n                    FROM maps m\n                    INNER JOIN map_families fam ON fam.id = m.family_id\n                    WHERE m.id = $1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "listed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "listed"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8073a11350b865171b5d46788892a1a09dd4195c1754b4ddd0cb237c3b9155de"
+}

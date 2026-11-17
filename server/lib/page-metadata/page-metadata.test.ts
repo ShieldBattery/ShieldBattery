@@ -264,12 +264,20 @@ describe('page-metadata/page-metadata', () => {
     expect(result?.title).toContain('ShieldBattery Map Collections')
   })
 
-  test('resolves the maps catalog to its static metadata without the map resolver', async () => {
+  test('resolves the discover page to its own static metadata without the map resolver', async () => {
     const result = await resolvePageMetadata('/maps', CONTEXT)
 
     expect(mapPageMetadataMock).not.toHaveBeenCalled()
-    expect(result?.url).toBe('https://shieldbattery.net/maps')
-    expect(result?.title).toContain('ShieldBattery Maps')
+    expect(result).toEqual({
+      url: 'https://shieldbattery.net/maps',
+      type: 'website',
+      title: 'Discover Maps on ShieldBattery',
+      description:
+        'Discover StarCraft: Brood War maps on ShieldBattery: the map of the week, maps on the ' +
+        'rise, new maps, and the mapmakers behind them.',
+      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+    })
+    expect(result?.noindex).toBeUndefined()
   })
 
   test('resolves the all maps tab to its static metadata without the map resolver', async () => {
