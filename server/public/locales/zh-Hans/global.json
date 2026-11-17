@@ -2320,10 +2320,38 @@
       "mapName": "地图名称",
       "mapNameRequired": "输入地图名称"
     },
+    "discover": {
+      "becauseYouPlayed": "因为您玩过 {{name}}",
+      "browseByTag": "按标签浏览",
+      "collectionOfTheWeek": "本周合集",
+      "fresh": "新鲜出炉",
+      "freshSubtitle": "最近 60 天的新地图和新版本",
+      "jumpBackIn": "继续玩",
+      "loadError": "无法加载地图",
+      "mapmakers": "地图作者",
+      "mapmakersSubtitle": "本月地图游玩次数最多的作者",
+      "mapOfTheWeek": "本周地图",
+      "onTheRise": "人气上升",
+      "playedAgo": "{{time}}玩过",
+      "recommendationNoTags": "您还没玩过的地图",
+      "recommendationOneTag": "{{tag}} · 您还没玩过的地图",
+      "recommendationThreeTags": "{{first}}、{{second}}、{{third}} · 您还没玩过的地图",
+      "recommendationTwoTags": "{{first}}、{{second}} · 您还没玩过的地图",
+      "showAll": "查看全部",
+      "tab": "发现",
+      "tagWithCount_other": "{{tag}} · {{count}}",
+      "trending": "本周热门",
+      "verifiedMakerTooltip": "工作人员已确认该用户是其中部分地图的作者",
+      "viewCollection": "查看合集"
+    },
     "familySearch": {
       "files_other": "{{count}} 个文件",
       "noResults": "未找到地图。",
       "search": "搜索地图，或粘贴地图链接"
+    },
+    "feature": {
+      "collectionOfTheWeekNotification": "<0>{{name}}</0> 入选本周合集",
+      "mapOfTheWeekNotification": "<0>{{name}}</0> 入选本周地图"
     },
     "files": {
       "compare": "比较",
@@ -2439,6 +2467,8 @@
       "linkCopyError": "无法复制链接",
       "liveNow": "正在进行",
       "loadError": "无法加载此地图",
+      "mapOfTheWeek": "本周地图",
+      "mapOfTheWeekOn": "本周地图 · {{date}}",
       "matchmakingType": "匹配类型",
       "matchupBarLabel": "{{left}} {{leftRate}}，{{right}} {{rightRate}}",
       "matchupGames_other": "{{count}} 场游戏",
@@ -2498,6 +2528,7 @@
     "publish": {
       "alreadyListed": "此文件已发布。",
       "approvedNotification": "您的地图 <1>{{name}}</1> 已通过审核并上架。",
+      "badTags": "这些标签不能用于此地图。",
       "button": "发布",
       "delistedNotification": "工作人员已将您的地图 <1>{{name}}</1> 下架。",
       "delistedNotificationNote": "他们的备注：“{{note}}”",
@@ -2544,6 +2575,8 @@
       "sameTriggers": "触发器相同",
       "separateMap": "不，这是单独的地图",
       "staffDelisted": "工作人员已将此文件下架，因此无法发布。",
+      "tagLocked": "此地图有工作人员或作者设置的标签，您选择的标签会将其移除。",
+      "tagsHaveMaker": "此地图的作者另有其人，标签由作者设置。",
       "terrainPercent": "地形相同度 {{percent}}%",
       "title": "发布地图",
       "unlinked": "已从 {{mapName}} 中移除",
@@ -2587,6 +2620,23 @@
         "removed": "已取消收藏",
         "removeError": "无法取消收藏该地图"
       }
+    },
+    "tags": {
+      "addTags": "添加标签",
+      "badRequest": "这些标签不能用于此地图。",
+      "editTitle": "编辑标签",
+      "emailUnverified": "请先验证您的邮箱，才能修改地图标签。",
+      "error": "无法保存标签，请稍后再试。",
+      "filter": "标签",
+      "filterAny": "任意标签",
+      "filterMore": "{{tag}} +{{more}}",
+      "hasMaker": "此地图现在有作者了，标签由作者设置。",
+      "locked": "您移除的标签中有一个是工作人员或地图作者设置的，因此会保留。",
+      "lockedTooltip": "您无法移除此标签",
+      "notListed": "此地图尚未发布，无法修改标签。",
+      "rateLimited": "您在过去一小时内修改了太多地图标签，请稍后再试。",
+      "restricted": "您已被限制发布地图，因此无法修改地图标签。",
+      "selectedCount": "{{selected}}/{{max}}"
     },
     "thumbnail": {
       "addToStarred": "添加到收藏",
