@@ -45,7 +45,7 @@ import log from '../logger'
 import { applyLaunchOverridesToSettings, startsInSd } from '../scr-launch-overrides'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
-import { isCrashExitCode } from './crash-exit-code'
+import { isCrashExitCode, shouldRelaunchAfterExit } from './crash-exit-code'
 import { holdHighPerformanceGpu } from './gpu-preference'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
@@ -80,6 +80,12 @@ interface ActiveGameInfo {
    * A promise for when the game process has been launched, returning an instance of the process.
    */
   promise?: Promise<any>
+  /**
+   * Which launch of this game its current process is, counting from 1. A game is launched again,
+   * once, when its first process crashes on an unfinished import table (see
+   * {@link shouldRelaunchAfterExit}).
+   */
+  launchAttempt: number
   config?: GameLaunchConfig
   /**
    * The per-session netcode v2 keypair for this game, selected from the manager's key ring once the
@@ -323,9 +329,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
-  private launchGameProcess(gameId: string): Promise<void> {
+  private launchGameProcess(gameId: string, attempt = 1): Promise<void> {
+    if (attempt > 1) {
+      log.warning(`Launching game ${gameId} again, as attempt ${attempt}`)
+    }
     this.emit('gameProcessLaunching', gameId)
-    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
+    return doLaunch(gameId, attempt, this.serverPort, this.localSettings, this.scrSettings)
       .then(
         async ({ proc, releaseGpuPreference }) => {
           try {
@@ -390,6 +399,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       processConfigured: false,
       id: gameId,
       promise: activeGamePromise,
+      launchAttempt: 1,
       config,
       status: { state: GameStatus.Unknown, extra: null },
     }
@@ -454,6 +464,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       id: gameId,
       config,
       status: { state: GameStatus.Unknown, extra: null },
+      launchAttempt: 1,
     }
     this.watchOnlyGames.set(gameId, game)
     game.promise = this.launchGameProcess(gameId)
@@ -1094,6 +1105,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       })
     }
 
+    if (shouldRelaunchAfterExit(exitCode, game.launchAttempt, game.status?.state)) {
+      log.warning(
+        `Game ${id} crashed on an unfinished import table before its init, launching it again`,
+      )
+      this.relaunchGameProcess(game)
+      return
+    }
+
     let status = game.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
       if (status >= GameStatus.Playing) {
@@ -1146,6 +1165,26 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
           log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
         })
     }
+  }
+
+  /**
+   * Launches `game` again in a new process once its exited process has finished ending, so every
+   * `gameProcessLaunching` is still followed by its own `gameProcessEnded`. The game stays tracked
+   * with its status, config and netcode v2 handoff untouched, so nothing outside sees a failure,
+   * and the new process is sent everything on connecting that the first one would have been.
+   */
+  private relaunchGameProcess(game: ActiveGameInfo) {
+    const attempt = game.launchAttempt + 1
+    game.launchAttempt = attempt
+    game.processConfigured = false
+    game.networkStatus = undefined
+    game.promise = Promise.resolve(game.promise).then(() => {
+      if (this.gameFor(game.id) !== game) {
+        log.verbose(`Not launching game ${game.id} again, as it was quit or replaced meanwhile`)
+        return undefined
+      }
+      return this.launchGameProcess(game.id, attempt)
+    })
   }
 
   handleGameExitWaitError(id: string, err: Error) {
@@ -1206,6 +1245,7 @@ async function applyDevGameEnv() {
 
 async function doLaunch(
   gameId: string,
+  attempt: number,
   serverPort: number,
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
@@ -1267,13 +1307,16 @@ async function doLaunch(
   if (rallyPointPortArg) {
     log.debug(`Pinning the game's netcode UDP port to ${RALLY_POINT_PORT} (SB_RALLY_POINT_PORT)`)
   }
+  // Tells the DLL which launch of this game it is in, so its log and crash handling can say so.
+  const launchAttemptArg = attempt > 1 ? `-launch-attempt=${attempt}` : ''
   // Dev builds can hand SC:R extra arguments, e.g. `--renderer=legacy` to test the legacy DX9
   // renderer on a machine that wouldn't pick it on its own.
   const devScrArgs = (isDev && process.env.SB_SCR_EXTRA_ARGS) || ''
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${devScrArgs}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${launchAttemptArg} ` +
+    devScrArgs
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

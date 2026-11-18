@@ -22,11 +22,12 @@ use std::fmt::{self, Write};
 use std::fs::File;
 use std::io;
 use std::mem;
+use std::ops::Range;
 use std::os::windows::io::IntoRawHandle;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use libc::c_void;
@@ -80,6 +81,19 @@ const MINIDUMP_WITH_DATA_SEGS: u32 = 1;
 const MINIDUMP_WITH_FULL_MEMORY_INFO: u32 = 0x800;
 const PAGE_SIZE: usize = 0x1000;
 const CPP_EXCEPTION_CODE: u32 = 0xe06d7363;
+/// `ExceptionInformation[0]` of an access violation that executed its address.
+const ACCESS_EXECUTE: usize = 8;
+/// End of the lowest 64 KiB of the address space, which Windows never maps: a pointer below it is
+/// a null pointer, possibly with an offset.
+const NULL_PAGE_END: usize = 0x1_0000;
+
+/// Exit code of a process whose crash [`is_unfinished_import_table_crash`] recognizes, asking the
+/// app to launch the game again. `UNFINISHED_IMPORT_TABLE_EXIT_CODE` in
+/// `app/game/crash-exit-code.ts` must have the same value.
+///
+/// Its top bits (severity 0, customer bit set) make it unlike any exception code Windows ends a
+/// process with, and it differs from the panic hook's exit code.
+pub const UNFINISHED_IMPORT_TABLE_EXIT_CODE: u32 = 0x2bad_1a7e;
 
 /// Thread whose exception is currently being handled (0 = no crash yet). Only the first crashing
 /// thread gets to write a dump; anything else that faults afterwards just waits to be killed.
@@ -103,6 +117,10 @@ static OWN_IMAGE_END: AtomicUsize = AtomicUsize::new(0);
 /// A page the crash path found worth having in the dump beyond what `MINIDUMP_WITH_DATA_SEGS`
 /// covers (0 = none). It goes in along with the pages on either side of it.
 static DUMP_EXTRA_PAGE: AtomicUsize = AtomicUsize::new(0);
+/// How the crash being handled ends the process, decided by the faulting thread before the dump
+/// thread is woken: the exit code, and whether the crash dialog is shown first.
+static CRASH_EXIT_CODE: AtomicU32 = AtomicU32::new(0);
+static CRASH_SHOWS_DIALOG: AtomicBool = AtomicBool::new(true);
 
 type MiniDumpWriteDumpFn = unsafe extern "system" fn(
     HANDLE,
@@ -712,7 +730,7 @@ impl fmt::Display for CrashDetail {
             let kind = match record.ExceptionInformation[0] {
                 0 => "reading",
                 1 => "writing",
-                8 => "executing",
+                ACCESS_EXECUTE => "executing",
                 _ => "accessing",
             };
             write!(f, ", {kind} {:x}", record.ExceptionInformation[1])?;
@@ -850,21 +868,27 @@ fn indirect_call_slot(call: [u8; 6], return_address: usize) -> Option<usize> {
     }
 }
 
+/// The address range of the game's exe image, as its headers give its size. Empty if the exe's
+/// module can't be found.
+fn exe_image() -> Range<usize> {
+    unsafe {
+        let base = GetModuleHandleW(null_mut()) as usize;
+        if base == 0 {
+            return 0..0;
+        }
+        let dos = base as *const IMAGE_DOS_HEADER;
+        let nt = (base + (*dos).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
+        base..base + (*nt).OptionalHeader.SizeOfImage as usize
+    }
+}
+
 /// Formats an address relative to the game's exe image when it's in or just past it.
 struct ExeAddress(usize);
 
 impl fmt::Display for ExeAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (base, size) = unsafe {
-            let base = GetModuleHandleW(null_mut()) as usize;
-            if base == 0 {
-                (0, 0)
-            } else {
-                let dos = base as *const IMAGE_DOS_HEADER;
-                let nt = (base + (*dos).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
-                (base, (*nt).OptionalHeader.SizeOfImage as usize)
-            }
-        };
+        let image = exe_image();
+        let (base, size) = (image.start, image.len());
         match self.0.checked_sub(base) {
             Some(offset) if base != 0 && offset < size => write!(f, "StarCraft+{offset:x}"),
             Some(offset) if base != 0 && offset - size < 0x100_0000 => {
@@ -884,45 +908,77 @@ fn memory_type_name(kind: u32) -> &'static str {
     }
 }
 
-/// For a crash that jumped to a bad address through `call [slot]`, as calling an import that was
-/// never resolved does: says where the call came from, what the slot and its page hold and what
-/// memory it's in, and marks the page for the dump. Writes nothing for any other crash.
-unsafe fn breadcrumb_failed_call(exception: *mut EXCEPTION_POINTERS) {
+/// For an access violation, the kind of access that faulted (`ExceptionInformation[0]`, such as
+/// [`ACCESS_EXECUTE`]) and the address it faulted on.
+unsafe fn access_violation(exception: *mut EXCEPTION_POINTERS) -> Option<(usize, usize)> {
+    let record = unsafe { &*(*exception).ExceptionRecord };
+    (record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record.NumberParameters >= 2).then(
+        || {
+            (
+                record.ExceptionInformation[0],
+                record.ExceptionInformation[1],
+            )
+        },
+    )
+}
+
+/// An indirect `call [slot]` that a crash jumped to a bad address through.
+#[derive(Clone, Copy, Debug)]
+struct FailedCall {
+    /// Address of the call instruction.
+    call: usize,
+    /// Where the call read its target from.
+    slot: usize,
+    /// What the slot holds, `None` when it can't be read.
+    target: Option<usize>,
+}
+
+/// The `call [slot]` a crash that executed a bad address jumped there through, as calling an
+/// import that was never resolved does: the return address on top of the stack follows the call.
+/// `None` for any other crash.
+unsafe fn find_failed_call(exception: *mut EXCEPTION_POINTERS) -> Option<FailedCall> {
     unsafe {
-        let record = &*(*exception).ExceptionRecord;
-        let executing = record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION
-            && record.NumberParameters >= 2
-            && record.ExceptionInformation[0] == 8;
-        if !executing {
-            return;
+        let (kind, _) = access_violation(exception)?;
+        if kind != ACCESS_EXECUTE {
+            return None;
         }
         #[cfg(target_arch = "x86")]
         let stack_pointer = (*(*exception).ContextRecord).Esp as usize;
         #[cfg(target_arch = "x86_64")]
         let stack_pointer = (*(*exception).ContextRecord).Rsp as usize;
         if !readable(stack_pointer, mem::size_of::<usize>()) {
-            return;
+            return None;
         }
         let return_address = (stack_pointer as *const usize).read_unaligned();
-        let Some(call_start) = return_address.checked_sub(6) else {
-            return;
-        };
+        let call_start = return_address.checked_sub(6)?;
         if !readable(call_start, 6) {
-            return;
+            return None;
         }
         let call = (call_start as *const [u8; 6]).read_unaligned();
-        let Some(slot) = indirect_call_slot(call, return_address) else {
-            return;
-        };
-        let caller = ExeAddress(call_start);
-        if !readable(slot, mem::size_of::<usize>()) {
+        let slot = indirect_call_slot(call, return_address)?;
+        let target = readable(slot, mem::size_of::<usize>())
+            .then(|| (slot as *const usize).read_unaligned());
+        Some(FailedCall {
+            call: call_start,
+            slot,
+            target,
+        })
+    }
+}
+
+/// Says where a failed call came from, what its slot and the slot's page hold and what memory it's
+/// in, and marks the page for the dump.
+unsafe fn breadcrumb_failed_call(call: FailedCall) {
+    unsafe {
+        let FailedCall { call, slot, target } = call;
+        let caller = ExeAddress(call);
+        let Some(target) = target else {
             breadcrumb!(
                 "Faulting call at {caller} read its target from unreadable {}",
                 ExeAddress(slot)
             );
             return;
-        }
-        let target = (slot as *const usize).read_unaligned();
+        };
         breadcrumb!(
             "Faulting call at {caller} read its target {target:x} from {}",
             ExeAddress(slot)
@@ -945,6 +1001,84 @@ unsafe fn breadcrumb_failed_call(exception: *mut EXCEPTION_POINTERS) {
             info.Protect,
         );
         DUMP_EXTRA_PAGE.store(page, Ordering::Relaxed);
+    }
+}
+
+/// What [`is_unfinished_import_table_crash`] decides on.
+struct CrashFacts {
+    game_init_reached: bool,
+    exception_code: u32,
+    /// As [`access_violation`] gives it.
+    access: Option<(usize, usize)>,
+    failed_call: Option<FailedCall>,
+    exe_image: Range<usize>,
+}
+
+impl CrashFacts {
+    unsafe fn of(exception: *mut EXCEPTION_POINTERS, failed_call: Option<FailedCall>) -> Self {
+        unsafe {
+            CrashFacts {
+                game_init_reached: startup_trace::game_init_reached(),
+                exception_code: exception_code(exception),
+                access: access_violation(exception),
+                failed_call,
+                exe_image: exe_image(),
+            }
+        }
+    }
+}
+
+/// Whether a crash is the kind SC:R's exe packer leaves behind when it stops resolving the exe's
+/// imports partway: before game init, the exe's own startup code calls through one of the exe's
+/// import slots that was never filled, executing a null pointer. The same machine starts the
+/// game fine nearly every time, so launching again is the remedy.
+fn is_unfinished_import_table_crash(crash: &CrashFacts) -> bool {
+    let executed_null = matches!(
+        crash.access,
+        Some((ACCESS_EXECUTE, address)) if address < NULL_PAGE_END
+    );
+    let null_slot_in_exe = crash.failed_call.is_some_and(|call| {
+        crash.exe_image.contains(&call.call)
+            && crash.exe_image.contains(&call.slot)
+            && call.target.is_some_and(|target| target < NULL_PAGE_END)
+    });
+    !crash.game_init_reached
+        && crash.exception_code == EXCEPTION_ACCESS_VIOLATION
+        && executed_null
+        && null_slot_in_exe
+}
+
+/// Decides how the crash being handled ends the process ([`CRASH_EXIT_CODE`],
+/// [`CRASH_SHOWS_DIALOG`]), saying so in a breadcrumb when it isn't the usual way.
+///
+/// A crash [`is_unfinished_import_table_crash`] recognizes exits with
+/// [`UNFINISHED_IMPORT_TABLE_EXIT_CODE`] for the app to launch the game again. The first launch
+/// does that without a dialog, so the player sees only the game starting a little later; a launch
+/// that is already the app's second attempt shows the dialog, as no other attempt follows it.
+unsafe fn decide_crash_exit(exception: *mut EXCEPTION_POINTERS, failed_call: Option<FailedCall>) {
+    unsafe {
+        let code = exception_code(exception);
+        let crash = CrashFacts::of(exception, failed_call);
+        if !is_unfinished_import_table_crash(&crash) {
+            CRASH_EXIT_CODE.store(code, Ordering::Relaxed);
+            CRASH_SHOWS_DIALOG.store(true, Ordering::Relaxed);
+            return;
+        }
+        let attempt = crate::launch_attempt();
+        CRASH_EXIT_CODE.store(UNFINISHED_IMPORT_TABLE_EXIT_CODE, Ordering::Relaxed);
+        CRASH_SHOWS_DIALOG.store(attempt > 1, Ordering::Relaxed);
+        if attempt > 1 {
+            breadcrumb!(
+                "Crashed on an unfinished import table again, on launch attempt {attempt}: \
+                 exiting with code {UNFINISHED_IMPORT_TABLE_EXIT_CODE:x} after the crash dialog"
+            );
+        } else {
+            breadcrumb!(
+                "Crashed on an unfinished import table: exiting with code \
+                 {UNFINISHED_IMPORT_TABLE_EXIT_CODE:x} without a crash dialog, which asks the app \
+                 to launch the game again"
+            );
+        }
     }
 }
 
@@ -1071,8 +1205,12 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
             "Thread {thread_id:x} crash detail: {}",
             CrashDetail(exception)
         );
-        breadcrumb_failed_call(exception);
+        let failed_call = find_failed_call(exception);
+        if let Some(call) = failed_call {
+            breadcrumb_failed_call(call);
+        }
         startup_trace::breadcrumb_crash_before_game_init(breadcrumb);
+        decide_crash_exit(exception, failed_call);
 
         if !windows::thread_has_tls() {
             // A thread without TLS is one of the loader's workers (see `windows::thread_has_tls`),
@@ -1080,7 +1218,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
             // DLL waits on that load forever. Writing the dump loads DLLs, so it would only leave
             // the game hanging.
             breadcrumb!("Not writing a dump, as the crashed thread was loading a DLL");
-            terminate(code);
+            terminate(CRASH_EXIT_CODE.load(Ordering::Relaxed));
         }
 
         AddVectoredExceptionHandler(1, Some(crash_dump_exception_handler));
@@ -1096,7 +1234,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
                 }
             }
             breadcrumb!("Dump thread made no progress in {DUMP_WAIT_MS} ms, terminating");
-            terminate(code);
+            terminate(CRASH_EXIT_CODE.load(Ordering::Relaxed));
         }
 
         // No dump thread to hand off to (crashed before it was started, or it failed to start):
@@ -1110,7 +1248,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
             error!("Couldn't write dump: {e}");
             message = format!("{message}\nCouldn't write dump: {e}");
         }
-        finish_crash(&message, code);
+        finish_crash(&message);
     }
 }
 
@@ -1174,7 +1312,7 @@ unsafe fn dump_thread_main() {
             error!("Couldn't write dump: {e}");
             message = format!("{message}\nCouldn't write dump: {e}");
         }
-        finish_crash(&message, code);
+        finish_crash(&message);
     }
 }
 
@@ -1204,12 +1342,16 @@ unsafe fn cpp_exception_message(exception: *mut EXCEPTION_POINTERS) -> Option<St
     }
 }
 
-unsafe fn finish_crash(message: &str, exception_code: u32) -> ! {
-    windows::message_box(
-        "Shieldbattery crash :(",
-        &format!("{message}\nPlease submit a bug report in the launcher."),
-    );
-    unsafe { terminate(exception_code) }
+/// Shows the crash dialog, unless [`decide_crash_exit`] decided against it, then ends the process
+/// with the exit code it decided on.
+unsafe fn finish_crash(message: &str) -> ! {
+    if CRASH_SHOWS_DIALOG.load(Ordering::Relaxed) {
+        windows::message_box(
+            "Shieldbattery crash :(",
+            &format!("{message}\nPlease submit a bug report in the launcher."),
+        );
+    }
+    unsafe { terminate(CRASH_EXIT_CODE.load(Ordering::Relaxed)) }
 }
 
 /// The exception is allowed to be null, in which case it'll just write a minidump
@@ -1567,6 +1709,113 @@ mod tests {
         assert_eq!(indirect_call_slot(not_call, 0x1000), None);
     }
 
+    const EXE: Range<usize> = 0x40_0000..0x140_0000;
+    /// An address in a system DLL, outside the exe.
+    const SYSTEM_DLL_ADDRESS: usize = 0x7712_3456;
+
+    /// A crash on the main thread of a start whose import table was left unfinished: the exe's
+    /// startup code called through a null import slot of the exe before game init.
+    fn unfinished_import_crash() -> CrashFacts {
+        CrashFacts {
+            game_init_reached: false,
+            exception_code: EXCEPTION_ACCESS_VIOLATION,
+            access: Some((ACCESS_EXECUTE, 0)),
+            failed_call: Some(FailedCall {
+                call: EXE.start + 0xa1_1c73,
+                slot: EXE.start + 0xaa_d870,
+                target: Some(0),
+            }),
+            exe_image: EXE,
+        }
+    }
+
+    #[test]
+    fn recognizes_a_null_import_called_before_game_init() {
+        assert!(is_unfinished_import_table_crash(&unfinished_import_crash()));
+    }
+
+    #[test]
+    fn recognizes_a_call_into_the_null_page() {
+        let crash = CrashFacts {
+            access: Some((ACCESS_EXECUTE, 0x18)),
+            failed_call: Some(FailedCall {
+                target: Some(0x18),
+                ..unfinished_import_crash().failed_call.unwrap()
+            }),
+            ..unfinished_import_crash()
+        };
+        assert!(is_unfinished_import_table_crash(&crash));
+    }
+
+    #[test]
+    fn ignores_the_same_crash_after_game_init() {
+        let crash = CrashFacts {
+            game_init_reached: true,
+            ..unfinished_import_crash()
+        };
+        assert!(!is_unfinished_import_table_crash(&crash));
+    }
+
+    #[test]
+    fn ignores_a_call_through_a_slot_holding_an_address() {
+        let call = unfinished_import_crash().failed_call.unwrap();
+        for target in [Some(SYSTEM_DLL_ADDRESS), None] {
+            let crash = CrashFacts {
+                failed_call: Some(FailedCall { target, ..call }),
+                ..unfinished_import_crash()
+            };
+            assert!(!is_unfinished_import_table_crash(&crash), "{target:?}");
+        }
+    }
+
+    #[test]
+    fn ignores_calls_and_slots_outside_the_exe() {
+        let call = unfinished_import_crash().failed_call.unwrap();
+        for failed_call in [
+            FailedCall {
+                call: SYSTEM_DLL_ADDRESS,
+                ..call
+            },
+            FailedCall {
+                slot: SYSTEM_DLL_ADDRESS,
+                ..call
+            },
+            FailedCall {
+                call: EXE.end,
+                ..call
+            },
+        ] {
+            let crash = CrashFacts {
+                failed_call: Some(failed_call),
+                ..unfinished_import_crash()
+            };
+            assert!(!is_unfinished_import_table_crash(&crash), "{failed_call:?}");
+        }
+        let crash = CrashFacts {
+            failed_call: None,
+            ..unfinished_import_crash()
+        };
+        assert!(!is_unfinished_import_table_crash(&crash));
+    }
+
+    #[test]
+    fn ignores_other_exceptions_and_accesses() {
+        let crash = CrashFacts {
+            exception_code: 0xc000_001d,
+            access: None,
+            ..unfinished_import_crash()
+        };
+        assert!(!is_unfinished_import_table_crash(&crash));
+        // Reading or writing a null pointer, or executing an address past the null page.
+        for access in [(0, 0), (1, 0x10), (ACCESS_EXECUTE, SYSTEM_DLL_ADDRESS)] {
+            let crash = CrashFacts {
+                access: Some(access),
+                ..unfinished_import_crash()
+            };
+            assert!(!is_unfinished_import_table_crash(&crash), "{access:?}");
+        }
+    }
+
     /// A uniquely named directory under the system temp directory, removed on drop.
     struct TempDir(PathBuf);
 
@@ -1589,8 +1838,20 @@ mod tests {
         }
     }
 
+    /// Held by each test that writes a minidump. dbghelp can't be called from several threads at
+    /// once, and MiniDumpWriteDump suspends the process's other threads while it runs, so two
+    /// tests writing dumps together can hang each other.
+    static DUMP_WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn dump_writer() -> std::sync::MutexGuard<'static, ()> {
+        DUMP_WRITER
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     #[test]
     fn minidump_replaces_previous_dump_once_complete() {
+        let _writing = dump_writer();
         let dir = TempDir::new();
         std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
         std::fs::write(dir.0.join("crash_stack.bin"), b"stale").unwrap();
@@ -1608,6 +1869,7 @@ mod tests {
     /// Heap memory handed to the dump as referenced ends up in it, and isn't there otherwise.
     #[test]
     fn minidump_carries_referenced_memory() {
+        let _writing = dump_writer();
         // Computed into heap memory so that the pattern exists nowhere else a dump holds, such
         // as a literal in the image's data or a copy on the stack.
         let mut marker = vec![0u8; 0x40];
@@ -1638,6 +1900,7 @@ mod tests {
 
     #[test]
     fn hang_dump_leaves_crash_dump_files_alone() {
+        let _writing = dump_writer();
         let dir = TempDir::new();
         std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
         std::fs::write(dir.0.join("crash_stack.bin"), b"stale").unwrap();
@@ -1661,6 +1924,7 @@ mod tests {
 
     #[test]
     fn failed_minidump_keeps_previous_dump() {
+        let _writing = dump_writer();
         let dir = TempDir::new();
         std::fs::write(dir.0.join("latest_crash.dmp"), b"previous").unwrap();
         // A directory in the temp file's place makes creating it fail.

@@ -298,6 +298,13 @@ pub extern "C" fn OnInject() {
         process_id,
         args.log_name,
     );
+    if args.launch_attempt > 1 {
+        info!(
+            "Launch attempt {} of game {}: the app launched it again after the previous process \
+             crashed on an unfinished import table",
+            args.launch_attempt, args.game_id,
+        );
+    }
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
     // Nothing here may start a thread; see `scr_init`.
@@ -320,12 +327,15 @@ pub extern "C" fn OnInject() {
         frame_timing::init_from_env();
         input_latency_probe::init_from_env();
         hotkey_order_probe::init_from_env();
-        forced_crash::init_from_env();
     }
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);
     }
+    // Last, so that a crash it arms in place of the main thread's start sees that start as the
+    // init helper left it.
+    #[cfg(debug_assertions)]
+    forced_crash::init_from_env();
 }
 
 /// `SB_ONINJECT_THREADS=<n>` starts n idle threads from `OnInject`, breaking the rule `scr_init`
@@ -686,6 +696,9 @@ struct Args {
     /// with several clients on one machine, a known per-client port lets traffic-shaping tools
     /// that filter by port (e.g. clumsy) target a single client. `None` binds ephemerally.
     rally_point_port: Option<u16>,
+    /// Which launch of this game this process is, counting from 1. The app launches a game again
+    /// when its process exits with `crash_dump::UNFINISHED_IMPORT_TABLE_EXIT_CODE`.
+    launch_attempt: u32,
 }
 
 static ARGS: OnceLock<Args> = OnceLock::new();
@@ -709,6 +722,7 @@ fn try_parse_args() -> Option<Args> {
     let mut use_legacy_cursor_sizing = false;
     let mut log_name = "game".to_owned();
     let mut rally_point_port = None;
+    let mut launch_attempt = 1;
 
     for arg in args {
         let arg = arg.into_string().ok()?;
@@ -727,6 +741,10 @@ fn try_parse_args() -> Option<Args> {
             // which would just be an ephemeral bind anyway) is ignored rather than failing the
             // whole parse — logging isn't up yet, and a dev knob must not block a launch.
             rally_point_port = value.parse::<u16>().ok().filter(|&port| port != 0);
+        } else if let Some(value) = arg.strip_prefix("-launch-attempt=") {
+            // As with the port, an unparseable value counts as the first attempt rather than
+            // failing the parse.
+            launch_attempt = value.parse::<u32>().ok().filter(|&n| n != 0).unwrap_or(1);
         }
     }
 
@@ -737,7 +755,14 @@ fn try_parse_args() -> Option<Args> {
         use_legacy_cursor_sizing,
         log_name,
         rally_point_port,
+        launch_attempt,
     })
+}
+
+/// Which launch of this game this process is, counting from 1 (see `Args::launch_attempt`). 1
+/// until the launch args have been parsed. Doesn't allocate, so the crash path can call it.
+pub fn launch_attempt() -> u32 {
+    ARGS.get().map_or(1, |args| args.launch_attempt)
 }
 
 /// The fixed local UDP port for the netcode v2 endpoint, if the launcher passed one (a dev aid

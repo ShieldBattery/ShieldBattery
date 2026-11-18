@@ -9,6 +9,7 @@ import { MapDownloadOutcome } from '../../common/maps'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 import { checkStarcraftPath } from './check-starcraft-path'
+import { UNFINISHED_IMPORT_TABLE_EXIT_CODE } from './crash-exit-code'
 
 const { verifyGame, electronApp } = vi.hoisted(() => ({
   verifyGame: vi.fn<() => Promise<void>>(),
@@ -328,6 +329,109 @@ describe('ActiveGameManager game setup', () => {
     expect(commands).toContainEqual(['game-1', 'quit'])
     expect(statuses.at(-1)?.state).toBe('error')
     expect(setupsSent()).toEqual([])
+  })
+})
+
+describe('ActiveGameManager relaunch after an unfinished import table', () => {
+  let commands: Array<[string, string, ...any[]]>
+  let statuses: Array<{ id: string; state: string; extra?: unknown }>
+
+  function watch(manager: ActiveGameManager) {
+    commands = []
+    statuses = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+    manager.on('gameStatus', status => statuses.push(status))
+    return manager
+  }
+
+  it('keeps the game launching, with nothing reported, when its first process crashes', () => {
+    const manager = watch(makeManager())
+    manager.setGameConfig(configFor('game-1'))
+    statuses.length = 0
+
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+
+    expect(statuses).toEqual([])
+    expect(commands).toEqual([])
+    expect(manager.getStatus()).toMatchObject({ id: 'game-1', state: 'launching' })
+  })
+
+  it('keeps a replay launching when its first process crashes', () => {
+    const manager = watch(makeManager())
+    manager.setGameConfig(replayConfigFor('replay-1'))
+    statuses.length = 0
+
+    manager.handleGameExit('replay-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+
+    expect(statuses).toEqual([])
+    expect(manager.getStatus('replay-1')).toMatchObject({ state: 'launching', isReplay: true })
+  })
+
+  it('fails the game as usual when the relaunched process crashes the same way', () => {
+    const manager = watch(makeManager())
+    manager.setGameConfig(configFor('game-1'))
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+    statuses.length = 0
+
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        id: 'game-1',
+        state: 'error',
+        extra: expect.objectContaining({ message: expect.stringContaining('0x2bad1a7e') }),
+      }),
+    ])
+    expect(manager.getStatus()).toBeNull()
+  })
+
+  it('fails the game as usual when the relaunched process exits any other way', () => {
+    const manager = watch(makeManager())
+    manager.setGameConfig(configFor('game-1'))
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+
+    manager.handleGameExit('game-1', 0xc0000005)
+
+    expect(statuses.at(-1)).toMatchObject({ id: 'game-1', state: 'error' })
+    expect(manager.getStatus()).toBeNull()
+  })
+
+  it('sends the relaunched process everything the first one would have been sent', async () => {
+    const manager = watch(makeConnectableManager())
+    const pubkey = manager.generateNetcodeV2SessionKeys()
+    manager.setGameConfig(configFor('game-1'))
+    // The server's handoff can arrive while the first process is still starting.
+    manager.setNetcodeV2Setup('game-1', setupFor(pubkey))
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+    expect(commands).toEqual([])
+
+    await manager.handleGameConnected('game-1')
+
+    expect(commands.map(([, command]) => command)).toEqual([
+      'localUser',
+      'blockedUsers',
+      'serverConfig',
+      'settings',
+      'netcodeV2Setup',
+      'setupGame',
+    ])
+    expect(commands.find(([, command]) => command === 'netcodeV2Setup')?.[2]).toMatchObject({
+      clientPrivateKey: expect.any(String),
+    })
+    expect(manager.getStatus()?.state).toBe('configuring')
+  })
+
+  it('does not relaunch a game whose process had connected', async () => {
+    const manager = watch(makeConnectableManager())
+    manager.setGameConfig(configFor('game-1'))
+    await manager.handleGameConnected('game-1')
+
+    manager.handleGameExit('game-1', UNFINISHED_IMPORT_TABLE_EXIT_CODE)
+
+    expect(statuses.at(-1)).toMatchObject({ id: 'game-1', state: 'error' })
+    expect(manager.getStatus()).toBeNull()
   })
 })
 
