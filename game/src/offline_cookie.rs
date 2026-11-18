@@ -91,7 +91,6 @@ pub fn is_inspecting() -> bool {
 ///
 /// The decision is made (and logged) once per process; later reads reuse it.
 pub fn redirect_target(real_path: &Path) -> Option<PathBuf> {
-    static DECISION: OnceLock<Option<PathBuf>> = OnceLock::new();
     DECISION
         .get_or_init(|| {
             let backup_path = crate::parse_args().user_data_path.join(BACKUP_FILENAME);
@@ -101,17 +100,42 @@ pub fn redirect_target(real_path: &Path) -> Option<PathBuf> {
             INSPECTING.set(false);
             result
         })
+        .redirect
         .clone()
 }
 
-fn choose_source(real_path: &Path, backup_path: &Path, hwids: &[String]) -> Option<PathBuf> {
+/// Whether the cookie file the game reads holds a StarCraft: Remastered session for this machine.
+/// `None` until the game has opened its cookie file, and when the session couldn't be checked.
+pub fn has_scr_session() -> Option<bool> {
+    DECISION.get()?.has_session
+}
+
+static DECISION: OnceLock<Source> = OnceLock::new();
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct Source {
+    /// The file the game's read of cookie.bin goes to instead, if any.
+    redirect: Option<PathBuf>,
+    /// Whether the file the game reads holds an SC:R session, `None` when that couldn't be
+    /// checked.
+    has_session: Option<bool>,
+}
+
+fn choose_source(real_path: &Path, backup_path: &Path, hwids: &[String]) -> Source {
     if hwids.is_empty() {
         warn!("Offline cookie: couldn't determine this machine's ID, using cookie.bin as-is");
-        return None;
+        return Source {
+            redirect: None,
+            has_session: None,
+        };
     }
     let current = CookieState::inspect(real_path, hwids);
     let backup = CookieState::inspect(backup_path, hwids);
     let decision = decide(current.session(), backup.session());
+    let has_session = match decision {
+        Decision::UseBackup => backup.session().is_some(),
+        Decision::UseCurrent { .. } => current.session().is_some(),
+    };
     let (target, action) = match decision {
         Decision::UseBackup => (
             Some(backup_path.to_owned()),
@@ -133,7 +157,10 @@ fn choose_source(real_path: &Path, backup_path: &Path, hwids: &[String]) -> Opti
         }
     };
     info!("Offline cookie: cookie.bin {current}; copy {backup}; {action}");
-    target
+    Source {
+        redirect: target,
+        has_session: Some(has_session),
+    }
 }
 
 fn write_backup(path: &Path, bytes: &[u8]) -> io::Result<()> {
@@ -774,29 +801,41 @@ mod test {
         let good = cookie_file(&[cookie(SCR_GAME_ID, 1, FULL, HWID), w3.clone()]);
 
         // Missing both: nothing to do.
-        assert_eq!(choose_source(&real, &backup, &hwids), None);
+        assert_eq!(choose_source(&real, &backup, &hwids).redirect, None);
         assert!(!backup.exists());
 
         // A good cookie is used as-is and copied.
         fs::write(&real, &good).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), None);
+        assert_eq!(choose_source(&real, &backup, &hwids).redirect, None);
         assert_eq!(fs::read(&backup).unwrap(), good);
 
         // Losing the SC:R entry redirects to the copy, which stays untouched.
         fs::write(&real, cookie_file(&[w3])).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), Some(backup.clone()));
+        assert_eq!(
+            choose_source(&real, &backup, &hwids).redirect,
+            Some(backup.clone())
+        );
         assert_eq!(fs::read(&backup).unwrap(), good);
 
         // As does losing the file entirely, or it being emptied.
         fs::remove_file(&real).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), Some(backup.clone()));
+        assert_eq!(
+            choose_source(&real, &backup, &hwids).redirect,
+            Some(backup.clone())
+        );
         fs::write(&real, []).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), Some(backup.clone()));
+        assert_eq!(
+            choose_source(&real, &backup, &hwids).redirect,
+            Some(backup.clone())
+        );
 
         // Or losing entitlements on the same account.
         let degraded = cookie_file(&[cookie(SCR_GAME_ID, 1, &[], HWID)]);
         fs::write(&real, &degraded).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), Some(backup.clone()));
+        assert_eq!(
+            choose_source(&real, &backup, &hwids).redirect,
+            Some(backup.clone())
+        );
         assert_eq!(fs::read(&backup).unwrap(), good);
     }
 
@@ -810,12 +849,12 @@ mod test {
         fs::write(&backup, &good).unwrap();
 
         fs::write(&real, cookie_file(&[cookie(SCR_GAME_ID, 2, &[], HWID)])).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), None);
+        assert_eq!(choose_source(&real, &backup, &hwids).redirect, None);
         assert_eq!(fs::read(&backup).unwrap(), good);
 
         let other = cookie_file(&[cookie(SCR_GAME_ID, 2, &["hd"], HWID)]);
         fs::write(&real, &other).unwrap();
-        assert_eq!(choose_source(&real, &backup, &hwids), None);
+        assert_eq!(choose_source(&real, &backup, &hwids).redirect, None);
         assert_eq!(fs::read(&backup).unwrap(), other);
     }
 
@@ -830,6 +869,39 @@ mod test {
         )
         .unwrap();
 
-        assert_eq!(choose_source(&real, &backup, &hwids(&[HWID])), None);
+        let source = choose_source(&real, &backup, &hwids(&[HWID]));
+        assert_eq!(source.redirect, None);
+        assert_eq!(source.has_session, Some(false));
+    }
+
+    #[test]
+    fn reports_whether_the_game_gets_a_session() {
+        let dir = TestDir::new("has-session");
+        let real = dir.0.join("cookie.bin");
+        let backup = dir.0.join(BACKUP_FILENAME);
+        let hwids = hwids(&[HWID]);
+        let has_session = || choose_source(&real, &backup, &hwids).has_session;
+
+        assert_eq!(has_session(), Some(false));
+        let w3_only = cookie_file(&[cookie(W3_GAME_ID, 1, &["w3-standard"], HWID)]);
+        fs::write(&real, &w3_only).unwrap();
+        assert_eq!(has_session(), Some(false));
+        fs::write(
+            &real,
+            cookie_file(&[cookie(SCR_GAME_ID, 1, FULL, OTHER_HWID)]),
+        )
+        .unwrap();
+        assert_eq!(has_session(), Some(false));
+
+        // A session without entitlements is still a session.
+        fs::write(&real, cookie_file(&[cookie(SCR_GAME_ID, 1, &[], HWID)])).unwrap();
+        assert_eq!(has_session(), Some(true));
+        fs::write(&real, cookie_file(&[cookie(SCR_GAME_ID, 1, FULL, HWID)])).unwrap();
+        assert_eq!(has_session(), Some(true));
+        // The copy made of that one stands in once the real file loses its entry.
+        fs::write(&real, &w3_only).unwrap();
+        assert_eq!(has_session(), Some(true));
+
+        assert_eq!(choose_source(&real, &backup, &[]).has_session, None);
     }
 }

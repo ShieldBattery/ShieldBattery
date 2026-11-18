@@ -52,6 +52,7 @@ use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::draw_inject::warn_once;
 use crate::bw_scr::game_stats::GameStats;
+use crate::client_sdk_agent;
 use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
@@ -5867,6 +5868,24 @@ fn create_file_hook(
                 } else if check_filename(filename, b"cookie.bin")
                     && !offline_cookie::is_inspecting()
                 {
+                    // Lets a test give the game a cookie file of its own, which also has to be
+                    // named cookie.bin.
+                    #[cfg(debug_assertions)]
+                    if let Some(path) = std::env::var_os("SB_TEST_COOKIE_BIN")
+                        && windows::os_string_from_winapi(filename) != path
+                    {
+                        return create_file_hook(
+                            bw,
+                            windows::winapi_str(path).as_ptr(),
+                            access,
+                            share,
+                            security,
+                            creation_disposition,
+                            flags,
+                            template,
+                            orig,
+                        );
+                    }
                     needs_time_hook = true;
                     debug!(
                         "CreateFileW for cookie.bin with params {access:x} {share:x} \
@@ -5898,17 +5917,40 @@ fn create_file_hook(
                             return handle;
                         }
                     }
-                } else if check_filename(filename, b"Agent.dat") {
+                } else if check_filename(filename, b"Agent.dat")
+                    && !client_sdk_agent::is_reading_port_file()
+                {
                     // Should happen earlier, but just in case
                     stop_precise_system_time_hook();
                     // Agent.dat holds the port of the Battle.net Agent, which ClientSdk talks to
-                    // over HTTP. Nothing we use needs it, and when the Agent answers 401 ClientSdk
-                    // retries forever (~45/s), nesting each retry's callback in the last one's
-                    // until destroying the chain overflows the main thread's stack. Failing the
-                    // open makes ClientSdk send its requests to AGENT_FALLBACK_PORT, which
-                    // connect_hook refuses, and retry this open every few seconds. A refused
-                    // connection makes ClientSdk try to launch the Agent, which shell_execute_hook
-                    // blocks.
+                    // over HTTP. The SDK only gets a file whose port could be read here as well,
+                    // as its connections to any other port wouldn't be known to be the Agent's.
+                    #[cfg(debug_assertions)]
+                    let path = std::env::var_os("SB_TEST_AGENT_DAT")
+                        .unwrap_or_else(|| windows::os_string_from_winapi(filename));
+                    #[cfg(not(debug_assertions))]
+                    let path = windows::os_string_from_winapi(filename);
+                    if agent_requests_allowed() {
+                        if client_sdk_agent::note_port_file(Path::new(&path)) {
+                            return orig(
+                                windows::winapi_str(&path).as_ptr(),
+                                access,
+                                share,
+                                security,
+                                creation_disposition,
+                                flags,
+                                template,
+                            );
+                        }
+                        static LOGGED_NO_PORT: AtomicBool = AtomicBool::new(false);
+                        if !LOGGED_NO_PORT.swap(true, Ordering::Relaxed) {
+                            info!("Agent.dat holds no port to reach the Battle.net Agent at");
+                        }
+                    }
+                    // Failing the open makes ClientSdk send its requests to the Agent's fallback
+                    // port, which connect_hook refuses, and retry this open every few seconds. A
+                    // refused connection makes ClientSdk try to launch the Agent, which
+                    // shell_execute_hook blocks.
                     static LOGGED_AGENT_BLOCK: AtomicBool = AtomicBool::new(false);
                     if !LOGGED_AGENT_BLOCK.swap(true, Ordering::Relaxed) {
                         debug!("Blocking ClientSdk's Agent.dat lookup");
@@ -5980,9 +6022,38 @@ fn check_dir_filename(filename: &[u16], compare: &[u8]) -> bool {
     }
 }
 
-/// The port ClientSdk sends Battle.net Agent requests to when it can't read one from Agent.dat,
-/// which create_file_hook always makes it fail to. The app's game server never listens on it.
-const AGENT_FALLBACK_PORT: u16 = 1120;
+/// Whether ClientSdk gets to find and talk to a running Battle.net Agent.
+///
+/// A game that has an offline session has nothing to gain from the Agent, so only launches whose
+/// cookie file holds no StarCraft: Remastered session for this machine are let through, and only
+/// while the SDK's retries are limited. The answer is no until the game has opened its cookie
+/// file, which it does before its first Agent request.
+fn agent_requests_allowed() -> bool {
+    if !client_sdk_agent::usable() {
+        return false;
+    }
+    #[cfg(debug_assertions)]
+    let wanted = std::env::var_os("SB_TEST_AGENT_DAT").is_some()
+        || offline_cookie::has_scr_session() == Some(false);
+    #[cfg(not(debug_assertions))]
+    let wanted = offline_cookie::has_scr_session() == Some(false);
+    if wanted {
+        static LOGGED_AGENT_ALLOW: AtomicBool = AtomicBool::new(false);
+        if !LOGGED_AGENT_ALLOW.swap(true, Ordering::Relaxed) {
+            // The SDK loads IgrSdk.dll from next to the game's executable to sign in at an
+            // internet cafe.
+            let exe = unsafe { winapi::um::libloaderapi::GetModuleHandleW(null()) };
+            let cafe_sdk = windows::module_name(exe)
+                .map(PathBuf::from)
+                .is_some_and(|exe| exe.with_file_name("IgrSdk.dll").exists());
+            info!(
+                "Letting ClientSdk reach the Battle.net Agent, as there is no offline session \
+                (IgrSdk.dll present: {cafe_sdk})"
+            );
+        }
+    }
+    wanted
+}
 
 fn shell_execute_hook(
     hwnd: *mut c_void,
@@ -6016,7 +6087,8 @@ fn shell_execute_hook(
                 });
             // ClientSdk launches the Agent whenever an Agent request fails to connect, and each
             // Agent it launches outlives the game. ClientSdk takes a failed launch as the request
-            // failing, without retrying it.
+            // failing, without retrying it. Only an Agent that is already running is ever talked
+            // to.
             if names_agent {
                 debug!("Blocking ClientSdk's Battle.net Agent launch");
                 // Values of 32 and under are ShellExecuteW's errors, 2 being file not found.
@@ -6033,30 +6105,61 @@ fn connect_hook(
     address_len: i32,
     orig: unsafe extern "C" fn(usize, *const SOCKADDR, i32) -> i32,
 ) -> i32 {
-    use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
     use winapi::um::winsock2::{SOCKET_ERROR, WSASetLastError};
 
     unsafe {
-        if !address.is_null()
-            && (*address).sa_family == AF_INET as u16
-            && address_len as usize >= mem::size_of::<SOCKADDR_IN>()
-        {
-            let address = &*(address as *const SOCKADDR_IN);
-            let ip = u32::from_be(*address.sin_addr.S_un.S_addr());
-            if u16::from_be(address.sin_port) == AGENT_FALLBACK_PORT && ip >> 24 == 127 {
-                // Whatever answers there is either not the Agent, or an Agent that may answer
-                // 401, which ClientSdk retries with no limit, nesting each retry's callback in
-                // the last one's until destroying the chain overflows the main thread's stack.
-                static LOGGED_AGENT_CONNECT: AtomicBool = AtomicBool::new(false);
-                if !LOGGED_AGENT_CONNECT.swap(true, Ordering::Relaxed) {
-                    debug!("Refusing ClientSdk's Battle.net Agent connection");
-                }
-                WSASetLastError(winapi::shared::winerror::WSAECONNREFUSED as i32);
-                return SOCKET_ERROR;
+        let address_bytes = match address.is_null() {
+            true => &[][..],
+            false => std::slice::from_raw_parts(address.cast::<u8>(), address_len.max(0) as usize),
+        };
+        let to_agent = client_sdk_agent::loopback_port(address_bytes)
+            .is_some_and(client_sdk_agent::is_agent_port);
+        let allowed = to_agent && agent_requests_allowed();
+        if to_agent && !allowed {
+            // Whatever answers there is either not the Agent, or an Agent that may answer 401,
+            // which ClientSdk retries with no limit, nesting each retry's callback in the last
+            // one's until destroying the chain overflows the main thread's stack.
+            static LOGGED_AGENT_CONNECT: AtomicBool = AtomicBool::new(false);
+            if !LOGGED_AGENT_CONNECT.swap(true, Ordering::Relaxed) {
+                debug!("Refusing ClientSdk's Battle.net Agent connection");
             }
+            WSASetLastError(winapi::shared::winerror::WSAECONNREFUSED as i32);
+            return SOCKET_ERROR;
         }
+        client_sdk_agent::on_connect(socket, allowed);
         orig(socket, address, address_len)
     }
+}
+
+fn recv_hook(
+    socket: usize,
+    buffer: *mut i8,
+    length: i32,
+    flags: i32,
+    orig: unsafe extern "C" fn(usize, *mut i8, i32, i32) -> i32,
+) -> i32 {
+    use winapi::um::winsock2::{SOCKET_ERROR, WSASetLastError};
+
+    if client_sdk_agent::receive_refused(socket) {
+        unsafe {
+            WSASetLastError(winapi::shared::winerror::WSAECONNRESET as i32);
+        }
+        return SOCKET_ERROR;
+    }
+    let result = unsafe { orig(socket, buffer, length, flags) };
+    if result > 0 && !buffer.is_null() {
+        let data = unsafe { std::slice::from_raw_parts_mut(buffer.cast(), result as usize) };
+        client_sdk_agent::on_recv(socket, data, flags);
+    }
+    result
+}
+
+fn close_socket_hook(socket: usize, orig: unsafe extern "C" fn(usize) -> i32) -> i32 {
+    let result = unsafe { orig(socket) };
+    if result == 0 {
+        client_sdk_agent::on_close(socket);
+    }
+    result
 }
 
 fn copy_file_hook(
@@ -6544,6 +6647,8 @@ mod hooks {
             i32,
         ) -> *mut c_void;
         !0 => WsConnect(usize, *const SOCKADDR, i32) -> i32;
+        !0 => WsRecv(usize, *mut i8, i32, i32) -> i32;
+        !0 => WsCloseSocket(usize) -> i32;
     );
 
     thiscall_hooks!(

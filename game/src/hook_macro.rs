@@ -67,6 +67,7 @@ macro_rules! hook_winapi_exports {
         }
         let mut unusual_hooks = [$(zero($name)),*];
         let mut hooked_entries = [$(no_entry($name)),*];
+        let mut all_found = true;
         let mut i = 0;
         $(
             let proc_address = crate::hook_macro::hook_proc_address(&lib, $name);
@@ -85,6 +86,7 @@ macro_rules! hook_winapi_exports {
                 }
             } else {
                 error!("Didn't find {}", $name);
+                all_found = false;
             }
             #[allow(unused_assignments)] { i += 1; }
         )*
@@ -101,6 +103,7 @@ macro_rules! hook_winapi_exports {
             #[allow(unused_assignments)] { i += 1; }
         )*
         crate::hook_macro::shorten_hook_entry_jumps(&hooked_entries);
+        all_found
     }}
 }
 

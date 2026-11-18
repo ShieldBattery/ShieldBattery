@@ -50,6 +50,7 @@ mod app_socket;
 mod bw;
 mod bw_scr;
 mod cancel_token;
+mod client_sdk_agent;
 mod companion;
 mod crash_dump;
 #[cfg(debug_assertions)]

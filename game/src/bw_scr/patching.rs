@@ -26,10 +26,11 @@ use crate::windows;
 
 use super::{
     BwScr, ChatInjection, SNP_INITIALIZED, chat, check_documents_starcraft_path_accessibility,
-    connect_hook, copy_file_hook, create_event_hook, create_file_hook, dialog_hook, file_hook,
-    game, get_file_attributes_hook, get_system_time_precise_as_file_time_hook, load_snp_list_hook,
-    log_time, native_sync_disabled, rollback_resimulating, rollback_step, scr, sdf_cache,
-    sh_get_folder_path_w_hook, shell_execute_hook, step_game_logic_hook, tick_gates,
+    close_socket_hook, connect_hook, copy_file_hook, create_event_hook, create_file_hook,
+    dialog_hook, file_hook, game, get_file_attributes_hook,
+    get_system_time_precise_as_file_time_hook, load_snp_list_hook, log_time, native_sync_disabled,
+    recv_hook, rollback_resimulating, rollback_step, scr, sdf_cache, sh_get_folder_path_w_hook,
+    shell_execute_hook, step_game_logic_hook, tick_gates,
 };
 
 impl BwScr {
@@ -1473,9 +1474,18 @@ impl BwScr {
                 "SHGetFolderPathW", SHGetFolderPathW, sh_get_folder_path_w_hook;
                 "ShellExecuteW", ShellExecuteW, shell_execute_hook;
             );
-            hook_winapi_exports!(&mut active_patcher, "ws2_32",
+            let agent_hooks = hook_winapi_exports!(&mut active_patcher, "ws2_32",
                 "connect", WsConnect, connect_hook;
+                "recv", WsRecv, recv_hook;
+                "closesocket", WsCloseSocket, close_socket_hook;
             );
+            // ClientSdk only gets to reach the Battle.net Agent with the hooks that limit its
+            // retries of Agent requests in place.
+            if agent_hooks {
+                crate::client_sdk_agent::set_guard_installed();
+            } else {
+                warn!("ClientSdk Agent remains blocked: Winsock hooks are unavailable");
+            }
 
             // SCR wants to update gamepad state every frame, but in the end it
             // won't do any with it anyway. The query isn't completely free,
