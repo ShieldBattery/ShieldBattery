@@ -311,6 +311,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 bw.fix_zoom_ignoring_effect_sounds();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
+                bw.register_crash_dump_selection_tables();
                 // The loading screen has handed off to the game, so this is where the game-start
                 // cursor centering belongs. SC:R's own centering happens later, inside game-loop
                 // init, and is dropped (see `BwScr::run_game_loop`).

@@ -2274,6 +2274,29 @@ impl BwScr {
         self.game_started.store(true, Ordering::Release);
     }
 
+    /// Makes crash dumps carry the units the local and client selections (arrays of 12 unit
+    /// pointers) hold at the crash, which a crash that depends on what is selected needs to be
+    /// understood. Both arrays are globals, so registering again only refreshes the same entries.
+    pub fn register_crash_dump_selection_tables(&self) {
+        const SELECTION_UNITS: usize = 12;
+        let unit_len = mem::size_of::<bw::Unit>();
+        let client = unsafe { self.selection.client_selection.resolve() } as usize;
+        let local = self
+            .selection
+            .local_selection
+            .as_ref()
+            .map(|selection| unsafe { selection.resolve() } as usize);
+        for table in std::iter::once(client).chain(local) {
+            if !crate::crash_dump::register_pointer_table(table, SELECTION_UNITS, unit_len) {
+                warn!("Crash dumps can't carry the selection at {table:x}");
+            }
+        }
+        debug!(
+            "Crash dumps carry the selected units: client selection at {client:x}, local \
+             selection at {local:x?}"
+        );
+    }
+
     unsafe fn handle_debug_ui_actions(
         &self,
         overlay_out: &draw_overlay::StepOutput,
@@ -6682,6 +6705,8 @@ unsafe fn step_game_logic_hook(
             crate::rollback::desync_evidence::write_requested_unit_table(bw, frame);
         }
     }
+    #[cfg(debug_assertions)]
+    crate::forced_crash::on_step();
     #[cfg(debug_assertions)]
     if !game_thread::is_replay() {
         let game = bw.game();

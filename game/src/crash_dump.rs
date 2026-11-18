@@ -9,6 +9,13 @@
 //! needs pre-resolved) during DLL init, and parks itself so the exception pointers on its stack
 //! stay valid while the dump thread writes the minidump on its own healthy stack. A crash before
 //! the dump thread is running gets its dump written on the faulting thread instead.
+//!
+//! A dump the dump thread writes also carries heap memory the crashing thread referenced and the
+//! objects of registered pointer tables (see [`referenced_memory`] and
+//! [`register_pointer_table`]). A dump written on the faulting thread leaves that out, as reading
+//! it takes more stack than a faulting thread can be counted on to have.
+
+mod referenced_memory;
 
 use std::ffi::CStr;
 use std::fmt::{self, Write};
@@ -217,6 +224,17 @@ mod hooks {
         !0 => TerminateProcessDecl(HANDLE, u32) -> i32;
         !0 => ExitProcessDecl(u32);
     );
+}
+
+/// Makes crash dumps carry the objects an array of `count` pointers at `base` points at:
+/// `pointee_len` bytes from each non-null pointer into heap memory. For arrays whose address stays
+/// the same for the life of the process, such as the game's globals; registering the same `base`
+/// again updates its count and length. Returns false when the table is empty or all of the few
+/// slots for tables are taken.
+///
+/// A crash reads the table and the objects as they are then, without trusting them to be valid.
+pub fn register_pointer_table(base: usize, count: usize, pointee_len: usize) -> bool {
+    referenced_memory::POINTER_TABLES.register(base, count, pointee_len)
 }
 
 /// Gives the crash path a handle to the log file. Must be a duplicate of the logger's own handle
@@ -1117,7 +1135,14 @@ unsafe fn dump_thread_main() {
         let crashing_thread = CRASHING_THREAD.load(Ordering::Acquire);
         let place = exception_place(exception);
         let code = exception_code(exception);
-        breadcrumb!("Writing latest_crash.dmp for thread {crashing_thread:x}");
+        let mut referenced = referenced_memory::ChunkList::new();
+        referenced_memory::collect_for_crash(exception, &mut referenced);
+        breadcrumb!(
+            "Writing latest_crash.dmp for thread {crashing_thread:x}, with {} chunks ({:x} \
+             bytes) of heap it referenced or registered tables point at",
+            referenced.len(),
+            referenced.bytes(),
+        );
         let prepared = PREPARED
             .get()
             .expect("dump thread started without preparation");
@@ -1126,6 +1151,7 @@ unsafe fn dump_thread_main() {
             &prepared.dump_paths,
             exception,
             crashing_thread,
+            referenced.as_slice(),
         );
         match &result {
             Ok(()) => breadcrumb!("latest_crash.dmp written"),
@@ -1203,10 +1229,17 @@ pub unsafe fn write_minidump_to_default_path(
                 &prepared.dump_paths,
                 exception,
                 thread_id,
+                &[],
             ),
             None => {
                 let minidump_write_dump = load_minidump_write_dump()?;
-                write_minidump(minidump_write_dump, &DumpPaths::new(), exception, thread_id)
+                write_minidump(
+                    minidump_write_dump,
+                    &DumpPaths::new(),
+                    exception,
+                    thread_id,
+                    &[],
+                )
             }
         }
     }
@@ -1230,6 +1263,7 @@ pub fn write_hang_dump() -> Result<u64, io::Error> {
             &prepared.hang_dump_paths,
             null_mut(),
             GetCurrentThreadId(),
+            &[],
         )
     })
     .ok_or_else(|| {
@@ -1245,25 +1279,33 @@ fn logs_dir() -> PathBuf {
 
 /// Writes a minidump to `paths.dump` by way of `paths.temp`. `exception` may be null; otherwise it
 /// must belong to `thread_id`, which is the thread the dump's exception stream will point at.
+/// `referenced` is memory to add as `(start, end)`, such as [`referenced_memory`] finds.
 unsafe fn write_minidump(
     minidump_write_dump: MiniDumpWriteDumpFn,
     paths: &DumpPaths,
     exception: *mut EXCEPTION_POINTERS,
     thread_id: u32,
+    referenced: &[(usize, usize)],
 ) -> Result<(), io::Error> {
     unsafe {
-        let result = write_minidump_file(minidump_write_dump, &paths.temp, exception, thread_id)
-            .and_then(|()| {
-                let moved = MoveFileExW(
-                    paths.temp.as_ptr(),
-                    paths.dump.as_ptr(),
-                    MOVEFILE_REPLACE_EXISTING,
-                );
-                match moved {
-                    0 => Err(io::Error::last_os_error()),
-                    _ => Ok(()),
-                }
-            });
+        let result = write_minidump_file(
+            minidump_write_dump,
+            &paths.temp,
+            exception,
+            thread_id,
+            referenced,
+        )
+        .and_then(|()| {
+            let moved = MoveFileExW(
+                paths.temp.as_ptr(),
+                paths.dump.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING,
+            );
+            match moved {
+                0 => Err(io::Error::last_os_error()),
+                _ => Ok(()),
+            }
+        });
         match result {
             Ok(()) => {
                 if let Some(old_crash_stack) = &paths.old_crash_stack {
@@ -1284,6 +1326,7 @@ unsafe fn write_minidump_file(
     path: &[u16],
     exception: *mut EXCEPTION_POINTERS,
     thread_id: u32,
+    referenced: &[(usize, usize)],
 ) -> Result<(), io::Error> {
     unsafe {
         let file = CreateFileW(
@@ -1310,6 +1353,7 @@ unsafe fn write_minidump_file(
         let mut extra = ExtraDumpMemory::new(
             DUMP_EXTRA_PAGE.load(Ordering::Relaxed),
             !startup_trace::game_init_reached(),
+            referenced,
         );
         let mut callback = MinidumpCallbackInformation {
             routine: add_extra_dump_memory,
@@ -1317,7 +1361,7 @@ unsafe fn write_minidump_file(
         };
         // Dumps with nothing extra to add are written without a callback, leaving all of
         // dbghelp's choices to it.
-        let callback = match extra.count {
+        let callback = match extra.count + extra.referenced.len() {
             0 => null_mut(),
             _ => &mut callback as *mut MinidumpCallbackInformation as *mut c_void,
         };
@@ -1373,21 +1417,30 @@ const MAX_EXTRA_RANGES: usize = 128;
 /// [`ExtraDumpMemory::add_executable_private_memory`]).
 const MAX_EXECUTABLE_PRIVATE_BYTES: usize = 0x10_0000;
 
-/// Memory ranges to add to a dump, handed to dbghelp one per memory callback.
-struct ExtraDumpMemory {
+/// Memory ranges to add to a dump, handed to dbghelp one per memory callback: `ranges` as
+/// `(base, size)`, then `referenced` as `(start, end)`.
+struct ExtraDumpMemory<'a> {
     ranges: [(usize, usize); MAX_EXTRA_RANGES],
     count: usize,
     next: usize,
+    referenced: &'a [(usize, usize)],
+    next_referenced: usize,
 }
 
-impl ExtraDumpMemory {
-    /// `page` and its neighbours, as far as they're readable (none if `page` is 0), and with
-    /// `executable_private`, the process's executable private memory as well.
-    fn new(page: usize, executable_private: bool) -> ExtraDumpMemory {
+impl<'a> ExtraDumpMemory<'a> {
+    /// `page` and its neighbours, as far as they're readable (none if `page` is 0), with
+    /// `executable_private`, the process's executable private memory as well, and `referenced`.
+    fn new(
+        page: usize,
+        executable_private: bool,
+        referenced: &'a [(usize, usize)],
+    ) -> ExtraDumpMemory<'a> {
         let mut extra = ExtraDumpMemory {
             ranges: [(0, 0); MAX_EXTRA_RANGES],
             count: 0,
             next: 0,
+            referenced,
+            next_referenced: 0,
         };
         if page != 0 {
             let candidates = [
@@ -1466,11 +1519,15 @@ unsafe extern "system" fn add_extra_dump_memory(
             0..=MINIDUMP_CALLBACK_INCLUDE_MODULE => 1,
             MINIDUMP_CALLBACK_MEMORY => {
                 let extra = &mut *(param as *mut ExtraDumpMemory);
-                if extra.next == extra.count {
+                let (base, size) = if extra.next < extra.count {
+                    extra.next += 1;
+                    extra.ranges[extra.next - 1]
+                } else if let Some(&(start, end)) = extra.referenced.get(extra.next_referenced) {
+                    extra.next_referenced += 1;
+                    (start, end - start)
+                } else {
                     return 0;
-                }
-                let (base, size) = extra.ranges[extra.next];
-                extra.next += 1;
+                };
                 // MemoryBase: u64, then MemorySize: u32
                 (output as *mut u64).write_unaligned(base as u64);
                 (output.add(8) as *mut u32).write_unaligned(size as u32);
@@ -1540,12 +1597,43 @@ mod tests {
         unsafe {
             let write_dump = load_minidump_write_dump().unwrap();
             let paths = DumpPaths::in_dir(&dir.0);
-            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId()).unwrap();
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId(), &[]).unwrap();
         }
         let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
         assert_eq!(&dump[..4], b"MDMP");
         assert!(!dir.0.join("latest_crash.dmp.tmp").exists());
         assert!(!dir.0.join("crash_stack.bin").exists());
+    }
+
+    /// Heap memory handed to the dump as referenced ends up in it, and isn't there otherwise.
+    #[test]
+    fn minidump_carries_referenced_memory() {
+        // Computed into heap memory so that the pattern exists nowhere else a dump holds, such
+        // as a literal in the image's data or a copy on the stack.
+        let mut marker = vec![0u8; 0x40];
+        for (i, byte) in marker.iter_mut().enumerate() {
+            *byte = (i as u8).wrapping_mul(37) ^ 0xc3;
+        }
+        let start = marker.as_ptr() as usize;
+        let dump_holds_marker = |referenced: &[(usize, usize)]| {
+            let dir = TempDir::new();
+            unsafe {
+                let write_dump = load_minidump_write_dump().unwrap();
+                let paths = DumpPaths::in_dir(&dir.0);
+                write_minidump(
+                    write_dump,
+                    &paths,
+                    null_mut(),
+                    GetCurrentThreadId(),
+                    referenced,
+                )
+                .unwrap();
+            }
+            let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();
+            dump.windows(marker.len()).any(|window| window == marker)
+        };
+        assert!(!dump_holds_marker(&[]));
+        assert!(dump_holds_marker(&[(start, start + marker.len())]));
     }
 
     #[test]
@@ -1556,7 +1644,7 @@ mod tests {
         unsafe {
             let write_dump = load_minidump_write_dump().unwrap();
             let paths = DumpPaths::hang_in_dir(&dir.0);
-            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId()).unwrap();
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId(), &[]).unwrap();
         }
         let dump = std::fs::read(dir.0.join(HANG_DUMP_NAME)).unwrap();
         assert_eq!(&dump[..4], b"MDMP");
@@ -1580,7 +1668,7 @@ mod tests {
         let result = unsafe {
             let write_dump = load_minidump_write_dump().unwrap();
             let paths = DumpPaths::in_dir(&dir.0);
-            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId())
+            write_minidump(write_dump, &paths, null_mut(), GetCurrentThreadId(), &[])
         };
         assert!(result.is_err());
         let dump = std::fs::read(dir.0.join("latest_crash.dmp")).unwrap();

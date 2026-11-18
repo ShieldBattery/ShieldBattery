@@ -54,6 +54,8 @@ mod companion;
 mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
+#[cfg(debug_assertions)]
+mod forced_crash;
 mod forge;
 mod frame_pacing;
 mod frame_timing;
@@ -318,6 +320,7 @@ pub extern "C" fn OnInject() {
         frame_timing::init_from_env();
         input_latency_probe::init_from_env();
         hotkey_order_probe::init_from_env();
+        forced_crash::init_from_env();
     }
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
