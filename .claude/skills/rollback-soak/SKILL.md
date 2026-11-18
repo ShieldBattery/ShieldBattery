@@ -21,8 +21,8 @@ is how many extra frames a tick then steps to catch up; `SB_ROLLBACK_HARNESS_MID
 a tick learn of commands between its steps rather than before it plans. The harness CSV's
 `stalled` and `frames_behind` columns show them. A replay also has no local player, so code that depends on
 the local player only runs when a run sets `SB_ROLLBACK_HARNESS_VISION` (the runner randomizes it).
-Nor does it have a local selection unless a run sets `SB_ROLLBACK_HARNESS_SELECT=<frames>` (the
-runner adds it to most vision runs). Every that many frames it selects one of the vision player's
+Nor does it have a local selection unless a run sets `SB_ROLLBACK_HARNESS_SELECT=<frames>` or
+`SB_ROLLBACK_HARNESS_OWN_SELECTIONS` (below; the runner adds one or the other to most vision runs). Every that many frames it selects one of the vision player's
 eggs or a group of their other units, and the frames between often select a unit of theirs the
 moment it appears, on its own or added to the selection, so restores go back to before a selected
 unit existed. While the game steps, it also makes that player the local
@@ -31,6 +31,14 @@ hatching selects its second zergling, and the debug log notes each such addition
 units a tick gives back to the selection once the re-simulation has created them again. Selections stick
 to what the game's UI could make (an egg only on its own, no buildings in a group). Anything else
 crashes SC:R's status panel renderer in `PrismRenderer_draw`, whatever rollback is doing.
+`SB_ROLLBACK_HARNESS_OWN_SELECTIONS=<turns>` replaces those random selections with the vision
+player's own ones from the replay (plain, shift-add, shift-remove and hotkey recalls), made through
+the select hook as the person's while the frame `<turns>` before the command runs is shown. Their
+selections then send commands as a live person's do, so the engine's after-rollback reconcile and
+its estimate of when a selection's command has run get exercised; random selections never reach
+them. It's the knob for reproducing a selection crash from the player's own replay. A command that
+leaves the local selection exactly as it is gets skipped: it's the game catching the simulation up
+with one of its own changes, like taking a drone that started a building out of a group.
 
 Everything here lives in this skill's directory; data goes to `.claude-scratch/rollback-soak/`.
 

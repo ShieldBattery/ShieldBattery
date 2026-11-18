@@ -32,10 +32,10 @@ pub(crate) use replay_skins::ReplaySkinSnapshot;
 use scr_analysis::{VirtualAddress, scarf};
 use sdf_cache::InitSdfCache;
 pub(crate) use selection::SelectedUnit;
-pub(super) use selection::can_be_group_selected;
 use selection::{
     ClickFeedback, ObserverUiCallbacks, PlacementOverlayPools, PylonAuras, SPRITE_SELECTION_VISUALS,
 };
+pub(super) use selection::{can_be_group_selected, can_stay_in_group};
 use shader_replaces::ShaderReplaces;
 pub(crate) use skin_map::SpriteSkin;
 pub use thiscall::Thiscall;

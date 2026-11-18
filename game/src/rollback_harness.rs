@@ -24,6 +24,7 @@
 //! Compiled out of release DLLs along with the engine it drives.
 
 mod live_shapes;
+mod own_selections;
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -117,6 +118,13 @@ static VISION: AtomicI32 = AtomicI32::new(-1);
 /// That player also stands in as the local player while the game steps (see [`local_stand_in`]).
 /// Needs [`VISION_ENV_VAR`] and an armed harness. Each tick checks that the selection it leaves
 /// is one the status panel can draw.
+///
+/// `SB_ROLLBACK_HARNESS_OWN_SELECTIONS=<turns>` stands that player in the same way, but makes the
+/// selections the replay records for them as the person's own instead of random ones, while the
+/// frame `<turns>` before the one the replay runs each on is shown, as a live person with that
+/// many turns in flight makes them (see [`own_selections`]). The engine then takes them as the
+/// person's, whose commands make the simulation's selection, as it does live. It takes the place
+/// of this knob's random selections when both are set.
 const SELECT_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_SELECT";
 
 /// The interval [`SELECT_ENV_VAR`] names, or 0 when no selecting was asked for.
@@ -460,6 +468,7 @@ pub fn init_from_env() {
             }
         }
     }
+    own_selections::init_from_env(VISION.load(Ordering::Relaxed) > 0);
     if let Ok(spec) = std::env::var(DUMP_ENV_VAR) {
         match parse_frame_list(&spec) {
             Some(frames) if !frames.is_empty() => {
@@ -960,6 +969,7 @@ pub fn reset_for_game_init() {
     *KNOWLEDGE.lock() = None;
     LAST_TICK_STALLED.store(false, Ordering::Relaxed);
     live_shapes::reset();
+    own_selections::reset();
     rollback::reset_for_game_init();
 }
 
@@ -1041,12 +1051,13 @@ unsafe fn fast_forward(
     }
 }
 
-/// The player [`SELECT_ENV_VAR`] selects units of, who is the local player while the game steps
-/// so that what a step does only for the local player's selection happens for them, as it would
-/// in their own live game: a hatching egg they have selected selects its second zergling. Who the
-/// local player is never changes the simulation, which runs the same on every player's machine.
+/// The player [`SELECT_ENV_VAR`] (or [`own_selections`]) selects units of, who is the local
+/// player while the game steps so that what a step does only for the local player's selection
+/// happens for them, as it would in their own live game: a hatching egg they have selected
+/// selects its second zergling. Who the local player is never changes the simulation, which runs
+/// the same on every player's machine.
 pub fn local_stand_in() -> Option<u8> {
-    if SELECT_INTERVAL.load(Ordering::Relaxed) == 0
+    if (SELECT_INTERVAL.load(Ordering::Relaxed) == 0 && own_selections::pipe().is_none())
         || !ARMED.load(Ordering::Relaxed)
         || FROM_FRAME.load(Ordering::Relaxed) != 0
     {
@@ -1056,13 +1067,25 @@ pub fn local_stand_in() -> Option<u8> {
     (vision != 0).then(|| vision.trailing_zeros() as u8)
 }
 
-/// Selects units for [`local_stand_in`] if this tick's frame is one [`SELECT_ENV_VAR`] selects on.
+/// The turns the person [`local_stand_in`] stands in for has in flight, when the harness makes the
+/// replay's selections for them as theirs (see [`own_selections`]), so their selections send
+/// commands as a live person's do.
+pub fn own_selection_pipe() -> Option<u32> {
+    local_stand_in().and(own_selections::pipe())
+}
+
+/// Selects units for [`local_stand_in`] if this tick's frame is one [`SELECT_ENV_VAR`] selects on,
+/// or makes the person's own selections due by it (see [`own_selections`]).
 unsafe fn select_if_due(bw: &BwScr) {
     unsafe {
         let interval = SELECT_INTERVAL.load(Ordering::Relaxed);
         let (Some(player), Some(frame)) = (local_stand_in(), bw.rollback_frame_count()) else {
             return;
         };
+        if own_selections::pipe().is_some() {
+            own_selections::mirror_due(bw, player, frame);
+            return;
+        }
         if !frame.is_multiple_of(interval) {
             let mut seen = SELECT_SEEN.lock();
             if let Some(selected) =
@@ -1082,13 +1105,14 @@ unsafe fn select_if_due(bw: &BwScr) {
 
 /// Acts for [`local_stand_in`] as the person, after a step that stalls at the prediction limit: a
 /// live step that waits that long for turns processes the person's input while it does, in the
-/// middle of a tick. A quarter of them select units, and half right-click the ground.
+/// middle of a tick. A quarter of them select units, unless the person's selections are the
+/// replay's own (see [`own_selections`]), and half right-click the ground.
 unsafe fn act_while_waiting(bw: &BwScr, frame: u32) {
     unsafe {
         let Some(player) = local_stand_in() else {
             return;
         };
-        if next_select_random().is_multiple_of(4) {
+        if next_select_random().is_multiple_of(4) && own_selections::pipe().is_none() {
             let (selected, egg) = bw.rollback_select_for_harness(player, true, next_select_random);
             match egg {
                 true => debug!("{SELECT_ENV_VAR}: the stalled step to {frame} selected an egg"),

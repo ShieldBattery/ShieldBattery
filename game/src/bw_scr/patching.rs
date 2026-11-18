@@ -1072,9 +1072,16 @@ impl BwScr {
                             let person_selecting =
                                 !self.selection.engine_selecting.load(Ordering::Relaxed);
                             let during_tick = crate::rollback::tick_running();
-                            let before = (person_selecting
-                                && (during_tick || crate::rollback_live::native_sync_off()))
-                            .then(|| self.rollback_local_selection());
+                            // The debug replay harness stands in for a person whose selections
+                            // send commands, with the turns it says they have in flight.
+                            #[cfg(debug_assertions)]
+                            let harness_pipe = crate::rollback_harness::own_selection_pipe();
+                            #[cfg(not(debug_assertions))]
+                            let harness_pipe = None::<u32>;
+                            let sends_command =
+                                crate::rollback_live::native_sync_off() || harness_pipe.is_some();
+                            let before = (person_selecting && (during_tick || sends_command))
+                                .then(|| self.rollback_local_selection());
                             orig(count, units, play_sound, send_command);
                             let Some(before) = before else {
                                 return;
@@ -1087,9 +1094,13 @@ impl BwScr {
                             }
                             // The person's selection sends a command that makes the simulation's
                             // selection for them a few steps later.
-                            if crate::rollback_live::native_sync_off()
-                                && let Some(frame) = crate::rollback::position(self)
-                                && let Some(pipe) = netcode_v2::with_turn_state(|s| s.pipe_depth())
+                            let pipe = harness_pipe.or_else(|| {
+                                crate::rollback_live::native_sync_off()
+                                    .then(|| netcode_v2::with_turn_state(|s| s.pipe_depth()))
+                                    .flatten()
+                            });
+                            if let Some(frame) = crate::rollback::position(self)
+                                && let Some(pipe) = pipe
                             {
                                 crate::rollback::selection::note_selection_made(
                                     frame, pipe, &before, &after,
@@ -1110,6 +1121,20 @@ impl BwScr {
                                     crate::rollback::step_frame(),
                                     held(&before),
                                     held(&after),
+                                );
+                            }
+                            if crate::rollback_harness::local_stand_in().is_some()
+                                && held(&after) < held(&before)
+                            {
+                                let units = |x: &[Option<SelectedUnit>; 12]| {
+                                    x.iter().flatten().copied().collect::<Vec<_>>()
+                                };
+                                debug!(
+                                    "A step at frame {} took units out of the local selection: \
+                                     {} -> {}",
+                                    crate::rollback::step_frame(),
+                                    self.rollback_describe_units(&units(&before)),
+                                    self.rollback_describe_units(&units(&after)),
                                 );
                             }
                         }

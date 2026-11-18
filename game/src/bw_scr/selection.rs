@@ -11,6 +11,7 @@ use scr_analysis::{VirtualAddress, scarf};
 use smallvec::SmallVec;
 
 use crate::bw;
+use crate::rollback::selection::fit_for_status_panel;
 
 use super::{BwScr, Thiscall, Value, scr};
 
@@ -223,6 +224,15 @@ pub(crate) unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
         };
         !excluded && !by_id
     }
+}
+
+/// Whether `unit` can stay in a local selection of several units as SC:R's status panel draws
+/// them: anything but a building, which crashes its renderer there. This is what the game keeps
+/// in a group as its units change, which is more than [`can_be_group_selected`] lets the selection
+/// UI put in one: larvae selected together stay selected together as the eggs they morph into,
+/// while a drone that starts a building leaves the group.
+pub(crate) unsafe fn can_stay_in_group(unit: *mut bw::Unit) -> bool {
+    unsafe { !bw_dat::UnitId((*unit).unit_id).is_building() }
 }
 
 /// How many images each of the building placement overlay pools holds: analysis only recognizes
@@ -1009,6 +1019,22 @@ impl BwScr {
                     "Settling the local selection gave back {given_back} units the restore took out"
                 );
             }
+            // The re-simulation's own steps keep the selection to one the status panel can draw,
+            // but nothing else here may hand SC:R anything else either.
+            let fitted = fit_for_status_panel(&kept, |&x| can_stay_in_group(x));
+            if fitted.len() != kept.len() {
+                let units = |x: &[*mut bw::Unit]| {
+                    x.iter().map(|&x| SelectedUnit::of(x)).collect::<Vec<_>>()
+                };
+                warn!(
+                    "Settling the local selection took units the status panel can't draw in a \
+                     group out of it: {} -> {}",
+                    self.rollback_describe_units(&units(&kept)),
+                    self.rollback_describe_units(&units(&fitted)),
+                );
+                kept = fitted;
+                changed = true;
+            }
             if given_back != 0
                 || changed
                 || !kept
@@ -1024,10 +1050,42 @@ impl BwScr {
     /// Makes `units` the local selection, without the selection response or a selection command,
     /// as the game itself deselects a unit that dies: the selection the simulation keeps for each
     /// player is in the snapshot and re-simulated along with it.
+    ///
+    /// Only ever a selection SC:R's status panel can draw (see
+    /// [`crate::rollback::selection::status_panel_can_draw`]): of several units, the ones that
+    /// can't stay in a group stay out.
     pub(crate) unsafe fn rollback_select_local(&self, units: &[SelectedUnit]) {
         unsafe {
-            let units = units.iter().map(|x| x.unit).collect::<Vec<_>>();
-            self.engine_select(&units);
+            let fitted = fit_for_status_panel(units, |x| can_stay_in_group(x.unit));
+            if fitted.len() != units.len() {
+                warn!(
+                    "Rollback left units the status panel can't draw in a group out of the local \
+                     selection: {} -> {}",
+                    self.rollback_describe_units(units),
+                    self.rollback_describe_units(&fitted),
+                );
+            }
+            self.engine_select(&fitted.iter().map(|x| x.unit).collect::<Vec<_>>());
+        }
+    }
+
+    /// `units` by their unit tags (as replays and commands name them) and unit ids, for the
+    /// debug log.
+    pub(crate) unsafe fn rollback_describe_units(&self, units: &[SelectedUnit]) -> String {
+        unsafe {
+            let pool = self.units.resolve();
+            let first = (*pool).data as usize;
+            let index_bits = if (*pool).length > 1700 { 13 } else { 11 };
+            let described = units
+                .iter()
+                .map(|x| {
+                    let index = (x.unit as usize).wrapping_sub(first) / mem::size_of::<bw::Unit>();
+                    let tag =
+                        (index + 1) | (usize::from((*x.unit).minor_unique_index) << index_bits);
+                    format!("{tag} ({})", (*x.unit).unit_id)
+                })
+                .collect::<Vec<_>>();
+            format!("[{}]", described.join(", "))
         }
     }
 
@@ -1043,6 +1101,9 @@ impl BwScr {
                 return Vec::new();
             };
             let player = self.local_unique_player_id.resolve() as usize;
+            // Replay playback has no local player; the harness's stand-in is the person there.
+            #[cfg(debug_assertions)]
+            let player = crate::rollback_harness::local_stand_in().map_or(player, usize::from);
             if player >= 8 {
                 return Vec::new();
             }
@@ -1158,6 +1219,122 @@ impl BwScr {
             selection.push(unit);
             self.engine_select(&selection);
             Some(selection.len())
+        }
+    }
+
+    /// The units the local selection holds.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_local_selection_units(&self) -> Vec<*mut bw::Unit> {
+        unsafe {
+            self.rollback_local_selection()
+                .into_iter()
+                .flatten()
+                .map(|x| x.unit)
+                .collect()
+        }
+    }
+
+    /// The living units the unit tags `tags` name, in their order.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_units_by_tag(&self, tags: &[u32]) -> Vec<*mut bw::Unit> {
+        unsafe {
+            let Some(units) = self.unit_array() else {
+                return Vec::new();
+            };
+            tags.iter()
+                .filter_map(|&tag| units.get_by_unique_id(tag))
+                .map(|unit| *unit)
+                .collect()
+        }
+    }
+
+    /// The units recalling `player`'s hotkey group `group` selects, from the group the simulation
+    /// holds, as the game's own recall picks them: a group stored with more than one unit leaves
+    /// out what can only be selected alone.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_hotkey_group_units(
+        &self,
+        player: u8,
+        group: u8,
+    ) -> Vec<*mut bw::Unit> {
+        use crate::bw::Bw;
+        unsafe {
+            let Some(tags) = (*self.game())
+                .selection_hotkeys
+                .get(usize::from(player))
+                .and_then(|groups| groups.get(usize::from(group)))
+                .copied()
+            else {
+                return Vec::new();
+            };
+            let stored = tags
+                .iter()
+                .take_while(|&&x| x != 0)
+                .copied()
+                .collect::<Vec<_>>();
+            let alone = stored.len() <= 1;
+            self.rollback_units_by_tag(&stored)
+                .into_iter()
+                .filter(|&unit| {
+                    (*unit).player == player
+                        && (*(*unit).flingy.sprite).flags & SPRITE_HIDDEN == 0
+                        && (alone || can_be_group_selected(unit))
+                })
+                .collect()
+        }
+    }
+
+    /// Makes `units` the local selection as the person selecting them would, through the hooks
+    /// (so the engine takes it as theirs) but without the selection response or a command. Of
+    /// several units, only `player`'s that can be selected together stay, as the selection UI
+    /// only makes such groups. Returns the units it selected, described for the debug log, or
+    /// `None` when that is no unit or exactly what the local selection holds already.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_select_as_person_for_harness(
+        &self,
+        player: u8,
+        units: &[*mut bw::Unit],
+    ) -> Option<String> {
+        unsafe {
+            let mut units = units
+                .iter()
+                .copied()
+                .filter(|&unit| {
+                    let sprite = (*unit).flingy.sprite;
+                    !sprite.is_null()
+                        && (*unit).order != bw_dat::order::DIE.0
+                        && (*sprite).flags & SPRITE_HIDDEN == 0
+                })
+                .collect::<Vec<_>>();
+            if units.len() > 1 {
+                units.retain(|&unit| (*unit).player == player && can_be_group_selected(unit));
+            }
+            if units.is_empty() || units == self.rollback_local_selection_units() {
+                return None;
+            }
+            (self.selection.select_units)(units.len(), units.as_ptr(), 0, 0);
+            let selected = units
+                .iter()
+                .map(|&unit| SelectedUnit::of(unit))
+                .collect::<Vec<_>>();
+            Some(self.rollback_describe_units(&selected))
+        }
+    }
+
+    /// Makes what the simulation has the person selecting the local selection, as far as the
+    /// status panel can draw it, without the selection response or a command. Returns it,
+    /// described for the debug log.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_select_simulated_for_harness(&self) -> String {
+        unsafe {
+            let simulated = self
+                .rollback_simulated_selection()
+                .into_iter()
+                .filter(|x| x.is_current())
+                .collect::<Vec<_>>();
+            let fitted = fit_for_status_panel(&simulated, |x| can_stay_in_group(x.unit));
+            self.engine_select(&fitted.iter().map(|x| x.unit).collect::<Vec<_>>());
+            self.rollback_describe_units(&fitted)
         }
     }
 

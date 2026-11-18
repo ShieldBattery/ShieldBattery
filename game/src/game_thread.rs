@@ -994,6 +994,24 @@ fn replay_command_is_known(
     true
 }
 
+/// Every command in a replay's command data `data` (as `bw::ReplayData` holds it), with the frame
+/// it is recorded for and the storm player that issued it, in the order playback runs them.
+/// Stops at the first record it can't read.
+#[cfg(debug_assertions)]
+pub fn replay_commands<'a>(
+    mut data: &'a [u8],
+    command_lengths: &[u32],
+) -> Vec<(u32, StormPlayerId, &'a [u8])> {
+    let mut commands = Vec::new();
+    while let Some((mut frame_data, rest)) = replay_next_frame(data) {
+        data = rest;
+        while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
+            commands.push((frame_data.frame, storm_player, command));
+        }
+    }
+    commands
+}
+
 struct ReplayFrame<'a> {
     frame: u32,
     // (u8 storm_player, u8 command[...]) pairs repeated.

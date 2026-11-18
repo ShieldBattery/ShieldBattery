@@ -518,12 +518,19 @@ function randomConfig(game, arch) {
     env.SB_ROLLBACK_HARNESS_VISION = (1 << viewer).toString(16)
     env.SB_ROLLBACK_HARNESS_FROM = '1'
     desc.vision = viewer
-    if (Math.random() < 0.7) {
+    const selecting = Math.random()
+    if (selecting < 0.4) {
       // Keeps the viewer's units (eggs first) selected through restores, with the viewer standing
       // in as the local player while the game steps.
       const select = pick([8, 24, 48])
       env.SB_ROLLBACK_HARNESS_SELECT = String(select)
       desc.select = select
+    } else if (selecting < 0.75) {
+      // The viewer's own selections from the replay, made as a person with that many turns in
+      // flight makes them, so their commands drive the simulation's selection as they do live.
+      const turns = pick([1, 2, 2, 3])
+      env.SB_ROLLBACK_HARNESS_OWN_SELECTIONS = String(turns)
+      desc.ownSelections = turns
     }
   }
   if (Math.random() < 0.5) liveShapes(env, desc, [...Array(players).keys()])
