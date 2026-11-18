@@ -38,6 +38,8 @@ import {
 } from '../../../common/games/results'
 import {
   MAX_ROLLBACK_HISTOGRAM_ENTRIES,
+  MAX_ROLLBACK_SUMMARY_LENGTH,
+  MAX_ROLLBACK_VERSION_LENGTH,
   RollbackStats,
   SubmitRollbackStatsRequest,
 } from '../../../common/games/rollback-stats'
@@ -193,6 +195,10 @@ const ROLLBACK_STATS_SCHEMA = Joi.object<RollbackStats>({
   restoreUs: joiRollbackDurationUs(),
   snapshotUs: joiRollbackDurationUs(),
   stepUs: joiRollbackDurationUs(),
+  arch: Joi.string().valid('x86', 'x64'),
+  osVersion: Joi.string().max(MAX_ROLLBACK_VERSION_LENGTH),
+  wineVersion: Joi.string().max(MAX_ROLLBACK_VERSION_LENGTH),
+  summary: Joi.string().base64().max(MAX_ROLLBACK_SUMMARY_LENGTH),
 }).unknown(true)
 
 @singleton()

@@ -81,7 +81,21 @@ export interface RollbackStats {
   snapshotUs: number
   /** Total time in logic steps. */
   stepUs: number
+  /** The client's build architecture. */
+  arch?: 'x86' | 'x64'
+  /** The client's Windows version, as `major.minor.build.revision`. */
+  osVersion?: string
+  /** The Wine version the client runs under, if any. */
+  wineVersion?: string
+  /** Opaque client-provided data, base64 encoded. */
+  summary?: string
 }
+
+/** The most characters a submitted OS or Wine version string may have. */
+export const MAX_ROLLBACK_VERSION_LENGTH = 64
+
+/** The most characters a submitted rollback stats `summary` may have. */
+export const MAX_ROLLBACK_SUMMARY_LENGTH = 1024
 
 /** The most entries a submitted rollback stats histogram may have. */
 export const MAX_ROLLBACK_HISTOGRAM_ENTRIES = 64

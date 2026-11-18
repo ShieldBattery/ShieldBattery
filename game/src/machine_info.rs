@@ -14,6 +14,7 @@ use std::ffi::CStr;
 use std::mem;
 use std::path::Path;
 use std::ptr::{null, null_mut};
+use std::sync::OnceLock;
 
 use parking_lot::Mutex;
 use winapi::Interface;
@@ -87,30 +88,85 @@ pub fn log_modules_loaded_since_startup() {
 }
 
 fn log_system() {
-    info!("Machine: {}", describe_windows());
+    info!("Machine: {}", describe_windows(system_version()));
     info!("Machine: {}", describe_cpu_and_memory());
     let gpus = log_gpus();
     log_monitors(&gpus);
 }
 
-fn describe_windows() -> String {
-    let version = windows_version();
-    let wine = wine_version();
-    match (version, wine) {
-        (Some((major, minor, build)), Some(wine)) => {
-            format!("Wine {wine}, reporting Windows {major}.{minor}.{build}")
-        }
-        (None, Some(wine)) => format!("Wine {wine}"),
-        (Some((major, minor, build)), None) => {
-            let revision = registry::local_machine_dword(
+/// The Windows and Wine versions, read once by [`system_version`].
+pub struct SystemVersion {
+    windows: Option<WindowsVersion>,
+    wine: Option<String>,
+}
+
+struct WindowsVersion {
+    major: u32,
+    minor: u32,
+    build: u32,
+    /// The registry's update build revision, if it has one.
+    revision: Option<u32>,
+}
+
+impl SystemVersion {
+    /// The Windows version as `major.minor.build.revision`, if all four parts could be read.
+    pub fn os_version(&self) -> Option<String> {
+        let version = self.windows.as_ref()?;
+        let revision = version.revision?;
+        Some(format!(
+            "{}.{}.{}.{revision}",
+            version.major, version.minor, version.build
+        ))
+    }
+
+    /// The Wine version, if running under Wine (or Proton).
+    pub fn wine_version(&self) -> Option<&str> {
+        self.wine.as_deref()
+    }
+}
+
+static SYSTEM_VERSION: OnceLock<SystemVersion> = OnceLock::new();
+
+/// The system's version, read on first use and kept. The read loads `ntdll` and queries the
+/// registry, so callers on an async task or the game's main thread should go through the blocking
+/// pool unless [`log_at_startup`] has already filled it.
+pub fn system_version() -> &'static SystemVersion {
+    SYSTEM_VERSION.get_or_init(|| {
+        let windows = windows_version().map(|(major, minor, build)| WindowsVersion {
+            major,
+            minor,
+            build,
+            revision: registry::local_machine_dword(
                 r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
                 "UBR",
-            );
-            match revision {
-                Some(revision) => format!("Windows {major}.{minor}.{build}.{revision}"),
-                None => format!("Windows {major}.{minor}.{build}"),
-            }
+            ),
+        });
+        SystemVersion {
+            windows,
+            wine: wine_version(),
         }
+    })
+}
+
+fn describe_windows(version: &SystemVersion) -> String {
+    match (&version.windows, &version.wine) {
+        (Some(windows), Some(wine)) => {
+            format!(
+                "Wine {wine}, reporting Windows {}.{}.{}",
+                windows.major, windows.minor, windows.build
+            )
+        }
+        (None, Some(wine)) => format!("Wine {wine}"),
+        (Some(windows), None) => match windows.revision {
+            Some(revision) => format!(
+                "Windows {}.{}.{}.{revision}",
+                windows.major, windows.minor, windows.build
+            ),
+            None => format!(
+                "Windows {}.{}.{}",
+                windows.major, windows.minor, windows.build
+            ),
+        },
         (None, None) => "Windows version unknown".into(),
     }
 }
@@ -555,8 +611,33 @@ mod tests {
     }
 
     #[test]
+    fn os_version_needs_all_four_parts() {
+        let version = |revision| SystemVersion {
+            windows: Some(WindowsVersion {
+                major: 10,
+                minor: 0,
+                build: 26200,
+                revision,
+            }),
+            wine: None,
+        };
+        assert_eq!(
+            version(Some(9711)).os_version().as_deref(),
+            Some("10.0.26200.9711")
+        );
+        assert_eq!(version(None).os_version(), None);
+        assert_eq!(describe_windows(&version(None)), "Windows 10.0.26200");
+        let unknown = SystemVersion {
+            windows: None,
+            wine: None,
+        };
+        assert_eq!(unknown.os_version(), None);
+    }
+
+    #[test]
     fn describes_this_machine_without_crashing() {
-        assert!(describe_windows().contains("Windows") || describe_windows().contains("Wine"));
+        let description = describe_windows(system_version());
+        assert!(description.contains("Windows") || description.contains("Wine"));
         assert!(!third_party_modules().contains_key("kernel32.dll"));
     }
 }

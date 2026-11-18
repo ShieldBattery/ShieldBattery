@@ -502,6 +502,23 @@ describe('games/game-api/GameApi#submitRollbackStats', () => {
     expect(ctx.status).toBe(204)
   })
 
+  test('stores the client description fields', async () => {
+    const api = makeRollbackStatsApi()
+    const stats = {
+      ...makeRollbackStats(),
+      arch: 'x64' as const,
+      osVersion: '10.0.26200.9711',
+      wineVersion: '9.0',
+      summary: 'AQID+/8=',
+    }
+    const ctx = makeRollbackStatsCtx(stats)
+
+    await api.submitRollbackStats(ctx)
+
+    expect(insertGameRollbackStats).toHaveBeenCalledWith({ gameId: 'game-1', userId: 1, stats })
+    expect(ctx.status).toBe(204)
+  })
+
   test('answers 204 when stats were already stored for the user', async () => {
     vi.mocked(insertGameRollbackStats).mockResolvedValue(false)
     const api = makeRollbackStatsApi()
@@ -558,6 +575,11 @@ describe('games/game-api/GameApi#submitRollbackStats', () => {
     ['a histogram that is not an array', { rollbackHistogram: 5 }],
     ['a minimum pipe of no turns', { minPipeTurns: 0 }],
     ['a fractional minimum pipe', { minPipeTurns: 1.5 }],
+    ['an unknown architecture', { arch: 'arm64' }],
+    ['an overlong OS version', { osVersion: '1'.repeat(65) }],
+    ['an overlong Wine version', { wineVersion: '1'.repeat(65) }],
+    ['a summary that is not base64', { summary: 'not base64!' }],
+    ['an overlong summary', { summary: 'AAAA'.repeat(257) }],
   ])('rejects stats with %s', async (_, overrides) => {
     const api = makeRollbackStatsApi()
     const stats: Record<string, unknown> = { ...makeRollbackStats(), ...overrides }

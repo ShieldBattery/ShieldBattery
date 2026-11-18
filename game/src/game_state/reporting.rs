@@ -1,13 +1,14 @@
 use std::path::Path;
 use std::time::Duration;
 
+use base64::prelude::{BASE64_STANDARD, Engine as _};
 use bytes::Bytes;
 
 use crate::app_messages::{
     GameResults, GameResultsMessage, GameSetupInfo, RawGameResultsReport, ReplayRejected, SbUser,
     SbUserId, ServerConfig,
 };
-use crate::{app_socket, netcode_v2};
+use crate::{app_socket, companion, machine_info, netcode_v2};
 
 pub(super) async fn send_game_result(
     results: &GameResults,
@@ -80,6 +81,29 @@ pub(super) async fn send_game_result(
     }
 }
 
+/// The rollback stats with the fields that describe the client, flattened into one JSON object.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RollbackStatsBody<'a> {
+    #[serde(flatten)]
+    stats: &'a crate::rollback_live::GameStats,
+    arch: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    os_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    wine_version: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summary: Option<String>,
+}
+
+fn target_arch() -> &'static str {
+    if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else {
+        "x86"
+    }
+}
+
 /// Sends the server what a game that rolled back did, for its statistics. Best effort: a server
 /// that refuses it (an older one without the endpoint, or a game it doesn't know this player in)
 /// isn't asked again.
@@ -95,17 +119,27 @@ async fn send_rollback_stats(
     struct Request<'a> {
         user_id: SbUserId,
         result_code: &'a str,
-        stats: &'a crate::rollback_live::GameStats,
+        stats: RollbackStatsBody<'a>,
     }
 
     let url = format!(
         "{}/api/1/games/{}/rollback-stats",
         server_config.server_url, game_id
     );
+    // The first read can touch the registry, so it stays off the async threads.
+    let system = tokio::task::spawn_blocking(machine_info::system_version)
+        .await
+        .ok();
     let request = Request {
         user_id,
         result_code,
-        stats,
+        stats: RollbackStatsBody {
+            stats,
+            arch: target_arch(),
+            os_version: system.and_then(|system| system.os_version()),
+            wine_version: system.and_then(|system| system.wine_version()),
+            summary: companion::session_summary().map(|bytes| BASE64_STANDARD.encode(bytes)),
+        },
     };
     for attempt in 1..=3 {
         match crate::http::post_json_ignoring_response(&url, &request, Duration::from_secs(15))
@@ -213,4 +247,48 @@ async fn send_replay(
     }
 
     warn!("Failed to upload replay after 3 attempts, leaving file for potential retry");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rollback_live::GameStats;
+
+    fn body_json(body: RollbackStatsBody<'_>) -> serde_json::Value {
+        serde_json::to_value(body).unwrap()
+    }
+
+    #[test]
+    fn extra_fields_sit_beside_the_stats() {
+        let stats = GameStats::default();
+        let json = body_json(RollbackStatsBody {
+            stats: &stats,
+            arch: "x64",
+            os_version: Some("10.0.26200.9711".into()),
+            wine_version: Some("9.0"),
+            summary: Some("AQID".into()),
+        });
+        let fields = json.as_object().unwrap();
+        assert_eq!(fields["ticks"], 0);
+        assert_eq!(fields["arch"], "x64");
+        assert_eq!(fields["osVersion"], "10.0.26200.9711");
+        assert_eq!(fields["wineVersion"], "9.0");
+        assert_eq!(fields["summary"], "AQID");
+        assert_eq!(fields.len(), 30 + 4);
+    }
+
+    #[test]
+    fn absent_fields_are_left_out() {
+        let stats = GameStats::default();
+        let json = body_json(RollbackStatsBody {
+            stats: &stats,
+            arch: target_arch(),
+            os_version: None,
+            wine_version: None,
+            summary: None,
+        });
+        let fields = json.as_object().unwrap();
+        assert!(fields["arch"] == "x64" || fields["arch"] == "x86");
+        assert_eq!(fields.len(), 30 + 1);
+    }
 }
