@@ -2067,6 +2067,7 @@ export type MapDiscoverHero_FeatureFragmentFragment = {
 
 export type MapDiscoverQueryVariables = Exact<{
   lens: MapLens
+  kind: MapKind
   loggedIn: boolean
   freshSince: string
   recentCount: number
@@ -2365,6 +2366,7 @@ export type MapRemoveFavoriteMutation = {
 export type MapFeaturePick_FeatureFragmentFragment = {
   id: string
   week: string
+  kind: MapKind
   blurb: string
   map: {
     id: Types.SbMapId
@@ -2386,6 +2388,7 @@ export type MapFeaturePick_FeatureFragmentFragment = {
 
 export type MapFeatureSetMutationVariables = Exact<{
   week: string
+  kind?: MapKind | null | undefined
   mapId?: Types.SbMapId | null | undefined
   collectionId?: string | null | undefined
   blurb?: string | null | undefined
@@ -2401,11 +2404,14 @@ export type MapFeatureSetMutation = {
 
 export type MapFeatureRemoveMutationVariables = Exact<{
   week: string
+  kind: MapKind
 }>
 
 export type MapFeatureRemoveMutation = { mapFeatureRemove: boolean }
 
-export type MapFeatureDialogWeeksQueryVariables = Exact<{ [key: string]: never }>
+export type MapFeatureDialogWeeksQueryVariables = Exact<{
+  first: number
+}>
 
 export type MapFeatureDialogWeeksQuery = {
   mapFeatures: {
@@ -2807,7 +2813,7 @@ export type MapPageFamilyQuery = {
       name: string
       ownerKind: MapOwnerKind | null
       credit: string | null
-      current: { id: Types.SbMapId }
+      current: { id: Types.SbMapId; kind: MapKind }
       files: Array<{ id: Types.SbMapId }>
       owner: { id: Types.SbUserId; name: string } | null
     } & {
@@ -5849,6 +5855,7 @@ export const MapFeaturePick_FeatureFragmentFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'week' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'blurb' } },
           {
             kind: 'Field',
@@ -9870,6 +9877,7 @@ export const AdminMapFeaturesDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'week' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'blurb' } },
           {
             kind: 'Field',
@@ -15147,6 +15155,14 @@ export const MapDiscoverDocument = {
         },
         {
           kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapKind' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'loggedIn' } },
           type: {
             kind: 'NonNullType',
@@ -15325,8 +15341,8 @@ export const MapDiscoverDocument = {
             arguments: [
               {
                 kind: 'Argument',
-                name: { kind: 'Name', value: 'lens' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'lens' } },
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
               },
             ],
             selectionSet: {
@@ -17136,6 +17152,11 @@ export const MapFeatureSetDocument = {
         },
         {
           kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapKind' } },
+        },
+        {
+          kind: 'VariableDefinition',
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'mapId' } },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
         },
@@ -17161,6 +17182,11 @@ export const MapFeatureSetDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'week' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'week' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
               },
               {
                 kind: 'Argument',
@@ -17210,6 +17236,7 @@ export const MapFeatureSetDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'week' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'blurb' } },
           {
             kind: 'Field',
@@ -17287,6 +17314,14 @@ export const MapFeatureRemoveDocument = {
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
           },
         },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MapKind' } },
+          },
+        },
       ],
       selectionSet: {
         kind: 'SelectionSet',
@@ -17299,6 +17334,11 @@ export const MapFeatureRemoveDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'week' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'week' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
               },
             ],
           },
@@ -17314,12 +17354,29 @@ export const MapFeatureDialogWeeksDocument = {
       kind: 'OperationDefinition',
       operation: 'query',
       name: { kind: 'Name', value: 'MapFeatureDialogWeeks' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'mapFeatures' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+            ],
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
@@ -17361,6 +17418,7 @@ export const MapFeatureDialogWeeksDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'week' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'blurb' } },
           {
             kind: 'Field',
@@ -19260,7 +19318,10 @@ export const MapPageFamilyDocument = {
                         name: { kind: 'Name', value: 'current' },
                         selectionSet: {
                           kind: 'SelectionSet',
-                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                          ],
                         },
                       },
                       {

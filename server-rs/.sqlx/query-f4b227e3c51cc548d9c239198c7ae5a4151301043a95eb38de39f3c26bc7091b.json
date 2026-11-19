@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT fam.id, fam.listed\n                    FROM maps m\n                    INNER JOIN map_families fam ON fam.id = m.family_id\n                    WHERE m.id = $1\n                ",
+  "query": "\n                    SELECT fam.id, fam.listed, cur.kind\n                    FROM maps m\n                    INNER JOIN map_families fam ON fam.id = m.family_id\n                    INNER JOIN maps cur ON cur.id = fam.current_map_id\n                    WHERE m.id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "listed"
           }
         }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "kind"
+          }
+        }
       }
     ],
     "parameters": {
@@ -33,8 +44,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "8073a11350b865171b5d46788892a1a09dd4195c1754b4ddd0cb237c3b9155de"
+  "hash": "f4b227e3c51cc548d9c239198c7ae5a4151301043a95eb38de39f3c26bc7091b"
 }

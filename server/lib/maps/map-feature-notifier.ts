@@ -8,7 +8,7 @@ import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import {
   ClaimedMapFeature,
-  claimMapFeatureNotification,
+  claimMapFeatureNotifications,
   releaseMapFeatureNotificationClaim,
 } from './map-feature-models'
 
@@ -18,12 +18,13 @@ const WEEK_START_JOB_ID = 'lib/maps#mapFeatureNotification/weekStart'
 const RETRY_JOB_ID = 'lib/maps#mapFeatureNotification/retry'
 
 /**
- * Tells the maker of the weekly staff pick (server-rs owns the picks, but the notification
- * machinery lives here) that their map or collection is the map or collection of the week, once,
- * while that week runs. It looks for a pick to announce at boot, when each week starts (a one-off
- * job at the next Monday 00:00 UTC, rescheduled every time it runs), and when server-rs says the
- * running week's pick changed. Whether a pick has been announced is tracked in the database, so a
- * pick is announced at most once regardless of restarts or how many server processes look.
+ * Tells the maker of each weekly staff pick (one per kind of map; server-rs owns the picks, but the
+ * notification machinery lives here) that their map or collection is the map or collection of the
+ * week, once, while that week runs. It looks for picks to announce at boot, when each week starts
+ * (a one-off job at the next Monday 00:00 UTC, rescheduled every time it runs), and when server-rs
+ * says one of the running week's picks changed. Whether a pick has been announced is tracked in the
+ * database, so a pick is announced at most once regardless of restarts or how many server processes
+ * look.
  *
  * This has no HTTP API of its own, so it's eagerly constructed in `routes.ts` to make sure it's
  * running from boot.
@@ -84,22 +85,34 @@ export class MapFeatureNotifier {
   }
 
   /**
-   * Tells the maker of the running week's pick about it, unless that pick was already handled.
-   * Never throws: failures are logged, and retried when a later attempt could succeed.
+   * Tells the makers of the running week's picks about them, unless those picks were already
+   * handled. Never throws: failures are logged, and retried when a later attempt could succeed.
    */
   async notifyCurrentPick(): Promise<void> {
     const now = new Date(this.clock.now())
-    let claimed: ClaimedMapFeature | undefined
+    let claims: ClaimedMapFeature[]
     try {
-      claimed = await claimMapFeatureNotification(now)
+      claims = await claimMapFeatureNotifications(now)
     } catch (err) {
-      logger.error({ err }, 'Error claiming the map feature notification')
+      logger.error({ err }, 'Error claiming the map feature notifications')
       this.scheduleRetry()
       return
     }
-    if (!claimed?.userId) {
-      // Either nothing to announce, or a pick with nobody to tell, which stays claimed
-      return
+
+    const results = await Promise.all(claims.map(claimed => this.notifyPick(claimed, now)))
+    if (results.includes('retry')) {
+      this.scheduleRetry()
+    }
+  }
+
+  /**
+   * Sends the notification of a claimed pick, releasing the claim (made at `claimedAt`) if that
+   * fails. Resolves to whether a later attempt should try again.
+   */
+  private async notifyPick(claimed: ClaimedMapFeature, claimedAt: Date): Promise<'done' | 'retry'> {
+    if (!claimed.userId) {
+      // A pick with nobody to tell, which stays claimed
+      return 'done'
     }
 
     try {
@@ -108,18 +121,20 @@ export class MapFeatureNotifier {
         data: { type: NotificationType.MapFeatured, pick: claimed.pick },
       })
       logger.info(
-        `Sent the map feature notification for the week of ${claimed.week.toISOString()} to ` +
-          `user ${claimed.userId}`,
+        `Sent the map feature notification for the ${claimed.kinds.join(' and ')} pick of the ` +
+          `week of ${claimed.week.toISOString()} to user ${claimed.userId}`,
       )
+      return 'done'
     } catch (err) {
       logger.error({ err }, 'Error sending the map feature notification')
       // The notification is a single insert, so a failure means it wasn't stored and the pick can
       // be retried without duplicating it.
       try {
-        await releaseMapFeatureNotificationClaim(claimed.week, now)
-        this.scheduleRetry()
+        await releaseMapFeatureNotificationClaim(claimed, claimedAt)
+        return 'retry'
       } catch (err) {
         logger.error({ err }, 'Error releasing the map feature notification claim')
+        return 'done'
       }
     }
   }

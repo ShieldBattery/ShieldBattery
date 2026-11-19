@@ -127,6 +127,7 @@ const MapPageFamilyQuery = graphql(/* GraphQL */ `
         name
         current {
           id
+          kind
         }
         files {
           id
@@ -1093,7 +1094,8 @@ const ActionRow = styled.div`
 interface ActionsFamily {
   id: string
   name: string
-  current: { id: SbMapId }
+  /** The map's current file, whose kind is the map's. */
+  current: { id: SbMapId; kind: MapKind }
   /** How many of the map's files the viewer can see. */
   fileCount: number
   /** The map's maker, if it has one. */
@@ -1416,7 +1418,12 @@ function MapActions({
         () =>
           dispatch(
             openMapFeatureDialog({
-              target: { mapId: map.id, familyId: family.id, name: filterColorCodes(family.name) },
+              target: {
+                mapId: map.id,
+                familyId: family.id,
+                kind: family.current.kind,
+                name: filterColorCodes(family.name),
+              },
             }),
           ),
       ],

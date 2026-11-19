@@ -141,6 +141,11 @@ export function resolveDiscoverLens(
   return isDiscoverLens(catalogLens) ? catalogLens : (lastPicked ?? MapLens.Melee)
 }
 
+/** The kind of maps a Discover lens shows. */
+export function discoverLensKind(lens: DiscoverLens): MapKind {
+  return lens === MapLens.Melee ? MapKind.Melee : MapKind.Ums
+}
+
 /**
  * The tags the Browse by tag row offers, in list order: the ones for the maps `lens` shows that at
  * least {@link BROWSE_TAG_MIN_MAPS} listed maps have.
@@ -149,7 +154,7 @@ export function browseTags<T extends { kind: MapKind; mapCount: number }>(
   tags: ReadonlyArray<T>,
   lens: DiscoverLens,
 ): T[] {
-  const kind = lens === MapLens.Melee ? MapKind.Melee : MapKind.Ums
+  const kind = discoverLensKind(lens)
   return tags.filter(tag => tag.mapCount >= BROWSE_TAG_MIN_MAPS && tag.kind === kind)
 }
 

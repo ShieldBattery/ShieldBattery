@@ -47,7 +47,7 @@ function mapFeature({
     stats: { games7d: 18, games28d: 18, gamesTotal: 18, trendingScore: 0 },
   }) as unknown as Record<string, unknown>
   return {
-    id: `map-feature:2026-11-09:map:${FAMILY_ID}`,
+    id: `map-feature:2026-11-09:melee:map:${FAMILY_ID}`,
     blurb,
     automatic,
     map: {
@@ -74,7 +74,7 @@ function mapFeature({
 }
 
 const COLLECTION_FEATURE = {
-  id: 'map-feature:2026-11-09:collection:00000000-0000-4000-8000-00000000a010',
+  id: 'map-feature:2026-11-09:melee:collection:00000000-0000-4000-8000-00000000a010',
   blurb: '',
   automatic: false,
   map: null,

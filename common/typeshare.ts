@@ -202,12 +202,12 @@ export type PublishedMapFamilyReportMessage =
 
 /**
  * Messages published to Node (via Redis pub/sub) about the weekly picks. Node tells the maker of
- * the running week's pick, once, that it is the map or collection of the week.
+ * each of the running week's picks, once, that it is the map or collection of the week.
  */
 export type PublishedMapFeatureMessage =
   /**
-   * The pick of a week was set to another map or collection, or its blurb changed. `week` is the
-   * instant the week starts. Only sent for the week that is running.
+   * The pick of one of a week's slots was set to another map or collection, or its blurb
+   * changed. `week` is the instant the week starts. Only sent for the week that is running.
    */
   | {
       type: 'pickChanged'

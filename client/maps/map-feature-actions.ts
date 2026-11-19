@@ -1,17 +1,18 @@
 import { TFunction } from 'i18next'
 import { filterColorCodes } from '../../common/maps'
 import { graphql } from '../gql'
-import { MapFeaturePick_FeatureFragmentFragment } from '../gql/graphql'
+import { MapFeaturePick_FeatureFragmentFragment, MapKind } from '../gql/graphql'
 import { collectionTitle } from './map-collection-text'
 import { MAX_FEATURE_BLURB_LENGTH } from './map-feature-weeks'
 
 // Only staff pick features, so the text here isn't translated.
 
-/** What staff tools show about a week's staff pick. */
+/** What staff tools show about a staff pick of one of a week's slots. */
 export const MapFeaturePick_FeatureFragment = graphql(/* GraphQL */ `
   fragment MapFeaturePick_FeatureFragment on MapFeature {
     id
     week
+    kind
     blurb
     map {
       id
@@ -43,8 +44,20 @@ export const MapFeaturePick_FeatureFragment = graphql(/* GraphQL */ `
  * updates in place.
  */
 export const MapFeatureSetMutation = graphql(/* GraphQL */ `
-  mutation MapFeatureSet($week: DateTime!, $mapId: SbMapId, $collectionId: UUID, $blurb: String) {
-    mapFeatureSet(week: $week, mapId: $mapId, collectionId: $collectionId, blurb: $blurb) {
+  mutation MapFeatureSet(
+    $week: DateTime!
+    $kind: MapKind
+    $mapId: SbMapId
+    $collectionId: UUID
+    $blurb: String
+  ) {
+    mapFeatureSet(
+      week: $week
+      kind: $kind
+      mapId: $mapId
+      collectionId: $collectionId
+      blurb: $blurb
+    ) {
       id
       shown
       createdBy {
@@ -56,10 +69,15 @@ export const MapFeatureSetMutation = graphql(/* GraphQL */ `
 `)
 
 export const MapFeatureRemoveMutation = graphql(/* GraphQL */ `
-  mutation MapFeatureRemove($week: DateTime!) {
-    mapFeatureRemove(week: $week)
+  mutation MapFeatureRemove($week: DateTime!, $kind: MapKind!) {
+    mapFeatureRemove(week: $week, kind: $kind)
   }
 `)
+
+/** The name staff tools give the slot of a kind of map. */
+export function featureKindLabel(kind: MapKind): string {
+  return kind === MapKind.Melee ? 'Melee' : 'UMS'
+}
 
 /**
  * The name of a week's pick: its map's name, or its collection's title. A collection the viewer
@@ -97,7 +115,10 @@ export function featureErrorText(code: unknown): string {
     case 'FORBIDDEN':
       return "You don't have permission to feature maps."
     case 'BAD_REQUEST':
-      return 'Pick either a map or a collection to feature.'
+      return (
+        'Pick either a map or a collection to feature, and for a collection which kind of maps ' +
+        'to show it under. A map can only be featured for its own kind, which may have changed.'
+      )
     default:
       return "Couldn't save the pick. Please try again later."
   }
