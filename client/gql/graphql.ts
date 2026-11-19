@@ -15234,6 +15234,11 @@ export const MapDiscoverDocument = {
                       name: { kind: 'Name', value: 'first' },
                       value: { kind: 'Variable', name: { kind: 'Name', value: 'recentCount' } },
                     },
+                    {
+                      kind: 'Argument',
+                      name: { kind: 'Name', value: 'lens' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'lens' } },
+                    },
                   ],
                   selectionSet: {
                     kind: 'SelectionSet',
@@ -15528,6 +15533,11 @@ export const MapDiscoverDocument = {
               },
               {
                 kind: 'Argument',
+                name: { kind: 'Name', value: 'lens' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'lens' } },
+              },
+              {
+                kind: 'Argument',
                 name: { kind: 'Name', value: 'first' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'collectionCount' } },
               },
@@ -15570,6 +15580,11 @@ export const MapDiscoverDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'section' },
                 value: { kind: 'EnumValue', value: 'PLAYERS' },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'lens' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'lens' } },
               },
               {
                 kind: 'Argument',

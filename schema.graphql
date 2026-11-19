@@ -144,9 +144,9 @@ type CurrentUser {
 	The different maps this user played in their most recent games (of any kind, canceled
 	games aside), the most recently played first; `first` of them (at most 12). Includes maps
 	that aren't listed, except where every file of the map the user played was delisted by
-	staff.
+	staff. `lens` keeps, for `MELEE` or `UMS`, only the maps whose current file is of that kind.
 	"""
-	recentMaps(first: Int! = 6): [RecentMap!]!
+	recentMaps(first: Int! = 6, lens: MapLens! = ALL): [RecentMap!]!
 	"""
 	Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
 	the last 28 days: listed maps of that map's kind (for a melee map, also with as many
@@ -3131,9 +3131,11 @@ type Query {
 	Pages through a section of the collections everyone can see. `owner` keeps one player's
 	collections (only with `PLAYERS`; the player sees the same ones as everyone else). `search`
 	keeps the collections whose title contains it, ignoring case, punctuation and spacing.
-	Pages are 40 collections unless `first` says otherwise (at most 100).
+	`lens` keeps, for `MELEE` or `UMS`, the collections where at least half of the maps others
+	can see are of that kind, and at least one is. Pages are 40 collections unless `first` says
+	otherwise (at most 100).
 	"""
-	mapCollections(section: MapCollectionSection!, owner: SbUserId, search: String, after: String, first: Int): MapCollectionConnection!
+	mapCollections(section: MapCollectionSection!, lens: MapLens! = ALL, owner: SbUserId, search: String, after: String, first: Int): MapCollectionConnection!
 	"""
 	Collection reports: the open ones oldest first with `open: true`, otherwise the newest
 	first (only the resolved ones with `open: false`). Pages are 40 reports unless `first` says
