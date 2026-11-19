@@ -82,6 +82,13 @@ const ChannelActivityQuery = graphql(/* GraphQL */ `
 `)
 
 type ChannelActivityData = ResultOf<typeof ChannelActivityQuery>
+/**
+ * The query's data as graphcache hands it back: a feed whose resolver errored arrives as null,
+ * despite the schema marking it non-null, while the other feed keeps its value.
+ */
+type ChannelActivityFeeds = {
+  [K in keyof ChannelActivityData]: ChannelActivityData[K] | null
+}
 export type LiveStreamItem = ChannelActivityData['liveStreams'][number]
 
 export interface GameActivityPlayer {
@@ -130,12 +137,12 @@ const NO_ACTIVITY: ChannelActivity = { streams: [], games: [] }
  * point viewers at a stream that doesn't show what the channel's activity claims it does.
  */
 export function deriveActivityEntries(
-  data: ChannelActivityData,
+  data: ChannelActivityFeeds,
   users: ChannelMembers,
   selfUserId: SbUserId | undefined,
 ): ChannelActivity {
   const streams: LiveStreamItem[] = []
-  for (const stream of data.liveStreams) {
+  for (const stream of data.liveStreams ?? []) {
     if (!stream.user || stream.user.id === selfUserId || !users.active.has(stream.user.id)) {
       continue
     }
@@ -144,7 +151,7 @@ export function deriveActivityEntries(
   streams.sort((a, b) => b.viewerCount - a.viewerCount)
 
   const games: GameActivityEntry[] = []
-  for (const game of data.liveGames) {
+  for (const game of data.liveGames ?? []) {
     if (game.config.__typename !== 'GameConfigDataMatchmaking') {
       continue
     }

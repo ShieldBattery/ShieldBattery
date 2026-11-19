@@ -141,4 +141,22 @@ describe('client/chat/channel-activity', () => {
     expect(streams).toHaveLength(1)
     expect(games).toHaveLength(1)
   })
+
+  test('treats a feed that failed to load as empty and keeps the other', () => {
+    const streamsFailed = deriveActivityEntries(
+      { liveStreams: null, liveGames: [game('g', 5, [[flash], [outsider]])] },
+      members,
+      self,
+    )
+    expect(streamsFailed.streams).toEqual([])
+    expect(streamsFailed.games.map(g => g.gameId)).toEqual(['g'])
+
+    const gamesFailed = deriveActivityEntries(
+      { liveStreams: [stream(snow, 1)], liveGames: null },
+      members,
+      self,
+    )
+    expect(gamesFailed.streams.map(s => s.user?.id)).toEqual([snow])
+    expect(gamesFailed.games).toEqual([])
+  })
 })
