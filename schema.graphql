@@ -1469,8 +1469,9 @@ enum MapFamilyReportStatus {
 }
 
 """
-The map or collection leading the Discover page for a week: one staff picked, or when staff
-picked nothing everyone can see, the map rising fastest.
+The map or collection leading the Discover page of a kind of map for a week: one staff picked
+for that kind's slot, or when staff picked nothing shown there, the map of that kind rising
+fastest.
 """
 type MapFeature {
 	id: String!
@@ -1478,6 +1479,11 @@ type MapFeature {
 	When the week starts: a Monday at 00:00 UTC. The week ends when the next one starts.
 	"""
 	week: DateTime!
+	"""
+	The kind of map whose Discover page the pick leads: the slot it's in. A map is picked for
+	the slot of its current file's kind; a collection for whichever slot staff chose.
+	"""
+	kind: MapKind!
 	"""
 	The picked map's current file. Null for a collection.
 	"""
@@ -1492,8 +1498,8 @@ type MapFeature {
 	"""
 	blurb: String!
 	"""
-	Whether this is the automatic pick, the map rising fastest, standing in for a week without
-	a staff pick everyone can see.
+	Whether this is the automatic pick, the map rising fastest, standing in for a slot without
+	a staff pick that is shown.
 	"""
 	automatic: Boolean!
 	"""
@@ -1501,9 +1507,9 @@ type MapFeature {
 	"""
 	createdBy: SbUser
 	"""
-	Whether the pick is shown: it points at a listed map or at a collection everyone can see.
-	A week whose pick isn't shown gets the automatic pick instead. Only available to users who
-	can manage maps.
+	Whether the pick is shown: it points at a listed map whose current file is of the slot's
+	kind, or at a collection everyone can see. A slot whose pick isn't shown gets the automatic
+	pick instead. Only available to users who can manage maps.
 	"""
 	shown: Boolean!
 }
@@ -2802,23 +2808,27 @@ type Mutation {
 	"""
 	mapCollectionReportDismiss(reportId: UUID!): MapCollectionReport!
 	"""
-	Makes a map (the map the file `mapId` is in) or a collection the staff pick of a week,
-	replacing the week's pick if it has one. Give exactly one of `mapId` and `collectionId`
+	Makes a map (the map the file `mapId` is in) or a collection the staff pick of one of a
+	week's slots, replacing that slot's pick if it has one. The week's other slot is left as it
+	is. Give exactly one of `mapId` and `collectionId` (`BAD_REQUEST`). A map goes in the slot
+	of its current file's kind: `kind` can be left out, and if given must be that kind
+	(`BAD_REQUEST`). A collection goes in the slot `kind`, which it then requires
 	(`BAD_REQUEST`). The map must be listed (`NOT_LISTED`), and the collection one everyone can
 	see (`NOT_PUBLIC`). `week` is the instant the week starts, a Monday at 00:00 UTC
 	(`INVALID_WEEK`), from this week (`WEEK_PASSED`) up to 26 weeks ahead (`WEEK_TOO_FAR`).
 	`blurb` is trimmed, and must be one line of at most 400 characters (`INVALID_BLURB`).
-	Picking another map or collection for a week makes a new pick whose maker hasn't been told;
+	Picking another map or collection for a slot makes a new pick whose maker hasn't been told;
 	picking the same one again only changes the blurb. Only available to users who can manage
 	maps.
 	"""
-	mapFeatureSet(week: DateTime!, mapId: SbMapId, collectionId: UUID, blurb: String): MapFeature!
+	mapFeatureSet(week: DateTime!, kind: MapKind, mapId: SbMapId, collectionId: UUID, blurb: String): MapFeature!
 	"""
-	Removes the staff pick of a week, past or to come. `week` is the instant the week starts, a
-	Monday at 00:00 UTC (`INVALID_WEEK`). Returns whether the week had a pick. Only available to
-	users who can manage maps.
+	Removes the staff pick of the `kind` slot of a week, past or to come, leaving the week's
+	other slot as it is. `week` is the instant the week starts, a Monday at 00:00 UTC
+	(`INVALID_WEEK`). Returns whether the slot had a pick. Only available to users who can
+	manage maps.
 	"""
-	mapFeatureRemove(week: DateTime!): Boolean!
+	mapFeatureRemove(week: DateTime!, kind: MapKind!): Boolean!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -3147,17 +3157,18 @@ type Query {
 	"""
 	mapCollectionReportCount: Int!
 	"""
-	The map or collection leading the Discover page this week: the week's staff pick if it is
-	shown (see `MapFeature.shown`) and fits `lens` (a map of the lens's kind, or any
-	collection), otherwise the automatic pick: the listed map fitting `lens` with the highest
-	trending score, at least 200, that wasn't a staff pick in any of the last 8 weeks (this one
-	included), the most played in the last 28 days first on a tie. Null when nothing qualifies.
+	The map or collection leading the Discover page of `kind` this week: the staff pick of the
+	week's `kind` slot if it is shown (see `MapFeature.shown`), otherwise the automatic pick:
+	the listed map whose current file is of `kind` with the highest trending score, at least
+	200, that wasn't a staff pick of either slot in any of the last 8 weeks (this one included),
+	the most played in the last 28 days first on a tie. Null when nothing qualifies.
 	"""
-	mapFeature(lens: MapLens! = ALL): MapFeature
+	mapFeature(kind: MapKind!): MapFeature
 	"""
 	Every staff pick, whether or not it's shown, the latest week first: the weeks to come, then
-	this one, then the past. Pages are 30 picks unless `first` says otherwise (at most 100).
-	Only available to users who can manage maps.
+	this one, then the past, and within a week the melee slot before the UMS one. Pages are 30
+	picks unless `first` says otherwise (at most 100). Only available to users who can manage
+	maps.
 	"""
 	mapFeatures(after: String, first: Int): MapFeatureConnection!
 	"""

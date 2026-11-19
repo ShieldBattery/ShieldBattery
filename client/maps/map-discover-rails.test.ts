@@ -6,6 +6,7 @@ import {
   browseTags,
   catalogSearchForRail,
   collectionsRail,
+  discoverLensKind,
   freshRail,
   freshSince,
   MIN_RECENT_MAPS,
@@ -110,6 +111,11 @@ describe('client/maps/map-discover-rails', () => {
       'p5',
       'p6',
     ])
+  })
+
+  test('names the kind of maps each lens shows', () => {
+    expect(discoverLensKind(MapLens.Melee)).toBe(MapKind.Melee)
+    expect(discoverLensKind(MapLens.Ums)).toBe(MapKind.Ums)
   })
 
   test('offers the tags of the lens that 3 or more maps have', () => {

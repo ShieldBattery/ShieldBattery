@@ -1,5 +1,5 @@
-//! The GraphQL API of the weekly feature slot: the pick shown this week, the schedule of picks for
-//! staff, setting and removing picks, and the weeks a map was picked.
+//! The GraphQL API of the weekly feature slots: the pick shown this week for a kind of map, the
+//! schedule of picks for staff, setting and removing picks, and the weeks a map was picked.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,7 +16,7 @@ use uuid::Uuid;
 use crate::graphql::errors::graphql_error;
 use crate::maps::SbMapId;
 use crate::maps::catalog::{
-    SbMap, is_staff, load_sb_map, load_user, require_current_user, resolve_map_id,
+    MapKind, SbMap, is_staff, load_sb_map, load_user, require_current_user, resolve_map_id,
 };
 use crate::maps::collections::CollectionRow;
 use crate::maps::collections::graphql::{MapCollection, current_viewer};
@@ -24,7 +24,7 @@ use crate::maps::features::{
     self, FeatureError, FeatureTarget, StoredFeature, check_schedulable, clean_blurb, parse_week,
     week_of, week_start,
 };
-use crate::maps::search::{MapLens, MapSearchRepo};
+use crate::maps::search::MapSearchRepo;
 use crate::redis::RedisPool;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{SbUser, SbUserId};
@@ -35,13 +35,13 @@ const DEFAULT_PAGE_SIZE: i32 = 30;
 const MAX_PAGE_SIZE: i32 = 100;
 
 /// Messages published to Node (via Redis pub/sub) about the weekly picks. Node tells the maker of
-/// the running week's pick, once, that it is the map or collection of the week.
+/// each of the running week's picks, once, that it is the map or collection of the week.
 #[typeshare]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum PublishedMapFeatureMessage {
-    /// The pick of a week was set to another map or collection, or its blurb changed. `week` is the
-    /// instant the week starts. Only sent for the week that is running.
+    /// The pick of one of a week's slots was set to another map or collection, or its blurb
+    /// changed. `week` is the instant the week starts. Only sent for the week that is running.
     #[serde(rename_all = "camelCase")]
     PickChanged { week: DateTime<Utc> },
 }
@@ -65,9 +65,10 @@ fn feature_error(error: FeatureError) -> async_graphql::Error {
     }
 }
 
-/// The map or collection leading the Discover page for a week.
+/// The map or collection leading the Discover page of a kind of map for a week.
 pub struct MapFeature {
     week: NaiveDate,
+    kind: MapKind,
     family_id: Option<Uuid>,
     map_id: Option<SbMapId>,
     collection: Option<CollectionRow>,
@@ -80,9 +81,11 @@ pub struct MapFeature {
 impl MapFeature {
     fn stored(feature: StoredFeature) -> Self {
         let shown = feature.shown();
+        let kind = feature.kind();
         let StoredFeature { row, collection } = feature;
         Self {
             week: row.week,
+            kind,
             family_id: row.family_id,
             map_id: row.current_map_id,
             collection,
@@ -93,9 +96,10 @@ impl MapFeature {
         }
     }
 
-    fn new_automatic(week: NaiveDate, family_id: Uuid, map_id: SbMapId) -> Self {
+    fn new_automatic(week: NaiveDate, kind: MapKind, family_id: Uuid, map_id: SbMapId) -> Self {
         Self {
             week,
+            kind,
             family_id: Some(family_id),
             map_id: Some(map_id),
             collection: None,
@@ -107,23 +111,29 @@ impl MapFeature {
     }
 }
 
-/// The map or collection leading the Discover page for a week: one staff picked, or when staff
-/// picked nothing everyone can see, the map rising fastest.
+/// The map or collection leading the Discover page of a kind of map for a week: one staff picked
+/// for that kind's slot, or when staff picked nothing shown there, the map of that kind rising
+/// fastest.
 #[Object]
 impl MapFeature {
     async fn id(&self) -> String {
+        let slot = format!("map-feature:{}:{}", self.week, self.kind.as_str());
         match (&self.collection, self.family_id) {
-            (Some(collection), _) => {
-                format!("map-feature:{}:collection:{}", self.week, collection.id)
-            }
-            (None, Some(family)) => format!("map-feature:{}:map:{family}", self.week),
-            (None, None) => format!("map-feature:{}", self.week),
+            (Some(collection), _) => format!("{slot}:collection:{}", collection.id),
+            (None, Some(family)) => format!("{slot}:map:{family}"),
+            (None, None) => slot,
         }
     }
 
     /// When the week starts: a Monday at 00:00 UTC. The week ends when the next one starts.
     async fn week(&self) -> DateTime<Utc> {
         week_start(self.week)
+    }
+
+    /// The kind of map whose Discover page the pick leads: the slot it's in. A map is picked for
+    /// the slot of its current file's kind; a collection for whichever slot staff chose.
+    async fn kind(&self) -> MapKind {
+        self.kind
     }
 
     /// The picked map's current file. Null for a collection.
@@ -151,8 +161,8 @@ impl MapFeature {
         &self.blurb
     }
 
-    /// Whether this is the automatic pick, the map rising fastest, standing in for a week without
-    /// a staff pick everyone can see.
+    /// Whether this is the automatic pick, the map rising fastest, standing in for a slot without
+    /// a staff pick that is shown.
     async fn automatic(&self) -> bool {
         self.automatic
     }
@@ -165,9 +175,9 @@ impl MapFeature {
         load_user(ctx, self.created_by).await
     }
 
-    /// Whether the pick is shown: it points at a listed map or at a collection everyone can see.
-    /// A week whose pick isn't shown gets the automatic pick instead. Only available to users who
-    /// can manage maps.
+    /// Whether the pick is shown: it points at a listed map whose current file is of the slot's
+    /// kind, or at a collection everyone can see. A slot whose pick isn't shown gets the automatic
+    /// pick instead. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn shown(&self) -> bool {
         self.shown
@@ -175,7 +185,7 @@ impl MapFeature {
 }
 
 /// Loads the weeks up to and including the current one in which each map (family) was the staff
-/// pick, newest first, by family id.
+/// pick of either slot, newest first, by family id.
 pub struct MapFeaturedWeeksLoader {
     db: PgPool,
 }
@@ -200,8 +210,8 @@ impl Loader<Uuid> for MapFeaturedWeeksLoader {
     }
 }
 
-/// The weeks, each as the instant it starts, in which the map `family_id` was the staff pick, up to
-/// and including the current week, newest first.
+/// The weeks, each as the instant it starts, in which the map `family_id` was the staff pick of
+/// either slot, up to and including the current week, newest first.
 pub(crate) async fn family_featured_weeks(
     ctx: &Context<'_>,
     family_id: Uuid,
@@ -222,32 +232,30 @@ pub struct MapFeaturesQuery;
 
 #[Object]
 impl MapFeaturesQuery {
-    /// The map or collection leading the Discover page this week: the week's staff pick if it is
-    /// shown (see `MapFeature.shown`) and fits `lens` (a map of the lens's kind, or any
-    /// collection), otherwise the automatic pick: the listed map fitting `lens` with the highest
-    /// trending score, at least 200, that wasn't a staff pick in any of the last 8 weeks (this one
-    /// included), the most played in the last 28 days first on a tie. Null when nothing qualifies.
-    async fn map_feature(
-        &self,
-        ctx: &Context<'_>,
-        #[graphql(default)] lens: MapLens,
-    ) -> Result<Option<MapFeature>> {
+    /// The map or collection leading the Discover page of `kind` this week: the staff pick of the
+    /// week's `kind` slot if it is shown (see `MapFeature.shown`), otherwise the automatic pick:
+    /// the listed map whose current file is of `kind` with the highest trending score, at least
+    /// 200, that wasn't a staff pick of either slot in any of the last 8 weeks (this one included),
+    /// the most played in the last 28 days first on a tie. Null when nothing qualifies.
+    async fn map_feature(&self, ctx: &Context<'_>, kind: MapKind) -> Result<Option<MapFeature>> {
         let db = ctx.data::<MapSearchRepo>()?.db();
         let this_week = week_of(Utc::now());
-        if let Some(feature) = features::load_week(db, this_week).await?
+        if let Some(feature) = features::load_slot(db, this_week, kind).await?
             && feature.shown()
-            && feature.fits(lens)
         {
             return Ok(Some(MapFeature::stored(feature)));
         }
-        Ok(features::automatic_pick(db, this_week, lens)
+        Ok(features::automatic_pick(db, this_week, kind)
             .await?
-            .map(|(family_id, map_id)| MapFeature::new_automatic(this_week, family_id, map_id)))
+            .map(|(family_id, map_id)| {
+                MapFeature::new_automatic(this_week, kind, family_id, map_id)
+            }))
     }
 
     /// Every staff pick, whether or not it's shown, the latest week first: the weeks to come, then
-    /// this one, then the past. Pages are 30 picks unless `first` says otherwise (at most 100).
-    /// Only available to users who can manage maps.
+    /// this one, then the past, and within a week the melee slot before the UMS one. Pages are 30
+    /// picks unless `first` says otherwise (at most 100). Only available to users who can manage
+    /// maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_features(
         &self,
@@ -283,13 +291,16 @@ pub struct MapFeaturesMutation;
 
 #[Object]
 impl MapFeaturesMutation {
-    /// Makes a map (the map the file `mapId` is in) or a collection the staff pick of a week,
-    /// replacing the week's pick if it has one. Give exactly one of `mapId` and `collectionId`
+    /// Makes a map (the map the file `mapId` is in) or a collection the staff pick of one of a
+    /// week's slots, replacing that slot's pick if it has one. The week's other slot is left as it
+    /// is. Give exactly one of `mapId` and `collectionId` (`BAD_REQUEST`). A map goes in the slot
+    /// of its current file's kind: `kind` can be left out, and if given must be that kind
+    /// (`BAD_REQUEST`). A collection goes in the slot `kind`, which it then requires
     /// (`BAD_REQUEST`). The map must be listed (`NOT_LISTED`), and the collection one everyone can
     /// see (`NOT_PUBLIC`). `week` is the instant the week starts, a Monday at 00:00 UTC
     /// (`INVALID_WEEK`), from this week (`WEEK_PASSED`) up to 26 weeks ahead (`WEEK_TOO_FAR`).
     /// `blurb` is trimmed, and must be one line of at most 400 characters (`INVALID_BLURB`).
-    /// Picking another map or collection for a week makes a new pick whose maker hasn't been told;
+    /// Picking another map or collection for a slot makes a new pick whose maker hasn't been told;
     /// picking the same one again only changes the blurb. Only available to users who can manage
     /// maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
@@ -297,6 +308,7 @@ impl MapFeaturesMutation {
         &self,
         ctx: &Context<'_>,
         week: DateTime<Utc>,
+        kind: Option<MapKind>,
         map_id: Option<SbMapId>,
         collection_id: Option<Uuid>,
         blurb: Option<String>,
@@ -320,7 +332,7 @@ impl MapFeaturesMutation {
             target => target,
         };
         let viewer = current_viewer(ctx).await?;
-        let feature = features::set(db, week, target, &blurb, user.id, viewer)
+        let feature = features::set(db, week, kind, target, &blurb, user.id, viewer)
             .await
             .map_err(feature_error)?;
         if week == week_of(Utc::now()) {
@@ -335,13 +347,19 @@ impl MapFeaturesMutation {
         Ok(MapFeature::stored(feature))
     }
 
-    /// Removes the staff pick of a week, past or to come. `week` is the instant the week starts, a
-    /// Monday at 00:00 UTC (`INVALID_WEEK`). Returns whether the week had a pick. Only available to
-    /// users who can manage maps.
+    /// Removes the staff pick of the `kind` slot of a week, past or to come, leaving the week's
+    /// other slot as it is. `week` is the instant the week starts, a Monday at 00:00 UTC
+    /// (`INVALID_WEEK`). Returns whether the slot had a pick. Only available to users who can
+    /// manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
-    async fn map_feature_remove(&self, ctx: &Context<'_>, week: DateTime<Utc>) -> Result<bool> {
+    async fn map_feature_remove(
+        &self,
+        ctx: &Context<'_>,
+        week: DateTime<Utc>,
+        kind: MapKind,
+    ) -> Result<bool> {
         let week = parse_week(week).map_err(feature_error)?;
         let db = ctx.data::<MapSearchRepo>()?.db();
-        Ok(features::remove(db, week).await?)
+        Ok(features::remove(db, week, kind).await?)
     }
 }
