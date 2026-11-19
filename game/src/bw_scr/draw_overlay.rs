@@ -975,9 +975,6 @@ impl OverlayState {
                 }
                 if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
-                    if bw.is_replay_or_obs {
-                        self.add_on_screen_count_debug_ui(&ctx, bw.map_view.width);
-                    }
                 }
             } else {
                 self.was_loading = true;
@@ -1207,27 +1204,6 @@ impl OverlayState {
         self.force_add_ui_rect(&res, true);
     }
 
-    /// The on-screen count's tuning, in a window of its own where no panel covers it, closed until
-    /// it is opened: it is tuned while watching what it does, which the Debug window, under the
-    /// top-left panels, is in the way of. `map_view_width` is how many of the map's pixels the game
-    /// view shows across.
-    fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context, map_view_width: u32) {
-        let screen = ctx.viewport_rect();
-        let res = egui::Window::new("On-screen count tuning")
-            .default_pos((
-                screen.right() - 480.0,
-                screen.top() + screen.height() * 0.16,
-            ))
-            .default_open(false)
-            .movable(true)
-            .show(ctx, |ui| {
-                egui::ScrollArea::vertical()
-                    .max_height(screen.height() * 0.6)
-                    .show(ui, |ui| on_screen_count_debug_ui(ui, map_view_width));
-            });
-        self.force_add_ui_rect(&res, true);
-    }
-
     fn add_debug_ui_contents(&mut self, bw: &BwVars, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.collapsing("Egui settings", |ui| {
             ctx.settings_ui(ui);
@@ -1246,6 +1222,11 @@ impl OverlayState {
         });
         let tileset = unsafe { (**bw.game).tileset };
         ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
+        if bw.is_replay_or_obs {
+            ui.collapsing("On-screen count", |ui| {
+                on_screen_count_debug_ui(ui, bw.map_view.width)
+            });
+        }
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
