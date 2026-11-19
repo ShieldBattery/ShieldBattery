@@ -261,6 +261,23 @@ impl CountTuning {
         keep_together: 1.25,
         keep_up: false,
     };
+
+    /// How far apart units can stand and still be together, as the grouping takes it.
+    fn reach(&self) -> grouping::Reach {
+        grouping::Reach {
+            units: self.unit_reach,
+            same_orders: self.same_orders_reach,
+            label_room: self.label_room,
+            keep_together: self.keep_together,
+        }
+    }
+
+    /// How far apart on the screen, in points, two units can stand and still be together, and then
+    /// how far apart two on the same orders can, as the grouping works them out where one of the
+    /// map's pixels takes up `points_per_map_pixel` points on the screen.
+    pub fn reach_on_screen(&self, points_per_map_pixel: f32) -> (f32, f32) {
+        self.reach().on_screen(points_per_map_pixel)
+    }
 }
 
 impl Default for CountTuning {
@@ -998,12 +1015,7 @@ fn as_they_stand(
     let stand = grouping::stand_together(
         &members,
         points_per_map_pixel,
-        grouping::Reach {
-            units: motion.unit_reach,
-            same_orders: motion.same_orders_reach,
-            label_room: motion.label_room,
-            keep_together: motion.keep_together,
-        },
+        motion.reach(),
         were_together,
     );
     let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();

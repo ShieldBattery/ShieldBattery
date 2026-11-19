@@ -2084,25 +2084,21 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui, map_view_width: u32) {
             .text("Reach kept by units already together (x)"),
     );
     ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
-    // What the reaches come to on the screen as it is now, the way the grouping works them out:
-    // each is at least the one before it.
+    // What the reaches come to on the screen as it is now, as the grouping works them out.
     if map_view_width > 0 {
         let points_per_pixel = ui.ctx().viewport_rect().width() / map_view_width as f32;
-        let reach = motion.unit_reach * points_per_pixel;
-        let floored = reach.max(motion.label_room);
-        let same_orders = (motion.same_orders_reach * points_per_pixel).max(floored);
+        let (reach, same_orders) = motion.reach_on_screen(points_per_pixel);
+        // What the reach would be with nothing holding it up, to say which of the two decides.
+        let on_the_map = motion.unit_reach * points_per_pixel;
         ui.label(format!(
             "Now: {:.1} tiles across, a tile is {:.0} pt",
             map_view_width as f32 / 32.0,
             32.0 * points_per_pixel,
         ));
-        ui.label(if reach >= motion.label_room {
+        ui.label(if on_the_map >= reach {
             format!("Reach is {reach:.0} pt on screen (decides)")
         } else {
-            format!(
-                "Reach is {reach:.0} pt on screen, so \"at least\" decides: {:.0} pt",
-                motion.label_room
-            )
+            format!("Reach is {on_the_map:.0} pt on screen, so \"at least\" decides: {reach:.0} pt")
         });
         ui.label(format!(
             "Same orders or at rest: {same_orders:.0} pt on screen"

@@ -82,7 +82,9 @@ fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
 /// it labels.
 ///
 /// Read from the game's active list, which leaves out what is loaded into a transport or a bunker
-/// and so is not on the map to be seen. A unit is in the view when its center is. What is in it is
+/// and so is not on the map to be seen. What a transport carries is read off the transport and
+/// counted with it (see [`OnScreenUnitView::cargo`]); what is in a bunker stays out, as the bunker
+/// itself does. A unit is in the view when its center is. What is in it is
 /// anything of a player's that can be hurt and stands there in its own right, short of buildings
 /// (see [`in_on_screen_view`]); what is counted besides is narrower (see [`counts_on_screen`]).
 /// A worker at work is marked with what it is at (see [`worker_job`]).
@@ -146,11 +148,12 @@ fn build_on_screen_view(bw: &BwVars, players: &[StatsPlayer]) -> OnScreenView {
         };
         let kind = counts_on_screen(unit).then(|| kind_of(id));
         // What a transport carries is counted with it: there is nothing of it on the map to
-        // count where it stands.
+        // count where it stands. Only what would be counted standing on the map is, so a loaded
+        // hallucination is no more one of its units than one beside it.
         let cargo: Vec<usize> = match bw.units.as_ref() {
             Some(all) if on_the_map && unit.has_loaded_units() => unit
                 .loaded_units(all)
-                .filter(|&loaded| counts_on_screen(loaded))
+                .filter(|&loaded| in_on_screen_view(loaded) && counts_on_screen(loaded))
                 .map(|loaded| kind_of(loaded.id()))
                 .collect(),
             _ => Vec::new(),
@@ -444,6 +447,8 @@ fn is_at_rest_order(order: OrderId, return_to_idle: OrderId) -> bool {
                 | order::MEDIC_HOLD_POSITION
                 | order::CARRIER_HOLD_POSITION
                 | order::REAVER_HOLD_POSITION
+                | order::QUEEN_HOLD_POSITION
+                | order::SUICIDE_HOLD_POSITION
                 | order::CARRIER_STOP
                 | order::REAVER_STOP
                 | order::CARRIER_IDLE
@@ -451,6 +456,7 @@ fn is_at_rest_order(order: OrderId, return_to_idle: OrderId) -> bool {
                 | order::MEDIC
                 | order::BURROW
                 | order::BURROWED
+                | order::UNBURROW
                 | order::SIEGE_MODE
                 | order::TANK_MODE
         )
@@ -1664,8 +1670,15 @@ mod tests {
             order::PLAYER_GUARD,
             order::HOLD_POSITION,
             order::MEDIC_HOLD_POSITION,
+            order::CARRIER_HOLD_POSITION,
+            order::REAVER_HOLD_POSITION,
+            order::QUEEN_HOLD_POSITION,
+            order::SUICIDE_HOLD_POSITION,
+            order::BURROW,
             order::BURROWED,
+            order::UNBURROW,
             order::SIEGE_MODE,
+            order::TANK_MODE,
         ] {
             assert!(
                 is_at_rest_order(at_rest, order::PLAYER_GUARD),

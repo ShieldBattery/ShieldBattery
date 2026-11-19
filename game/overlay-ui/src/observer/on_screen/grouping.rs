@@ -57,6 +57,18 @@ pub(super) struct Reach {
     pub keep_together: f32,
 }
 
+impl Reach {
+    /// How far apart on the screen, in points, two units can stand and still be together, and then
+    /// how far apart two on the same orders can, where one of the map's pixels takes up
+    /// `points_per_map_pixel` points on the screen. The first is never less than `label_room`, and
+    /// the second never less than the first.
+    pub fn on_screen(self, points_per_map_pixel: f32) -> (f32, f32) {
+        let reach = (self.units * points_per_map_pixel).max(self.label_room);
+        let same_orders_reach = (self.same_orders * points_per_map_pixel).max(reach);
+        (reach, same_orders_reach)
+    }
+}
+
 /// A unit to group: where it stands on the screen, the work it is at, if it is a worker at work,
 /// and the orders it is on, as a number two units on the same orders share.
 pub(super) struct Member {
@@ -79,14 +91,8 @@ pub(super) fn stand_together(
     reach: Reach,
     were_together: impl Fn(usize, usize) -> bool,
 ) -> Vec<Vec<usize>> {
-    let Reach {
-        units,
-        same_orders,
-        label_room,
-        keep_together,
-    } = reach;
-    let reach = (units * points_per_map_pixel).max(label_room);
-    let same_orders_reach = (same_orders * points_per_map_pixel).max(reach);
+    let keep_together = reach.keep_together;
+    let (reach, same_orders_reach) = reach.on_screen(points_per_map_pixel);
     let mut parent: Vec<usize> = (0..members.len()).collect();
 
     // A base's workers are together wherever they stand, and with nothing else. Everything else
@@ -524,14 +530,8 @@ mod tests {
         reach: Reach,
         were_together: impl Fn(usize, usize) -> bool,
     ) -> Vec<Vec<usize>> {
-        let Reach {
-            units,
-            same_orders,
-            label_room,
-            keep_together,
-        } = reach;
-        let reach = (units * points_per_map_pixel).max(label_room);
-        let same_orders_reach = (same_orders * points_per_map_pixel).max(reach);
+        let keep_together = reach.keep_together;
+        let (reach, same_orders_reach) = reach.on_screen(points_per_map_pixel);
         let mut parent: Vec<usize> = (0..members.len()).collect();
         for (a, first) in members.iter().enumerate() {
             for (b, second) in members.iter().enumerate().skip(a + 1) {
