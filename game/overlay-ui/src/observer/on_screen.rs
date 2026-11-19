@@ -149,14 +149,20 @@ pub struct OnScreenUnitView {
     /// What kind it is, as an index into [`OnScreenView::kinds`], or `None` for a unit that gets a
     /// health bar but is not counted (a larva or an egg).
     pub kind: Option<usize>,
+    /// What it carries, as the kind of each unit loaded in it, indices into
+    /// [`OnScreenView::kinds`]: what a dropship, shuttle or overlord has aboard, counted with it
+    /// wherever it is counted, since there is nothing of those on the map to count. Empty for
+    /// anything else.
+    pub cargo: Vec<usize>,
     /// The work it is at, for a worker at work, which is grouped with the others at that work and
     /// never with an army standing among them. `None` for anything else, a worker pulled to fight
     /// included.
     pub job: Option<WorkerJob>,
     /// The orders it is on, as a number that is the same for two units on the same orders: told to
-    /// go to the same place, or to do the same thing to the same target. Units sent somewhere
-    /// together are grouped from further apart than others are. `None` for a unit with nothing
-    /// to do.
+    /// go to the same place, or to do the same thing to the same target, or both at rest, stopped,
+    /// holding their positions, burrowed or sieged. Units sent somewhere together, or at rest
+    /// together, are grouped from further apart than others are. `None` for a unit on orders
+    /// nothing else can share.
     pub orders: Option<u64>,
     /// Where it stands, in shares of the game view (0 to 1 across and down it).
     pub position: Pos2,
@@ -225,9 +231,21 @@ pub struct CountTuning {
     /// before they are counted that way: what keeps units that drift apart and close up again as
     /// they move from being split and joined, and their labels moved, each time.
     pub regroup_secs: f32,
+    /// How far apart two units can stand and still be together (see [`grouping`]).
+    pub unit_reach: f32,
     /// How far apart two units on the same orders can stand and still be together, which is
     /// further than units are otherwise (see [`grouping`]).
     pub same_orders_reach: f32,
+    /// How close on the screen, in points, two units always are together: zoomed out, where
+    /// `unit_reach` is closer on the screen than this, groups merge so that their labels have
+    /// room to stand apart.
+    pub label_room: f32,
+    /// How much further than their reach two units that were together the frame before stay
+    /// together, so a unit at a group's edge does not flicker in and out of it.
+    pub keep_together: f32,
+    /// Whether the count stays up without Alt, counting everything in view where nothing is
+    /// picked, and taking no presses: an aid for tuning the rest while watching what it does.
+    pub keep_up: bool,
 }
 
 impl CountTuning {
@@ -237,8 +255,29 @@ impl CountTuning {
         settle_secs: 0.03,
         least_speed: 192.0,
         regroup_secs: 1.0,
+        unit_reach: 96.0,
         same_orders_reach: 220.0,
+        label_room: 96.0,
+        keep_together: 1.25,
+        keep_up: false,
     };
+
+    /// How far apart units can stand and still be together, as the grouping takes it.
+    fn reach(&self) -> grouping::Reach {
+        grouping::Reach {
+            units: self.unit_reach,
+            same_orders: self.same_orders_reach,
+            label_room: self.label_room,
+            keep_together: self.keep_together,
+        }
+    }
+
+    /// How far apart on the screen, in points, two units can stand and still be together, and then
+    /// how far apart two on the same orders can, as the grouping works them out where one of the
+    /// map's pixels takes up `points_per_map_pixel` points on the screen.
+    pub fn reach_on_screen(&self, points_per_map_pixel: f32) -> (f32, f32) {
+        self.reach().on_screen(points_per_map_pixel)
+    }
 }
 
 impl Default for CountTuning {
@@ -462,9 +501,16 @@ pub fn render_on_screen_view(
     game_press: Option<Pos2>,
 ) -> OnScreenOutcome {
     let id = count_id();
-    let Followed { pick, look, pinned } =
-        follow_pick(ctx, shown, view, screen, panels, minimap, game_press);
-    let up = shown || pinned;
+    let Followed {
+        mut pick,
+        look,
+        pinned,
+    } = follow_pick(ctx, shown, view, screen, panels, minimap, game_press);
+    let kept_up = view.tuning.keep_up && !shown && !pinned;
+    if kept_up {
+        pick = Pick::Everything;
+    }
+    let up = shown || pinned || kept_up;
     let health_bars = if up {
         health_bars(view, &pick, screen)
     } else {
@@ -969,7 +1015,7 @@ fn as_they_stand(
     let stand = grouping::stand_together(
         &members,
         points_per_map_pixel,
-        motion.same_orders_reach,
+        motion.reach(),
         were_together,
     );
     let ids: Vec<u32> = units.iter().map(|unit| unit.id).collect();
@@ -1150,15 +1196,18 @@ fn box_labels<'a>(view: &'a OnScreenView, dragged: Rect, screen: Rect) -> Vec<La
         .collect()
 }
 
-/// How many of `units` there are of each kind, with the kind's icon, in the kinds' drawing order.
+/// How many of `units` there are of each kind, what they carry included, with the kind's icon, in
+/// the kinds' drawing order.
 fn count_kinds<'a>(
     view: &OnScreenView,
     units: impl IntoIterator<Item = &'a OnScreenUnitView>,
 ) -> Vec<(ProductionIcon, u32)> {
     let mut counts = vec![0u32; view.kinds.len()];
-    for kind in units.into_iter().filter_map(|unit| unit.kind) {
-        if let Some(count) = counts.get_mut(kind) {
-            *count += 1;
+    for unit in units {
+        for kind in unit.kind.into_iter().chain(unit.cargo.iter().copied()) {
+            if let Some(count) = counts.get_mut(kind) {
+                *count += 1;
+            }
         }
     }
     counts
@@ -1521,6 +1570,7 @@ mod tests {
             id,
             player: 0,
             kind: Some(0),
+            cargo: Vec::new(),
             job: None,
             orders: None,
             position,
@@ -2148,6 +2198,38 @@ mod tests {
         );
         assert_eq!(labels.len(), 1);
         assert_close(labels[0].anchor, pos2(510.0, 460.0));
+    }
+
+    #[test]
+    fn a_transport_is_counted_with_what_it_carries() {
+        let icon = |index| ProductionIcon {
+            texture: None,
+            index,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        };
+        // A dropship (kind 0) carrying two marines (kind 1) and a medic (kind 2), beside a marine
+        // on the ground.
+        let dropship = OnScreenUnitView {
+            cargo: vec![1, 1, 2],
+            ..unit_of(1, 0, 0, 0.5, 0.5)
+        };
+        let view = OnScreenView {
+            players: vec![nobody()],
+            kinds: vec![icon(0), icon(1), icon(2)],
+            units: vec![dropship, unit_of(2, 0, 1, 0.52, 0.5)],
+            ..Default::default()
+        };
+        let counts = |units: &[OnScreenUnitView]| -> Vec<(u16, u32)> {
+            count_kinds(&view, units)
+                .into_iter()
+                .map(|(icon, count)| (icon.index, count))
+                .collect()
+        };
+        assert_eq!(counts(&view.units), vec![(0, 1), (1, 3), (2, 1)]);
+        // Picked on its own, it still brings what it carries.
+        assert_eq!(counts(&view.units[..1]), vec![(0, 1), (1, 2), (2, 1)]);
     }
 
     #[test]

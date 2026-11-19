@@ -975,6 +975,9 @@ impl OverlayState {
                 }
                 if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
+                    if bw.is_replay_or_obs {
+                        self.add_on_screen_count_debug_ui(&ctx, bw.map_view.width);
+                    }
                 }
             } else {
                 self.was_loading = true;
@@ -1204,6 +1207,27 @@ impl OverlayState {
         self.force_add_ui_rect(&res, true);
     }
 
+    /// The on-screen count's tuning, in a window of its own where no panel covers it, closed until
+    /// it is opened: it is tuned while watching what it does, which the Debug window, under the
+    /// top-left panels, is in the way of. `map_view_width` is how many of the map's pixels the game
+    /// view shows across.
+    fn add_on_screen_count_debug_ui(&mut self, ctx: &egui::Context, map_view_width: u32) {
+        let screen = ctx.viewport_rect();
+        let res = egui::Window::new("On-screen count tuning")
+            .default_pos((
+                screen.right() - 480.0,
+                screen.top() + screen.height() * 0.16,
+            ))
+            .default_open(false)
+            .movable(true)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(screen.height() * 0.6)
+                    .show(ui, |ui| on_screen_count_debug_ui(ui, map_view_width));
+            });
+        self.force_add_ui_rect(&res, true);
+    }
+
     fn add_debug_ui_contents(&mut self, bw: &BwVars, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.collapsing("Egui settings", |ui| {
             ctx.settings_ui(ui);
@@ -1222,7 +1246,6 @@ impl OverlayState {
         });
         let tileset = unsafe { (**bw.game).tileset };
         ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
-        ui.collapsing("On-screen count", on_screen_count_debug_ui);
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -2025,8 +2048,9 @@ fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
 }
 
 /// Live controls for the on-screen count: how its labels keep their places and move between them,
-/// and how workers putting up buildings are grouped.
-fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
+/// and how workers putting up buildings are grouped, with how far each reach is on the screen as
+/// it is now, for a game view `map_view_width` of the map's pixels across.
+fn on_screen_count_debug_ui(ui: &mut egui::Ui, map_view_width: u32) {
     use overlay_ui::observer::CountTuning;
     use stats::BuilderGrouping;
 
@@ -2042,8 +2066,46 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
         ui.radio_value(&mut builders, grouping, text);
     }
     ui.separator();
-    ui.label("Labels");
     let mut motion = stats::count_tuning();
+    ui.checkbox(&mut motion.keep_up, "Keep the count up without Alt");
+    ui.separator();
+    ui.label("Groups (32 map px is a tile)");
+    ui.add(Slider::new(&mut motion.unit_reach, 16.0..=384.0).text("Reach (map px)"));
+    ui.add(
+        Slider::new(&mut motion.same_orders_reach, 16.0..=1024.0)
+            .text("Reach on the same orders or at rest (map px)"),
+    );
+    ui.add(
+        Slider::new(&mut motion.label_room, 0.0..=256.0)
+            .text("Reach at least, zoomed out (screen pt)"),
+    );
+    ui.add(
+        Slider::new(&mut motion.keep_together, 1.0..=2.0)
+            .text("Reach kept by units already together (x)"),
+    );
+    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
+    // What the reaches come to on the screen as it is now, as the grouping works them out.
+    if map_view_width > 0 {
+        let points_per_pixel = ui.ctx().viewport_rect().width() / map_view_width as f32;
+        let (reach, same_orders) = motion.reach_on_screen(points_per_pixel);
+        // What the reach would be with nothing holding it up, to say which of the two decides.
+        let on_the_map = motion.unit_reach * points_per_pixel;
+        ui.label(format!(
+            "Now: {:.1} tiles across, a tile is {:.0} pt",
+            map_view_width as f32 / 32.0,
+            32.0 * points_per_pixel,
+        ));
+        ui.label(if on_the_map >= reach {
+            format!("Reach is {reach:.0} pt on screen (decides)")
+        } else {
+            format!("Reach is {on_the_map:.0} pt on screen, so \"at least\" decides: {reach:.0} pt")
+        });
+        ui.label(format!(
+            "Same orders or at rest: {same_orders:.0} pt on screen"
+        ));
+    }
+    ui.separator();
+    ui.label("Labels");
     ui.add(
         Slider::new(&mut motion.slack_share, 0.0..=1.0)
             .text("Slack (share of half the group's size)"),
@@ -2051,11 +2113,6 @@ fn on_screen_count_debug_ui(ui: &mut egui::Ui) {
     ui.add(Slider::new(&mut motion.slack_least, 0.0..=64.0).text("Slack at least (map px)"));
     ui.add(Slider::new(&mut motion.settle_secs, 0.0..=0.5).text("Move time (s)"));
     ui.add(Slider::new(&mut motion.least_speed, 0.0..=600.0).text("Slowest move (map px/s)"));
-    ui.add(Slider::new(&mut motion.regroup_secs, 0.0..=5.0).text("Regroup after (s)"));
-    ui.add(
-        Slider::new(&mut motion.same_orders_reach, 96.0..=1024.0)
-            .text("Reach on the same orders (map px)"),
-    );
     ui.separator();
     ui.label("Units of the group pointed at");
     let mut look = unit_highlights::look();

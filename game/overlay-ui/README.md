@@ -342,13 +342,19 @@ groups they stand in, every group getting a label
 hung just above it: the player's name on a thin band of their own color, over a tile per kind of
 unit in the group (its icon, or its code without an atlas, and how many), highest rank first
 (units.dat's rank, the one that decides whose portrait and voice a mixed selection gets), six to a
-line. A group is every unit a chain of near pairs joins (`observer::on_screen::grouping`): two units
+line. What a dropship, shuttle or overlord carries is counted with it (`OnScreenUnitView::cargo`).
+A group is every unit a chain of near pairs joins (`observer::on_screen::grouping`): two units
 are near within three tiles on the map, or about seven where both are on the same orders (sent to the
-same place or at the same target, as units strung out on their way somewhere are), and always near
-within 96 points on the screen, so groups merge as the view zooms out. A base's own workers, gathering there or standing idle there, are one
+same place or at the same target, as units strung out on their way somewhere are) or both at rest
+(stopped, holding their positions, burrowed or sieged, which all count as one order), and always
+near within 96 points on the screen, so groups merge as the view zooms out. A base's own workers,
+gathering there or standing idle there, are one
 group however far apart, never joined with anything else and labelled over the base's town hall,
 where the label stays put as they go back and forth (a worker inside a refinery is still counted): an army standing in a mineral line is counted apart
-from the workers mining it. Workers putting up buildings, or on their way to, make groups of their
+from the workers mining it. A gathering worker belongs to the base whose town hall stands nearest
+what it mines, and only once it is within reach of that town hall: workers sent to another base
+group with each other on the way, not with any town hall they pass, and a hatchery beside a
+mineral line takes no workers from the base they mine for. Workers putting up buildings, or on their way to, make groups of their
 own as well; a worker pulled to fight groups as any other unit does. Whether two units are joined
 depends only on where those two stand, so panning the view never regroups anything. Two units that
 were together the frame before stay together out to a quarter past their reach, and units have to
