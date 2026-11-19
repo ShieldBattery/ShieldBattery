@@ -13,6 +13,10 @@
 //! of players with a switch each, which asks exactly what a click on a half of the matchup bar asks,
 //! and a menu button, which asks the host to open the game's menu the way its own key does.
 //!
+//! The game clock stands between the two buttons. The minimap stays where it is whichever form the
+//! matchup takes, and with the matchup put away, so the clock is found in the same place in all of
+//! them.
+//!
 //! The frame follows the minimap wherever the game puts it, being drawn from the square the host
 //! reports, and comes and goes with it.
 //!
@@ -30,7 +34,7 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    MatchupPlayerView, ObserverView, PLAYER_SWATCH, paint_player_swatch_in, paint_text,
+    MatchupPlayerView, ObserverView, PLAYER_SWATCH, game_clock, paint_player_swatch_in, paint_text,
     teams_worth_dividing,
 };
 use crate::tr;
@@ -42,14 +46,22 @@ pub(crate) const FRAME_PAD: f32 = 4.0;
 pub(crate) const HEADER_HEIGHT: f32 = 28.0;
 
 /// Height of a button in the header, and the room either side of its label.
-const BUTTON_HEIGHT: f32 = 20.0;
-const BUTTON_PAD: f32 = theme::SPACE_SM;
+const BUTTON_HEIGHT: f32 = 22.0;
+const BUTTON_PAD: f32 = 6.0;
 
-/// The narrowest a header button is, so a short translation still makes a target worth aiming at.
-const BUTTON_MIN_WIDTH: f32 = 52.0;
+/// The narrowest a header button is: wide enough for the longest label any language gives either
+/// button, so the two are the same width in every language and the clock between them stands in
+/// the same place.
+const BUTTON_MIN_WIDTH: f32 = 56.0;
 
 /// Text size of a header button's label.
-const BUTTON_TEXT_SIZE: f32 = 12.0;
+const BUTTON_TEXT_SIZE: f32 = 13.0;
+
+/// Text size of the game clock between the header's buttons.
+const CLOCK_SIZE: f32 = 20.0;
+
+/// The least room kept between the clock and either button.
+const CLOCK_GAP: f32 = theme::SPACE_SM;
 
 /// How wide the list of players is, and the height of one of its rows.
 const PICKER_WIDTH: f32 = 236.0;
@@ -127,7 +139,7 @@ pub fn render_minimap_frame(
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         paint_frame(ui, outer, square, header);
-        draw_header(ui, header, picker_open)
+        draw_header(ui, header, picker_open, view.matchup.elapsed_secs)
     })?;
     let (vision, menu) = inner.inner;
     // The open list already says what the vision button is for, and covers where its card goes.
@@ -229,8 +241,14 @@ fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect) {
 }
 
 /// Draws the header's two buttons, returning what the pointer did to each: vision at the left end,
-/// where the list it opens hangs from, and the menu at the right.
-fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response, egui::Response) {
+/// where the list it opens hangs from, and the menu at the right. The game clock, at
+/// `elapsed_secs`, goes between them.
+fn draw_header(
+    ui: &mut Ui,
+    header: Rect,
+    picker_open: bool,
+    elapsed_secs: u64,
+) -> (egui::Response, egui::Response) {
     let inner = header.shrink2(vec2(theme::SPACE_XS + FRAME_PAD, 0.0));
     let vision_label = tr!("observer.minimapVision", "Vision");
     let menu_label = tr!("observer.minimapMenu", "Menu");
@@ -249,7 +267,37 @@ fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response,
     );
     let vision = header_button(ui, vision_rect, &vision_label, picker_open);
     let menu = header_button(ui, menu_rect, &menu_label, false);
+    draw_clock(
+        ui,
+        Rect::from_min_max(
+            pos2(vision_rect.right(), header.top()),
+            pos2(menu_rect.left(), header.bottom()),
+        ),
+        elapsed_secs,
+    );
     (vision, menu)
+}
+
+/// Draws the game clock centered in `room`, the part of the header between its two buttons.
+///
+/// Centered between the buttons rather than on the header, so a translation that makes one button
+/// wider than the other moves the clock over rather than running it into that button. A minimap too
+/// narrow to leave the clock room clear of both buttons shows no clock at all: the buttons are what
+/// a watcher acts through, and a clock cut short would read as a different time.
+fn draw_clock(ui: &Ui, room: Rect, elapsed_secs: u64) {
+    let spec = text::numeral(CLOCK_SIZE);
+    let clock = spec.galley(ui, &game_clock(elapsed_secs));
+    if clock.size().x > room.width() - CLOCK_GAP * 2.0 {
+        return;
+    }
+    // The figures' own ink is centered on the strip rather than the box the face leaves around them,
+    // which would set them lower than the labels on the buttons either side.
+    let top = room.center().y - text::ink_bounds(&clock).center().y;
+    ui.painter().galley(
+        pos2(room.center().x - clock.size().x * 0.5, top),
+        clock,
+        spec.color,
+    );
 }
 
 /// How wide a header button carrying `label` is.
@@ -263,12 +311,22 @@ fn button_spec() -> text::TextSpec {
 }
 
 /// Draws one header button: the kit's chip, lit in the accent while what it opens is open.
+///
+/// The chip is drawn without its label, which is set here on its capitals instead: the chip centers
+/// the box the face leaves around a label, and that sets a word of mostly small letters visibly low.
 fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Response {
+    let spec = button_spec();
     let response = ui
         .scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
-            widgets::chip_button(ui, &button_spec(), label, rect.size())
+            widgets::chip_button(ui, &spec, "", rect.size())
         })
         .inner;
+    let color = if response.hovered() {
+        theme::TEXT_PRIMARY
+    } else {
+        spec.color
+    };
+    paint_on_capitals(ui, rect, &spec.with_color(color), label);
     if lit {
         ui.painter().add(Shape::rect_stroke(
             rect,
@@ -278,6 +336,27 @@ fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Respo
         ));
     }
     response
+}
+
+/// Paints `label` centered across `rect`, with the middle of a capital letter set on the rect's
+/// middle.
+///
+/// Placed by its baseline rather than by its own letters, so every label sits on the same line
+/// whatever it is spelled with: centered on its own ink, a word with a descender would ride higher
+/// than one without, and a word in a script whose letters stand taller would ride lower.
+fn paint_on_capitals(ui: &Ui, rect: Rect, spec: &text::TextSpec, label: &str) {
+    let galley = spec.layout(
+        ui.ctx(),
+        spec.job_truncated(label, (rect.width() - theme::SPACE_SM).max(0.0)),
+    );
+    let capital = spec.galley(ui, "H");
+    let capital_middle = text::ink_bounds(&capital).center().y - text::baseline(&capital);
+    let top = rect.center().y - capital_middle - text::baseline(&galley);
+    ui.painter().galley(
+        pos2(rect.center().x - galley.size().x * 0.5, top),
+        galley,
+        spec.color,
+    );
 }
 
 /// Names the header button the pointer is resting on, and the key that does the same.

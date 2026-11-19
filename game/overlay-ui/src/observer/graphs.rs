@@ -201,7 +201,7 @@ pub fn render_graphs_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty() && plot.is_some(),
-        |ui, _| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
+        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
     )?;
     let ((series, per_player), seek_secs) = wing.inner;
     Some(GraphsOutcome {

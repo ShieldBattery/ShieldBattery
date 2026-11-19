@@ -1,6 +1,6 @@
 //! The pieces panels are assembled from: headers, stat rows, tags and the waiting indicator.
 
-use egui::{Align, Layout, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
+use egui::{Align, Layout, Response, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
 
 use crate::colors::{AMBER60, GREY_BLUE80};
 use crate::kit::motion;
@@ -32,36 +32,20 @@ pub const STATUS_DOT_DIAMETER: f32 = 9.0;
 /// at the bottom of every breath.
 const STATUS_DOT_DIM: f32 = 0.65;
 
-/// What a panel's title row did this frame.
-pub struct PanelHeader {
-    /// Where the row is, which a panel can lay something of its own over.
-    pub rect: Rect,
-    /// Whether the keycap on its right was clicked, which a panel takes as its key being pressed.
-    pub key_clicked: bool,
-}
-
 /// A panel's title row: the title on the left, and on the right the keycap of the key that toggles
-/// the panel, which a click works as well.
-pub fn panel_header(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> PanelHeader {
-    let (row, key_clicked, _) = header(ui, title, hotkey, false);
-    PanelHeader {
-        rect: row.rect,
-        key_clicked,
-    }
+/// the panel, which a click works as well. Returns whether the keycap was clicked, which a panel
+/// takes as its key being pressed.
+pub fn panel_header(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> bool {
+    header(ui, title, hotkey, false).0
 }
 
 /// The same row with a close affordance, returning whether it was clicked.
 pub fn panel_header_with_close(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> bool {
-    header(ui, title, hotkey, true).2
+    header(ui, title, hotkey, true).1
 }
 
-/// Draws a title row, returning it with whether its keycap and its close affordance were clicked.
-fn header(
-    ui: &mut Ui,
-    title: &str,
-    hotkey: Option<&str>,
-    closable: bool,
-) -> (Response, bool, bool) {
+/// Draws a title row, returning whether its keycap and its close affordance were clicked.
+fn header(ui: &mut Ui, title: &str, hotkey: Option<&str>, closable: bool) -> (bool, bool) {
     let row = ui.horizontal(|ui| {
         ui.set_min_height(HEADER_HEIGHT);
         ui.label(text::panel_title().job(title));
@@ -75,8 +59,7 @@ fn header(
     ui.add_space(theme::SPACE_XS);
     divider(ui);
     ui.add_space(theme::SPACE_SM);
-    let (key_clicked, closed) = row.inner;
-    (row.response, key_clicked, closed)
+    row.inner
 }
 
 /// A hairline across the panel, for separating groups of rows.

@@ -356,7 +356,7 @@ pub fn render_timeline_view(
         top,
         PANEL_WIDTH,
         shown && rows > 0,
-        |ui, _| draw_panel(ui, view, rows, seekable),
+        |ui| draw_panel(ui, view, rows, seekable),
     )?;
     Some(TimelineOutcome {
         rect: wing.rect,
