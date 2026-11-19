@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { weekStartOf } from '../../common/map-feature-weeks'
+import { MapKind } from '../gql/graphql'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WEEK_MS = 7 * DAY_MS
@@ -53,6 +54,25 @@ export interface TakenWeek {
   sameTarget: boolean
   /** What staff wrote about the pick. */
   blurb: string
+}
+
+/**
+ * The weeks whose `kind` slot holds a pick, by the time each starts, as the feature dialog checks
+ * the weeks it offers against: only the slot the dialog features in counts. With no slot chosen
+ * yet, no week holds anything. `describe` names a pick and says whether it's the dialog's target.
+ */
+export function takenWeeks<T extends { week: string; kind: MapKind; blurb: string }>(
+  picks: ReadonlyArray<T>,
+  kind: MapKind | undefined,
+  describe: (pick: T) => Omit<TakenWeek, 'blurb'>,
+): Map<number, TakenWeek> {
+  const taken = new Map<number, TakenWeek>()
+  for (const pick of picks) {
+    if (pick.kind === kind) {
+      taken.set(Date.parse(pick.week), { ...describe(pick), blurb: pick.blurb })
+    }
+  }
+  return taken
 }
 
 /** A week the feature dialog offers. */

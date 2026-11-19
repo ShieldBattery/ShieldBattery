@@ -449,15 +449,17 @@ type MapFileLinkDialogPayload = BaseDialogPayload<
   }
 >
 
-/** What the dialog that sets the staff pick of a week is opened with. */
+/** What the dialog that sets the staff pick of one of a week's slots is opened with. */
 export interface MapFeatureDialogData {
   /**
    * What to make the staff pick of a week: the map `familyId` (given by one of its files), or a
-   * collection, with the name the dialog shows for it.
+   * collection, with the name the dialog shows for it. `kind` is the slot, one per kind of map,
+   * that the pick goes in: for a map, the kind of its current file. For a collection it fixes the
+   * slot; unset lets staff choose one.
    */
   target:
-    | { mapId: SbMapId; familyId: string; name: string }
-    | { collectionId: string; name: string }
+    | { mapId: SbMapId; familyId: string; kind: MapKind; name: string }
+    | { collectionId: string; kind?: MapKind; name: string }
   /** The week (as the instant it starts) whose pick is edited. Unset lets staff choose one. */
   week?: string
   /** The blurb the dialog starts out with. */
@@ -466,10 +468,12 @@ export interface MapFeatureDialogData {
 
 type MapFeatureDialogPayload = BaseDialogPayload<typeof DialogType.MapFeature, MapFeatureDialogData>
 
-/** What the dialog confirming the removal of a week's staff pick is opened with. */
+/** What the dialog confirming the removal of a staff pick of a week's slot is opened with. */
 export interface MapFeatureRemoveDialogData {
   /** The days of the week whose pick is removed, as staff read them. */
   weekText: string
+  /** The slot whose pick is removed. */
+  kind: MapKind
   /** The name of the week's pick. */
   name: string
   /** Removes the pick once the user confirms. */

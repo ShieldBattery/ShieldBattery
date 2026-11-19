@@ -38,6 +38,25 @@ pub enum MapKind {
     Ums,
 }
 
+impl MapKind {
+    /// The kind a `maps.kind` value names: 'melee', or 'ums' for anything else.
+    pub fn from_db(kind: &str) -> Self {
+        if kind == "melee" {
+            MapKind::Melee
+        } else {
+            MapKind::Ums
+        }
+    }
+
+    /// The `maps.kind` value of this kind.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MapKind::Melee => "melee",
+            MapKind::Ums => "ums",
+        }
+    }
+}
+
 /// A map: one map file, with its curated name and description and its place in the listings. Any
 /// map can be viewed, downloaded and played by anyone who has its id, listed or not.
 #[derive(SimpleObject, Clone, Debug)]
@@ -302,11 +321,7 @@ impl From<DbSbMap> for SbMap {
             hash: row.hash,
             name: row.name,
             description: row.description,
-            kind: if row.kind == "melee" {
-                MapKind::Melee
-            } else {
-                MapKind::Ums
-            },
+            kind: MapKind::from_db(&row.kind),
             player_count: row.player_count,
             listed: row.listed,
             staff_pick: row.staff_pick,

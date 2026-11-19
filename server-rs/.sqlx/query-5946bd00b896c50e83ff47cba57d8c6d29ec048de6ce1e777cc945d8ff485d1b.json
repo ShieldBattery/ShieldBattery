@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM map_features WHERE week = $1 AND kind = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5946bd00b896c50e83ff47cba57d8c6d29ec048de6ce1e777cc945d8ff485d1b"
+}

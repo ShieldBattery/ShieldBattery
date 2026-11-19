@@ -51,6 +51,7 @@ import {
   COLLECTION_RAIL_SIZE,
   collectionsRail,
   DiscoverLens,
+  discoverLensKind,
   FRESH_FETCH_COUNT,
   freshRail,
   freshSince,
@@ -86,6 +87,7 @@ import { MapTile, MapTileSignal } from './map-tile'
 const MapDiscoverQuery = graphql(/* GraphQL */ `
   query MapDiscover(
     $lens: MapLens!
+    $kind: MapKind!
     $loggedIn: Boolean!
     $freshSince: DateTime!
     $recentCount: Int!
@@ -121,7 +123,7 @@ const MapDiscoverQuery = graphql(/* GraphQL */ `
         }
       }
     }
-    mapFeature(lens: $lens) {
+    mapFeature(kind: $kind) {
       id
       ...MapDiscoverHero_FeatureFragment
     }
@@ -506,6 +508,7 @@ function MapDiscover() {
     query: MapDiscoverQuery,
     variables: {
       lens,
+      kind: discoverLensKind(lens),
       loggedIn: !!selfUser,
       freshSince: since,
       recentCount: RECENT_MAPS_COUNT,

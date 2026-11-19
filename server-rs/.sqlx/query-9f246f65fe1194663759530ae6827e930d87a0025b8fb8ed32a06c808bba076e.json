@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT family_id as \"family_id!\", week\n            FROM map_features\n            WHERE family_id = ANY($1) AND week <= $2\n            ORDER BY week DESC\n        ",
+  "query": "\n            SELECT DISTINCT family_id as \"family_id!\", week\n            FROM map_features\n            WHERE family_id = ANY($1) AND week <= $2\n            ORDER BY week DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -37,5 +37,5 @@
       false
     ]
   },
-  "hash": "6bf0caf0866a4fa42d78e2dbdebe0916bb1cb97face145297b458d9253d43e24"
+  "hash": "9f246f65fe1194663759530ae6827e930d87a0025b8fb8ed32a06c808bba076e"
 }

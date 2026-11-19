@@ -26,6 +26,7 @@ import { openMapFeatureDialog, openMapFeatureRemoveDialog } from './action-creat
 import { urlForMapFile } from './map-family-files'
 import {
   featureErrorText,
+  featureKindLabel,
   featurePickName,
   MapFeaturePick_FeatureFragment,
   MapFeatureRemoveMutation,
@@ -153,8 +154,9 @@ const LoadMoreRow = styled.div`
 `
 
 /**
- * The schedule of the staff picks leading the Discover page: every week with a pick, the weeks to
- * come first, then this week, then the past. Each pick is edited or removed from its row's menu.
+ * The schedule of the staff picks leading the Discover page: every pick, in the slot of the kind of
+ * maps it leads, the weeks to come first, then this week, then the past, and melee before UMS
+ * within a week. Each pick is edited or removed from its row's menu.
  */
 export function AdminMapFeatures() {
   const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
@@ -166,6 +168,7 @@ export function AdminMapFeatures() {
       <Table>
         <TableHeader>
           <Cell $width={260}>Week</Cell>
+          <Cell $width={80}>Slot</Cell>
           <Cell $width={220}>Pick</Cell>
           <Cell>Blurb</Cell>
           <Cell $width={140}>Picked by</Cell>
@@ -237,27 +240,33 @@ function FeatureRow({ feature: featureNode }: { feature: FeatureNode }) {
   const isThisWeek = week.getTime() === thisWeek
   const isPast = week.getTime() < thisWeek
   const name = featurePickName(feature, t)
+  const kindLabel = featureKindLabel(feature.kind)
 
   let pickUrl: string | undefined
   let target: MapFeatureDialogData['target'] | undefined
   if (feature.map) {
     pickUrl = urlForMapFile(feature.map.family, feature.map.id)
-    target = { mapId: feature.map.id, familyId: feature.map.family.id, name }
+    target = {
+      mapId: feature.map.id,
+      familyId: feature.map.family.id,
+      kind: feature.kind,
+      name,
+    }
   } else if (feature.collection) {
     pickUrl = urlForMapCollection(
       makeMapCollectionId(feature.collection.id),
       feature.collection.title ?? undefined,
     )
-    target = { collectionId: feature.collection.id, name }
+    target = { collectionId: feature.collection.id, kind: feature.kind, name }
   }
 
   const onRemove = () => {
-    removeFeature({ week: feature.week })
+    removeFeature({ week: feature.week, kind: feature.kind })
       .then(result => {
         snackbarController.showSnackbar(
           result.error
             ? featureErrorText(errorCode(result.error))
-            : `Removed the pick for ${weekText}`,
+            : `Removed the ${kindLabel} pick for ${weekText}`,
         )
       })
       .catch(swallowNonBuiltins)
@@ -271,7 +280,10 @@ function FeatureRow({ feature: featureNode }: { feature: FeatureNode }) {
   }
   menuItems.push([
     'Remove',
-    () => dispatch(openMapFeatureRemoveDialog({ weekText, name, onConfirm: onRemove })),
+    () =>
+      dispatch(
+        openMapFeatureRemoveDialog({ weekText, kind: feature.kind, name, onConfirm: onRemove }),
+      ),
   ])
 
   return (
@@ -280,11 +292,12 @@ function FeatureRow({ feature: featureNode }: { feature: FeatureNode }) {
         <span>{weekText}</span>
         {isThisWeek ? <MarkerChip>This week</MarkerChip> : null}
       </WeekCell>
+      <Cell $width={80}>{kindLabel}</Cell>
       <WeekCell $width={220}>
         {pickUrl ? <Link href={pickUrl}>{name}</Link> : <MutedText>{name}</MutedText>}
         {featureNode.shown ? null : (
           <Tooltip
-            text="The map is no longer listed, or the collection isn't public, so the automatic pick shows instead"
+            text="The map is no longer listed or is now of the other kind, or the collection isn't public, so the automatic pick shows instead"
             position='bottom'>
             <MarkerChip>Not shown</MarkerChip>
           </Tooltip>

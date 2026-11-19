@@ -1,6 +1,7 @@
 import { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
-import { featureErrorText } from './map-feature-actions'
+import { MapKind } from '../gql/graphql'
+import { featureErrorText, featureKindLabel } from './map-feature-actions'
 import {
   featuredChip,
   featuredChipText,
@@ -10,6 +11,7 @@ import {
   initialFeatureWeek,
   replacesText,
   TakenWeek,
+  takenWeeks,
 } from './map-feature-weeks'
 
 /** Returns each string's default text with its `{{placeholders}}` filled in. */
@@ -50,6 +52,34 @@ describe('client/maps/map-feature-weeks', () => {
     expect(options[1].taken?.name).toBe('Polypoid')
     expect(options[2].label).toBe('23 Nov')
     expect(options[12].value).toBe('2027-02-01T00:00:00.000Z')
+  })
+
+  test("counts only the picks of the dialog's slot as taking a week", () => {
+    const picks = [
+      { week: '2026-11-09T00:00:00Z', kind: MapKind.Melee, blurb: 'Melee', name: 'Polypoid' },
+      { week: '2026-11-09T00:00:00Z', kind: MapKind.Ums, blurb: 'UMS', name: 'Desert Strike' },
+      { week: '2026-11-16T00:00:00Z', kind: MapKind.Ums, blurb: '', name: 'Lost Temple' },
+    ]
+    const describePick = (pick: (typeof picks)[number]) => ({
+      name: pick.name,
+      sameTarget: pick.name === 'Desert Strike',
+    })
+
+    expect(takenWeeks(picks, MapKind.Melee, describePick)).toEqual(
+      new Map([[THIS_WEEK, { name: 'Polypoid', sameTarget: false, blurb: 'Melee' }]]),
+    )
+    expect(takenWeeks(picks, MapKind.Ums, describePick)).toEqual(
+      new Map([
+        [THIS_WEEK, { name: 'Desert Strike', sameTarget: true, blurb: 'UMS' }],
+        [NEXT_WEEK, { name: 'Lost Temple', sameTarget: false, blurb: '' }],
+      ]),
+    )
+    expect(takenWeeks(picks, undefined, describePick).size).toBe(0)
+  })
+
+  test('names the slots', () => {
+    expect(featureKindLabel(MapKind.Melee)).toBe('Melee')
+    expect(featureKindLabel(MapKind.Ums)).toBe('UMS')
   })
 
   test('preselects the first week without a pick', () => {

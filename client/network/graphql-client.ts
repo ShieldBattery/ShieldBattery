@@ -105,7 +105,10 @@ const COLLECTION_LIST_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapCollectio
 /** Query fields listing the map tags. */
 const MAP_TAG_LIST_FIELDS: ReadonlySet<string> = new Set(['mapTags'])
 
-/** Query fields holding staff picks: the one the Discover page shows, and the schedule. */
+/**
+ * Query fields holding staff picks: the ones the Discover page shows (one per kind of map, under
+ * the `kind` argument), and the schedule.
+ */
 const MAP_FEATURE_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapFeature', 'mapFeatures'])
 
 /** Query fields listing and counting collection reports. */
@@ -190,7 +193,7 @@ function invalidateCollectionLists(cache: Cache) {
 
 /**
  * The cache keys of the maps (families) of the cached staff picks: the ones the Discover page shows
- * (`mapFeature`) and the ones the schedule lists (`mapFeatures`).
+ * (`mapFeature`, for every kind cached) and the ones the schedule lists (`mapFeatures`).
  */
 function cachedFeatureFamilyKeys(cache: Cache): Set<string> {
   const keys = new Set<string>()
@@ -223,11 +226,12 @@ function cachedFeatureFamilyKeys(cache: Cache): Set<string> {
 }
 
 /**
- * Invalidates what a change to the staff pick of a week can affect: the pick the Discover page
- * shows, the schedule, and the featured weeks of the maps involved. Those are the maps of the picks
- * cached before the change (one of which the change may have replaced), and the map of
- * `mapFeature`, the pick the change made, if any. Only the `featuredWeeks` field of each is
- * invalidated, never the map, so a result returning it stays whole.
+ * Invalidates what a change to the staff pick of one of a week's slots can affect: the picks the
+ * Discover page shows for every kind, the schedule, and the featured weeks of the maps involved.
+ * Those are the maps of the picks cached before the change (one of which the change may have
+ * replaced), and the map of `mapFeature`, the pick the change made, if any. Only the
+ * `featuredWeeks` field of each is invalidated, never the map or the pick, so a result returning
+ * them stays whole.
  */
 function invalidateMapFeatures(cache: Cache, mapFeature?: { map?: { id: string } | null }) {
   const familyKeys = cachedFeatureFamilyKeys(cache)

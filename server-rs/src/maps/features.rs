@@ -1,9 +1,15 @@
-//! The weekly feature slot: staff pick one map or collection per week to lead the Discover page. A
-//! week runs from Monday 00:00 UTC to the next Monday, so two picks can never overlap.
+//! The weekly feature slots: Discover shows one kind of maps at a time, so each week has a slot per
+//! kind of map ([`MapKind`]), and staff pick one map or collection per slot to lead that kind's
+//! Discover page. A week runs from Monday 00:00 UTC to the next Monday, so two picks of a slot can
+//! never overlap.
 //!
-//! A pick is only shown while everyone can see what it points at: a listed map, or a collection
-//! everyone can read ([`CollectionRow::is_public`]). A week whose pick isn't shown counts as having
-//! none, and an automatic pick stands in for it (see [`automatic_pick`]).
+//! A map is picked for the slot of its current file's kind. A collection can go in either slot, or
+//! both.
+//!
+//! A pick is only shown while everyone can see what it points at and it still belongs in its slot:
+//! a listed map whose current file is of the slot's kind, or a collection everyone can read
+//! ([`CollectionRow::is_public`]). A slot whose pick isn't shown counts as having none, and an
+//! automatic pick stands in for it (see [`automatic_pick`]).
 
 use std::collections::{HashMap, HashSet};
 
@@ -13,9 +19,10 @@ use sqlx::{FromRow, PgPool, Postgres, QueryBuilder, Transaction};
 use uuid::Uuid;
 
 use crate::maps::SbMapId;
+use crate::maps::catalog::MapKind;
 use crate::maps::collections::{COLLECTION_COLUMNS, CollectionRow, Viewer};
 use crate::maps::families::lock_families;
-use crate::maps::search::{FAMILY_STATS_JOINS, MapLens, family_stat};
+use crate::maps::search::{FAMILY_STATS_JOINS, family_stat};
 use crate::users::SbUserId;
 
 /// The trending score from which a map counts as rising, and the least an automatic pick needs.
@@ -48,6 +55,10 @@ pub enum FeatureError {
     WeekTooFar,
     #[error("give exactly one of a map and a collection")]
     TargetRequired,
+    #[error("a collection needs the kind of maps whose Discover page it leads")]
+    KindRequired,
+    #[error("a map can only be featured for the kind of its current file")]
+    KindMismatch,
     #[error("the blurb must be one line of at most {MAX_BLURB_LENGTH} characters")]
     InvalidBlurb,
     #[error("map not found")]
@@ -75,7 +86,7 @@ impl FeatureError {
             Self::InvalidWeek => "INVALID_WEEK",
             Self::WeekPassed => "WEEK_PASSED",
             Self::WeekTooFar => "WEEK_TOO_FAR",
-            Self::TargetRequired => "BAD_REQUEST",
+            Self::TargetRequired | Self::KindRequired | Self::KindMismatch => "BAD_REQUEST",
             Self::InvalidBlurb => "INVALID_BLURB",
             Self::MapNotFound | Self::CollectionNotFound => "NOT_FOUND",
             Self::NotListed => "NOT_LISTED",
@@ -122,6 +133,22 @@ pub fn clean_blurb(blurb: Option<&str>) -> Result<String, FeatureError> {
     Ok(blurb.to_string())
 }
 
+/// The slot a pick goes in. A map's slot is `map_kind`, the kind of its current file, and
+/// `requested`, when given, must match it. A collection (`map_kind` `None`) goes in the slot staff
+/// ask for, so `requested` is required.
+pub fn pick_slot(
+    map_kind: Option<MapKind>,
+    requested: Option<MapKind>,
+) -> Result<MapKind, FeatureError> {
+    match (map_kind, requested) {
+        (Some(kind), None) => Ok(kind),
+        (Some(kind), Some(requested)) if kind == requested => Ok(kind),
+        (Some(_), Some(_)) => Err(FeatureError::KindMismatch),
+        (None, Some(requested)) => Ok(requested),
+        (None, None) => Err(FeatureError::KindRequired),
+    }
+}
+
 /// What a pick points at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeatureTarget {
@@ -134,6 +161,8 @@ pub enum FeatureTarget {
 #[derive(Debug, Clone, FromRow)]
 pub struct FeatureRow {
     pub week: NaiveDate,
+    /// The slot's kind, as a `maps.kind` value.
+    pub kind: String,
     pub family_id: Option<Uuid>,
     pub collection_id: Option<Uuid>,
     pub blurb: String,
@@ -146,7 +175,7 @@ pub struct FeatureRow {
     pub family_listed: Option<bool>,
 }
 
-const FEATURE_COLUMNS: &str = "mf.week, mf.family_id, mf.collection_id, mf.blurb, \
+const FEATURE_COLUMNS: &str = "mf.week, mf.kind, mf.family_id, mf.collection_id, mf.blurb, \
     mf.created_by, fam.current_map_id, cur.kind::text AS map_kind, fam.listed AS family_listed \
     FROM map_features mf \
     LEFT JOIN map_families fam ON fam.id = mf.family_id \
@@ -160,22 +189,19 @@ pub struct StoredFeature {
 }
 
 impl StoredFeature {
-    /// Whether the pick is shown: it points at a listed map, or a collection everyone can see.
+    /// Whether the pick is shown: it points at a listed map whose current file is of the slot's
+    /// kind, or at a collection everyone can see.
     pub fn shown(&self) -> bool {
         match (&self.collection, self.row.family_listed) {
             (Some(collection), _) => collection.is_public(),
-            (None, Some(listed)) => listed,
+            (None, Some(listed)) => listed && self.row.map_kind.as_deref() == Some(&self.row.kind),
             (None, None) => false,
         }
     }
 
-    /// Whether the pick belongs in listings through `lens`: a map whose current file is of the
-    /// lens's kind, or any collection.
-    pub fn fits(&self, lens: MapLens) -> bool {
-        self.row.collection_id.is_some()
-            || lens
-                .kind()
-                .is_none_or(|kind| self.row.map_kind.as_deref() == Some(kind))
+    /// The kind of the slot the pick is in.
+    pub fn kind(&self) -> MapKind {
+        MapKind::from_db(&self.row.kind)
     }
 }
 
@@ -216,22 +242,28 @@ async fn with_collections(db: &PgPool, rows: Vec<FeatureRow>) -> eyre::Result<Ve
         .collect())
 }
 
-/// The pick for `week`, whether or not it's shown.
-pub async fn load_week(db: &PgPool, week: NaiveDate) -> eyre::Result<Option<StoredFeature>> {
+/// The pick in the `kind` slot of `week`, whether or not it's shown.
+pub async fn load_slot(
+    db: &PgPool,
+    week: NaiveDate,
+    kind: MapKind,
+) -> eyre::Result<Option<StoredFeature>> {
     let mut query = QueryBuilder::<Postgres>::new("SELECT ");
     query
         .push(FEATURE_COLUMNS)
         .push(" WHERE mf.week = ")
-        .push_bind(week);
+        .push_bind(week)
+        .push(" AND mf.kind = ")
+        .push_bind(kind.as_str());
     let row = query
         .build_query_as::<FeatureRow>()
         .fetch_optional(db)
         .await
-        .wrap_err("Failed to load the week's pick")?;
+        .wrap_err("Failed to load the slot's pick")?;
     Ok(with_collections(db, row.into_iter().collect()).await?.pop())
 }
 
-/// A page of every stored pick, the latest week first.
+/// A page of every stored pick, the latest week first, and within a week the melee slot first.
 pub async fn load_page(
     db: &PgPool,
     offset: usize,
@@ -240,7 +272,8 @@ pub async fn load_page(
     let mut query = QueryBuilder::<Postgres>::new("SELECT ");
     query
         .push(FEATURE_COLUMNS)
-        .push(" ORDER BY mf.week DESC LIMIT ")
+        // 'melee' sorts before 'ums'
+        .push(" ORDER BY mf.week DESC, mf.kind LIMIT ")
         .push_bind(limit as i64)
         .push(" OFFSET ")
         .push_bind(offset as i64);
@@ -252,14 +285,15 @@ pub async fn load_page(
     with_collections(db, rows).await
 }
 
-/// The automatic pick for `this_week` through `lens`: the listed map with the highest trending
-/// score, at least [`RISING_TRENDING_SCORE`], that wasn't a staff pick in any of the last
-/// [`AUTOMATIC_COOLDOWN_WEEKS`] weeks (`this_week` included). Ties go to the map with more games in
-/// the last 28 days, then the lower id. Returns the map and its current file.
+/// The automatic pick for the `kind` slot of `this_week`: the listed map whose current file is of
+/// `kind` with the highest trending score, at least [`RISING_TRENDING_SCORE`], that wasn't a staff
+/// pick in either slot of any of the last [`AUTOMATIC_COOLDOWN_WEEKS`] weeks (`this_week`
+/// included). Ties go to the map with more games in the last 28 days, then the lower id. Returns
+/// the map and its current file.
 pub async fn automatic_pick(
     db: &PgPool,
     this_week: NaiveDate,
-    lens: MapLens,
+    kind: MapKind,
 ) -> eyre::Result<Option<(Uuid, SbMapId)>> {
     let cooldown_start = this_week
         .checked_sub_days(Days::new(7 * (AUTOMATIC_COOLDOWN_WEEKS - 1)))
@@ -272,11 +306,9 @@ pub async fn automatic_pick(
             family_stat!("trending_score"),
             " >= "
         ))
-        .push_bind(RISING_TRENDING_SCORE);
-    if let Some(kind) = lens.kind() {
-        query.push(" AND m.kind = ").push_bind(kind);
-    }
-    query
+        .push_bind(RISING_TRENDING_SCORE)
+        .push(" AND m.kind = ")
+        .push_bind(kind.as_str())
         .push(
             " AND NOT EXISTS (SELECT 1 FROM map_features mf WHERE mf.family_id = fam.id \
              AND mf.week >= ",
@@ -317,29 +349,33 @@ async fn lock_collection(
         .wrap_err("Failed to load the collection")
 }
 
-/// Makes `target` the pick of `week`, replacing the week's pick if it has one. The target must be
-/// shown right now: a listed map, or a collection everyone can see (a collection `viewer` can't
-/// read is not found). Picking another target counts as a new pick, made by `staff` now, whose
-/// maker hasn't been told yet; picking the same target again only changes the blurb. `week` and
-/// `blurb` must already be checked.
+/// Makes `target` the pick of a slot of `week`, replacing that slot's pick if it has one and
+/// leaving the other slot alone. The slot is the one [`pick_slot`] gives for the target and
+/// `requested`. The target must be shown right now: a listed map, or a collection everyone can see
+/// (a collection `viewer` can't read is not found). Picking another target counts as a new pick,
+/// made by `staff` now, whose maker hasn't been told yet; picking the same target again only
+/// changes the blurb. `week` and `blurb` must already be checked.
 pub async fn set(
     db: &PgPool,
     week: NaiveDate,
+    requested: Option<MapKind>,
     target: FeatureTarget,
     blurb: &str,
     staff: SbUserId,
     viewer: Viewer,
 ) -> Result<StoredFeature, FeatureError> {
     let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
-    // Keeps the picked map from being merged away before the row is written
+    // Keeps the picked map from being merged away, or its current file from changing, before the
+    // row is written
     lock_families(&mut tx).await?;
-    let (family_id, collection_id) = match target {
+    let (kind, family_id, collection_id) = match target {
         FeatureTarget::Map(file_id) => {
             let family = sqlx::query!(
                 r#"
-                    SELECT fam.id, fam.listed
+                    SELECT fam.id, fam.listed, cur.kind
                     FROM maps m
                     INNER JOIN map_families fam ON fam.id = m.family_id
+                    INNER JOIN maps cur ON cur.id = fam.current_map_id
                     WHERE m.id = $1
                 "#,
                 file_id as _,
@@ -351,9 +387,11 @@ pub async fn set(
             if !family.listed {
                 return Err(FeatureError::NotListed);
             }
-            (Some(family.id), None)
+            let kind = pick_slot(Some(MapKind::from_db(&family.kind)), requested)?;
+            (kind, Some(family.id), None)
         }
         FeatureTarget::Collection(id) => {
+            let kind = pick_slot(None, requested)?;
             let collection = lock_collection(&mut tx, id)
                 .await?
                 .filter(|c| c.can_read(viewer))
@@ -361,14 +399,14 @@ pub async fn set(
             if !collection.is_public() {
                 return Err(FeatureError::NotPublic);
             }
-            (None, Some(id))
+            (kind, None, Some(id))
         }
     };
     sqlx::query!(
         r#"
-            INSERT INTO map_features AS mf (week, family_id, collection_id, blurb, created_by)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (week) DO UPDATE SET
+            INSERT INTO map_features AS mf (week, kind, family_id, collection_id, blurb, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (week, kind) DO UPDATE SET
                 family_id = EXCLUDED.family_id,
                 collection_id = EXCLUDED.collection_id,
                 blurb = EXCLUDED.blurb,
@@ -387,6 +425,7 @@ pub async fn set(
                     THEN mf.notified_at END
         "#,
         week,
+        kind.as_str(),
         family_id,
         collection_id,
         blurb,
@@ -396,22 +435,27 @@ pub async fn set(
     .await
     .wrap_err("Failed to store the pick")?;
     tx.commit().await.wrap_err("Failed to commit the pick")?;
-    Ok(load_week(db, week)
+    Ok(load_slot(db, week, kind)
         .await?
         .ok_or_else(|| eyre::eyre!("the pick just stored is missing"))?)
 }
 
-/// Removes the pick of `week`. Returns whether there was one.
-pub async fn remove(db: &PgPool, week: NaiveDate) -> eyre::Result<bool> {
-    let result = sqlx::query!("DELETE FROM map_features WHERE week = $1", week)
-        .execute(db)
-        .await
-        .wrap_err("Failed to remove the pick")?;
+/// Removes the pick in the `kind` slot of `week`. Returns whether there was one.
+pub async fn remove(db: &PgPool, week: NaiveDate, kind: MapKind) -> eyre::Result<bool> {
+    let result = sqlx::query!(
+        "DELETE FROM map_features WHERE week = $1 AND kind = $2",
+        week,
+        kind.as_str(),
+    )
+    .execute(db)
+    .await
+    .wrap_err("Failed to remove the pick")?;
     Ok(result.rows_affected() > 0)
 }
 
 /// Moves the picks of the families in `from` to the family at the same index in `into`, for
-/// families about to be merged away.
+/// families about to be merged away. The picks stay in their slots, so the map merged into can end
+/// up picked for both slots of a week, of which only the one matching its current file is shown.
 pub(crate) async fn retire_family_features(
     tx: &mut Transaction<'_, Postgres>,
     from: &[Uuid],
@@ -433,8 +477,8 @@ pub(crate) async fn retire_family_features(
     Ok(())
 }
 
-/// The weeks up to and including `this_week` in which each of `family_ids` was the staff pick,
-/// newest first. Families never picked are left out.
+/// The weeks up to and including `this_week` in which each of `family_ids` was the staff pick of
+/// either slot, newest first, each week once. Families never picked are left out.
 pub async fn featured_weeks(
     db: &PgPool,
     family_ids: &[Uuid],
@@ -442,7 +486,7 @@ pub async fn featured_weeks(
 ) -> eyre::Result<HashMap<Uuid, Vec<NaiveDate>>> {
     let rows = sqlx::query!(
         r#"
-            SELECT family_id as "family_id!", week
+            SELECT DISTINCT family_id as "family_id!", week
             FROM map_features
             WHERE family_id = ANY($1) AND week <= $2
             ORDER BY week DESC
@@ -522,6 +566,55 @@ mod tests {
             check_schedulable(last + Days::new(7), this_week),
             Err(FeatureError::WeekTooFar)
         ));
+    }
+
+    #[test]
+    fn maps_go_in_the_slot_of_their_current_file() {
+        assert_eq!(pick_slot(Some(MapKind::Ums), None).unwrap(), MapKind::Ums);
+        assert_eq!(
+            pick_slot(Some(MapKind::Melee), Some(MapKind::Melee)).unwrap(),
+            MapKind::Melee
+        );
+        assert!(matches!(
+            pick_slot(Some(MapKind::Melee), Some(MapKind::Ums)),
+            Err(FeatureError::KindMismatch)
+        ));
+    }
+
+    #[test]
+    fn collections_go_in_the_slot_staff_ask_for() {
+        assert_eq!(pick_slot(None, Some(MapKind::Ums)).unwrap(), MapKind::Ums);
+        assert!(matches!(
+            pick_slot(None, None),
+            Err(FeatureError::KindRequired)
+        ));
+    }
+
+    fn map_pick(slot: &str, listed: bool, current_kind: &str) -> StoredFeature {
+        StoredFeature {
+            row: FeatureRow {
+                week: date(2026, 11, 9),
+                kind: slot.to_string(),
+                family_id: Some(Uuid::nil()),
+                collection_id: None,
+                blurb: String::new(),
+                created_by: SbUserId(1),
+                current_map_id: Some(SbMapId(Uuid::nil())),
+                map_kind: Some(current_kind.to_string()),
+                family_listed: Some(listed),
+            },
+            collection: None,
+        }
+    }
+
+    #[test]
+    fn map_picks_are_shown_while_listed_and_of_their_slots_kind() {
+        assert!(map_pick("melee", true, "melee").shown());
+        assert!(map_pick("ums", true, "ums").shown());
+        assert!(!map_pick("melee", false, "melee").shown());
+        assert!(!map_pick("melee", true, "ums").shown());
+        assert!(!map_pick("ums", true, "melee").shown());
+        assert_eq!(map_pick("ums", true, "melee").kind(), MapKind::Ums);
     }
 
     #[test]

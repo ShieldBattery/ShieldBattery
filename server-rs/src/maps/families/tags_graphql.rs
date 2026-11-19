@@ -37,21 +37,6 @@ fn tag_list_error(error: TagListError) -> async_graphql::Error {
     }
 }
 
-fn map_kind(kind: &str) -> MapKind {
-    if kind == "melee" {
-        MapKind::Melee
-    } else {
-        MapKind::Ums
-    }
-}
-
-fn kind_str(kind: MapKind) -> &'static str {
-    match kind {
-        MapKind::Melee => "melee",
-        MapKind::Ums => "ums",
-    }
-}
-
 /// A word from the list of map tags.
 pub struct MapTag(TagRecord);
 
@@ -66,7 +51,7 @@ impl MapTag {
     /// The kind of map the tag is for. A tag only counts on a map whose current file is of this
     /// kind.
     async fn kind(&self) -> MapKind {
-        map_kind(&self.0.kind)
+        MapKind::from_db(&self.0.kind)
     }
 
     /// The tag's English name.
@@ -420,7 +405,7 @@ impl MapTagsMutation {
         let tag = tag_list::create(
             db,
             &name,
-            kind_str(kind),
+            kind.as_str(),
             name_pairs(names.unwrap_or_default()),
         )
         .await
@@ -458,7 +443,7 @@ impl MapTagsMutation {
         ids: Vec<String>,
     ) -> Result<Vec<MapTag>> {
         let db = ctx.data::<MapSearchRepo>()?.db();
-        Ok(tag_list::set_order(db, kind_str(kind), &ids)
+        Ok(tag_list::set_order(db, kind.as_str(), &ids)
             .await
             .map_err(tag_list_error)?
             .into_iter()
