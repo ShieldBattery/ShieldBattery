@@ -344,12 +344,10 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
 ///
 /// `None` for a unit that is making nothing, which is most of them.
 pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
-    let (production, progress, queue) = if unit.is_building_addon()
-        && let Some(addon) = unit.currently_building()
+    let (production, progress, queue) = if let Some((production, progress)) = addon_production(unit)
     {
-        // The add-on already counts as a building under construction in the overview. Its
-        // parent only needs to show it in the selection panel, where it has no training queue.
-        (Production::Unit(addon.id()), unit_completion(addon), None)
+        // An add-on is one thing its parent works through alone, with no queue behind it.
+        (production, progress, None)
     } else {
         let (production, progress) = unit_production(unit).or_else(|| fighter_production(unit))?;
         let queue = queued_units(unit, production)
@@ -372,6 +370,17 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
             }
         }),
     })
+}
+
+/// The add-on a landed Terran building is putting up beside itself. The add-on is a unit of its
+/// own that the overview already lists as a building under construction, so its parent is kept out
+/// of that list, but selecting the parent shows the add-on and how far along it is.
+fn addon_production(unit: Unit) -> Option<(Production, Progress)> {
+    if !unit.is_building_addon() {
+        return None;
+    }
+    let addon = unit.currently_building()?;
+    Some((Production::Unit(addon.id()), unit_completion(addon)))
 }
 
 /// A carrier or reaver's fighter under construction. Fighters are kept out of the overview's
@@ -991,6 +1000,53 @@ mod tests {
             (**parent).build_queue[0] = unit::INTERCEPTOR.0;
         }
         assert!(fighter_production(parent).is_none());
+    }
+
+    #[test]
+    fn addon_construction_requires_a_landed_parent_still_building_an_incomplete_addon() {
+        const COMPLETED: u32 = 0x1;
+        const LANDED: u32 = 0x2;
+
+        let mut raw_addon: bw::Unit = unsafe { std::mem::zeroed() };
+        raw_addon.build_queue = [unit::NONE.0; 5];
+        let addon = unsafe { Unit::from_ptr(&raw mut raw_addon).unwrap() };
+        let mut raw_parent: bw::Unit = unsafe { std::mem::zeroed() };
+        raw_parent.build_queue = [unit::NONE.0; 5];
+        let parent = unsafe { Unit::from_ptr(&raw mut raw_parent).unwrap() };
+        for (parent_id, addon_id) in [
+            (unit::COMMAND_CENTER, unit::COMSAT_STATION),
+            (unit::FACTORY, unit::MACHINE_SHOP),
+        ] {
+            unsafe {
+                (**addon).unit_id = addon_id.0;
+                (**addon).flags = 0;
+                (**parent).unit_id = parent_id.0;
+                (**parent).flags = COMPLETED | LANDED;
+                (**parent).secondary_order = bw_dat::order::BUILD_ADDON.0;
+                (**parent).secondary_order_target.unit = *addon;
+            }
+            assert_eq!(
+                addon_production(parent).unwrap().0,
+                Production::Unit(addon_id)
+            );
+
+            // A building that lifted off has abandoned its add-on.
+            unsafe { (**parent).flags = COMPLETED };
+            assert!(addon_production(parent).is_none());
+            unsafe { (**parent).flags = COMPLETED | LANDED };
+
+            // Under the training order the same pointer is a unit being trained, not an add-on.
+            unsafe { (**parent).secondary_order = bw_dat::order::TRAIN.0 };
+            assert!(addon_production(parent).is_none());
+            unsafe { (**parent).secondary_order = bw_dat::order::BUILD_ADDON.0 };
+
+            unsafe { (**addon).flags = COMPLETED };
+            assert!(addon_production(parent).is_none());
+            unsafe { (**addon).flags = 0 };
+
+            unsafe { (**parent).secondary_order_target.unit = std::ptr::null_mut() };
+            assert!(addon_production(parent).is_none());
+        }
     }
 
     #[test]
