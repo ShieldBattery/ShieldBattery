@@ -233,14 +233,14 @@ export function PostMatchDialog({
 function calculateDivisionPercent(
   divisionWithBounds: Readonly<MatchmakingDivisionWithBounds>,
   points: number,
+  bonusPool: number,
 ) {
   const [division, _low, _high] = divisionWithBounds
   const low = Math.max(0, _low)
   const high =
     division === MatchmakingDivision.Champion
-      ? // Champion runs forever, but that doesn't make for a particularly compelling bar, so we
-        // pick a points that is finite but unlikely to be achieved.
-        Math.max(points, 3000 * POINTS_FOR_RATING_TARGET_FACTOR)
+      ? // Champion has no upper division bound. The bar's endpoint grows with its entry threshold.
+        3000 * POINTS_FOR_RATING_TARGET_FACTOR + bonusPool
       : _high
   return Math.min((points - low) / (high - low), 1)
 }
@@ -263,13 +263,15 @@ function RatedUserContent({
   const { t, i18n } = useTranslation()
   const pageInView = usePageInView()
   const [shownAt] = useState(() => new Date())
+  const divisionContext = useMemo(() => getDivisionContext(shownAt, season), [shownAt, season])
+  const { bonusPool } = divisionContext
   const divisionTransitions = useMemo(() => {
     const startingPoints = mmrChange.points - mmrChange.pointsChange
     const divisions = getDivisionsForPointsChange(
       isSoloType(mmrChange.matchmakingType),
       startingPoints,
       mmrChange.points,
-      getDivisionContext(shownAt, season),
+      divisionContext,
     )
 
     const isNegative = mmrChange.pointsChange < 0
@@ -292,7 +294,7 @@ function RatedUserContent({
 
       return { divisionWithBounds, from, to }
     })
-  }, [mmrChange, season, shownAt])
+  }, [mmrChange, divisionContext])
   const [divisionIndex, setDivisionIndex] = useState(0)
 
   const deltaValues = useMemo(
@@ -337,6 +339,7 @@ function RatedUserContent({
     calculateDivisionPercent(
       divisionTransitions[0].divisionWithBounds,
       divisionTransitions[0].from,
+      bonusPool,
     ),
   )
 
@@ -358,8 +361,8 @@ function RatedUserContent({
     Promise.resolve()
       .then(async () => {
         const { divisionWithBounds, from, to } = currentTransition
-        const startPercent = calculateDivisionPercent(divisionWithBounds, from)
-        const endPercent = calculateDivisionPercent(divisionWithBounds, to)
+        const startPercent = calculateDivisionPercent(divisionWithBounds, from, bonusPool)
+        const endPercent = calculateDivisionPercent(divisionWithBounds, to, bonusPool)
 
         // Wait for division icon change animation to complete
         await pointsAnimate(0, 1, { duration: divisionIndex > 0 ? 0.75 : 0.25 })
@@ -432,6 +435,7 @@ function RatedUserContent({
     points,
     pointsAnimate,
     divPercent,
+    bonusPool,
     divisionTransitions,
     divisionIndex,
     pageInView,
