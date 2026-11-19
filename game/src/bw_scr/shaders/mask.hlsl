@@ -96,7 +96,28 @@ float sampleMask(float2 uv)
     return mask.SampleLevel(maskSampler, uv, 0.0).x;
 }
 
-float4 offMapColor(float2 uv, float2 mapPos, float screenPxPerMapPx)
+#define CELL_SEED_X 374761393u
+#define CELL_SEED_Y 668265263u
+
+// Pseudo-random 0..1 for a cell, from its seed (`x * CELL_SEED_X + y * CELL_SEED_Y`, wrapping).
+float cellRandom(uint h)
+{
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return (h >> 16) * (1.0 / 65535.0);
+}
+
+// Noise of one 8-bit color step for the screen pixel `pixel`, centered on 0 and different for
+// each channel. Added to a gradient too dim to be smooth in 8 bits, it trades the gradient's
+// bands for grain too fine to see.
+float3 ditherNoise(float2 pixel)
+{
+    uint2 p = uint2(pixel);
+    uint h = p.x * CELL_SEED_X + p.y * CELL_SEED_Y;
+    float3 noise = float3(cellRandom(h), cellRandom(h + 0x9e3779b9u), cellRandom(h + 0x85ebca6bu));
+    return (noise - 0.5) * (1.0 / 255.0);
+}
+
+float4 offMapColor(float2 uv, float2 mapPos, float screenPxPerMapPx, float2 pixel)
 {
     float depth = mapPos.y - mapSize.y;
     if (useTerrainEdge == 0.0 || depth * screenPxPerMapPx < -0.5 ||
@@ -107,7 +128,9 @@ float4 offMapColor(float2 uv, float2 mapPos, float screenPxPerMapPx)
 
     // The glow spans the same fraction of the view at every zoom. Only pixels in
     // that band need to read the fog mask and the prefiltered one-row texture.
-    float falloff = 1.0 - smoothstep(0.0, mapSpan.y * 0.145, depth);
+    float fade = 1.0 - smoothstep(0.0, mapSpan.y * 0.2, depth);
+    // Squared for a long, shallow approach to black, where the eye picks out any edge.
+    float falloff = fade * fade;
     float3 glow = 0.0;
     [branch]
     if (falloff > 0.0)
@@ -120,19 +143,13 @@ float4 offMapColor(float2 uv, float2 mapPos, float screenPxPerMapPx)
         }
         float3 terrain = terrainEdge.SampleLevel(edgeSampler, float2(mapPos.x / mapSize.x, 0.5), 0.0).rgb;
         glow = terrain * (0.4 * falloff * (1.0 - fog));
+        // The glow covers a couple dozen 8-bit steps at most, each a band several pixels tall
+        // across the whole screen, and the last a line where the glow gives way to black.
+        glow = max(glow + ditherNoise(pixel), 0.0);
     }
-    // The game draws stars behind the mask on space maps. Leave them faintly visible.
-    return float4(glow / 0.88, 0.88);
-}
-
-#define CELL_SEED_X 374761393u
-#define CELL_SEED_Y 668265263u
-
-// Pseudo-random 0..1 for a cell, from its seed (`x * CELL_SEED_X + y * CELL_SEED_Y`, wrapping).
-float cellRandom(uint h)
-{
-    h = (h ^ (h >> 13)) * 1274126177u;
-    return (h >> 16) * (1.0 / 65535.0);
+    // Opaque, to cover the tileset's background the game draws past the map (Space Platform's
+    // stars).
+    return float4(glow, 1.0);
 }
 
 // Smoothly interpolated value noise, one random value per cell corner.
@@ -261,7 +278,7 @@ PS_OUTPUT main(VS_OUTPUT v)
     [branch]
     if (onMap < 1.0)
     {
-        offMapCover = offMapColor(v.texCoord, mapPos, screenPxPerMapPx);
+        offMapCover = offMapColor(v.texCoord, mapPos, screenPxPerMapPx, v.pos.xy);
         if (onMap == 0.0)
         {
             o.frag_color = offMapCover;
