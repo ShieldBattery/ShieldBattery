@@ -17,8 +17,8 @@ use super::{
 };
 
 impl BwScr {
-    /// Reads the bottom rows of the scenario's terrain as it is loaded, before simulation
-    /// changes the map. The game's classic palette provides a color for each base tile in
+    /// Reads the bottom rows of the scenario's terrain as it is loaded, from under any creep
+    /// already spread over it. The game's classic palette provides a color for each base tile in
     /// either graphics mode without sampling a frame or any of its sprites.
     pub(super) unsafe fn load_bottom_edge_colors(&self) {
         if self.bottom_overpan.is_none() || !self.is_replay_or_obs() || game_thread::is_ums() {
@@ -50,8 +50,25 @@ impl BwScr {
             let name = TILESET_FILES.get(usize::from((*game).tileset))?;
             let tiles = NonNull::new(self.tileset_indexed_map_tiles.as_ref()?.resolve())?;
             let rows = terrain_color::EDGE_ROWS.min(height);
-            let start = tiles.as_ptr().add((height - rows) * width);
-            let tiles = std::slice::from_raw_parts(start, rows * width).to_vec();
+            let first = (height - rows) * width;
+            let mut tiles =
+                std::slice::from_raw_parts(tiles.as_ptr().add(first), rows * width).to_vec();
+            // Starting and preplaced Zerg buildings have spread their creep by now, replacing the
+            // terrain's tile ids with creep ones. The game keeps the id each of those tiles had,
+            // and 0 for a tile it has put no creep on, in an array laid out like the tiles.
+            let creep_original_tiles = self
+                .creep_original_tiles
+                .as_ref()
+                .and_then(|tiles| NonNull::new(tiles.resolve()));
+            if let Some(originals) = creep_original_tiles {
+                let originals =
+                    std::slice::from_raw_parts(originals.as_ptr().add(first), rows * width);
+                for (tile, &original) in tiles.iter_mut().zip(originals) {
+                    if original != 0 {
+                        *tile = original;
+                    }
+                }
+            }
             let read_tileset = |extension| {
                 let path = CString::new(format!("Tileset\\{name}.{extension}")).ok()?;
                 self.read_game_file(&path)

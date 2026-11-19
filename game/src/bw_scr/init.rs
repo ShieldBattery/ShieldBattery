@@ -313,6 +313,7 @@ impl BwScr {
         let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
         let map_tile_flags = analysis.map_tile_flags();
         let tileset_indexed_map_tiles = analysis.tileset_indexed_map_tiles();
+        let creep_original_tiles = analysis.creep_original_tiles();
         // Non-fatal: without the registry the in-game options screen still saves what the player
         // changes, and SC:R picks it up next game.
         let game_settings = match (
@@ -750,6 +751,7 @@ impl BwScr {
             map_tile_flags: map_tile_flags.map(|flags| Value::new(ctx, flags)),
             tileset_indexed_map_tiles: tileset_indexed_map_tiles
                 .map(|tiles| Value::new(ctx, tiles)),
+            creep_original_tiles: creep_original_tiles.map(|tiles| Value::new(ctx, tiles)),
             vertex_buffer: Value::new(ctx, vertex_buffer),
             renderer: Value::new(ctx, renderer),
             draw_commands: Value::new(ctx, draw_commands),
