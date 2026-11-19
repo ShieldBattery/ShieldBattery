@@ -3514,6 +3514,7 @@
         },
         "playMessageSounds": "Звуки сообщений",
         "quietChannelsWhileInGame": "Не беспокоить из каналов во время игры",
+        "quietLobbyWhileInGame": "Не беспокоить из чата лобби во время игры",
         "quietWhispersWhileInGame": "Не беспокоить личными сообщениями во время игры",
         "showWhispersEverywhere": "Показывать личные сообщения во всех чатах",
         "title": "Уведомления",

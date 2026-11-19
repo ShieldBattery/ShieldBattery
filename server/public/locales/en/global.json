@@ -3412,6 +3412,7 @@
         },
         "playMessageSounds": "Play message sounds",
         "quietChannelsWhileInGame": "Quiet channels while in a game",
+        "quietLobbyWhileInGame": "Quiet lobby chat while in a game",
         "quietWhispersWhileInGame": "Quiet whispers while in a game",
         "showWhispersEverywhere": "Show whispers in every chat",
         "title": "Notifications",

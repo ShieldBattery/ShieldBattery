@@ -29,6 +29,12 @@ export interface AccountSettings {
    */
   quietWhispersWhileInGame: boolean
   /**
+   * While this client is in a game, lobby chat (from benched members, or members whose own game
+   * already ended) plays no alert sound and doesn't ask the main process for attention; the
+   * messages still land in the lobby's chat to read after the game.
+   */
+  quietLobbyWhileInGame: boolean
+  /**
    * Whether a chat message that would alert (channel, whisper, lobby or match draft chat) plays the
    * message alert sound. Event sounds that need a response, like a found match, are unaffected.
    */
@@ -102,6 +108,7 @@ export function isChatDisplayMode(value: unknown): value is ChatDisplayMode {
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietChannelsWhileInGame: true,
   quietWhispersWhileInGame: true,
+  quietLobbyWhileInGame: true,
   playMessageSounds: true,
   flashTaskbar: true,
   showWhispersEverywhere: true,

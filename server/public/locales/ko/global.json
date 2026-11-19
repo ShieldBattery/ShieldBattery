@@ -3361,6 +3361,7 @@
         },
         "playMessageSounds": "메시지 알림음 재생",
         "quietChannelsWhileInGame": "게임 중 채널 알림 끄기",
+        "quietLobbyWhileInGame": "게임 중 로비 채팅 알림 끄기",
         "quietWhispersWhileInGame": "게임 중 귓속말 알림 끄기",
         "showWhispersEverywhere": "모든 채팅에 귓속말 표시",
         "title": "알림",
