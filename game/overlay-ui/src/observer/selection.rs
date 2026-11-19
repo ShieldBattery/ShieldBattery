@@ -64,9 +64,10 @@ pub struct SelectedUnitView {
     pub shields: Option<(u32, u32)>,
     /// Energy, current and full, for a unit that has any.
     pub energy: Option<(u32, u32)>,
-    /// How many units it has killed, read out wherever it is `Some`. `None` for something with no
-    /// kills of its own to read out: a building that cannot attack, a transport, whose passengers
-    /// make its kills and keep them, or a resource.
+    /// How many units it has killed, read out wherever it is `Some`. `None` for something the host
+    /// finds has no kills of its own to read out: without a weapon, that is a building, a
+    /// transport, whose passengers make its kills and keep them, a resource, or a unit with nothing
+    /// to kill with, such as a medic or a larva.
     pub kills: Option<u32>,
     /// The one line the console writes under a unit selected alone. `None` for nothing to say, and
     /// only read out for a unit selected alone, so a host may leave it `None` for any other.
@@ -481,13 +482,15 @@ const PROGRESS_NAME_LEAD: f32 = 2.0;
 const PROGRESS_ROW: f32 = 14.0;
 const PROGRESS_HEIGHT: f32 = PROGRESS_NAME_ROW + PROGRESS_NAME_LEAD + PROGRESS_ROW;
 
-/// Where a progress line's name has its letters, down from the top of its row: the top of its
-/// capitals, and the foot of its letters with their descenders aside. The name is centred in a row
-/// taller than its letters, and the gaps either side of it read from its letters, not from the
-/// row's edges.
-const PROGRESS_NAME_CAPS: f32 = 4.0;
-const PROGRESS_NAME_FOOT: f32 = 13.0;
-const PROGRESS_NAME_LETTERS: f32 = PROGRESS_NAME_FOOT - PROGRESS_NAME_CAPS;
+/// Gap between a queue and the progress line under it, and between that line and the row of
+/// upgrades. Small, because the name and the bar are each centred in a row taller than they are:
+/// with the rows' own slack, the queue, the name's letters, the bar and the upgrades come out
+/// about evenly spaced.
+const QUEUE_PROGRESS_LEAD: f32 = 3.0;
+
+/// How tall the progress line under a queue is: the name's row directly over the bar's, without
+/// the gap a line beside a lone slot has between the two.
+const QUEUE_PROGRESS_HEIGHT: f32 = PROGRESS_NAME_ROW + PROGRESS_ROW;
 
 /// Width of the percentage at the end of a progress bar, and the gap before it.
 const PERCENT_WIDTH: f32 = 40.0;
@@ -496,12 +499,11 @@ const PERCENT_GAP: f32 = 8.0;
 /// How thick a progress bar is.
 const PROGRESS_TRACK: f32 = 5.0;
 
-/// A queue, the name under it and its bar all fit between the head of the text column and the row
-/// of upgrades, with room left between each of them, and a progress line with no queue sits beside
-/// its one slot.
+/// A queue and the progress line under it fit between the head of the text column and the row of
+/// upgrades, and a progress line with no queue sits beside its one slot.
 const _: () = assert!(
-    HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_NAME_LETTERS + PROGRESS_TRACK
-        < BODY_HEIGHT - UPGRADE_CHIP
+    HEADER_HEIGHT + QUEUE_SLOT + QUEUE_PROGRESS_LEAD * 2.0 + QUEUE_PROGRESS_HEIGHT
+        <= BODY_HEIGHT - UPGRADE_CHIP
 );
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
 const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
@@ -787,9 +789,13 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
     // Labelled where a unit selected alone has its kills read out, at the right end of the line its
     // name heads, with the count under the label rather than beside it: the strip the grid leaves
     // there is narrow, and a count of a few digits beside the label would run over the grid's last
-    // column.
+    // column. Both are kept to that strip, so a label too long for it in some language is cut
+    // short rather than drawn over the grid.
     if let Some(kills) = kills {
-        let line = Rect::from_min_size(body.left_top(), vec2(body.width(), NAME_ROW));
+        let line = Rect::from_min_max(
+            pos2(grid.right() + GRID_GAP, body.top()),
+            pos2(body.right(), body.top() + NAME_ROW),
+        );
         let label = centred(line, TALLY_ROW);
         paint_text(
             ui,
@@ -1389,9 +1395,8 @@ fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
 /// already named and drawn at the head of the panel, so it gets no slot and no name a second time:
 /// only how far along it is, under a label saying what that bar is.
 ///
-/// A queue keeps the row of upgrades under it, so the name and bar under the queue are spaced out
-/// evenly in the room left between the two: the gaps from the queue to the name's letters, from
-/// those to the bar, and from the bar to the row of upgrades are all the same.
+/// A queue keeps the row of upgrades under it, so the name and the bar under the queue are set
+/// close together, in the room left between the two.
 fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
     let progress = production.progress.clamp(0.0, 1.0);
     if let Some(subject) = production.subject {
@@ -1427,15 +1432,11 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
                     None => paint_tile(ui, slot, None, EMPTY_ALPHA),
                 }
             }
-            let room = rect.bottom() - UPGRADE_CHIP - first.bottom();
-            let gap = (room - PROGRESS_NAME_LETTERS - PROGRESS_TRACK) / 3.0;
-            let track = first.bottom() + gap + PROGRESS_NAME_LETTERS + gap;
-            Rect::from_min_max(
-                pos2(rect.left(), first.bottom() + gap - PROGRESS_NAME_CAPS),
-                pos2(
-                    rect.left() + QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH,
-                    // The bar is centred in the line at the block's foot.
-                    track + (PROGRESS_TRACK + PROGRESS_ROW) * 0.5,
+            Rect::from_min_size(
+                pos2(rect.left(), first.bottom() + QUEUE_PROGRESS_LEAD),
+                vec2(
+                    QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH,
+                    QUEUE_PROGRESS_HEIGHT,
                 ),
             )
         }
@@ -2070,6 +2071,40 @@ mod tests {
         })));
         shuttle.cargo = vec![carried((100, 100), Some((60, 60)), 0x41, 2)];
         assert!(!has_kills(&subject_texts(&shuttle, SelectionCase::Loaded)));
+    }
+
+    #[test]
+    fn a_queue_keeps_the_row_of_upgrades_under_its_progress_line() {
+        let body = Rect::from_min_size(pos2(0.0, 0.0), vec2(CONTENT_WIDTH, BODY_HEIGHT));
+        let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
+        gateway.building = true;
+        gateway.upgrades = vec![UnitUpgradeView {
+            icon: unit((1, 1), None, 0x12a).icon,
+            level: 3,
+            name: None,
+            effect: UpgradeEffect::Shields,
+        }];
+        // A queue with nothing waiting in it is still a queue's row of slots.
+        gateway.production = Some(ProductionProgressView {
+            icon: unit((1, 1), None, 0x41).icon,
+            name: None,
+            progress: 0.5,
+            queue: Some(Vec::new()),
+            subject: None,
+        });
+        let drawn = rendered_texts(|ui| {
+            draw_subject(ui, body, &gateway, SelectionCase::Producing);
+        });
+        let top_of = |wanted: &str| {
+            drawn
+                .iter()
+                .find(|(text, _)| text == wanted)
+                .map(|&(_, top)| top)
+        };
+        let row = body.bottom() - UPGRADE_CHIP;
+        let percent = top_of("50%").expect("the queue's progress is read out");
+        let level = top_of("3").expect("the upgrade's level is read out");
+        assert!(percent < row && row <= level);
     }
 
     #[test]

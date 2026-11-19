@@ -1502,7 +1502,8 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         hit_points: Some((200, 200)),
         shields: None,
         energy: None,
-        kills: Some(0),
+        // An egg a larva turned into has no kills to carry over.
+        kills: None,
         status: None,
         hallucination: false,
         parasited: false,
@@ -1993,7 +1994,7 @@ impl Preset {
     }
 
     /// A duel on the analyst's screen, there to put the selection panel into one of its readings.
-    const fn selection_showcase(showcase: Showcase) -> Preset {
+    pub const fn selection_showcase(showcase: Showcase) -> Preset {
         Preset {
             players: 2,
             team_size: 1,
