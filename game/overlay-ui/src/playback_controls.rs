@@ -25,11 +25,12 @@
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Layout, Modifiers, Order, Pos2, Rect, Response,
-    Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Galley, Id, Layout, Modifiers, Order, Pos2, Rect,
+    Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE60, BLUE80};
@@ -724,6 +725,10 @@ fn draw_track_row(
         && let Some(pointer) = track.response.hover_pos()
     {
         draw_marker_card(ui, pointer, events);
+    } else if let Some(point) = track.pointed
+        && view.end_frames != 0
+    {
+        draw_time_card(ui, point.pos, track_time_secs(view, point.fraction));
     }
     ui.add_space(ITEM_GAP);
     clock(
@@ -802,46 +807,71 @@ fn marked_events<'a>(
 /// game lands on one point of the track, and the card is a glance rather than the timeline.
 const MARKER_CARD_EVENTS: usize = 4;
 
-/// Names the events under the pointer and when they happened.
-fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
+/// The card the track hangs off the pointer, holding what `add` puts in it.
+fn track_card(ui: &Ui, pointer: Pos2, add: impl FnOnce(&mut Ui)) {
     // Over the track rather than under it, where the plate's own buttons are.
     widgets::tooltip_above(
         ui.ctx(),
-        Id::new("sb_playback_controls").with("marker"),
+        Id::new("sb_playback_controls").with("track_card"),
         pointer,
-        |ui| {
-            ui.spacing_mut().item_spacing = vec2(theme::SPACE_SM, theme::SPACE_XS);
-            for event in events.iter().take(MARKER_CARD_EVENTS) {
-                draw_marker_card_row(ui, event);
-            }
-        },
+        add,
     );
 }
 
+/// Names the events under the pointer and when they happened.
+fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
+    track_card(ui, pointer, |ui| {
+        ui.spacing_mut().item_spacing = vec2(theme::SPACE_SM, theme::SPACE_XS);
+        for event in events.iter().take(MARKER_CARD_EVENTS) {
+            draw_marker_card_row(ui, event);
+        }
+    });
+}
+
 /// One event's row on a marker's card: whose it was, what happened, and when.
-///
-/// Set on one baseline rather than centered in a row, since the name and the clock are in faces of
-/// different heights, and the dot at the middle of the letters rather than of the line.
 fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
-    let body = |weight, color| text::body(MARKER_CARD_TEXT, weight).with_color(color);
     let mut parts = Vec::new();
     if let Some(name) = &event.name {
-        parts.push(body(BodyWeight::Medium, theme::TEXT_PRIMARY).galley(ui, name));
+        parts.push(card_text().galley(ui, name));
     }
     let label_color = match event.name {
         Some(_) => theme::TEXT_SECONDARY,
         None => theme::TEXT_PRIMARY,
     };
-    parts.push(body(BodyWeight::Medium, label_color).galley(ui, &event.label()));
-    if let Some(detail) = event.kind.detail() {
-        parts.push(body(BodyWeight::Regular, theme::TEXT_SECONDARY).galley(ui, &detail));
-    }
     parts.push(
-        text::numeral(MARKER_CARD_TEXT)
-            .with_color(theme::TEXT_DIM)
-            .galley(ui, &clock_text(event.secs)),
+        card_text()
+            .with_color(label_color)
+            .galley(ui, &event.label()),
     );
+    if let Some(detail) = event.kind.detail() {
+        parts.push(
+            text::body(TRACK_CARD_TEXT, BodyWeight::Regular)
+                .with_color(theme::TEXT_SECONDARY)
+                .galley(ui, &detail),
+        );
+    }
+    parts.push(card_clock(ui, event.secs));
+    draw_card_row(ui, Some(event.color), &parts);
+}
+
+/// The face a track card's names, labels and clocks are set in.
+fn card_text() -> text::TextSpec {
+    text::body(TRACK_CARD_TEXT, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY)
+}
+
+/// A track card's clock, saying when its moment is. Tabular, so the card under a pointer dragged
+/// along the track keeps its width as the time runs.
+fn card_clock(ui: &Ui, secs: u64) -> Arc<Galley> {
+    card_text().tabular().galley(ui, &clock_text(secs))
+}
+
+/// One row of a track card: a dot of `dot`'s color where the row is someone's, then `parts`.
+///
+/// Set on one baseline rather than centered in a row, since the words and the clock are in faces of
+/// different heights, and the dot at the middle of the letters rather than of the line.
+fn draw_card_row(ui: &mut Ui, dot: Option<Color32>, parts: &[Arc<Galley>]) {
     let gap = ui.spacing().item_spacing.x;
+    let lead = dot.map_or(0.0, |_| MARKER_CARD_DOT + gap);
     let ascent = parts
         .iter()
         .map(|galley| text::baseline(galley))
@@ -850,34 +880,50 @@ fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
         .iter()
         .map(|galley| galley.size().y - text::baseline(galley))
         .fold(0.0, f32::max);
-    let width = MARKER_CARD_DOT
-        + parts
-            .iter()
-            .map(|galley| gap + galley.size().x)
-            .sum::<f32>();
+    let width = lead
+        + parts.iter().map(|galley| galley.size().x).sum::<f32>()
+        + gap * parts.len().saturating_sub(1) as f32;
     let (rect, _) = ui.allocate_exact_size(vec2(width, ascent + descent), Sense::hover());
     let baseline = rect.top() + ascent;
-    ui.painter().circle_filled(
-        pos2(
-            rect.left() + MARKER_CARD_DOT * 0.5,
-            baseline - MARKER_CARD_TEXT * LETTER_MIDDLE,
-        ),
-        MARKER_CARD_DOT * 0.5,
-        event.color,
-    );
-    let mut x = rect.left() + MARKER_CARD_DOT;
-    for galley in parts {
-        x += gap;
-        let top = baseline - text::baseline(&galley);
+    if let Some(color) = dot {
+        ui.painter().circle_filled(
+            pos2(
+                rect.left() + MARKER_CARD_DOT * 0.5,
+                baseline - TRACK_CARD_TEXT * LETTER_MIDDLE,
+            ),
+            MARKER_CARD_DOT * 0.5,
+            color,
+        );
+    }
+    let mut x = rect.left() + lead;
+    for (index, galley) in parts.iter().enumerate() {
+        if index > 0 {
+            x += gap;
+        }
+        let top = baseline - text::baseline(galley);
         let advance = galley.size().x;
         ui.painter()
-            .galley(pos2(x, top), galley, theme::TEXT_PRIMARY);
+            .galley(pos2(x, top), galley.clone(), theme::TEXT_PRIMARY);
         x += advance;
     }
 }
 
-/// Text size of a marker card's rows.
-const MARKER_CARD_TEXT: f32 = 13.0;
+/// Text size of a track card's rows.
+const TRACK_CARD_TEXT: f32 = 13.0;
+
+/// The game time a press `fraction` of the way along the track moves playback to, in seconds.
+fn track_time_secs(view: &PlaybackView, fraction: f32) -> u64 {
+    frames_to_seconds(view.seek_fraction(fraction), view.game_speed)
+}
+
+/// Names the game time under the pointer, which is where a click there moves playback to: a
+/// marker card's row with no event in it, only its clock.
+fn draw_time_card(ui: &Ui, pointer: Pos2, secs: u64) {
+    track_card(ui, pointer, |ui| {
+        let clock = card_clock(ui, secs);
+        draw_card_row(ui, None, &[clock]);
+    });
+}
 
 /// How far above the baseline the middle of a line of mixed-case letters sits, as a share of the
 /// text size: between the tops of the lowercase letters and of the capitals.
@@ -1248,6 +1294,21 @@ mod tests {
             spoiler_free: false,
             seek_pending: false,
         }
+    }
+
+    #[test]
+    fn the_track_names_the_game_time_a_click_there_moves_to() {
+        // 60,000 frames at the fastest speed's 42 ms run 42 minutes.
+        let view = view();
+        let time = |view: &PlaybackView, fraction| clock_text(track_time_secs(view, fraction));
+        assert_eq!(time(&view, 0.0), "0:00");
+        assert_eq!(time(&view, 0.5), "21:00");
+        assert_eq!(time(&view, 1.0), "42:00");
+        let long = PlaybackView {
+            end_frames: 120_000,
+            ..view
+        };
+        assert_eq!(time(&long, 1.0), "1:24:00");
     }
 
     #[test]

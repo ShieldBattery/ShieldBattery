@@ -22,7 +22,7 @@ pub use charts::{
     sparkline_to,
 };
 pub use controls::{
-    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked,
+    SWITCH_SIZE, ScrubTrack, TrackMarker, TrackPoint, scrub_track, scrub_track_marked,
     scrub_track_marked_flush, segmented, segmented_sized, segmented_width, slider, slider_sized,
     stepper, switch, tab_strip, tab_strip_width,
 };
