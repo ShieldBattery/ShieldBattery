@@ -18,6 +18,7 @@ import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-con
 import { GameCommendNotificationService } from './lib/games/game-commend-notification-service'
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
+import { computeTranslationHashes } from './lib/i18n/translation-hashes'
 import { NewsService } from './lib/news/news-service'
 import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/page-metadata'
 import { getCspNonce } from './lib/security/csp'
@@ -68,6 +69,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   const serverConfig: ServerConfig = {
     publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
     graphqlOrigin,
+    translationHashes: computeTranslationHashes(),
   }
   const pageMetadataContext: PageMetadataContext = {
     canonicalHost: process.env.SB_CANONICAL_HOST!.replace(/\/$/, ''),

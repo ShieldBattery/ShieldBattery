@@ -10,6 +10,7 @@ import {
 } from '../../common/i18n'
 import { JsonLocalStorageValue } from '../local-storage'
 import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
+import { getServerConfig } from '../server-config-storage'
 
 const isDev = import.meta.env.DEV
 const CUR_VERSION = import.meta.env.SB_VERSION
@@ -46,6 +47,25 @@ export function getStartupLanguage(): string {
     : getBestLanguage(navigator.languages)
 }
 
+/**
+ * The URL to load a translation file from. Its cache key is the server's hash of the file's
+ * contents, so the file is fetched once per change to it, however long it stays cached.
+ *
+ * The app's version is only the key when the server config has no hash for the file. It makes a
+ * worse key because an app can be running a version before the server has published that version's
+ * files, and whatever is served for a key then stays cached under it.
+ */
+export function makeTranslationUrl(language: string, namespace: string): string {
+  const hash =
+    namespace === TranslationNamespace.Global
+      ? getServerConfig().translationHashes?.[language as TranslationLanguage]
+      : undefined
+  return makePublicAssetUrl(
+    `/locales/${encodeURIComponent(language)}/${encodeURIComponent(namespace)}.json?` +
+      encodeURIComponent(hash ?? CUR_VERSION),
+  )
+}
+
 const i18nextDeferred = createDeferred<TFunction>()
 
 export const i18nextPromise = i18nextDeferred.then(i18next => i18next)
@@ -60,9 +80,8 @@ export function initI18next() {
     .use(initReactI18next)
     .init<HttpBackendOptions>({
       backend: {
-        loadPath: makePublicAssetUrl(
-          '/locales/{{lng}}/{{ns}}.json?' + encodeURIComponent(CUR_VERSION),
-        ),
+        // Each request is for a single language and namespace
+        loadPath: ([language], [namespace]) => makeTranslationUrl(language, namespace),
         addPath: makeServerUrl('/locales/add/{{lng}}/{{ns}}'),
       },
 
