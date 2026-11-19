@@ -182,7 +182,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 13] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 15] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -196,6 +196,8 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 13] = [
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
     Preset::Shell(shell::Preset::Victory),
     Preset::Shell(shell::Preset::SettingToast),
+    Preset::Shell(shell::Preset::StatsCard(shell::StatsCardSample::LongName)),
+    Preset::Shell(shell::Preset::Roster(shell::RosterSample::ThreeVThree)),
 ];
 
 /// Every scenario preset, in selector order.
@@ -238,6 +240,8 @@ pub struct UiState {
     pub alliances: alliances::State,
     /// The setting-notice knob as the shell was last told it, so the knob shows the notice once.
     pub setting_toast_applied: bool,
+    /// The stats card knob as the shell was last told it, so the knob shows the card once.
+    pub stats_card_applied: Option<shell::StatsCardSample>,
 }
 
 impl UiState {
@@ -249,6 +253,7 @@ impl UiState {
             observer: observer::State::new(),
             alliances: alliances::State::new(),
             setting_toast_applied: false,
+            stats_card_applied: None,
         }
     }
 }
@@ -358,6 +363,19 @@ pub fn render(
         ));
     }
     state.setting_toast_applied = knobs.shell.setting_toast;
+    if knobs.shell.stats_card != state.stats_card_applied
+        && let Some(sample) = knobs.shell.stats_card
+    {
+        shell.show_stats_card(sample.content());
+    }
+    state.stats_card_applied = knobs.shell.stats_card;
+    shell.set_roster(knobs.shell.roster.map(|sample| sample.view()));
+    shell.set_roster_held(knobs.shell.roster.is_some());
+    if knobs.scenario == ScenarioKind::Shell
+        && (knobs.shell.stats_card.is_some() || knobs.shell.roster.is_some())
+    {
+        shell::paint_player_console_stand_in(ctx);
+    }
     let options_view = (knobs.scenario == ScenarioKind::Shell).then_some(knobs.shell.options);
     let option_lists = (knobs.scenario == ScenarioKind::Shell).then(shell::option_lists);
     let mut views = Views {

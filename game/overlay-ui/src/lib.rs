@@ -35,6 +35,7 @@ pub mod options;
 pub mod playback_controls;
 pub mod setting_toast;
 pub mod shell;
+pub mod stats_card;
 pub mod straight_alpha;
 mod style;
 

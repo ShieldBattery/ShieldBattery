@@ -983,6 +983,15 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     .on('reportPlayer', (gameId, request) => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, request)
     })
+    .on('requestUserStats', (gameId, name, purpose, matchmakingType) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameRequestUserStats',
+        gameId,
+        name,
+        purpose,
+        matchmakingType,
+      )
+    })
 
   app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
 
@@ -1011,6 +1020,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameReportResult', (event, gameId, result) =>
     activeGameManager.reportResult(gameId, result),
+  )
+  ipcMain.handle('activeGameUserStats', (event, gameId, purpose, result) =>
+    activeGameManager.userStatsResult(gameId, purpose, result),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

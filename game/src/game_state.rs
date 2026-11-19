@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages::{
     BlockRequestFailed, GAME_STATUS_ERROR, GameResults, GameSetupInfo, GameType, MapForce, MapInfo,
     NetcodeV2Setup, NetworkStallInfo, NetworkStatus, NetworkTransport, PlayerInfo, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace, UserStatsAnswer,
 };
 use crate::app_socket;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -113,6 +113,8 @@ pub enum GameStateMessage {
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
     ReportResult(crate::app_messages::ReportResult),
+    /// The app's answer to a `/stats` in-game chat command.
+    UserStats(UserStatsAnswer),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     /// The fully-known joined-player set, built directly from the session roster + slot layout.
@@ -909,6 +911,9 @@ impl GameState {
             ReportResult(result) => {
                 get_bw().report_result(&result);
             }
+            UserStats(answer) => {
+                get_bw().user_stats_received(answer);
+            }
             SetNetcodeV2Setup(setup) => {
                 // SECURITY: `setup` holds the per-session private key; never log its contents.
                 // `NetcodeV2Setup`'s `Debug` redacts the key, but don't `{:?}` it here regardless.
@@ -1188,7 +1193,7 @@ impl GameState {
         match message {
             WindowMove(..) | WindowShown => (),
             ReplaySaved(..) => (),
-            SetUserBlocked { .. } | ReportPlayer(..) => (),
+            SetUserBlocked { .. } | ReportPlayer(..) | RequestUserStats { .. } => (),
             MinimapSettings {
                 color_mode,
                 terrain_hidden,

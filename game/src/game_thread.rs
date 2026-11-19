@@ -168,6 +168,11 @@ pub enum GameThreadMessage {
     },
     /// The local user reported a player from the in-game alliances screen; the app files it.
     ReportPlayer(crate::app_messages::ReportPlayer),
+    /// The game wants a user's stats, which the app looks up. `None` asks for the local user's own.
+    RequestUserStats {
+        name: Option<String>,
+        purpose: crate::app_messages::UserStatsPurpose,
+    },
     /// Current minimap color/terrain toggle values, read once when the game loop ends so they can
     /// be persisted to settings. Either field is `None` if its game global wasn't located.
     MinimapSettings {

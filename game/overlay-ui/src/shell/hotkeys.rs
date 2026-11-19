@@ -228,6 +228,19 @@ pub fn is_save_chord(key: Key, modifiers: Modifiers) -> bool {
     Chord::alt(Key::S).matches(key, modifiers)
 }
 
+/// The chord a player holds to see the roster of the other players in the game on a keyboard with
+/// no numpad, whose 0 holds it up everywhere else (the host reports that key itself, since egui
+/// folds it into the number row's 0, which is a control group key). Both keys of it are under the
+/// left hand on every layout, a compact one included, where the backtick and the function keys sit
+/// behind a layer key. Tab alone and `Shift+Tab` stay the game's, and nothing the hand does in a
+/// game lands on Ctrl and Tab together: control groups pair Ctrl with the number row.
+pub const ROSTER_CHORD: Chord = Chord::ctrl(Key::Tab);
+
+/// Whether this keypress is the roster's chord, without Shift.
+pub fn is_roster_chord(key: Key, modifiers: Modifiers) -> bool {
+    ROSTER_CHORD.matches(key, modifiers) && !modifiers.shift
+}
+
 /// Whether this keypress is one of SC:R's own menu keys, which the shell answers whatever has the
 /// keyboard: the game menu, quitting, options and saving.
 pub fn is_game_menu_key(key: Key, modifiers: Modifiers) -> bool {
