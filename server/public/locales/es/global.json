@@ -215,7 +215,7 @@
       "banWithoutReason": "Sin razón especificada",
       "clientSetupRequired": "Termina de configurar StarCraft en Ajustes y luego vuelve a intentar crear tu cuenta.",
       "clientUpdateRequired": "Hay una nueva versión de ShieldBattery. Actualiza la app y vuelve a intentarlo.",
-      "clientVerificationFailed": "No se pudo verificar esta copia de ShieldBattery. Reinstálala desde shieldbattery.net y vuelve a intentarlo.",
+      "clientVerificationFailed": "No se pudo verificar esta copia de ShieldBattery. Descarga la última versión desde <2>nuestro sitio web</2> y reinstálala.",
       "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
       "genericError": "Ocurrió un error: {{errorMessage}}",
       "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",

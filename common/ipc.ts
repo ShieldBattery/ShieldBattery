@@ -410,7 +410,7 @@ interface IpcInvokeables {
   replayStoreStoreReplay: (id: string, expectedHash: string, data: ArrayBuffer) => Promise<string>
 
   securityGetClientIds: () => Promise<[number, string][]>
-  securityCollectRequest: (nonce: string, requestHash: string) => Promise<ClientProof>
+  securityCollectRequest: (nonce: string, requestHash: string) => Promise<ClientProof | undefined>
 
   settingsLocalGet: () => Promise<Partial<LocalSettings>>
   settingsScrGet: () => Promise<Partial<ScrSettings>>

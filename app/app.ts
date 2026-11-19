@@ -869,8 +869,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.handle('securityCollectRequest', async (_event, nonce, requestHash) => {
     const { collectRequest } = await import('virtual:sb-security-impl')
-    if (!collectRequest) throw new Error('Client update required')
-    return collectRequest(nonce, requestHash, (await localSettings.get()).starcraftPath)
+    return collectRequest?.(nonce, requestHash, (await localSettings.get()).starcraftPath)
   })
 
   ipcMain.handle('settingsAutoPickStarcraftPath', async event => {

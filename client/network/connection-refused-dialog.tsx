@@ -2,6 +2,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { SiteConnectionRefusal } from '../../common/websockets'
 import { closeDialogById, openSimpleDialog } from '../dialogs/action-creators'
 import { dispatch } from '../dispatch-registry'
+import { DownloadLink } from '../download/download-link'
 import {
   addChangeHandler,
   getUpdateState,
@@ -10,7 +11,6 @@ import {
 } from '../download/updater-state'
 import i18n from '../i18n/i18next'
 import { BodyLarge } from '../styles/typography'
-import { makeServerUrl } from './server-url'
 
 /** How long the updater gets to find an update before we explain the refusal ourselves. */
 export const UPDATE_FALLBACK_DELAY_MS = 15_000
@@ -23,14 +23,6 @@ function onUpdateState(state: UpdateState) {
   if (state.hasUpdate) {
     dismissConnectionRefused()
   }
-}
-
-function DownloadLink({ children }: { children?: React.ReactNode }) {
-  return (
-    <a href={makeServerUrl('/download')} target='_blank' rel='noopener noreferrer'>
-      {children}
-    </a>
-  )
 }
 
 function ClientVerificationFailedContent() {

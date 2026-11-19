@@ -215,7 +215,7 @@
       "banWithoutReason": "Причина не указана",
       "clientSetupRequired": "Завершите настройку StarCraft в разделе «Настройки», затем снова попробуйте создать аккаунт.",
       "clientUpdateRequired": "Доступна новая версия ShieldBattery. Обновите её и попробуйте снова.",
-      "clientVerificationFailed": "Не удалось проверить эту копию ShieldBattery. Переустановите её с shieldbattery.net и попробуйте снова.",
+      "clientVerificationFailed": "Не удалось проверить эту копию ShieldBattery. Скачайте последнюю версию с <2>нашего сайта</2> и переустановите её.",
       "defaultError": "Произошла ошибка: {{status}} {{statusText}}",
       "genericError": "Произошла ошибка: {{errorMessage}}",
       "invalidCode": "Предоставленный код недействителен. Возможно, срок его действия истёк.",

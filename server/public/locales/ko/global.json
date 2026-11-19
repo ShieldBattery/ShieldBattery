@@ -215,7 +215,7 @@
       "banWithoutReason": "지정된 이유가 없습니다",
       "clientSetupRequired": "설정에서 스타크래프트 설정을 마친 후 다시 계정을 만들어 주세요.",
       "clientUpdateRequired": "ShieldBattery의 새 버전이 나왔습니다. 업데이트한 후 다시 시도해 주세요.",
-      "clientVerificationFailed": "설치된 ShieldBattery를 확인할 수 없습니다. shieldbattery.net에서 재설치한 후 다시 시도해 주세요.",
+      "clientVerificationFailed": "설치된 ShieldBattery를 확인할 수 없습니다. <2>웹사이트</2>에서 최신 버전을 다운로드해 재설치해 주세요.",
       "defaultError": "오류 발생: {{status}} {{statusText}}",
       "genericError": "오류 발생: {{errorMessage}}",
       "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",

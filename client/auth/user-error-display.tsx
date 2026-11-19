@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/user-network'
+import { DownloadLink } from '../download/download-link'
 import { longTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
 import { useFormat } from '../i18n/locale-formats'
@@ -9,6 +10,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { GameSettingsPage } from '../settings/settings-page'
 import { TitleMedium } from '../styles/typography'
+import { CollectProofError } from './collect-proof'
 
 const BanReason = styled.div`
   margin-top: 8px;
@@ -22,6 +24,19 @@ const ErrorsContainer = styled.div`
 export interface UserErrorDisplayProps {
   className?: string
   error: Error
+}
+
+function ClientVerificationFailed() {
+  const { t } = useTranslation()
+
+  return (
+    <span>
+      <Trans t={t} i18nKey='auth.userErrorDisplay.clientVerificationFailed'>
+        This copy of ShieldBattery couldn't be verified. Please download the latest version from{' '}
+        <DownloadLink>our website</DownloadLink> and reinstall it.
+      </Trans>
+    </span>
+  )
 }
 
 function UserError({ error }: { error: FetchError }) {
@@ -119,15 +134,7 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
     case UserErrorCode.ClientVerificationFailed:
-      return (
-        <span>
-          {t(
-            'auth.userErrorDisplay.clientVerificationFailed',
-            "This copy of ShieldBattery couldn't be verified. Please reinstall it from " +
-              'shieldbattery.net and try again.',
-          )}
-        </span>
-      )
+      return <ClientVerificationFailed />
     case UserErrorCode.ClientUpdateRequired:
       return (
         <span>
@@ -172,25 +179,31 @@ function UserError({ error }: { error: FetchError }) {
 export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {
   const { t } = useTranslation()
 
-  const errorMessage =
-    error.message === 'Failed to fetch'
-      ? t(
-          'auth.userErrorDisplay.noConnectionErrorMessage',
-          'Failed to connect to the server. Please check your internet connection and try again.',
-        )
-      : error.message
+  let content: React.ReactNode
+  if (isFetchError(error)) {
+    content = <UserError error={error} />
+  } else if (error instanceof CollectProofError) {
+    content = <ClientVerificationFailed />
+  } else {
+    const errorMessage =
+      error.message === 'Failed to fetch'
+        ? t(
+            'auth.userErrorDisplay.noConnectionErrorMessage',
+            'Failed to connect to the server. Please check your internet connection and try again.',
+          )
+        : error.message
+    content = (
+      <span>
+        <Trans t={t} i18nKey='auth.userErrorDisplay.genericError'>
+          An error occurred: {{ errorMessage }}
+        </Trans>
+      </span>
+    )
+  }
 
   return (
     <ErrorsContainer className={className} data-testid='errors-container'>
-      {isFetchError(error) ? (
-        <UserError error={error} />
-      ) : (
-        <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.genericError'>
-            An error occurred: {{ errorMessage }}
-          </Trans>
-        </span>
-      )}
+      {content}
     </ErrorsContainer>
   )
 }
