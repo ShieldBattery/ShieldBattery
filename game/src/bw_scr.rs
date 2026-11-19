@@ -102,6 +102,7 @@ mod skin_map;
 mod sound;
 mod sprite_unit_map;
 mod stat_txt;
+mod terrain_color;
 pub(crate) mod thiscall;
 mod tick_gates;
 mod unit_health_bars;
@@ -226,6 +227,10 @@ pub struct BwScr {
     /// into. `None` when the analysis could not place them, which leaves the buffer uncleared before
     /// map load (see `clear_map_tiles_before_map_load`).
     tileset_indexed_map_tiles: Option<Value<*mut u16>>,
+    /// The terrain tile id each creep-covered tile had before the creep, `width * height` of them,
+    /// which the game restores from when creep recedes. `None` when the analysis could not place
+    /// them, which leaves creep in the terrain colors read off the map.
+    creep_original_tiles: Option<Value<*mut u16>>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
     draw_commands: Value<*mut scr::DrawCommands>,

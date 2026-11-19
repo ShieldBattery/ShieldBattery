@@ -6,6 +6,8 @@ struct VS_OUTPUT
 
 SamplerState maskSampler : register(s0);
 Texture2D <float4> mask: register(t0);
+SamplerState edgeSampler : register(s1);
+Texture2D <float4> terrainEdge: register(t1);
 
 struct PS_OUTPUT
 {
@@ -49,6 +51,8 @@ cbuffer constants
     float boundaryClearanceFull;
     // The map's size in map pixels.
     float2 mapSize;
+    // 1 on game-view draws with a cached terrain color strip.
+    float useTerrainEdge;
 };
 
 // Mask value BW gives explored terrain that isn't currently visible (visible terrain is 0).
@@ -100,6 +104,52 @@ float cellRandom(uint h)
 {
     h = (h ^ (h >> 13)) * 1274126177u;
     return (h >> 16) * (1.0 / 65535.0);
+}
+
+// Noise of one 8-bit color step for the screen pixel `pixel`, centered on 0 and different for
+// each channel. Added to a gradient too dim to be smooth in 8 bits, it trades the gradient's
+// bands for grain too fine to see.
+float3 ditherNoise(float2 pixel)
+{
+    uint2 p = uint2(pixel);
+    uint h = p.x * CELL_SEED_X + p.y * CELL_SEED_Y;
+    float3 noise = float3(cellRandom(h), cellRandom(h + 0x9e3779b9u), cellRandom(h + 0x85ebca6bu));
+    return (noise - 0.5) * (1.0 / 255.0);
+}
+
+float4 offMapColor(float2 uv, float2 mapPos, float screenPxPerMapPx, float2 pixel)
+{
+    float depth = mapPos.y - mapSize.y;
+    if (useTerrainEdge == 0.0 || depth * screenPxPerMapPx < -0.5 ||
+        mapPos.x < 0.0 || mapPos.x >= mapSize.x)
+    {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    // The glow spans the same fraction of the view at every zoom. Only pixels in
+    // that band need to read the fog mask and the prefiltered one-row texture.
+    float fade = 1.0 - smoothstep(0.0, mapSpan.y * 0.2, depth);
+    // Squared for a long, shallow approach to black, where the eye picks out any edge.
+    float falloff = fade * fade;
+    float3 glow = 0.0;
+    [branch]
+    if (falloff > 0.0)
+    {
+        float fog = sampleMask(uv);
+        if (useNewMask != 0.0)
+        {
+            float unexplored = smoothstep(EXPLORED_MASK + 0.02, unexploredMask - 0.02, fog);
+            fog = lerp(min(fog, EXPLORED_MASK), unexploredAlpha, unexplored);
+        }
+        float3 terrain = terrainEdge.SampleLevel(edgeSampler, float2(mapPos.x / mapSize.x, 0.5), 0.0).rgb;
+        glow = terrain * (0.4 * falloff * (1.0 - fog));
+        // The glow covers a couple dozen 8-bit steps at most, each a band several pixels tall
+        // across the whole screen, and the last a line where the glow gives way to black.
+        glow = max(glow + ditherNoise(pixel), 0.0);
+    }
+    // Opaque, to cover the tileset's background the game draws past the map (Space Platform's
+    // stars).
+    return float4(glow, 1.0);
 }
 
 // Smoothly interpolated value noise, one random value per cell corner.
@@ -219,13 +269,23 @@ PS_OUTPUT main(VS_OUTPUT v)
     PS_OUTPUT o;
     float2 mapPos = mapOrigin + v.texCoord * mapSpan;
     float screenPxPerMapPx = 1.0 / max(fwidth(mapPos.x), 1e-4);
-    // Observers can scroll the view past the bottom of the map, where there is no terrain, only
-    // the tileset's background (Space Platform's stars). It is covered in black, with the edge
-    // antialiased over a screen pixel.
+    // The edge is antialiased over a screen pixel. The glow starts on the outside of it,
+    // leaving the last row of terrain and the units in front of it readable.
     float2 insideMapPx = min(mapPos, mapSize - mapPos) * screenPxPerMapPx;
     // A map size of 0 (never written) covers nothing.
     float onMap = all(mapSize > 0.0) ? saturate(min(insideMapPx.x, insideMapPx.y) + 0.5) : 1.0;
-    float4 offMapCover = float4(0.0, 0.0, 0.0, 1.0 - onMap);
+    float4 offMapCover = 0.0;
+    [branch]
+    if (onMap < 1.0)
+    {
+        offMapCover = offMapColor(v.texCoord, mapPos, screenPxPerMapPx, v.pos.xy);
+        if (onMap == 0.0)
+        {
+            o.frag_color = offMapCover;
+            return o;
+        }
+        offMapCover.a *= 1.0 - onMap;
+    }
 
     float3 stallColor = showNetworkStalled * float3(0.16, 0.08, 0.16);
     if (useNewMask == 0.0)
