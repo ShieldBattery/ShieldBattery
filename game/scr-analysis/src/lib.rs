@@ -298,8 +298,9 @@ impl<'e> Analysis<'e> {
             // There is only 1 matching vtable for now, hopefully it won't change
             .filter(|x| x.len() == 1)
             .map(|x| x[0])?;
+        // The service methods are initialize, shutdown, process, name and the destructor.
         self.1
-            .read_address(scheduler_vtable + VirtualAddress::SIZE * 3)
+            .read_address(scheduler_vtable + VirtualAddress::SIZE * 2)
             .ok()
     }
 
