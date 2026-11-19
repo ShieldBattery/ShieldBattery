@@ -421,13 +421,7 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     }
     let armed = id != bw_dat::unit::LURKER || unit.is_burrowed();
     let mut weapons: Vec<WeaponId> = Vec::new();
-    for weapon in [Some(id), id.subunit()]
-        .into_iter()
-        .flatten()
-        .filter(|_| armed)
-        .flat_map(|id| [id.ground_weapon(), id.air_weapon()])
-        .flatten()
-    {
+    for weapon in unit_weapons(id).filter(|_| armed) {
         if !weapons.contains(&weapon) {
             weapons.push(weapon);
         }
@@ -501,6 +495,17 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
         });
     }
     chips
+}
+
+/// The weapons this kind of unit has, ground then air, on its own units.dat entry and then on its
+/// turret's, which is where a goliath's and a siege tank's are. A weapon used against both ground
+/// and air comes out once for each.
+pub(super) fn unit_weapons(id: UnitId) -> impl Iterator<Item = WeaponId> {
+    [Some(id), id.subunit()]
+        .into_iter()
+        .flatten()
+        .flat_map(|id| [id.ground_weapon(), id.air_weapon()])
+        .flatten()
 }
 
 /// What `unit`'s owner has finished researching that this unit makes use of, in the order

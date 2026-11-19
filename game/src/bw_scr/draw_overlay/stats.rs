@@ -1268,7 +1268,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
                 )
             })
         }),
-        kills: unit.kills(),
+        kills: reads_out_kills(unit_id).then(|| unit.kills()),
         status: None,
         hallucination: unit.is_hallucination(),
         // Read only off a finished unit, as the console reads them.
@@ -1325,6 +1325,39 @@ fn lifetime_energy(unit: Unit) -> Option<(u32, u32)> {
         return None;
     };
     Some((u32::from(unit.death_timer()) / 10, max))
+}
+
+/// Whether the panels read out the kills of this kind of unit.
+///
+/// The game counts kills for everything, a building's too though its console reads none out.
+/// Anything with a weapon reads its count out, whatever else it is, and units.dat is read as it
+/// stands, so a unit a map has armed is one of them. Without a weapon, a building kills nothing,
+/// and neither does a transport, whose passengers make its kills and keep them, a resource, or a
+/// unit with nothing to kill with (see [`never_kills`]); any other unit reads out its count, since
+/// some kill with a spell rather than a weapon.
+fn reads_out_kills(unit_id: UnitId) -> bool {
+    production::unit_weapons(unit_id).next().is_some()
+        || !(unit_id.is_building()
+            || unit_id.cargo_space_provided() != 0
+            || unit_id.is_resource_container()
+            || never_kills(unit_id))
+}
+
+/// Whether this kind of unit has nothing to kill with unless it is given a weapon:
+///
+/// - a defiler, whose plague stops at one hit point, whose dark swarm deals no damage, and whose
+///   consume only takes its own side's units, which the game counts no kill for;
+/// - a medic, whose heal, optical flare and restoration deal no damage;
+/// - an observer, which has no spell at all;
+/// - a larva, and the egg it turns into, which has no kills to carry over. A lurker's egg and a
+///   cocoon are kinds of their own, and keep the kills of the unit that went into them.
+fn never_kills(unit_id: UnitId) -> bool {
+    use bw_dat::unit;
+
+    matches!(
+        unit_id,
+        unit::DEFILER | unit::UNCLEAN_ONE | unit::MEDIC | unit::OBSERVER | unit::LARVA | unit::EGG
+    )
 }
 
 /// The energy this unit tops out at, in the same 8.8 fixed point its current energy is in.
