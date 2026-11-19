@@ -70,10 +70,13 @@ impl RecentMap {
 /// The different maps `user_id` played in their most recent games that weren't canceled, the most
 /// recently played first; `first` of them (at most 12). Every kind of game counts. A map that
 /// isn't listed is left out when every file of it played in those games was delisted by staff.
+/// Under a `lens` that keeps one kind of map, only the maps whose current file is of that kind are
+/// kept, out of those games.
 pub async fn load_recent_maps(
     ctx: &Context<'_>,
     user_id: SbUserId,
     first: i32,
+    lens: MapLens,
 ) -> Result<Vec<RecentMap>> {
     let db = ctx.data::<MapSearchRepo>()?.db();
     let rows = sqlx::query!(
@@ -91,8 +94,10 @@ pub async fn load_recent_maps(
             INNER JOIN games g ON g.id = r.game_id
             INNER JOIN maps pm ON pm.id = g.map_id
             INNER JOIN map_families fam ON fam.id = pm.family_id
+            INNER JOIN maps cur ON cur.id = fam.current_map_id
             WHERE g.canceled_at IS NULL
                 AND (fam.listed OR pm.delisted_kind IS DISTINCT FROM 'staff')
+                AND ($4::text IS NULL OR cur.kind = $4)
             GROUP BY fam.id, fam.current_map_id
             ORDER BY max(g.start_time) DESC, fam.id
             LIMIT $3
@@ -100,6 +105,7 @@ pub async fn load_recent_maps(
         user_id as _,
         RECENT_GAMES,
         i64::from(first.clamp(1, MAX_RECENT_MAPS)),
+        lens.kind(),
     )
     .fetch_all(db)
     .await

@@ -24,7 +24,9 @@ use crate::maps::collections::pools::{
 use crate::maps::collections::{
     self, COLLECTION_COLUMNS, CollectionError, CollectionKind, CollectionRow, Viewer,
 };
-use crate::maps::search::{MAX_SEARCH_LENGTH, MapFilter, MapScope, MapSearchRepo, MapSort};
+use crate::maps::search::{
+    MAX_SEARCH_LENGTH, MapFilter, MapLens, MapScope, MapSearchRepo, MapSort,
+};
 use crate::users::names::NameChecker;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, SbUserId};
@@ -590,11 +592,39 @@ const PLAYERS_ROWS: &str = "c.kind = 'user' AND c.published_at IS NOT NULL \
         INNER JOIN map_families fam ON fam.id = m.family_id \
         WHERE cm.collection_id = c.id AND fam.listed)";
 
+/// Emits the condition that keeps a collection (`c`) of `section` under `lens`, if the lens keeps
+/// one kind of map: at least half of the collection's maps that others can see are of that kind,
+/// and at least one is. A map is of the kind of the file its entry shows (its exact file, or its
+/// map's current file). Others see the maps that are listed, and every map of a ladder pool.
+fn push_lens_rows(
+    query: &mut QueryBuilder<Postgres>,
+    section: MapCollectionSection,
+    lens: MapLens,
+) {
+    let Some(kind) = lens.kind() else {
+        return;
+    };
+    query.push(format_args!(
+        " AND (SELECT 2 * count(*) FILTER (WHERE km.kind = '{kind}') >= count(*) \
+         AND count(*) FILTER (WHERE km.kind = '{kind}') > 0 \
+         FROM collection_maps kcm \
+         INNER JOIN maps km ON km.id = COALESCE(kcm.map_id, \
+            (SELECT kefam.current_map_id FROM map_families kefam WHERE kefam.id = kcm.family_id)) \
+         INNER JOIN map_families kfam ON kfam.id = km.family_id \
+         WHERE kcm.collection_id = c.id"
+    ));
+    if section != MapCollectionSection::Ladder {
+        query.push(" AND kfam.listed");
+    }
+    query.push(")");
+}
+
 /// Emits the `FROM` and `WHERE` of a collection listing as `viewer` sees it. `owner` only applies
 /// to `PLAYERS`.
 fn push_section_rows(
     query: &mut QueryBuilder<Postgres>,
     section: MapCollectionSection,
+    lens: MapLens,
     owner: Option<SbUserId>,
     search: Option<&str>,
     viewer: Viewer,
@@ -625,6 +655,7 @@ fn push_section_rows(
             }
         }
     }
+    push_lens_rows(query, section, lens);
     if let Some(search) = search {
         query.push(" AND strpos(map_search_normalize(c.title), map_search_normalize(");
         query.push_bind(search.to_string());
@@ -635,6 +666,7 @@ fn push_section_rows(
 /// Facts about a whole collection listing, rather than one page of it.
 pub struct MapCollectionListInfo {
     section: MapCollectionSection,
+    lens: MapLens,
     owner: Option<SbUserId>,
     search: Option<String>,
     viewer: Viewer,
@@ -649,6 +681,7 @@ impl MapCollectionListInfo {
         push_section_rows(
             &mut query,
             self.section,
+            self.lens,
             self.owner,
             self.search.as_deref(),
             self.viewer,
@@ -794,11 +827,15 @@ impl MapCollectionsQuery {
     /// Pages through a section of the collections everyone can see. `owner` keeps one player's
     /// collections (only with `PLAYERS`; the player sees the same ones as everyone else). `search`
     /// keeps the collections whose title contains it, ignoring case, punctuation and spacing.
-    /// Pages are 40 collections unless `first` says otherwise (at most 100).
+    /// `lens` keeps, for `MELEE` or `UMS`, the collections where at least half of the maps others
+    /// can see are of that kind, and at least one is. Pages are 40 collections unless `first` says
+    /// otherwise (at most 100).
+    #[allow(clippy::too_many_arguments)]
     async fn map_collections(
         &self,
         ctx: &Context<'_>,
         section: MapCollectionSection,
+        #[graphql(default)] lens: MapLens,
         owner: Option<SbUserId>,
         search: Option<String>,
         after: Option<String>,
@@ -817,7 +854,7 @@ impl MapCollectionsQuery {
 
         let mut query = QueryBuilder::<Postgres>::new("SELECT ");
         query.push(COLLECTION_COLUMNS);
-        push_section_rows(&mut query, section, owner, search.as_deref(), viewer);
+        push_section_rows(&mut query, section, lens, owner, search.as_deref(), viewer);
         match section {
             MapCollectionSection::Staff => {
                 query.push(" ORDER BY c.created_at, c.id");
@@ -851,6 +888,7 @@ impl MapCollectionsQuery {
             rows.len() > count,
             MapCollectionListInfo {
                 section,
+                lens,
                 owner,
                 search,
                 viewer,

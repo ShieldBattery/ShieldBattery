@@ -21,6 +21,7 @@ import { LinkButton } from '../material/link-button'
 import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { bodyMedium, bodySmall, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { UserProfileSubPage } from '../users/user-profile-sub-page'
 import { VerifiedMakerChip } from './map-byline'
@@ -49,9 +50,11 @@ import {
   catalogSearchForRail,
   COLLECTION_RAIL_SIZE,
   collectionsRail,
+  DiscoverLens,
   FRESH_FETCH_COUNT,
   freshRail,
   freshSince,
+  isDiscoverLens,
   MAKER_RAIL_SIZE,
   MAP_RAIL_SIZE,
   MIN_RECENT_MAPS,
@@ -60,8 +63,10 @@ import {
   RECENT_MAPS_COUNT,
   recommendationShowAllTag,
   recommendationSubtitle,
+  resolveDiscoverLens,
   shownRail,
   trendingRail,
+  validateSavedDiscoverLens,
 } from './map-discover-rails'
 import { urlForMapFile } from './map-family-files'
 import { useMapHostAction } from './map-host-action'
@@ -91,7 +96,7 @@ const MapDiscoverQuery = graphql(/* GraphQL */ `
   ) {
     currentUser @include(if: $loggedIn) {
       id
-      recentMaps(first: $recentCount) {
+      recentMaps(first: $recentCount, lens: $lens) {
         id
         ...MapDiscover_RecentMapFragment
       }
@@ -160,7 +165,7 @@ const MapDiscoverQuery = graphql(/* GraphQL */ `
       }
       mapCount
     }
-    staffCollections: mapCollections(section: STAFF, first: $collectionCount) {
+    staffCollections: mapCollections(section: STAFF, lens: $lens, first: $collectionCount) {
       edges {
         node {
           id
@@ -168,7 +173,7 @@ const MapDiscoverQuery = graphql(/* GraphQL */ `
         }
       }
     }
-    playerCollections: mapCollections(section: PLAYERS, first: $collectionCount) {
+    playerCollections: mapCollections(section: PLAYERS, lens: $lens, first: $collectionCount) {
       edges {
         node {
           id
@@ -484,7 +489,16 @@ function MapDiscover() {
   const urlSearch = new URLSearchParams(locationSearch)
   const [savedFilters, setSavedFilters] = useSavedCatalogFilters()
   // A URL without the catalog's params shows what the viewer last picked, as the catalog does
-  const lens = hasCatalogParams(urlSearch) ? parseCatalogParams(urlSearch).lens : savedFilters.lens
+  const catalogLens = hasCatalogParams(urlSearch)
+    ? parseCatalogParams(urlSearch).lens
+    : savedFilters.lens
+  const [lastPicked, setLastPicked] = useUserLocalStorageValue<DiscoverLens | undefined>(
+    'maps.discover.lens',
+    undefined,
+    validateSavedDiscoverLens,
+  )
+  // Discover shows one kind of maps; a catalog lens of All falls back to the kind last picked here
+  const lens = resolveDiscoverLens(catalogLens, lastPicked)
   // Stays the same all day, so repeat visits share their cached results
   const [since] = useState(() => freshSince(Date.now()))
 
@@ -517,6 +531,9 @@ function MapDiscover() {
   }
 
   const onLensChange = (nextLens: MapLens) => {
+    if (isDiscoverLens(nextLens)) {
+      setLastPicked(nextLens)
+    }
     const { current, params, filters } = currentFilters()
     const next = {
       ...params,
@@ -536,7 +553,7 @@ function MapDiscover() {
     }
     const { params, filters } = currentFilters()
     const next = withSearch(
-      { ...filters, lens, tags: params.tags, search: '', sort: undefined },
+      { ...filters, lens: catalogLens, tags: params.tags, search: '', sort: undefined },
       value,
     )
     push(urlForMapCatalog(MapCatalogTab.All, serializeCatalogParams(next)))
@@ -725,7 +742,7 @@ function MapDiscover() {
         />
       }>
       <TopRow>
-        <CatalogLensControl lens={lens} onChange={onLensChange} />
+        <CatalogLensControl lens={lens} onChange={onLensChange} withAll={false} />
       </TopRow>
       {body}
     </MapCatalogFrame>
