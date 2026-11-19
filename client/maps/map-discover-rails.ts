@@ -116,20 +116,41 @@ export function collectionsRail<T extends { id: string }>(
   return result.slice(0, COLLECTION_RAIL_SIZE)
 }
 
+/** The kinds of maps Discover shows, one at a time. */
+export type DiscoverLens = MapLens.Melee | MapLens.Ums
+
+/** Whether `value` is a lens Discover can show. */
+export function isDiscoverLens(value: unknown): value is DiscoverLens {
+  return value === MapLens.Melee || value === MapLens.Ums
+}
+
+/** Validates the kind last picked on Discover as read from local storage, which may be stale. */
+export function validateSavedDiscoverLens(value: unknown): DiscoverLens | undefined {
+  return isDiscoverLens(value) ? value : undefined
+}
+
+/**
+ * The kind of maps Discover shows: the lens of the catalog (from the URL, or else the viewer's
+ * saved filters) when it picks one kind, else the kind the viewer last picked on Discover, else
+ * melee.
+ */
+export function resolveDiscoverLens(
+  catalogLens: MapLens,
+  lastPicked: DiscoverLens | undefined,
+): DiscoverLens {
+  return isDiscoverLens(catalogLens) ? catalogLens : (lastPicked ?? MapLens.Melee)
+}
+
 /**
  * The tags the Browse by tag row offers, in list order: the ones for the maps `lens` shows that at
  * least {@link BROWSE_TAG_MIN_MAPS} listed maps have.
  */
 export function browseTags<T extends { kind: MapKind; mapCount: number }>(
   tags: ReadonlyArray<T>,
-  lens: MapLens,
+  lens: DiscoverLens,
 ): T[] {
-  return tags.filter(
-    tag =>
-      tag.mapCount >= BROWSE_TAG_MIN_MAPS &&
-      (lens === MapLens.All ||
-        (lens === MapLens.Melee ? tag.kind === MapKind.Melee : tag.kind === MapKind.Ums)),
-  )
+  const kind = lens === MapLens.Melee ? MapKind.Melee : MapKind.Ums
+  return tags.filter(tag => tag.mapCount >= BROWSE_TAG_MIN_MAPS && tag.kind === kind)
 }
 
 /**

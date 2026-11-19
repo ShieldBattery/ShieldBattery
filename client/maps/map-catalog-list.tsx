@@ -331,13 +331,18 @@ function TagFilterChip({
   )
 }
 
-/** The choice of which kind of maps to show: all of them, melee maps or UMS maps. */
+/**
+ * The choice of which kind of maps to show: all of them (unless `withAll` is false), melee maps or
+ * UMS maps.
+ */
 export function CatalogLensControl({
   lens,
   onChange,
+  withAll = true,
 }: {
   lens: MapLens
   onChange: (lens: MapLens) => void
+  withAll?: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -346,7 +351,9 @@ export function CatalogLensControl({
       value={lens}
       onChange={onChange}
       segments={[
-        { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
+        ...(withAll
+          ? [{ value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true }]
+          : []),
         { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
         { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
       ]}

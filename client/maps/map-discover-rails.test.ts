@@ -13,6 +13,7 @@ import {
   railColumnSteps,
   recommendationShowAllTag,
   recommendationSubtitle,
+  resolveDiscoverLens,
   shownRail,
   trendingRail,
 } from './map-discover-rails'
@@ -118,9 +119,22 @@ describe('client/maps/map-discover-rails', () => {
       { id: 'defense', kind: MapKind.Ums, mapCount: 3 },
       { id: 'bound', kind: MapKind.Ums, mapCount: 0 },
     ]
-    expect(browseTags(tags, MapLens.All).map(tag => tag.id)).toEqual(['standard', 'defense'])
     expect(browseTags(tags, MapLens.Melee).map(tag => tag.id)).toEqual(['standard'])
     expect(browseTags(tags, MapLens.Ums).map(tag => tag.id)).toEqual(['defense'])
+  })
+
+  test('shows the catalog lens on Discover when it picks one kind', () => {
+    expect(resolveDiscoverLens(MapLens.Ums, undefined)).toBe(MapLens.Ums)
+    expect(resolveDiscoverLens(MapLens.Melee, MapLens.Ums)).toBe(MapLens.Melee)
+  })
+
+  test('shows the last kind picked on Discover when the catalog lens is All', () => {
+    expect(resolveDiscoverLens(MapLens.All, MapLens.Ums)).toBe(MapLens.Ums)
+    expect(resolveDiscoverLens(MapLens.All, MapLens.Melee)).toBe(MapLens.Melee)
+  })
+
+  test('shows melee on Discover when nothing picks a kind', () => {
+    expect(resolveDiscoverLens(MapLens.All, undefined)).toBe(MapLens.Melee)
   })
 
   test('names the seed map’s tags in the recommendation subtitle', () => {

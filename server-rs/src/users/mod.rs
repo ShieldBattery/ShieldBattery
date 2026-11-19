@@ -319,13 +319,14 @@ impl CurrentUser {
     /// The different maps this user played in their most recent games (of any kind, canceled
     /// games aside), the most recently played first; `first` of them (at most 12). Includes maps
     /// that aren't listed, except where every file of the map the user played was delisted by
-    /// staff.
+    /// staff. `lens` keeps, for `MELEE` or `UMS`, only the maps whose current file is of that kind.
     async fn recent_maps(
         &self,
         ctx: &Context<'_>,
         #[graphql(default_with = "DEFAULT_RECENT_MAPS")] first: i32,
+        #[graphql(default)] lens: MapLens,
     ) -> Result<Vec<RecentMap>> {
-        load_recent_maps(ctx, self.id, first).await
+        load_recent_maps(ctx, self.id, first, lens).await
     }
 
     /// Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
