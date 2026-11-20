@@ -46,13 +46,13 @@ pub mod id {
 const SELECTION_HOTKEY_GROUPS: u8 = 18;
 
 /// How many of those groups are the number keys.
-pub const NUMBER_KEY_GROUPS: u8 = 10;
+pub const NUMBER_KEY_GROUPS: usize = 10;
 
 /// The number key a command uses, by binding the selection to it, recalling it or adding the
 /// selection to it: `None` for any other command, an Alt+click recall of SC:R's history among them.
 pub fn number_key_use(command: &[u8]) -> Option<u8> {
     match *command {
-        [id::HOTKEY, 0..=2, key, ..] if key < NUMBER_KEY_GROUPS => Some(key),
+        [id::HOTKEY, 0..=2, key, ..] if usize::from(key) < NUMBER_KEY_GROUPS => Some(key),
         _ => None,
     }
 }

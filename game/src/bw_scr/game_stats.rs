@@ -38,9 +38,11 @@ pub(crate) use snapshot::{
 };
 pub(crate) use unit_value::DatUnits;
 
-use snapshot::{NUMBER_KEY_GROUPS, PlayerSnapshot};
+use snapshot::PlayerSnapshot;
 use timeline::Baseline;
 use unit_value::{HalfCost, UnitCatalog, counted_from_creation, counts_as_army, invested_cost};
+
+use crate::bw::commands::NUMBER_KEY_GROUPS;
 
 /// How many players the game keeps playable slots for, which is as many as anything here reports on.
 pub const MAX_PLAYERS: usize = 8;
@@ -305,8 +307,11 @@ impl GameStats {
     }
 
     /// Records that `player` used number key `key` on `frame`: bound the selection to it, recalled
-    /// it or added the selection to it. A frame stepped again with the same commands records
-    /// nothing new.
+    /// it or added the selection to it.
+    ///
+    /// One use is kept for each sample interval at most: a key pressed again within one is dated by
+    /// the earlier press, under a second off against the minute a key takes to be pointed out. A
+    /// frame stepped again with the same commands records nothing new.
     pub fn number_key_used(&mut self, player: u8, key: u8, frame: u32) {
         let Some(frames) = self
             .key_uses
@@ -315,13 +320,22 @@ impl GameStats {
         else {
             return;
         };
-        if let Err(index) = frames.binary_search(&frame) {
-            frames.insert(index, frame);
-            // As many as there are samples kept. Past that the oldest go, which only matters after
-            // seeking back to the start of a long game: a key then reads as never used, and lit.
-            let excess = frames.len().saturating_sub(MAX_SAMPLES);
-            frames.drain(..excess);
+        let index = frames.partition_point(|&used| used <= frame);
+        if index
+            .checked_sub(1)
+            .is_some_and(|before| frame - frames[before] < SAMPLE_INTERVAL_FRAMES)
+        {
+            return;
         }
+        // As many as there are samples kept, two hours of game time. Past that the oldest go,
+        // which only matters after seeking back to the start of a long game: a key then reads as
+        // never used, and lit.
+        if index == 0 && frames.len() >= MAX_SAMPLES {
+            return;
+        }
+        frames.insert(index, frame);
+        let excess = frames.len().saturating_sub(MAX_SAMPLES);
+        frames.drain(..excess);
     }
 
     /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
@@ -843,10 +857,9 @@ fn read_control_groups(
         .control_groups
         .iter()
         .enumerate()
-        .filter_map(|(key, reading)| {
-            let reading = reading.as_ref()?;
-            let tally: Vec<(UnitId, u32, u32)> = reading
-                .kinds
+        .filter_map(|(key, kinds)| {
+            let kinds = kinds.as_ref()?;
+            let tally: Vec<(UnitId, u32, u32)> = kinds
                 .iter()
                 .map(|&(id, held)| (id, held, invested_cost(catalog, id).total()))
                 .collect();
@@ -856,7 +869,7 @@ fn read_control_groups(
                 key: key as u8,
                 unit_id: dominant,
                 secondary_unit_id: runner_up,
-                count: reading.kinds.iter().map(|&(_, held)| held).sum(),
+                count: kinds.iter().map(|&(_, held)| held).sum(),
                 building: catalog.is_building(dominant),
                 stale: at_or_before(&key_uses[key], frame, |&used| used)
                     .is_some_and(|&used| frame - used > STALE_FRAMES),
@@ -904,7 +917,7 @@ mod tests {
     use bw_dat::unit;
     use overlay_ui::observer::FightDegree;
 
-    use super::snapshot::{BuildingSite, DepotSite, GroupReading, ResearchLevels, RosterUnit};
+    use super::snapshot::{BuildingSite, DepotSite, ResearchLevels, RosterUnit};
     use super::unit_value::tests::FakeUnits;
     use super::*;
 
@@ -1593,9 +1606,7 @@ mod tests {
     /// Player 0 with a dozen marines on key 1.
     fn marines_on_key_1(frame: u32) -> GameSnapshot {
         let mut snapshot = snapshot(frame);
-        snapshot.players[0].control_groups[1] = Some(GroupReading {
-            kinds: vec![(unit::MARINE, 12)],
-        });
+        snapshot.players[0].control_groups[1] = Some(vec![(unit::MARINE, 12)]);
         snapshot
     }
 
@@ -1658,6 +1669,17 @@ mod tests {
             &used_at,
         );
         assert!(!key_1_stale(&stats, 3 * MINUTE));
+    }
+
+    /// A key pressed again within a sample interval is dated by the earlier press, so a key spammed
+    /// for a whole game still fits in what is kept.
+    #[test]
+    fn presses_within_one_interval_keep_the_first() {
+        let mut stats = GameStats::new();
+        for frame in [100, 101, 110, 100 + SECOND - 1, 100 + SECOND] {
+            stats.number_key_used(0, 1, frame);
+        }
+        assert_eq!(stats.key_uses[0][1], [100, 100 + SECOND]);
     }
 
     /// A rollback steps frames again to run turns that arrived late, so the uses on the frames it

@@ -210,7 +210,7 @@ ten number keys, in the order a keyboard reads them, each slot carrying its digi
 whatever the group is mostly made of and how many units are in it, folded into two rows of five
 on a screen without room for the row. All ten are drawn whether or not
 there is anything on them, because a row that only showed the groups a player happens to have would
-move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
+move its slots every time one was made or lost; an empty slot and a key nobody has used in a
 minute are both drawn dim, which is what the panel is read for. The **selection panel** stands at the
 far end of the bottom edge, and is the game console's own selection with nothing else of the console
 around it. It draws whichever reading the selection is: several units are the console's own twelve

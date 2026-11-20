@@ -175,14 +175,16 @@ impl BwScr {
                     }
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
-                    let mut number_keys_used = [false; commands::NUMBER_KEY_GROUPS as usize];
+                    // A player's own commands: a replay's live commands are the viewer's.
+                    let players_commands = !is_replay || are_recorded_replay_commands != 0;
+                    let mut number_keys_used = [false; commands::NUMBER_KEY_GROUPS];
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
                     {
                         let mut apm_state = self.apm_state.lock();
                         let apm_player = unique_command_user as u8;
                         let rollback_step = rollback_step().map(|(frame, _)| frame);
-                        let count_apm = (!is_replay || are_recorded_replay_commands != 0)
+                        let count_apm = players_commands
                             && apm_state.as_ref().is_some_and(|apm| {
                                 rollback_step.is_none_or(|step| apm.counts_turn(apm_player, step))
                             });
@@ -197,11 +199,9 @@ impl BwScr {
                             if is_replay && are_recorded_replay_commands == 0 {
                                 self.note_replay_playback_command(command);
                             }
-                            // A player's own, as APM counts them: a replay's live commands are
-                            // the viewer's.
-                            if let Some(key) = commands::number_key_use(command)
+                            if players_commands
                                 && !is_observer
-                                && (!is_replay || are_recorded_replay_commands != 0)
+                                && let Some(key) = commands::number_key_use(command)
                             {
                                 number_keys_used[key as usize] = true;
                             }

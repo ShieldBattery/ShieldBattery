@@ -204,7 +204,8 @@ pub struct ControlGroupView {
     /// Whether the group is a building. The game lets a group hold twelve units or one building, so
     /// a building group is one building and has no count worth drawing.
     pub building: bool,
-    /// Whether it has gone long enough without being recalled to be worth pointing out.
+    /// Whether its key has gone long enough without being used (bound, recalled or added to) to be
+    /// worth pointing out.
     pub stale: bool,
 }
 

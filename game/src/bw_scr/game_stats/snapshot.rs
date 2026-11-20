@@ -7,7 +7,7 @@ use bw_dat::{Game, TechId, Unit, UnitArray, UnitId, UpgradeId, order};
 
 use super::{MAX_PLAYERS, MapVision, TECH_COUNT, TimelineSubject, UNIT_ID_COUNT, UPGRADE_COUNT};
 use crate::bw;
-use crate::bw::commands;
+use crate::bw::commands::NUMBER_KEY_GROUPS;
 use crate::bw::unit::UnitIterator;
 
 /// Which of the game's score tables hold the units a player made, and the unit trade.
@@ -19,12 +19,6 @@ pub(crate) const SCORE_UNITS_KILLED: u8 = 4;
 /// destroyed goes to the razings score instead.
 const SCORE_KILLS: u8 = 6;
 const SCORE_RAZINGS: u8 = 13;
-
-/// How many of a player's selection groups are the number keys.
-///
-/// The rest are the selection history SC:R keeps behind the same table; nothing recalls them with a
-/// key, so nothing here reports on them.
-pub(super) const NUMBER_KEY_GROUPS: usize = commands::NUMBER_KEY_GROUPS as usize;
 
 /// The game as one frame left it.
 pub struct GameSnapshot {
@@ -87,14 +81,9 @@ pub struct PlayerSnapshot {
     pub out: bool,
     /// Their allies, as a mask of player ids, counting only alliances held both ways.
     pub allies: u8,
-    /// Their number-key groups, by digit.
-    pub control_groups: [Option<GroupReading>; NUMBER_KEY_GROUPS],
-}
-
-/// One number-key group's living units, tallied by kind in the order the kinds first appear.
-#[derive(Clone, Default)]
-pub struct GroupReading {
-    pub kinds: Vec<(UnitId, u32)>,
+    /// Their number-key groups, by digit: each one's living units, tallied by kind in the order
+    /// the kinds first appear, or `None` for a key with nothing living on it.
+    pub control_groups: [Option<Vec<(UnitId, u32)>>; NUMBER_KEY_GROUPS],
 }
 
 /// Every player's upgrade and technology state.
@@ -261,8 +250,7 @@ pub unsafe fn read_snapshot(
             .filter(|&other| other != id && game.allied(id, other) && game.allied(other, id))
             .fold(0, |mask, other| mask | 1 << other);
         for (group, reading) in snapshot.control_groups.iter_mut().enumerate() {
-            *reading =
-                read_control_group(game, units, player, group).map(|kinds| GroupReading { kinds });
+            *reading = read_control_group(game, units, player, group);
         }
     }
 
