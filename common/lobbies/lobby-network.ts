@@ -102,6 +102,8 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   map: SbMapId
   gameType: GameType
   gameSubType?: number
+  /** The client's locally remembered race for the host's player slot. */
+  race?: RaceChar
   allowObservers?: boolean
   useLegacyLimits?: boolean
   starcraftCompatibleReplays?: boolean
@@ -122,6 +124,8 @@ export interface CreateLobbyResponse {
 
 /** The body of a request to join an existing lobby. */
 export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
+  /** The client's locally remembered race for the joiner's player slot. */
+  race?: RaceChar
   /**
    * When set, the joiner wants an observer seat specifically: they take an open observer slot or
    * the join fails, rather than being seated as a player or benched.
