@@ -293,10 +293,10 @@ fn draw_clock(ui: &Ui, room: Rect, elapsed_secs: u64) {
     // The figures' own ink is centered on the strip rather than the box the face leaves around them,
     // which would set them lower than the labels on the buttons either side.
     let top = room.center().y - text::ink_bounds(&clock).center().y;
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(room.center().x - clock.size().x * 0.5, top),
         clock,
-        spec.color,
     );
 }
 
@@ -352,10 +352,10 @@ fn paint_on_capitals(ui: &Ui, rect: Rect, spec: &text::TextSpec, label: &str) {
     let capital = spec.galley(ui, "H");
     let capital_middle = text::ink_bounds(&capital).center().y - text::baseline(&capital);
     let top = rect.center().y - capital_middle - text::baseline(&galley);
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(rect.center().x - galley.size().x * 0.5, top),
         galley,
-        spec.color,
     );
 }
 

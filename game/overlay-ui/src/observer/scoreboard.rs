@@ -197,13 +197,13 @@ fn paint_heading_label(ui: &Ui, cell: Rect, label: &str) {
     let spec = text::column_label();
     let galley = spec.layout(ui.ctx(), spec.job_truncated(label, cell.width()));
     let ink = text::ink_bounds(&galley);
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(
             cell.center().x - galley.size().x * 0.5,
             cell.center().y - ink.center().y,
         ),
         galley,
-        spec.color,
     );
 }
 

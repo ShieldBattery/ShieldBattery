@@ -794,13 +794,13 @@ fn draw_supply(
         job
     };
     let galley = spec.layout(ui.ctx(), job);
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(
             value_rect.left(),
             value_rect.center().y - galley.size().y * 0.5,
         ),
         galley,
-        color,
     );
 }
 

@@ -1067,7 +1067,9 @@ impl Record<'_> {
     /// How long the game ran, as a label and a clock centered together.
     fn draw_clock(&mut self, game_seconds: u64) -> Rect {
         let ui = &*self.ui;
-        let label = text::column_label().galley(ui, &tr!("endCard.gameTime", "Game time"));
+        let label = text::column_label()
+            .with_color(theme::TEXT_LABEL)
+            .galley(ui, &tr!("endCard.gameTime", "Game time"));
         let clock = text::numeral(CLOCK_SIZE)
             .with_color(theme::TEXT_SECONDARY)
             .galley(ui, &clock_text(game_seconds));
@@ -1082,18 +1084,18 @@ impl Record<'_> {
         let shown = ease_out(self.timeline.clock.progress(self.t));
         painter.set_opacity(shown);
         let rise = CELL_RISE * (1.0 - shown);
-        painter.galley(
+        text::paint(
+            &painter,
             pos2(rect.left(), rect.center().y - label.size().y / 2.0 + rise),
             label,
-            theme::TEXT_LABEL,
         );
-        painter.galley(
+        text::paint(
+            &painter,
             pos2(
                 rect.right() - clock.size().x,
                 rect.center().y - clock.size().y / 2.0 + rise,
             ),
             clock,
-            theme::TEXT_SECONDARY,
         );
         self.top = rect.bottom();
         rect
@@ -1228,7 +1230,6 @@ impl Record<'_> {
 /// Where a cell's number goes, with its resource glyph beside it when it has one.
 struct StatValueLayout {
     galley: Arc<Galley>,
-    color: Color32,
     /// Where the number's galley is placed.
     origin: Pos2,
     glyph: Option<(ResourceGlyph, Rect)>,
@@ -1264,7 +1265,6 @@ fn stat_value_layout(ui: &Ui, rect: Rect, cell: &StatCell, value: u32) -> StatVa
     StatValueLayout {
         ink,
         galley,
-        color,
         origin,
         glyph,
     }
@@ -1273,18 +1273,20 @@ fn stat_value_layout(ui: &Ui, rect: Rect, cell: &StatCell, value: u32) -> StatVa
 /// One cell: its label in small capitals over its number in the condensed face, both centered.
 /// `value` is what the number has counted up to so far.
 fn draw_stat_cell(ui: &Ui, painter: &Painter, rect: Rect, cell: &StatCell, value: u32) {
-    let label_job = text::column_label().job_truncated(&cell.label, rect.width() - theme::SPACE_LG);
+    let label_job = text::column_label()
+        .with_color(theme::TEXT_LABEL)
+        .job_truncated(&cell.label, rect.width() - theme::SPACE_LG);
     let label = ui.ctx().fonts_mut(|fonts| fonts.layout_job(label_job));
-    painter.galley(
+    text::paint(
+        painter,
         pos2(rect.center().x - label.size().x / 2.0, rect.top()),
         label,
-        theme::TEXT_LABEL,
     );
     let layout = stat_value_layout(ui, rect, cell, value);
     if let Some((glyph, glyph_rect)) = layout.glyph {
         widgets::paint_resource_glyph(painter, glyph_rect, glyph, 1.0);
     }
-    painter.galley(layout.origin, layout.galley, layout.color);
+    text::paint(painter, layout.origin, layout.galley);
 }
 
 /// Size of the place on the plate under a number that placed.

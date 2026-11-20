@@ -149,13 +149,13 @@ fn draw_line_plot(
             ));
         }
         let galley = label_spec.galley(ui, &short_number(value));
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 plot.left() - theme::SPACE_SM - galley.size().x,
                 y - galley.size().y * 0.5,
             ),
             galley,
-            theme::TEXT_DIM,
         );
     }
 
@@ -192,10 +192,10 @@ fn draw_line_plot(
         let galley = label_spec.galley(ui, &mmss(secs));
         let x = plot.left() + plot.width() * fraction;
         let x = crate::kit::clamp_layout(x, plot.left(), plot.right() - galley.size().x);
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(x, plot.bottom() + theme::SPACE_XS),
             galley,
-            theme::TEXT_DIM,
         );
     }
 
@@ -208,13 +208,13 @@ fn draw_line_plot(
             0,
             color,
         );
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 left + LEGEND_SWATCH_WIDTH + theme::SPACE_XS,
                 middle - galley.size().y * 0.5,
             ),
             galley,
-            color,
         );
         legend_right = left - theme::SPACE_MD;
     }
@@ -391,8 +391,7 @@ fn hover_card(
 
         ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
         let (rect, _) = ui.allocate_exact_size(vec2(width, header.size().y), Sense::hover());
-        let color = theme::TEXT_DIM;
-        ui.painter().galley(rect.left_top(), header, color);
+        text::paint(ui.painter(), rect.left_top(), header);
         for (swatch, label, value) in laid {
             let height = label.size().y.max(value.size().y);
             let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
@@ -404,15 +403,11 @@ fn hover_card(
             );
             let left = rect.left() + SWATCH.x + theme::SPACE_SM;
             let middle = rect.center().y;
-            painter.galley(
-                pos2(left, middle - label.size().y * 0.5),
-                label,
-                theme::TEXT_SECONDARY,
-            );
-            painter.galley(
+            text::paint(painter, pos2(left, middle - label.size().y * 0.5), label);
+            text::paint(
+                painter,
                 pos2(rect.right() - value.size().x, middle - value.size().y * 0.5),
                 value,
-                theme::TEXT_SECONDARY,
             );
         }
         if let Some(hint) = click_hint {

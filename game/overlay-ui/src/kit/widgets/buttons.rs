@@ -86,7 +86,7 @@ pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width:
     focus_ring(ui, &response, rect, corner_radius);
 
     let text_pos = rect.center() - galley.size() * 0.5;
-    ui.painter().galley(text_pos, galley, label_color);
+    text::paint_tinted(ui.painter(), text_pos, galley, label_color);
     response
 }
 
@@ -113,6 +113,8 @@ pub fn button_with_kbd(ui: &mut Ui, label: &str, variant: ButtonVariant, key: &s
 /// numerals where one carrying a word is set in the button style; only its color is the chip's own,
 /// so every chip lights the same way under the pointer.
 pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) -> Response {
+    let resting = spec.color;
+    let spec = spec.clone().with_color(Color32::PLACEHOLDER);
     let galley = spec.layout(
         ui.ctx(),
         spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0)),
@@ -135,10 +137,14 @@ pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) 
     let color = if response.hovered() {
         theme::TEXT_PRIMARY
     } else {
-        spec.color
+        resting
     };
-    ui.painter()
-        .galley(rect.center() - galley.size() * 0.5, galley, color);
+    text::paint_tinted(
+        ui.painter(),
+        rect.center() - galley.size() * 0.5,
+        galley,
+        color,
+    );
     response
 }
 
@@ -335,10 +341,10 @@ pub fn plate_button_aligned(
         Align::Center => rect.center().x - galley.size().x * 0.5,
         Align::RIGHT => rect.right() - inset - galley.size().x,
     };
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(x, rect.center().y - galley.size().y * 0.5),
         galley,
-        plate.label,
     );
     response
 }
@@ -499,7 +505,7 @@ pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bo
         state_wash(ui, &response, rect, corner_radius);
         focus_ring(ui, &response, rect, corner_radius);
         let text_pos = rect.center() - galley.size() * 0.5;
-        ui.painter().galley(text_pos, galley, spec.color);
+        text::paint(ui.painter(), text_pos, galley);
     }
 
     // Neither the sweep nor its unwind has anything else asking for frames, and the unwind's first
@@ -558,7 +564,7 @@ pub fn paint_kbd(ui: &Ui, rect: Rect, key: &str) {
         Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
         StrokeKind::Inside,
     ));
-    painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);
+    text::paint(painter, rect.center() - galley.size() * 0.5, galley);
 }
 
 /// Marks `button` with the keycap of the key that presses it, set in from its right edge clear of a

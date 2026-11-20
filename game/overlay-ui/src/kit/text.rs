@@ -8,9 +8,10 @@
 
 use std::sync::Arc;
 
+use egui::epaint::TextShape;
 use egui::epaint::text::{ByteIndex, FontsView};
 use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
-use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Rect, Ui};
+use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Painter, Pos2, Rect, Ui};
 
 use crate::fonts;
 use crate::kit::theme;
@@ -143,7 +144,8 @@ impl TextSpec {
     /// Lays the text out now, for widgets that paint their own label and need its size first.
     ///
     /// A widget or a `ui.label` handed one of this style's jobs lays it out without the style, so
-    /// a tabular style has to be laid out here, or through [`layout`](Self::layout).
+    /// a tabular style has to be laid out here, or through [`layout`](Self::layout). The galley
+    /// carries the style's color; [`layout`](Self::layout) says how to draw it in another.
     pub fn galley(&self, ui: &Ui, text: &str) -> Arc<Galley> {
         self.layout(ui.ctx(), self.job(text))
     }
@@ -151,6 +153,13 @@ impl TextSpec {
     /// Lays out `job`, one of this style's jobs, with the style's tabular digits when it has them.
     /// Every widget that lays out a style's text goes through here, so a tabular style is tabular
     /// wherever it is drawn.
+    ///
+    /// The color is decided here, not when the galley is painted: [`paint`] draws it in the colors
+    /// it was laid out in. Text meant to be drawn in another color is laid out
+    /// [`with_color`](Self::with_color) that color. Only when the color depends on something
+    /// known after the text has been measured, such as whether the widget it sizes is under the
+    /// pointer, is it laid out in [`Color32::PLACEHOLDER`] and the color given to
+    /// [`paint_tinted`].
     pub fn layout(&self, ctx: &Context, job: LayoutJob) -> Arc<Galley> {
         ctx.fonts_mut(|fonts| {
             if !self.tabular {
@@ -307,6 +316,51 @@ pub fn player_name(size: f32) -> TextSpec {
 /// Running text.
 pub fn body(size: f32, weight: BodyWeight) -> TextSpec {
     TextSpec::new(size, weight.family(), theme::TEXT_PRIMARY)
+}
+
+/// Paints `galley` at `pos` in the colors it was laid out in.
+///
+/// This stands in for egui's `Painter::galley`, which takes a color as well but gives it only to
+/// text laid out in [`Color32::PLACEHOLDER`]. Every style lays its text out in a color of its own,
+/// so a color handed to egui's painter alongside one of them is dropped without a word. Text that
+/// should be drawn in another color is laid out in it (see [`TextSpec::layout`]).
+#[track_caller]
+pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
+    debug_assert!(
+        !galley
+            .job
+            .sections
+            .iter()
+            .any(|section| section.format.color == Color32::PLACEHOLDER),
+        "text laid out in the placeholder color has no color of its own: paint it with \
+         `paint_tinted`",
+    );
+    add_text(painter, pos, galley, Color32::PLACEHOLDER);
+}
+
+/// Paints `galley`, laid out in [`Color32::PLACEHOLDER`], at `pos` in `color`.
+///
+/// For a label whose color is only settled once it has been measured and the widget it sizes
+/// allocated: a label that lights up under the pointer is laid out
+/// `with_color(Color32::PLACEHOLDER)`, measured, and given its color here.
+#[track_caller]
+pub fn paint_tinted(painter: &Painter, pos: Pos2, galley: Arc<Galley>, color: Color32) {
+    debug_assert!(
+        galley
+            .job
+            .sections
+            .iter()
+            .all(|section| section.format.color == Color32::PLACEHOLDER),
+        "text laid out in a color of its own ignores a tint: lay it out with \
+         `with_color(Color32::PLACEHOLDER)`, or in the color it should be drawn in",
+    );
+    add_text(painter, pos, galley, color);
+}
+
+fn add_text(painter: &Painter, pos: Pos2, galley: Arc<Galley>, placeholder_color: Color32) {
+    if !galley.is_empty() {
+        painter.add(TextShape::new(pos, galley, placeholder_color));
+    }
 }
 
 /// How far down a laid-out galley its first line's baseline sits, which is what text of different

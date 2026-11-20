@@ -151,10 +151,14 @@ pub fn segmented_sized(ui: &mut Ui, selected: &mut usize, labels: &[&str], size:
         ));
         state_overlay(ui, &chip_response, chip, corner_radius);
         focus_ring(ui, &chip_response, chip, corner_radius);
-        let color = if active { BLUE99 } else { GREY_BLUE70 };
-        let galley = spec.layout(ui.ctx(), spec.job_truncated(label, fitted[index] + slack));
-        ui.painter()
-            .galley(chip.center() - galley.size() * 0.5, galley, color);
+        let chip_spec = spec
+            .clone()
+            .with_color(if active { BLUE99 } else { GREY_BLUE70 });
+        let galley = chip_spec.layout(
+            ui.ctx(),
+            chip_spec.job_truncated(label, fitted[index] + slack),
+        );
+        text::paint(ui.painter(), chip.center() - galley.size() * 0.5, galley);
     }
     response
 }
@@ -191,8 +195,7 @@ pub fn stepper(ui: &mut Ui, label: &str, size: Vec2) -> i32 {
         let spec = text::body(15.0, BodyWeight::Regular);
         let job = spec.job_truncated(label, value.width());
         let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
-        ui.painter()
-            .galley(value.center() - galley.size() * 0.5, galley, spec.color);
+        text::paint(ui.painter(), value.center() - galley.size() * 0.5, galley);
     }
     delta
 }
@@ -568,13 +571,13 @@ pub fn slider_sized(
     // A stepped slider reports whole notches, so its readout has no decimals to show.
     let decimals = usize::from(step <= 0.0 && span < 20.0);
     let readout = text::numeral(SLIDER_VALUE_SIZE).galley(ui, &format!("{value:.decimals$}"));
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(
             rect.right() - readout.size().x,
             rect.center().y - readout.size().y * 0.5,
         ),
         readout,
-        theme::TEXT_PRIMARY,
     );
     response
 }
@@ -637,7 +640,13 @@ pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) 
         .iter()
         .zip(&fitted)
         .zip(&natural)
-        .map(|((label, fitted), natural)| {
+        .enumerate()
+        .map(|(index, ((label, fitted), natural))| {
+            let spec = spec.clone().with_color(if index == selected {
+                BLUE99
+            } else {
+                GREY_BLUE70
+            });
             let job = if fitted < natural {
                 spec.job_truncated(label, *fitted)
             } else {
@@ -689,9 +698,7 @@ pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) 
         ));
         state_overlay(ui, &chip_response, chip, corner_radius);
         focus_ring(ui, &chip_response, chip, corner_radius);
-        let color = if active { BLUE99 } else { GREY_BLUE70 };
-        ui.painter()
-            .galley(chip.center() - galley.size() * 0.5, galley, color);
+        text::paint(ui.painter(), chip.center() - galley.size() * 0.5, galley);
     }
     clicked
 }

@@ -653,8 +653,7 @@ fn strip(
         let (rect, _) = ui.allocate_exact_size(vec2(width, STRIP_HEIGHT), egui::Sense::hover());
         let spec = text::body(ROW_SIZE, BodyWeight::Regular).with_color(theme::TEXT_LABEL);
         let galley = spec.galley(ui, &tr!("netstat.gathering", "Gathering samples"));
-        ui.painter()
-            .galley(rect.center() - galley.size() * 0.5, galley, spec.color);
+        text::paint(ui.painter(), rect.center() - galley.size() * 0.5, galley);
         return;
     }
     // Already normalized to `[0, 1]` by the caller, which knows what each series' scale means;

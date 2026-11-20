@@ -209,8 +209,11 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     // than in the next. From a middle on the grid the half pixel is exact, and egui rounds an exact
     // half the same way every time.
     let middle = rect.center().y.round_to_pixels(ui.ctx().pixels_per_point());
-    ui.painter()
-        .galley(pos2(x, middle - galley.size().y * 0.5), galley, spec.color);
+    text::paint(
+        ui.painter(),
+        pos2(x, middle - galley.size().y * 0.5),
+        galley,
+    );
 }
 
 /// The ways a count can be written, longest first: the whole number, then thousands (or millions)

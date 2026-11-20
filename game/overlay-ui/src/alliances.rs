@@ -469,7 +469,7 @@ fn draw_header(ui: &mut Ui, view: &AlliancesView, outcome: &mut AlliancesOutcome
 fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
     let spec = text::button_label(MUTE_ALL_LABEL_SIZE)
         .with_letter_spacing(1.0)
-        .with_color(GREY_BLUE80);
+        .with_color(Color32::PLACEHOLDER);
     let galley = spec.galley(ui, label);
     let glyph_size = 14.0;
     let pad = 14.0;
@@ -502,7 +502,8 @@ fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
         glyph,
         color,
     );
-    ui.painter().galley(
+    text::paint_tinted(
+        ui.painter(),
         pos2(
             rect.left() + pad + glyph_size + theme::SPACE_SM,
             rect.center().y - galley.size().y * 0.5,
@@ -622,7 +623,7 @@ fn draw_column_labels(ui: &mut Ui) {
             Align::Min => rect.left(),
             _ => rect.center().x - galley.size().x * 0.5,
         };
-        ui.painter().galley(pos2(x, rect.top()), galley, spec.color);
+        text::paint(ui.painter(), pos2(x, rect.top()), galley);
     }
     ui.add_space(theme::SPACE_XS + 2.0);
 }
@@ -846,10 +847,10 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
         .with_color(name_color)
         .job_truncated(&player.name, (right - left).max(0.0));
     let name = ui.ctx().fonts_mut(|fonts| fonts.layout_job(name_job));
-    painter.galley(
+    text::paint(
+        painter,
         pos2(left, rect.center().y - name.size().y * 0.5),
         name,
-        name_color,
     );
     for (tag, label, style) in tag_rects {
         ui.scope_builder(UiBuilder::new().max_rect(tag), |ui| {

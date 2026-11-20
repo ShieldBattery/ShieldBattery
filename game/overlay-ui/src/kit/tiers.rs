@@ -678,7 +678,7 @@ pub fn glowing_text(ui: &mut Ui, spec: &text::TextSpec, label: &str, glow: Color
     for stamp in glow_stamps(origin, &halo, glow, spec.font.size) {
         painter.add(stamp);
     }
-    painter.galley(origin, galley, spec.color);
+    text::paint(painter, origin, galley);
 }
 
 /// The stamps [`glowing_text`] lays behind its letters, for a caller that paints the letters
