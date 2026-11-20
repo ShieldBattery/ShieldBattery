@@ -2800,11 +2800,6 @@ export type MapPageFiles_FamilyFragmentFragment = {
       ' $fragmentRefs'?: { MapPageFiles_FileFragmentFragment: MapPageFiles_FileFragmentFragment }
     }
   >
-  ladderFiles: Array<{
-    id: string
-    matchmakingType: Types.MatchmakingType
-    map: { id: Types.SbMapId }
-  }>
 } & { ' $fragmentName'?: 'MapPageFiles_FamilyFragmentFragment' }
 
 export type MapPageFilesUnlinkMutationVariables = Exact<{
@@ -6476,25 +6471,6 @@ export const MapPageFiles_FamilyFragmentFragmentDoc = {
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'MapPageFiles_FileFragment' },
-                },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'ladderFiles' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'map' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
                 },
               ],
             },
@@ -20466,25 +20442,6 @@ export const MapPageFamilyDocument = {
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'MapPageFiles_FileFragment' },
-                },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'ladderFiles' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'map' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
                 },
               ],
             },

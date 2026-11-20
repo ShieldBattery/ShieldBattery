@@ -59,6 +59,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import {
   bodyLarge,
   bodyMedium,
+  bodySmall,
   displayMedium,
   displaySmall,
   labelLarge,
@@ -685,8 +686,15 @@ const NoticeDetail = styled.div`
   user-select: text;
 `
 
-const NotDefaultIcon = styled(MaterialIcon)`
-  color: var(--color-amber80);
+/** A quiet line under the title that says where the shown file sits among the map's files. */
+const FileNote = styled.div`
+  ${bodySmall};
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--theme-on-surface-variant);
 `
 
 /** Text with a username in the middle of it. */
@@ -946,6 +954,20 @@ function MapHeader({
       ) : (
         <Title>{name}</Title>
       )}
+      {family.current.id !== map.id ? (
+        <FileNote>
+          <span>
+            {t('maps.files.oneOfFiles', {
+              defaultValue: 'One of {{count}} files for this map',
+              count: family.fileCount,
+            })}
+          </span>
+          <span>·</span>
+          <Link href={urlForMapFile(family, family.current.id)}>
+            {t('maps.files.viewRecommendedOne', 'View the recommended one')}
+          </Link>
+        </FileNote>
+      ) : null}
       <MapByline
         owner={family.owner}
         ownerKind={family.ownerKind}
@@ -954,20 +976,6 @@ function MapHeader({
         publishedAt={map.listed ? (map.publishedAt ?? undefined) : undefined}
       />
       <MapTagRow family={tags} />
-      {family.current.id !== map.id ? (
-        <Notice>
-          <NotDefaultIcon icon='info' size={20} />
-          <span>{t('maps.files.notRecommended', 'Not the recommended file')}</span>
-          <span>·</span>
-          <Link href={urlForMapFile(family, family.current.id)}>
-            {t('maps.files.viewRecommended', 'View recommended')}
-          </Link>
-          <span>·</span>
-          <Link href={urlForMapCompare(family.current.id, map.id)}>
-            {t('maps.files.compare', 'Compare')}
-          </Link>
-        </Notice>
-      ) : null}
       {!map.listed ? (
         <Notice>
           <MaterialIcon icon='link' size={20} />
@@ -1094,7 +1102,7 @@ const ActionRow = styled.div`
 interface ActionsFamily {
   id: string
   name: string
-  /** The map's current file, whose kind is the map's. */
+  /** The map's recommended file, whose kind is the map's. */
   current: { id: SbMapId; kind: MapKind }
   /** How many of the map's files the viewer can see. */
   fileCount: number
