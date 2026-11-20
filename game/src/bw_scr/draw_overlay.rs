@@ -45,6 +45,7 @@ pub use overlay_ui::{colors, fonts};
 
 mod alliances;
 mod chat_history;
+mod classic_replay;
 mod disconnect;
 mod end_card;
 mod loading_screen;
@@ -69,6 +70,10 @@ pub struct OverlayState {
     /// The host-agnostic policy layer: which surfaces are up, which of them is modal, and what the
     /// game is allowed to see of the player's input.
     shell: Shell,
+    classic_ui: overlay_ui::classic::ClassicUiState,
+    saved_observer_panels: Option<PanelPrefs>,
+    classic_hotkeys_active: bool,
+    disconnect_blocks_input: bool,
     /// What the last [`step`](Self::step) decided the game may see of the input arriving now.
     /// [`window_proc`](Self::window_proc) runs between frames, so it reads this rather than deciding
     /// for itself.
@@ -137,8 +142,6 @@ pub struct OverlayState {
     /// long it has been. The turn state reports only that the link is down, and a clock started
     /// from the first frame that says so is the same clock either way.
     self_link_lost_since: Option<Instant>,
-    /// The observer panels as last saved, so a change is saved once rather than every frame.
-    saved_observer_panels: Option<PanelPrefs>,
     /// The frame the overlay last asked a replay to seek to, which a look at a place belongs to.
     last_requested_seek: Option<u32>,
     /// A place to center the view on once the replay reaches the frame a seek asked for.
@@ -186,6 +189,14 @@ struct UiRect {
 /// Where the game's own replay controls plate is nudged to, which is the one piece of BW's
 /// interface the overlay places rather than replaces. Tuned from the debug window.
 struct ReplayUiValues {
+    production_max: u32,
+    production_image_size: f32,
+    production_pos: (f32, f32),
+    apm_width: f32,
+    workers_width: f32,
+    supply_width: f32,
+    resource_width: f32,
+    name_width: f32,
     statbtn_dialog_offset: (i32, i32),
 }
 
@@ -566,7 +577,11 @@ impl OverlayState {
 
         // Fonts and base style come from the overlay-ui crate, so the host preview renders text
         // identically to the game.
-        overlay_ui::install_fonts_and_style(&ctx, &load_dynamic_fonts());
+        if crate::classic_game_ui() {
+            overlay_ui::install_classic_fonts_and_style(&ctx, &load_dynamic_fonts());
+        } else {
+            overlay_ui::install_fonts_and_style(&ctx, &load_dynamic_fonts());
+        }
 
         OverlayState {
             ctx,
@@ -576,6 +591,10 @@ impl OverlayState {
             events: Vec::new(),
             production: ProductionState::new(),
             shell: Shell::new(),
+            classic_ui: overlay_ui::classic::ClassicUiState::default(),
+            saved_observer_panels: Some(PanelPrefs::default()),
+            classic_hotkeys_active: false,
+            disconnect_blocks_input: false,
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
             logged_minimap_area: None,
@@ -603,6 +622,14 @@ impl OverlayState {
             last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0 }),
             mouse_scaling: false,
             replay_ui_values: ReplayUiValues {
+                name_width: 140.0,
+                resource_width: 80.0,
+                supply_width: 80.0,
+                workers_width: 40.0,
+                apm_width: 40.0,
+                production_pos: (10.0, 100.0),
+                production_image_size: 40.0,
+                production_max: 16,
                 statbtn_dialog_offset: (0, 0),
             },
             player_vision_was_auto_disabled: [false; 8],
@@ -611,8 +638,6 @@ impl OverlayState {
             dialog_debug_inspect_children: false,
             was_loading: false,
             self_link_lost_since: None,
-            // What the shell starts on: a watcher who never changes a panel has nothing to save.
-            saved_observer_panels: Some(PanelPrefs::default()),
             last_requested_seek: None,
             pending_look_at: None,
             last_group_recall: None,
@@ -627,13 +652,15 @@ impl OverlayState {
         }
     }
 
-    /// Whether the game's resource icons have yet to be read. Read once, whether or not the game
-    /// had them.
-    /// Tells the player about a setting the game changed on one of its own keys.
+    /// Shows engine-setting feedback only in the current ShieldBattery interface.
     pub fn setting_changed_in_game(&mut self, change: SettingChange) {
-        self.shell.setting_changed_in_game(change);
+        if !crate::classic_game_ui() {
+            self.shell.setting_changed_in_game(change);
+        }
     }
 
+    /// Whether the game's resource icons have yet to be read. Read once, whether or not the game
+    /// had them.
     pub fn needs_resource_icons(&self) -> bool {
         self.resource_icons.is_none()
     }
@@ -663,8 +690,14 @@ impl OverlayState {
         option_lists: &Mutex<Arc<OptionsLists>>,
         observer_panels: &Mutex<Option<PanelPrefs>>,
     ) -> StepOutput {
+        let classic_mode = crate::classic_game_ui();
         self.mouse_scaling = options.lock().mouse_scaling_on;
-        if let Some(panels) = observer_panels.lock().take() {
+        if (!classic_mode || bw.game_started)
+            && let Some(panels) = observer_panels.lock().take()
+        {
+            if classic_mode && bw.is_replay {
+                self.classic_ui.restore_production(&panels);
+            }
             self.shell.set_panel_prefs(panels);
             self.saved_observer_panels = Some(panels);
         }
@@ -677,8 +710,11 @@ impl OverlayState {
         //
         // The overlay is at most 1080 points tall, at a higher pixel density on a taller target,
         // and scaled down further on a target narrower than 16:10 (see `pixels_per_point`).
-        let pixels_per_point =
-            overlay_ui::kit::pixels::pixels_per_point(screen_size.0 as f32, screen_size.1 as f32);
+        let pixels_per_point = if classic_mode {
+            overlay_ui::classic::pixels_per_point(screen_size.1 as f32)
+        } else {
+            overlay_ui::kit::pixels::pixels_per_point(screen_size.0 as f32, screen_size.1 as f32)
+        };
         self.ctx.set_pixels_per_point(pixels_per_point);
 
         // This exists for the weird 3412x1920 render target, since
@@ -773,6 +809,14 @@ impl OverlayState {
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
+        self.disconnect_blocks_input = disconnect_status.is_blocking(Instant::now());
+        self.classic_hotkeys_active = classic_mode
+            && overlay_ui::classic::viewer_hotkeys_active(
+                bw.game_started,
+                bw.is_replay_or_obs,
+                !self.ui_active,
+                chat_textbox_open,
+            );
         let host_frame = HostFrame {
             mode: if bw.is_replay {
                 Mode::Replay
@@ -791,7 +835,16 @@ impl OverlayState {
             // during a stall, or a menu the overlay has replaced with a surface of its own.
             native_menu_open: bw::iter_dialogs(bw.dialogs.first())
                 .take_while(|dialog| dialog.as_control().string() != "Minimap")
-                .any(|dialog| !dialog.as_control().is_hidden()),
+                .any(|dialog| {
+                    if classic_mode {
+                        overlay_ui::classic::native_menu_takes_input(
+                            dialog.as_control().string(),
+                            !dialog.as_control().is_hidden(),
+                        )
+                    } else {
+                        !dialog.as_control().is_hidden()
+                    }
+                }),
             game_seconds: playback_controls::frames_to_seconds(
                 bw.game.frame_count(),
                 bw.replay
@@ -960,13 +1013,16 @@ impl OverlayState {
                     ctx.forget_all_images();
                 }
 
-                // Every surface of ours is the shell's: the observer panels, the playback
-                // controls, the disconnect surface, the `/netstat` diagnostic panel and whatever
-                // modal owns the screen. Its rects are registered unconditionally: a BW dialog
-                // sitting on the stack (the hidden `TimeOut` among them) must never be able to
-                // steal a click from a modal of ours.
+                // Hidden native dialogs must not intercept clicks belonging to an overlay surface.
                 self.shell.update_held_keys(letter_key_is_down);
-                frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
+                if classic_mode {
+                    frame_output = self.shell.frame_classic(&ctx, &host_frame, &mut views);
+                } else {
+                    frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
+                }
+                if classic_mode && bw.is_replay_or_obs {
+                    self.add_classic_replay_ui(bw, apm, &ctx);
+                }
                 for hit in &frame_output.hit_rects {
                     self.ui_rects.push(UiRect {
                         area: hit.rect,
@@ -1016,15 +1072,29 @@ impl OverlayState {
             }
         }
         self.let_out_look_at(bw.game.frame_count());
-        let prefs = *self.shell.panel_prefs();
-        let observer_panels_changed = (self.saved_observer_panels != Some(prefs)).then(|| {
-            self.saved_observer_panels = Some(prefs);
-            prefs
-        });
         overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
         overlay_ui::kit::off_grid::leave_text_off_grid(&self.ctx, &mut output.shapes);
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
-        let primitives = vec![(self.draw_layer, ui_primitives)];
+        let mut primitives = Vec::new();
+        if classic_mode && bw.is_replay && self.classic_ui.show_console {
+            primitives.push((21, self.make_button_panel_rect(bw, pixels_per_point)));
+        }
+        primitives.push((self.draw_layer, ui_primitives));
+        let mut panels = *self.shell.panel_prefs();
+        let observer_panels_changed = if classic_mode
+            && bw.game_started
+            && bw.is_replay
+            && self.classic_ui.save_production(&mut panels)
+        {
+            self.shell.set_panel_prefs(panels);
+            self.saved_observer_panels = Some(panels);
+            Some(panels)
+        } else if !classic_mode && self.saved_observer_panels != Some(panels) {
+            self.saved_observer_panels = Some(panels);
+            Some(panels)
+        } else {
+            None
+        };
         // The game draws no ground of its own for the minimap: its black comes from the console's
         // art, which a watcher has none of. Where the minimap then draws nothing, with the
         // terrain turned off on it or under fog the watcher has made see-through, the map would
@@ -1049,10 +1119,18 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
-            // A watcher keeps only the minimap of the console; a player always has all of it.
-            console_visible: !bw.is_replay_or_obs,
-            minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
-            command_panel_visible: !frame_output.playback_controls_shown,
+            // Native console and replay controls share the original viewer toggle.
+            console_visible: if classic_mode {
+                self.classic_ui.console_visible(bw.is_replay_or_obs)
+            } else {
+                !bw.is_replay_or_obs
+            },
+            minimap_visible: if classic_mode {
+                self.classic_ui.console_visible(bw.is_replay_or_obs)
+            } else {
+                !bw.is_replay_or_obs || panels.minimap
+            },
+            command_panel_visible: classic_mode || !frame_output.playback_controls_shown,
             replay_commands,
             game_commands,
             setting_changes,
@@ -1065,7 +1143,7 @@ impl OverlayState {
             select_group: self.out_state.select_group.take(),
             clear_selection: std::mem::take(&mut self.out_state.clear_selection),
             follow_unit: self.out_state.follow_unit,
-            bottom_overpan_share: if bw.is_replay_or_obs {
+            bottom_overpan_share: if !classic_mode && bw.is_replay_or_obs {
                 self.bottom_band_share
             } else {
                 0.0
@@ -1662,11 +1740,41 @@ impl OverlayState {
     ) -> Option<isize> {
         unsafe {
             use winapi::um::winuser::*;
+            let classic_mode = crate::classic_game_ui();
+            let native_menu_open = classic_mode
+                && bw::iter_dialogs(first_dialog)
+                    .take_while(|dialog| dialog.as_control().string() != "Minimap")
+                    .any(|dialog| {
+                        overlay_ui::classic::native_menu_takes_input(
+                            dialog.as_control().string(),
+                            !dialog.as_control().is_hidden(),
+                        )
+                    });
+            let chat_open = classic_mode
+                && bw::iter_dialogs(first_dialog)
+                    .find(|dialog| dialog.as_control().string() == "TextBox")
+                    .and_then(|dialog| dialog.children().find(|control| control.id() == 7))
+                    .is_some_and(|control| !control.is_hidden());
+            if classic_mode {
+                self.capture = InputCapture::resolve(
+                    self.disconnect_blocks_input,
+                    true,
+                    chat_open,
+                    native_menu_open,
+                );
+                if native_menu_open {
+                    self.ui_rects.clear();
+                }
+                if native_menu_open || chat_open {
+                    self.classic_hotkeys_active = false;
+                }
+            }
             // Any hotkey press SC:R was holding activated as this input arrived, and a menu one of
             // them opened is already up. The shell has to know before deciding where the input
             // goes, or a key pressed right after the menu's own goes to SC:R's hidden menu instead
             // of the overlay's.
-            if hotkey_presses::activates_waiting_presses(msg)
+            if !classic_mode
+                && hotkey_presses::activates_waiting_presses(msg)
                 && self.sync_native_dialogs(first_dialog)
             {
                 self.capture = self.shell.capture();
@@ -1681,7 +1789,7 @@ impl OverlayState {
             match msg {
                 // Windows asks the focused window before switching layouts, and turning it down
                 // leaves the layout as it was.
-                WM_INPUTLANGCHANGEREQUEST if self.vetoes_layout_switch => {
+                WM_INPUTLANGCHANGEREQUEST if !classic_mode && self.vetoes_layout_switch => {
                     debug!("Kept the keyboard layout through an Alt+Shift click the overlay took");
                     self.vetoes_layout_switch = false;
                     Some(0)
@@ -1690,11 +1798,13 @@ impl OverlayState {
                 // with its own exit question. The shell asks with its own instead, once the game
                 // runs. Either can arrive as the system command or as the close it turns into.
                 WM_SYSCOMMAND
-                    if wparam & 0xfff0 == SC_CLOSE && self.shell.window_close_requested() =>
+                    if !classic_mode
+                        && wparam & 0xfff0 == SC_CLOSE
+                        && self.shell.window_close_requested() =>
                 {
                     Some(0)
                 }
-                WM_CLOSE if self.shell.window_close_requested() => Some(0),
+                WM_CLOSE if !classic_mode && self.shell.window_close_requested() => Some(0),
                 WM_SIZE => {
                     let w = lparam as i16;
                     let h = (lparam >> 16) as i16;
@@ -1831,7 +1941,7 @@ impl OverlayState {
                     } else if self.shell_held_keys.contains(&scan_code) {
                         // A held key repeating: the shell took the press, so the repeats are its
                         // too, whatever it does with them.
-                        if let Some(key) = key {
+                        if !classic_mode && let Some(key) = key {
                             self.shell.key_repeated(key, modifiers);
                         }
                         return Some(0);
@@ -1847,6 +1957,18 @@ impl OverlayState {
                         // for one of the buttons. The shell leaves what it has no use for, such as a
                         // focused slider's arrow keys, to go on to the control.
                         if fresh_press
+                            && classic_mode
+                            && self.classic_ui.handle_key(
+                                key,
+                                modifiers,
+                                self.classic_hotkeys_active,
+                            )
+                        {
+                            self.shell_held_keys.push(scan_code);
+                            return Some(0);
+                        }
+                        if fresh_press
+                            && !classic_mode
                             && (hotkeys::is_game_menu_key(key, modifiers)
                                 || self
                                     .shell
@@ -1857,7 +1979,7 @@ impl OverlayState {
                             self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
-                        if !is_syskey && self.ctx.egui_wants_keyboard_input() {
+                        if !native_menu_open && !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,
                                 // Probably fine to leave None, could also be Some(key) even
@@ -1874,7 +1996,7 @@ impl OverlayState {
                         }
                         // Nothing focused wanted the key, so the shell gets its turn at it before
                         // the game does. It takes only what it can act on.
-                        if fresh_press && self.shell.key_pressed(key, modifiers) {
+                        if fresh_press && !classic_mode && self.shell.key_pressed(key, modifiers) {
                             self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
@@ -1899,7 +2021,7 @@ impl OverlayState {
                     Some(0)
                 }
                 WM_CHAR => {
-                    if !self.ctx.egui_wants_keyboard_input() {
+                    if native_menu_open || !self.ctx.egui_wants_keyboard_input() {
                         // Kept from the game only under a modal the player may not chat from:
                         // SC:R opens its chat box from the Enter character.
                         return match self.capture.blocks_game_char() {

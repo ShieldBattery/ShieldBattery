@@ -156,7 +156,11 @@ impl RenderTarget {
         let width = width.max(1) as f32;
         let height = height.max(1) as f32;
         // The same scale the overlay is laid out at, so a point lands where the layout put it.
-        let scale = overlay_ui::kit::pixels::pixels_per_point(width, height);
+        let scale = if crate::classic_game_ui() {
+            overlay_ui::classic::pixels_per_point(height)
+        } else {
+            overlay_ui::kit::pixels::pixels_per_point(width, height)
+        };
         RenderTarget {
             id,
             w_recip: scale / width,
@@ -1060,7 +1064,7 @@ mod tests {
         let mut target = RenderTarget::with_size(0, 1440, 1080);
         target.scissor_left = 240.0 / 1920.0;
         target.scissor_width = 1440.0 / 1920.0;
-        // 1440x1080 is laid out at 0.9 pixels per point.
+        // The current UI lays out a 1440x1080 viewport at 0.9 pixels per point.
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 1200.0));
         assert_eq!(target.scissor_rect(&screen), None);
 

@@ -125,6 +125,8 @@ pub struct PanelPrefs {
     pub graphs: bool,
     pub timeline: bool,
     pub production: bool,
+    /// Visibility of the original replay viewer's build queue.
+    pub classic_production: bool,
     pub control_groups: bool,
     pub selection: bool,
     pub minimap: bool,
@@ -213,6 +215,7 @@ impl Default for PanelPrefs {
             graphs: false,
             timeline: false,
             production: false,
+            classic_production: true,
             control_groups: true,
             selection: true,
             minimap: true,

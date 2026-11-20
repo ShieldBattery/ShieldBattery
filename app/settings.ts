@@ -28,7 +28,7 @@ import { pickValidScrSettings } from './game/in-game-settings'
 import log from './logger'
 import { applyLaunchOverrides, dropLaunchOverriddenSettings } from './scr-launch-overrides'
 
-const VERSION = 33
+const VERSION = 34
 const SCR_VERSION = 6
 
 /**
@@ -464,6 +464,10 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 33) {
       log.verbose('Found settings version 32, migrating to version 33')
       newSettings.preferHighPerformanceGpu = DEFAULT_LOCAL_SETTINGS.preferHighPerformanceGpu
+    }
+
+    if (!settings.version || settings.version < 34) {
+      newSettings.classicGameUi = DEFAULT_LOCAL_SETTINGS.classicGameUi
     }
 
     newSettings.version = VERSION

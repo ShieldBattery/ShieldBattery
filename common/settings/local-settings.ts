@@ -320,6 +320,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * version that allows larger cursors and keeps all the cursors the same scale.
    */
   legacyCursorSizing: boolean
+  /** Uses native menus and the original replay interface on the next game launch. */
+  classicGameUi: boolean
   /** Whether to use the customCursorSize scale value instead of one based on game height. */
   useCustomCursorSize: boolean
   /**

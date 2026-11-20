@@ -689,6 +689,7 @@ struct Args {
     server_port: u16,
     user_data_path: PathBuf,
     use_legacy_cursor_sizing: bool,
+    classic_game_ui: bool,
     /// Base name for the rotating log file (`<log_name>.<slot>.log`). The launcher passes an
     /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
     /// `game` when the launcher doesn't specify one.
@@ -703,6 +704,11 @@ struct Args {
 }
 
 static ARGS: OnceLock<Args> = OnceLock::new();
+
+/// Interface policy fixed before native dialog hooks are installed.
+pub fn classic_game_ui() -> bool {
+    ARGS.get().is_some_and(|args| args.classic_game_ui)
+}
 
 fn parse_args() -> &'static Args {
     ARGS.get_or_init(|| {
@@ -721,13 +727,16 @@ fn try_parse_args() -> Option<Args> {
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
     let mut use_legacy_cursor_sizing = false;
+    let mut classic_game_ui = false;
     let mut log_name = "game".to_owned();
     let mut rally_point_port = None;
     let mut launch_attempt = 1;
 
     for arg in args {
         let arg = arg.into_string().ok()?;
-        if arg == "-legacy-cursor-sizing" {
+        if arg == "-classic-game-ui" {
+            classic_game_ui = true;
+        } else if arg == "-legacy-cursor-sizing" {
             // NOTE(tec27): We pass this through args because we need to know if it's enabled before
             // we patch the game, and settings come over websocket (so too late)
             use_legacy_cursor_sizing = true;
@@ -754,6 +763,7 @@ fn try_parse_args() -> Option<Args> {
         server_port,
         user_data_path,
         use_legacy_cursor_sizing,
+        classic_game_ui,
         log_name,
         rally_point_port,
         launch_attempt,

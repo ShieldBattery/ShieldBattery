@@ -2932,6 +2932,8 @@
         "apmSound": "Play sound",
         "apmValue": "APM value",
         "apmValueValidation": "Enter a value between 1 and 999",
+        "classicGameUi": "Classic game UI",
+        "classicGameUiDescription": "Use classic menus and replay interface. Applies when StarCraft next launches.",
         "colorCycling": "Enable color cycling",
         "colorNames": {
           "azure": "Azure",

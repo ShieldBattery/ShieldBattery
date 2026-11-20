@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { ScrSettingsManager } from './settings'
+import { LocalSettingsManager, ScrSettingsManager } from './settings'
 
 vi.mock('./logger', () => ({
   default: {
@@ -139,5 +139,28 @@ describe('ScrSettingsManager', () => {
     await manager.syncWithGameSettingsFile()
 
     expect((await manager.get()).mouseSensitivity).toBe(30)
+  })
+})
+
+describe('classic game interface preference', () => {
+  test('new profiles use the current interface', async () => {
+    const manager = new LocalSettingsManager(sbPath)
+    await manager.untilInitialized()
+    expect((await manager.get()).classicGameUi).toBe(false)
+  })
+
+  test('existing profiles retain the current interface during migration', async () => {
+    await writeFile(sbPath, JSON.stringify({ version: 33, starcraftPath: 'C:\\StarCraft' }))
+    const manager = new LocalSettingsManager(sbPath)
+    await manager.untilInitialized()
+    expect((await manager.get()).classicGameUi).toBe(false)
+    expect(JSON.parse(await readFile(sbPath, 'utf8')).classicGameUi).toBe(false)
+  })
+
+  test('an explicitly disabled preference survives restarting the settings manager', async () => {
+    await writeFile(sbPath, JSON.stringify({ version: 34, classicGameUi: false }))
+    const manager = new LocalSettingsManager(sbPath)
+    await manager.untilInitialized()
+    expect((await manager.get()).classicGameUi).toBe(false)
   })
 })

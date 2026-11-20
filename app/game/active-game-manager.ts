@@ -1296,6 +1296,7 @@ async function doLaunch(
 
   log.debug(`Attempting to launch "${appPath}" with StarCraft path: "${starcraftPath}"`)
 
+  const classicGameUiArg = settings.classicGameUi ? '-classic-game-ui' : ''
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
   // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
   // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
@@ -1315,7 +1316,7 @@ async function doLaunch(
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${launchAttemptArg} ` +
+    `-launch ${classicGameUiArg} ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${launchAttemptArg} ` +
     devScrArgs
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
