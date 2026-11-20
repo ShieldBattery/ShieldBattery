@@ -182,8 +182,11 @@ const COMBO_JOIN: &str = "+";
 /// How much of itself a group that has not been used in a while is drawn at.
 ///
 /// Dimmed rather than dropped: a forgotten group is exactly what a watcher wants pointed out, and a
-/// slot that emptied itself would read as a group that no longer exists.
-const STALE_ALPHA: f32 = 0.7;
+/// slot that emptied itself would read as a group that no longer exists. Dimmed well down, though:
+/// the slot's fill is translucent, so over the map a light fade barely darkens it, and a forgotten
+/// group has to stand out from the live one beside it at a glance. A live group is drawn whole,
+/// like every other tile in the observer panels.
+const STALE_ALPHA: f32 = 0.4;
 
 /// How much of itself a slot with nothing on it is drawn at.
 ///
