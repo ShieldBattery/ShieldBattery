@@ -5,12 +5,16 @@ import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
-import { elevationPlus2 } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { ContainerLevel, containerStyles } from '../styles/colors'
 import { batchGetMapInfo } from './action-creators'
 import { useMapTileSource } from './map-tile-source'
-import { MapImageBox, MapViewImage, useViewTransform, Viewport, ZoomControls } from './map-viewport'
+import {
+  FloatingZoomControls,
+  MapImageBox,
+  MapViewImage,
+  useViewTransform,
+  Viewport,
+} from './map-viewport'
 
 const StyledDialog = styled(Dialog)`
   --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
@@ -68,19 +72,6 @@ const PreviewViewport = styled(Viewport)`
   background-color: var(--theme-container-low);
 `
 
-const ControlsContainer = styled.div`
-  ${containerStyles(ContainerLevel.High)};
-  ${elevationPlus2};
-
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-
-  padding: 4px 8px;
-  border-radius: 8px;
-`
-
 function ZoomableMap({ mapId, map }: { mapId: SbMapId; map: ReadonlyDeep<MapInfoJson> }) {
   const viewTransform = useViewTransform()
   const { transform } = viewTransform
@@ -110,9 +101,7 @@ function ZoomableMap({ mapId, map }: { mapId: SbMapId; map: ReadonlyDeep<MapInfo
           image ? <MapImageBox image={image} frame={frame} showSpawns={true} /> : null
         }
       />
-      <ControlsContainer>
-        <ZoomControls view={viewTransform} tooltipPosition='top' />
-      </ControlsContainer>
+      <FloatingZoomControls view={viewTransform} />
     </ViewerRoot>
   )
 }

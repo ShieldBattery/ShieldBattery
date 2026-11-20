@@ -229,6 +229,25 @@ describe('page-metadata/page-metadata', () => {
     expect(result?.title).toContain('Polypoid vs. Fighting Spirit')
   })
 
+  test.each([
+    ['/maps/compare', { a: undefined, b: undefined }],
+    ['/maps/compare/abc123', { a: 'abc123', b: undefined }],
+  ])('matches %s as the map compare route, not a map page', async (path, params) => {
+    mapComparePageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/compare',
+      type: 'website',
+      title: 'Compare maps',
+      description: 'Compare them',
+      image: 'https://cdn.example.com/b.jpg',
+    })
+
+    const result = await resolvePageMetadata(path, CONTEXT)
+
+    expect(mapComparePageMetadataMock).toHaveBeenCalledWith(params, CONTEXT)
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toBe('Compare maps · ShieldBattery')
+  })
+
   test('matches the map collection route ahead of the map route', async () => {
     mapCollectionPageMetadataMock.mockResolvedValueOnce({
       url: 'https://shieldbattery.net/maps/collections/abc123/ums-night',

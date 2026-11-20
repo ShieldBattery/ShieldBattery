@@ -13,7 +13,9 @@ import { MapImageInfo } from '../../common/maps'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
+import { elevationPlus2 } from '../material/shadows'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { labelMedium } from '../styles/typography'
 import { MapSpawnMarkers } from './map-image'
 import { MapTileSource } from './map-tile-source'
@@ -358,6 +360,31 @@ export function ZoomControls({
         />
       </Tooltip>
     </ZoomToolbar>
+  )
+}
+
+const FloatingControlsContainer = styled.div`
+  ${containerStyles(ContainerLevel.High)};
+  ${elevationPlus2};
+
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  padding: 4px 8px;
+  border-radius: 8px;
+`
+
+/**
+ * {@link ZoomControls} floating at the bottom center of a viewport. Place it next to the viewport
+ * inside a `position: relative` element the viewport fills.
+ */
+export function FloatingZoomControls({ view }: { view: ReturnType<typeof useViewTransform> }) {
+  return (
+    <FloatingControlsContainer>
+      <ZoomControls view={view} tooltipPosition='top' />
+    </FloatingControlsContainer>
   )
 }
 

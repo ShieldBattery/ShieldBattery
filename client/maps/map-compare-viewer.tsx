@@ -49,8 +49,13 @@ const Viewports = styled.div<{ $split: boolean }>`
   }
 `
 
-const CompareViewport = styled(Viewport)`
+/** The height of the compare page's map viewports, which the page's other map columns match. */
+export const compareViewportHeight = css`
   height: clamp(320px, calc(100vh - 360px), 1000px);
+`
+
+const CompareViewport = styled(Viewport)`
+  ${compareViewportHeight};
 `
 
 /** Holds two images whose blended result is filtered or shown as is. */

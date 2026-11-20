@@ -1490,6 +1490,16 @@ function MapActions({
           onClick={() => dispatch(openMapDownloadDialog(map.id))}
         />
       </Tooltip>
+      <Tooltip
+        text={t('maps.compare.withAnotherMap', 'Compare with another map')}
+        position='bottom'
+        tabIndex={-1}>
+        <IconButton
+          icon={<MaterialIcon icon='compare' />}
+          ariaLabel={t('maps.compare.withAnotherMap', 'Compare with another map')}
+          onClick={() => push(urlForMapCompare(map.id))}
+        />
+      </Tooltip>
       <Tooltip text={t('maps.page.copyLink', 'Copy link')} position='bottom' tabIndex={-1}>
         <IconButton
           icon={<MaterialIcon icon='link' />}
