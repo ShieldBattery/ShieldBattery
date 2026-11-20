@@ -592,7 +592,7 @@ impl Columns {
 }
 
 fn draw_column_labels(ui: &mut Ui) {
-    let spec = text::column_label().with_color(GREY_BLUE60);
+    let spec = text::value_label();
     let height = spec.row_height(ui);
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, height), Sense::hover());
     let columns = Columns::of(row);
@@ -880,7 +880,7 @@ fn draw_footer(
     outcome: &mut AlliancesOutcome,
 ) -> Rect {
     let width = ui.available_width();
-    let label_spec = text::column_label().with_color(GREY_BLUE60);
+    let label_spec = text::value_label();
     let dropdown = ui
         .allocate_ui_with_layout(
             vec2(width, theme::HIT_DIALOG),
