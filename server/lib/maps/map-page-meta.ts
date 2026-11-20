@@ -11,6 +11,7 @@ import {
   defaultPageImage,
   defaultPageMetadata,
   englishT,
+  PageMetadata,
   PageMetadataResolver,
 } from '../page-metadata/types'
 import { getMapCollectionPageInfo, MapCollectionPageInfo } from './map-collection-models'
@@ -83,15 +84,29 @@ export const mapPageMetadata: PageMetadataResolver = async (params, context) => 
 }
 
 /**
- * Resolves the metadata for the page comparing two maps (registered for the `/maps/compare/:a/:b`
- * route in `page-metadata.ts`). Comparisons are for sharing, not for search engines, so they're
- * never indexed. A malformed ID or a missing map returns `undefined`.
+ * Resolves the metadata for the page comparing maps (registered for the `/maps/compare/:a?/:b?`
+ * route in `page-metadata.ts`). Two maps that exist are named; otherwise (no map, one map, or an id
+ * that's malformed or names nothing) the page is described as the place to compare maps.
+ * Comparisons are for sharing, not for search engines, so a page naming any map is never indexed.
  */
 export const mapComparePageMetadata: PageMetadataResolver = async (params, context) => {
   const requestedA = params.a ? mapFileIdFromSegment(params.a) : undefined
   const requestedB = params.b ? mapFileIdFromSegment(params.b) : undefined
+  const wellFormed = !!requestedA && (!!requestedB || !params.b)
+  const generic: PageMetadata = {
+    url:
+      context.canonicalHost +
+      (wellFormed ? urlForMapCompare(requestedA, requestedB) : urlForMapCompare()),
+    type: 'website',
+    title: 'Compare maps',
+    description:
+      'Compare the terrain, bases and start locations of any two StarCraft: Brood War maps on ' +
+      'ShieldBattery.',
+    image: defaultPageImage(context),
+    noindex: !!params.a,
+  }
   if (!requestedA || !requestedB) {
-    return undefined
+    return generic
   }
 
   const [a, b] = await Promise.all([resolveMapId(requestedA), resolveMapId(requestedB)])
@@ -99,7 +114,7 @@ export const mapComparePageMetadata: PageMetadataResolver = async (params, conte
   const mapA = maps.find(m => m.id === a)
   const mapB = maps.find(m => m.id === b)
   if (!mapA || !mapB) {
-    return undefined
+    return generic
   }
 
   const nameA = cleanText(mapA.name) || 'Untitled map'

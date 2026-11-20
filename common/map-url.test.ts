@@ -142,6 +142,15 @@ describe('common/map-url', () => {
     )
   })
 
+  test('builds compare URLs with one map or none', () => {
+    expect(urlForMapCompare()).toBe('/maps/compare')
+    expect(urlForMapCompare(MAP_ID)).toBe(`/maps/compare/${encodePrettyId(MAP_ID)}`)
+    expect(urlForMapCompare(undefined, OTHER_MAP_ID)).toBe('/maps/compare')
+    expect(urlForMapCompare(MAP_ID, undefined, MapCompareView.Slider, REPORT_ID)).toBe(
+      `/maps/compare/${encodePrettyId(MAP_ID)}?view=slider&report=${REPORT_ID}`,
+    )
+  })
+
   test('builds catalog URLs', () => {
     expect(urlForMapCatalog(MapCatalogTab.All)).toBe('/maps/all')
     expect(urlForMapCatalog(MapCatalogTab.Yours, 'lens=ums&q=bound')).toBe(

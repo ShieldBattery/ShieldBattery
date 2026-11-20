@@ -127,16 +127,24 @@ export const ALL_MAP_COMPARE_VIEWS: ReadonlyArray<MapCompareView> = Object.value
 
 /**
  * Returns the URL of the page comparing map `a` (the before side) with map `b` (the after side).
- * The default view is left out of the URL. `reportId` makes the page show that map family report
- * to staff, who can resolve it there.
+ * Either map can be left out, for the page to have the other one picked there: without `b` the
+ * page shows `a` alone, and without either it shows no map. `b` is ignored without `a`. The
+ * default view is left out of the URL. `reportId` makes the page show that map family report to
+ * staff, who can resolve it there.
  */
 export function urlForMapCompare(
-  a: SbMapId,
-  b: SbMapId,
+  a?: SbMapId,
+  b?: SbMapId,
   view?: MapCompareView,
   reportId?: string,
 ): string {
-  const base = urlPath`/maps/${MAP_COMPARE_SEGMENT}/${encodePrettyId(a)}/${encodePrettyId(b)}`
+  let base = urlPath`/maps/${MAP_COMPARE_SEGMENT}`
+  if (a) {
+    base += urlPath`/${encodePrettyId(a)}`
+    if (b) {
+      base += urlPath`/${encodePrettyId(b)}`
+    }
+  }
   const params: string[] = []
   if (view && view !== MapCompareView.Split) {
     params.push(urlPath`view=${view}`)

@@ -52,7 +52,7 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
   { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
   // Before the map page pattern, which would otherwise read these segments as a map id
-  { pattern: '/maps/compare/:a/:b', resolver: mapComparePageMetadata },
+  { pattern: '/maps/compare/:a?/:b?', resolver: mapComparePageMetadata },
   staticRoute(
     '/maps/collections',
     'ShieldBattery Map Collections',

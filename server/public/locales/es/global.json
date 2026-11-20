@@ -2355,6 +2355,9 @@
       "basesRemoved_many": "{{count}} eliminadas",
       "basesRemoved_other": "{{count}} eliminadas",
       "beforeAfter": "{{before}} → {{after}}",
+      "changeMap": "Cambiar mapa",
+      "chooseMap": "Elige un mapa",
+      "chooseTwo": "Elige dos mapas para comparar",
       "descriptionChanged": "Descripción cambiada",
       "differentSizes": "Estos mapas tienen tamaños distintos, así que se alinean arriba a la izquierda y las vistas por píxel no están disponibles.",
       "dimensions": "Dimensiones",
@@ -2367,10 +2370,12 @@
       "hideTechnical": "Ocultar otros cambios",
       "highlightHint": "Los píxeles cambiados se marcan en rojo sobre una copia atenuada del primer mapa.",
       "loadError": "No se pudieron comparar estos mapas.",
+      "loadMapError": "No se pudo cargar este mapa.",
       "name": "Nombre",
       "no": "No",
       "noGameplayChanges": "No se encontraron cambios de terreno, bases ni posiciones iniciales.",
       "notFound": "No se encontraron estos mapas.",
+      "otherFilesOf": "Otros archivos de {{mapName}}",
       "pauseFlicker": "Pausar",
       "playerCount": "Espacios de jugador",
       "resumeFlicker": "Reanudar",
@@ -2402,9 +2407,8 @@
       "viewSlider": "Deslizador",
       "viewSplit": "Dividir",
       "viewSubtract": "Restar",
-      "yes": "Sí",
-      "zoomIn": "Acercar",
-      "zoomOut": "Alejar"
+      "withAnotherMap": "Comparar con otro mapa",
+      "yes": "Sí"
     },
     "details": {
       "editDescription": "Editar Descripción",
@@ -2641,9 +2645,6 @@
       "queuedCount_many": "{{count}} de mapas en la cola",
       "queuedCount_other": "{{count}} mapas en la cola",
       "queueFull": "La cola está llena"
-    },
-    "preview": {
-      "zoom": "Zoom"
     },
     "publish": {
       "alreadyListed": "Este archivo ya está publicado.",

@@ -2263,6 +2263,9 @@
       "basesChanged_other": "更改 {{count}} 处",
       "basesRemoved_other": "移除 {{count}} 处",
       "beforeAfter": "{{before}} → {{after}}",
+      "changeMap": "更换地图",
+      "chooseMap": "选择地图",
+      "chooseTwo": "选择两张地图进行比较",
       "descriptionChanged": "描述已更改",
       "differentSizes": "这些地图尺寸不同，因此按左上角对齐，像素视图不可用。",
       "dimensions": "尺寸",
@@ -2275,10 +2278,12 @@
       "hideTechnical": "隐藏其他变化",
       "highlightHint": "变化的像素以红色标在第一张地图的变暗副本上。",
       "loadError": "无法比较这些地图。",
+      "loadMapError": "无法加载此地图。",
       "name": "名称",
       "no": "否",
       "noGameplayChanges": "未发现地形、基地或出生点的变化。",
       "notFound": "找不到这些地图。",
+      "otherFilesOf": "{{mapName}} 的其他文件",
       "pauseFlicker": "暂停",
       "playerCount": "玩家位置",
       "resumeFlicker": "继续",
@@ -2308,9 +2313,8 @@
       "viewSlider": "滑块",
       "viewSplit": "并排",
       "viewSubtract": "差值",
-      "yes": "是",
-      "zoomIn": "放大",
-      "zoomOut": "缩小"
+      "withAnotherMap": "与另一张地图比较",
+      "yes": "是"
     },
     "details": {
       "editDescription": "编辑地图描述",
@@ -2521,9 +2525,6 @@
       "pickFailed": "无法加载此地图。重新选择即可重试。",
       "queuedCount_other": "队列中有 {{count}} 张地图",
       "queueFull": "队列已满"
-    },
-    "preview": {
-      "zoom": "缩放"
     },
     "publish": {
       "alreadyListed": "此文件已发布。",

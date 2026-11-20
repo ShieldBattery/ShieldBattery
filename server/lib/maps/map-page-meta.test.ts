@@ -224,7 +224,41 @@ describe('maps/map-page-meta', () => {
       })
     })
 
-    test('returns undefined when either map is missing', async () => {
+    const GENERIC = {
+      type: 'website',
+      title: 'Compare maps',
+      description:
+        'Compare the terrain, bases and start locations of any two StarCraft: Brood War maps on ' +
+        'ShieldBattery.',
+      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+    }
+
+    test('describes the page without maps and lets search engines index it', async () => {
+      const result = await mapComparePageMetadata({ a: undefined, b: undefined }, CONTEXT)
+
+      expect(result).toEqual({
+        ...GENERIC,
+        url: 'https://shieldbattery.net/maps/compare',
+        noindex: false,
+      })
+      expect(getMapInfosMock).not.toHaveBeenCalled()
+    })
+
+    test('describes the page with one map without naming it, kept out of search engines', async () => {
+      const result = await mapComparePageMetadata(
+        { a: encodePrettyId(MAP_ID), b: undefined },
+        CONTEXT,
+      )
+
+      expect(result).toEqual({
+        ...GENERIC,
+        url: `https://shieldbattery.net/maps/compare/${encodePrettyId(MAP_ID)}`,
+        noindex: true,
+      })
+      expect(getMapInfosMock).not.toHaveBeenCalled()
+    })
+
+    test('describes the page generically when either map is missing', async () => {
       getMapInfosMock.mockResolvedValueOnce([makeMap()])
 
       const result = await mapComparePageMetadata(
@@ -232,7 +266,27 @@ describe('maps/map-page-meta', () => {
         CONTEXT,
       )
 
-      expect(result).toBeUndefined()
+      expect(result).toEqual({
+        ...GENERIC,
+        url: `https://shieldbattery.net/maps/compare/${encodePrettyId(MAP_ID)}/${encodePrettyId(
+          OTHER_ID,
+        )}`,
+        noindex: true,
+      })
+    })
+
+    test('describes the page generically for a malformed id without querying', async () => {
+      const result = await mapComparePageMetadata(
+        { a: encodePrettyId(MAP_ID), b: 'not-a-map' },
+        CONTEXT,
+      )
+
+      expect(result).toEqual({
+        ...GENERIC,
+        url: 'https://shieldbattery.net/maps/compare',
+        noindex: true,
+      })
+      expect(getMapInfosMock).not.toHaveBeenCalled()
     })
   })
 

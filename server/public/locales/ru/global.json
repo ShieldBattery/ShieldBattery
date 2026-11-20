@@ -2401,6 +2401,9 @@
       "basesRemoved_many": "удалено: {{count}}",
       "basesRemoved_other": "удалено: {{count}}",
       "beforeAfter": "{{before}} → {{after}}",
+      "changeMap": "Сменить карту",
+      "chooseMap": "Выберите карту",
+      "chooseTwo": "Выберите две карты для сравнения",
       "descriptionChanged": "Описание изменено",
       "differentSizes": "Эти карты разного размера, поэтому они выровнены по левому верхнему углу, а попиксельные режимы недоступны.",
       "dimensions": "Размеры",
@@ -2413,10 +2416,12 @@
       "hideTechnical": "Скрыть прочие изменения",
       "highlightHint": "Изменённые пиксели отмечены красным поверх затемнённой копии первой карты.",
       "loadError": "Не удалось сравнить эти карты.",
+      "loadMapError": "Не удалось загрузить карту.",
       "name": "Название",
       "no": "Нет",
       "noGameplayChanges": "Изменений рельефа, баз и стартовых позиций не найдено.",
       "notFound": "Эти карты не найдены.",
+      "otherFilesOf": "Другие файлы карты {{mapName}}",
       "pauseFlicker": "Пауза",
       "playerCount": "Слоты игроков",
       "resumeFlicker": "Продолжить",
@@ -2449,9 +2454,8 @@
       "viewSlider": "Шторка",
       "viewSplit": "Рядом",
       "viewSubtract": "Разница",
-      "yes": "Да",
-      "zoomIn": "Приблизить",
-      "zoomOut": "Отдалить"
+      "withAnotherMap": "Сравнить с другой картой",
+      "yes": "Да"
     },
     "details": {
       "editDescription": "Изменить описание",
@@ -2701,9 +2705,6 @@
       "queuedCount_many": "{{count}} карт в очереди",
       "queuedCount_other": "{{count}} карты в очереди",
       "queueFull": "Очередь заполнена"
-    },
-    "preview": {
-      "zoom": "Масштаб"
     },
     "publish": {
       "alreadyListed": "Этот файл уже опубликован.",
