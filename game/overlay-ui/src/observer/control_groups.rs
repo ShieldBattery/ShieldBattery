@@ -418,18 +418,16 @@ fn draw_slot(
     paint_subject(ui, subject, group, owner, alpha);
     if !group.building {
         // Tucked into the corner the way the production tiles count, so the icon has the slot.
-        // The fade goes on the text itself: a galley's own color wins over the one it is painted
-        // with, so a count colored only at the paint would stay whole in a faded slot.
         let color = theme::TEXT_PRIMARY.gamma_multiply(alpha);
         let count = text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold).with_color(color);
         let galley = count.galley(ui, &group.count.to_string());
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 subject.right() - COUNT_INSET - galley.size().x,
                 subject.bottom() - COUNT_INSET - galley.size().y,
             ),
             galley,
-            color,
         );
     }
 }

@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use egui::epaint::TextShape;
 use egui::epaint::text::{ByteIndex, FontsView};
 use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
 use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Painter, Pos2, Rect, Ui};
@@ -331,9 +332,13 @@ pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
         "text laid out in the placeholder color has no color of its own: paint it with \
          `paint_tinted`",
     );
-    // Placeholder text that gets past the assertion above, in a build without it, reads as body
-    // text rather than in egui's placeholder green.
-    painter.galley(pos, galley, theme::TEXT_PRIMARY);
+    // The shape is built here rather than through `Painter::galley`, which the crate's clippy.toml
+    // disallows so that text is painted through this function. Placeholder text that gets past the
+    // assertion above, in a build without it, reads as body text rather than in egui's placeholder
+    // green.
+    if !galley.is_empty() {
+        painter.add(TextShape::new(pos, galley, theme::TEXT_PRIMARY));
+    }
 }
 
 /// Paints `galley` at `pos` with every letter in `color`, whatever it was laid out in.
