@@ -2,6 +2,7 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyCountdownJson, LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { isInActiveGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -283,10 +284,15 @@ const eventToAction: EventToActionMap = {
         lobby,
         relationships: { blocks },
         settings: { account: accountSettings },
+        gameClient,
       } = getState()
 
       const isBlocked = blocks.has(event.message.from)
-      if (!isBlocked) {
+      // While this client is in a game with the lobby quiet setting on, a lobby message neither
+      // sounds nor asks for attention; it still lands in the lobby's chat below.
+      const quietInGame = accountSettings.quietLobbyWhileInGame && isInActiveGame(gameClient)
+      const shouldAlert = !isBlocked && !quietInGame
+      if (shouldAlert) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
           urgent: event.mentions.some(m => m.id === auth.self!.user.id),
@@ -300,7 +306,7 @@ const eventToAction: EventToActionMap = {
       })
 
       if (
-        !isBlocked &&
+        shouldAlert &&
         accountSettings.playMessageSounds &&
         (!lobby.activated || !windowFocus.isFocused())
       ) {

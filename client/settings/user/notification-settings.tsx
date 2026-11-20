@@ -106,6 +106,22 @@ export function UserNotificationSettings() {
             'Quiet whispers while in a game',
           )}
         />
+        <CheckBox
+          checked={settings.quietLobbyWhileInGame}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { quietLobbyWhileInGame: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='quietLobbyWhileInGame'
+          label={t(
+            'settings.user.notifications.quietLobbyWhileInGame',
+            'Quiet lobby chat while in a game',
+          )}
+        />
       </SectionContainer>
       <SectionContainer>
         <SettingsSectionHeader>

@@ -799,6 +799,45 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('join', () => {
+    test('seats the host and joiner with their requested races', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Melee lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        race: 'p',
+        user: host.user,
+        client: host.client,
+      })
+      await lobbyService.joinLobby({ id, race: 'z', user: joiner.user, client: joiner.client })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.host.race).toBe('p')
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]?.race).toBe('z')
+    })
+
+    test('seats players with their map-defined races when the UMS slots force them', async () => {
+      asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
+      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([UMS_MAP])
+
+      const { id } = await lobbyService.createLobby({
+        name: 'UMS lobby',
+        map: UMS_MAP.id,
+        gameType: GameType.UseMapSettings,
+        race: 'p',
+        user: host.user,
+        client: host.client,
+      })
+      await lobbyService.joinLobby({ id, race: 'p', user: joiner.user, client: joiner.client })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.host).toMatchObject({ race: 't', hasForcedRace: true, playerId: 0 })
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toMatchObject({
+        race: 'z',
+        hasForcedRace: true,
+        playerId: 2,
+      })
+    })
+
     test('joining an unknown lobby id rejects with a NoLobby code', async () => {
       await expect(joinLobby(joiner, 'nonexistent-lobby' as SbLobbyId)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.NoLobby,
@@ -831,7 +870,12 @@ describe('lobbies/lobby-service', () => {
       lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[2].id, race: 'p' })
 
       // Both teams now have 3 open slots, and the tie goes to team 1
-      await joinLobby(otherJoiner, id)
+      await lobbyService.joinLobby({
+        id,
+        race: 't',
+        user: otherJoiner.user,
+        client: otherJoiner.client,
+      })
 
       const lobby = lobbyService.lobbies.get(id)!
       expect(lobby.teams[0].slots[1]).toMatchObject({ userId: OTHER_JOINER_USER.id, race: 'z' })
@@ -892,6 +936,22 @@ describe('lobbies/lobby-service', () => {
       // They are in the lobby like anyone else, and so can't be off in another activity
       expect(lobbyService.lobbyClients.get(otherHost.client)).toBe(id)
       expect(activityRegistry.getClientForUser(OTHER_HOST_USER.id)).toBe(otherHost.client)
+    })
+
+    test('carries the joiner’s requested race from the bench to their player slot', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await lobbyService.joinLobby({
+        id,
+        race: 't',
+        user: otherJoiner.user,
+        client: otherJoiner.client,
+      })
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, OTHER_JOINER_USER.id)[2]?.race).toBe('t')
     })
 
     test('joining a lobby whose bench is also full rejects with a LobbyFull code', async () => {
