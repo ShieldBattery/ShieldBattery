@@ -48,8 +48,9 @@ export function getStartupLanguage(): string {
 }
 
 /**
- * The URL to load a translation file from. Its cache key is the server's hash of the file's
- * contents, so the file is fetched once per change to it, however long it stays cached.
+ * The URL to load the server's copy of a translation file from. Its cache key is the server's hash
+ * of the file's contents, so the file is fetched once per change to it, however long it stays
+ * cached.
  *
  * The app's version is only the key when the server config has no hash for the file. It makes a
  * worse key because an app can be running a version before the server has published that version's
@@ -64,6 +65,44 @@ export function makeTranslationUrl(language: string, namespace: string): string 
     `/locales/${encodeURIComponent(language)}/${encodeURIComponent(namespace)}.json?` +
       encodeURIComponent(hash ?? CUR_VERSION),
   )
+}
+
+/**
+ * Loaders for the translation files a packaged app carries, keyed by each file's path relative to
+ * this one. A loader resolves to the URL the build emitted its file at. Reading these from the
+ * app's own files keeps its startup from waiting on a download, and keeps its strings matched to
+ * the code that uses them.
+ *
+ * Empty in every other build. A web client's files come from the server that deployed it, and an
+ * app in development reads the local server's copies, which is where the keys it reports as missing
+ * get written.
+ */
+const BUNDLED_TRANSLATION_URLS: Record<string, () => Promise<string>> =
+  IS_ELECTRON && import.meta.env.PROD
+    ? import.meta.glob<string>('../../server/public/locales/*/global.json', {
+        query: '?url',
+        import: 'default',
+      })
+    : {}
+
+/**
+ * The URL to load a translation file from: the app's own copy if it carries one, otherwise the
+ * server's.
+ */
+async function resolveTranslationUrl(language: string, namespace: string): Promise<string> {
+  const loadBundledUrl =
+    BUNDLED_TRANSLATION_URLS[`../../server/public/locales/${language}/${namespace}.json`]
+  if (!loadBundledUrl) {
+    return makeTranslationUrl(language, namespace)
+  }
+
+  try {
+    return await loadBundledUrl()
+  } catch {
+    // This must not reject: the backend never settles a request whose URL does, which would leave
+    // initialization waiting on it forever.
+    return makeTranslationUrl(language, namespace)
+  }
 }
 
 const i18nextDeferred = createDeferred<TFunction>()
@@ -81,7 +120,7 @@ export function initI18next() {
     .init<HttpBackendOptions>({
       backend: {
         // Each request is for a single language and namespace
-        loadPath: ([language], [namespace]) => makeTranslationUrl(language, namespace),
+        loadPath: ([language], [namespace]) => resolveTranslationUrl(language, namespace),
         addPath: makeServerUrl('/locales/add/{{lng}}/{{ns}}'),
       },
 
