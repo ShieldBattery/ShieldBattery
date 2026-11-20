@@ -215,10 +215,6 @@ pub struct BwScr {
     bottom_overpan: Option<BottomOverpan>,
     cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
-    /// The global `u16[player][group]` table holding the frame each selection group was last
-    /// written on. `None` when the analysis could not place it, which costs the control-groups
-    /// panel its stale marking and nothing else.
-    selection_hotkey_last_used_frames: Option<Value<*mut u16>>,
     /// The map's per-tile flags, `width * height` of them, which carry each player's vision of the
     /// tile. `None` when the analysis could not place them, which costs the observer panels their
     /// map-vision reading and nothing else.
@@ -3213,8 +3209,6 @@ impl BwScr {
                             self.players(),
                             active_units,
                             &units,
-                            self.selection_hotkey_last_used_frames
-                                .map(|frames| frames.resolve() as *const u16),
                             self.map_tile_flags_slice(game),
                         )
                     },
@@ -3272,8 +3266,6 @@ impl BwScr {
                 self.players(),
                 self.active_units(),
                 &units,
-                self.selection_hotkey_last_used_frames
-                    .map(|frames| frames.resolve() as *const u16),
                 self.map_tile_flags_slice(game),
             );
             stats.refresh_current_state(snapshot, &game_stats::DatUnits);

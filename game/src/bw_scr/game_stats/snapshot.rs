@@ -20,10 +20,7 @@ pub(crate) const SCORE_UNITS_KILLED: u8 = 4;
 const SCORE_KILLS: u8 = 6;
 const SCORE_RAZINGS: u8 = 13;
 
-/// How many selection groups the game keeps per player.
-const HOTKEY_GROUPS: usize = 0x12;
-
-/// How many of those groups are the number keys.
+/// How many of a player's selection groups are the number keys.
 ///
 /// The rest are the selection history SC:R keeps behind the same table; nothing recalls them with a
 /// key, so nothing here reports on them.
@@ -98,9 +95,6 @@ pub struct PlayerSnapshot {
 #[derive(Clone, Default)]
 pub struct GroupReading {
     pub kinds: Vec<(UnitId, u32)>,
-    /// The frame the group was last recalled or bound on, truncated to the width the game keeps it
-    /// at, where the game's stamp table could be read.
-    pub last_used: Option<u16>,
 }
 
 /// Every player's upgrade and technology state.
@@ -165,14 +159,12 @@ pub struct ResearchSite {
 /// # Safety
 ///
 /// Must run on BW's thread with a game loaded. `bw_players` must point at the game's player table,
-/// with a slot for every player. `hotkey_frames`, where given, must point at the game's own
-/// `u16[player][group]` stamp table, which is what the binary analysis resolves it as.
+/// with a slot for every player.
 pub unsafe fn read_snapshot(
     game: Game,
     bw_players: *const bw::Player,
     active_units: UnitIterator,
     units: &UnitArray,
-    hotkey_frames: Option<*const u16>,
     tile_flags: Option<&[u32]>,
 ) -> GameSnapshot {
     let mut players: [PlayerSnapshot; MAX_PLAYERS] = Default::default();
@@ -269,11 +261,8 @@ pub unsafe fn read_snapshot(
             .filter(|&other| other != id && game.allied(id, other) && game.allied(other, id))
             .fold(0, |mask, other| mask | 1 << other);
         for (group, reading) in snapshot.control_groups.iter_mut().enumerate() {
-            *reading = read_control_group(game, units, player, group).map(|kinds| GroupReading {
-                kinds,
-                last_used: hotkey_frames
-                    .and_then(|frames| unsafe { last_used_frame(frames, player, group) }),
-            });
+            *reading =
+                read_control_group(game, units, player, group).map(|kinds| GroupReading { kinds });
         }
     }
 
@@ -402,19 +391,6 @@ fn read_control_group(
         }
     }
     (!tally.is_empty()).then_some(tally)
-}
-
-/// The frame a group was last written on, read out of the table the game keeps it in.
-///
-/// # Safety
-///
-/// `frames` must point at the game's own `u16[player][group]` stamp table, which is what the binary
-/// analysis resolves it as.
-unsafe fn last_used_frame(frames: *const u16, player: usize, group: usize) -> Option<u16> {
-    if frames.is_null() || player >= MAX_PLAYERS || group >= HOTKEY_GROUPS {
-        return None;
-    }
-    unsafe { Some(frames.add(player * HOTKEY_GROUPS + group).read_unaligned()) }
 }
 
 /// Whether a worker has nothing to do.

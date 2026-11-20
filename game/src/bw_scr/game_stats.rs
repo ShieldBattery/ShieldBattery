@@ -78,11 +78,11 @@ const UNIT_ID_COUNT: u32 = 0xe4;
 const UPGRADE_COUNT: u32 = 0x3d;
 const TECH_COUNT: u32 = 0x2c;
 
-/// How long a group has to go without being recalled before it is worth pointing out, in frames.
+/// How long a number key has to go without being used before it is worth pointing out, in frames.
 ///
 /// A minute of game time. Long enough that a group a player is cycling through stays lit, short
 /// enough that an army parked at home while its owner macros is called out while it still matters.
-const STALE_FRAMES: u16 = 60 * SAMPLE_INTERVAL_FRAMES as u16;
+const STALE_FRAMES: u32 = 60 * SAMPLE_INTERVAL_FRAMES;
 
 /// Whether a frame the simulation steps again comes out the way it did the first time.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -183,7 +183,8 @@ pub struct ControlGroup {
     /// Whether the group is a building. The game lets a group hold twelve units or one building, so
     /// a building group is one building, and a count of it says nothing.
     pub building: bool,
-    /// Whether it has gone long enough without being recalled to be worth pointing out.
+    /// Whether its key has gone long enough without being used (bound, recalled or added to) to be
+    /// worth pointing out.
     pub stale: bool,
 }
 
@@ -357,8 +358,13 @@ impl GameStats {
 
     fn take_current_state(&mut self, snapshot: &mut GameSnapshot, catalog: &impl UnitCatalog) {
         self.vision = snapshot.vision.take();
-        for (groups, player) in self.control_groups.iter_mut().zip(&snapshot.players) {
-            *groups = read_control_groups(player, snapshot.frame, catalog);
+        for ((groups, key_uses), player) in self
+            .control_groups
+            .iter_mut()
+            .zip(&self.key_uses)
+            .zip(&snapshot.players)
+        {
+            *groups = read_control_groups(player, key_uses, snapshot.frame, catalog);
         }
         self.current_state_frame = Some(snapshot.frame);
     }
@@ -732,7 +738,12 @@ fn income_over(
 
 /// The newest row taken on or before `frame`.
 fn row_at_or_before(rows: &[SampleRow], frame: u32) -> Option<&SampleRow> {
-    rows[..rows.partition_point(|row| row.frame <= frame)].last()
+    at_or_before(rows, frame, |row| row.frame)
+}
+
+/// The last of `items`, sorted by `frame_of`, that is not past `frame`.
+fn at_or_before<T>(items: &[T], frame: u32, frame_of: impl Fn(&T) -> u32) -> Option<&T> {
+    items[..items.partition_point(|item| frame_of(item) <= frame)].last()
 }
 
 /// How much a total that went from `then` at `then_frame` to `now` at `now_frame` grew per minute
@@ -820,16 +831,14 @@ fn player_samples(snapshot: &GameSnapshot, catalog: &impl UnitCatalog) -> [Sampl
 /// mix, which is a different army and worth saying so.
 const COMBO_SHARE_DIVISOR: u32 = 4;
 
-/// One player's number-key groups as `player` read them on `frame`.
+/// One player's number-key groups as `player` read them on `frame`, each dated by the last of the
+/// frames in `key_uses` its key was used on.
 fn read_control_groups(
     player: &PlayerSnapshot,
+    key_uses: &[Vec<u32>; NUMBER_KEY_GROUPS],
     frame: u32,
     catalog: &impl UnitCatalog,
 ) -> Vec<ControlGroup> {
-    // Truncated to the width the game stores a group's stamp at, so the two are subtracted in the
-    // same arithmetic: a group untouched for longer than that width wraps and reads as freshly
-    // used, which costs a dimmed tile rather than a wrong number.
-    let now = frame as u16;
     player
         .control_groups
         .iter()
@@ -849,9 +858,8 @@ fn read_control_groups(
                 secondary_unit_id: runner_up,
                 count: reading.kinds.iter().map(|&(_, held)| held).sum(),
                 building: catalog.is_building(dominant),
-                stale: reading
-                    .last_used
-                    .is_some_and(|used| now.wrapping_sub(used) > STALE_FRAMES),
+                stale: at_or_before(&key_uses[key], frame, |&used| used)
+                    .is_some_and(|&used| frame - used > STALE_FRAMES),
             })
         })
         .collect()
@@ -1587,7 +1595,6 @@ mod tests {
         let mut snapshot = snapshot(frame);
         snapshot.players[0].control_groups[1] = Some(GroupReading {
             kinds: vec![(unit::MARINE, 12)],
-            last_used: None,
         });
         snapshot
     }
