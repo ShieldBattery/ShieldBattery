@@ -26,7 +26,7 @@ import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapFamilyActionDialog, openMapFileUnlinkDialog } from './action-creators'
 import {
   duplicateFileNames,
@@ -148,42 +148,23 @@ const Row = styled.div<{ $selected: boolean }>`
 `
 
 /**
- * Laid over the right end of a row (left of its menu button's space) so showing it moves nothing.
- * Its background is the card's surface under the row's hover tint, so the row's text doesn't show
- * through, and it fades in from the left so covered text doesn't end in a hard edge. It stays in the
- * tab order while hidden, and focusing it shows it.
+ * Laid over the spot the row's meta text occupies, which fades out while the button shows, so
+ * showing it moves nothing. It stays in the tab order while hidden, and focusing it shows it. It
+ * sits just left of the menu button's space when the row has one, otherwise in the spot a menu
+ * button would take.
  */
 const CompareOverlay = styled.div<{ $withMenu: boolean }>`
   position: absolute;
   top: 0;
   bottom: 0;
-  right: ${props => (props.$withMenu ? '40px' : '12px')};
+  right: ${props => (props.$withMenu ? '40px' : '0')};
 
   display: flex;
   align-items: center;
 
-  border-radius: 6px;
-  background:
-    linear-gradient(
-      rgb(from var(--theme-on-surface) r g b / 0.08),
-      rgb(from var(--theme-on-surface) r g b / 0.08)
-    ),
-    var(--sb-color-background);
   opacity: 0;
   pointer-events: none;
   transition: opacity 80ms linear;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 100%;
-    width: 16px;
-
-    background: inherit;
-    mask-image: linear-gradient(to right, transparent, black);
-  }
 
   ${Row}:hover &,
   ${Row}:focus-within & {
@@ -193,21 +174,6 @@ const CompareOverlay = styled.div<{ $withMenu: boolean }>`
 
   @media (hover: none) {
     display: none;
-  }
-`
-
-const CompareLink = styled(Link)`
-  ${labelMedium};
-  /* Pulled right by its padding, so its text ends where the row's own text does */
-  margin-right: -6px;
-  padding: 4px 6px;
-
-  border-radius: 4px;
-  white-space: nowrap;
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-primary);
-    outline-offset: -2px;
   }
 `
 
@@ -298,6 +264,15 @@ const RowMeta = styled.div`
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transition: opacity 80ms linear;
+
+  /* Gives way to the comparison button that's laid over it; touch devices don't show that button */
+  @media (hover: hover) {
+    ${Row}:not([aria-current]):hover &,
+    ${Row}:not([aria-current]):focus-within & {
+      opacity: 0;
+    }
+  }
 `
 
 const ShowAllButton = styled(TextButton)`
@@ -503,6 +478,7 @@ function FileRow({
   } else if (reserveMenuSpace) {
     menu = <MenuSpacer />
   }
+  const compareLabel = t('maps.files.compare', 'Compare')
   // The recommended file goes first, as it's the one the other is measured against
   const compareUrl = isDefault
     ? urlForMapCompare(file.id, selectedId)
@@ -518,7 +494,13 @@ function FileRow({
       )}
       {isSelected ? null : (
         <CompareOverlay $withMenu={reserveMenuSpace}>
-          <CompareLink href={compareUrl}>{t('maps.files.compare', 'Compare')}</CompareLink>
+          <MenuTooltip text={compareLabel} position='top' tabIndex={-1}>
+            <MenuButton
+              icon={<MaterialIcon icon='compare' />}
+              ariaLabel={compareLabel}
+              onClick={() => push(compareUrl)}
+            />
+          </MenuTooltip>
         </CompareOverlay>
       )}
       {menu}
