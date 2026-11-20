@@ -285,8 +285,7 @@ fn draw_header(
 /// narrow to leave the clock room clear of both buttons shows no clock at all: the buttons are what
 /// a watcher acts through, and a clock cut short would read as a different time.
 fn draw_clock(ui: &Ui, room: Rect, elapsed_secs: u64) {
-    let spec = text::numeral(CLOCK_SIZE);
-    let clock = spec.galley(ui, &game_clock(elapsed_secs));
+    let clock = text::numeral(CLOCK_SIZE).galley(ui, &game_clock(elapsed_secs));
     if clock.size().x > room.width() - CLOCK_GAP * 2.0 {
         return;
     }

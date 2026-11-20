@@ -66,8 +66,7 @@ pub fn button(ui: &mut Ui, label: &str, variant: ButtonVariant) -> Response {
 
 /// A button that is at least `min_width` wide, for rows that want their buttons to line up.
 pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width: f32) -> Response {
-    let spec = text::button_label(variant.label_size()).with_color(Color32::PLACEHOLDER);
-    let galley = spec.galley(ui, label);
+    let galley = text::button_label(variant.label_size()).galley(ui, label);
     let width = (galley.size().x + theme::SPACE_XL * 2.0).max(min_width);
     let (rect, response) = ui.allocate_exact_size(vec2(width, variant.height()), Sense::click());
     if !ui.is_rect_visible(rect) {
@@ -113,8 +112,6 @@ pub fn button_with_kbd(ui: &mut Ui, label: &str, variant: ButtonVariant, key: &s
 /// numerals where one carrying a word is set in the button style; only its color is the chip's own,
 /// so every chip lights the same way under the pointer.
 pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) -> Response {
-    let resting = spec.color;
-    let spec = spec.clone().with_color(Color32::PLACEHOLDER);
     let galley = spec.layout(
         ui.ctx(),
         spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0)),
@@ -137,7 +134,7 @@ pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) 
     let color = if response.hovered() {
         theme::TEXT_PRIMARY
     } else {
-        resting
+        spec.color
     };
     text::paint_tinted(
         ui.painter(),

@@ -8,7 +8,6 @@
 
 use std::sync::Arc;
 
-use egui::epaint::TextShape;
 use egui::epaint::text::{ByteIndex, FontsView};
 use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
 use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Painter, Pos2, Rect, Ui};
@@ -154,12 +153,8 @@ impl TextSpec {
     /// Every widget that lays out a style's text goes through here, so a tabular style is tabular
     /// wherever it is drawn.
     ///
-    /// The color is decided here, not when the galley is painted: [`paint`] draws it in the colors
-    /// it was laid out in. Text meant to be drawn in another color is laid out
-    /// [`with_color`](Self::with_color) that color. Only when the color depends on something
-    /// known after the text has been measured, such as whether the widget it sizes is under the
-    /// pointer, is it laid out in [`Color32::PLACEHOLDER`] and the color given to
-    /// [`paint_tinted`].
+    /// The galley's color is set here: [`paint`] draws it in the colors it was laid out in, so text
+    /// meant to be drawn in another color is laid out [`with_color`](Self::with_color) that color.
     pub fn layout(&self, ctx: &Context, job: LayoutJob) -> Arc<Galley> {
         ctx.fonts_mut(|fonts| {
             if !self.tabular {
@@ -323,7 +318,8 @@ pub fn body(size: f32, weight: BodyWeight) -> TextSpec {
 /// This stands in for egui's `Painter::galley`, which takes a color as well but gives it only to
 /// text laid out in [`Color32::PLACEHOLDER`]. Every style lays its text out in a color of its own,
 /// so a color handed to egui's painter alongside one of them is dropped without a word. Text that
-/// should be drawn in another color is laid out in it (see [`TextSpec::layout`]).
+/// should be drawn in another color is laid out [`with_color`](TextSpec::with_color) it, or
+/// painted with [`paint_tinted`] when the color is only settled after the text is measured.
 #[track_caller]
 pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
     debug_assert!(
@@ -335,32 +331,15 @@ pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
         "text laid out in the placeholder color has no color of its own: paint it with \
          `paint_tinted`",
     );
-    add_text(painter, pos, galley, Color32::PLACEHOLDER);
+    painter.galley(pos, galley, Color32::PLACEHOLDER);
 }
 
-/// Paints `galley`, laid out in [`Color32::PLACEHOLDER`], at `pos` in `color`.
+/// Paints `galley` at `pos` with every letter in `color`, whatever it was laid out in.
 ///
 /// For a label whose color is only settled once it has been measured and the widget it sizes
-/// allocated: a label that lights up under the pointer is laid out
-/// `with_color(Color32::PLACEHOLDER)`, measured, and given its color here.
-#[track_caller]
+/// allocated, such as one that lights up under the pointer.
 pub fn paint_tinted(painter: &Painter, pos: Pos2, galley: Arc<Galley>, color: Color32) {
-    debug_assert!(
-        galley
-            .job
-            .sections
-            .iter()
-            .all(|section| section.format.color == Color32::PLACEHOLDER),
-        "text laid out in a color of its own ignores a tint: lay it out with \
-         `with_color(Color32::PLACEHOLDER)`, or in the color it should be drawn in",
-    );
-    add_text(painter, pos, galley, color);
-}
-
-fn add_text(painter: &Painter, pos: Pos2, galley: Arc<Galley>, placeholder_color: Color32) {
-    if !galley.is_empty() {
-        painter.add(TextShape::new(pos, galley, placeholder_color));
-    }
+    painter.galley_with_override_text_color(pos, galley, color);
 }
 
 /// How far down a laid-out galley its first line's baseline sits, which is what text of different

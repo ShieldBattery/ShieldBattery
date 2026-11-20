@@ -116,6 +116,8 @@ pub fn segmented_sized(ui: &mut Ui, selected: &mut usize, labels: &[&str], size:
     // given rather than leaving a ragged tail inside someone else's column.
     let slack = (room - fitted.iter().sum::<f32>()).max(0.0) / count as f32;
 
+    let lit = spec.clone().with_color(BLUE99);
+    let unlit = spec.with_color(GREY_BLUE70);
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     let mut left = rect.left();
     for (index, label) in labels.iter().enumerate() {
@@ -151,13 +153,8 @@ pub fn segmented_sized(ui: &mut Ui, selected: &mut usize, labels: &[&str], size:
         ));
         state_overlay(ui, &chip_response, chip, corner_radius);
         focus_ring(ui, &chip_response, chip, corner_radius);
-        let chip_spec = spec
-            .clone()
-            .with_color(if active { BLUE99 } else { GREY_BLUE70 });
-        let galley = chip_spec.layout(
-            ui.ctx(),
-            chip_spec.job_truncated(label, fitted[index] + slack),
-        );
+        let spec = if active { &lit } else { &unlit };
+        let galley = spec.layout(ui.ctx(), spec.job_truncated(label, fitted[index] + slack));
         text::paint(ui.painter(), chip.center() - galley.size() * 0.5, galley);
     }
     response
@@ -192,8 +189,7 @@ pub fn stepper(ui: &mut Ui, label: &str, size: Vec2) -> i32 {
         delta += 1;
     }
     if value.is_positive() && ui.is_rect_visible(value) {
-        let spec = text::body(15.0, BodyWeight::Regular);
-        let job = spec.job_truncated(label, value.width());
+        let job = text::body(15.0, BodyWeight::Regular).job_truncated(label, value.width());
         let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
         text::paint(ui.painter(), value.center() - galley.size() * 0.5, galley);
     }
@@ -636,17 +632,15 @@ pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) 
     let room = (max_width - chrome_width(count, pad_x)).max(0.0);
     let fitted = fitted_labels(&natural, room);
 
+    let lit = spec.clone().with_color(BLUE99);
+    let unlit = spec.with_color(GREY_BLUE70);
     let galleys: Vec<_> = labels
         .iter()
         .zip(&fitted)
         .zip(&natural)
         .enumerate()
         .map(|(index, ((label, fitted), natural))| {
-            let spec = spec.clone().with_color(if index == selected {
-                BLUE99
-            } else {
-                GREY_BLUE70
-            });
+            let spec = if index == selected { &lit } else { &unlit };
             let job = if fitted < natural {
                 spec.job_truncated(label, *fitted)
             } else {

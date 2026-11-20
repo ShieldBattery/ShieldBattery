@@ -651,8 +651,9 @@ fn strip(
     let width = tiers::panel_content_width(PANEL_WIDTH);
     if values.len() < 2 {
         let (rect, _) = ui.allocate_exact_size(vec2(width, STRIP_HEIGHT), egui::Sense::hover());
-        let spec = text::body(ROW_SIZE, BodyWeight::Regular).with_color(theme::TEXT_LABEL);
-        let galley = spec.galley(ui, &tr!("netstat.gathering", "Gathering samples"));
+        let galley = text::body(ROW_SIZE, BodyWeight::Regular)
+            .with_color(theme::TEXT_LABEL)
+            .galley(ui, &tr!("netstat.gathering", "Gathering samples"));
         text::paint(ui.painter(), rect.center() - galley.size() * 0.5, galley);
         return;
     }

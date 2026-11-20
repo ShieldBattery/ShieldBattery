@@ -469,7 +469,7 @@ fn draw_header(ui: &mut Ui, view: &AlliancesView, outcome: &mut AlliancesOutcome
 fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
     let spec = text::button_label(MUTE_ALL_LABEL_SIZE)
         .with_letter_spacing(1.0)
-        .with_color(Color32::PLACEHOLDER);
+        .with_color(GREY_BLUE80);
     let galley = spec.galley(ui, label);
     let glyph_size = 14.0;
     let pad = 14.0;
