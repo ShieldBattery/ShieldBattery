@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { atom, useSetAtom } from 'jotai'
+import { atom, useSetAtom, useStore } from 'jotai'
 import { nanoid } from 'nanoid'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
@@ -10,15 +10,25 @@ import { graphql } from '../gql'
 import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { loadMapAddedToLibrary, mapUploadErrorMessage, uploadMapFile } from './action-creators'
+import {
+  loadMapAddedToLibrary,
+  mapUploadErrorMessage,
+  openMapUploadConfirmDialog,
+  uploadMapFile,
+} from './action-creators'
 import { UploadedMap } from './actions'
 import { CatalogSort } from './map-catalog-params'
 import { hashMapFile } from './map-file-hash'
 
-/** A map file being uploaded from the catalog or the map picker, or one that failed to upload. */
+/**
+ * A map file being uploaded from the catalog or the map picker, one waiting its turn to be, or one
+ * that failed to upload.
+ */
 export interface PendingMapUpload {
   key: string
   fileName: string
+  /** Whether the file is still waiting for the uploads before it to finish. */
+  queued?: boolean
   /** The fraction of the file sent so far, once sending it has started. */
   progress?: number
   /** Why the upload failed. Unset while it's still uploading. */
@@ -135,15 +145,24 @@ export interface UploadMapFilesOptions {
 }
 
 /**
+ * The number of map files picked or dropped at once above which the user is asked to confirm
+ * uploading them.
+ */
+export const MAP_UPLOAD_CONFIRM_THRESHOLD = 20
+
+/**
  * Returns a function that adds map files the user picked or dropped to their own maps, one at a
  * time, tracking them in {@link pendingMapUploadsAtom} until they're in. A file the server already
- * has is added without uploading it. Files that aren't maps are ignored.
+ * has is added without uploading it. Files that aren't maps are ignored. More than
+ * {@link MAP_UPLOAD_CONFIRM_THRESHOLD} files are only uploaded once the user confirms.
  */
 export function useUploadMapFiles(
   options: UploadMapFilesOptions = {},
 ): (files: Iterable<File>) => void {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
+  const dispatch = useAppDispatch()
+  const store = useStore()
   const setPending = useSetAtom(pendingMapUploadsAtom)
   const addToLibrary = useAddMapFileToLibrary()
 
@@ -163,11 +182,15 @@ export function useUploadMapFiles(
     )
   }
 
-  const uploadOne = async (file: File, files: ReadonlyArray<File>) => {
-    const key = nanoid()
+  const uploadOne = async (key: string, file: File, files: ReadonlyArray<File>) => {
+    // The user takes a file out of the queue by removing its entry
+    if (!store.get(pendingMapUploadsAtom).some(p => p.key === key)) {
+      return
+    }
+
     const update = (changes: Partial<PendingMapUpload>) =>
       setPending(pending => pending.map(p => (p.key === key ? { ...p, ...changes } : p)))
-    setPending(pending => [...pending, { key, fileName: file.name }])
+    update({ queued: false })
 
     try {
       const { map } = await addToLibrary(file, progress => update({ progress }))
@@ -182,12 +205,7 @@ export function useUploadMapFiles(
     }
   }
 
-  return files => {
-    const mapFiles = Array.from(files).filter(isMapFile)
-    if (!mapFiles.length) {
-      return
-    }
-
+  const startUploads = (mapFiles: ReadonlyArray<File>) => {
     if (options.onStart) {
       options.onStart(mapFiles)
     } else {
@@ -195,9 +213,36 @@ export function useUploadMapFiles(
       // them
       push(urlForMapCatalog(MapCatalogTab.Yours, `sort=${CatalogSort.Newest}`))
     }
+
+    const queued = mapFiles.map(file => ({ key: nanoid(), file }))
+    setPending(pending => [
+      ...pending,
+      ...queued.map(({ key, file }) => ({ key, fileName: file.name, queued: true })),
+    ])
     // The server limits how quickly maps can be uploaded, so they go one at a time
-    mapFiles
-      .reduce((prev, file) => prev.then(() => uploadOne(file, mapFiles)), Promise.resolve())
+    queued
+      .reduce(
+        (prev, { key, file }) => prev.then(() => uploadOne(key, file, mapFiles)),
+        Promise.resolve(),
+      )
       .catch(() => {})
+  }
+
+  return files => {
+    const mapFiles = Array.from(files).filter(isMapFile)
+    if (!mapFiles.length) {
+      return
+    }
+
+    if (mapFiles.length > MAP_UPLOAD_CONFIRM_THRESHOLD) {
+      dispatch(
+        openMapUploadConfirmDialog({
+          count: mapFiles.length,
+          onConfirm: () => startUploads(mapFiles),
+        }),
+      )
+    } else {
+      startUploads(mapFiles)
+    }
   }
 }

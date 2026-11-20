@@ -162,6 +162,9 @@ const MapPublishDialog = React.lazy(async () => ({
 const MapTagsDialog = React.lazy(async () => ({
   default: (await import('../maps/map-tags-dialog')).MapTagsDialog,
 }))
+const MapUploadConfirmDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-upload-confirm-dialog')).MapUploadConfirmDialog,
+}))
 const MapTagEditDialog = React.lazy(async () => ({
   default: (await import('../maps/admin-map-tag-dialogs')).MapTagEditDialog,
 }))
@@ -396,6 +399,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MapTagEditDialog }
     case DialogType.MapTags:
       return { component: MapTagsDialog }
+    case DialogType.MapUploadConfirm:
+      return { component: MapUploadConfirmDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
     case DialogType.GameVerificationFailed:

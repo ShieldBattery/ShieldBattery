@@ -903,9 +903,10 @@ function PendingUploadTiles() {
         <PendingMapTile
           key={upload.key}
           fileName={upload.fileName}
+          queued={upload.queued}
           progress={upload.progress}
           error={upload.error}
-          onDismiss={() => setPending(p => p.filter(u => u.key !== upload.key))}
+          onRemove={() => setPending(p => p.filter(u => u.key !== upload.key))}
         />
       ))}
     </>
