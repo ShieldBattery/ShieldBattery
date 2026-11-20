@@ -4,8 +4,8 @@ import styled, { css } from 'styled-components'
 import { useMutation } from 'urql'
 import { Link } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { urlForMapCompare } from '../../common/map-url'
 import { filterColorCodes, SbMapId } from '../../common/maps'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
@@ -77,13 +77,6 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
       id
       ...MapPageFiles_FileFragment
     }
-    ladderFiles {
-      id
-      matchmakingType
-      map {
-        id
-      }
-    }
   }
 `)
 
@@ -129,6 +122,7 @@ const Rows = styled.div`
 `
 
 const Row = styled.div<{ $selected: boolean }>`
+  position: relative;
   min-height: 40px;
 
   display: flex;
@@ -146,9 +140,40 @@ const Row = styled.div<{ $selected: boolean }>`
           }
         `}
 
-  &:has(a:focus-visible) {
+  /* The row's own link is its first child; the comparison link has its own focus ring */
+  &:has(> a:first-child:focus-visible) {
     outline: 2px solid var(--theme-primary);
     outline-offset: -2px;
+  }
+`
+
+/**
+ * Laid over the spot the row's meta text occupies, which fades out while the button shows, so
+ * showing it moves nothing. It stays in the tab order while hidden, and focusing it shows it. It
+ * sits just left of the menu button's space when the row has one, otherwise in the spot a menu
+ * button would take.
+ */
+const CompareOverlay = styled.div<{ $withMenu: boolean }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: ${props => (props.$withMenu ? '40px' : '0')};
+
+  display: flex;
+  align-items: center;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms linear;
+
+  ${Row}:hover &,
+  ${Row}:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    display: none;
   }
 `
 
@@ -239,6 +264,16 @@ const RowMeta = styled.div`
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transition: opacity 80ms linear;
+
+  /* Gives way to the comparison button that a row of a non-recommended file lays over it; touch
+     devices don't show that button */
+  @media (hover: hover) {
+    ${Row}[data-has-compare]:hover &,
+    ${Row}[data-has-compare]:focus-within & {
+      opacity: 0;
+    }
+  }
 `
 
 const ShowAllButton = styled(TextButton)`
@@ -262,8 +297,8 @@ type FamilyData = MapPageFiles_FamilyFragmentFragment
  * recommendation action. Staff can change which files the map holds, and the map's owner can take
  * files out of it while they aren't restricted from publishing. A file with no actions has no menu
  * button; its row still reserves the button's width when another visible row has one, so the rows'
- * text lines up. A file that a current ladder pool plays other than the recommended one carries a
- * chip for that pool. Players only see the card when the map has more than one file.
+ * text lines up. A file other than the recommended one offers a comparison with the recommended
+ * file, on hover or keyboard focus. Players only see the card when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -373,11 +408,6 @@ function FileRow({
   const isDefault = file.id === family.current.id
   const isPicked = family.defaultMap?.id === file.id
   const games = file.stats?.gamesTotal ?? 0
-  // The ladder playing the recommended file goes without saying, so only another file is marked
-  const ladderTypes = isDefault
-    ? []
-    : family.ladderFiles.filter(f => f.map.id === file.id).map(f => f.matchmakingType)
-
   const meta = [
     t('maps.files.games', {
       defaultValue: '{{formattedCount}} games',
@@ -405,6 +435,14 @@ function FileRow({
         {defaultChip}
       </ChipTooltip>
     )
+  } else {
+    defaultChip = (
+      <ChipTooltip
+        text={t('maps.files.recommendedTooltip', 'The file players get when they pick this map')}
+        position='top'>
+        {defaultChip}
+      </ChipTooltip>
+    )
   }
 
   let unlistedChip = <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>
@@ -421,23 +459,6 @@ function FileRow({
       <FileName $link={!isSelected}>{name}</FileName>
       {isDefault ? defaultChip : null}
       {!file.listed ? unlistedChip : null}
-      {ladderTypes.map(type => {
-        const label = matchmakingTypeToLabel(type, t)
-        return (
-          <ChipTooltip
-            key={type}
-            text={t(
-              'maps.thumbnail.mapPoolChipTooltip',
-              'In the current {{mode}} ladder map pool',
-              {
-                mode: label,
-              },
-            )}
-            position='top'>
-            <RowChip>{label}</RowChip>
-          </ChipTooltip>
-        )
-      })}
       <RowMeta>{meta.join(' · ')}</RowMeta>
     </>
   )
@@ -458,14 +479,29 @@ function FileRow({
   } else if (reserveMenuSpace) {
     menu = <MenuSpacer />
   }
+  const compareLabel = t('maps.files.compareWithRecommended', 'Compare with the recommended file')
   return (
-    <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
+    <Row
+      $selected={isSelected}
+      aria-current={isSelected ? 'true' : undefined}
+      data-has-compare={isDefault ? undefined : 'true'}>
       {isSelected ? (
         <RowContent $withMenu={reserveMenuSpace}>{content}</RowContent>
       ) : (
         <RowLink $withMenu={reserveMenuSpace} href={urlForMapFile(family, file.id)}>
           {content}
         </RowLink>
+      )}
+      {isDefault ? null : (
+        <CompareOverlay $withMenu={reserveMenuSpace}>
+          <MenuTooltip text={compareLabel} position='top' tabIndex={-1}>
+            <MenuButton
+              icon={<MaterialIcon icon='compare' />}
+              ariaLabel={compareLabel}
+              onClick={() => push(urlForMapCompare(family.current.id, file.id))}
+            />
+          </MenuTooltip>
+        </CompareOverlay>
       )}
       {menu}
     </Row>

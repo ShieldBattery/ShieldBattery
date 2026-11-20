@@ -560,7 +560,6 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                   file: { id: file.id, width: file.width, height: file.height },
                 },
               ],
-              ladderFiles: [],
               stats,
               weeklyActivity,
             },

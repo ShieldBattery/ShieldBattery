@@ -2414,20 +2414,24 @@
     },
     "files": {
       "compare": "Compare",
+      "compareWithRecommended": "Compare with the recommended file",
       "fileActions": "File actions",
       "games_one": "{{formattedCount}} game",
       "games_other": "{{formattedCount}} games",
       "makeRecommended": "Make recommended",
       "notRecommended": "Not the recommended file",
+      "oneOfFiles_one": "One of {{count}} files for this map",
+      "oneOfFiles_other": "One of {{count}} files for this map",
       "recommended": "Recommended",
       "recommendedChanged": "Recommended file is now {{fileName}}",
+      "recommendedTooltip": "The file players get when they pick this map",
       "recommendError": "Couldn't change the recommended file",
       "showAll_one": "Show all {{count}}",
       "showAll_other": "Show all {{count}}",
       "showFewer": "Show fewer",
       "title": "Files",
       "unlistedCantBeRecommended": "Unlisted files can’t be recommended",
-      "viewRecommended": "View recommended"
+      "viewRecommendedOne": "View the recommended one"
     },
     "local": {
       "cantBeUsed": "Can't be used: {{reason}}",
@@ -2457,7 +2461,7 @@
     },
     "nudge": {
       "switchRecommendedError": "Couldn't load the recommended file",
-      "useRecommended": "Use recommended"
+      "useFile": "Use {{name}}"
     },
     "owner": {
       "addedNotRecommended": "Added to {{mapName}}, but couldn't make it recommended",
