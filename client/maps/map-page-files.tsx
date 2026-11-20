@@ -266,10 +266,11 @@ const RowMeta = styled.div`
   white-space: nowrap;
   transition: opacity 80ms linear;
 
-  /* Gives way to the comparison button that's laid over it; touch devices don't show that button */
+  /* Gives way to the comparison button that a row of a non-recommended file lays over it; touch
+     devices don't show that button */
   @media (hover: hover) {
-    ${Row}:not([aria-current]):hover &,
-    ${Row}:not([aria-current]):focus-within & {
+    ${Row}[data-has-compare]:hover &,
+    ${Row}[data-has-compare]:focus-within & {
       opacity: 0;
     }
   }
@@ -296,8 +297,8 @@ type FamilyData = MapPageFiles_FamilyFragmentFragment
  * recommendation action. Staff can change which files the map holds, and the map's owner can take
  * files out of it while they aren't restricted from publishing. A file with no actions has no menu
  * button; its row still reserves the button's width when another visible row has one, so the rows'
- * text lines up. A file other than the shown one offers a comparison with the shown file, on hover
- * or keyboard focus. Players only see the card when the map has more than one file.
+ * text lines up. A file other than the recommended one offers a comparison with the recommended
+ * file, on hover or keyboard focus. Players only see the card when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -478,13 +479,12 @@ function FileRow({
   } else if (reserveMenuSpace) {
     menu = <MenuSpacer />
   }
-  const compareLabel = t('maps.files.compare', 'Compare')
-  // The recommended file goes first, as it's the one the other is measured against
-  const compareUrl = isDefault
-    ? urlForMapCompare(file.id, selectedId)
-    : urlForMapCompare(selectedId, file.id)
+  const compareLabel = t('maps.files.compareWithRecommended', 'Compare with the recommended file')
   return (
-    <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
+    <Row
+      $selected={isSelected}
+      aria-current={isSelected ? 'true' : undefined}
+      data-has-compare={isDefault ? undefined : 'true'}>
       {isSelected ? (
         <RowContent $withMenu={reserveMenuSpace}>{content}</RowContent>
       ) : (
@@ -492,13 +492,13 @@ function FileRow({
           {content}
         </RowLink>
       )}
-      {isSelected ? null : (
+      {isDefault ? null : (
         <CompareOverlay $withMenu={reserveMenuSpace}>
           <MenuTooltip text={compareLabel} position='top' tabIndex={-1}>
             <MenuButton
               icon={<MaterialIcon icon='compare' />}
               ariaLabel={compareLabel}
-              onClick={() => push(compareUrl)}
+              onClick={() => push(urlForMapCompare(family.current.id, file.id))}
             />
           </MenuTooltip>
         </CompareOverlay>

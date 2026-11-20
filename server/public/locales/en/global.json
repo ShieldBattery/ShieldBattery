@@ -2414,6 +2414,7 @@
     },
     "files": {
       "compare": "Compare",
+      "compareWithRecommended": "Compare with the recommended file",
       "fileActions": "File actions",
       "games_one": "{{formattedCount}} game",
       "games_other": "{{formattedCount}} games",
