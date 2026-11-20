@@ -921,19 +921,26 @@ const LocalMapImg = styled.img`
   object-fit: cover;
 `
 
-/** A tile-shaped placeholder for a map file that's being uploaded, or that failed to upload. */
+/**
+ * A tile-shaped placeholder for a map file that's being uploaded, that's waiting its turn to be, or
+ * that failed to upload.
+ */
 export function PendingMapTile({
   fileName,
+  queued,
   progress,
   error,
-  onDismiss,
+  onRemove,
 }: {
   fileName: string
+  /** Whether the file is still waiting for the uploads before it to finish. */
+  queued?: boolean
   /** The fraction of the file sent so far, once sending it has started. */
   progress?: number
   /** Why the upload failed. Unset while it's still uploading. */
   error?: string
-  onDismiss: () => void
+  /** Called to take a queued or failed upload off the list. */
+  onRemove: () => void
 }) {
   const { t } = useTranslation()
   return (
@@ -944,13 +951,20 @@ export function PendingMapTile({
             <MaterialIcon icon='error' size={32} />
             <PendingError>{error}</PendingError>
           </>
-        ) : (
+        ) : null}
+        {!error && queued ? (
+          <>
+            <MaterialIcon icon='schedule' size={32} />
+            <PendingStatus>{t('maps.catalog.queued', 'Queued')}</PendingStatus>
+          </>
+        ) : null}
+        {!error && !queued ? (
           <>
             <MaterialIcon icon='upload' size={32} />
             <PendingStatus>{uploadStatusText(progress, t)}</PendingStatus>
             {progress !== undefined ? <UploadProgressBar progress={progress} /> : null}
           </>
-        )}
+        ) : null}
       </PendingImage>
       <Text>
         <Name text={fileName} />
@@ -963,11 +977,15 @@ export function PendingMapTile({
         />
       </Text>
       <LibraryFooter>
-        {error ? (
+        {error || queued ? (
           <FooterMenuButton
             icon={<MaterialIcon icon='close' size={20} />}
-            ariaLabel={t('maps.catalog.dismissUpload', 'Dismiss')}
-            onClick={onDismiss}
+            ariaLabel={
+              error
+                ? t('maps.catalog.dismissUpload', 'Dismiss')
+                : t('maps.catalog.removeQueuedUpload', 'Remove from queue')
+            }
+            onClick={onRemove}
           />
         ) : null}
       </LibraryFooter>

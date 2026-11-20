@@ -76,6 +76,7 @@ export enum DialogType {
   MapTagDelete = 'mapTagDelete',
   MapTagEdit = 'mapTagEdit',
   MapTags = 'mapTags',
+  MapUploadConfirm = 'mapUploadConfirm',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
@@ -497,6 +498,16 @@ type MapFileUnlinkDialogPayload = BaseDialogPayload<
   }
 >
 
+type MapUploadConfirmDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapUploadConfirm,
+  {
+    /** How many map files are about to be uploaded. */
+    count: number
+    /** Starts uploading the files once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
 type MapOwnerAddFileDialogPayload = BaseDialogPayload<
   typeof DialogType.MapOwnerAddFile,
   {
@@ -797,6 +808,7 @@ export type DialogPayload =
   | MapTagDeleteDialogPayload
   | MapTagEditDialogPayload
   | MapTagsDialogPayload
+  | MapUploadConfirmDialogPayload
   | MarkdownDialogPayload
   | GameVerificationFailedDialogPayload
   | MatchCanceledDialogPayload

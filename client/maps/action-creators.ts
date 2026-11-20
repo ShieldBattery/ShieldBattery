@@ -343,6 +343,11 @@ export function openMapTagDeleteDialog(initData: MapTagDeleteDialogData) {
   return openDialog({ type: DialogType.MapTagDelete, initData })
 }
 
+/** Opens the dialog that confirms uploading a large batch of map files. */
+export function openMapUploadConfirmDialog(initData: { count: number; onConfirm: () => void }) {
+  return openDialog({ type: DialogType.MapUploadConfirm, initData })
+}
+
 /**
  * Opens the dialog for staff to make a map or a collection the staff pick of a week, or to change
  * the blurb of a week's pick.
