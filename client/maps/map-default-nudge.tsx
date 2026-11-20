@@ -5,8 +5,7 @@ import { useQuery } from 'urql'
 import { filterColorCodes, SbMapId } from '../../common/maps'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { TextButton } from '../material/button'
-import { Tooltip } from '../material/tooltip'
+import { Label, TextButton } from '../material/button'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall } from '../styles/typography'
@@ -58,7 +57,20 @@ const NudgeText = styled.div`
 
 const SwitchButton = styled(TextButton)`
   min-width: 0;
+  max-width: 100%;
   padding-inline: 8px;
+
+  /* The button's label is a nowrap flex box that has to be allowed to shrink for a long file name
+     to be cut short */
+  ${Label} {
+    min-width: 0;
+  }
+`
+
+const SwitchLabel = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `
 
 /**
@@ -116,13 +128,15 @@ export function MapDefaultNudge({
     <Root>
       <NudgeIcon />
       <NudgeText>{t('maps.files.notRecommended', 'Not the recommended file')}</NudgeText>
-      <Tooltip text={currentName} position='bottom' tabIndex={-1}>
-        <SwitchButton
-          label={t('maps.nudge.useRecommended', 'Use recommended')}
-          disabled={disabled || switching}
-          onClick={onClick}
-        />
-      </Tooltip>
+      <SwitchButton
+        label={
+          <SwitchLabel>
+            {t('maps.nudge.useFile', { defaultValue: 'Use {{name}}', name: currentName })}
+          </SwitchLabel>
+        }
+        disabled={disabled || switching}
+        onClick={onClick}
+      />
     </Root>
   )
 }

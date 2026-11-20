@@ -4,8 +4,8 @@ import styled, { css } from 'styled-components'
 import { useMutation } from 'urql'
 import { Link } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { urlForMapCompare } from '../../common/map-url'
 import { filterColorCodes, SbMapId } from '../../common/maps'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
@@ -26,7 +26,7 @@ import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { openMapFamilyActionDialog, openMapFileUnlinkDialog } from './action-creators'
 import {
   duplicateFileNames,
@@ -77,13 +77,6 @@ export const MapPageFiles_FamilyFragment = graphql(/* GraphQL */ `
       id
       ...MapPageFiles_FileFragment
     }
-    ladderFiles {
-      id
-      matchmakingType
-      map {
-        id
-      }
-    }
   }
 `)
 
@@ -129,6 +122,7 @@ const Rows = styled.div`
 `
 
 const Row = styled.div<{ $selected: boolean }>`
+  position: relative;
   min-height: 40px;
 
   display: flex;
@@ -146,7 +140,72 @@ const Row = styled.div<{ $selected: boolean }>`
           }
         `}
 
-  &:has(a:focus-visible) {
+  /* The row's own link is its first child; the comparison link has its own focus ring */
+  &:has(> a:first-child:focus-visible) {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
+`
+
+/**
+ * Laid over the right end of a row (left of its menu button's space) so showing it moves nothing.
+ * Its background is the card's surface under the row's hover tint, so the row's text doesn't show
+ * through, and it fades in from the left so covered text doesn't end in a hard edge. It stays in the
+ * tab order while hidden, and focusing it shows it.
+ */
+const CompareOverlay = styled.div<{ $withMenu: boolean }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: ${props => (props.$withMenu ? '40px' : '12px')};
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 6px;
+  background:
+    linear-gradient(
+      rgb(from var(--theme-on-surface) r g b / 0.08),
+      rgb(from var(--theme-on-surface) r g b / 0.08)
+    ),
+    var(--sb-color-background);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 80ms linear;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 100%;
+    width: 16px;
+
+    background: inherit;
+    mask-image: linear-gradient(to right, transparent, black);
+  }
+
+  ${Row}:hover &,
+  ${Row}:focus-within & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    display: none;
+  }
+`
+
+const CompareLink = styled(Link)`
+  ${labelMedium};
+  /* Pulled right by its padding, so its text ends where the row's own text does */
+  margin-right: -6px;
+  padding: 4px 6px;
+
+  border-radius: 4px;
+  white-space: nowrap;
+
+  &:focus-visible {
     outline: 2px solid var(--theme-primary);
     outline-offset: -2px;
   }
@@ -262,8 +321,8 @@ type FamilyData = MapPageFiles_FamilyFragmentFragment
  * recommendation action. Staff can change which files the map holds, and the map's owner can take
  * files out of it while they aren't restricted from publishing. A file with no actions has no menu
  * button; its row still reserves the button's width when another visible row has one, so the rows'
- * text lines up. A file that a current ladder pool plays other than the recommended one carries a
- * chip for that pool. Players only see the card when the map has more than one file.
+ * text lines up. A file other than the shown one offers a comparison with the shown file, on hover
+ * or keyboard focus. Players only see the card when the map has more than one file.
  */
 export function MapFilesCard({
   family: familyRef,
@@ -373,11 +432,6 @@ function FileRow({
   const isDefault = file.id === family.current.id
   const isPicked = family.defaultMap?.id === file.id
   const games = file.stats?.gamesTotal ?? 0
-  // The ladder playing the recommended file goes without saying, so only another file is marked
-  const ladderTypes = isDefault
-    ? []
-    : family.ladderFiles.filter(f => f.map.id === file.id).map(f => f.matchmakingType)
-
   const meta = [
     t('maps.files.games', {
       defaultValue: '{{formattedCount}} games',
@@ -405,6 +459,14 @@ function FileRow({
         {defaultChip}
       </ChipTooltip>
     )
+  } else {
+    defaultChip = (
+      <ChipTooltip
+        text={t('maps.files.recommendedTooltip', 'The file players get when they pick this map')}
+        position='top'>
+        {defaultChip}
+      </ChipTooltip>
+    )
   }
 
   let unlistedChip = <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>
@@ -421,23 +483,6 @@ function FileRow({
       <FileName $link={!isSelected}>{name}</FileName>
       {isDefault ? defaultChip : null}
       {!file.listed ? unlistedChip : null}
-      {ladderTypes.map(type => {
-        const label = matchmakingTypeToLabel(type, t)
-        return (
-          <ChipTooltip
-            key={type}
-            text={t(
-              'maps.thumbnail.mapPoolChipTooltip',
-              'In the current {{mode}} ladder map pool',
-              {
-                mode: label,
-              },
-            )}
-            position='top'>
-            <RowChip>{label}</RowChip>
-          </ChipTooltip>
-        )
-      })}
       <RowMeta>{meta.join(' · ')}</RowMeta>
     </>
   )
@@ -458,6 +503,10 @@ function FileRow({
   } else if (reserveMenuSpace) {
     menu = <MenuSpacer />
   }
+  // The recommended file goes first, as it's the one the other is measured against
+  const compareUrl = isDefault
+    ? urlForMapCompare(file.id, selectedId)
+    : urlForMapCompare(selectedId, file.id)
   return (
     <Row $selected={isSelected} aria-current={isSelected ? 'true' : undefined}>
       {isSelected ? (
@@ -466,6 +515,11 @@ function FileRow({
         <RowLink $withMenu={reserveMenuSpace} href={urlForMapFile(family, file.id)}>
           {content}
         </RowLink>
+      )}
+      {isSelected ? null : (
+        <CompareOverlay $withMenu={reserveMenuSpace}>
+          <CompareLink href={compareUrl}>{t('maps.files.compare', 'Compare')}</CompareLink>
+        </CompareOverlay>
       )}
       {menu}
     </Row>
