@@ -220,16 +220,20 @@ export function MapTilesTest() {
         </Cell>
       ))}
       <Cell>
+        <Label>Queued</Label>
+        <PendingMapTile fileName='(4)New Map.scx' queued={true} onRemove={() => {}} />
+      </Cell>
+      <Cell>
         <Label>Uploading</Label>
-        <PendingMapTile fileName='(4)New Map.scx' onDismiss={() => {}} />
+        <PendingMapTile fileName='(4)New Map.scx' onRemove={() => {}} />
       </Cell>
       <Cell>
         <Label>Uploading, partway</Label>
-        <PendingMapTile fileName='(4)New Map.scx' progress={0.42} onDismiss={() => {}} />
+        <PendingMapTile fileName='(4)New Map.scx' progress={0.42} onRemove={() => {}} />
       </Cell>
       <Cell>
         <Label>Uploading, processing</Label>
-        <PendingMapTile fileName='(4)New Map.scx' progress={1} onDismiss={() => {}} />
+        <PendingMapTile fileName='(4)New Map.scx' progress={1} onRemove={() => {}} />
       </Cell>
       {LOCAL_TILES.map(tile => (
         <Cell key={tile.label}>
@@ -242,7 +246,7 @@ export function MapTilesTest() {
         <PendingMapTile
           fileName='broken.scm'
           error="This file couldn't be read as a StarCraft map. It may be corrupted or protected in a way we cannot read."
-          onDismiss={() => {}}
+          onRemove={() => {}}
         />
       </Cell>
     </Grid>

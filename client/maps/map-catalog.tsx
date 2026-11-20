@@ -570,23 +570,36 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   )
 }
 
-const Banner = styled.div`
+const Banner = styled.button`
   ${bodyMedium};
+  width: 100%;
   min-height: 72px;
+  margin: 0;
   padding: 12px 20px;
 
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px 16px;
+  gap: 16px;
 
   border: 1px dashed var(--theme-outline);
   border-radius: 8px;
+  outline-offset: 2px;
+  background: none;
   color: var(--theme-on-surface-variant);
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    outline: 2px solid var(--theme-outline-variant);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+  }
 `
 
 const BannerText = styled.div`
-  flex: 1 1 280px;
+  flex: 1 1 auto;
 
   & > strong {
     font-weight: 600;
@@ -597,19 +610,14 @@ const BannerText = styled.div`
 function UploadBanner({ onUpload }: { onUpload: () => void }) {
   const { t } = useTranslation()
   return (
-    <Banner>
+    <Banner type='button' onClick={onUpload}>
       <MaterialIcon icon='upload' />
       <BannerText>
-        <Trans t={t} i18nKey='maps.catalog.uploadBannerText'>
-          Drop a <strong>.scm</strong> or <strong>.scx</strong> file anywhere to upload it. It lands
-          here as a private map.
+        <Trans t={t} i18nKey='maps.catalog.uploadBannerPrompt'>
+          Drop <strong>.scm</strong> or <strong>.scx</strong> files anywhere, or click here to
+          choose them. They land here as private maps.
         </Trans>
       </BannerText>
-      <FilledButton
-        label={t('maps.catalog.uploadMaps', 'Upload maps')}
-        iconStart='upload'
-        onClick={onUpload}
-      />
     </Banner>
   )
 }
