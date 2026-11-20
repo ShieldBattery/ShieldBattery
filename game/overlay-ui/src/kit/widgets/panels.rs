@@ -103,9 +103,7 @@ pub fn stat_row(ui: &mut Ui, label: &str, value: &str) -> Response {
     if !ui.is_rect_visible(rect) {
         return response;
     }
-    let label_galley = text::column_label()
-        .with_color(theme::TEXT_LABEL)
-        .galley(ui, label);
+    let label_galley = text::value_label().galley(ui, label);
     let value_galley = text::numeral(17.0).galley(ui, value);
     let painter = ui.painter();
     text::paint(

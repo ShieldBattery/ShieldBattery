@@ -1067,9 +1067,7 @@ impl Record<'_> {
     /// How long the game ran, as a label and a clock centered together.
     fn draw_clock(&mut self, game_seconds: u64) -> Rect {
         let ui = &*self.ui;
-        let label = text::column_label()
-            .with_color(theme::TEXT_LABEL)
-            .galley(ui, &tr!("endCard.gameTime", "Game time"));
+        let label = text::value_label().galley(ui, &tr!("endCard.gameTime", "Game time"));
         let clock = text::numeral(CLOCK_SIZE)
             .with_color(theme::TEXT_SECONDARY)
             .galley(ui, &clock_text(game_seconds));
@@ -1273,9 +1271,7 @@ fn stat_value_layout(ui: &Ui, rect: Rect, cell: &StatCell, value: u32) -> StatVa
 /// One cell: its label in small capitals over its number in the condensed face, both centered.
 /// `value` is what the number has counted up to so far.
 fn draw_stat_cell(ui: &Ui, painter: &Painter, rect: Rect, cell: &StatCell, value: u32) {
-    let label_job = text::column_label()
-        .with_color(theme::TEXT_LABEL)
-        .job_truncated(&cell.label, rect.width() - theme::SPACE_LG);
+    let label_job = text::value_label().job_truncated(&cell.label, rect.width() - theme::SPACE_LG);
     let label = ui.ctx().fonts_mut(|fonts| fonts.layout_job(label_job));
     text::paint(
         painter,

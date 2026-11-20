@@ -52,6 +52,10 @@ pub struct Series<'a> {
     pub values: &'a [f32],
     /// Whether the area under the line is washed in the series color.
     pub filled: bool,
+    /// Whether the legend sets the series' name in its color as well as its swatch. A fixed color
+    /// the overlay picked reads as text; a player's color can be too dark to, so its name is left
+    /// in the label grey and the swatch alone carries the color.
+    pub name_in_color: bool,
 }
 
 /// A multi-series line chart with a value axis, a time axis and a legend.
@@ -441,7 +445,13 @@ fn legend_entries(ui: &Ui, series: &[Series<'_>]) -> Option<Vec<(Arc<Galley>, Co
     (!series.is_empty()).then(|| {
         series
             .iter()
-            .map(|line| (text::column_label().galley(ui, line.label), line.color))
+            .map(|line| {
+                let spec = match line.name_in_color {
+                    true => text::column_label().with_color(line.color),
+                    false => text::column_label(),
+                };
+                (spec.galley(ui, line.label), line.color)
+            })
             .collect()
     })
 }

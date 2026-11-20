@@ -241,6 +241,7 @@ fn draw_panel(
             // Two washed areas over each other would make the overlap a third color that belongs to
             // neither player, so the lines are drawn bare and told apart by their color alone.
             filled: false,
+            name_in_color: false,
         })
         .collect();
     let size = vec2(CONTENT_WIDTH, plot);

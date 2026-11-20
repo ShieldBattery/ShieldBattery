@@ -331,14 +331,27 @@ pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
         "text laid out in the placeholder color has no color of its own: paint it with \
          `paint_tinted`",
     );
-    painter.galley(pos, galley, Color32::PLACEHOLDER);
+    // Placeholder text that gets past the assertion above, in a build without it, reads as body
+    // text rather than in egui's placeholder green.
+    painter.galley(pos, galley, theme::TEXT_PRIMARY);
 }
 
 /// Paints `galley` at `pos` with every letter in `color`, whatever it was laid out in.
 ///
 /// For a label whose color is only settled once it has been measured and the widget it sizes
-/// allocated, such as one that lights up under the pointer.
+/// allocated, such as one that lights up under the pointer. The tint replaces every color the text
+/// was laid out in, so it is for text of one color: a readout with a quieter part of its own would
+/// lose the difference.
+#[track_caller]
 pub fn paint_tinted(painter: &Painter, pos: Pos2, galley: Arc<Galley>, color: Color32) {
+    debug_assert!(
+        galley
+            .job
+            .sections
+            .windows(2)
+            .all(|pair| pair[0].format.color == pair[1].format.color),
+        "a tint draws every letter in one color, flattening the colors this text was laid out in",
+    );
     painter.galley_with_override_text_color(pos, galley, color);
 }
 
@@ -369,6 +382,12 @@ pub fn column_label() -> TextSpec {
         uppercase: true,
         ..TextSpec::new(11.0, fonts::body_medium(), theme::TEXT_DIM)
     }
+}
+
+/// The label naming the value set beside or under it: the column heading's style a step quieter,
+/// since the value is what is read.
+pub fn value_label() -> TextSpec {
+    column_label().with_color(theme::TEXT_LABEL)
 }
 
 /// A button's single-verb label.

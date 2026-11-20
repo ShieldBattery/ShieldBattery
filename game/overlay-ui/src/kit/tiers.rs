@@ -678,11 +678,11 @@ pub fn glowing_text(ui: &mut Ui, spec: &text::TextSpec, label: &str, glow: Color
 }
 
 /// The stamps [`glowing_text`] lays behind its letters, for a caller that paints the letters
-/// itself: `halo` is the text laid out at `origin`, in any color, set in a face `size` points
+/// itself: `galley` is the text laid out at `origin`, in any color, set in a face `size` points
 /// tall.
 pub fn glow_stamps(
     origin: Pos2,
-    halo: &Arc<Galley>,
+    galley: &Arc<Galley>,
     glow: Color32,
     size: f32,
 ) -> impl Iterator<Item = Shape> {
@@ -698,7 +698,7 @@ pub fn glow_stamps(
             })
         })
         .map(move |(offset, color)| {
-            Shape::galley_with_override_text_color(origin + offset, halo.clone(), color)
+            Shape::galley_with_override_text_color(origin + offset, galley.clone(), color)
         })
 }
 
