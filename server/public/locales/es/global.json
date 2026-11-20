@@ -3463,6 +3463,7 @@
         },
         "playMessageSounds": "Reproducir sonidos de mensajes",
         "quietChannelsWhileInGame": "Silenciar canales durante la partida",
+        "quietLobbyWhileInGame": "Silenciar el chat del lobby durante la partida",
         "quietWhispersWhileInGame": "Silenciar susurros durante la partida",
         "showWhispersEverywhere": "Mostrar susurros en todos los chats",
         "title": "Notificaciones",

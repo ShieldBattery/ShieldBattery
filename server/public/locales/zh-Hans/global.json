@@ -3361,6 +3361,7 @@
         },
         "playMessageSounds": "播放消息提示音",
         "quietChannelsWhileInGame": "游戏中静音频道",
+        "quietLobbyWhileInGame": "游戏中静音房间聊天",
         "quietWhispersWhileInGame": "游戏中静音私聊",
         "showWhispersEverywhere": "在所有聊天中显示私聊",
         "title": "通知",
