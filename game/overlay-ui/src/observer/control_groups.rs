@@ -197,8 +197,9 @@ const STALE_EDGE_ALPHA: f32 = 0.2;
 
 /// How much of itself a slot with nothing on it is drawn at.
 ///
-/// Fainter than a forgotten group, because it is the grid rather than a reading: it is there so the
-/// slots around it never move, and it has nothing of its own to say.
+/// Fainter than a forgotten group's fill and digit, and with no icon or count, because it is the grid
+/// rather than a reading: it is there so the slots around it never move, and it has nothing of its
+/// own to say. Its edge is the slot's chrome alone, without the owner's colored edge a group has.
 const EMPTY_ALPHA: f32 = 0.32;
 
 /// One of a player's groups.

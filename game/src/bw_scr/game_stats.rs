@@ -477,6 +477,9 @@ impl GameStats {
         }
         self.keep_events(events);
         if self.rows.len() >= MAX_SAMPLES {
+            // A graph of a long game is a few hundred points wide, so its start loses nothing at
+            // one sample every few seconds, and rates are measured by the frames between samples
+            // so they stay true.
             thin_older_half(&mut self.rows);
         }
         self.rows.push(row);
@@ -773,13 +776,11 @@ fn per_minute(now: u32, now_frame: u32, then: u32, then_frame: u32) -> Option<u3
     Some((grown / u64::from(elapsed)).min(u64::from(u32::MAX)) as u32)
 }
 
-/// Halves the detail of the older half of `rows`, keeping its first sample: a graph of a long game
-/// is a few hundred points wide, so the start of it loses nothing at one sample every few seconds,
-/// and rates are measured by the frames between samples so they stay true.
-fn thin_older_half<T>(rows: &mut Vec<T>) {
-    let older = rows.len() / 2;
+/// Halves the detail of the older half of `items`, keeping its first entry.
+fn thin_older_half<T>(items: &mut Vec<T>) {
+    let older = items.len() / 2;
     let mut index = 0;
-    rows.retain(|_| {
+    items.retain(|_| {
         let keep = index >= older || index.is_multiple_of(2);
         index += 1;
         keep
@@ -1689,7 +1690,7 @@ mod tests {
     }
 
     /// A rollback steps frames again to run turns that arrived late, so the uses on the frames it
-    /// steps over stay.
+    /// steps over stay, and a use on a frame it steps again is recorded once.
     #[test]
     fn a_rollback_keeps_the_key_uses_it_steps_over() {
         let mut stats = GameStats::new();
@@ -1703,6 +1704,7 @@ mod tests {
         let again = MINUTE + 29 * SECOND..=2 * MINUTE;
         play_using_key_1(&mut stats, again, Resimulation::MayDiffer, &used_at);
         assert!(!key_1_stale(&stats, 2 * MINUTE));
+        assert_eq!(stats.key_uses[0][1], used_at);
     }
 
     /// A game with one marine alive until `dies_at`, and a probe that never dies.

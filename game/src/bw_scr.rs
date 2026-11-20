@@ -3220,21 +3220,20 @@ impl BwScr {
     }
 
     /// Records that `player` used each number key marked in `keys` on the frame being simulated,
-    /// for the control-groups panel to dim a key nobody has used for a while.
+    /// for the control-groups panel to dim a key nobody has used for a while. Whether a game records
+    /// them at all is the command hook's to decide.
     fn note_number_key_uses(&self, player: u8, keys: &[bool]) {
-        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+        if !self.game_started.load(Ordering::Acquire) {
             return;
         }
-        unsafe {
-            let game = self.game();
-            if game.is_null() {
-                return;
-            }
-            let frame = (*game).frame_count;
-            if let Some(mut stats) = self.game_stats.lock() {
-                for (key, _) in (0..).zip(keys).filter(|&(_, &used)| used) {
-                    stats.number_key_used(player, key, frame);
-                }
+        let game = unsafe { self.game() };
+        if game.is_null() {
+            return;
+        }
+        let frame = unsafe { (*game).frame_count };
+        if let Some(mut stats) = self.game_stats.lock() {
+            for (key, _) in (0..).zip(keys).filter(|&(_, &used)| used) {
+                stats.number_key_used(player, key, frame);
             }
         }
     }
