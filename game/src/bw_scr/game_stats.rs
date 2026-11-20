@@ -38,7 +38,7 @@ pub(crate) use snapshot::{
 };
 pub(crate) use unit_value::DatUnits;
 
-use snapshot::PlayerSnapshot;
+use snapshot::{NUMBER_KEY_GROUPS, PlayerSnapshot};
 use timeline::Baseline;
 use unit_value::{HalfCost, UnitCatalog, counted_from_creation, counts_as_army, invested_cost};
 
@@ -200,6 +200,11 @@ pub struct GameStats {
     /// What each player has on their number keys, replaced whole every sample: a group is what it
     /// is right now, and nothing here is read against what it was.
     control_groups: [Vec<ControlGroup>; MAX_PLAYERS],
+    /// The frames each player used each of their number keys on, sorted, one list per key. Kept by
+    /// frame like the rest of the history, so a seek reads them as of the frame it lands on. A
+    /// rollback only steps a frame again to run a turn that arrived late, which adds uses and never
+    /// takes one away, so none of these is forgotten for one.
+    key_uses: [[Vec<u32>; NUMBER_KEY_GROUPS]; MAX_PLAYERS],
     /// How much of the map each player could see as of the last sample, or `None` before one.
     vision: Option<MapVision>,
     /// The frame `control_groups` and `vision` were read on.
@@ -270,6 +275,7 @@ impl GameStats {
             deaths: Vec::new(),
             baselines: VecDeque::new(),
             control_groups: Default::default(),
+            key_uses: Default::default(),
             vision: None,
             current_state_frame: None,
             end_frame: None,
@@ -295,6 +301,26 @@ impl GameStats {
     /// whose end is only known as its players leave it.
     pub fn set_end_frame(&mut self, end_frame: Option<u32>) {
         self.end_frame = end_frame;
+    }
+
+    /// Records that `player` used number key `key` on `frame`: bound the selection to it, recalled
+    /// it or added the selection to it. A frame stepped again with the same commands records
+    /// nothing new.
+    pub fn number_key_used(&mut self, player: u8, key: u8, frame: u32) {
+        let Some(frames) = self
+            .key_uses
+            .get_mut(player as usize)
+            .and_then(|keys| keys.get_mut(key as usize))
+        else {
+            return;
+        };
+        if let Err(index) = frames.binary_search(&frame) {
+            frames.insert(index, frame);
+            // As many as there are samples kept. Past that the oldest go, which only matters after
+            // seeking back to the start of a long game: a key then reads as never used, and lit.
+            let excess = frames.len().saturating_sub(MAX_SAMPLES);
+            frames.drain(..excess);
+        }
     }
 
     /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
@@ -870,7 +896,7 @@ mod tests {
     use bw_dat::unit;
     use overlay_ui::observer::FightDegree;
 
-    use super::snapshot::{BuildingSite, DepotSite, ResearchLevels, RosterUnit};
+    use super::snapshot::{BuildingSite, DepotSite, GroupReading, ResearchLevels, RosterUnit};
     use super::unit_value::tests::FakeUnits;
     use super::*;
 
@@ -1554,6 +1580,94 @@ mod tests {
         assert_eq!(stats.as_of(landed).vision().unwrap().seen_by(1), 0.0);
         // A forward jump past the sampling cadence is as stale.
         assert!(stats.current_state_stale(landed + SECOND));
+    }
+
+    /// Player 0 with a dozen marines on key 1.
+    fn marines_on_key_1(frame: u32) -> GameSnapshot {
+        let mut snapshot = snapshot(frame);
+        snapshot.players[0].control_groups[1] = Some(GroupReading {
+            kinds: vec![(unit::MARINE, 12)],
+            last_used: None,
+        });
+        snapshot
+    }
+
+    /// Steps `stats` through `frames` of [`marines_on_key_1`] with player 0 using key 1 on each of
+    /// `used_at`, which the command hook records before the frame is sampled.
+    fn play_using_key_1(
+        stats: &mut GameStats,
+        frames: std::ops::RangeInclusive<u32>,
+        resimulation: Resimulation,
+        used_at: &[u32],
+    ) {
+        let units = FakeUnits::standard();
+        for frame in frames {
+            if used_at.contains(&frame) {
+                stats.number_key_used(0, 1, frame);
+            }
+            stats.step(frame, resimulation, &units, || marines_on_key_1(frame));
+        }
+    }
+
+    fn key_1_stale(stats: &GameStats, frame: u32) -> bool {
+        let as_of = stats.as_of(frame);
+        let group = as_of.control_groups(0).iter().find(|group| group.key == 1);
+        group.expect("key 1 holds the marines").stale
+    }
+
+    /// A key is only pointed out once a minute has gone by without it being used.
+    #[test]
+    fn a_key_goes_stale_a_minute_after_it_was_last_used() {
+        let mut stats = GameStats::new();
+        let used_at = [10 * SECOND + 3];
+        play_using_key_1(&mut stats, 0..=MINUTE, Resimulation::Identical, &used_at);
+        assert!(!key_1_stale(&stats, MINUTE));
+        let on = MINUTE + 1..=MINUTE + 11 * SECOND;
+        play_using_key_1(&mut stats, on, Resimulation::Identical, &used_at);
+        assert!(key_1_stale(&stats, MINUTE + 11 * SECOND));
+    }
+
+    /// A replay that seeks back shows a key as the frame it landed on had it, without the uses
+    /// after that frame, and playing on from there replays the same commands.
+    #[test]
+    fn a_seek_back_dates_a_key_by_its_uses_before_the_frame_landed_on() {
+        let units = FakeUnits::standard();
+        let mut stats = GameStats::new();
+        let used_at = [10 * SECOND, 2 * MINUTE + 10 * SECOND];
+        play_using_key_1(
+            &mut stats,
+            0..=3 * MINUTE,
+            Resimulation::Identical,
+            &used_at,
+        );
+        assert!(!key_1_stale(&stats, 3 * MINUTE));
+        let landed = 90 * SECOND + 5;
+        stats.refresh_current_state(marines_on_key_1(landed), &units);
+        assert!(key_1_stale(&stats, landed));
+        play_using_key_1(
+            &mut stats,
+            landed..=3 * MINUTE,
+            Resimulation::Identical,
+            &used_at,
+        );
+        assert!(!key_1_stale(&stats, 3 * MINUTE));
+    }
+
+    /// A rollback steps frames again to run turns that arrived late, so the uses on the frames it
+    /// steps over stay.
+    #[test]
+    fn a_rollback_keeps_the_key_uses_it_steps_over() {
+        let mut stats = GameStats::new();
+        let used_at = [30 * SECOND, MINUTE + 30 * SECOND];
+        play_using_key_1(
+            &mut stats,
+            0..=2 * MINUTE,
+            Resimulation::Identical,
+            &used_at,
+        );
+        let again = MINUTE + 29 * SECOND..=2 * MINUTE;
+        play_using_key_1(&mut stats, again, Resimulation::MayDiffer, &used_at);
+        assert!(!key_1_stale(&stats, 2 * MINUTE));
     }
 
     /// A game with one marine alive until `dies_at`, and a probe that never dies.

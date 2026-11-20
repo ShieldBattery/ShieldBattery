@@ -3225,6 +3225,26 @@ impl BwScr {
         }
     }
 
+    /// Records that `player` used each number key marked in `keys` on the frame being simulated,
+    /// for the control-groups panel to dim a key nobody has used for a while.
+    fn note_number_key_uses(&self, player: u8, keys: &[bool]) {
+        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+            return;
+        }
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return;
+            }
+            let frame = (*game).frame_count;
+            if let Some(mut stats) = self.game_stats.lock() {
+                for (key, _) in (0..).zip(keys).filter(|&(_, &used)| used) {
+                    stats.number_key_used(player, key, frame);
+                }
+            }
+        }
+    }
+
     /// Reads again what the observer panels show of the game as it stands (number keys, vision)
     /// when the frame on screen has moved away from where it was read without the simulation
     /// sampling it, as a replay seek that lands paused leaves it.

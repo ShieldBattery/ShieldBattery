@@ -175,6 +175,7 @@ impl BwScr {
                     }
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
+                    let mut number_keys_used = [false; commands::NUMBER_KEY_GROUPS as usize];
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
                     {
@@ -195,6 +196,14 @@ impl BwScr {
                             // Live commands of a replay only; see `ReplayPlayback::note_command`.
                             if is_replay && are_recorded_replay_commands == 0 {
                                 self.note_replay_playback_command(command);
+                            }
+                            // A player's own, as APM counts them: a replay's live commands are
+                            // the viewer's.
+                            if let Some(key) = commands::number_key_use(command)
+                                && !is_observer
+                                && (!is_replay || are_recorded_replay_commands != 0)
+                            {
+                                number_keys_used[key as usize] = true;
                             }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
@@ -234,6 +243,9 @@ impl BwScr {
                         {
                             apm.counted_turn(apm_player, step);
                         }
+                    }
+                    if number_keys_used.contains(&true) {
+                        self.note_number_key_uses(command_user as u8, &number_keys_used);
                     }
 
                     if !is_replay

@@ -7,6 +7,7 @@ use bw_dat::{Game, TechId, Unit, UnitArray, UnitId, UpgradeId, order};
 
 use super::{MAX_PLAYERS, MapVision, TECH_COUNT, TimelineSubject, UNIT_ID_COUNT, UPGRADE_COUNT};
 use crate::bw;
+use crate::bw::commands;
 use crate::bw::unit::UnitIterator;
 
 /// Which of the game's score tables hold the units a player made, and the unit trade.
@@ -26,7 +27,7 @@ const HOTKEY_GROUPS: usize = 0x12;
 ///
 /// The rest are the selection history SC:R keeps behind the same table; nothing recalls them with a
 /// key, so nothing here reports on them.
-const NUMBER_KEY_GROUPS: usize = 10;
+pub(super) const NUMBER_KEY_GROUPS: usize = commands::NUMBER_KEY_GROUPS as usize;
 
 /// The game as one frame left it.
 pub struct GameSnapshot {

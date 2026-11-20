@@ -45,6 +45,18 @@ pub mod id {
 /// whose slot is the next player's group 0.
 const SELECTION_HOTKEY_GROUPS: u8 = 18;
 
+/// How many of those groups are the number keys.
+pub const NUMBER_KEY_GROUPS: u8 = 10;
+
+/// The number key a command uses, by binding the selection to it, recalling it or adding the
+/// selection to it: `None` for any other command, an Alt+click recall of SC:R's history among them.
+pub fn number_key_use(command: &[u8]) -> Option<u8> {
+    match *command {
+        [id::HOTKEY, 0..=2, key, ..] if key < NUMBER_KEY_GROUPS => Some(key),
+        _ => None,
+    }
+}
+
 /// Bytes available for text in the classic `[0x5c][sender id][text]` chat command record: the
 /// record is a fixed 0x52 bytes total (a 2-byte header followed by a 0x50-byte text field), and
 /// the text field's last byte is reserved for the trailing NUL the native chat handler expects.
@@ -740,6 +752,18 @@ mod test {
             &*filter_invalid_commands(data, true, false, None, LENGTHS),
             data
         );
+    }
+
+    #[test]
+    fn a_number_key_is_used_by_binding_recalling_or_adding_to_it() {
+        assert_eq!(number_key_use(&[0x13, 0x00, 0x03]), Some(3));
+        assert_eq!(number_key_use(&[0x13, 0x01, 0x00]), Some(0));
+        assert_eq!(number_key_use(&[0x13, 0x02, 0x09]), Some(9));
+        // An Alt+click recall of a selection in the history, a kind no client sends, and a
+        // selection.
+        assert_eq!(number_key_use(&[0x13, 0x01, 0x0a]), None);
+        assert_eq!(number_key_use(&[0x13, 0x03, 0x01]), None);
+        assert_eq!(number_key_use(&[0x09, 0x01, 0x01]), None);
     }
 
     #[test]
