@@ -3,8 +3,31 @@ const MINUTES_MS = 60 * SECONDS_MS
 const HOURS_MS = 60 * MINUTES_MS
 const DAYS_MS = 24 * HOURS_MS
 const WEEKS_MS = 7 * DAYS_MS
-const MONTHS_MS = 30 * DAYS_MS
-const YEARS_MS = 365 * DAYS_MS
+const MONTHS_PER_YEAR = 12
+
+/** Milliseconds elapsed since local midnight, read from local fields to stay DST-independent. */
+function getLocalTimeOfDayMs(date: Date): number {
+  return (
+    date.getHours() * HOURS_MS +
+    date.getMinutes() * MINUTES_MS +
+    date.getSeconds() * SECONDS_MS +
+    date.getMilliseconds()
+  )
+}
+
+/**
+ * Counts the whole calendar months from `earlier` to `later` in local time. A month only counts
+ * once `later` reaches the same day of month and time of day as `earlier`, so Jan 31 to Feb 29 is
+ * 0 months while Feb 1 to Mar 1 is 1 month, regardless of how many days each month has.
+ */
+function countWholeCalendarMonths(earlier: Date, later: Date): number {
+  const monthDelta =
+    (later.getFullYear() - earlier.getFullYear()) * MONTHS_PER_YEAR +
+    (later.getMonth() - earlier.getMonth())
+  const earlierPosInMonth = earlier.getDate() * DAYS_MS + getLocalTimeOfDayMs(earlier)
+  const laterPosInMonth = later.getDate() * DAYS_MS + getLocalTimeOfDayMs(later)
+  return laterPosInMonth < earlierPosInMonth ? monthDelta - 1 : monthDelta
+}
 
 type RelativeTimeFormatUnit =
   | 'year'
@@ -47,12 +70,13 @@ export class RelativeTimeFormatter {
     const delta = Math.abs(diff)
     const sign = Math.sign(diff)
 
-    const years = Math.floor(delta / YEARS_MS)
+    const [earlier, later] = diff < 0 ? [to, from] : [from, to]
+    const months = countWholeCalendarMonths(earlier, later)
+    const years = Math.floor(months / MONTHS_PER_YEAR)
     if (years >= 1) {
       return [sign * years, 'year']
     }
 
-    const months = Math.floor(delta / MONTHS_MS)
     if (months >= 1) {
       return [sign * months, 'month']
     }
