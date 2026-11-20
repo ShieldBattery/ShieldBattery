@@ -1879,7 +1879,7 @@
       "summarySlots_one": "{{count}} slots",
       "summarySlots_other": "{{count}} slots",
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
-      "visibilityUnlistedDescription": "Only people with the link can join. Only people that were in the game can download the replay."
+      "visibilityUnlistedDescription": "Only people with the link can join. Games stay off players' profiles for everyone else, and only people that were in the game can download the replay."
     },
     "inviteCard": {
       "goToLobby": "Go to lobby",

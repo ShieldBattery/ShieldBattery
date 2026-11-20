@@ -20,6 +20,7 @@ import {
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
   getRecentMatchmakingOpponents,
+  MatchHistoryViewer,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
   setNetcodeV2SessionMapping,
@@ -386,12 +387,14 @@ describe('games/game-models/getGames', () => {
   })
 })
 
+const OWNER_VIEWER: MatchHistoryViewer = { userId: makeSbUserId(1), canSeeUnlistedGames: false }
+
 describe('games/game-models/getGamesForUser', () => {
   test('excludes results-exempt games from a user match history', async () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
-    await getGamesForUser({ userId, limit: 10, offset: 0 })
+    await getGamesForUser({ userId, viewer: OWNER_VIEWER, limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -402,7 +405,7 @@ describe('games/game-models/getGamesForUser', () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
-    await getGamesForUser({ userId, limit: 10, offset: 0 })
+    await getGamesForUser({ userId, viewer: OWNER_VIEWER, limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -416,7 +419,14 @@ describe('games/game-models/getGamesForUser', () => {
     const startDate = Date.parse('2026-07-01T00:00:00.000Z')
     const endDate = Date.parse('2026-07-21T23:59:59.999Z')
 
-    await getGamesForUser({ userId, limit: 10, offset: 0, startDate, endDate })
+    await getGamesForUser({
+      userId,
+      viewer: OWNER_VIEWER,
+      limit: 10,
+      offset: 0,
+      startDate,
+      endDate,
+    })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -430,7 +440,7 @@ describe('games/game-models/getGamesForUser', () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
-    await getGamesForUser({ userId, limit: 10, offset: 0 })
+    await getGamesForUser({ userId, viewer: OWNER_VIEWER, limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -442,7 +452,13 @@ describe('games/game-models/getGamesForUser', () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
-    await getGamesForUser({ userId, limit: 10, offset: 0, includeShort: true })
+    await getGamesForUser({
+      userId,
+      viewer: OWNER_VIEWER,
+      limit: 10,
+      offset: 0,
+      includeShort: true,
+    })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -512,11 +528,74 @@ describe('games/game-models/getRecentGamesForUser', () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
-    await getRecentGamesForUser(userId, 6)
+    await getRecentGamesForUser(userId, 6, OWNER_VIEWER)
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
     expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+  })
+})
+
+describe('games/game-models match history unlisted lobby games', () => {
+  const PROFILE_USER = makeSbUserId(1)
+  const queries = [
+    [
+      'getGamesForUser',
+      (viewer: MatchHistoryViewer) =>
+        getGamesForUser({ userId: PROFILE_USER, viewer, limit: 10, offset: 0 }),
+    ],
+    [
+      'getRecentGamesForUser',
+      (viewer: MatchHistoryViewer) => getRecentGamesForUser(PROFILE_USER, 6, viewer),
+    ],
+  ] as const
+
+  describe.each(queries)('%s', (_, runQuery) => {
+    test.each([
+      ['the profile user', PROFILE_USER],
+      ['a co-player', makeSbUserId(2)],
+      ['an observer', makeSbUserId(3)],
+      ['an unrelated user', makeSbUserId(4)],
+    ])(
+      'lets unlisted games through for %s only if they played or observed',
+      async (_, viewerId) => {
+        const query = mockDbClient([])
+
+        await runQuery({ userId: viewerId, canSeeUnlistedGames: false })
+
+        expect(query).toHaveBeenCalledTimes(1)
+        const template = query.mock.calls[0][0]
+        expect(template.text).toContain("g.config->'gameSourceExtra'->>'visibility' =")
+        expect(template.values).toContain('unlisted')
+        expect(template.text).toContain('gv.game_id = g.id AND gv.user_id =')
+        expect(template.text).toContain("g.config->'observers' @>")
+        expect(template.values).toContain(viewerId)
+        expect(template.values).toContain(JSON.stringify([viewerId]))
+      },
+    )
+
+    test('hides every unlisted game from a logged-out viewer', async () => {
+      const query = mockDbClient([])
+
+      await runQuery({ userId: undefined, canSeeUnlistedGames: false })
+
+      expect(query).toHaveBeenCalledTimes(1)
+      const template = query.mock.calls[0][0]
+      expect(template.values).toContain('unlisted')
+      expect(template.text).not.toContain('gv.user_id')
+      expect(template.text).not.toContain("g.config->'observers'")
+    })
+
+    test('shows every unlisted game to a viewer who can see them all', async () => {
+      const query = mockDbClient([])
+
+      await runQuery({ userId: makeSbUserId(4), canSeeUnlistedGames: true })
+
+      expect(query).toHaveBeenCalledTimes(1)
+      const template = query.mock.calls[0][0]
+      expect(template.text).not.toContain('visibility')
+      expect(template.values).not.toContain('unlisted')
+    })
   })
 })
 
