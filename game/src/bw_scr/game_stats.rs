@@ -311,7 +311,8 @@ impl GameStats {
     ///
     /// One use is kept for each sample interval at most: a key pressed again within one is dated by
     /// the earlier press, under a second off against the minute a key takes to be pointed out. A
-    /// frame stepped again with the same commands records nothing new.
+    /// frame stepped again with the same commands records nothing new, and a long game keeps its
+    /// older uses at half the detail, as it does its samples.
     pub fn number_key_used(&mut self, player: u8, key: u8, frame: u32) {
         let Some(frames) = self
             .key_uses
@@ -327,15 +328,17 @@ impl GameStats {
         {
             return;
         }
-        // As many as there are samples kept, two hours of game time. Past that the oldest go,
-        // which only matters after seeking back to the start of a long game: a key then reads as
-        // never used, and lit.
-        if index == 0 && frames.len() >= MAX_SAMPLES {
+        // A use stepped late, just before one already kept in the same interval, takes its place.
+        if let Some(after) = frames.get_mut(index)
+            && *after - frame < SAMPLE_INTERVAL_FRAMES
+        {
+            *after = frame;
             return;
         }
         frames.insert(index, frame);
-        let excess = frames.len().saturating_sub(MAX_SAMPLES);
-        frames.drain(..excess);
+        if frames.len() >= MAX_SAMPLES {
+            thin_older_half(frames);
+        }
     }
 
     /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
@@ -773,7 +776,7 @@ fn per_minute(now: u32, now_frame: u32, then: u32, then_frame: u32) -> Option<u3
 /// Halves the detail of the older half of `rows`, keeping its first sample: a graph of a long game
 /// is a few hundred points wide, so the start of it loses nothing at one sample every few seconds,
 /// and rates are measured by the frames between samples so they stay true.
-fn thin_older_half(rows: &mut Vec<SampleRow>) {
+fn thin_older_half<T>(rows: &mut Vec<T>) {
     let older = rows.len() / 2;
     let mut index = 0;
     rows.retain(|_| {
@@ -1676,10 +1679,13 @@ mod tests {
     #[test]
     fn presses_within_one_interval_keep_the_first() {
         let mut stats = GameStats::new();
-        for frame in [100, 101, 110, 100 + SECOND - 1, 100 + SECOND] {
+        for frame in [100, 101, 110, 100 + SECOND - 1, 100 + 2 * SECOND] {
             stats.number_key_used(0, 1, frame);
         }
-        assert_eq!(stats.key_uses[0][1], [100, 100 + SECOND]);
+        assert_eq!(stats.key_uses[0][1], [100, 100 + 2 * SECOND]);
+        // A turn that arrives late lands just before a use already kept, and dates it.
+        stats.number_key_used(0, 1, 100 + 2 * SECOND - 10);
+        assert_eq!(stats.key_uses[0][1], [100, 100 + 2 * SECOND - 10]);
     }
 
     /// A rollback steps frames again to run turns that arrived late, so the uses on the frames it

@@ -177,6 +177,9 @@ impl BwScr {
                     let mut alliance_or_vision_seen = false;
                     // A player's own commands: a replay's live commands are the viewer's.
                     let players_commands = !is_replay || are_recorded_replay_commands != 0;
+                    // Only the observer panels read number-key uses.
+                    let records_number_keys =
+                        players_commands && !is_observer && self.is_replay_or_obs();
                     let mut number_keys_used = [false; commands::NUMBER_KEY_GROUPS];
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
@@ -199,8 +202,7 @@ impl BwScr {
                             if is_replay && are_recorded_replay_commands == 0 {
                                 self.note_replay_playback_command(command);
                             }
-                            if players_commands
-                                && !is_observer
+                            if records_number_keys
                                 && let Some(key) = commands::number_key_use(command)
                             {
                                 number_keys_used[key as usize] = true;
@@ -245,7 +247,8 @@ impl BwScr {
                         }
                     }
                     if number_keys_used.contains(&true) {
-                        self.note_number_key_uses(command_user as u8, &number_keys_used);
+                        // By the person who sent it, as the game keeps selections and their groups.
+                        self.note_number_key_uses(unique_command_user as u8, &number_keys_used);
                     }
 
                     if !is_replay
