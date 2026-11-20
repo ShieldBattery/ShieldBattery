@@ -183,9 +183,17 @@ mod tests {
                 .iter()
                 .filter_map(|clipped| match &clipped.shape {
                     Shape::Text(shape) => {
-                        let laid_out = shape.galley.job.sections.first()?.format.color;
+                        let sections = &shape.galley.job.sections;
+                        let laid_out = sections.first()?.format.color;
+                        let text = shape.galley.text().to_string();
+                        assert!(
+                            sections
+                                .iter()
+                                .all(|section| section.format.color == laid_out),
+                            "{text:?} is laid out in more than one color",
+                        );
                         let color = shape.override_text_color.unwrap_or(laid_out);
-                        Some((shape.galley.text().to_string(), color))
+                        Some((text, color))
                     }
                     _ => None,
                 })
@@ -246,10 +254,11 @@ mod tests {
     }
 
     #[test]
-    fn a_legend_colors_a_fixed_series_name_and_leaves_a_players_to_its_swatch() {
+    fn a_chart_colors_a_fixed_series_name_and_leaves_a_players_to_its_swatch() {
         let values = [0.0, 50.0, 100.0];
         let fixed = Color32::from_rgb(0xFC, 0xE0, 0x6C);
-        let drawn = drawn_text(false, |ui| {
+        // With the pointer on the plot, so its hover card names the series as well as its legend.
+        let drawn = drawn_text(true, |ui| {
             let series = |label, name_in_color| Series {
                 label,
                 color: fixed,
@@ -262,8 +271,8 @@ mod tests {
                 &[series("gas", true), series("player", false)],
                 vec2(400.0, 170.0),
                 600,
-            );
-            Rect::NOTHING
+            )
+            .rect
         });
         let color_of = |name: &str| {
             drawn
@@ -271,8 +280,16 @@ mod tests {
                 .find(|(text, _)| text == name)
                 .map(|(_, color)| *color)
         };
+        // The legend's names, in capitals.
         assert_eq!(color_of("GAS"), Some(fixed));
         assert_eq!(color_of("PLAYER"), Some(text::column_label().color));
+        // The hover card's.
+        assert_eq!(color_of("gas"), Some(fixed));
+        let player = color_of("player");
+        assert!(
+            player == Some(theme::TEXT_PRIMARY) || player == Some(theme::TEXT_SECONDARY),
+            "{player:?}",
+        );
     }
 
     /// The color an opaque white fill comes out as on a `Ui` drawn at `surface_opacity` and then

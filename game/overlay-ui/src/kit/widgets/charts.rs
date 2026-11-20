@@ -371,10 +371,16 @@ fn hover_card(
                     true => theme::TEXT_PRIMARY,
                     false => theme::TEXT_SECONDARY,
                 };
+                // A name the legend sets in its series' color is set in it here too, and its value
+                // carries the emphasis alone.
+                let name_color = match line.name_in_color {
+                    true => line.color,
+                    false => color,
+                };
                 (
                     line.color,
                     text::body(12.0, BodyWeight::Medium)
-                        .with_color(color)
+                        .with_color(name_color)
                         .galley(ui, line.label),
                     text::numeral(12.0)
                         .with_color(color)
@@ -446,9 +452,10 @@ fn legend_entries(ui: &Ui, series: &[Series<'_>]) -> Option<Vec<(Arc<Galley>, Co
         series
             .iter()
             .map(|line| {
+                let spec = text::column_label();
                 let spec = match line.name_in_color {
-                    true => text::column_label().with_color(line.color),
-                    false => text::column_label(),
+                    true => spec.with_color(line.color),
+                    false => spec,
                 };
                 (spec.galley(ui, line.label), line.color)
             })
