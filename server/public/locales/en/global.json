@@ -2355,9 +2355,7 @@
       "viewSlider": "Slider",
       "viewSplit": "Split",
       "viewSubtract": "Subtract",
-      "yes": "Yes",
-      "zoomIn": "Zoom in",
-      "zoomOut": "Zoom out"
+      "yes": "Yes"
     },
     "details": {
       "editDescription": "Edit description",
@@ -2581,9 +2579,6 @@
       "queuedCount_one": "{{count}} map in the queue",
       "queuedCount_other": "{{count}} maps in the queue",
       "queueFull": "The queue is full"
-    },
-    "preview": {
-      "zoom": "Zoom"
     },
     "publish": {
       "alreadyListed": "This file is already published.",

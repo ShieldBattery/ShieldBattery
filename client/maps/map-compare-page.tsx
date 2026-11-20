@@ -41,9 +41,10 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { MapBackButton } from './map-back-button'
-import { CompareImage, isPixelView, MapCompareViewer } from './map-compare-viewer'
+import { isPixelView, MapCompareViewer } from './map-compare-viewer'
 import { MapReportBar } from './map-report-bar'
 import { MapTileSource, useMapTileSource } from './map-tile-source'
+import { MapViewImage } from './map-viewport'
 
 const MapCompareQuery = graphql(/* GraphQL */ `
   query MapCompare($a: SbMapId!, $b: SbMapId!) {
@@ -721,7 +722,7 @@ function ChangeItem({ entry }: { entry: ChangeEntry }) {
   )
 }
 
-function compareImage(side: CompareSide, tiles: MapTileSource | undefined): CompareImage {
+function compareImage(side: CompareSide, tiles: MapTileSource | undefined): MapViewImage {
   const name = filterColorCodes(side.name)
   return {
     name,
