@@ -1,10 +1,12 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+import { MatchmakingDivision } from '../../common/matchmaking'
 import { encodePrettyId } from '../../common/pretty-id'
 import { RolledOutcome } from '../../common/rolled-outcomes'
+import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { channelInviteTokenFromMessageLink } from '../chat/channel-invite-card'
 import createStore from '../create-store'
@@ -230,6 +232,57 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       const badges = screen.getAllByTestId('name-badge')
       expect(badges).toHaveLength(1)
       expect(badges[0].textContent).toBe(`badge:${userId}`)
+    },
+  )
+
+  test.each<TextMessageLayout>(['classic', 'cozyHeader'])(
+    'puts the rank before the author and hides it when the setting is disabled (%s)',
+    layout => {
+      const rankStore = createStore()
+      rankStore.dispatch({
+        type: '@users/loadUsers',
+        payload: [
+          { id: userId, name: 'Player', created: 0 },
+          { id: selfUserId, name: 'Viewer', created: 0 },
+        ],
+      })
+      rankStore.dispatch({
+        type: '@users/getBatchUserRanks',
+        payload: {
+          ranks: [
+            { userId, division: MatchmakingDivision.Gold2 },
+            { userId: selfUserId, division: MatchmakingDivision.Diamond1 },
+          ],
+        },
+        meta: { userIds: [userId, selfUserId], time: 0 },
+      })
+
+      render(
+        <ReduxProvider store={rankStore}>
+          <TextMessage
+            msgId='MESSAGE_ID'
+            userId={userId}
+            selfUserId={selfUserId}
+            time={0}
+            text='hey <@1>'
+            layout={layout}
+          />
+        </ReduxProvider>,
+      )
+
+      const badge = screen.getByRole('img', { name: 'Gold 2' })
+      expect(badge.compareDocumentPosition(screen.getByText('Player'))).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(screen.queryByRole('img', { name: 'Diamond 1' })).toBeNull()
+
+      act(() => {
+        rankStore.dispatch({
+          type: '@settings/updateAccountSettings',
+          payload: { ...DEFAULT_ACCOUNT_SETTINGS, showChatRankIcons: false },
+        })
+      })
+      expect(screen.queryByRole('img', { name: 'Gold 2' })).toBeNull()
     },
   )
 
