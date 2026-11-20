@@ -7,6 +7,7 @@ import {
 } from '../../common/map-url'
 import { filterColorCodes, makeMapFamilyId, SbMapId } from '../../common/maps'
 import { encodePrettyId } from '../../common/pretty-id'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 
 /** How many files a map's Files card shows before the rest are behind "Show all". */
 export const FILES_COLLAPSED_ROWS = 5
@@ -217,6 +218,26 @@ export function duplicateFileNames(files: ReadonlyArray<{ name: string }>): Set<
     seen.add(name)
   }
   return duplicates
+}
+
+/** How a file's upload date tells it apart from other files of its map with the same name. */
+export const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short' })
+
+/**
+ * Returns a function naming one of a map's `files` by its display name, plus the month it was
+ * uploaded when another of the files has that name.
+ */
+export function useFamilyFileLabel(
+  files: ReadonlyArray<{ name: string }>,
+): (file: { name: string; firstSeenAt: string }) => string {
+  const uploadedDate = useFormat(uploadedDateFormat)
+  const duplicates = duplicateFileNames(files)
+  return file => {
+    const name = filterColorCodes(file.name)
+    return duplicates.has(name)
+      ? `${name} (${uploadedDate.format(new Date(file.firstSeenAt))})`
+      : name
+  }
 }
 
 /**

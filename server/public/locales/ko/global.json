@@ -2263,6 +2263,9 @@
       "basesChanged_other": "{{count}}곳 변경",
       "basesRemoved_other": "{{count}}곳 제거",
       "beforeAfter": "{{before}} → {{after}}",
+      "changeMap": "맵 변경",
+      "chooseMap": "맵 선택",
+      "chooseTwo": "비교할 맵 두 개를 선택하세요",
       "descriptionChanged": "설명 변경됨",
       "differentSizes": "두 맵의 크기가 달라 왼쪽 위를 기준으로 맞추며, 픽셀 비교 보기는 사용할 수 없습니다.",
       "dimensions": "크기",
@@ -2275,10 +2278,12 @@
       "hideTechnical": "기타 변경 숨기기",
       "highlightHint": "바뀐 픽셀은 어둡게 처리한 첫 번째 맵 위에 빨간색으로 표시됩니다.",
       "loadError": "이 맵들을 비교할 수 없습니다.",
+      "loadMapError": "이 맵을 불러올 수 없습니다.",
       "name": "이름",
       "no": "아니요",
       "noGameplayChanges": "지형, 기지, 시작 위치에 변경된 점이 없습니다.",
       "notFound": "이 맵들을 찾을 수 없습니다.",
+      "otherFilesOf": "{{mapName}}의 다른 파일",
       "pauseFlicker": "일시정지",
       "playerCount": "플레이어 슬롯",
       "resumeFlicker": "계속",
@@ -2308,9 +2313,8 @@
       "viewSlider": "슬라이더",
       "viewSplit": "나란히",
       "viewSubtract": "차이",
-      "yes": "예",
-      "zoomIn": "확대",
-      "zoomOut": "축소"
+      "withAnotherMap": "다른 맵과 비교",
+      "yes": "예"
     },
     "details": {
       "editDescription": "설명 편집",
@@ -2521,9 +2525,6 @@
       "pickFailed": "이 맵을 불러올 수 없습니다. 다시 선택하면 재시도합니다.",
       "queuedCount_other": "대기열에 맵 {{count}}개",
       "queueFull": "대기열이 가득 찼습니다"
-    },
-    "preview": {
-      "zoom": "확대/축소"
     },
     "publish": {
       "alreadyListed": "이미 게시된 파일입니다.",

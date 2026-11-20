@@ -4,13 +4,13 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useLocationProperty } from 'wouter/use-browser-location'
-import { MapCatalogTab, urlForMapCatalog } from '../../common/map-url'
+import { MapCatalogTab, urlForMapCatalog, urlForMapCompare } from '../../common/map-url'
 import { useTrackPageView } from '../analytics/analytics'
 import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledButton } from '../material/button'
+import { FilledButton, TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { useHistoryEntryKey, useScrollMemory } from '../navigation/router-hooks'
@@ -126,6 +126,16 @@ const StyledSearchInput = styled(SearchInput)`
   & label {
     right: 12px;
     ${singleLine};
+  }
+`
+
+/** Sits at the end of the bar: after the search field, or on its own at the right without one. */
+const CompareButton = styled(TextButton)`
+  flex-shrink: 0;
+  margin-left: auto;
+
+  ${StyledSearchInput} ~ & {
+    margin-left: 0;
   }
 `
 
@@ -263,6 +273,11 @@ export function MapCatalogFrame({
           ) : null}
         </Tabs>
         {search}
+        <CompareButton
+          label={t('maps.compare.title', 'Compare maps')}
+          iconStart='compare'
+          onClick={() => push(urlForMapCompare())}
+        />
       </HeaderBar>
       <Scroller ref={setScroller} $fullWidth={true}>
         <Content>{children}</Content>

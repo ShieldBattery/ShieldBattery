@@ -17,17 +17,25 @@ export interface MapTileSource {
  * The file to request tiles of `mapId`'s image for, once the app has it: the app renders tiles from
  * the map files on this PC, so the map is downloaded to its map store first (as it is for games).
  * Always `undefined` outside the app.
+ *
+ * Nothing is fetched or downloaded until `enabled` is first true for `mapId`. From then on it no
+ * longer matters: a download that has started finishes, and a source keeps being returned.
  */
-export function useMapTileSource(mapId: SbMapId): MapTileSource | undefined {
+export function useMapTileSource(mapId: SbMapId, enabled = true): MapTileSource | undefined {
   const dispatch = useAppDispatch()
   const mapInfo = useAppSelector(s => (IS_ELECTRON ? s.maps.byId.get(mapId) : undefined))
   const [downloadedHash, setDownloadedHash] = useState<string>()
+  const [requestedId, setRequestedId] = useState(enabled ? mapId : undefined)
+  if (enabled && requestedId !== mapId) {
+    setRequestedId(mapId)
+  }
+  const requested = requestedId === mapId
 
   useEffect(() => {
-    if (IS_ELECTRON) {
+    if (IS_ELECTRON && requested) {
       dispatch(batchGetMapInfo(mapId))
     }
-  }, [dispatch, mapId])
+  }, [dispatch, mapId, requested])
 
   const hash = mapInfo?.hash
   const format = mapInfo?.mapData.format
@@ -46,7 +54,7 @@ export function useMapTileSource(mapId: SbMapId): MapTileSource | undefined {
       })
   })
   useEffect(() => {
-    if (!hash || !hasUrl) {
+    if (!requested || !hash || !hasUrl) {
       return undefined
     }
     let cancelled = false
@@ -58,7 +66,7 @@ export function useMapTileSource(mapId: SbMapId): MapTileSource | undefined {
     return () => {
       cancelled = true
     }
-  }, [hash, format, hasUrl])
+  }, [requested, hash, format, hasUrl])
 
   return hash && format && downloadedHash === hash ? { hash, format } : undefined
 }

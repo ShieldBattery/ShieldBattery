@@ -1,15 +1,21 @@
+import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { mapIdFromRouteSegment } from '../../common/map-url'
-import { filterColorCodes } from '../../common/maps'
+import {
+  MAP_PAGE_FILE_PARAM,
+  mapFileIdFromSegment,
+  mapIdFromRouteSegment,
+} from '../../common/map-url'
+import { filterColorCodes, SbMapId } from '../../common/maps'
 import { FragmentType, graphql, useFragment } from '../gql'
+import { MapFamilySearch_FamilyFragmentFragment } from '../gql/graphql'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { MapFileImage } from './map-image'
+import { MapFileImage, MapFileImage_FileFragment } from './map-image'
 
 /**
  * What a map search shows about a candidate map: its current file's image and facts, and enough
@@ -59,6 +65,14 @@ const MapFamilySearchByIdQuery = graphql(/* GraphQL */ `
         id
         ...MapFamilySearch_FamilyFragment
       }
+      file {
+        id
+        name
+        file {
+          id
+          ...MapFileImage_FileFragment
+        }
+      }
     }
   }
 `)
@@ -67,6 +81,12 @@ const MapFamilySearchByIdQuery = graphql(/* GraphQL */ `
 export interface MapFamilyCandidate {
   familyId: string
   family: FragmentType<typeof MapFamilySearch_FamilyFragment>
+  /** The file of the map that a pasted link or id named, when it named one rather than the map. */
+  file?: {
+    id: SbMapId
+    name: string
+    file: FragmentType<typeof MapFileImage_FileFragment>
+  }
   /** Shown at the end of the map's row, e.g. why it's suggested. */
   note?: string
 }
@@ -79,14 +99,23 @@ const countFormat = numberFormat()
  */
 const NO_SUSPENSE_CONTEXT = { suspense: false }
 
-/** The maps found by a search, or by a pasted map link or id (which also finds unlisted maps). */
-function useCandidateSearch(value: string): {
+const FILE_PARAM_PATTERN = new RegExp(`[?&]${MAP_PAGE_FILE_PARAM}=([^&#]+)`)
+
+/**
+ * The maps found by a search, or by a pasted map link or id (which also finds unlisted maps). A
+ * pasted link to a map page that selects one of the map's files finds the map with that file.
+ */
+export function useCandidateSearch(value: string): {
   results: MapFamilyCandidate[]
   fetching: boolean
 } {
   const trimmed = value.trim()
   const urlSegment = /\/maps\/([^/?#]+)/.exec(trimmed)?.[1] ?? trimmed
-  const pastedId = trimmed ? mapIdFromRouteSegment(urlSegment) : undefined
+  const fileParam = FILE_PARAM_PATTERN.exec(trimmed)?.[1]
+  const pastedId = trimmed
+    ? ((fileParam ? mapFileIdFromSegment(fileParam) : undefined) ??
+      mapIdFromRouteSegment(urlSegment))
+    : undefined
 
   const [{ data: byId, fetching: fetchingById }] = useQuery({
     query: MapFamilySearchByIdQuery,
@@ -102,9 +131,11 @@ function useCandidateSearch(value: string): {
   })
 
   if (pastedId) {
-    const family = byId?.mapFamily?.family
+    const lookup = byId?.mapFamily
     return {
-      results: family ? [{ familyId: family.id, family }] : [],
+      results: lookup
+        ? [{ familyId: lookup.family.id, family: lookup.family, file: lookup.file ?? undefined }]
+        : [],
       fetching: fetchingById,
     }
   }
@@ -199,12 +230,15 @@ const CandidateList = styled.div`
   overflow-y: auto;
 `
 
-function Candidate({ candidate }: { candidate: MapFamilyCandidate }) {
-  const { t } = useTranslation()
-  const numbers = useFormat(countFormat)
-  const family = useFragment(MapFamilySearch_FamilyFragment, candidate.family)
-  const file = family.current
-  const name = filterColorCodes(family.name)
+/**
+ * The facts a map search shows about a candidate map: how many files it has, how much it's played
+ * and whether it's unlisted.
+ */
+export function familyCandidateMeta(
+  family: MapFamilySearch_FamilyFragmentFragment,
+  t: TFunction,
+  numbers: Intl.NumberFormat,
+): string {
   const games = family.stats?.gamesTotal ?? 0
   const meta = [
     t('maps.familySearch.files', {
@@ -219,21 +253,52 @@ function Candidate({ candidate }: { candidate: MapFamilyCandidate }) {
       formattedCount: numbers.format(games),
     }),
   ]
-  if (!file.listed) {
+  if (!family.current.listed) {
     meta.push(t('maps.page.unlisted', 'Unlisted'))
   }
+  return meta.join(' · ')
+}
 
+/** A map file's row in a map search: its image, name and facts, and a note at the end. */
+export function MapCandidateRow({
+  file,
+  name,
+  meta,
+  note,
+}: {
+  file: FragmentType<typeof MapFileImage_FileFragment>
+  /** The display name, with color codes already stripped. */
+  name: string
+  meta: string
+  note?: string
+}) {
   return (
     <CandidateRow>
       <CandidateImage>
-        <MapFileImage file={file.file} name={name} size={64} forceAspectRatio={1} />
+        <MapFileImage file={file} name={name} size={64} forceAspectRatio={1} />
       </CandidateImage>
       <CandidateText>
         <CandidateName>{name}</CandidateName>
-        <CandidateMeta>{meta.join(' · ')}</CandidateMeta>
+        <CandidateMeta>{meta}</CandidateMeta>
       </CandidateText>
-      {candidate.note ? <CandidateNote>{candidate.note}</CandidateNote> : null}
+      {note ? <CandidateNote>{note}</CandidateNote> : null}
     </CandidateRow>
+  )
+}
+
+/** A candidate map's row in a map search, showing its current file. */
+export function MapFamilyCandidateRow({ candidate }: { candidate: MapFamilyCandidate }) {
+  const { t } = useTranslation()
+  const numbers = useFormat(countFormat)
+  const family = useFragment(MapFamilySearch_FamilyFragment, candidate.family)
+
+  return (
+    <MapCandidateRow
+      file={family.current.file}
+      name={filterColorCodes(family.name)}
+      meta={familyCandidateMeta(family, t, numbers)}
+      note={candidate.note}
+    />
   )
 }
 
@@ -294,7 +359,7 @@ export function MapFamilySearch({
               <RadioButton
                 key={c.familyId}
                 value={c.familyId}
-                label={<Candidate candidate={c} />}
+                label={<MapFamilyCandidateRow candidate={c} />}
                 disabled={disabled}
               />
             ))}

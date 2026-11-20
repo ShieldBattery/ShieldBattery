@@ -14,7 +14,7 @@ import {
   MapPageFiles_FamilyFragmentFragment,
   MapPageFiles_FileFragmentFragment,
 } from '../gql/graphql'
-import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
+import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { IconButton, TextButton } from '../material/button'
@@ -31,7 +31,9 @@ import { openMapFamilyActionDialog, openMapFileUnlinkDialog } from './action-cre
 import {
   duplicateFileNames,
   orderFamilyFiles,
+  uploadedDateFormat,
   urlForMapFile,
+  useFamilyFileLabel,
   visibleFamilyFiles,
 } from './map-family-files'
 import { MapFamilySetDefaultMutation } from './map-make-recommended'
@@ -111,7 +113,6 @@ const FilesUnlinkMutation = graphql(/* GraphQL */ `
 `)
 
 const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits: 1 })
-const uploadedDateFormat = dateTimeFormat({ year: 'numeric', month: 'short' })
 
 const FilesCard = styled(Card)`
   padding: 16px 6px 12px;
@@ -449,7 +450,6 @@ function FileRow({
         file={file}
         family={family}
         files={files}
-        duplicateNames={duplicateNames}
         selectedId={selectedId}
         staff={canManageMaps}
         actions={actions}
@@ -512,7 +512,6 @@ function FileMenu({
   file,
   family,
   files,
-  duplicateNames,
   selectedId,
   staff,
   actions,
@@ -520,7 +519,6 @@ function FileMenu({
   file: FileData
   family: FamilyData
   files: ReadonlyArray<FileData>
-  duplicateNames: ReadonlySet<string>
   selectedId: SbMapId
   staff: boolean
   actions: ReadonlyArray<FileActionKind>
@@ -528,7 +526,7 @@ function FileMenu({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const uploadedDate = useFormat(uploadedDateFormat)
+  const fileLabel = useFamilyFileLabel(files)
   const [, setDefault] = useMutation(MapFamilySetDefaultMutation)
   const [, unlinkFile] = useMutation(FilesUnlinkMutation)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
@@ -537,13 +535,11 @@ function FileMenu({
   // Only a listed file can be the recommended file of a map with listed files
   const canBeDefault = file.listed || !family.listed
 
-  /** Names a file by its display name, plus its upload date when another file has that name. */
   const labelOf = (current: { id: SbMapId; name: string }) => {
-    const name = filterColorCodes(current.name)
     const found = files.find(f => f.id === current.id)
-    return found && duplicateNames.has(name)
-      ? `${name} (${uploadedDate.format(new Date(found.firstSeenAt))})`
-      : name
+    return found
+      ? fileLabel({ name: current.name, firstSeenAt: found.firstSeenAt })
+      : filterColorCodes(current.name)
   }
 
   const makeRecommended = () => {
