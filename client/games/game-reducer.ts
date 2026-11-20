@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { GameSource } from '../../common/games/configuration'
 import { GameDebugInfoJson, GameRecordJson, GameReplayInfo } from '../../common/games/games'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -23,41 +24,63 @@ const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   reviewRequestableIds: new Set(),
 }
 
+/**
+ * Stores a games list's records, replays and rating changes. Every ranked game in the list gets an
+ * entry in `mmrChangesById` (empty if it had no changes), since a list carries all of its games'
+ * changes and nothing more is coming for them.
+ */
+function storeGameList(
+  state: GameState,
+  {
+    games,
+    replays,
+    mmrChanges,
+  }: {
+    games: GameRecordJson[]
+    replays: GameReplayInfo[]
+    mmrChanges: PublicMatchmakingRatingChangeJson[]
+  },
+) {
+  const changesByGame = new Map<string, Map<SbUserId, PublicMatchmakingRatingChangeJson>>()
+  for (const change of mmrChanges) {
+    let changes = changesByGame.get(change.gameId)
+    if (!changes) {
+      changes = new Map()
+      changesByGame.set(change.gameId, changes)
+    }
+    changes.set(change.userId, change)
+  }
+
+  for (const game of games) {
+    state.byId.set(game.id, game)
+    if (game.config.gameSource === GameSource.Matchmaking && game.results) {
+      state.mmrChangesById.set(game.id, changesByGame.get(game.id) ?? new Map())
+    }
+  }
+  for (const replay of replays) {
+    state.replayInfoById.set(replay.gameId, replay)
+  }
+}
+
 export default immerKeyedReducer(DEFAULT_STATE, {
   ['@users/getUserProfile'](state, { payload: { matchHistory } }) {
-    for (const game of matchHistory.games) {
-      state.byId.set(game.id, game)
-    }
-    for (const replay of matchHistory.replays) {
-      state.replayInfoById.set(replay.gameId, replay)
-    }
+    storeGameList(state, matchHistory)
   },
 
-  ['@users/getMatchHistory'](state, { payload: { games, replays } }) {
-    for (const game of games) {
-      state.byId.set(game.id, game)
-    }
-    for (const replay of replays) {
-      state.replayInfoById.set(replay.gameId, replay)
-    }
+  ['@users/getMatchHistory'](state, { payload }) {
+    storeGameList(state, payload)
   },
 
-  ['@games/getGames'](state, { payload: { games, replays } }) {
-    for (const game of games) {
-      state.byId.set(game.id, game)
-    }
-    for (const replay of replays) {
-      state.replayInfoById.set(replay.gameId, replay)
-    }
+  ['@games/getGames'](state, { payload }) {
+    storeGameList(state, payload)
   },
 
-  ['@leagues/getLeagueGames'](state, { payload: { games, replays } }) {
-    for (const game of games) {
-      state.byId.set(game.id, game)
-    }
-    for (const replay of replays) {
-      state.replayInfoById.set(replay.gameId, replay)
-    }
+  ['@games/browseGames'](state, { payload }) {
+    storeGameList(state, payload)
+  },
+
+  ['@leagues/getLeagueGames'](state, { payload }) {
+    storeGameList(state, payload)
   },
 
   ['@games/getGameRecord'](

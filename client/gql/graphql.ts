@@ -679,11 +679,53 @@ export type CommendPlayerMutation = {
   }
 }
 
-export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
+export type GamesBrowseLiveGamesQueryVariables = Exact<{ [key: string]: never }>
 
-export type GamesPageContentQuery = {
-  ' $fragmentRefs'?: { LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment }
+export type GamesBrowseLiveGamesQuery = {
+  liveGames: Array<
+    { id: string } & {
+      ' $fragmentRefs'?: {
+        GamesBrowse_LiveGameFragmentFragment: GamesBrowse_LiveGameFragmentFragment
+      }
+    }
+  >
 }
+
+export type GamesBrowse_LiveGameFragmentFragment = {
+  id: string
+  startTime: string
+  map: {
+    id: Types.SbMapId
+    name: string
+    mapFile: { id: string; image256Url: string; image512Url: string }
+  }
+  config:
+    | { __typename: 'GameConfigDataLobby' }
+    | {
+        __typename: 'GameConfigDataMatchmaking'
+        gameSourceExtra:
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+        teams: Array<
+          Array<{ race: Types.RaceChar; user: { id: Types.SbUserId; name: string } | null }>
+        >
+      }
+  currentRanks: Array<{
+    id: string
+    userId: Types.SbUserId
+    matchmakingType: Types.MatchmakingType
+    seasonId: number
+    points: number
+    lifetimeGames: number
+  }>
+} & { ' $fragmentName'?: 'GamesBrowse_LiveGameFragmentFragment' }
 
 export type LiveGames_FeedFragmentFragment = {
   liveGames: Array<
@@ -1243,6 +1285,114 @@ export type UserProfileHeaderQuery = {
   } | null
 }
 
+export const GamesBrowse_LiveGameFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'GamesBrowse_LiveGameFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                                ],
+                              },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentRanks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'lifetimeGames' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<GamesBrowse_LiveGameFragmentFragment, unknown>
 export const LiveGames_FeedEntryPlayersFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -4058,105 +4208,26 @@ export const CommendPlayerDocument = {
     },
   ],
 } as unknown as DocumentNode<CommendPlayerMutation, CommendPlayerMutationVariables>
-export const GamesPageContentDocument = {
+export const GamesBrowseLiveGamesDocument = {
   kind: 'Document',
   definitions: [
     {
       kind: 'OperationDefinition',
       operation: 'query',
-      name: { kind: 'Name', value: 'GamesPageContent' },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      name: { kind: 'Name', value: 'GamesBrowseLiveGames' },
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'user' },
+            name: { kind: 'Name', value: 'liveGames' },
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-              ],
-            },
-          },
-          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'map' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                 {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'mapFile' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'config' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
-                {
-                  kind: 'InlineFragment',
-                  typeCondition: {
-                    kind: 'NamedType',
-                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
-                  },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'gameSourceExtra' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
-                          ],
-                        },
-                      },
-                    ],
-                  },
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'GamesBrowse_LiveGameFragment' },
                 },
               ],
             },
@@ -4166,7 +4237,7 @@ export const GamesPageContentDocument = {
     },
     {
       kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+      name: { kind: 'Name', value: 'GamesBrowse_LiveGameFragment' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
       selectionSet: {
         kind: 'SelectionSet',
@@ -4190,10 +4261,6 @@ export const GamesPageContentDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
                     ],
                   },
                 },
@@ -4239,13 +4306,11 @@ export const GamesPageContentDocument = {
                                 kind: 'SelectionSet',
                                 selections: [
                                   { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                  { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                                 ],
                               },
                             },
-                            {
-                              kind: 'FragmentSpread',
-                              name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
-                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'race' } },
                           ],
                         },
                       },
@@ -4270,39 +4335,11 @@ export const GamesPageContentDocument = {
               ],
             },
           },
-          {
-            kind: 'FragmentSpread',
-            name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
-          },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'LiveGames_FeedFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'liveGames' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
-                },
-              ],
-            },
-          },
         ],
       },
     },
   ],
-} as unknown as DocumentNode<GamesPageContentQuery, GamesPageContentQueryVariables>
+} as unknown as DocumentNode<GamesBrowseLiveGamesQuery, GamesBrowseLiveGamesQueryVariables>
 export const ReportGameDocument = {
   kind: 'Document',
   definitions: [

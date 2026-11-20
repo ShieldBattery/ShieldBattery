@@ -721,6 +721,29 @@ export async function getMatchmakingRatingChangesForGame(
   }
 }
 
+/** Returns the rating changes of every listed game, in one query. */
+export async function getMatchmakingRatingChangesForGames(
+  gameIds: ReadonlyArray<string>,
+  withClient?: DbClient,
+): Promise<MatchmakingRatingChange[]> {
+  if (!gameIds.length) {
+    return []
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingRatingChange>(sql`
+      SELECT *
+      FROM matchmaking_rating_changes
+      WHERE game_id = ANY(${gameIds});
+    `)
+
+    return result.rows.map(r => fromDbMatchmakingRatingChange(r))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Returns the ids of the games that started at or after `since` in which `userId` had their
  * matchmaking rating changed, oldest first.

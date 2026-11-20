@@ -14,7 +14,9 @@ import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/g
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
+import { SbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { AssignedRaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -986,6 +988,14 @@ export async function getGamesForUser(
     endDate?: number
     /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
     includeShort?: boolean
+    /** Restricts to games `userId` finished with this result. */
+    result?: 'win' | 'loss'
+    /** Restricts to games where at least one other player was assigned this race. */
+    opponentRace?: AssignedRaceChar
+    /** Restricts to games that weren't a 1v1. */
+    teamGames?: boolean
+    /** Restricts to games among `userId`'s latest `latestGames` games. */
+    latestGames?: number
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -1004,6 +1014,10 @@ export async function getGamesForUser(
     startDate,
     endDate,
     includeShort,
+    result: userResult,
+    opponentRace,
+    teamGames,
+    latestGames,
   } = params
 
   const { client, done } = await db(withClient)
@@ -1092,18 +1106,45 @@ export async function getGamesForUser(
       whereClauses.push(sql`g.start_time <= ${new Date(endDate)}`)
     }
 
+    if (userResult) {
+      whereClauses.push(sql`gu.result = ${userResult}`)
+    }
+
+    if (opponentRace) {
+      whereClauses.push(sql`
+        EXISTS (
+          SELECT 1 FROM games_users opp
+          WHERE opp.game_id = g.id
+          AND opp.user_id <> ${userId}
+          AND opp.assigned_race = ${opponentRace}
+        )
+      `)
+    }
+
+    if (teamGames) {
+      whereClauses.push(sql`g.selected_matchup !~ '^[prtz]-[prtz]$'`)
+    }
+
+    if (latestGames !== undefined) {
+      whereClauses.push(latestGamesClause(userId, latestGames))
+    }
+
     // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully
     // deterministic. Without it, rows that tie on the leading column (e.g. many unreconciled games
     // all have a NULL game_length, or games that share a start_time) can be duplicated or skipped
     // across paginated requests.
-    let orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+    //
+    // The start time orders use `games_users`' copy of it (always the same as the game's), which its
+    // (user_id, start_time) index can return in order. Ordering by `g.start_time` instead makes the
+    // planner join and sort every game the user has played before it can return the first page.
+    let orderBy = sqlRaw('gu.start_time DESC, gu.game_id DESC')
     if (sort) {
       switch (sort) {
         case GameSortOption.LatestFirst:
-          orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+          orderBy = sqlRaw('gu.start_time DESC, gu.game_id DESC')
           break
         case GameSortOption.OldestFirst:
-          orderBy = sqlRaw('g.start_time ASC, g.id ASC')
+          orderBy = sqlRaw('gu.start_time ASC, gu.game_id ASC')
           break
         case GameSortOption.ShortestFirst:
           orderBy = sqlRaw('g.game_length ASC NULLS LAST, g.start_time DESC, g.id DESC')
@@ -1280,6 +1321,94 @@ export async function findKnownCompleteUnreconciledGames(
         AND MAX(GREATEST(gu.reported_at, gu.departure_time)) < ${olderThan};
     `)
     return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}
+
+/** The fewest recent ranked 1v1 games that make a race count as the one a player plays. */
+const MIN_GAMES_FOR_MAIN_RACE = 5
+/**
+ * A WHERE clause (on `games_users gu`) restricting to `userId`'s latest `count` games, so a filter
+ * that matches few of their games stops after `count` rows instead of reading their whole history.
+ */
+function latestGamesClause(userId: SbUserId, count: number): SqlTemplate {
+  return sql`gu.start_time >= COALESCE((
+    SELECT latest.start_time FROM games_users latest
+    WHERE latest.user_id = ${userId}
+    ORDER BY latest.start_time DESC
+    OFFSET ${count - 1} LIMIT 1
+  ), '-infinity')`
+}
+
+/** How many of a player's most recent ranked 1v1 games decide the race they play. */
+const MAIN_RACE_WINDOW = 50
+/** How far back through a player's games (of any kind) to look for their ranked 1v1 games. */
+const MAIN_RACE_SEARCH_WINDOW = 500
+
+/**
+ * Returns the race `userId` was assigned most often in their recent ranked 1v1 games, or
+ * `undefined` if fewer than `MIN_GAMES_FOR_MAIN_RACE` of their latest `MAIN_RACE_SEARCH_WINDOW`
+ * games were ranked 1v1s.
+ */
+export async function getMostPlayedRanked1v1Race(
+  userId: SbUserId,
+  withClient?: DbClient,
+): Promise<AssignedRaceChar | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ race: AssignedRaceChar; count: string }>(sql`
+      SELECT recent.assigned_race AS race, COUNT(*) AS count
+      FROM (
+        SELECT gu.assigned_race
+        FROM games_users gu
+        INNER JOIN games g ON gu.game_id = g.id
+        WHERE gu.user_id = ${userId}
+          AND ${latestGamesClause(userId, MAIN_RACE_SEARCH_WINDOW)}
+          AND gu.assigned_race IS NOT NULL
+          AND g.canceled_at IS NULL
+          AND g.config->>'gameSource' = ${GameSource.Matchmaking}
+          AND g.selected_matchup ~ '^[prtz]-[prtz]$'
+        ORDER BY gu.start_time DESC
+        LIMIT ${MAIN_RACE_WINDOW}
+      ) recent
+      GROUP BY recent.assigned_race
+      ORDER BY count DESC, race
+    `)
+
+    const total = result.rows.reduce((sum, r) => sum + Number(r.count), 0)
+    return total >= MIN_GAMES_FOR_MAIN_RACE ? result.rows[0]?.race : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the maps with the most games in the public games list since `since`, most-played
+ * first, counting the same games `getGames` lists with no filters.
+ */
+export async function getTopMapsSince(
+  since: Date,
+  limit: number,
+  withClient?: DbClient,
+): Promise<Array<{ mapId: SbMapId; gameCount: number }>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ map_id: SbMapId; game_count: string }>(sql`
+      SELECT g.map_id, COUNT(*) AS game_count
+      FROM games g
+      WHERE ${getGameSourceWhereClause(GameSourceFilter.All)}
+        AND g.results IS NOT NULL
+        AND g.canceled_at IS NULL
+        AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
+        AND COALESCE(g.game_length, ${MIN_GAME_LENGTH_MS}) >= ${MIN_GAME_LENGTH_MS}
+        AND g.start_time >= ${since}
+      GROUP BY g.map_id
+      ORDER BY game_count DESC, g.map_id
+      LIMIT ${limit}
+    `)
+
+    return result.rows.map(r => ({ mapId: r.map_id, gameCount: Number(r.game_count) }))
   } finally {
     done()
   }

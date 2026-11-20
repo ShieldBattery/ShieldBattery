@@ -736,7 +736,7 @@ export class UserApi {
     const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
-      const { users, maps, replays } = await getGameListSideData({
+      const { users, maps, replays, mmrChanges } = await getGameListSideData({
         games,
         currentUserId: ctx.session?.user?.id,
         replayService: this.replayService,
@@ -748,6 +748,7 @@ export class UserApi {
         maps: maps.map(m => toMapInfoJson(m)),
         users,
         replays,
+        mmrChanges,
       }
     })()
 
@@ -868,7 +869,7 @@ export class UserApi {
       includeShort,
     })
 
-    const { users, maps, replays } = await getGameListSideData({
+    const { users, maps, replays, mmrChanges } = await getGameListSideData({
       games,
       currentUserId: ctx.session?.user?.id,
       replayService: this.replayService,
@@ -881,6 +882,7 @@ export class UserApi {
       users,
       hasMoreGames: games.length >= GET_MATCH_HISTORY_LIMIT,
       replays,
+      mmrChanges,
     }
   }
 

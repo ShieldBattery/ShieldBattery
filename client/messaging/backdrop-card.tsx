@@ -60,7 +60,7 @@ export const backdropTextShadow = css`
   text-shadow: 0 1px 3px rgb(0 0 0 / 0.7);
 `
 
-const BackdropImage = styled.img`
+export const BackdropImage = styled.img`
   position: absolute;
   inset: 0;
   z-index: -2;
@@ -78,7 +78,7 @@ const BackdropImage = styled.img`
   }
 `
 
-const BackdropScrim = styled.div`
+export const BackdropScrim = styled.div`
   position: absolute;
   inset: 0;
   z-index: -1;

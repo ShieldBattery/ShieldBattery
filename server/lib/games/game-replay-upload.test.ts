@@ -65,6 +65,7 @@ function makeApi(seed: unknown = 123) {
     {} as any,
     new GameLifecycleEvents(new FakeClock()),
     {} as any,
+    {} as any,
   )
   return { api, gameResultService, gameLoader, replayService, banEnacter, replayViolations }
 }

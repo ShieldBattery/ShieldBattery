@@ -197,7 +197,7 @@ export class LeagueApi {
       includeShort,
     })
 
-    const { users, maps, replays } = await getGameListSideData({
+    const { users, maps, replays, mmrChanges } = await getGameListSideData({
       games,
       currentUserId: ctx.session?.user?.id,
       replayService: this.replayService,
@@ -210,6 +210,7 @@ export class LeagueApi {
       users,
       hasMoreGames: games.length >= GET_GAMES_LIMIT,
       replays,
+      mmrChanges,
     }
   }
 

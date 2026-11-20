@@ -4,7 +4,7 @@ import { useRoute } from 'wouter'
 import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from '../../common/games/results-sub-page'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge } from '../styles/typography'
-import { GameList } from './game-list'
+import { GameList, GAMES_LIST_SEGMENT } from './game-list'
 import { ConnectedGameResultsPage } from './results'
 import { fromRouteGameId, makeRouteGameId } from './route-game-id'
 
@@ -23,8 +23,8 @@ export function GamesRouteComponent() {
     return null
   }
 
-  if (!params.routeId) {
-    return <GameList />
+  if (!params.routeId || (params.routeId === GAMES_LIST_SEGMENT && !params.subPage)) {
+    return <GameList showList={!!params.routeId} />
   }
 
   // Game route ids are encoded ("pretty") game ids, so an arbitrary/mistyped URL segment may not

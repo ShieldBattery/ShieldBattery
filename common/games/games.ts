@@ -9,6 +9,7 @@ import {
   matchmakingTypeToLabel,
   PublicMatchmakingRatingChangeJson,
 } from '../matchmaking'
+import { AssignedRaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
@@ -221,6 +222,72 @@ export interface GetGamesResponse {
   users: SbUser[]
   hasMoreGames: boolean
   replays: GameReplayInfo[]
+  /** Rating changes for the listed ranked games, so rows can show each player's rank. */
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
+}
+
+/** The number of games each shelf of the games browse view holds. */
+export const BROWSE_SHELF_SIZE = 12
+
+/** The number of maps the games browse view's map shelf lists. */
+export const BROWSE_TOP_MAPS = 10
+
+/** How far back the games browse view's map shelf counts games. */
+export const BROWSE_TOP_MAPS_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+/** The categories of games the games browse view shows as shelves. */
+export enum GameBrowseShelfId {
+  Ranked1v1 = 'ranked1v1',
+  /** Ranked 1v1 games with the viewer's most-played race on either side. */
+  YourRace = 'yourRace',
+  Ranked2v2 = 'ranked2v2',
+  Ranked3v3 = 'ranked3v3',
+  Marathons = 'marathons',
+  Custom = 'custom',
+  Recent = 'recent',
+  Losses = 'losses',
+  VsTerran = 'vsTerran',
+  VsZerg = 'vsZerg',
+  VsProtoss = 'vsProtoss',
+  TeamGames = 'teamGames',
+  Longest = 'longest',
+}
+
+export interface GameBrowseShelf {
+  id: GameBrowseShelfId
+  /** The shelf's games, in display order. Their records are in the response's `games`. */
+  gameIds: string[]
+}
+
+export interface GameBrowseMapCount {
+  mapId: SbMapId
+  gameCount: number
+}
+
+/** Side data shared by the games browse view's responses, as in `GetGamesResponse`. */
+export interface GameBrowseSideData {
+  games: GameRecordJson[]
+  maps: MapInfoJson[]
+  users: SbUser[]
+  replays: GameReplayInfo[]
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
+}
+
+/** Response for `/games/browse`: every shelf of the All games tab. */
+export interface GetGamesBrowseResponse extends GameBrowseSideData {
+  shelves: GameBrowseShelf[]
+  /**
+   * The race the `YourRace` shelf is about: the viewer's most-played race in recent ranked 1v1
+   * games. Absent (along with that shelf) when signed out or without enough such games.
+   */
+  yourRace?: AssignedRaceChar
+  /** The most-played maps over the past `BROWSE_TOP_MAPS_WINDOW_MS`, most-played first. */
+  topMaps: GameBrowseMapCount[]
+}
+
+/** Response for `/games/browse/mine`: every shelf of the signed-in user's My games tab. */
+export interface GetMyGamesBrowseResponse extends GameBrowseSideData {
+  shelves: GameBrowseShelf[]
 }
 
 /** Events that can be sent when subscribed to changes to a particular game record. */

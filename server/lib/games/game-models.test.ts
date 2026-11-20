@@ -17,9 +17,11 @@ import {
   findUnreconciledV2GamesForProbe,
   getGames,
   getGamesForUser,
+  getMostPlayedRanked1v1Race,
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
   getRecentMatchmakingOpponents,
+  getTopMapsSince,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
   setNetcodeV2SessionMapping,
@@ -711,5 +713,112 @@ describe('games/game-models/wasUserInGame', () => {
     // list, which takes a one-element JSON array (not a bare scalar) on the right-hand side.
     expect(template.text).toMatch(/g\.config->'observers' @> \$\d+::jsonb/)
     expect(template.values).toEqual(['game-1', userId, JSON.stringify([userId])])
+  })
+})
+
+describe('games/game-models/getGamesForUser browse filters', () => {
+  test("restricts to the user's own result", async () => {
+    const query = mockDbClient([])
+    await getGamesForUser({ userId: makeSbUserId(1), limit: 12, offset: 0, result: 'loss' })
+
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(/gu\.result = \$\d+/)
+    expect(template.values).toContain('loss')
+  })
+
+  test('restricts to games where another player had the given race', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(7)
+    await getGamesForUser({ userId, limit: 12, offset: 0, format: '1v1', opponentRace: 'z' })
+
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('FROM games_users opp')
+    expect(template.text).toMatch(/opp\.user_id <> \$\d+/)
+    expect(template.text).toMatch(/opp\.assigned_race = \$\d+/)
+    expect(template.values).toEqual(expect.arrayContaining([userId, 'z']))
+  })
+
+  test('restricts to team games', async () => {
+    const query = mockDbClient([])
+    await getGamesForUser({ userId: makeSbUserId(1), limit: 12, offset: 0, teamGames: true })
+
+    expect(query.mock.calls[0][0].text).toContain("g.selected_matchup !~ '^[prtz]-[prtz]$'")
+  })
+
+  test("restricts to the user's latest games", async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(4)
+    await getGamesForUser({ userId, limit: 12, offset: 0, latestGames: 500 })
+
+    const { text, values } = query.mock.calls[0][0]
+    expect(text).toMatch(/gu\.start_time >= COALESCE\(/)
+    expect(text).toMatch(/OFFSET \$\d+ LIMIT 1/)
+    expect(values).toEqual(expect.arrayContaining([userId, 499]))
+  })
+
+  test('adds none of those filters by default', async () => {
+    const query = mockDbClient([])
+    await getGamesForUser({ userId: makeSbUserId(1), limit: 12, offset: 0 })
+
+    const { text } = query.mock.calls[0][0]
+    expect(text).not.toContain('gu.result =')
+    expect(text).not.toContain('games_users opp')
+    expect(text).not.toContain('selected_matchup !~')
+    expect(text).not.toContain('COALESCE')
+  })
+
+  test("orders by the user's own copy of the start time, which their index returns in order", async () => {
+    const query = mockDbClient([])
+    await getGamesForUser({ userId: makeSbUserId(1), limit: 12, offset: 0 })
+
+    expect(query.mock.calls[0][0].text).toContain('ORDER BY gu.start_time DESC, gu.game_id DESC')
+  })
+})
+
+describe('games/game-models/getMostPlayedRanked1v1Race', () => {
+  test('returns the race the player had most often in their recent ranked 1v1 games', async () => {
+    const query = mockDbClient([
+      { race: 'z', count: '4' },
+      { race: 'p', count: '2' },
+    ])
+
+    expect(await getMostPlayedRanked1v1Race(makeSbUserId(3))).toBe('z')
+    const { text } = query.mock.calls[0][0]
+    expect(text).toContain("g.selected_matchup ~ '^[prtz]-[prtz]$'")
+    expect(text).toMatch(/ORDER BY gu\.start_time DESC\s+LIMIT \$\d+/)
+    // Only looks through the player's latest games, so one with no ranked 1v1s stops early.
+    expect(text).toMatch(/gu\.start_time >= COALESCE\(/)
+  })
+
+  test('returns nothing with fewer than 5 such games', async () => {
+    mockDbClient([{ race: 't', count: '4' }])
+    expect(await getMostPlayedRanked1v1Race(makeSbUserId(3))).toBeUndefined()
+  })
+
+  test('returns nothing with no such games', async () => {
+    mockDbClient([])
+    expect(await getMostPlayedRanked1v1Race(makeSbUserId(3))).toBeUndefined()
+  })
+})
+
+describe('games/game-models/getTopMapsSince', () => {
+  test('counts the listed games per map since the given time, most-played first', async () => {
+    const query = mockDbClient([
+      // eslint-disable-next-line eslint-core/camelcase
+      { map_id: 'map-a', game_count: '27' },
+      // eslint-disable-next-line eslint-core/camelcase
+      { map_id: 'map-b', game_count: '3' },
+    ])
+    const since = new Date('2026-11-08T00:00:00Z')
+
+    expect(await getTopMapsSince(since, 10)).toEqual([
+      { mapId: 'map-a', gameCount: 27 },
+      { mapId: 'map-b', gameCount: 3 },
+    ])
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('GROUP BY g.map_id')
+    expect(template.text).toMatch(/ORDER BY game_count DESC, g\.map_id\s+LIMIT \$\d+/)
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+    expect(template.values).toEqual(expect.arrayContaining([since, 10]))
   })
 })
