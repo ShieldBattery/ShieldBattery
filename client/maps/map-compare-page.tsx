@@ -41,7 +41,6 @@ import {
   titleLarge,
   titleSmall,
 } from '../styles/typography'
-import { MapBackButton } from './map-back-button'
 import {
   MapComparePicker,
   MapComparePicker_FamilyFragment,
@@ -415,10 +414,6 @@ const PageContent = styled.div`
   gap: 16px;
 `
 
-const BackRow = styled.div`
-  align-self: flex-start;
-`
-
 const Header = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -724,9 +719,6 @@ function MapComparePage({ a, b }: { a?: SbMapId; b?: SbMapId }) {
   return (
     <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
       <PageContent>
-        <BackRow>
-          <MapBackButton />
-        </BackRow>
         {reportId && canManageMaps ? <MapReportBar reportId={reportId} /> : null}
         {content}
       </PageContent>

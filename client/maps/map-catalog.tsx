@@ -51,6 +51,7 @@ import {
   withSearch,
 } from './map-catalog-params'
 import {
+  LocalListWindowStore,
   LocalMapList,
   LocalMapView,
   LocalMatchesLink,
@@ -66,6 +67,11 @@ interface StoredListWindow {
 
 /** The pages each catalog visit had loaded, so going back to it can show them again. */
 const listWindows = createViewStateStore<StoredListWindow>('map-catalog', {
+  maxAgeMs: 30 * 60 * 1000,
+})
+
+/** The pages each visit to the "On this PC" listing had loaded, so going back can show them again. */
+const localListWindows = createViewStateStore<{ listKey: string; pageCount: number }>('map-local', {
   maxAgeMs: 30 * 60 * 1000,
 })
 
@@ -406,6 +412,22 @@ export function useCatalogWindowStore(): ListWindowStore {
   }
 }
 
+/** Remembers the pages loaded for the "On this PC" listing for the current visit to the page. */
+export function useLocalWindowStore(): LocalListWindowStore {
+  const entryKey = useHistoryEntryKey()
+  return {
+    get: listKey => {
+      const stored = entryKey ? localListWindows.get(entryKey) : undefined
+      return stored?.listKey === listKey ? stored.pageCount : undefined
+    },
+    set: (listKey, pageCount) => {
+      if (entryKey) {
+        localListWindows.set(entryKey, { listKey, pageCount })
+      }
+    },
+  }
+}
+
 /** How densely catalog listings lay out their tiles, as the viewer last picked. */
 export function useCatalogDensity() {
   return useUserLocalStorageValue<CatalogDensity>(
@@ -452,6 +474,7 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   }
 
   const windowStore = useCatalogWindowStore()
+  const localWindowStore = useLocalWindowStore()
 
   const needsLogin = !selfUser && listing !== MapListing.All && !isLocal
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
@@ -488,6 +511,7 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
         onClearFilters={onClearFilters}
         onViewChange={setLocalView}
         onFolderChange={onLocalFolderChange}
+        windowStore={localWindowStore}
       />
     ) : (
       <EmptyState>
