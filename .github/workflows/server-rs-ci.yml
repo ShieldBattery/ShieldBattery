@@ -230,5 +230,7 @@ jobs:
       - name: Run migrations
         run: sqlx migrate run --source ../migrations
 
+      # `prepare` takes the path of cargo from `CARGO`, which cargo sets for the subcommands it
+      # launches. The `sqlx` binary is run directly here, so the variable has to be set by hand.
       - name: Check sqlx prepare
-        run: sqlx prepare --check --workspace -- --all-targets --all-features
+        run: CARGO="$(command -v cargo)" sqlx prepare --check --workspace -- --all-targets --all-features
