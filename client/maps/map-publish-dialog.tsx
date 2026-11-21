@@ -567,8 +567,14 @@ export interface PublishAnswer {
 }
 
 export interface PublishDialogContentsProps {
-  preview: FragmentType<typeof MapPublish_PreviewFragment>
-  file: FragmentType<typeof MapPublish_FileFragment>
+  /** What publishing the file would do. Unset while that's loading or if it failed to load. */
+  preview?: FragmentType<typeof MapPublish_PreviewFragment>
+  /** The file being published. Unset while it's loading or if it failed to load. */
+  file?: FragmentType<typeof MapPublish_FileFragment>
+  /** Whether loading the preview or file failed, rather than still being underway. */
+  loadFailed?: boolean
+  /** Tries loading the preview and file again. */
+  onRetry?: () => void
   /** The listed maps the current user owns, which the file can join. */
   ownedMaps?: ReadonlyArray<OwnedMap>
   /** The server's list of map tags, once loaded. */
@@ -588,12 +594,16 @@ export interface PublishDialogContentsProps {
 }
 
 /**
- * What the publish dialog shows for a file once it knows what publishing it would do: why it can't
- * be published, or the question of whether it's a version of a map that's already listed.
+ * What the publish dialog shows for a file: a loading (or load failure) state until it knows what
+ * publishing it would do, then why it can't be published, or the question of whether it's a
+ * version of a map that's already listed. It's all one dialog, so that it stays mounted as the
+ * state changes.
  */
 export function PublishDialogContents({
   preview: previewRef,
   file: fileRef,
+  loadFailed = false,
+  onRetry = () => {},
   ownedMaps,
   tagList,
   sending,
@@ -605,12 +615,22 @@ export function PublishDialogContents({
   const { t } = useTranslation()
   const preview = useFragment(MapPublish_PreviewFragment, previewRef)
   const file = useFragment(MapPublish_FileFragment, fileRef)
-  const suggestions = useFragment(MapPublish_SuggestionFragment, preview.suggestions)
+  const suggestions = useFragment(MapPublish_SuggestionFragment, preview?.suggestions)
   const [chosen, setChosen] = useState<string>()
   const [ownedPick, setOwnedPick] = useState<string>()
   const [makeRecommended, setMakeRecommended] = useState(true)
-  const initialTags = file.family.tags.map(tag => tag.id)
   const [pickedTags, setPickedTags] = useState<string[]>()
+
+  const title = t('maps.publish.title', 'Publish map')
+  if (!preview || !file || !suggestions) {
+    return (
+      <StyledDialog title={title} onCancel={onCancel} showCloseButton={true}>
+        <LoadingBody failed={loadFailed} onRetry={onRetry} />
+      </StyledDialog>
+    )
+  }
+
+  const initialTags = file.family.tags.map(tag => tag.id)
   const selectedTags = pickedTags ?? initialTags
   const tagOptions = tagList?.filter(tag => tag.kind === file.kind) ?? []
 
@@ -795,11 +815,7 @@ export function PublishDialogContents({
   }
 
   return (
-    <StyledDialog
-      title={t('maps.publish.title', 'Publish map')}
-      buttons={buttons}
-      onCancel={onCancel}
-      showCloseButton={true}>
+    <StyledDialog title={title} buttons={buttons} onCancel={onCancel} showCloseButton={true}>
       <Layout>
         {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
         {body}
@@ -834,31 +850,29 @@ export function PublishDialogContents({
   )
 }
 
-/** The dialog's frame while what it shows is loading, or failed to load. */
-function LoadingFrame({
-  title,
-  failed,
-  onRetry,
-  onCancel,
-}: {
-  title: string
-  failed: boolean
-  onRetry: () => void
-  onCancel: () => void
-}) {
+/**
+ * What a dialog's body shows while what it asks about is loading, or failed to load. It has no
+ * dialog of its own: the dialog stays the same element across the states, so it isn't remounted
+ * (and its entrance animation replayed) when the data arrives.
+ */
+function LoadingBody({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
   const { t } = useTranslation()
-  return (
-    <StyledDialog title={title} onCancel={onCancel} showCloseButton={true}>
-      {failed ? (
-        <LoadErrorRow
-          message={t('maps.page.loadError', "Couldn't load this map")}
-          onRetry={onRetry}
-        />
-      ) : (
-        <LoadingDotsArea />
-      )}
-    </StyledDialog>
+  return failed ? (
+    <LoadErrorRow message={t('maps.page.loadError', "Couldn't load this map")} onRetry={onRetry} />
+  ) : (
+    <LoadingDotsArea />
   )
+}
+
+/**
+ * Holds on to a value once `hold` is called, until `release` is. A dialog whose answer changes
+ * what its own queries return stays on screen while it closes, and would otherwise show whatever
+ * the queries say after the change (a map that's gone, a preview that now says it's already
+ * listed). Holding keeps showing what the dialog showed when the answer was sent.
+ */
+function useHeld<T>(value: T): [shown: T, hold: () => void, release: () => void] {
+  const [held, setHeld] = useState<{ value: T }>()
+  return [held ? held.value : value, () => setHeld({ value }), () => setHeld(undefined)]
 }
 
 export interface MapPublishDialogProps extends CommonDialogProps {
@@ -874,32 +888,36 @@ export interface MapPublishDialogProps extends CommonDialogProps {
 export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPublishDialogProps) {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
-  const [{ data, error }, refetch] = useQuery({
+  const [{ data: liveData, error: liveError }, refetch] = useQuery({
     query: MapPublishPreviewQuery,
     variables: { fileId },
     requestPolicy: 'network-only',
     context: NO_SUSPENSE_CONTEXT,
   })
+  const liveOwnedMaps = useOwnedMaps()
+  const liveTagList = useMapTagList()
+  const [{ data, error, ownedMaps, tagList }, hold, release] = useHeld({
+    data: liveData,
+    error: liveError,
+    ownedMaps: liveOwnedMaps,
+    tagList: liveTagList,
+  })
   const file = useFragment(MapPublish_FileFragment, data?.map)
-  const ownedMaps = useOwnedMaps()
-  const tagList = useMapTagList()
   const [{ fetching: sending }, publish] = useMutation(PublishMutation)
   const makeFileRecommended = useMakeRecommended()
   const [errorMessage, setErrorMessage] = useState<string>()
 
-  const title = t('maps.publish.title', 'Publish map')
   const reload = () => refetch({ requestPolicy: 'network-only' })
-  if (!data?.mapPublishPreview || !data.map || !file) {
-    return (
-      <LoadingFrame title={title} failed={!!error || !!data} onRetry={reload} onCancel={onCancel} />
-    )
-  }
 
   const onPublish = (answer: PublishAnswer, makeRecommended: boolean, tags: string[] | null) => {
+    // The file's map as it was when the answer was sent
+    const sentFamilyId = file?.family.id
     setErrorMessage(undefined)
+    hold()
     publish({ fileId, answer: { kind: answer.kind, familyId: answer.family?.id }, tags })
       .then(async result => {
         if (result.error || !result.data) {
+          release()
           const code = result.error ? errorCode(result.error) : undefined
           setErrorMessage(publishErrorText(code, t, tags !== null))
           if (code === 'NOT_SUGGESTED') {
@@ -913,7 +931,7 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
         close()
         // The page showing the file follows it into the map it's in now. Its old URL no longer shows
         // the file, so it doesn't stay in the history.
-        if (selectedId === fileId && published.family.id !== file.family.id) {
+        if (selectedId === fileId && published.family.id !== sentFamilyId) {
           replace(urlForMapFile(published.family, fileId))
         }
 
@@ -945,8 +963,10 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
 
   return (
     <PublishDialogContents
-      preview={data.mapPublishPreview}
-      file={data.map}
+      preview={data?.mapPublishPreview ?? undefined}
+      file={data?.map ?? undefined}
+      loadFailed={!!error || !!data}
+      onRetry={reload}
       ownedMaps={ownedMaps}
       tagList={tagList}
       sending={sending}
@@ -971,15 +991,20 @@ export interface MapFileLinkDialogProps extends CommonDialogProps {
 export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFileLinkDialogProps) {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
-  const [{ data, error }, refetch] = useQuery({
+  const [{ data: liveData, error: liveError }, refetch] = useQuery({
     query: MapLinkSuggestionsQuery,
     variables: { fileId },
     requestPolicy: 'network-only',
     context: NO_SUSPENSE_CONTEXT,
   })
+  const liveOwnedMaps = useOwnedMaps()
+  const [{ data, error, ownedMaps }, hold, release] = useHeld({
+    data: liveData,
+    error: liveError,
+    ownedMaps: liveOwnedMaps,
+  })
   const suggestions = useFragment(MapPublish_SuggestionFragment, data?.mapLinkSuggestions)
   const linkedFile = useFragment(MapPublish_FileFragment, data?.map)
-  const ownedMaps = useOwnedMaps()
   const [{ fetching: sending }, link] = useMutation(LinkMutation)
   const makeFileRecommended = useMakeRecommended()
   const [chosen, setChosen] = useState<string>()
@@ -991,7 +1016,9 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
   const reload = () => refetch({ requestPolicy: 'network-only' })
   if (!suggestions || !data?.map || !linkedFile) {
     return (
-      <LoadingFrame title={title} failed={!!error || !!data} onRetry={reload} onCancel={onCancel} />
+      <StyledDialog title={title} onCancel={onCancel} showCloseButton={true}>
+        <LoadingBody failed={!!error || !!data} onRetry={reload} />
+      </StyledDialog>
     )
   }
 
@@ -1044,9 +1071,11 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
       return
     }
     setErrorMessage(undefined)
+    hold()
     link({ fileId, familyId: target.id })
       .then(async result => {
         if (result.error || !result.data) {
+          release()
           const code = result.error ? errorCode(result.error) : undefined
           setErrorMessage(publishErrorText(code, t))
           if (code === 'NOT_SUGGESTED') {
