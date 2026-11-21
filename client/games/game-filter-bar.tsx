@@ -166,6 +166,19 @@ enum DatePreset {
   PastYear = 'pastYear',
 }
 
+/**
+ * Returns the local date `months` calendar months before `date`, clamping the day to the target
+ * month's length. Plain `Date` month arithmetic overflows instead (Mar 31 minus one month becomes
+ * Mar 3), which would make a "Past month" range shorter than a month.
+ */
+function subtractCalendarMonths(date: Date, months: number): Date {
+  const firstOfTargetMonth = new Date(date.getFullYear(), date.getMonth() - months, 1)
+  const targetYear = firstOfTargetMonth.getFullYear()
+  const targetMonth = firstOfTargetMonth.getMonth()
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate()
+  return new Date(targetYear, targetMonth, Math.min(date.getDate(), daysInTargetMonth))
+}
+
 const DATE_PRESETS: ReadonlyArray<{
   preset: DatePreset
   fromDate: (today: Date) => Date
@@ -176,15 +189,15 @@ const DATE_PRESETS: ReadonlyArray<{
   },
   {
     preset: DatePreset.PastMonth,
-    fromDate: today => new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()),
+    fromDate: today => subtractCalendarMonths(today, 1),
   },
   {
     preset: DatePreset.Past3Months,
-    fromDate: today => new Date(today.getFullYear(), today.getMonth() - 3, today.getDate()),
+    fromDate: today => subtractCalendarMonths(today, 3),
   },
   {
     preset: DatePreset.PastYear,
-    fromDate: today => new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()),
+    fromDate: today => subtractCalendarMonths(today, 12),
   },
 ]
 

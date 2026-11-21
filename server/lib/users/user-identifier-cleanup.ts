@@ -5,9 +5,9 @@ import { Clock } from '../time/clock'
 import { cleanupOldRestrictedIdentifiers } from './restriction-models'
 import { cleanupOldBannedIdentifiers, cleanupUnpunishedIdentifiers } from './user-identifiers'
 
-const OLD_BAN_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 // 6 months
-const OLD_RESTRICTION_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 3 months
-const OLD_IDENTIFIER_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 3 months
+const OLD_BAN_TIME_MILLIS = 1000 * 60 * 60 * 24 * 183 // 183 days (~6 months)
+const OLD_RESTRICTION_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 90 days (~3 months)
+const OLD_IDENTIFIER_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 90 days (~3 months)
 const JOB_RUN_INTERVAL_MILLIS = 3 * 60 * 60 * 1000 // 3 hours
 
 /**
