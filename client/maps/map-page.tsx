@@ -86,7 +86,6 @@ import {
   updateMap,
 } from './action-creators'
 import { AddToCollectionButton } from './map-add-to-collection'
-import { MapBackButton } from './map-back-button'
 import { MapByline } from './map-byline'
 import { catalogSearchForTag } from './map-catalog-params'
 import { DescriptionForm, NameForm } from './map-edit-forms'
@@ -347,7 +346,6 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
     const familyFileIds = fileIds.includes(file.id) ? fileIds : [...fileIds, file.id]
     content = (
       <PageContent>
-        <MapBackButton />
         {reportId ? (
           <ReportBarRow>
             <MapReportBar reportId={reportId} />

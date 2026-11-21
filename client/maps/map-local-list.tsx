@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { Suspense, use, useDeferredValue, useState } from 'react'
+import { Suspense, use, useDeferredValue, useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation } from 'urql'
@@ -133,6 +133,12 @@ function IndexingLine({ progress }: { progress: LocalMapIndexProgress | undefine
   )
 }
 
+/** Remembers how many pages of a listing of local maps were loaded, so returning to it shows them again. */
+export interface LocalListWindowStore {
+  get(listKey: string): number | undefined
+  set(listKey: string, pageCount: number): void
+}
+
 export interface LocalMapListProps {
   params: CatalogParams
   sort: CatalogSort
@@ -142,6 +148,8 @@ export interface LocalMapListProps {
   folder: string | undefined
   /** When set, choosing a map picks it (uploading it first if the server doesn't have it). */
   pick?: MapPickOptions
+  /** Remembers how many pages were loaded across visits to the listing. */
+  windowStore?: LocalListWindowStore
   onFiltersChange: (changes: Partial<CatalogRowFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
@@ -282,7 +290,8 @@ function LocalMapListContent(props: LocalMapListProps) {
     } else {
       files = (
         <LocalMapGrid
-          key={`${version}|${queryKey}`}
+          key={queryKey}
+          listKey={queryKey}
           query={deferredQuery}
           version={version}
           firstPageTotal={firstPage.value.total}
@@ -338,31 +347,49 @@ function LocalMapListContent(props: LocalMapListProps) {
 }
 
 function LocalMapGrid({
+  listKey,
   query,
   version,
   firstPageTotal,
   spansFolders,
   density,
   pick,
+  windowStore,
 }: LocalMapListProps & {
+  /** Identifies the listing's contents, apart from the version of the index they're read at. */
+  listKey: string
   query: Omit<LocalMapQuery, 'offset' | 'limit'>
   version: number
   firstPageTotal: number
   /** Whether the listing spans folders, so each tile shows where its file is. */
   spansFolders: boolean
 }) {
-  const [pageCount, setPageCount] = useState(1)
+  const [pageCount, setPageCount] = useState(() => windowStore?.get(listKey) ?? 1)
+  const storeWindow = useEffectEvent((key: string, count: number) => {
+    windowStore?.set(key, count)
+  })
+  useEffect(() => {
+    storeWindow(listKey, pageCount)
+  }, [listKey, pageCount])
+
   const layout = DENSITY_LAYOUT[density]
-  const loaded = pageCount * PAGE_SIZE
+  // The total can shrink below what was loaded (the index changed, or the count was remembered
+  // from an earlier visit), so only the pages that still exist are shown
+  const shownPages = Math.min(pageCount, Math.max(1, Math.ceil(firstPageTotal / PAGE_SIZE)))
+  const hasMore = shownPages * PAGE_SIZE < firstPageTotal
 
   return (
     <InfiniteScrollList
       nextLoadingEnabled={true}
       isLoadingNext={false}
-      hasNextData={loaded < firstPageTotal}
-      onLoadNextData={() => setPageCount(c => (c * PAGE_SIZE < firstPageTotal ? c + 1 : c))}>
+      hasNextData={hasMore}
+      onLoadNextData={() => {
+        if (hasMore) {
+          setPageCount(shownPages + 1)
+        }
+      }}>
       <Grid $minTileWidth={layout.minTileWidth}>
-        {Array.from({ length: pageCount }, (_, i) => (
+        {Array.from({ length: shownPages }, (_, i) => (
           <Suspense key={i} fallback={null}>
             <LocalMapPage
               query={{ ...query, offset: i * PAGE_SIZE, limit: PAGE_SIZE }}
