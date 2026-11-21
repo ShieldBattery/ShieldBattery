@@ -1889,6 +1889,9 @@ pub enum Hover {
     TimelineRow,
     /// Over one of the markers ticked along the replay plate's track.
     TrackMarker,
+    /// Over the replay plate's track itself, clear of its markers, where the card names the game
+    /// time a click there moves to.
+    Track,
     /// Over the replay plate's +1m chip, whose card names a chord of two keys.
     JumpChip,
     /// Over the minimap header's vision button, whose card names the key that opens its list.
@@ -1935,7 +1938,9 @@ impl Hover {
             )),
             // A tick on the plate's track well clear of the playhead, so the card is not read
             // against its glow.
-            Hover::TrackMarker => Some(on(plate, egui::Align2::LEFT_BOTTOM, 60.0, -68.0)),
+            Hover::TrackMarker => Some(on(plate, egui::Align2::LEFT_BOTTOM, 60.0, -82.0)),
+            // On the bar, well ahead of the playhead so the card is not read against its glow.
+            Hover::Track => Some(on(plate, egui::Align2::LEFT_BOTTOM, 200.0, -73.0)),
             Hover::JumpChip => Some(on(plate, egui::Align2::LEFT_BOTTOM, 250.0, -24.0)),
             Hover::MinimapVision => Some(on(
                 egui::Id::new("sb_minimap_frame"),
@@ -1961,6 +1966,7 @@ impl Hover {
             Hover::DockMatchup => "dock-hover",
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
+            Hover::Track => "track-hover",
             Hover::JumpChip => "jump-chip-hover",
             Hover::MinimapVision => "minimap-vision-hover",
             Hover::UpgradeChip => "upgrade-hover",
@@ -2027,7 +2033,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 40] = [
+    pub const ALL: [Preset; 41] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2076,6 +2082,7 @@ impl Preset {
         Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
+        Preset::hover_showcase(Hover::Track),
         Preset::hover_showcase(Hover::JumpChip),
         Preset::hover_showcase(Hover::MinimapVision),
         Preset::hover_showcase(Hover::UpgradeChip),

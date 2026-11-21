@@ -304,6 +304,19 @@ pub struct ScrubTrack {
     pub hovered_marker: Option<usize>,
     /// Which marker was clicked this frame.
     pub clicked_marker: Option<usize>,
+    /// Where along the track the pointer is, while it rests on the track or presses along it.
+    /// `None` while it is off the track, and while it is on a marker, which stands for a moment of
+    /// its own rather than a spot to move to.
+    pub pointed: Option<TrackPoint>,
+}
+
+/// A spot along a scrub track the pointer is on.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct TrackPoint {
+    /// How far along the track, from 0 to 1.
+    pub fraction: f32,
+    /// Where the pointer is.
+    pub pos: Pos2,
 }
 
 /// One moment called out along a scrub track.
@@ -392,6 +405,8 @@ fn scrub_track_in(
             .flatten()
     };
     let hovered_marker = response.hover_pos().and_then(marker_at);
+    let fraction_at =
+        |pos: Pos2| ((pos.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0);
     // The press is judged by where it started: once the button is released the input no longer
     // says, but a click is a press that never moved, so where it is now is where it began.
     let pressed_at = ui
@@ -399,20 +414,29 @@ fn scrub_track_in(
         .or(response.interact_pointer_pos());
     let pressed_marker = pressed_at.and_then(marker_at);
     let clicked_marker = response.clicked().then_some(pressed_marker).flatten();
-    let pointer = match pressed_marker {
+    let pressed = match pressed_marker {
         Some(_) => None,
-        None => response.interact_pointer_pos().map(|pointer| {
-            ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
-        }),
+        None => response.interact_pointer_pos().map(fraction_at),
     };
-    let target = new_scrub_target(ui, response.id, pointer);
-    let drawn = pointer.unwrap_or(fraction).clamp(0.0, 1.0);
+    let pointed = match hovered_marker.or(pressed_marker) {
+        Some(_) => None,
+        None => response
+            .interact_pointer_pos()
+            .or(response.hover_pos())
+            .map(|pos| TrackPoint {
+                fraction: fraction_at(pos),
+                pos,
+            }),
+    };
+    let target = new_scrub_target(ui, response.id, pressed);
+    let drawn = pressed.unwrap_or(fraction).clamp(0.0, 1.0);
     if !ui.is_rect_visible(rect) {
         return ScrubTrack {
             response,
             target,
             hovered_marker,
             clicked_marker,
+            pointed,
         };
     }
 
@@ -459,6 +483,7 @@ fn scrub_track_in(
         target,
         hovered_marker,
         clicked_marker,
+        pointed,
     }
 }
 
@@ -758,6 +783,25 @@ mod tests {
     /// button going down (`true`) or up (`false`) there in the order `buttons` gives. Returns the
     /// track's target.
     fn scrub_frame(ctx: &egui::Context, time: f64, pos: Pos2, buttons: &[bool]) -> Option<f32> {
+        scrub_frame_reading(ctx, time, pos, buttons, &[]).target
+    }
+
+    /// What one frame of a scrub track reports.
+    struct Reading {
+        target: Option<f32>,
+        /// How far along the track it says the pointer is.
+        pointed: Option<f32>,
+        hovered_marker: Option<usize>,
+    }
+
+    /// [`scrub_frame`] for a track with `markers` ticked along it, returning all it reports.
+    fn scrub_frame_reading(
+        ctx: &egui::Context,
+        time: f64,
+        pos: Pos2,
+        buttons: &[bool],
+        markers: &[TrackMarker],
+    ) -> Reading {
         let mut events = vec![egui::Event::PointerMoved(pos)];
         events.extend(buttons.iter().map(|&pressed| egui::Event::PointerButton {
             pos,
@@ -771,12 +815,82 @@ mod tests {
             events,
             ..Default::default()
         };
-        let mut target = None;
+        let mut reading = None;
         let mut output = ctx.run_ui(raw, |ui| {
-            target = scrub_track(ui, 0.0, vec2(200.0, 20.0)).target;
+            let track = scrub_track_marked(ui, 0.0, vec2(200.0, 20.0), markers);
+            reading = Some(Reading {
+                target: track.target,
+                pointed: track.pointed.map(|point| point.fraction),
+                hovered_marker: track.hovered_marker,
+            });
         });
         output.textures_delta.clear();
-        target
+        reading.expect("the track was drawn")
+    }
+
+    /// How far along the track [`scrub_frame_reading`] draws a pointer at `x` is: its bar runs from
+    /// the head's room at the left to short of it at the right.
+    fn fraction_at_x(x: f32) -> f32 {
+        (x - SCRUB_HEAD) / (200.0 - SCRUB_HEAD * 2.0)
+    }
+
+    /// Whether `pointed` says the pointer is at `x`.
+    fn points_at(pointed: Option<f32>, x: f32) -> bool {
+        pointed.is_some_and(|fraction| (fraction - fraction_at_x(x)).abs() < 1e-4)
+    }
+
+    #[test]
+    fn a_scrub_track_says_where_the_pointer_rests_without_moving_there() {
+        let ctx = egui::Context::default();
+        let middle = pos2(100.0, 10.0);
+        scrub_frame_reading(&ctx, 0.0, middle, &[], &[]);
+        let reading = scrub_frame_reading(&ctx, 0.1, middle, &[], &[]);
+        assert_eq!(reading.target, None);
+        assert!(points_at(reading.pointed, 100.0), "{:?}", reading.pointed);
+        // Off the track, it says nothing.
+        let reading = scrub_frame_reading(&ctx, 0.2, pos2(300.0, 80.0), &[], &[]);
+        assert_eq!(reading.pointed, None);
+    }
+
+    #[test]
+    fn a_scrub_track_says_nothing_of_where_the_pointer_is_while_it_is_on_a_marker() {
+        let ctx = egui::Context::default();
+        let markers = [TrackMarker {
+            fraction: 0.5,
+            color: Color32::RED,
+        }];
+        // Above the bar, where markers are aimed at, right over the one in the middle.
+        let on_marker = pos2(100.0, 2.0);
+        scrub_frame_reading(&ctx, 0.0, on_marker, &[], &markers);
+        let reading = scrub_frame_reading(&ctx, 0.1, on_marker, &[], &markers);
+        assert_eq!(reading.hovered_marker, Some(0));
+        assert_eq!(reading.pointed, None);
+        // Pressed on, too: a press on a marker is a click on it, not a move along the track.
+        let reading = scrub_frame_reading(&ctx, 0.2, on_marker, &[true], &markers);
+        assert_eq!(reading.pointed, None);
+        assert_eq!(reading.target, None);
+        scrub_frame_reading(&ctx, 0.3, on_marker, &[false], &markers);
+        // Clear of it in the same band, the track says where the pointer is again.
+        let beside = pos2(150.0, 2.0);
+        scrub_frame_reading(&ctx, 0.4, beside, &[], &markers);
+        let reading = scrub_frame_reading(&ctx, 0.5, beside, &[], &markers);
+        assert_eq!(reading.hovered_marker, None);
+        assert!(points_at(reading.pointed, 150.0), "{:?}", reading.pointed);
+    }
+
+    #[test]
+    fn a_scrub_track_says_where_a_drag_along_it_has_got_to() {
+        let ctx = egui::Context::default();
+        let start = pos2(60.0, 10.0);
+        let end = pos2(140.0, 10.0);
+        scrub_frame_reading(&ctx, 0.0, start, &[], &[]);
+        let pressed = scrub_frame_reading(&ctx, 0.1, start, &[true], &[]);
+        assert!(points_at(pressed.pointed, 60.0), "{:?}", pressed.pointed);
+        let moved = scrub_frame_reading(&ctx, 0.2, end, &[], &[]);
+        assert!(points_at(moved.pointed, 140.0), "{:?}", moved.pointed);
+        // Where it says the pointer is, is where the drag asks to move to.
+        assert_eq!(moved.pointed, moved.target);
+        scrub_frame_reading(&ctx, 0.3, end, &[false], &[]);
     }
 
     #[test]
