@@ -87,8 +87,11 @@ export interface LobbyExtra {
   starcraftCompatibleReplays?: boolean
   /**
    * The lobby's visibility when the game started. Records created before this field existed won't
-   * have it set; readers should treat a missing value as `unlisted` (participants-only) rather than
-   * public.
+   * have it set, and what a missing value means depends on the reader. The public games list and
+   * replay downloads treat it as `unlisted` (participants-only), so such a game is never opened up
+   * to people who weren't in it. Players' match histories and search indexing of the results page
+   * hide only an explicit `unlisted`, so such a game stays on the profiles of the people who played
+   * it.
    */
   visibility?: LobbyVisibility
 }
