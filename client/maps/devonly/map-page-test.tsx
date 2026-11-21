@@ -66,6 +66,9 @@ type ScenarioId =
   | 'verifiedMaker'
   | 'publisherMaker'
   | 'credited'
+  | 'sameNameFiles'
+  | 'shortNameFiles'
+  | 'mixedFiles'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'meleePool', label: 'Melee pool map' },
@@ -79,6 +82,9 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'verifiedMaker', label: 'Verified maker' },
   { id: 'publisherMaker', label: 'Publisher is maker' },
   { id: 'credited', label: 'Credited maker' },
+  { id: 'sameNameFiles', label: 'Same-name files' },
+  { id: 'shortNameFiles', label: 'Short-name files' },
+  { id: 'mixedFiles', label: 'Listed and unlisted files' },
 ]
 
 type ViewerId = 'loggedOut' | 'player' | 'claimSent' | 'maker' | 'makerPublisher' | 'staff'
@@ -107,8 +113,21 @@ interface ScenarioMaker {
   credit: string | null
 }
 
+/** A file of a scenario's map besides the map's own. */
+interface ScenarioExtraFile {
+  id: SbMapId
+  /** Defaults to the map's name, which makes the two files' names the same. */
+  name?: string
+  listed: boolean
+  gamesTotal: number
+  /** How long ago the file was first seen, in days. */
+  seenDaysAgo: number
+}
+
 interface Scenario {
   map: Record<string, unknown> & { id: SbMapId; name: string }
+  /** More files the map holds, which are not recommended. */
+  extraFiles?: ScenarioExtraFile[]
   matchups: Partial<Record<MatchmakingType, MatchupRow[]>>
   maker?: ScenarioMaker
 }
@@ -170,6 +189,7 @@ function makeMap({
   baseCount = 12,
   hasImage = true,
   delisted = false,
+  gamesTotal = 18_342,
 }: {
   id: SbMapId
   name: string
@@ -192,6 +212,7 @@ function makeMap({
   baseCount?: number | null
   hasImage?: boolean
   delisted?: boolean
+  gamesTotal?: number
 }): Scenario['map'] {
   const image = (size: 256 | 512 | 1024 | 2048) =>
     hasImage ? (FightingSpirit[`image${size}Url`] ?? '') : ''
@@ -214,7 +235,7 @@ function makeMap({
     stats: stats
       ? {
           id,
-          gamesTotal: 18_342,
+          gamesTotal,
           games28d: 412,
           players90d: 1_204,
           medianLength90d: 14 * 60 * 1000 + 7 * 1000,
@@ -422,6 +443,46 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
     matchups: {},
     maker: { owner: null, ownerKind: null, credit: 'Rose.of.Sharon (KeSPA)' },
   }),
+  sameNameFiles: () => sameNameFiles('01', 'Vermeer SE 2.1'),
+  shortNameFiles: () => sameNameFiles('02', 'Eye'),
+  mixedFiles: () => ({
+    map: makeMap({
+      id: makeSbMapId('00000000-0000-4000-8000-00000000f103'),
+      name: 'Vermeer SE 2.1',
+      gamesTotal: 2,
+    }),
+    extraFiles: [
+      {
+        id: makeSbMapId('00000000-0000-4000-8000-00000000f203'),
+        name: 'Vermeer SE 2.0 beta',
+        listed: false,
+        gamesTotal: 0,
+        seenDaysAgo: 40,
+      },
+    ],
+    matchups: {},
+  }),
+}
+
+/** Two unlisted files that share a name, to show how a Files card row fits its parts. */
+function sameNameFiles(idSuffix: string, name: string): Scenario {
+  return {
+    map: makeMap({
+      id: makeSbMapId(`00000000-0000-4000-8000-00000000f1${idSuffix}`),
+      name,
+      listed: false,
+      gamesTotal: 2,
+    }),
+    extraFiles: [
+      {
+        id: makeSbMapId(`00000000-0000-4000-8000-00000000f2${idSuffix}`),
+        listed: false,
+        gamesTotal: 0,
+        seenDaysAgo: 40,
+      },
+    ],
+    matchups: {},
+  }
 }
 
 const NO_MAKER: ScenarioMaker = { owner: null, ownerKind: null, credit: null }
@@ -514,9 +575,9 @@ function tagsFor(scenario: Scenario) {
     : []
 }
 
-/** The id of the single-file map a scenario's file is in. */
+/** The id of the map a scenario's files are in: a UUID, like its file ids. */
 function familyIdOf(scenario: Scenario): string {
-  return `${scenario.map.id}-family`
+  return `ffffffff${scenario.map.id.slice(8)}`
 }
 
 /**
@@ -549,6 +610,7 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                   viewer === 'makerPublisher' ||
                   (listed && !maker.owner)),
               defaultMap: null,
+              featuredWeeks: [],
               ...(isStaff ? { defaultSetBy: null } : {}),
               files: [
                 {
@@ -559,6 +621,18 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
                   stats,
                   file: { id: file.id, width: file.width, height: file.height },
                 },
+                ...(scenario.extraFiles ?? []).map(extra => ({
+                  id: extra.id,
+                  name: extra.name ?? name,
+                  listed: extra.listed,
+                  firstSeenAt: new Date(NOW - extra.seenDaysAgo * DAY).toISOString(),
+                  stats: {
+                    id: extra.id,
+                    games28d: 0,
+                    gamesTotal: extra.gamesTotal,
+                  },
+                  file: { id: `${extra.id}-file`, width: file.width, height: file.height },
+                })),
               ],
               stats,
               weeklyActivity,
