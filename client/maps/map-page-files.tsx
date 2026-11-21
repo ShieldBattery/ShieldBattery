@@ -9,6 +9,7 @@ import { filterColorCodes, SbMapId } from '../../common/maps'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
   MapPageFiles_FamilyFragmentFragment,
@@ -19,6 +20,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
 import { IconButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -177,6 +179,9 @@ const CompareOverlay = styled.div<{ $withMenu: boolean }>`
   }
 `
 
+/** The gap between the parts of a row. */
+const ROW_GAP = 8
+
 /**
  * The row's text and chips. It carries the row's inner padding, so the link covers the whole row
  * (up to the menu button) for clicking.
@@ -189,7 +194,7 @@ const rowBody = css<{ $withMenu: boolean }>`
 
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: ${ROW_GAP}px;
 
   color: inherit;
   text-decoration: none;
@@ -211,16 +216,26 @@ const RowLink = styled(Link)<{ $withMenu: boolean }>`
   }
 `
 
-const FileName = styled.span<{ $link: boolean }>`
+/**
+ * The first part of a row to give way once the meta text has dropped its date: it shrinks, with an
+ * ellipsis, down to a few characters (fewer for a shorter name), well before the chips shrink. Its
+ * shrink factor is far above the chips' and far below the date slot's, so a deficit's share that
+ * lands on a later item stays a negligible fraction of a pixel (any larger would cut text that fits).
+ */
+const FileName = styled(EllipsizedText)<{ $link: boolean; $minChars: number }>`
   ${titleSmall};
-  ${singleLine};
-  min-width: 0;
+  flex: 0 1000000 auto;
+  min-width: ${props => props.$minChars}ch;
   color: ${props => (props.$link ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
 `
 
-/** A tooltip around a chip, which must keep the chip's full size when the row is tight. */
+/**
+ * A tooltip around a chip, which shrinks (clipping the chip's text with an ellipsis) only after the
+ * meta text's date has dropped and the name has reached its minimum width.
+ */
 const ChipTooltip = styled(Tooltip)`
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 `
 
 const MenuTooltip = styled(Tooltip)`
@@ -243,7 +258,8 @@ const MenuSpacer = styled.div`
 `
 
 const RowChip = styled(RoomChip)`
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
   padding: 2px 6px;
 `
 
@@ -256,23 +272,73 @@ const DefaultChip = styled(RowChip)`
   color: var(--theme-positive);
 `
 
-const RowMeta = styled.div`
-  ${bodySmall};
-  margin-left: auto;
-  flex-shrink: 0;
+const DefaultChipLabel = styled.span`
+  ${singleLine};
+  min-width: 0;
+`
 
+const DefaultChipStar = styled(MaterialIcon)`
+  flex-shrink: 0;
+`
+
+/**
+ * The meta text's shared look. It gives way to the comparison button that a row of a non-recommended
+ * file lays over it; touch devices don't show that button.
+ */
+const metaText = css`
+  ${bodySmall};
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
   transition: opacity 80ms linear;
 
-  /* Gives way to the comparison button that a row of a non-recommended file lays over it; touch
-     devices don't show that button */
   @media (hover: hover) {
     ${Row}[data-has-compare]:hover &,
     ${Row}[data-has-compare]:focus-within & {
       opacity: 0;
     }
+  }
+`
+
+/**
+ * The date of a file whose name another file shares, shown whole or not at all. It shrinks before
+ * anything else in the row does, down to nothing. Its zero-width `::before` is always the first item
+ * on the line, so the date is never first and wraps onto a second line as soon as the slot is
+ * narrower than it, where the fixed height and overflow clip it away (the `::before` is as tall as
+ * the visible line, so that line doesn't collapse). The negative margin takes up the row's gap to
+ * the games count, so no gap is left once the slot has shrunk to nothing.
+ */
+const MetaDate = styled.span`
+  ${metaText};
+  flex: 0 1000000000000 auto;
+  min-width: 0;
+  height: 16px;
+  margin-left: auto;
+  margin-right: -${ROW_GAP}px;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    height: 16px;
+  }
+
+  & > span {
+    white-space: pre;
+  }
+`
+
+/** The games count, right-aligned in the row. Only the first meta item takes the free space. */
+const MetaGames = styled.span`
+  ${metaText};
+  flex-shrink: 0;
+  margin-left: auto;
+  white-space: nowrap;
+
+  ${MetaDate} + & {
+    margin-left: 0;
   }
 `
 
@@ -402,64 +468,83 @@ function FileRow({
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
   const uploadedDate = useFormat(uploadedDateFormat)
+  const fileLabel = useFamilyFileLabel(files)
+  const [recommendedRef, recommendedCut] = useOverflowingElement<HTMLSpanElement>()
+  const [unlistedRef, unlistedCut] = useOverflowingElement<HTMLDivElement>()
 
   const name = filterColorCodes(file.name)
   const isSelected = file.id === selectedId
   const isDefault = file.id === family.current.id
   const isPicked = family.defaultMap?.id === file.id
   const games = file.stats?.gamesTotal ?? 0
-  const meta = [
-    t('maps.files.games', {
-      defaultValue: '{{formattedCount}} games',
-      defaultValue_one: '{{formattedCount}} game',
-      count: games,
-      formattedCount: numbers.format(games),
-    }),
-  ]
-  if (duplicateNames.has(name)) {
-    meta.unshift(uploadedDate.format(new Date(file.firstSeenAt)))
-  }
+  const gamesText = t('maps.files.games', {
+    defaultValue: '{{formattedCount}} games',
+    defaultValue_one: '{{formattedCount}} game',
+    count: games,
+    formattedCount: numbers.format(games),
+  })
+  const dateText = duplicateNames.has(name) ? uploadedDate.format(new Date(file.firstSeenAt)) : null
 
-  let defaultChip = (
-    <DefaultChip>
-      <MaterialIcon icon='star' size={14} filled={true} />
-      {t('maps.files.recommended', 'Recommended')}
-    </DefaultChip>
+  const recommendedLabel = t('maps.files.recommended', 'Recommended')
+  let recommendedDetail = t(
+    'maps.files.recommendedTooltip',
+    'The file players get when they pick this map',
   )
   if (canManageMaps) {
     // Admin-only details, so they aren't translated
-    defaultChip = (
-      <ChipTooltip
-        text={isPicked ? `Picked by ${family.defaultSetBy?.name ?? 'staff'}` : 'Most played'}
-        position='top'>
-        {defaultChip}
-      </ChipTooltip>
-    )
-  } else {
-    defaultChip = (
-      <ChipTooltip
-        text={t('maps.files.recommendedTooltip', 'The file players get when they pick this map')}
-        position='top'>
-        {defaultChip}
-      </ChipTooltip>
-    )
+    recommendedDetail = isPicked
+      ? `Picked by ${family.defaultSetBy?.name ?? 'staff'}`
+      : 'Most played'
   }
+  const defaultChip = (
+    <ChipTooltip
+      text={recommendedCut ? `${recommendedLabel} · ${recommendedDetail}` : recommendedDetail}
+      position='top'>
+      <DefaultChip>
+        <DefaultChipStar icon='star' size={14} filled={true} />
+        <DefaultChipLabel ref={recommendedRef}>{recommendedLabel}</DefaultChipLabel>
+      </DefaultChip>
+    </ChipTooltip>
+  )
 
-  let unlistedChip = <RowChip>{t('maps.page.unlisted', 'Unlisted')}</RowChip>
-  if (canManageMaps && isPicked && !isDefault) {
-    unlistedChip = (
-      <ChipTooltip text='Picked as recommended, but unused while unlisted' position='top'>
-        {unlistedChip}
-      </ChipTooltip>
-    )
-  }
+  // A listed map's recommended file is always listed, so a row never carries both this chip and the
+  // Recommended one. On a map with no listed file, every row would carry it, and the page header
+  // already says so for the file it shows.
+  const showUnlisted = !file.listed && family.listed
+  const unlistedLabel = t('maps.page.unlisted', 'Unlisted')
+  const unlistedDetail =
+    canManageMaps && isPicked && !isDefault
+      ? 'Picked as recommended, but unused while unlisted'
+      : undefined
+  const unlistedTooltip = unlistedCut
+    ? [unlistedLabel, unlistedDetail].filter(Boolean).join(' · ')
+    : unlistedDetail
+  const unlistedChip = (
+    <ChipTooltip
+      text={unlistedTooltip ?? ''}
+      disabled={!unlistedTooltip}
+      position='top'
+      tabIndex={unlistedDetail ? 0 : -1}>
+      <RowChip ref={unlistedRef}>{unlistedLabel}</RowChip>
+    </ChipTooltip>
+  )
 
   const content = (
     <>
-      <FileName $link={!isSelected}>{name}</FileName>
+      <FileName
+        $link={!isSelected}
+        $minChars={Math.min(6, Array.from(name).length)}
+        text={name}
+        tooltipText={fileLabel(file)}
+      />
       {isDefault ? defaultChip : null}
-      {!file.listed ? unlistedChip : null}
-      <RowMeta>{meta.join(' · ')}</RowMeta>
+      {showUnlisted ? unlistedChip : null}
+      {dateText ? (
+        <MetaDate>
+          <span>{dateText} · </span>
+        </MetaDate>
+      ) : null}
+      <MetaGames>{gamesText}</MetaGames>
     </>
   )
 

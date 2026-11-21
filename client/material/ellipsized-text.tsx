@@ -12,14 +12,17 @@ const Text = styled.span`
 /**
  * One line of text that ellipsizes when it runs out of room, with a Tooltip showing all of it only
  * while it's actually cut off. The `className` styles the wrapper, so size and typography set there
- * apply to the text.
+ * apply to the text. The Tooltip shows `tooltipText` when given (e.g. a longer label for the
+ * text), otherwise the text itself.
  */
 export function EllipsizedText({
   text,
+  tooltipText = text,
   position = 'top',
   className,
 }: {
   text: string
+  tooltipText?: string
   position?: TooltipPosition
   className?: string
 }) {
@@ -27,7 +30,7 @@ export function EllipsizedText({
 
   return (
     <Tooltip
-      text={text}
+      text={tooltipText}
       position={position}
       disabled={!isOverflowing}
       tabIndex={-1}
