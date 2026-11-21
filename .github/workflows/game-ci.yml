@@ -9,6 +9,13 @@ on:
     paths:
       - '.github/workflows/game-ci.yml'
       - 'game/**'
+  workflow_dispatch:
+  # The Rust caches are keyed on the compiler version, and GitHub deletes caches unused for 7 days.
+  # This workflow only runs on pushes that touch its paths, so without a periodic run on the default
+  # branch a new stable Rust release (or a quiet week) leaves every pull request compiling from
+  # scratch.
+  schedule:
+    - cron: '0 3 * * 1,4'
 
 permissions:
   contents: read
@@ -18,7 +25,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Skips push runs on refs that no pull request merges into; see ci-gate.yml. The jobs below run
+  # unless it answers 'false', so they also run when it is skipped (other events) or fails.
+  gate:
+    if: github.event_name == 'push'
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/ci-gate.yml
+
   clippy:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: windows-latest
     defaults:
       run:
@@ -41,8 +58,11 @@ jobs:
         with:
           components: clippy
 
+      # A cache saved by a pull request is only readable by that pull request, but still counts
+      # against the repo's cache quota and pushes out the caches every pull request shares.
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.event_name != 'pull_request' }}
           workspaces: ./game
           key: ${{ matrix.name }}
 
@@ -50,6 +70,8 @@ jobs:
         run: cargo clippy --all-targets --workspace ${{ matrix.target }} -- -D warnings
 
   fmt:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: windows-latest
     defaults:
       run:
@@ -68,6 +90,8 @@ jobs:
         run: cargo fmt --all -- --check
 
   licenses:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +102,8 @@ jobs:
           command: check licenses
 
   test:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: windows-latest
     defaults:
       run:
@@ -100,6 +126,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.event_name != 'pull_request' }}
           workspaces: ./game
           key: ${{ matrix.name }}
 
