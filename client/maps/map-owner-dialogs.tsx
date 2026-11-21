@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import { CombinedError, useClient, useMutation, useQuery } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { filterColorCodes, SbMapId } from '../../common/maps'
+import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserErrorCode } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
@@ -37,6 +38,7 @@ import {
 } from '../styles/typography'
 import { findUserByName } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
+import { UserSearchField } from '../users/user-search-field'
 import { mapUploadErrorMessage } from './action-creators'
 import { AddFileFacts, addFileUnavailableText, joinedMessage, planAddFile } from './map-add-file'
 import { MapFileImage } from './map-image'
@@ -331,6 +333,8 @@ export function MapOwnerEditDialog({ familyId, onCancel }: MapOwnerEditDialogPro
   const [removeOwner, removingOwner] = useRemoveMapOwner()
   const [lookingUp, setLookingUp] = useState(false)
   const [username, setUsername] = useState('')
+  // The suggestion the username was filled from, so setting the maker can skip looking it up.
+  const [pickedUser, setPickedUser] = useState<SbUser>()
   // The credit field starts out as the map's credit once that loads
   const [creditInput, setCreditInput] = useState<string>()
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -356,26 +360,35 @@ export function MapOwnerEditDialog({ familyId, onCancel }: MapOwnerEditDialogPro
   const credit = creditInput ?? owner.credit ?? ''
   const creditTooLong = textLength(credit.trim()) > MAX_CREDIT_LENGTH
 
+  const applyOwner = (userId: SbUserId) => {
+    setOwner({ familyId: family.id, userId })
+      .then(result => {
+        if (result.error) {
+          setErrorMessage(`Couldn't set the maker: ${serverErrorText(result.error)}`)
+        } else {
+          setUsername('')
+          setPickedUser(undefined)
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
   const onSetOwner = () => {
     const name = username.trim()
     if (!name) {
       return
     }
     setErrorMessage(undefined)
+    if (pickedUser && pickedUser.name === name) {
+      applyOwner(pickedUser.id)
+      return
+    }
     setLookingUp(true)
     dispatch(
       findUserByName(name, {
         onSuccess: user => {
           setLookingUp(false)
-          setOwner({ familyId: family.id, userId: user.id })
-            .then(result => {
-              if (result.error) {
-                setErrorMessage(`Couldn't set the maker: ${serverErrorText(result.error)}`)
-              } else {
-                setUsername('')
-              }
-            })
-            .catch(swallowNonBuiltins)
+          applyOwner(user.id)
         },
         onError: err => {
           setLookingUp(false)
@@ -436,14 +449,21 @@ export function MapOwnerEditDialog({ familyId, onCancel }: MapOwnerEditDialogPro
             )}
           </SectionLine>
           <FieldRow>
-            <TextField
+            <UserSearchField
               label='Username'
               dense={true}
               allowErrors={false}
               value={username}
               disabled={pending}
-              onChange={e => setUsername(e.target.value)}
-              onEnterKeyDown={onSetOwner}
+              onChange={value => {
+                setUsername(value)
+                setPickedUser(undefined)
+              }}
+              onPick={user => {
+                setUsername(user.name)
+                setPickedUser(user)
+              }}
+              onSubmitTyped={onSetOwner}
             />
             <FieldButton
               label='Set maker'
