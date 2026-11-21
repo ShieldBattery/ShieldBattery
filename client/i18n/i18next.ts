@@ -105,6 +105,13 @@ async function resolveTranslationUrl(language: string, namespace: string): Promi
   }
 }
 
+/**
+ * How long a translation file gets to load. Initialization waits on these files and nothing is
+ * rendered until it finishes, so a download that stalls without failing must not hold it open. A
+ * file that is given up on only costs showing the strings written in the code.
+ */
+const TRANSLATION_LOAD_TIMEOUT_MS = 15_000
+
 const i18nextDeferred = createDeferred<TFunction>()
 
 export const i18nextPromise = i18nextDeferred.then(i18next => i18next)
@@ -122,6 +129,14 @@ export function initI18next() {
         // Each request is for a single language and namespace
         loadPath: ([language], [namespace]) => resolveTranslationUrl(language, namespace),
         addPath: makeServerUrl('/locales/add/{{lng}}/{{ns}}'),
+        // This replaces the backend's default options rather than merging into them, so the first
+        // three restate those defaults.
+        requestOptions: () => ({
+          mode: 'cors',
+          credentials: 'same-origin',
+          cache: 'default',
+          signal: AbortSignal.timeout(TRANSLATION_LOAD_TIMEOUT_MS),
+        }),
       },
 
       saveMissing: isDev,

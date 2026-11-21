@@ -182,6 +182,7 @@ export function getCurrentSession(
       apiUrl`sessions?date=${Date.now()}` + (locale ? urlPath`&locale=${locale}` : ''),
       {
         method: 'get',
+        signal: spec.signal,
       },
     )
 

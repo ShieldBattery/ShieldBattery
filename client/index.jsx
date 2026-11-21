@@ -75,6 +75,17 @@ if (isDev) {
   }
 }
 
+/**
+ * How long startup waits for the server config and for the current session. Nothing is rendered
+ * until both settle, so a request that stalls without failing must not hold them open.
+ *
+ * The config gets less time because giving up on it is cheap: the last one received is usually
+ * still stored. Giving up on the session shows the user as logged out, so it gets as long as a slow
+ * connection or a busy server could reasonably need.
+ */
+const CONFIG_TIMEOUT_MS = 10_000
+const SESSION_TIMEOUT_MS = 30_000
+
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
   if (elem) {
@@ -150,7 +161,7 @@ rootElemPromise
     let sessionPromise
 
     if (!window._sbInitData) {
-      configPromise = fetchJson('/config')
+      configPromise = fetchJson('/config', { signal: AbortSignal.timeout(CONFIG_TIMEOUT_MS) })
     } else {
       configPromise = Promise.resolve(window._sbInitData.serverConfig)
     }
@@ -162,6 +173,10 @@ rootElemPromise
         action = getCurrentSession(
           { locale: getStartupLanguage() },
           {
+            signal: AbortSignal.timeout(SESSION_TIMEOUT_MS),
+            // Without this a timeout would call neither callback, and this promise would never
+            // settle.
+            callbackOnAbort: true,
             onSuccess: () => resolve(),
             onError: err => reject(err),
           },
@@ -184,13 +199,19 @@ rootElemPromise
       log.warning(`An error when retrieving the server config: ${err?.stack ?? err}`)
     }
 
+    i18n.on('failedLoading', (language, namespace, message) => {
+      log.warning(`Failed to load the ${language} ${namespace} translations: ${message}`)
+    })
     const i18nextPromise = initI18next()
 
     try {
       await sessionPromise
     } catch (err) {
-      // Ignored, usually just means we don't have a current session
+      // Otherwise ignored, usually just means we don't have a current session
       // TODO(tec27): Probably we should handle some error codes here specifically
+      if (err?.name === 'TimeoutError') {
+        log.warning('Timed out retrieving the current session')
+      }
     }
 
     try {
