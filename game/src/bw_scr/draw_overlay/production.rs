@@ -1,7 +1,7 @@
 use std::ptr;
 
 use bw_dat::{Game, TechId, Unit, UnitId, UpgradeId, WeaponId};
-use egui::{Color32, TextureId, Vec2};
+use egui::{Align, Align2, Color32, Layout, Rect, Sense, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
@@ -14,7 +14,9 @@ use crate::bw_scr::draw_inject;
 use crate::bw_scr::game_stats::TimelineSubject;
 
 use super::wireframe::{self, FULL_HEALTH};
-use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
+use super::{
+    BwVars, OverlayState, ReplayUiValues, Texture, player_has_units, replay_players_by_team,
+};
 
 pub struct ProductionState {
     per_player: [PlayerProduction; 8],
@@ -960,6 +962,154 @@ fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIco
             cell_width: f32::from(height) / f32::from(width),
         }),
     })
+}
+
+impl Production {
+    fn icon(&self, is_hd: bool) -> Texture {
+        match *self {
+            Production::Unit(id) => {
+                // SD cmdicons have lair and hive icons swapped.
+                if !is_hd && id == bw_dat::unit::LAIR {
+                    Texture::CmdIcon(bw_dat::unit::HIVE.0)
+                } else if !is_hd && id == bw_dat::unit::HIVE {
+                    Texture::CmdIcon(bw_dat::unit::LAIR.0)
+                } else {
+                    Texture::CmdIcon(id.0)
+                }
+            }
+            Production::Upgrade(id) => Texture::CmdIcon(id.icon() as u16),
+            Production::Tech(id) => Texture::CmdIcon(id.icon() as u16),
+        }
+    }
+}
+impl OverlayState {
+    pub fn add_production_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
+        egui::Window::new("Replay_Production")
+            .anchor(Align2::LEFT_TOP, self.replay_ui_values.production_pos)
+            .movable(false)
+            .resizable(false)
+            .title_bar(false)
+            .frame(egui::Frame::NONE)
+            .show(ctx, |ui| {
+                // Want this so that the lines are tightly packed without
+                // transparent gaps in between.
+                ui.style_mut().spacing.item_spacing.y = 0.0;
+                let is_shared_control = crate::game_thread::is_shared_control();
+                for (_team, player_id) in replay_players_by_team(bw) {
+                    if !player_has_units(bw, player_id) {
+                        continue;
+                    }
+                    if is_shared_control
+                        && unsafe { !(**bw.game).team_game_main_player.contains(&player_id) }
+                    {
+                        continue;
+                    }
+                    egui::Frame::popup(ui.style())
+                        .inner_margin(egui::Margin::same(2))
+                        //.shadow(egui::epaint::Shadow::NONE)
+                        .show(ui, |ui| {
+                            let clicked = self.add_player_production(bw, ui, player_id);
+                            if let Some(clicked) = clicked {
+                                self.handle_click(player_id, clicked);
+                            }
+                        });
+                }
+            });
+    }
+    fn add_player_production(
+        &mut self,
+        bw: &BwVars,
+        ui: &mut egui::Ui,
+        player_id: u8,
+    ) -> Option<Production> {
+        let player_production = self.production.per_player.get(player_id as usize)?;
+        let size = Vec2 { x: 300.0, y: 24.0 };
+        let mut clicked = None;
+        let res = ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Min), |ui| {
+            let ReplayUiValues {
+                production_image_size,
+                production_max,
+                ..
+            } = self.replay_ui_values;
+            let margin = 2.0;
+
+            // Player colored rect
+            let color = unsafe {
+                bw::player_color(
+                    bw.game,
+                    bw.main_palette,
+                    bw.use_rgb_colors,
+                    bw.rgb_colors,
+                    player_id,
+                )
+            };
+            {
+                let color = Color32::from_rgb(color[0], color[1], color[2]);
+                let rect_size = (6.0, production_image_size + margin * 2.0);
+                let color_rect = Rect::from_min_size(ui.next_widget_position(), rect_size.into());
+                let painter = ui.painter();
+                let rounding = egui::CornerRadius::same(2);
+                painter.rect_filled(color_rect, rounding, color);
+                ui.allocate_rect(color_rect, Sense::hover());
+            }
+
+            let font = egui::FontId {
+                size: 20.0,
+                family: egui::FontFamily::Proportional,
+            };
+            for group in player_production
+                .groups()
+                .iter()
+                .take(production_max as usize)
+            {
+                let production = group.production;
+                let amount = group.count;
+                let icon = production.icon(bw.is_hd);
+                let size = (production_image_size, production_image_size);
+                let rect = Rect::from_min_size(ui.next_widget_position(), size.into())
+                    .translate((0.0, margin).into());
+                let response = ui.allocate_rect(rect, Sense::click());
+                if response.clicked() {
+                    clicked = Some(production);
+                }
+
+                // Icon
+                let painter = ui.painter();
+                let uv = Rect::from_min_max((0.0, 0.0).into(), (1.0, 1.0).into());
+                //let rounding = egui::Rounding::same(2.0);
+                //painter.rect_filled(rect, rounding, Color32::BLACK);
+                let icon_color = match response.hovered() {
+                    true => Color32::YELLOW,
+                    false => Color32::WHITE,
+                };
+                painter.image(TextureId::User(icon.to_egui_id()), rect, uv, icon_color);
+
+                // Amount text
+                // Show only number for units since for research it is always 1 anyway
+                if matches!(production, Production::Unit(..)) {
+                    let galley =
+                        painter.layout_no_wrap(format!("{amount}"), font.clone(), Color32::WHITE);
+                    let rounding = egui::CornerRadius::same(1);
+                    let text_pos = rect.left_bottom() - Vec2::from((0.0, galley.rect.height()));
+                    let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
+                    let bg_color = ui.visuals().window_fill();
+                    painter.rect_filled(text_rect, rounding, bg_color);
+                    painter.galley(text_pos, galley, bg_color);
+                }
+                // Progress bar
+                let mut progress_rect = Rect::from_min_size(
+                    rect.left_bottom() - Vec2::from((0.0, 2.0)),
+                    (rect.width(), 4.0).into(),
+                );
+                let rounding = egui::CornerRadius::same(1);
+                painter.rect_filled(progress_rect, rounding, Color32::BLACK);
+                progress_rect.set_width(progress_rect.width() * group.progress);
+                painter.rect_filled(progress_rect, rounding, Color32::GREEN);
+            }
+        });
+        self.add_ui_rect(&Some(res));
+        clicked
+    }
 }
 
 #[cfg(test)]

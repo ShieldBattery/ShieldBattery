@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -13,6 +13,10 @@ use crate::game_thread::send_game_results;
 use crate::netcode_v2;
 
 use super::{BwScr, console};
+
+static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
+
+static GAME_MENU_EVENT_HANDLER: EventHandler = EventHandler::new();
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
@@ -77,27 +81,13 @@ const NEW_EVENT_HANDLER: EventHandler = EventHandler::new();
 /// Which replacement a dialog spawning under this name gets, or `None` when BW's own dialog should
 /// run untouched.
 fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
-    let dialog = native_dialogs::replacement_for(name)?;
-    match dialog {
-        // BW's native waiting-for-players dialog is replaced only where the egui disconnect surface
-        // that stands in for it is actually driven. Outside a netcode v2 session nothing feeds that
-        // surface, so hiding the native dialog there would leave a stalled player with nothing.
-        NativeDialog::TimeOut => netcode_v2::with_turn_state(|_| ())
-            .is_some()
-            .then_some(dialog),
-        NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
-        // A player's result, and a live watcher's end of the game, which the card reads as the
-        // game being over. A replay ends on its own playback controls.
-        NativeDialog::Victory | NativeDialog::Defeat => {
-            (!crate::game_thread::is_replay()).then_some(dialog)
-        }
-        // A player's alliances and chat recipient are set on the overlay's alliances screen. A
-        // watcher's use of the two dialogs (a replay's vision, an observer's read-only lists) has
-        // nothing of ours standing in for it.
-        NativeDialog::AllianceFilter | NativeDialog::MessageFilter => {
-            (!get_bw().is_replay_or_obs()).then_some(dialog)
-        }
-    }
+    overlay_ui::classic::dialog_replacement(
+        name,
+        crate::classic_game_ui(),
+        netcode_v2::with_turn_state(|_| ()).is_some(),
+        crate::game_thread::is_replay(),
+        get_bw().is_replay_or_obs(),
+    )
 }
 
 /// Where one replaced native dialog stands, as of one read.
@@ -506,6 +496,11 @@ pub unsafe fn spawn_dialog_hook(
             let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
+        } else if name == "GameMenu" && crate::classic_game_ui() && !crate::game_thread::is_replay()
+        {
+            let inited = GAME_MENU_EVENT_HANDLER.init(game_menu_event_handler);
+            inited.set_orig(event_handler);
+            inited.func() as usize
         } else if name == native_dialogs::VICTORY_DIALOG_NAME {
             send_game_results();
             // Victory decides the game for everyone, so the session can end and any further play is
@@ -849,11 +844,8 @@ unsafe extern "C" fn minimap_event_handler(
             if bw.is_live_observer() {
                 hide_player_camera_outlines(Control::new(ctrl).dialog());
             }
-            // A watcher's minimap gets the overlay's own header in place of the two buttons SC:R
-            // keeps above it, so those stay hidden for a watcher. The game shows and hides them on
-            // timers of its own, so hiding them once is not enough: their handlers are hooked to
-            // refuse every show from here on. Everything else still reaches them, so the overlay
-            // can still press one through the game's own code.
+            // The original viewer uses these native buttons for vision and recipients.
+            // Their initialization timer must not immediately hide them again.
             if bw.is_replay_or_obs() {
                 let ctrl = Control::new(ctrl);
                 for child in ctrl.dialog().children() {
@@ -863,11 +855,22 @@ unsafe extern "C" fn minimap_event_handler(
                             _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
                         };
                         if let Some(handler) = (*(*child)).event_handler {
-                            let inited = handler_hook.init(keep_button_hidden);
+                            let inited = handler_hook.init(if crate::classic_game_ui() {
+                                prevent_button_hide
+                            } else {
+                                keep_button_hidden
+                            });
                             inited.set_orig(handler as usize);
                             child.set_event_handler(inited);
+                            if crate::classic_game_ui() {
+                                PREVENT_BUTTON_HIDE_COUNT.fetch_add(1, Ordering::Relaxed);
+                            }
                         }
-                        child.hide();
+                        if crate::classic_game_ui() {
+                            child.show();
+                        } else {
+                            child.hide();
+                        }
                     }
                 }
             }
@@ -1015,24 +1018,169 @@ unsafe fn is_pointer_event(event: *mut bw::ControlEvent) -> bool {
     unsafe { matches!((*event).ty, 0x3..=0xc | 0x11 | 0x12) }
 }
 
-/// The event handler of a button above a watcher's minimap, which refuses to be shown.
 unsafe extern "C" fn keep_button_hidden(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        // 0xd is the dialog system's show event.
         if (*event).ty == 0xe && (*event).ext_type == 0xd {
             return 0;
         }
-        orig(ctrl, event as _)
+        orig(ctrl, event)
+    }
+}
+
+/// Keeps the game's initial hide timer from removing the original viewer buttons.
+unsafe extern "C" fn prevent_button_hide(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        if (*event).ty == 0xe && (*event).ext_type == 0xe {
+            let count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);
+            if count != 0 {
+                PREVENT_BUTTON_HIDE_COUNT.store(count - 1, Ordering::Relaxed);
+                return 0;
+            }
+        }
+        orig(ctrl, event)
+    }
+}
+
+/// The `GameMenu` control ids of its Save Game and Load Game buttons.
+const GAME_MENU_SAVE_GAME_ID: i16 = 1;
+const GAME_MENU_LOAD_GAME_ID: i16 = 2;
+
+static SAVE_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
+static LOAD_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
+/// The native draw function of the menu buttons [`disabled_button_draw`] wraps. Every push button
+/// shares one.
+static MENU_BUTTON_ORIG_DRAW: AtomicUsize = AtomicUsize::new(0);
+
+type MenuControlDrawFn =
+    unsafe extern "C" fn(*mut bw::scr::Control, i32, i32, *const bw::Rect, *const bw::Rect);
+
+/// Keeps the in-game menu's Save Game and Load Game buttons disabled: a saved game can't be loaded
+/// through ShieldBattery, and live games drop both commands anyway (see
+/// [`commands::filter_invalid_commands`](crate::bw::commands::filter_invalid_commands)).
+///
+/// BW re-enables Save Game on its own schedule while the menu is open, outside any of the menu's
+/// event handlers, so disabling it from events alone lets it draw enabled for a moment. Each button
+/// is therefore also wrapped at the two points that matter: its draw, which re-applies the disabled
+/// flag first, and its event handler, which swallows activation whatever the flag says.
+unsafe extern "C" fn game_menu_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        let is_init = (*event).ty == 0xe && (*event).ext_type == 0x0;
+        let ret = orig(ctrl, event);
+        // Other callbacks can close the menu synchronously, leaving no controls to inspect.
+        if is_init {
+            let dialog = Control::new(ctrl).dialog();
+            for id in [GAME_MENU_SAVE_GAME_ID, GAME_MENU_LOAD_GAME_ID] {
+                if let Some(button) = dialog.child_by_id(id) {
+                    wrap_disabled_button(button, id);
+                    button.disable();
+                }
+            }
+        }
+        ret
+    }
+}
+
+unsafe fn wrap_disabled_button(button: Control, id: i16) {
+    unsafe {
+        let hook = match id {
+            GAME_MENU_SAVE_GAME_ID => &SAVE_BUTTON_EVENT_HANDLER,
+            _ => &LOAD_BUTTON_EVENT_HANDLER,
+        };
+        let inited = hook.init(disabled_button_event_handler);
+        if let Some(handler) = (*(*button)).event_handler
+            && handler as usize != inited.func() as usize
+        {
+            inited.set_orig(handler as usize);
+            button.set_event_handler(inited);
+        }
+
+        let ctrl: *mut bw::scr::Control = *button;
+        if let Some(draw) = (*ctrl).draw
+            && draw as usize != disabled_button_draw as MenuControlDrawFn as usize
+        {
+            let stored = MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed);
+            if stored == 0 || stored == draw as usize {
+                MENU_BUTTON_ORIG_DRAW.store(draw as usize, Ordering::Relaxed);
+                (*ctrl).draw = Some(disabled_button_draw);
+            } else {
+                warn!("Game menu button {id} has an unexpected draw function, not wrapping it");
+            }
+        }
+    }
+}
+
+unsafe extern "C" fn disabled_button_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        // Activation (a click) and the button's own hotkey, which BW may still deliver in the
+        // moment between re-enabling the button and the next disable.
+        if (*event).ty == 0xe && matches!((*event).ext_type, 0x2 | 0x3) {
+            debug!(
+                "Ignored activation of disabled game menu button {}",
+                Control::new(ctrl).id()
+            );
+            return 0;
+        }
+        orig(ctrl, event)
+    }
+}
+
+unsafe extern "C" fn disabled_button_draw(
+    ctrl: *mut bw::scr::Control,
+    x: i32,
+    y: i32,
+    area: *const bw::Rect,
+    clip: *const bw::Rect,
+) {
+    unsafe {
+        // The same flag `Control::disable` sets; set directly since a draw is no place to send the
+        // control an event.
+        (*ctrl).flags2 = ((*ctrl).flags2 & !0x4) | 0x1;
+        let orig: MenuControlDrawFn =
+            std::mem::transmute(MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed));
+        orig(ctrl, x, y, area, clip)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_menu_callbacks_need_no_live_control_after_initialization() {
+        unsafe extern "C" fn consumed_menu(
+            _ctrl: *mut bw::Control,
+            event: *mut bw::ControlEvent,
+        ) -> u32 {
+            unsafe { (*event).param as u32 }
+        }
+
+        for (ty, ext_type) in [(0xe, 0x2), (0xe, 0x3), (0xe, 0x1), (0x3, 0)] {
+            let mut event: bw::ControlEvent = unsafe { std::mem::zeroed() };
+            event.ty = ty;
+            event.ext_type = ext_type;
+            event.param = 71;
+            // A callback may have destroyed the menu; no control is available to inspect.
+            let result =
+                unsafe { game_menu_event_handler(std::ptr::null_mut(), &mut event, consumed_menu) };
+            assert_eq!(result, 71);
+        }
+    }
 
     fn state(live: bool, spawns: u32) -> ReplacedDialogState {
         ReplacedDialogState { live, spawns }

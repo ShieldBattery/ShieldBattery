@@ -618,6 +618,64 @@ impl Shell {
         }
     }
 
+    /// Draws the original network surfaces. Native dialogs and viewer controls own their input.
+    pub fn frame_classic(
+        &mut self,
+        ctx: &Context,
+        host: &HostFrame,
+        views: &mut Views<'_>,
+    ) -> FrameOutput {
+        self.set_host(host);
+        self.intents.clear();
+        self.modals = ModalStack::default();
+        self.replay.set_playback(None);
+        if host.native_menu_open || !host.game_started {
+            return FrameOutput::default();
+        }
+        let mut hit_rects = Vec::new();
+        let blocked = views
+            .disconnect
+            .as_ref()
+            .is_some_and(|surface| surface.blocks_input);
+        if let Some(surface) = &views.disconnect {
+            let response =
+                crate::classic_disconnect::render_current_disconnect_view(surface.view, ctx, false);
+            if crate::classic_disconnect::has_current_button(surface.view) {
+                hit_rects.push(HitRect::new(response.response.rect));
+            }
+            self.intents.extend(
+                response
+                    .inner
+                    .drop_requests
+                    .into_iter()
+                    .map(|slot| Intent::DropPlayer { slot }),
+            );
+            if response.inner.leave {
+                self.intents.push(Intent::LeaveGame);
+            }
+        }
+        if let Some(view) = views.net_stats {
+            crate::classic_netstat::render_netstat_view(view, ctx);
+        }
+        if let Some(view) = views.net_quality {
+            render_net_quality(view, ctx);
+        }
+        let capture = InputCapture::resolve(
+            blocked,
+            true,
+            host.native_textbox_open,
+            host.native_menu_open,
+        );
+        FrameOutput {
+            intents: std::mem::take(&mut self.intents),
+            hit_rects,
+            capture,
+            playback_controls_shown: false,
+            button_click: false,
+            ..FrameOutput::default()
+        }
+    }
+
     /// Draws the frame and reports what it wants of the host.
     pub fn frame(&mut self, ctx: &Context, host: &HostFrame, views: &mut Views<'_>) -> FrameOutput {
         self.set_host(host);

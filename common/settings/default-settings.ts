@@ -52,6 +52,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   teamSelfColor: undefined,
   ffaSelfColor: undefined,
   legacyCursorSizing: false,
+  classicGameUi: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,
   grabPanSensitivityOn: true,

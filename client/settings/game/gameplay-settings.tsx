@@ -41,6 +41,7 @@ const BonusSkinsCheckBox = styled(CheckBox)`
 `
 
 interface GameplaySettingsModel {
+  classicGameUi: boolean
   apmAlertOn: boolean
   apmAlertColorOn: boolean
   apmAlertSoundOn: boolean
@@ -92,6 +93,7 @@ export function GameplaySettings() {
     useForm<GameplaySettingsModel>(
       {
         ...scrSettings,
+        classicGameUi: localSettings.classicGameUi,
         visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
         startingFog: localSettings.startingFog,
         minimapColorMode: localSettings.minimapColorMode,
@@ -137,6 +139,7 @@ export function GameplaySettings() {
       dispatch(
         mergeLocalSettings(
           {
+            classicGameUi: model.classicGameUi,
             startingFog: model.startingFog,
             minimapColorMode: model.minimapColorMode,
             minimapTerrainHidden: model.minimapTerrainHidden,
@@ -180,6 +183,17 @@ export function GameplaySettings() {
           <SettingsSectionHeader>
             {t('settings.game.gameplay.interface.title', 'Interface')}
           </SettingsSectionHeader>
+          <CheckBox
+            {...bindCheckable('classicGameUi')}
+            label={t('settings.game.gameplay.classicGameUi', 'Classic game UI')}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <SettingsSectionDescription>
+            {t(
+              'settings.game.gameplay.classicGameUiDescription',
+              'Use classic menus and replay interface. Applies when StarCraft next launches.',
+            )}
+          </SettingsSectionDescription>
           <Select
             {...bindCustom('unitPortraits')}
             label={t('settings.game.gameplay.unitPortraits.title', 'Portraits')}

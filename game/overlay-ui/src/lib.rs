@@ -21,6 +21,11 @@
 
 pub mod alliances;
 pub mod chat_history;
+pub mod classic;
+pub mod classic_disconnect;
+pub mod classic_netstat;
+mod classic_style;
+pub use classic_style::install_classic_fonts_and_style;
 pub mod colors;
 pub mod disconnect;
 pub mod end_card;
