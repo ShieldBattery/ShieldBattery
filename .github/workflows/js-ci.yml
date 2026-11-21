@@ -18,7 +18,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Skips push runs on refs that no pull request merges into; see ci-gate.yml. The jobs below run
+  # unless it answers 'false', so they also run when it is skipped (other events) or fails.
+  gate:
+    if: github.event_name == 'push'
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/ci-gate.yml
+
   unit-tests:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -92,6 +102,8 @@ jobs:
           exit 1
 
   integration-tests:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,6 +118,8 @@ jobs:
         with:
           version: latest
 
+      # A cache saved by a pull request is only readable by that pull request, but still counts
+      # against the repo's cache quota and pushes out the caches every pull request shares.
       - name: Build app-server container
         uses: docker/build-push-action@v6
         with:
@@ -113,7 +127,7 @@ jobs:
           load: true
           tags: app_server:latest
           cache-from: type=gha,scope=app-server
-          cache-to: type=gha,mode=max,scope=app-server
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=app-server' || '' }}
 
       - name: Build server-rs container
         uses: docker/build-push-action@v6
@@ -122,7 +136,7 @@ jobs:
           load: true
           tags: integration-server-rs:latest
           cache-from: type=gha,scope=server-rs
-          cache-to: type=gha,mode=max,scope=server-rs
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=server-rs' || '' }}
 
       - name: Running Docker containers
         run: cd ./integration && docker compose up -V -d

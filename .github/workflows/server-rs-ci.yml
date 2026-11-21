@@ -15,6 +15,13 @@ on:
       - 'migrations/**'
       - 'schema.graphql'
       - 'server-rs/**'
+  workflow_dispatch:
+  # The Rust caches are keyed on the compiler version, and GitHub deletes caches unused for 7 days.
+  # This workflow only runs on pushes that touch its paths, so without a periodic run on the default
+  # branch a new stable Rust release (or a quiet week) leaves every pull request compiling from
+  # scratch.
+  schedule:
+    - cron: '0 3 * * 1,4'
 
 permissions:
   contents: read
@@ -24,7 +31,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Skips push runs on refs that no pull request merges into; see ci-gate.yml. The jobs below run
+  # unless it answers 'false', so they also run when it is skipped (other events) or fails.
+  gate:
+    if: github.event_name == 'push'
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/ci-gate.yml
+
   clippy:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,14 +56,19 @@ jobs:
         with:
           components: clippy
 
+      # A cache saved by a pull request is only readable by that pull request, but still counts
+      # against the repo's cache quota and pushes out the caches every pull request shares.
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.event_name != 'pull_request' }}
           workspaces: ./server-rs
 
       - name: clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
 
   fmt:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,6 +87,8 @@ jobs:
         run: cargo fmt --all -- --check
 
   test:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -79,6 +103,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.event_name != 'pull_request' }}
           workspaces: ./server-rs
 
       - name: cargo test
@@ -95,6 +120,8 @@ jobs:
           exit 1
 
   typeshare:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -134,6 +161,8 @@ jobs:
           exit 1
 
   sqlx-prepare:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -167,12 +196,18 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
+          save-if: ${{ github.event_name != 'pull_request' }}
           workspaces: ./server-rs
 
+      # The binary comes from the image built by build-base-images.yml, which ships only `sqlx` (not
+      # `cargo-sqlx`), so the commands below call `sqlx` directly.
       - name: Install sqlx-cli
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: sqlx-cli
+        run: |
+          container=$(docker create ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools)
+          mkdir -p "$HOME/.cargo/bin"
+          docker cp "$container:/usr/local/bin/sqlx" "$HOME/.cargo/bin/sqlx"
+          docker rm "$container"
+          sqlx --version
 
       - name: Get Postgres container ID
         id: get_postgres_id
@@ -193,7 +228,9 @@ jobs:
         run: docker exec -u postgres $CONTAINER_ID bash /docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
 
       - name: Run migrations
-        run: cargo sqlx migrate run --source ../migrations
+        run: sqlx migrate run --source ../migrations
 
+      # `prepare` takes the path of cargo from `CARGO`, which cargo sets for the subcommands it
+      # launches. The `sqlx` binary is run directly here, so the variable has to be set by hand.
       - name: Check sqlx prepare
-        run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
+        run: CARGO="$(command -v cargo)" sqlx prepare --check --workspace -- --all-targets --all-features
