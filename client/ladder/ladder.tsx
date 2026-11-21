@@ -54,6 +54,7 @@ import { buttonReset } from '../material/button-reset'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
+import { SegmentedButtonGroup } from '../material/segmented-button'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { elevationPlus1, elevationPlus2, elevationPlus3 } from '../material/shadows'
@@ -86,10 +87,12 @@ import { RaceSelectionTooltip } from '../users/race-selection-tooltip'
 import {
   getCurrentSeasonRankings,
   getPreviousSeasonRankings,
+  LadderView,
   navigateToLadder,
   searchCurrentSeasonRankings,
   searchPreviousSeasonRankings,
 } from './action-creators'
+import { RatingDistribution } from './rating-distribution'
 
 /**
  * Viewport width below which the 224px mode rail is dropped in favor of a strip of Mode/Season
@@ -359,24 +362,30 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   })
   const usersById = useAppSelector(s => s.users.byId)
 
+  const [viewParam, setViewParam] = useLocationSearchParam('view', push)
+  const view = viewParam === LadderView.Distribution ? LadderView.Distribution : LadderView.Rankings
+
   const searchInputRef = useRef<SearchInputHandle>(null)
   const onTabChange = useCallback(
     (tab: MatchmakingType) => {
       searchInputRef.current?.clear()
-      navigateToLadder(tab, seasonId)
+      navigateToLadder(tab, seasonId, push, view)
     },
-    [seasonId],
+    [seasonId, view],
   )
 
   const onSeasonChange = useCallback(
     (seasonId: SeasonId) => {
-      navigateToLadder(matchmakingType, seasonId)
+      navigateToLadder(matchmakingType, seasonId, push, view)
     },
-    [matchmakingType],
+    [matchmakingType, view],
   )
 
   const [lastError, setLastError] = useState<Error>()
-  const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+  const [locationSearchQuery, setSearchQuery] = useLocationSearchParam('q')
+  // The distribution covers the whole ladder, so a search (which only filters the table) is
+  // ignored while it's shown, and the unfiltered rankings are fetched for it instead.
+  const searchQuery = view === LadderView.Distribution ? '' : locationSearchQuery
   const [filteredDivision, setFilteredDivision] = useLocationSearchParam('division', push)
 
   const setSearchQueryRef = useValueAsRef(setSearchQuery)
@@ -555,6 +564,38 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     <SelectOption key={s.id} value={s.id} text={s.name} />
   ))
 
+  let content: React.ReactNode
+  if (!currentSeasonId) {
+    content = <LoadingDotsArea />
+  } else if (view === LadderView.Distribution) {
+    content = rankings ? (
+      <RatingDistribution
+        players={rankings.players}
+        season={season}
+        curTime={Number(rankings.fetchTime)}
+        selfUserId={selfUser?.id}
+        topNode={topNode}
+        bottomNode={bottomNode}
+      />
+    ) : (
+      <LoadingDotsArea />
+    )
+  } else {
+    content = (
+      <LadderTable
+        {...rankingsData}
+        season={season}
+        usersById={usersById}
+        lastError={lastError}
+        searchQuery={searchQuery}
+        filteredDivision={(filteredDivision || 'all') as DivisionFilter}
+        selfUserId={selfUser?.id}
+        topNode={topNode}
+        bottomNode={bottomNode}
+      />
+    )
+  }
+
   return (
     <LadderPage>
       {compactNav ? (
@@ -599,66 +640,69 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
             </ModeSubtitle>
           </ModeHeading>
           <HeaderSpacer />
-          <HeaderSearchInput
-            ref={searchInputRef}
-            searchQuery={searchQuery}
-            onSearchChange={onSearchChange}
+          <SegmentedButtonGroup
+            ariaLabel={t('ladder.viewLabel', 'View')}
+            value={view}
+            onChange={value => setViewParam(value === LadderView.Rankings ? '' : value)}
+            segments={[
+              { value: LadderView.Rankings, label: t('ladder.view.rankings', 'Rankings') },
+              {
+                value: LadderView.Distribution,
+                label: t('ladder.view.distribution', 'Distribution'),
+              },
+            ]}
           />
-          <DivisionSelect
-            dense={true}
-            label={t('ladder.division', 'Division')}
-            value={(filteredDivision || 'all') as DivisionFilter}
-            onChange={setFilteredDivision}
-            allowErrors={false}>
-            <SelectOption value={DivisionFilter.All} text={t('ladder.divisionGroup.all', 'All')} />
-            <SelectOption
-              value={DivisionFilter.Champion}
-              text={t('ladder.divisionGroup.champion', 'Champion')}
-            />
-            <SelectOption
-              value={DivisionFilter.Diamond}
-              text={t('ladder.divisionGroup.diamond', 'Diamond')}
-            />
-            <SelectOption
-              value={DivisionFilter.Platinum}
-              text={t('ladder.divisionGroup.platinum', 'Platinum')}
-            />
-            <SelectOption
-              value={DivisionFilter.Gold}
-              text={t('ladder.divisionGroup.gold', 'Gold')}
-            />
-            <SelectOption
-              value={DivisionFilter.Silver}
-              text={t('ladder.divisionGroup.silver', 'Silver')}
-            />
-            <SelectOption
-              value={DivisionFilter.Bronze}
-              text={t('ladder.divisionGroup.bronze', 'Bronze')}
-            />
-            <SelectOption
-              value={DivisionFilter.Unrated}
-              text={t('ladder.divisionGroup.unrated', 'Unrated')}
-            />
-          </DivisionSelect>
+          {view === LadderView.Rankings ? (
+            <>
+              <HeaderSearchInput
+                ref={searchInputRef}
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
+              />
+              <DivisionSelect
+                dense={true}
+                label={t('ladder.division', 'Division')}
+                value={(filteredDivision || 'all') as DivisionFilter}
+                onChange={setFilteredDivision}
+                allowErrors={false}>
+                <SelectOption
+                  value={DivisionFilter.All}
+                  text={t('ladder.divisionGroup.all', 'All')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Champion}
+                  text={t('ladder.divisionGroup.champion', 'Champion')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Diamond}
+                  text={t('ladder.divisionGroup.diamond', 'Diamond')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Platinum}
+                  text={t('ladder.divisionGroup.platinum', 'Platinum')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Gold}
+                  text={t('ladder.divisionGroup.gold', 'Gold')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Silver}
+                  text={t('ladder.divisionGroup.silver', 'Silver')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Bronze}
+                  text={t('ladder.divisionGroup.bronze', 'Bronze')}
+                />
+                <SelectOption
+                  value={DivisionFilter.Unrated}
+                  text={t('ladder.divisionGroup.unrated', 'Unrated')}
+                />
+              </DivisionSelect>
+            </>
+          ) : null}
           <ScrollDivider $show={!isAtTop} $showAt='bottom' />
         </ContentHeader>
-        <ContentBody>
-          {rankingsData && currentSeasonId ? (
-            <LadderTable
-              {...rankingsData}
-              season={season}
-              usersById={usersById}
-              lastError={lastError}
-              searchQuery={searchQuery}
-              filteredDivision={(filteredDivision || 'all') as DivisionFilter}
-              selfUserId={selfUser?.id}
-              topNode={topNode}
-              bottomNode={bottomNode}
-            />
-          ) : (
-            <LoadingDotsArea />
-          )}
-        </ContentBody>
+        <ContentBody>{content}</ContentBody>
       </LadderContentColumn>
     </LadderPage>
   )
