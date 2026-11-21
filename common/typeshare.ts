@@ -12,6 +12,11 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
+export interface CollectionDownloadTokenResponse {
+  /** Passed as the `token` query parameter of the collection's download URL. */
+  token: string
+}
+
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.

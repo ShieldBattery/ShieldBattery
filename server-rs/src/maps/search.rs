@@ -886,7 +886,7 @@ pub(crate) const FAMILY_STATS_JOINS: &str =
 /// (its map's current file, or its exact file), that file's family `fam`, and for map entries the
 /// family's stats `fs`. Exact-file entries have no `fs`, so their sort columns read the file's own
 /// stats.
-const COLLECTION_JOINS: &str = " JOIN maps m ON m.id = COALESCE(cm.map_id, \
+pub(crate) const COLLECTION_JOINS: &str = " JOIN maps m ON m.id = COALESCE(cm.map_id, \
     (SELECT efam.current_map_id FROM map_families efam WHERE efam.id = cm.family_id)) \
     JOIN map_families fam ON fam.id = m.family_id \
     LEFT JOIN map_family_stats fs ON fs.family_id = fam.id AND cm.family_id IS NOT NULL";
@@ -974,14 +974,25 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             qb.push("TRUE");
         }
         MapScope::Collection { id, listed_only } => {
-            qb.push("cm.collection_id = ");
-            qb.push_bind(id);
-            if listed_only {
-                qb.push(" AND fam.listed");
-            }
+            push_collection_entries_condition(qb, id, listed_only);
         }
     }
     push_filters(qb, filter);
+}
+
+/// Emits the condition that keeps the entries of collection `id` a viewer sees, over the rows of
+/// `FROM collection_maps cm` + [`COLLECTION_JOINS`]. With `listed_only`, only the entries whose map
+/// is listed.
+pub(crate) fn push_collection_entries_condition(
+    qb: &mut QueryBuilder<Postgres>,
+    id: Uuid,
+    listed_only: bool,
+) {
+    qb.push("cm.collection_id = ");
+    qb.push_bind(id);
+    if listed_only {
+        qb.push(" AND fam.listed");
+    }
 }
 
 /// Emits the search rank of `m` for `search`, which is 0 when it doesn't match. Ranks are

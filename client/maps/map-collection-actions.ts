@@ -5,10 +5,14 @@ import { CombinedError, useMutation, UseQueryState } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { urlForMapCollection } from '../../common/map-url'
 import { MapCollectionId, SbMapId } from '../../common/maps'
+import { CollectionDownloadTokenResponse } from '../../common/typeshare'
+import { urlPath } from '../../common/urls'
 import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { push } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
+import { fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
+import { makeServerRsUrl, makeServerUrl } from '../network/server-url'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CollectionChange, collectionErrorText } from './map-collection-text'
 import { errorCode } from './map-owner-actions'
@@ -142,6 +146,55 @@ export function useCopyCollectionLink(): (id: MapCollectionId, title?: string) =
         snackbarController.showSnackbar(t('maps.page.linkCopyError', "Couldn't copy the link")),
       )
   }
+}
+
+/**
+ * Returns a function that downloads every map of a collection the viewer sees as one .zip archive
+ * named `fileName`, and whether a download is being started. A failure is reported with a snackbar.
+ */
+export function useDownloadCollection(): [
+  download: (id: MapCollectionId, fileName: string) => void,
+  pending: boolean,
+] {
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+  const [pending, setPending] = useState(false)
+
+  const download = (id: MapCollectionId, fileName: string) => {
+    if (pending) {
+      return
+    }
+    setPending(true)
+    fetchJson<CollectionDownloadTokenResponse>(
+      makeServerRsUrl(urlPath`/maps/collections/${id}/download-url`),
+      { method: 'POST' },
+    )
+      .then(({ token }) => {
+        // The archive is fetched by a plain navigation, which can't carry the session, so the
+        // short-lived token goes in its URL instead
+        const query = new URLSearchParams({ token, name: fileName })
+        const a = document.createElement('a')
+        a.href = makeServerRsUrl(urlPath`/maps/collections/${id}/download` + '?' + query.toString())
+        a.target = '_blank'
+        a.click()
+      })
+      .catch(err => {
+        snackbarController.showSnackbar(
+          isFetchError(err) && err.status === 429
+            ? t(
+                'maps.collections.downloadThrottled',
+                "You've downloaded a lot of collections recently. Please try again in a few minutes.",
+              )
+            : t(
+                'maps.collections.downloadError',
+                "Couldn't start the download. Please try again later.",
+              ),
+        )
+      })
+      .finally(() => setPending(false))
+  }
+
+  return [download, pending]
 }
 
 /**

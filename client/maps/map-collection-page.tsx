@@ -62,6 +62,7 @@ import {
 import {
   useAddMapToCollection,
   useCopyCollectionLink,
+  useDownloadCollection,
   useLastSettledData,
   useMoveMapInCollection,
   useRemoveMapFromCollection,
@@ -651,6 +652,7 @@ function CollectionActions({
   const selfUser = useSelfUser()
   const canManageMaps = useHasAnyPermission('manageMaps')
   const copyLink = useCopyCollectionLink()
+  const [download, downloadPending] = useDownloadCollection()
   const [toggleSaved, savePending] = useToggleCollectionSaved()
   const [setPublic, publicPending] = useSetCollectionPublic()
   const unhide = useUnhideCollection()
@@ -736,6 +738,7 @@ function CollectionActions({
     ? t('maps.collections.saved', 'Saved')
     : t('maps.collections.save', 'Save')
   const copyLabel = t('maps.page.copyLink', 'Copy link')
+  const downloadLabel = t('maps.collections.downloadZip', 'Download all as .zip')
   const reportLabel = t('maps.report.iconLabel', 'Report a problem')
   const menuLabel = t('maps.collections.collectionActions', 'Collection actions')
 
@@ -769,6 +772,16 @@ function CollectionActions({
             icon={<MaterialIcon icon='link' />}
             ariaLabel={copyLabel}
             onClick={() => copyLink(id, collection.title ?? undefined)}
+          />
+        </Tooltip>
+      ) : null}
+      {collection.mapCount > 0 ? (
+        <Tooltip text={downloadLabel} position='bottom' tabIndex={-1}>
+          <IconButton
+            icon={<MaterialIcon icon='download' />}
+            ariaLabel={downloadLabel}
+            disabled={downloadPending}
+            onClick={() => download(id, title)}
           />
         </Tooltip>
       ) : null}

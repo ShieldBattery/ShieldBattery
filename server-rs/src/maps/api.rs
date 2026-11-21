@@ -1,7 +1,9 @@
-//! HTTP routes for uploading maps and regenerating their images. Uploads are plain multipart
-//! requests rather than GraphQL, since they carry files of up to 100 MB.
+//! HTTP routes for uploading maps, regenerating their images and downloading collections. Uploads
+//! are plain multipart requests rather than GraphQL, since they carry files of up to 100 MB, and
+//! collection downloads stream archives far larger than a GraphQL response could hold.
 
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -9,7 +11,7 @@ use axum::extract::multipart::MultipartError;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use tower_http::timeout::TimeoutLayer;
@@ -17,12 +19,14 @@ use tracing::error;
 use typeshare::typeshare;
 
 use crate::maps::SbMapId;
+use crate::maps::collections::download::{create_download_token, download_collection};
 use crate::maps::ingest::MapIngestError;
 use crate::maps::parse::{MAX_MAP_FILE_BYTES, MapExtension};
 use crate::state::AppState;
 use crate::users::{CurrentUser, SbUserId};
 
-/// Uploads, parsing and rendering a 100 MB map included, take far longer than other requests.
+/// Uploads, parsing and rendering a 100 MB map included, take far longer than other requests. This
+/// bounds the time until a response's headers are sent, not how long its body takes to stream.
 const MAP_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 /// Room for the multipart framing and the other form fields around the file.
 const MULTIPART_OVERHEAD_BYTES: usize = 64 * 1024;
@@ -34,6 +38,14 @@ pub fn create_maps_api() -> Router<AppState> {
     Router::new()
         .route("/", post(upload_map))
         .route("/{map_id}/regenerate", post(regenerate_map_images))
+        .route(
+            "/collections/{collection_id}/download-url",
+            post(create_download_token),
+        )
+        .route(
+            "/collections/{collection_id}/download",
+            get(download_collection),
+        )
         .layer(DefaultBodyLimit::max(
             MAX_MAP_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
         ))
@@ -53,14 +65,16 @@ pub struct UploadMapResponse {
 /// Error codes match the ones the client already handles for map uploads
 /// (`MapServiceErrorCode` and `FilesErrorCode`).
 #[derive(Debug)]
-enum MapApiError {
+pub(crate) enum MapApiError {
     InvalidMapFile,
     NoPlayerSlots,
     FileTooLarge,
     BadRequest(&'static str),
     Forbidden,
     NotFound,
+    CollectionNotFound,
     TooManyUploads,
+    TooManyDownloads,
     Internal,
 }
 
@@ -91,10 +105,16 @@ impl IntoResponse for MapApiError {
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "badRequest", message),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "Forbidden"),
             Self::NotFound => (StatusCode::NOT_FOUND, "notFound", "Map not found"),
+            Self::CollectionNotFound => (StatusCode::NOT_FOUND, "notFound", "Collection not found"),
             Self::TooManyUploads => (
                 StatusCode::TOO_MANY_REQUESTS,
                 "tooManyRequests",
                 "Too many map uploads, try again later",
+            ),
+            Self::TooManyDownloads => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "tooManyRequests",
+                "Too many collection downloads, try again later",
             ),
             Self::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -130,24 +150,44 @@ impl From<MultipartError> for MapApiError {
     }
 }
 
-/// Limits how many maps each user can upload per minute.
-#[derive(Default)]
-pub struct UploadThrottle {
-    windows: Mutex<HashMap<SbUserId, (Instant, u32)>>,
+/// Limits how many requests each key (a user, an IP address, ...) can make in a fixed window that
+/// starts with its first request.
+pub struct Throttle<K> {
+    limit: u32,
+    window: Duration,
+    windows: Mutex<HashMap<K, (Instant, u32)>>,
 }
 
-impl UploadThrottle {
-    fn try_acquire(&self, user_id: SbUserId) -> bool {
+impl<K: Eq + Hash> Throttle<K> {
+    pub fn new(limit: u32, window: Duration) -> Self {
+        Self {
+            limit,
+            window,
+            windows: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Counts a request from `key`, returning whether it is within the limit.
+    pub fn try_acquire(&self, key: K) -> bool {
         let now = Instant::now();
-        let mut windows = self.windows.lock().expect("upload throttle lock");
-        windows.retain(|_, (start, _)| now.duration_since(*start) < UPLOAD_WINDOW);
-        let (_, count) = windows.entry(user_id).or_insert((now, 0));
-        if *count >= UPLOADS_PER_WINDOW {
+        let mut windows = self.windows.lock().expect("throttle lock");
+        windows.retain(|_, (start, _)| now.duration_since(*start) < self.window);
+        let (_, count) = windows.entry(key).or_insert((now, 0));
+        if *count >= self.limit {
             false
         } else {
             *count += 1;
             true
         }
+    }
+}
+
+/// Limits how many maps each user can upload per minute.
+pub type UploadThrottle = Throttle<SbUserId>;
+
+impl UploadThrottle {
+    pub fn for_uploads() -> Self {
+        Self::new(UPLOADS_PER_WINDOW, UPLOAD_WINDOW)
     }
 }
 
@@ -218,4 +258,25 @@ async fn regenerate_map_images(
     }
     state.map_ingester.regenerate_images(map_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn throttle_limits_each_key_separately() {
+        let throttle = Throttle::new(2, Duration::from_secs(60));
+        assert!(throttle.try_acquire("a"));
+        assert!(throttle.try_acquire("a"));
+        assert!(!throttle.try_acquire("a"));
+        assert!(throttle.try_acquire("b"));
+    }
+
+    #[test]
+    fn throttle_resets_after_its_window() {
+        let throttle = Throttle::new(1, Duration::ZERO);
+        assert!(throttle.try_acquire("a"));
+        assert!(throttle.try_acquire("a"));
+    }
 }

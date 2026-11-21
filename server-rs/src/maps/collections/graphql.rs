@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use async_graphql::connection::{Connection, CursorType, Edge, EmptyFields, OpaqueCursor};
 use async_graphql::dataloader::{DataLoader, Loader};
-use async_graphql::{Context, Enum, Guard, Object, Result, SimpleObject};
+use async_graphql::{Context, Enum, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::WrapErr;
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder};
@@ -15,7 +15,7 @@ use uuid::Uuid;
 use crate::graphql::errors::graphql_error;
 use crate::maps::SbMapId;
 use crate::maps::catalog::{
-    CollectionMapConnection, SbMap, SbMapLoader, is_staff, load_collection_maps, load_user,
+    CollectionMapConnection, SbMap, SbMapLoader, load_collection_maps, load_user,
     require_current_user, resolve_existing_map_id,
 };
 use crate::maps::collections::pools::{
@@ -50,12 +50,7 @@ fn collection_error(error: CollectionError) -> async_graphql::Error {
 
 /// Who the request is from.
 pub(crate) async fn current_viewer(ctx: &Context<'_>) -> Result<Viewer> {
-    let id = ctx.data::<Option<CurrentUser>>()?.as_ref().map(|u| u.id);
-    Ok(Viewer {
-        id,
-        staff: is_staff(ctx).await,
-        manage_map_pools: RequiredPermission::ManageMapPools.check(ctx).await.is_ok(),
-    })
+    Ok(Viewer::of(ctx.data::<Option<CurrentUser>>()?.as_ref()))
 }
 
 /// A collection as one viewer sees it.
