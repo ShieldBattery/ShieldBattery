@@ -155,6 +155,48 @@ describe('games/game-page-meta', () => {
       expect(result?.description).toBe('Custom game on Fighting Spirit, played July 14, 2026.')
     })
 
+    test.each([
+      ['an unlisted', 'unlisted', true],
+      ['a listed', 'listed', undefined],
+      ['a pre-visibility', undefined, undefined],
+    ] as const)(
+      'marks %s lobby game noindex only when unlisted',
+      async (_, visibility, noindex) => {
+        getGameRecordMock.mockResolvedValueOnce({
+          ...BASE_GAME,
+          config: {
+            gameSource: GameSource.Lobby,
+            gameSourceExtra: { visibility },
+            gameType: GameType.Melee,
+            gameSubType: 0,
+            teams: BASE_GAME.config.teams,
+          },
+        })
+        findUsersByIdAsMapMock.mockResolvedValueOnce(
+          new Map([
+            [ALICE_ID, ALICE],
+            [BOB_ID, BOB],
+          ]),
+        )
+        getMapInfosMock.mockResolvedValueOnce([FIGHTING_SPIRIT])
+
+        const result = await gamePageMetadata({ id: PRETTY_ID }, CONTEXT)
+
+        expect(result?.title).toBe('Alice vs Bob')
+        expect(result?.noindex).toBe(noindex)
+      },
+    )
+
+    test('does not mark a matchmaking game noindex', async () => {
+      getGameRecordMock.mockResolvedValueOnce({ ...BASE_GAME })
+      findUsersByIdAsMapMock.mockResolvedValueOnce(new Map())
+      getMapInfosMock.mockResolvedValueOnce([FIGHTING_SPIRIT])
+
+      const result = await gamePageMetadata({ id: PRETTY_ID }, CONTEXT)
+
+      expect(result?.noindex).toBeUndefined()
+    })
+
     test('falls back to "Unknown Map" and the default image when the map row is missing', async () => {
       getGameRecordMock.mockResolvedValueOnce({ ...BASE_GAME })
       findUsersByIdAsMapMock.mockResolvedValueOnce(

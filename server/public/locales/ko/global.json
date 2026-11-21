@@ -1849,7 +1849,7 @@
       "summaryObserversOn": "관전자 허용",
       "summarySlots_other": "슬롯 {{count}}개",
       "visibilityListedDescription": "누구나 로비 목록에서 참가할 수 있습니다. 게임과 리플레이가 공개됩니다.",
-      "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
+      "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 게임에 참여하지 않은 사람에게는 플레이어 프로필에 게임이 표시되지 않으며, 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
     },
     "inviteCard": {
       "goToLobby": "로비로 이동",

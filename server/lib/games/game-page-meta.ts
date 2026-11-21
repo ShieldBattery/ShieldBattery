@@ -1,4 +1,5 @@
 import { GameConfig, GameConfigPlayer, GameSource } from '../../../common/games/configuration'
+import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
 import { matchmakingTypeToLabel } from '../../../common/matchmaking'
 import { decodePrettyId, encodePrettyId, isPrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
@@ -7,6 +8,8 @@ import { getMapInfos } from '../maps/map-models'
 import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { getGameRecord } from './game-models'
+
+const UNLISTED_VISIBILITY: LobbyVisibility = 'unlisted'
 
 // Pinned to UTC so the rendered date doesn't depend on the server host's timezone.
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
@@ -41,6 +44,9 @@ function gameTitle(config: GameConfig, users: Map<SbUserId, SbUser>): string {
  * `params.id` is expected to be the game's pretty (base64url-encoded) id; anything else — a raw
  * UUID, a malformed id, etc. — returns `undefined` without querying the database, as does a game
  * that doesn't exist. Either case falls back to the default site-wide metadata.
+ *
+ * An unlisted lobby game's page is `noindex`: only people who were given its link should find it,
+ * and a search engine that renders the page would also see the game's result.
  */
 export const gamePageMetadata: PageMetadataResolver = async (params, context) => {
   const routeId = params.id
@@ -70,11 +76,16 @@ export const gamePageMetadata: PageMetadataResolver = async (params, context) =>
         `${mapName}, played ${date}.`
       : `Custom game on ${mapName}, played ${date}.`
 
+  const isUnlisted =
+    game.config.gameSource === GameSource.Lobby &&
+    game.config.gameSourceExtra?.visibility === UNLISTED_VISIBILITY
+
   return {
     url: `${context.canonicalHost}/games/${encodePrettyId(gameId)}`,
     type: 'website',
     title: gameTitle(game.config, users),
     description,
     image: map?.image1024Url ?? map?.image512Url ?? map?.image256Url ?? defaultPageImage(context),
+    ...(isUnlisted ? { noindex: true } : {}),
   }
 }

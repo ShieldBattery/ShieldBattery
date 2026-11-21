@@ -654,25 +654,73 @@ export async function countCompletedGames(): Promise<number> {
 }
 
 /**
+ * Who is looking at a user's match history. An unlisted lobby game is only shown to a viewer who
+ * can see every game, or who took part in it (as a player or an observer); anyone else, including a
+ * logged-out visitor, never learns the game happened.
+ */
+export interface MatchHistoryViewer {
+  userId: SbUserId | undefined
+  canSeeUnlistedGames: boolean
+}
+
+const UNLISTED_LOBBY_VISIBILITY: LobbyVisibility = 'unlisted'
+
+/**
+ * Builds the WHERE clause that hides unlisted lobby games the viewer may not see, or returns
+ * `undefined` when the viewer may see all of them. Games without a recorded visibility (matchmaking
+ * games, and lobby games predating the field) are never hidden.
+ */
+function getUnlistedGamesWhereClause(viewer: MatchHistoryViewer): SqlTemplate | undefined {
+  if (viewer.canSeeUnlistedGames) {
+    return undefined
+  }
+
+  const isListed = sql`
+    (g.config->'gameSourceExtra'->>'visibility' = ${UNLISTED_LOBBY_VISIBILITY}) IS NOT TRUE
+  `
+  if (viewer.userId === undefined) {
+    return isListed
+  }
+
+  return sql`(
+    ${isListed}
+    OR EXISTS (
+      SELECT 1 FROM games_users gv WHERE gv.game_id = g.id AND gv.user_id = ${viewer.userId}
+    )
+    OR g.config->'observers' @> ${JSON.stringify([viewer.userId])}::jsonb
+  )`
+}
+
+/**
  * Retrieves game information for the last `numGames` games of a user. The resulting array may be
  * empty or less than `numGames` in length if the user has not played that many games. This list
  * will also include games that have incomplete results or are disputed, but never a results-exempt
- * game (contains computer players — see `isResultsExempt`), which is never shown at all.
+ * game (contains computer players — see `isResultsExempt`), which is never shown at all, nor an
+ * unlisted lobby game that `viewer` may not see.
  */
 export async function getRecentGamesForUser(
   userId: SbUserId,
   numGames: number,
+  viewer: MatchHistoryViewer,
 ): Promise<GameRecord[]> {
   // TODO(tec27): Support pagination on this
+
+  const whereClauses = [
+    sql`u.user_id = ${userId}`,
+    sql`g.canceled_at IS NULL`,
+    sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
+  ]
+  const unlistedClause = getUnlistedGamesWhereClause(viewer)
+  if (unlistedClause) {
+    whereClauses.push(unlistedClause)
+  }
 
   const { client, done } = await db()
   try {
     const result = await client.query<DbGameRecord>(sql`
       SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users u JOIN games g ON u.game_id = g.id
-      WHERE u.user_id = ${userId}
-      AND g.canceled_at IS NULL
-      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
+      WHERE ${sqlConcat(' AND ', whereClauses)}
       ORDER BY u.start_time DESC
       LIMIT ${numGames}
     `)
@@ -967,11 +1015,13 @@ export async function getGames(
 
 /**
  * Retrieves game information for the match history of a user. Never returns a results-exempt game
- * (contains computer players — see `isResultsExempt`).
+ * (contains computer players — see `isResultsExempt`), nor an unlisted lobby game that `viewer` may
+ * not see.
  */
 export async function getGamesForUser(
   params: {
     userId: SbUserId
+    viewer: MatchHistoryViewer
     limit: number
     offset: number
     ranked?: boolean
@@ -991,6 +1041,7 @@ export async function getGamesForUser(
 ): Promise<GameRecord[]> {
   const {
     userId,
+    viewer,
     limit,
     offset,
     ranked,
@@ -1013,6 +1064,10 @@ export async function getGamesForUser(
       sql`g.canceled_at IS NULL`,
       sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
+    const unlistedClause = getUnlistedGamesWhereClause(viewer)
+    if (unlistedClause) {
+      whereClauses.push(unlistedClause)
+    }
     let needMapJoin = false
 
     if (ranked || custom) {

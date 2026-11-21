@@ -1909,7 +1909,7 @@
       "summarySlots_many": "{{count}} espacios",
       "summarySlots_other": "{{count}} espacios",
       "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
-      "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
+      "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Nadie más verá las partidas en los perfiles de los jugadores, y solo quienes estuvieron en la partida pueden descargar el replay."
     },
     "inviteCard": {
       "goToLobby": "Ir al lobby",

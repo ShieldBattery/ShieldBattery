@@ -109,7 +109,7 @@ import isDev from '../env/is-dev'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGameListSideData } from '../games/game-list-data'
-import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
+import { getGamesForUser, getRecentGamesForUser, MatchHistoryViewer } from '../games/game-models'
 import { GamePointsRefundService } from '../games/game-points-refund-service'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
@@ -275,6 +275,18 @@ const resetPasswordThrottle = createThrottle('resetpassword', {
   burst: 10,
   window: 30 * 60 * 1000,
 })
+
+/**
+ * Moderators who review players' games (ban or game-report permissions) see unlisted lobby games in
+ * any match history; everyone else sees only the ones they took part in.
+ */
+function getMatchHistoryViewer(ctx: RouterContext): MatchHistoryViewer {
+  const permissions = ctx.session?.permissions
+  return {
+    userId: ctx.session?.user?.id,
+    canSeeUnlistedGames: !!(permissions?.banUsers || permissions?.manageGameReports),
+  }
+}
 
 function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 11 /* saltRounds */)
@@ -735,7 +747,11 @@ export class UserApi {
 
     const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
-      const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
+      const games = await getRecentGamesForUser(
+        user.id,
+        NUM_RECENT_GAMES,
+        getMatchHistoryViewer(ctx),
+      )
       const { users, maps, replays } = await getGameListSideData({
         games,
         currentUserId: ctx.session?.user?.id,
@@ -853,6 +869,7 @@ export class UserApi {
 
     const games = await getGamesForUser({
       userId: user.id,
+      viewer: getMatchHistoryViewer(ctx),
       limit: GET_MATCH_HISTORY_LIMIT,
       offset: offset ?? 0,
       ranked,

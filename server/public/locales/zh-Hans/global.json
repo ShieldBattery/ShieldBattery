@@ -1849,7 +1849,7 @@
       "summaryObserversOn": "允许观战",
       "summarySlots_other": "{{count}}个槽位",
       "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
-      "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
+      "visibilityUnlistedDescription": "只有拥有链接的人才能加入。其他人在玩家资料中看不到这些游戏，只有参与过游戏的人才能下载录像。"
     },
     "inviteCard": {
       "goToLobby": "前往房间",
