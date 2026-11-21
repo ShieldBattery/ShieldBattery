@@ -248,16 +248,16 @@ impl<'a> MenuRow<'a> {
                 rect.center().y - galley.size().y * 0.5,
             );
             right = pos.x - ROW_GAP;
-            ui.painter().galley(pos, galley, GREY_BLUE60);
+            text::paint(ui.painter(), pos, galley);
         }
         let job = text::body(label_size, BodyWeight::Regular)
             .with_color(color)
             .job_truncated(self.label, (right - left).max(0.0));
         let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(left, rect.center().y - galley.size().y * 0.5),
             galley,
-            color,
         );
         focus_ring(ui, &response, rect, corner_radius);
         response
@@ -367,13 +367,13 @@ pub fn dropdown_button(ui: &mut Ui, label: &str, min_width: f32, open: bool) -> 
         ),
         StrokeKind::Inside,
     ));
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(
             rect.left() + DROPDOWN_PAD_X,
             rect.center().y - galley.size().y * 0.5,
         ),
         galley,
-        BLUE99,
     );
     let chevron_rect = Rect::from_min_size(
         pos2(

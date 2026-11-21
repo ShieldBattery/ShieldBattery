@@ -103,21 +103,21 @@ pub fn stat_row(ui: &mut Ui, label: &str, value: &str) -> Response {
     if !ui.is_rect_visible(rect) {
         return response;
     }
-    let label_galley = text::column_label().galley(ui, label);
+    let label_galley = text::value_label().galley(ui, label);
     let value_galley = text::numeral(17.0).galley(ui, value);
     let painter = ui.painter();
-    painter.galley(
+    text::paint(
+        painter,
         pos2(rect.left(), rect.center().y - label_galley.size().y * 0.5),
         label_galley,
-        theme::TEXT_LABEL,
     );
-    painter.galley(
+    text::paint(
+        painter,
         pos2(
             rect.right() - value_galley.size().x,
             rect.center().y - value_galley.size().y * 0.5,
         ),
         value_galley,
-        theme::TEXT_PRIMARY,
     );
     response
 }
@@ -144,10 +144,10 @@ pub fn text_cell(
         Align::Center => rect.center().x - galley.size().x * 0.5,
         Align::LEFT => rect.left(),
     };
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(x, rect.center().y - galley.size().y * 0.5),
         galley,
-        spec.color,
     );
     response
 }
@@ -226,7 +226,9 @@ pub fn tag(ui: &mut Ui, label: &str, style: TagStyle) -> Response {
 /// player-chosen name would otherwise push everything beside it out of place.
 pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> Response {
     let (_, text_color) = style.colors();
-    let job = text::column_label().job_truncated(label, (max_width - theme::SPACE_SM).max(0.0));
+    let job = text::column_label()
+        .with_color(text_color)
+        .job_truncated(label, (max_width - theme::SPACE_SM).max(0.0));
     let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
     // An elided galley can still come back a hair over the width it was given (the ellipsis is
     // added after the fit), so the chip is clamped rather than trusted: this width is a column in
@@ -238,8 +240,7 @@ pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> R
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
         paint_tag_chrome(ui, rect, style);
-        ui.painter()
-            .galley(rect.center() - galley.size() * 0.5, galley, text_color);
+        text::paint(ui.painter(), rect.center() - galley.size() * 0.5, galley);
     }
     response
 }
@@ -266,8 +267,7 @@ pub fn tag_exact(
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
         paint_tag_chrome(ui, rect, style);
-        ui.painter()
-            .galley(rect.center() - galley.size() * 0.5, galley, text_color);
+        text::paint(ui.painter(), rect.center() - galley.size() * 0.5, galley);
     }
     response
 }
@@ -286,8 +286,7 @@ pub fn centered_paragraph(
     let width = ui.available_width().max(wrap_width);
     let (rect, response) = ui.allocate_exact_size(vec2(width, galley.size().y), Sense::hover());
     if ui.is_rect_visible(rect) {
-        ui.painter()
-            .galley(pos2(rect.center().x, rect.top()), galley, spec.color);
+        text::paint(ui.painter(), pos2(rect.center().x, rect.top()), galley);
     }
     response
 }

@@ -215,10 +215,6 @@ pub struct BwScr {
     bottom_overpan: Option<BottomOverpan>,
     cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
-    /// The global `u16[player][group]` table holding the frame each selection group was last
-    /// written on. `None` when the analysis could not place it, which costs the control-groups
-    /// panel its stale marking and nothing else.
-    selection_hotkey_last_used_frames: Option<Value<*mut u16>>,
     /// The map's per-tile flags, `width * height` of them, which carry each player's vision of the
     /// tile. `None` when the analysis could not place them, which costs the observer panels their
     /// map-vision reading and nothing else.
@@ -3213,14 +3209,31 @@ impl BwScr {
                             self.players(),
                             active_units,
                             &units,
-                            self.selection_hotkey_last_used_frames
-                                .map(|frames| frames.resolve() as *const u16),
                             self.map_tile_flags_slice(game),
                         )
                     },
                 );
                 #[cfg(debug_assertions)]
                 dump_game_stats(&stats);
+            }
+        }
+    }
+
+    /// Records that `player` used each number key marked in `keys` on the frame being simulated,
+    /// for the control-groups panel to dim a key nobody has used for a while. Whether a game records
+    /// them at all is the command hook's to decide.
+    fn note_number_key_uses(&self, player: u8, keys: &[bool]) {
+        if !self.game_started.load(Ordering::Acquire) {
+            return;
+        }
+        let game = unsafe { self.game() };
+        if game.is_null() {
+            return;
+        }
+        let frame = unsafe { (*game).frame_count };
+        if let Some(mut stats) = self.game_stats.lock() {
+            for (key, _) in (0..).zip(keys).filter(|&(_, &used)| used) {
+                stats.number_key_used(player, key, frame);
             }
         }
     }
@@ -3252,8 +3265,6 @@ impl BwScr {
                 self.players(),
                 self.active_units(),
                 &units,
-                self.selection_hotkey_last_used_frames
-                    .map(|frames| frames.resolve() as *const u16),
                 self.map_tile_flags_slice(game),
             );
             stats.refresh_current_state(snapshot, &game_stats::DatUnits);

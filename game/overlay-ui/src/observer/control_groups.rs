@@ -30,8 +30,8 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, StackSlot, owner_tint, paint_icon_glow, paint_owner_wash,
-    paint_player_swatch_in, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, owner_tint, paint_icon_glow, paint_owner_edge,
+    paint_owner_fill, paint_player_swatch_in, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is laid out as one row, in overlay points.
@@ -179,16 +179,27 @@ const CODE_TRACKING: f32 = 0.4;
 /// What stands between the two codes of a group of two kinds.
 const COMBO_JOIN: &str = "+";
 
-/// How much of itself a group that has not been used in a while is drawn at.
+/// How much of itself a group that has not been used in a while is drawn at, all but its slot's
+/// edge: the fill, the digit, the icon and the count.
 ///
 /// Dimmed rather than dropped: a forgotten group is exactly what a watcher wants pointed out, and a
-/// slot that emptied itself would read as a group that no longer exists.
-const STALE_ALPHA: f32 = 0.7;
+/// slot that emptied itself would read as a group that no longer exists. What the group is and how
+/// much of it there is still has to read, since an army of twelve left at home is the reading.
+const STALE_ALPHA: f32 = 0.6;
+
+/// How much of itself the edge of a forgotten group's slot is drawn at.
+///
+/// Fainter than the rest of the slot, because the edge is what says the group is forgotten: the
+/// fill is translucent, so over the map a fade of the whole slot barely darkens it, while the edge,
+/// drawn in the owner's color, is what a live slot is picked out by at a glance. A live group is
+/// drawn whole, like every other tile in the observer panels.
+const STALE_EDGE_ALPHA: f32 = 0.2;
 
 /// How much of itself a slot with nothing on it is drawn at.
 ///
-/// Fainter than a forgotten group, because it is the grid rather than a reading: it is there so the
-/// slots around it never move, and it has nothing of its own to say.
+/// Fainter than a forgotten group's fill and digit, and with no icon or count, because it is the grid
+/// rather than a reading: it is there so the slots around it never move, and it has nothing of its
+/// own to say. Its edge is the slot's chrome alone, without the owner's colored edge a group has.
 const EMPTY_ALPHA: f32 = 0.32;
 
 /// One of a player's groups.
@@ -204,7 +215,8 @@ pub struct ControlGroupView {
     /// Whether the group is a building. The game lets a group hold twelve units or one building, so
     /// a building group is one building and has no count worth drawing.
     pub building: bool,
-    /// Whether it has gone long enough without being recalled to be worth pointing out.
+    /// Whether its key has gone long enough without being used (bound, recalled or added to) to be
+    /// worth pointing out.
     pub stale: bool,
 }
 
@@ -377,12 +389,12 @@ fn draw_slot(
     alpha: f32,
     response: Option<&Response>,
 ) {
-    let alpha = match group {
-        Some(group) if group.stale => alpha * STALE_ALPHA,
-        Some(_) => alpha,
-        None => alpha * EMPTY_ALPHA,
+    let (alpha, edge_alpha) = match group {
+        Some(group) if group.stale => (alpha * STALE_ALPHA, alpha * STALE_EDGE_ALPHA),
+        Some(_) => (alpha, alpha),
+        None => (alpha * EMPTY_ALPHA, alpha * EMPTY_ALPHA),
     };
-    paint_slot_chrome(ui, rect, alpha);
+    paint_slot_chrome(ui, rect, alpha, edge_alpha);
     // Every line sits at the same height in every slot of the row, filled or not, so the digits
     // read as one line across the panel and a group is compared against the one beside it rather
     // than hunted for. A slot with no count is one whose last line is blank, which draws the
@@ -397,7 +409,8 @@ fn draw_slot(
     let Some(group) = group else {
         return;
     };
-    paint_owner_wash(ui.painter(), rect, owner, alpha);
+    paint_owner_fill(ui.painter(), rect, owner, alpha);
+    paint_owner_edge(ui.painter(), rect, owner, edge_alpha);
     if let Some(response) = response {
         widgets::state_overlay(ui, response, rect, theme::radius(theme::RADIUS_CHIP));
     }
@@ -405,15 +418,16 @@ fn draw_slot(
     paint_subject(ui, subject, group, owner, alpha);
     if !group.building {
         // Tucked into the corner the way the production tiles count, so the icon has the slot.
-        let count = text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold);
+        let color = theme::TEXT_PRIMARY.gamma_multiply(alpha);
+        let count = text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold).with_color(color);
         let galley = count.galley(ui, &group.count.to_string());
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 subject.right() - COUNT_INSET - galley.size().x,
                 subject.bottom() - COUNT_INSET - galley.size().y,
             ),
             galley,
-            theme::TEXT_PRIMARY.gamma_multiply(alpha),
         );
     }
 }
@@ -496,23 +510,23 @@ fn paint_icon(
     );
 }
 
-/// Paints a slot's own chrome, at however much of itself the slot is drawn at.
+/// Paints a slot's own chrome: its fill at `fill_alpha` of itself and its border at `edge_alpha`.
 ///
-/// Its own rather than the chrome the clickable tiles share, because a slot fades whole: an empty
-/// or forgotten one whose border stayed at full strength would be the loudest thing in the row.
-fn paint_slot_chrome(ui: &Ui, rect: Rect, alpha: f32) {
+/// Its own rather than the chrome the clickable tiles share, because a slot fades: an empty or
+/// forgotten one whose border stayed at full strength would be the loudest thing in the row.
+fn paint_slot_chrome(ui: &Ui, rect: Rect, fill_alpha: f32, edge_alpha: f32) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter().rect_filled(
         rect,
         corner_radius,
-        theme::alpha(GREY_BLUE10, 0.85).gamma_multiply(alpha),
+        theme::alpha(GREY_BLUE10, 0.85).gamma_multiply(fill_alpha),
     );
     ui.painter().add(Shape::rect_stroke(
         rect,
         corner_radius,
         Stroke::new(
             theme::HAIRLINE,
-            theme::alpha(BLUE80, 0.20).gamma_multiply(alpha),
+            theme::alpha(BLUE80, 0.20).gamma_multiply(edge_alpha),
         ),
         StrokeKind::Inside,
     ));

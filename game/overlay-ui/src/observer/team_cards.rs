@@ -644,13 +644,13 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
             .format(),
     );
     let galley = spec.layout(ui.ctx(), job);
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(
             value.right() - galley.size().x,
             value.center().y - galley.size().y * 0.5,
         ),
         galley,
-        theme::TEXT_PRIMARY,
     );
     cursor.skip(STAT_GLYPH_GAP);
     widgets::paint_resource_glyph(

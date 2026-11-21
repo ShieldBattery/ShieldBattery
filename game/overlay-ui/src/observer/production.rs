@@ -608,13 +608,13 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
         // the tile already names, and a second box around it would read as a second tile.
         let count = text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold);
         let galley = count.galley(ui, &item.count.to_string());
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 rect.right() - COUNT_INSET - galley.size().x,
                 rect.bottom() - COUNT_INSET - galley.size().y,
             ),
             galley,
-            theme::TEXT_PRIMARY,
         );
     }
 

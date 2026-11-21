@@ -32,6 +32,7 @@ pub const DESIGN_HEIGHT: f32 = 1080.0;
 
 use crate::colors::{AMBER60, BLUE10, BLUE80, GREY_BLUE60, GREY_BLUE80, GREY99};
 use crate::fonts::{body_medium, condensed};
+use crate::kit::text;
 
 /// What the chip shows.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -360,8 +361,8 @@ fn paint_value(
         digits_right + UNIT_GAP * scale,
         baseline - galley_baseline(&unit),
     );
-    painter.galley(numeral_pos, numeral, NUMERAL_COLOR);
-    painter.galley(unit_pos, unit, UNIT_COLOR);
+    text::paint(painter, numeral_pos, numeral);
+    text::paint(painter, unit_pos, unit);
 }
 
 /// `rect` filled with `color`, its corners cut off `cut` deep.

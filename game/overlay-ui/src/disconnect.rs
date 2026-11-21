@@ -478,13 +478,13 @@ fn draw_reconnecting_label(ui: &mut Ui) {
         ui.spacing_mut().item_spacing = Vec2::ZERO;
         widgets::status_dot(ui, theme::ACCENT, true);
         ui.add_space(gap);
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 ui.cursor().left(),
                 ui.max_rect().center().y - galley.size().y * 0.5,
             ),
             galley,
-            spec.color,
         );
     });
 }
@@ -514,13 +514,13 @@ fn draw_title_block(ui: &mut Ui, title: &str, subtitle: &str, clock: Option<&str
     });
     if let Some(clock) = clock {
         let galley = text::numeral(HEADER_CLOCK_SIZE).galley(ui, clock);
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 rect.right() - galley.size().x,
                 rect.center().y - galley.size().y * 0.5,
             ),
             galley,
-            theme::TEXT_PRIMARY,
         );
     }
 }

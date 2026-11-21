@@ -8,9 +8,10 @@
 
 use std::sync::Arc;
 
+use egui::epaint::TextShape;
 use egui::epaint::text::{ByteIndex, FontsView};
 use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
-use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Rect, Ui};
+use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Painter, Pos2, Rect, Ui};
 
 use crate::fonts;
 use crate::kit::theme;
@@ -143,7 +144,8 @@ impl TextSpec {
     /// Lays the text out now, for widgets that paint their own label and need its size first.
     ///
     /// A widget or a `ui.label` handed one of this style's jobs lays it out without the style, so
-    /// a tabular style has to be laid out here, or through [`layout`](Self::layout).
+    /// a tabular style has to be laid out here, or through [`layout`](Self::layout). The galley
+    /// carries the style's color; [`layout`](Self::layout) says how to draw it in another.
     pub fn galley(&self, ui: &Ui, text: &str) -> Arc<Galley> {
         self.layout(ui.ctx(), self.job(text))
     }
@@ -151,6 +153,9 @@ impl TextSpec {
     /// Lays out `job`, one of this style's jobs, with the style's tabular digits when it has them.
     /// Every widget that lays out a style's text goes through here, so a tabular style is tabular
     /// wherever it is drawn.
+    ///
+    /// The galley's color is set here: [`paint`] draws it in the colors it was laid out in, so text
+    /// meant to be drawn in another color is laid out [`with_color`](Self::with_color) that color.
     pub fn layout(&self, ctx: &Context, job: LayoutJob) -> Arc<Galley> {
         ctx.fonts_mut(|fonts| {
             if !self.tabular {
@@ -309,6 +314,52 @@ pub fn body(size: f32, weight: BodyWeight) -> TextSpec {
     TextSpec::new(size, weight.family(), theme::TEXT_PRIMARY)
 }
 
+/// Paints `galley` at `pos` in the colors it was laid out in.
+///
+/// This stands in for egui's `Painter::galley`, which takes a color as well but gives it only to
+/// text laid out in [`Color32::PLACEHOLDER`]. Every style lays its text out in a color of its own,
+/// so a color handed to egui's painter alongside one of them is dropped without a word. Text that
+/// should be drawn in another color is laid out [`with_color`](TextSpec::with_color) it, or
+/// painted with [`paint_tinted`] when the color is only settled after the text is measured.
+#[track_caller]
+pub fn paint(painter: &Painter, pos: Pos2, galley: Arc<Galley>) {
+    debug_assert!(
+        !galley
+            .job
+            .sections
+            .iter()
+            .any(|section| section.format.color == Color32::PLACEHOLDER),
+        "text laid out in the placeholder color has no color of its own: paint it with \
+         `paint_tinted`",
+    );
+    // The shape is built here rather than through `Painter::galley`, which the crate's clippy.toml
+    // disallows so that text is painted through this function. Placeholder text that gets past the
+    // assertion above, in a build without it, reads as body text rather than in egui's placeholder
+    // green.
+    if !galley.is_empty() {
+        painter.add(TextShape::new(pos, galley, theme::TEXT_PRIMARY));
+    }
+}
+
+/// Paints `galley` at `pos` with every letter in `color`, whatever it was laid out in.
+///
+/// For a label whose color is only settled once it has been measured and the widget it sizes
+/// allocated, such as one that lights up under the pointer. The tint replaces every color the text
+/// was laid out in, so it is for text of one color: a readout with a quieter part of its own would
+/// lose the difference.
+#[track_caller]
+pub fn paint_tinted(painter: &Painter, pos: Pos2, galley: Arc<Galley>, color: Color32) {
+    debug_assert!(
+        galley
+            .job
+            .sections
+            .windows(2)
+            .all(|pair| pair[0].format.color == pair[1].format.color),
+        "a tint draws every letter in one color, flattening the colors this text was laid out in",
+    );
+    painter.galley_with_override_text_color(pos, galley, color);
+}
+
 /// How far down a laid-out galley its first line's baseline sits, which is what text of different
 /// faces and sizes set side by side lines up on. The bottom of the galley for one with nothing in
 /// it.
@@ -336,6 +387,12 @@ pub fn column_label() -> TextSpec {
         uppercase: true,
         ..TextSpec::new(11.0, fonts::body_medium(), theme::TEXT_DIM)
     }
+}
+
+/// The label naming the value set beside or under it: the column heading's style a step quieter,
+/// since the value is what is read.
+pub fn value_label() -> TextSpec {
+    column_label().with_color(theme::TEXT_LABEL)
 }
 
 /// A button's single-verb label.

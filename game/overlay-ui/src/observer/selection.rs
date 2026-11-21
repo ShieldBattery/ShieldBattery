@@ -1289,11 +1289,7 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
         Stroke::new(theme::HAIRLINE, theme::alpha(BLUE80, 0.25)),
         StrokeKind::Inside,
     ));
-    ui.painter().galley(
-        plate.center() - galley.size() * 0.5,
-        galley,
-        theme::TEXT_PRIMARY,
-    );
+    text::paint(ui.painter(), plate.center() - galley.size() * 0.5, galley);
 }
 
 /// Names the stat-row item under the pointer, then its armor, shield armor, or weapon damage.
