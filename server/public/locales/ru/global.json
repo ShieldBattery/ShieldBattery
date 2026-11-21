@@ -2264,6 +2264,8 @@
       "privateUpload": "Личная загрузка",
       "processing": "Обработка…",
       "publishedAgo": "Опубликована: {{time}}",
+      "queued": "В очереди",
+      "removeQueuedUpload": "Убрать из очереди",
       "searchMaps": "Поиск карт",
       "showCompact": "Показать мелкие плитки",
       "showCozy": "Показать крупные плитки",
@@ -2295,7 +2297,13 @@
       "totalGames_few": "{{formattedCount}} игры",
       "totalGames_many": "{{formattedCount}} игр",
       "totalGames_other": "{{formattedCount}} игры",
-      "uploadBannerText": "Перетащите файл <1>.scm</1> или <3>.scx</3> куда угодно, чтобы загрузить его. Он появится здесь как личная карта.",
+      "uploadBannerPrompt": "Перетащите файлы <1>.scm</1> или <3>.scx</3> куда угодно или нажмите здесь, чтобы выбрать их. Они появятся здесь как личные карты.",
+      "uploadConfirm": "Загрузить",
+      "uploadConfirmText": "Они загрузятся по одной и появятся в «Моих картах» как личные.",
+      "uploadConfirmTitle_one": "Загрузить {{count}} карту?",
+      "uploadConfirmTitle_few": "Загрузить {{count}} карты?",
+      "uploadConfirmTitle_many": "Загрузить {{count}} карт?",
+      "uploadConfirmTitle_other": "Загрузить {{count}} карты?",
       "uploaded": "Карта {{name}} загружена",
       "uploadFailed": "Ошибка загрузки",
       "uploading": "Загрузка…",
@@ -2506,6 +2514,7 @@
     },
     "files": {
       "compare": "Сравнить",
+      "compareWithRecommended": "Сравнить с рекомендуемым файлом",
       "fileActions": "Действия с файлом",
       "games_one": "{{formattedCount}} игра",
       "games_few": "{{formattedCount}} игры",
@@ -2513,8 +2522,13 @@
       "games_other": "{{formattedCount}} игры",
       "makeRecommended": "Сделать рекомендуемым",
       "notRecommended": "Не рекомендуемый файл",
+      "oneOfFiles_one": "Один из {{count}} файла этой карты",
+      "oneOfFiles_few": "Один из {{count}} файлов этой карты",
+      "oneOfFiles_many": "Один из {{count}} файлов этой карты",
+      "oneOfFiles_other": "Один из {{count}} файлов этой карты",
       "recommended": "Рекомендуемый",
       "recommendedChanged": "Теперь рекомендуется файл {{fileName}}",
+      "recommendedTooltip": "Файл, который получают игроки, выбирая эту карту",
       "recommendError": "Не удалось изменить рекомендуемый файл",
       "showAll_one": "Показать {{count}}",
       "showAll_few": "Показать все {{count}}",
@@ -2523,7 +2537,7 @@
       "showFewer": "Свернуть",
       "title": "Файлы",
       "unlistedCantBeRecommended": "Файлы с доступом по ссылке нельзя сделать рекомендуемыми",
-      "viewRecommended": "К рекомендуемому файлу"
+      "viewRecommendedOne": "К рекомендуемому файлу"
     },
     "local": {
       "cantBeUsed": "Нельзя использовать: {{reason}}",
@@ -2555,7 +2569,7 @@
     },
     "nudge": {
       "switchRecommendedError": "Не удалось загрузить рекомендуемый файл",
-      "useRecommended": "Выбрать рекомендуемый файл"
+      "useFile": "Выбрать {{name}}"
     },
     "owner": {
       "addedNotRecommended": "Добавлено к карте {{mapName}}, но сделать файл рекомендуемым не удалось",
