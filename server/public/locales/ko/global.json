@@ -2153,6 +2153,8 @@
       "privateUpload": "비공개 업로드",
       "processing": "처리 중…",
       "publishedAgo": "{{time}} 게시",
+      "queued": "대기 중",
+      "removeQueuedUpload": "대기열에서 제거",
       "searchMaps": "맵 검색",
       "showCompact": "타일 작게 보기",
       "showCozy": "타일 크게 보기",
@@ -2175,7 +2177,10 @@
       "tilesetAny": "모든 타일셋",
       "tilesetCount_other": "타일셋 {{count}}개",
       "totalGames_other": "{{formattedCount}}게임",
-      "uploadBannerText": "<1>.scm</1> 또는 <3>.scx</3> 파일을 아무 곳에나 끌어다 놓으면 업로드됩니다. 업로드한 맵은 비공개 맵으로 여기에 추가됩니다.",
+      "uploadBannerPrompt": "<1>.scm</1> 또는 <3>.scx</3> 파일을 아무 곳에나 끌어다 놓거나 여기를 클릭해 선택하세요. 업로드한 맵은 비공개 맵으로 여기에 추가됩니다.",
+      "uploadConfirm": "업로드",
+      "uploadConfirmText": "한 번에 하나씩 업로드되며, 내 맵에 비공개로 추가됩니다.",
+      "uploadConfirmTitle_other": "맵 {{count}}개를 업로드하시겠습니까?",
       "uploaded": "{{name}} 업로드 완료",
       "uploadFailed": "업로드 실패",
       "uploading": "업로드 중…",
@@ -2359,18 +2364,21 @@
     },
     "files": {
       "compare": "비교",
+      "compareWithRecommended": "권장 파일과 비교",
       "fileActions": "파일 작업",
       "games_other": "{{formattedCount}}게임",
       "makeRecommended": "권장 파일로 지정",
       "notRecommended": "권장 파일이 아닙니다",
+      "oneOfFiles_other": "이 맵의 파일 {{count}}개 중 하나",
       "recommended": "권장",
       "recommendedChanged": "이제 권장 파일은 {{fileName}}입니다",
+      "recommendedTooltip": "플레이어가 이 맵을 고르면 사용되는 파일입니다",
       "recommendError": "권장 파일을 변경하지 못했습니다",
       "showAll_other": "{{count}}개 모두 보기",
       "showFewer": "접기",
       "title": "파일",
       "unlistedCantBeRecommended": "일부 공개 파일은 권장 파일로 지정할 수 없습니다",
-      "viewRecommended": "권장 파일 보기"
+      "viewRecommendedOne": "권장 파일 보기"
     },
     "local": {
       "cantBeUsed": "사용할 수 없음: {{reason}}",
@@ -2399,7 +2407,7 @@
     },
     "nudge": {
       "switchRecommendedError": "권장 파일을 불러올 수 없습니다",
-      "useRecommended": "권장 파일 사용"
+      "useFile": "{{name}} 사용"
     },
     "owner": {
       "addedNotRecommended": "{{mapName}}에 추가했지만 권장 파일로 지정하지 못했습니다",

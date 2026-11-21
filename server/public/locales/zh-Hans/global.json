@@ -2153,6 +2153,8 @@
       "privateUpload": "私人上传",
       "processing": "处理中…",
       "publishedAgo": "{{time}}发布",
+      "queued": "排队中",
+      "removeQueuedUpload": "从队列中移除",
       "searchMaps": "搜索地图",
       "showCompact": "显示小图块",
       "showCozy": "显示大图块",
@@ -2175,7 +2177,10 @@
       "tilesetAny": "任意地形类型",
       "tilesetCount_other": "{{count}} 种地形类型",
       "totalGames_other": "{{formattedCount}} 场游戏",
-      "uploadBannerText": "将 <1>.scm</1> 或 <3>.scx</3> 文件拖放到任意位置即可上传。上传后会作为私人地图出现在这里。",
+      "uploadBannerPrompt": "将 <1>.scm</1> 或 <3>.scx</3> 文件拖放到任意位置，或点击此处选择文件。上传后会作为私人地图出现在这里。",
+      "uploadConfirm": "上传",
+      "uploadConfirmText": "地图会逐个上传，并作为私人地图出现在“我的地图”中。",
+      "uploadConfirmTitle_other": "上传 {{count}} 张地图？",
       "uploaded": "已上传 {{name}}",
       "uploadFailed": "上传失败",
       "uploading": "上传中…",
@@ -2359,18 +2364,21 @@
     },
     "files": {
       "compare": "比较",
+      "compareWithRecommended": "与推荐文件比较",
       "fileActions": "文件操作",
       "games_other": "{{formattedCount}} 场游戏",
       "makeRecommended": "设为推荐",
       "notRecommended": "不是推荐文件",
+      "oneOfFiles_other": "此地图 {{count}} 个文件之一",
       "recommended": "推荐",
       "recommendedChanged": "现在的推荐文件是 {{fileName}}",
+      "recommendedTooltip": "玩家选择此地图时使用的文件",
       "recommendError": "无法更改推荐文件",
       "showAll_other": "显示全部 {{count}} 个",
       "showFewer": "收起",
       "title": "文件",
       "unlistedCantBeRecommended": "不公开列出的文件无法设为推荐",
-      "viewRecommended": "查看推荐文件"
+      "viewRecommendedOne": "查看推荐文件"
     },
     "local": {
       "cantBeUsed": "无法使用：{{reason}}",
@@ -2399,7 +2407,7 @@
     },
     "nudge": {
       "switchRecommendedError": "无法加载推荐文件",
-      "useRecommended": "使用推荐文件"
+      "useFile": "使用 {{name}}"
     },
     "owner": {
       "addedNotRecommended": "已添加到 {{mapName}}，但无法设为推荐文件",

@@ -2227,6 +2227,8 @@
       "privateUpload": "Subida privada",
       "processing": "Procesando…",
       "publishedAgo": "Publicado {{time}}",
+      "queued": "En cola",
+      "removeQueuedUpload": "Quitar de la cola",
       "searchMaps": "Buscar mapas",
       "showCompact": "Mostrar miniaturas más pequeñas",
       "showCozy": "Mostrar miniaturas más grandes",
@@ -2255,7 +2257,12 @@
       "totalGames_one": "{{formattedCount}} partida",
       "totalGames_many": "{{formattedCount}} de partidas",
       "totalGames_other": "{{formattedCount}} partidas",
-      "uploadBannerText": "Suelta un archivo <1>.scm</1> o <3>.scx</3> en cualquier parte para subirlo. Aparecerá aquí como mapa privado.",
+      "uploadBannerPrompt": "Suelta archivos <1>.scm</1> o <3>.scx</3> en cualquier parte, o haz clic aquí para elegirlos. Aparecerán aquí como mapas privados.",
+      "uploadConfirm": "Subir",
+      "uploadConfirmText": "Se subirán de uno en uno y aparecerán en tus mapas como privados.",
+      "uploadConfirmTitle_one": "¿Subir {{count}} mapa?",
+      "uploadConfirmTitle_many": "¿Subir {{count}} de mapas?",
+      "uploadConfirmTitle_other": "¿Subir {{count}} mapas?",
       "uploaded": "Subiste {{name}}",
       "uploadFailed": "Error al subir",
       "uploading": "Subiendo…",
@@ -2457,14 +2464,19 @@
     },
     "files": {
       "compare": "Comparar",
+      "compareWithRecommended": "Comparar con el archivo recomendado",
       "fileActions": "Acciones del archivo",
       "games_one": "{{formattedCount}} partida",
       "games_many": "{{formattedCount}} de partidas",
       "games_other": "{{formattedCount}} partidas",
       "makeRecommended": "Marcar como recomendado",
       "notRecommended": "No es el archivo recomendado",
+      "oneOfFiles_one": "Uno de {{count}} archivo de este mapa",
+      "oneOfFiles_many": "Uno de {{count}} de archivos de este mapa",
+      "oneOfFiles_other": "Uno de los {{count}} archivos de este mapa",
       "recommended": "Recomendado",
       "recommendedChanged": "Ahora el archivo recomendado es {{fileName}}",
+      "recommendedTooltip": "El archivo que reciben los jugadores al elegir este mapa",
       "recommendError": "No se pudo cambiar el archivo recomendado",
       "showAll_one": "Mostrar {{count}}",
       "showAll_many": "Mostrar los {{count}}",
@@ -2472,7 +2484,7 @@
       "showFewer": "Mostrar menos",
       "title": "Archivos",
       "unlistedCantBeRecommended": "Los archivos no listados no se pueden recomendar",
-      "viewRecommended": "Ver el recomendado"
+      "viewRecommendedOne": "Ver el recomendado"
     },
     "local": {
       "cantBeUsed": "No se puede usar: {{reason}}",
@@ -2503,7 +2515,7 @@
     },
     "nudge": {
       "switchRecommendedError": "No se pudo cargar el archivo recomendado",
-      "useRecommended": "Usar el recomendado"
+      "useFile": "Usar {{name}}"
     },
     "owner": {
       "addedNotRecommended": "Añadido a {{mapName}}, pero no se pudo marcar como recomendado",
