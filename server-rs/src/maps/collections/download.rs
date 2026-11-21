@@ -5,23 +5,19 @@
 //! then navigates to the archive with that token in the URL (`GET .../download`). The token
 //! carries what the viewer was allowed to see when it was issued.
 //!
-//! Archives are streamed: map files are read from the file store one at a time and written as
-//! stored (uncompressed) entries, since map files are already compressed. Archives over 4 GB use
-//! Zip64. A file is held in memory from when it's read until its entry is written, so how many
-//! files all archive builds together hold at once is bounded, and so is how long one build can
-//! take.
+//! Archives are streamed: map files are read from the file store one at a time, a piece at a time,
+//! and written as stored (uncompressed) entries, since map files are already compressed. Archives
+//! over 4 GB use Zip64. A build fails if its client stops reading, or takes too long.
 
 use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::future::Future;
 use std::io;
 use std::net::IpAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
-use async_graphql::futures_util::{StreamExt, future, stream};
+use async_graphql::futures_util::{AsyncWriteExt as _, StreamExt, future, stream};
 use async_zip::base::write::ZipFileWriter;
-use async_zip::error::ZipError;
 use async_zip::{Compression, ZipDateTime, ZipDateTimeBuilder, ZipEntryBuilder};
 use axum::Json;
 use axum::body::Body;
@@ -34,15 +30,15 @@ use color_eyre::eyre::{self, WrapErr};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio::sync::Semaphore;
+use tokio::io::{AsyncWrite, AsyncWriteExt as _};
+use tokio::time::timeout;
 use tokio_util::io::ReaderStream;
 use tokio_util::task::AbortOnDropHandle;
 use tracing::error;
 use typeshare::typeshare;
 use uuid::Uuid;
 
-use crate::file_store::FileStore;
+use crate::file_store::{FileReader, FileStore};
 use crate::maps::api::{MapApiError, Throttle};
 use crate::maps::collections::{self, Viewer};
 use crate::maps::ingest::map_file_path;
@@ -58,14 +54,16 @@ const TOKEN_LIFETIME_SECS: u64 = 60;
 /// How many download tokens each user (or, logged out, each IP address) can get per window.
 const DOWNLOADS_PER_WINDOW: u32 = 6;
 const DOWNLOAD_WINDOW: Duration = Duration::from_secs(10 * 60);
-/// How many map files (up to 100 MB each) all archive builds together can hold in memory at once.
-/// A build holds one from reading it until its entry is written.
-const MAX_FILES_IN_MEMORY: usize = 4;
-/// How long building and sending one archive can take before it fails. A client that stops
-/// reading would otherwise keep the build, and the map file it holds, in memory indefinitely.
+/// How long building and sending one archive can take before it fails, so a client that keeps
+/// reading too slowly to ever stall still can't keep a build running indefinitely.
 const MAX_ARCHIVE_BUILD_TIME: Duration = Duration::from_secs(2 * 60 * 60);
+/// How long writing one chunk of a map file to an archive can take before the build fails. A write
+/// only waits while the archive buffer is full, so this fails a client that stops reading.
+const MAX_CLIENT_STALL: Duration = Duration::from_secs(30);
 /// How much of an archive is buffered between writing it and sending it.
 const ARCHIVE_BUFFER_BYTES: usize = 256 * 1024;
+/// The most of a map file that is read at a time when writing it to an archive.
+const FILE_CHUNK_BYTES: usize = 64 * 1024;
 /// The longest a file name in or of an archive can be, in characters, before its extension.
 const MAX_FILE_NAME_CHARS: usize = 100;
 /// The name of an archive whose requested name has nothing usable left after sanitizing.
@@ -94,8 +92,6 @@ enum DownloadRequester {
 pub struct CollectionDownloads {
     tokens: DownloadTokens,
     throttle: Throttle<DownloadRequester>,
-    /// One permit per map file an archive build holds in memory.
-    files_in_memory: Arc<Semaphore>,
 }
 
 impl CollectionDownloads {
@@ -105,7 +101,6 @@ impl CollectionDownloads {
         Self {
             tokens: DownloadTokens::new(jwt_secret),
             throttle: Throttle::new(DOWNLOADS_PER_WINDOW, DOWNLOAD_WINDOW),
-            files_in_memory: Arc::new(Semaphore::new(MAX_FILES_IN_MEMORY)),
         }
     }
 }
@@ -294,16 +289,15 @@ pub(crate) async fn download_collection(
 
     let (reader, writer) = tokio::io::duplex(ARCHIVE_BUFFER_BYTES);
     let file_store = state.file_store.clone();
-    let files_in_memory = downloads.files_in_memory.clone();
-    // Aborted when the response body is dropped (e.g. the client disconnected), which also
-    // releases any file it holds
+    // Aborted when the response body is dropped (e.g. the client disconnected), which also closes
+    // any file it has open
     let build = AbortOnDropHandle::new(tokio::spawn(async move {
         let archive = write_archive(
             writer,
             &entries,
             &file_store,
-            &files_in_memory,
             zip_timestamp(Utc::now()),
+            MAX_CLIENT_STALL,
         );
         match tokio::time::timeout(MAX_ARCHIVE_BUILD_TIME, archive).await {
             Ok(Ok(_)) => Ok(()),
@@ -364,45 +358,47 @@ fn archive_entries(files: &[ArchiveFile]) -> Vec<ArchiveEntry> {
 
 /// Where the files of an archive are read from.
 trait ArchiveSource: Sync {
-    fn load(&self, path: &str) -> impl Future<Output = eyre::Result<Vec<u8>>> + Send;
+    fn open(&self, path: &str) -> impl Future<Output = eyre::Result<FileReader>> + Send;
 }
 
 impl ArchiveSource for FileStore {
-    fn load(&self, path: &str) -> impl Future<Output = eyre::Result<Vec<u8>>> + Send {
-        self.read(path)
+    fn open(&self, path: &str) -> impl Future<Output = eyre::Result<FileReader>> + Send {
+        self.read_stream(path)
     }
 }
 
 /// Writes a zip archive of `entries` to `writer`, reading their files from `source` one at a time.
-/// Entries are stored rather than compressed. A file that can't be read is logged and left out.
-/// Each file takes a permit of `files_in_memory` from before it's read until its entry is written.
-/// Returns `writer` once the archive is complete and `writer` is shut down.
+/// Entries are stored rather than compressed. A file that can't be opened is logged and left out.
+/// Fails if starting an entry or writing a chunk of a file to `writer` takes longer than
+/// `stall_timeout`. Returns `writer` once the archive is complete and `writer` is shut down.
 async fn write_archive<W: AsyncWrite + Unpin>(
     writer: W,
     entries: &[ArchiveEntry],
     source: &impl ArchiveSource,
-    files_in_memory: &Semaphore,
     modified: ZipDateTime,
-) -> Result<W, ZipError> {
+    stall_timeout: Duration,
+) -> eyre::Result<W> {
+    const STALLED: &str = "The client stopped reading the archive";
     let mut zip = ZipFileWriter::with_tokio(writer);
     for entry in entries {
-        let _permit = files_in_memory
-            .acquire()
-            .await
-            .expect("the file semaphore is never closed");
-        let data = match source.load(&entry.path).await {
-            Ok(data) => data,
+        let file = match source.open(&entry.path).await {
+            Ok(file) => file,
             Err(e) => {
-                error!(
-                    "Couldn't read {} for a collection archive, leaving it out: {e:?}",
-                    entry.path
-                );
+                error!("Leaving {} out of a collection archive: {e:?}", entry.path);
                 continue;
             }
         };
         let zip_entry = ZipEntryBuilder::new(entry.name.clone().into(), Compression::Stored)
             .last_modification_date(modified);
-        zip.write_entry_whole(zip_entry, &data).await?;
+        let start = zip.write_entry_stream(zip_entry);
+        let mut entry_writer = timeout(stall_timeout, start).await.wrap_err(STALLED)??;
+        let mut chunks = ReaderStream::with_capacity(file, FILE_CHUNK_BYTES);
+        while let Some(chunk) = chunks.next().await {
+            let chunk = chunk.wrap_err_with(|| format!("Failed to read {}", entry.path))?;
+            let write = entry_writer.write_all(&chunk);
+            timeout(stall_timeout, write).await.wrap_err(STALLED)??;
+        }
+        entry_writer.close().await?;
     }
     let mut writer = zip.close().await?.into_inner();
     writer.shutdown().await?;
@@ -671,11 +667,15 @@ mod tests {
     }
 
     impl ArchiveSource for HashMap<String, Vec<u8>> {
-        async fn load(&self, path: &str) -> eyre::Result<Vec<u8>> {
-            self.get(path)
-                .cloned()
-                .ok_or_else(|| eyre::eyre!("{path} not found"))
+        async fn open(&self, path: &str) -> eyre::Result<FileReader> {
+            let data = self.get(path).ok_or(eyre::eyre!("{path} not found"))?;
+            Ok(Box::pin(io::Cursor::new(data.clone())))
         }
+    }
+
+    fn entry(name: &str, path: &str) -> ArchiveEntry {
+        let (name, path) = (name.to_string(), path.to_string());
+        ArchiveEntry { name, path }
     }
 
     #[tokio::test]
@@ -686,28 +686,17 @@ mod tests {
             ("b.scx".to_string(), vec![0u8; 70_000]),
             ("c.scx".to_string(), b"third".to_vec()),
         ]);
-        let entry = |name: &str, path: &str| ArchiveEntry {
-            name: name.to_string(),
-            path: path.to_string(),
-        };
         let entries = [
             entry("투혼 1.3.scm", "a.scm"),
             entry("Big.scx", "b.scx"),
             entry("Missing.scx", "missing.scx"),
             entry("Third.scx", "c.scx"),
         ];
-        let files_in_memory = Semaphore::new(1);
+        let modified = zip_timestamp(Utc::now());
 
-        let archive = write_archive(
-            Vec::new(),
-            &entries,
-            &files,
-            &files_in_memory,
-            zip_timestamp(Utc::now()),
-        )
-        .await
-        .unwrap();
-        assert_eq!(files_in_memory.available_permits(), 1);
+        let archive = write_archive(Vec::new(), &entries, &files, modified, MAX_CLIENT_STALL)
+            .await
+            .unwrap();
 
         let reader = ZipFileReader::new(archive).await.unwrap();
         let mut read = Vec::new();
@@ -728,5 +717,16 @@ mod tests {
                 ("Third.scx".to_string(), files["c.scx"].clone()),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn archives_fail_when_the_client_stops_reading() {
+        let files = HashMap::from([("a.scm".to_string(), vec![0u8; 100_000])]);
+        let (_unread, writer) = tokio::io::duplex(1024);
+        let (modified, stall) = (zip_timestamp(Utc::now()), Duration::from_millis(50));
+        let entries = [entry("A.scm", "a.scm")];
+        let archive = write_archive(writer, &entries, &files, modified, stall);
+        let result = tokio::time::timeout(Duration::from_secs(5), archive).await;
+        assert!(matches!(result, Ok(Err(e)) if e.to_string().contains("stopped reading")));
     }
 }
