@@ -143,7 +143,6 @@ features = [
 [dev-dependencies]
 criterion = "0.8"
 mockito = "1.7"
-tokio = { version = "1.54", features = ["test-util"] }
 
 # Enable more optimizations for dependencies in dev, but not for our code
 [profile.dev.package."*"]

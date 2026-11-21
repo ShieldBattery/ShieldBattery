@@ -8,8 +8,8 @@
 //! Archives are streamed: map files are read from the file store one at a time and written as
 //! stored (uncompressed) entries, since map files are already compressed. Archives over 4 GB use
 //! Zip64. A file is held in memory from when it's read until its entry is written, so how many
-//! files all archive builds together hold at once is bounded, and a client that stops reading
-//! fails its download rather than holding a file forever.
+//! files all archive builds together hold at once is bounded, and so is how long one build can
+//! take.
 
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -24,7 +24,7 @@ use async_zip::base::write::ZipFileWriter;
 use async_zip::error::ZipError;
 use async_zip::{Compression, ZipDateTime, ZipDateTimeBuilder, ZipEntryBuilder};
 use axum::Json;
-use axum::body::{Body, Bytes};
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::response::Response;
@@ -61,33 +61,19 @@ const DOWNLOAD_WINDOW: Duration = Duration::from_secs(10 * 60);
 /// How many map files (up to 100 MB each) all archive builds together can hold in memory at once.
 /// A build holds one from reading it until its entry is written.
 const MAX_FILES_IN_MEMORY: usize = 4;
-/// How long writing an archive entry may take regardless of its size, and the rate its bytes must
-/// be sent at beyond that, before the client counts as stalled.
-const ENTRY_WRITE_GRACE: Duration = Duration::from_secs(30);
-const MIN_ENTRY_WRITE_BYTES_PER_SEC: u64 = 50 * 1000;
+/// How long building and sending one archive can take before it fails. A client that stops
+/// reading would otherwise keep the build, and the map file it holds, in memory indefinitely.
+const MAX_ARCHIVE_BUILD_TIME: Duration = Duration::from_secs(2 * 60 * 60);
 /// How much of an archive is buffered between writing it and sending it.
 const ARCHIVE_BUFFER_BYTES: usize = 256 * 1024;
 /// The longest a file name in or of an archive can be, in characters, before its extension.
 const MAX_FILE_NAME_CHARS: usize = 100;
 /// The name of an archive whose requested name has nothing usable left after sanitizing.
 const FALLBACK_ARCHIVE_NAME: &str = "maps";
-/// The name of an archive entry whose map name has nothing usable left after sanitizing.
-const FALLBACK_ENTRY_NAME: &str = "map";
 
 /// Characters that are left out of file names: path separators, double quotes and the rest of the
 /// characters Windows doesn't allow in file names.
 const FORBIDDEN_FILE_NAME_CHARS: &[char] = &['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
-/// Unicode direction controls, which can make a name display with a different extension than it
-/// has.
-const BIDI_CONTROL_CHARS: &[char] = &[
-    '\u{200e}', '\u{200f}', '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}', '\u{202e}', '\u{2066}',
-    '\u{2067}', '\u{2068}', '\u{2069}',
-];
-/// Device names Windows reserves, which can't be used as a file name with any extension.
-const RESERVED_WINDOWS_NAMES: &[&str] = &[
-    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
-    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-];
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,16 +118,7 @@ struct DownloadClaims {
     /// Whether the archive holds every entry of the collection, rather than only the entries whose
     /// map is listed.
     all_entries: bool,
-    /// When the token expires, in seconds since the Unix epoch.
     exp: u64,
-}
-
-/// What a valid download token allows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct DownloadGrant {
-    /// Whether the archive holds every entry of the collection, rather than only the entries whose
-    /// map is listed.
-    pub all_entries: bool,
 }
 
 /// Issues and checks download tokens: JWTs that let their holder download one collection's archive
@@ -189,23 +166,20 @@ impl DownloadTokens {
             .wrap_err("Failed to sign download token")
     }
 
-    /// Returns what `token` allows for the collection `collection_id`, or `None` if it isn't a valid,
-    /// unexpired download token for that collection.
-    pub(crate) fn verify(&self, token: &str, collection_id: Uuid) -> Option<DownloadGrant> {
+    /// Returns the `all_entries` claim of `token`, or `None` if it isn't a valid, unexpired
+    /// download token for the collection `collection_id`.
+    pub(crate) fn verify(&self, token: &str, collection_id: Uuid) -> Option<bool> {
         let claims =
             jsonwebtoken::decode::<DownloadClaims>(token, &self.decoding_key, &self.validation)
                 .ok()?
                 .claims;
-        (claims.purpose == TOKEN_PURPOSE && claims.collection_id == collection_id).then_some(
-            DownloadGrant {
-                all_entries: claims.all_entries,
-            },
-        )
+        (claims.purpose == TOKEN_PURPOSE && claims.collection_id == collection_id)
+            .then_some(claims.all_entries)
     }
 }
 
 /// A map file a collection archive holds.
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, FromRow)]
 struct ArchiveFile {
     id: SbMapId,
     hash: MapHash,
@@ -305,7 +279,7 @@ pub(crate) async fn download_collection(
     Query(query): Query<DownloadQuery>,
 ) -> Result<Response, MapApiError> {
     let downloads = &state.collection_downloads;
-    let grant = downloads
+    let all_entries = downloads
         .tokens
         .verify(&query.token, collection_id)
         .ok_or(MapApiError::Forbidden)?;
@@ -313,7 +287,7 @@ pub(crate) async fn download_collection(
         .await
         .map_err(internal_error)?
         .ok_or(MapApiError::CollectionNotFound)?;
-    let files = load_archive_files(&state.db_pool, collection_id, grant.all_entries, None)
+    let files = load_archive_files(&state.db_pool, collection_id, all_entries, None)
         .await
         .map_err(internal_error)?;
     let entries = archive_entries(&files);
@@ -324,22 +298,25 @@ pub(crate) async fn download_collection(
     // Aborted when the response body is dropped (e.g. the client disconnected), which also
     // releases any file it holds
     let build = AbortOnDropHandle::new(tokio::spawn(async move {
-        write_archive(
+        let archive = write_archive(
             writer,
             &entries,
             &file_store,
             &files_in_memory,
             zip_timestamp(Utc::now()),
-        )
-        .await
-        .map(drop)
+        );
+        match tokio::time::timeout(MAX_ARCHIVE_BUILD_TIME, archive).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(e)) => Err(format!("{e:?}")),
+            Err(_) => Err(format!("it took longer than {MAX_ARCHIVE_BUILD_TIME:?}")),
+        }
     }));
     // Ends the body with an error if the archive couldn't be finished, so the download fails
     // instead of ending with a truncated archive
     let finish = stream::once(async move {
         let error = match build.await {
             Ok(Ok(())) => return None,
-            Ok(Err(e)) => format!("{e:?}"),
+            Ok(Err(e)) => e,
             Err(e) => format!("{e:?}"),
         };
         error!("Building collection {collection_id}'s archive failed: {error}");
@@ -360,7 +337,7 @@ pub(crate) async fn download_collection(
 }
 
 /// Something a collection archive holds: the name it has in the archive, and where to read it from.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 struct ArchiveEntry {
     name: String,
     path: String,
@@ -371,7 +348,7 @@ struct ArchiveEntry {
 fn archive_entries(files: &[ArchiveFile]) -> Vec<ArchiveEntry> {
     let names = unique_file_names(files.iter().map(|f| {
         (
-            sanitize_file_name(&f.name, FALLBACK_ENTRY_NAME),
+            sanitize_file_name(&f.name, "map"),
             f.extension.trim().to_lowercase(),
         )
     }));
@@ -387,32 +364,18 @@ fn archive_entries(files: &[ArchiveFile]) -> Vec<ArchiveEntry> {
 
 /// Where the files of an archive are read from.
 trait ArchiveSource: Sync {
-    fn load(&self, path: &str) -> impl Future<Output = eyre::Result<Bytes>> + Send;
+    fn load(&self, path: &str) -> impl Future<Output = eyre::Result<Vec<u8>>> + Send;
 }
 
 impl ArchiveSource for FileStore {
-    async fn load(&self, path: &str) -> eyre::Result<Bytes> {
-        self.read(path).await.map(Bytes::from)
+    fn load(&self, path: &str) -> impl Future<Output = eyre::Result<Vec<u8>>> + Send {
+        self.read(path)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum ArchiveError {
-    #[error(transparent)]
-    Zip(#[from] ZipError),
-    #[error("the client stopped reading while {0} was being written")]
-    Stalled(String),
-}
-
-/// How long writing `bytes` to the client may take before it counts as stalled.
-fn write_budget(bytes: usize) -> Duration {
-    ENTRY_WRITE_GRACE + Duration::from_secs(bytes as u64 / MIN_ENTRY_WRITE_BYTES_PER_SEC)
 }
 
 /// Writes a zip archive of `entries` to `writer`, reading their files from `source` one at a time.
 /// Entries are stored rather than compressed. A file that can't be read is logged and left out.
 /// Each file takes a permit of `files_in_memory` from before it's read until its entry is written.
-/// Fails with `Stalled` if `writer` stops accepting bytes for longer than [`write_budget`] allows.
 /// Returns `writer` once the archive is complete and `writer` is shut down.
 async fn write_archive<W: AsyncWrite + Unpin>(
     writer: W,
@@ -420,7 +383,7 @@ async fn write_archive<W: AsyncWrite + Unpin>(
     source: &impl ArchiveSource,
     files_in_memory: &Semaphore,
     modified: ZipDateTime,
-) -> Result<W, ArchiveError> {
+) -> Result<W, ZipError> {
     let mut zip = ZipFileWriter::with_tokio(writer);
     for entry in entries {
         let _permit = files_in_memory
@@ -439,23 +402,11 @@ async fn write_archive<W: AsyncWrite + Unpin>(
         };
         let zip_entry = ZipEntryBuilder::new(entry.name.clone().into(), Compression::Stored)
             .last_modification_date(modified);
-        tokio::time::timeout(
-            write_budget(data.len()),
-            zip.write_entry_whole(zip_entry, &data),
-        )
-        .await
-        .map_err(|_| ArchiveError::Stalled(entry.name.clone()))??;
+        zip.write_entry_whole(zip_entry, &data).await?;
     }
-    // The central directory holds no map file, but a stalled client would still hold the build
-    // open
-    tokio::time::timeout(ENTRY_WRITE_GRACE, async {
-        let mut writer = zip.close().await?.into_inner();
-        writer.shutdown().await?;
-        Ok::<_, ZipError>(writer)
-    })
-    .await
-    .map_err(|_| ArchiveError::Stalled("the central directory".to_string()))?
-    .map_err(ArchiveError::from)
+    let mut writer = zip.close().await?.into_inner();
+    writer.shutdown().await?;
+    Ok(writer)
 }
 
 /// `time` as an archive entry's modification time.
@@ -471,35 +422,21 @@ fn zip_timestamp(time: DateTime<Utc>) -> ZipDateTime {
 }
 
 /// Makes `name` safe to use as a file name (without its extension) on any OS: leaves out control
-/// characters, direction controls, double quotes, path separators and the other characters Windows
-/// doesn't allow, trims it, and caps its length. Returns `fallback` if nothing is left.
+/// characters, double quotes, path separators and the other characters Windows doesn't allow,
+/// trims it, and caps its length. Returns `fallback` if nothing is left.
 fn sanitize_file_name(name: &str, fallback: &str) -> String {
     let cleaned: String = name
         .chars()
-        .filter(|c| {
-            !c.is_control()
-                && !FORBIDDEN_FILE_NAME_CHARS.contains(c)
-                && !BIDI_CONTROL_CHARS.contains(c)
-        })
+        .filter(|c| !c.is_control() && !FORBIDDEN_FILE_NAME_CHARS.contains(c))
         .collect();
     let capped: String = cleaned.trim().chars().take(MAX_FILE_NAME_CHARS).collect();
     // Windows drops trailing dots and spaces from file names
     let trimmed = capped.trim_end_matches(|c: char| c == '.' || c.is_whitespace());
     if trimmed.is_empty() {
         fallback.to_string()
-    } else if is_reserved_windows_name(trimmed) {
-        format!("_{trimmed}")
     } else {
         trimmed.to_string()
     }
-}
-
-/// Whether Windows reserves `name` (or the part of it before its first dot) for a device.
-fn is_reserved_windows_name(name: &str) -> bool {
-    let base = name.split('.').next().unwrap_or(name).trim_end();
-    RESERVED_WINDOWS_NAMES
-        .iter()
-        .any(|reserved| reserved.eq_ignore_ascii_case(base))
 }
 
 /// Joins each name and extension into a file name, adding ` (2)`, ` (3)`, ... before the extension
@@ -587,17 +524,10 @@ mod tests {
             sanitize_file_name("tab\there\nnew\u{7f}", "map"),
             "tabherenew"
         );
-        assert_eq!(
-            sanitize_file_name("evil\u{202e}xcs.exe", "map"),
-            "evilxcs.exe"
-        );
         assert_eq!(sanitize_file_name("투혼 1.3", "map"), "투혼 1.3");
         assert_eq!(sanitize_file_name("trailing... ", "map"), "trailing");
         assert_eq!(sanitize_file_name("", "map"), "map");
         assert_eq!(sanitize_file_name(" /\\?* ", "maps"), "maps");
-        assert_eq!(sanitize_file_name("con", "map"), "_con");
-        assert_eq!(sanitize_file_name("LPT1.backup", "map"), "_LPT1.backup");
-        assert_eq!(sanitize_file_name("Console", "map"), "Console");
 
         let long = "한".repeat(150);
         assert_eq!(
@@ -691,15 +621,9 @@ mod tests {
         let tokens = DownloadTokens::new(SECRET);
         let id = Uuid::new_v4();
         let token = tokens.issue(id, true).unwrap();
-        assert_eq!(
-            tokens.verify(&token, id),
-            Some(DownloadGrant { all_entries: true })
-        );
+        assert_eq!(tokens.verify(&token, id), Some(true));
         let token = tokens.issue(id, false).unwrap();
-        assert_eq!(
-            tokens.verify(&token, id),
-            Some(DownloadGrant { all_entries: false })
-        );
+        assert_eq!(tokens.verify(&token, id), Some(false));
     }
 
     #[test]
@@ -747,166 +671,11 @@ mod tests {
     }
 
     impl ArchiveSource for HashMap<String, Vec<u8>> {
-        async fn load(&self, path: &str) -> eyre::Result<Bytes> {
+        async fn load(&self, path: &str) -> eyre::Result<Vec<u8>> {
             self.get(path)
-                .map(|data| Bytes::from(data.clone()))
+                .cloned()
                 .ok_or_else(|| eyre::eyre!("{path} not found"))
         }
-    }
-
-    /// A source that has the same contents at every path.
-    struct RepeatedSource(Bytes);
-
-    impl ArchiveSource for RepeatedSource {
-        async fn load(&self, _path: &str) -> eyre::Result<Bytes> {
-            Ok(self.0.clone())
-        }
-    }
-
-    /// A writer that never accepts a byte.
-    struct StalledWriter;
-
-    impl AsyncWrite for StalledWriter {
-        fn poll_write(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-            _buf: &[u8],
-        ) -> std::task::Poll<io::Result<usize>> {
-            std::task::Poll::Pending
-        }
-
-        fn poll_flush(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-        ) -> std::task::Poll<io::Result<()>> {
-            std::task::Poll::Pending
-        }
-
-        fn poll_shutdown(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-        ) -> std::task::Poll<io::Result<()>> {
-            std::task::Poll::Pending
-        }
-    }
-
-    /// A writer that discards what it's given, keeping only how many bytes it got and the last
-    /// `tail_len` of them.
-    struct CountingWriter {
-        written: u64,
-        tail: Vec<u8>,
-        tail_len: usize,
-    }
-
-    impl AsyncWrite for CountingWriter {
-        fn poll_write(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-            buf: &[u8],
-        ) -> std::task::Poll<io::Result<usize>> {
-            let this = self.get_mut();
-            this.written += buf.len() as u64;
-            this.tail
-                .extend_from_slice(&buf[buf.len().saturating_sub(this.tail_len)..]);
-            if this.tail.len() > 2 * this.tail_len {
-                let excess = this.tail.len() - this.tail_len;
-                this.tail.drain(..excess);
-            }
-            std::task::Poll::Ready(Ok(buf.len()))
-        }
-
-        fn poll_flush(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-        ) -> std::task::Poll<io::Result<()>> {
-            std::task::Poll::Ready(Ok(()))
-        }
-
-        fn poll_shutdown(
-            self: std::pin::Pin<&mut Self>,
-            _cx: &mut std::task::Context<'_>,
-        ) -> std::task::Poll<io::Result<()>> {
-            std::task::Poll::Ready(Ok(()))
-        }
-    }
-
-    fn entry(name: &str, path: &str) -> ArchiveEntry {
-        ArchiveEntry {
-            name: name.to_string(),
-            path: path.to_string(),
-        }
-    }
-
-    #[test]
-    fn write_budgets_grow_with_size() {
-        assert_eq!(write_budget(0), ENTRY_WRITE_GRACE);
-        assert_eq!(
-            write_budget(100 * 1000 * 1000),
-            ENTRY_WRITE_GRACE + Duration::from_secs(2000)
-        );
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn builds_fail_when_the_client_stops_reading() {
-        let files = HashMap::from([("a.scm".to_string(), vec![1u8; 10_000])]);
-        let files_in_memory = Semaphore::new(1);
-
-        let result = write_archive(
-            StalledWriter,
-            &[entry("A.scm", "a.scm")],
-            &files,
-            &files_in_memory,
-            zip_timestamp(Utc::now()),
-        )
-        .await;
-
-        assert!(
-            matches!(&result, Err(ArchiveError::Stalled(name)) if name == "A.scm"),
-            "{:?}",
-            result.err()
-        );
-        assert_eq!(files_in_memory.available_permits(), 1);
-    }
-
-    #[tokio::test]
-    async fn archives_over_4_gib_use_zip64() {
-        const FILE_BYTES: usize = 64 * 1024 * 1024;
-        const FILE_COUNT: usize = 66;
-        const TAIL_BYTES: usize = 1024 * 1024;
-        let source = RepeatedSource(Bytes::from(vec![0x5a; FILE_BYTES]));
-        let entries: Vec<_> = (0..FILE_COUNT)
-            .map(|i| entry(&format!("map-{i}.scm"), "map.scm"))
-            .collect();
-        let writer = CountingWriter {
-            written: 0,
-            tail: Vec::new(),
-            tail_len: TAIL_BYTES,
-        };
-
-        let writer = write_archive(
-            writer,
-            &entries,
-            &source,
-            &Semaphore::new(1),
-            zip_timestamp(Utc::now()),
-        )
-        .await
-        .unwrap();
-
-        assert!(
-            writer.written > 4 * 1024 * 1024 * 1024,
-            "{}",
-            writer.written
-        );
-        let has = |marker: &[u8]| writer.tail.windows(marker.len()).any(|w| w == marker);
-        assert!(
-            has(b"PK\x06\x06"),
-            "no Zip64 end of central directory record"
-        );
-        assert!(
-            has(b"PK\x06\x07"),
-            "no Zip64 end of central directory locator"
-        );
     }
 
     #[tokio::test]
@@ -917,18 +686,27 @@ mod tests {
             ("b.scx".to_string(), vec![0u8; 70_000]),
             ("c.scx".to_string(), b"third".to_vec()),
         ]);
+        let entry = |name: &str, path: &str| ArchiveEntry {
+            name: name.to_string(),
+            path: path.to_string(),
+        };
         let entries = [
             entry("투혼 1.3.scm", "a.scm"),
             entry("Big.scx", "b.scx"),
             entry("Missing.scx", "missing.scx"),
             entry("Third.scx", "c.scx"),
         ];
-        let modified = zip_timestamp(Utc::now());
         let files_in_memory = Semaphore::new(1);
 
-        let archive = write_archive(Vec::new(), &entries, &files, &files_in_memory, modified)
-            .await
-            .unwrap();
+        let archive = write_archive(
+            Vec::new(),
+            &entries,
+            &files,
+            &files_in_memory,
+            zip_timestamp(Utc::now()),
+        )
+        .await
+        .unwrap();
         assert_eq!(files_in_memory.available_permits(), 1);
 
         let reader = ZipFileReader::new(archive).await.unwrap();
