@@ -25,7 +25,7 @@ import { Dialog } from '../material/dialog'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { push } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import {
@@ -911,9 +911,10 @@ export function MapPublishDialog({ fileId, selectedId, onCancel, close }: MapPub
         const published = result.data.mapPublish
         const mapName = filterColorCodes(answer.family?.name ?? '')
         close()
-        // The page showing the file follows it into the map it's in now
+        // The page showing the file follows it into the map it's in now. Its old URL no longer shows
+        // the file, so it doesn't stay in the history.
         if (selectedId === fileId && published.family.id !== file.family.id) {
-          push(urlForMapFile(published.family, fileId))
+          replace(urlForMapFile(published.family, fileId))
         }
 
         let message: string
@@ -1056,8 +1057,9 @@ export function MapFileLinkDialog({ fileId, selectedId, onCancel, close }: MapFi
 
         const moved = result.data.mapFileLink
         close()
+        // The file's old URL no longer shows it, so it doesn't stay in the history
         if (selectedId === fileId) {
-          push(urlForMapFile(moved.family, fileId))
+          replace(urlForMapFile(moved.family, fileId))
         }
         const recommended = await makeFileRecommended(fileId, targetOwned && makeRecommended)
         snackbarController.showSnackbar(joinedMessage({ mapName: target.name, recommended }, t))
