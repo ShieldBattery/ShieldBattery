@@ -452,6 +452,10 @@ pub struct BwScr {
     /// The function that shows a line of game information text (a player leaving or being
     /// eliminated), or `None` if analysis could not find it.
     show_game_message: Option<VirtualAddress>,
+    /// The function that starts and stops the game's own unit follow for a watcher, `(unit,
+    /// toggle)`, or `None` if analysis could not find it. Hooked so that [`BwScr::follow_unit`]
+    /// follows instead.
+    set_follow_unit: Option<VirtualAddress>,
     /// The synced simulation state the rollback engine snapshots, as resolved analysis results
     /// that still have to be turned into addresses once a game is running.
     rollback_ranges: Vec<crate::rollback::ranges::RangeSpec>,
@@ -2378,7 +2382,8 @@ impl BwScr {
     }
 
     /// Keeps the game's view on the unit a watcher asked it to follow, starting on `start` when
-    /// they have just asked.
+    /// they have just right-clicked it in the selection panel, or stopping when `start` is the unit
+    /// already followed.
     ///
     /// Following ends once the unit is gone or out of sight inside something, and once the view is
     /// anywhere but where following it left the view the frame before: the watcher (or something
@@ -2391,10 +2396,7 @@ impl BwScr {
                 return;
             };
             if let Some(unit) = start {
-                *followed = Some(FollowedUnit {
-                    unique_id: units.to_unique_id(unit),
-                    left_screen_at: None,
-                });
+                toggle_follow(&mut followed, units.to_unique_id(unit));
             }
             let Some(follow) = followed.as_mut() else {
                 return;
@@ -2410,6 +2412,32 @@ impl BwScr {
                         Some((self.screen_x.resolve(), self.screen_y.resolve()));
                 }
                 _ => *followed = None,
+            }
+        }
+    }
+
+    /// Stands in for the game's own unit follow, which a watcher's right click on a unit on the
+    /// map, or on its wireframe in the console, starts. The game's follow keeps every other way of
+    /// moving the view from doing anything until the minimap is clicked; this one lets go as soon
+    /// as anything else moves the view, and [`Self::follow_unit`] keeps it from the next frame on.
+    ///
+    /// A null `unit` is a right click on nothing, which stops following, as in the game. With
+    /// `toggle` set, `unit` stops being followed if it already is.
+    unsafe fn follow_unit_for_game(&self, unit: *mut bw::Unit, toggle: bool) {
+        unsafe {
+            let mut followed = self.followed_unit.lock();
+            let (Some(unit), Some(units)) = (Unit::from_ptr(unit), self.unit_array()) else {
+                *followed = None;
+                return;
+            };
+            let unique_id = units.to_unique_id(unit);
+            if toggle {
+                toggle_follow(&mut followed, unique_id);
+            } else {
+                *followed = Some(FollowedUnit {
+                    unique_id,
+                    left_screen_at: None,
+                });
             }
         }
     }
@@ -5590,6 +5618,18 @@ struct FollowedUnit {
     left_screen_at: Option<(u32, u32)>,
 }
 
+/// Follows the unit with `unique_id`, or stops following if it is the unit already followed, so
+/// a second right click on the followed unit lets go of it.
+fn toggle_follow(followed: &mut Option<FollowedUnit>, unique_id: u32) {
+    *followed = match followed {
+        Some(follow) if follow.unique_id == unique_id => None,
+        _ => Some(FollowedUnit {
+            unique_id,
+            left_screen_at: None,
+        }),
+    };
+}
+
 /// SC:R's software cursor draw, and the stack of render modes that sets the layer and render target
 /// every draw command queued under it goes to.
 struct SoftwareCursor {
@@ -6598,6 +6638,11 @@ mod hooks {
         !0 => OpenVictoryMissionDialog();
     );
 
+    // Starts or stops the game's own unit follow for a watcher: (unit or null, toggle). cdecl.
+    whack_hooks!(0, // cdecl
+        !0 => SetFollowUnit(*mut bw::Unit, u32);
+    );
+
     // The observer UI's notifications from the simulation, methods on the observer UI object that
     // take the unit concerned. The trailing flag of the first is whether to track a unit that is
     // already complete, and of the last whether the research or upgrade completed rather than
@@ -7042,6 +7087,22 @@ fn sh_get_folder_path_w_hook(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn toggle_follow_starts_switches_and_stops() {
+        let mut followed = None;
+        toggle_follow(&mut followed, 7);
+        assert_eq!(followed.as_ref().map(|f| f.unique_id), Some(7));
+
+        followed.as_mut().unwrap().left_screen_at = Some((10, 20));
+        toggle_follow(&mut followed, 9);
+        let follow = followed.as_ref().unwrap();
+        assert_eq!(follow.unique_id, 9);
+        assert_eq!(follow.left_screen_at, None);
+
+        toggle_follow(&mut followed, 9);
+        assert!(followed.is_none());
+    }
 
     #[test]
     fn observer_slots_map_to_out_of_band_game_player_ids() {

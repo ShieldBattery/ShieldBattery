@@ -636,6 +636,10 @@ impl BwScr {
             .open_defeat_mission_dialog()
             .zip(analysis.open_victory_mission_dialog());
         let show_game_message = analysis.show_game_message();
+        let set_follow_unit = analysis.set_follow_unit();
+        if set_follow_unit.is_none() {
+            warn!("Analysis could not find the game's unit follow; watchers get the game's own");
+        }
         let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
@@ -900,6 +904,7 @@ impl BwScr {
             pylon_auras,
             mission_dialog_openers,
             show_game_message,
+            set_follow_unit,
             rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
