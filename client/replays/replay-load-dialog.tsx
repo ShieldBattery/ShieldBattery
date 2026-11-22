@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { isAbortError, raceAbort } from '../../common/async/abort-signals'
-import { ActiveGameError, waitForActiveGame } from '../active-game/wait-for-active-game'
+import {
+  ActiveGameError,
+  ActiveGameQuitError,
+  waitForActiveGame,
+} from '../active-game/wait-for-active-game'
 import { openDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
@@ -40,6 +44,11 @@ export function ReplayLoadDialog({ onCancel, gameId, close }: ReplayLoadDialogPr
       },
       err => {
         if (canceled) return
+        if (err instanceof ActiveGameQuitError) {
+          // The app closed the replay on purpose, so there's nothing left to load or explain.
+          close()
+          return
+        }
         if (err instanceof ActiveGameError && err.launchErrorKind === 'verification') {
           // This failure has an explanation of its own, which replaces this dialog's generic one.
           close()
