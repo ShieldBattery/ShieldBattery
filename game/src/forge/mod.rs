@@ -1300,9 +1300,9 @@ pub fn suppress_scr_cursor_moves(suppress: bool) {
     SUPPRESS_SCR_CURSOR_MOVES.store(suppress, Ordering::Release);
 }
 
-/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
-/// the window is minimized).
-pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
+/// The center of a window's client area in client coordinates, or `None` if it can't be measured
+/// (e.g. the window is minimized).
+fn client_area_center(hwnd: HWND) -> Option<POINT> {
     unsafe {
         let mut rect: RECT = mem::zeroed();
         if GetClientRect(hwnd, &mut rect) == 0 {
@@ -1311,21 +1311,34 @@ pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
         if rect.right <= 0 || rect.bottom <= 0 {
             return None;
         }
-        let mut point = POINT {
+        Some(POINT {
             x: rect.right / 2,
             y: rect.bottom / 2,
-        };
-        if ClientToScreen(hwnd, &mut point) == 0 {
-            return None;
-        }
-        Some((point.x, point.y))
+        })
     }
 }
 
-/// Warps the OS cursor to the center of the game window's client area. Called when the loading
-/// screen hands off to the game, which is where the player expects the game-start centering to
-/// happen; SC:R's own centering (which would land later, inside game-loop init) is dropped by the
-/// cursor gate. Bypasses that gate. Does nothing while the game has to [`stay_in_background`].
+/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
+/// the window is minimized).
+pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
+    let mut point = client_area_center(hwnd)?;
+    if unsafe { ClientToScreen(hwnd, &mut point) } == 0 {
+        return None;
+    }
+    Some((point.x, point.y))
+}
+
+/// Centers the cursor in the game window's client area. Called when the loading screen hands off to
+/// the game, which is where the player expects the game-start centering to happen; SC:R's own
+/// centering (which would land later, inside game-loop init) is dropped by the cursor gate.
+/// Bypasses that gate. Does nothing while the game has to [`stay_in_background`].
+///
+/// SC:R learns where its cursor is from mouse messages, and a warp doesn't reliably make one for
+/// it: Windows makes a move only for the window under the cursor once it lands, and none at all
+/// while raw input is taken. So SC:R is told with a move to the center posted to its window, and
+/// the OS cursor is warped only with the game window in front. A player in another window (tabbed
+/// out during the countdown) keeps their cursor, and SC:R's own cursor no longer sits where it
+/// started, the top left corner, until they next move the mouse in the game.
 pub fn center_cursor_in_game_window() {
     if stay_in_background() {
         return;
@@ -1333,13 +1346,27 @@ pub fn center_cursor_in_game_window() {
     let Some(hwnd) = game_window_handle() else {
         return;
     };
-    let Some((x, y)) = window_client_center(hwnd) else {
+    let Some(center) = client_area_center(hwnd) else {
         return;
     };
-    debug!("Centering cursor in game window at ({x}, {y})");
-    with_scr_hooks_disabled(|| unsafe {
-        SetCursorPos(x, y);
-    });
+    if unsafe { GetForegroundWindow() } == hwnd {
+        let mut screen = center;
+        if unsafe { ClientToScreen(hwnd, &mut screen) } != 0 {
+            debug!(
+                "Centering cursor in game window at ({}, {})",
+                screen.x, screen.y
+            );
+            with_scr_hooks_disabled(|| unsafe {
+                SetCursorPos(screen.x, screen.y);
+            });
+        }
+    } else {
+        debug!("Game window isn't in front, centering only the game's cursor");
+    }
+    let lparam = ((center.y as u32 & 0xffff) << 16 | (center.x as u32 & 0xffff)) as isize;
+    unsafe {
+        PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam);
+    }
 }
 
 pub fn hide_window() {
