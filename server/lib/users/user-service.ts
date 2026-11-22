@@ -94,7 +94,12 @@ export class UserService {
       const cachedStr = await this.redis.client.get(userDataKey(userId))
       if (cachedStr) {
         const cached = JSON.parse(cachedStr)
-        return { user: fromSelfUserJson(cached.user), permissions: cached.permissions }
+        // server-rs writes this cache too, so an entry can lack fields this server's users have.
+        // One without `created` would reach clients as a user they can't show a join date for,
+        // so it's reloaded instead.
+        if (typeof cached.user?.created === 'number') {
+          return { user: fromSelfUserJson(cached.user), permissions: cached.permissions }
+        }
       }
     }
 

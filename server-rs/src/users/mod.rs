@@ -12,7 +12,7 @@ use axum::http::request::Parts;
 use axum::{Extension, RequestPartsExt};
 use axum_client_ip::ClientIp;
 use axum_extra::{TypedHeader, headers::UserAgent};
-use chrono::serde::ts_milliseconds_option;
+use chrono::serde::{ts_milliseconds, ts_milliseconds_option};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
@@ -1456,7 +1456,7 @@ impl CurrentUserRepo {
             sqlx::query!(
                 r#"
                     SELECT id as "id: SbUserId", name::TEXT as "name!",
-                        login_name::TEXT as "login_name!", email, email_verified,
+                        login_name::TEXT as "login_name!", email, created, email_verified,
                         accepted_privacy_version, accepted_terms_version,
                         accepted_use_policy_version, accepted_rules_version, locale,
                         last_login_name_change, last_name_change, name_change_tokens,
@@ -1498,6 +1498,8 @@ impl CurrentUserRepo {
                 name: row.name,
                 login_name: row.login_name,
                 email: row.email,
+                // Stored as UTC without a zone, which is how the node server reads it too.
+                created: row.created.and_utc(),
                 email_verified: row.email_verified,
                 accepted_privacy_version: row.accepted_privacy_version,
                 accepted_terms_version: row.accepted_terms_version,
@@ -1539,6 +1541,11 @@ struct SelfUser {
     pub name: String,
     pub login_name: String,
     pub email: String,
+    /// When the account was created. The node server reads this cache as its session user and
+    /// hands it to clients, which need it. Required, so an entry written without it fails to
+    /// deserialize and gets reloaded from the DB (and rewritten) instead.
+    #[serde(with = "ts_milliseconds")]
+    pub created: DateTime<Utc>,
     pub email_verified: bool,
     pub accepted_privacy_version: i32,
     pub accepted_terms_version: i32,
@@ -1606,6 +1613,7 @@ mod tests {
             "name": "User_Name",
             "loginName": "user_login",
             "email": "user@example.com",
+            "created": 1467203283756,
             "emailVerified": true,
             "acceptedPrivacyVersion": 1,
             "acceptedTermsVersion": 1,
@@ -1625,6 +1633,7 @@ mod tests {
         assert_eq!(user.name, "User_Name");
         assert_eq!(user.login_name, "user_login");
         assert_eq!(user.email, "user@example.com");
+        assert_eq!(user.created.timestamp_millis(), 1467203283756);
         assert!(user.email_verified);
         assert_eq!(user.accepted_privacy_version, 1);
         assert_eq!(user.accepted_terms_version, 1);
@@ -1659,6 +1668,7 @@ mod tests {
             "name": "User_Name",
             "loginName": "user_login",
             "email": "user@example.com",
+            "created": 1467203283756,
             "emailVerified": true,
             "acceptedPrivacyVersion": 1,
             "acceptedTermsVersion": 1,
@@ -1698,6 +1708,7 @@ mod tests {
             "name": "User_Name",
             "loginName": "user_login",
             "email": "user@example.com",
+            "created": 1467203283756,
             "emailVerified": true,
             "acceptedPrivacyVersion": 1,
             "acceptedTermsVersion": 1,
@@ -1732,6 +1743,7 @@ mod tests {
             name: "User_Name".into(),
             login_name: "user_login".into(),
             email: "user@example.com".into(),
+            created: DateTime::from_timestamp_millis(1467203283756).unwrap(),
             email_verified: true,
             accepted_privacy_version: 1,
             accepted_terms_version: 1,
@@ -1752,5 +1764,27 @@ mod tests {
         assert!(parsed.get("lastLoginNameChange").is_none());
         assert!(parsed.get("lastNameChange").is_none());
         assert!(parsed.get("staffBadge").is_none());
+        assert_eq!(parsed["created"], 1467203283756i64);
+    }
+
+    #[test]
+    fn self_user_deserialization_rejects_missing_created() {
+        // A cache entry without `created` has to be reloaded from the DB rather than handed to
+        // the node server's session as is.
+        let json = r#"
+        {
+            "id": 1,
+            "name": "User_Name",
+            "loginName": "user_login",
+            "email": "user@example.com",
+            "emailVerified": true,
+            "acceptedPrivacyVersion": 1,
+            "acceptedTermsVersion": 1,
+            "acceptedUsePolicyVersion": 1,
+            "nameChangeTokens": 0
+        }
+        "#;
+
+        assert!(serde_json::from_str::<SelfUser>(json).is_err());
     }
 }
