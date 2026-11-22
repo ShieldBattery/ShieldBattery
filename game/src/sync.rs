@@ -52,4 +52,44 @@ impl DumbSpinLock {
             self.locked_by.store(NOT_LOCKED, Ordering::Release);
         }
     }
+
+    /// Unlocks once if the current thread holds the lock, returning whether it did. Only the
+    /// holding thread can change `locked_by` away from its own id, so the check can't race.
+    pub fn unlock_if_held(&self) -> bool {
+        let thread_id = unsafe { GetCurrentThreadId() };
+        if self.locked_by.load(Ordering::Acquire) == thread_id {
+            self.unlock();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn unlock_if_held_only_unlocks_for_the_holder() {
+        let lock = DumbSpinLock::new();
+        assert!(!lock.unlock_if_held());
+
+        lock.lock();
+        lock.lock();
+        std::thread::scope(|s| {
+            s.spawn(|| assert!(!lock.unlock_if_held()));
+        });
+        assert!(lock.unlock_if_held());
+        assert!(lock.unlock_if_held());
+        assert!(!lock.unlock_if_held());
+
+        // Released, so another thread can take it.
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                lock.lock();
+                lock.unlock();
+            });
+        });
+    }
 }

@@ -2175,11 +2175,22 @@ impl BwScr {
         self.event_processing_lock.unlock();
     }
 
-    /// Unlocks the event processing lock when Windows has taken over our wndproc (i.e. for
-    /// resizing or a context menu). Once that completes, `lock_event_processing_for_subwndproc`
-    /// must be called to re-acquire the lock.
+    /// Unlocks the event processing lock around SC:R's handling of a WM_USER message, which calls
+    /// `process_events` (and so takes the lock) itself.
     pub unsafe fn unlock_event_processing_for_size_move_menu(&self) {
         self.event_processing_lock.unlock();
+    }
+
+    /// Unlocks the event processing lock when Windows has taken over our wndproc (i.e. for
+    /// resizing or a context menu), if this thread holds it, returning whether it did. When it
+    /// did, `lock_event_processing_for_size_move_menu` must be called once that completes to
+    /// re-acquire the lock.
+    ///
+    /// The thread can receive the message that starts such a loop without holding the lock, e.g.
+    /// as a sent message delivered by a PeekMessageW outside `process_events`, while the lock is
+    /// free or held by the thread running `maybe_receive_turns`.
+    pub unsafe fn unlock_event_processing_if_held_for_size_move_menu(&self) -> bool {
+        self.event_processing_lock.unlock_if_held()
     }
 
     /// Locks the event processing lock when Windows has stopped taking over our wndproc (i.e. for

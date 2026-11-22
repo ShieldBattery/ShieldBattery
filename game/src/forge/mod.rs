@@ -215,13 +215,18 @@ unsafe extern "system" fn wnd_proc_scr(
                             None,
                         );
 
-                        if with_forge(|f| {
-                            f.event_processing_needs_relock =
-                                USING_PROCESS_EVENTS_DISPATCH.load(Ordering::Relaxed);
-                            f.event_processing_needs_relock
-                        }) {
-                            get_bw().unlock_event_processing_for_size_move_menu();
-                            debug!("Unlocked event processing lock for size/move/menu loop");
+                        // An unlock from an earlier Enter is still owed its relock; this thread
+                        // can't hold the lock from that loop any more, so leave it alone.
+                        if with_forge(|f| !f.event_processing_needs_relock) {
+                            if get_bw().unlock_event_processing_if_held_for_size_move_menu() {
+                                with_forge(|f| f.event_processing_needs_relock = true);
+                                debug!("Unlocked event processing lock for size/move/menu loop");
+                            } else if USING_PROCESS_EVENTS_DISPATCH.load(Ordering::Relaxed) {
+                                debug!(
+                                    "Event processing lock isn't held by this thread at the start \
+                                     of a size/move/menu loop, leaving it"
+                                );
+                            }
                         }
                     }
                 }
@@ -457,8 +462,8 @@ struct Forge {
     scr_window_class: Option<ATOM>,
 
     /// Set to true if the event processing lock needs to be re-locked at the conclusion of the
-    /// resize/move/menu loop. This ensures we don't re-lock the lock if it wasn't locked when that
-    /// began (and lock everyone out forever).
+    /// resize/move/menu loop. This ensures we don't re-lock the lock if this thread didn't hold it
+    /// when that began (and lock everyone out forever).
     event_processing_needs_relock: bool,
     /// Flag set if we're currently letting SC:R handle a WM_USER message, which it will use to
     /// call process_events. If WM_USER events get generated faster than process_events runs, it
