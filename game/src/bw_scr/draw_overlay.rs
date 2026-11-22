@@ -221,8 +221,8 @@ pub struct StepOutput {
     pub textures_delta: egui::TexturesDelta,
     // (draw layer, primitive data)
     pub primitives: Vec<(u16, Vec<egui::ClippedPrimitive>)>,
-    /// The black to draw behind a watcher's minimap, with the minimap's square, in the overlay's
-    /// points: drawn just before the first thing the game draws there.
+    /// The black to draw behind the minimap, with the minimap's square, in the overlay's points:
+    /// drawn just before the first thing the game draws there.
     pub behind_minimap: Option<(Rect, Vec<egui::ClippedPrimitive>)>,
     pub replay_visions: u8,
     pub show_entire_map: bool,
@@ -1025,21 +1025,19 @@ impl OverlayState {
         overlay_ui::kit::off_grid::leave_text_off_grid(&self.ctx, &mut output.shapes);
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
         let primitives = vec![(self.draw_layer, ui_primitives)];
-        // The game draws no ground of its own for the minimap: its black comes from the console's
-        // art, which a watcher has none of. Where the minimap then draws nothing, with the
-        // terrain turned off on it or under fog the watcher has made see-through, the map would
-        // show through it.
-        let behind_minimap = self
-            .minimap_place
-            .filter(|_| bw.is_replay_or_obs)
-            .map(|place| place.rect)
-            .map(|square| {
-                let black = egui::epaint::ClippedShape {
-                    clip_rect: square,
-                    shape: egui::Shape::rect_filled(square, 0.0, Color32::BLACK),
-                };
-                (square, self.ctx.tessellate(vec![black], pixels_per_point))
-            });
+        // The game draws no ground of its own for the minimap. Where the minimap draws nothing,
+        // with the terrain turned off on it or under fog a watcher has made see-through, whatever
+        // is behind it shows: the map for a watcher, who has no console, and the console's art
+        // for a player, which is only black under the minimap for some races (the Protoss SD
+        // console has a smoky panel there).
+        let behind_minimap = self.minimap_place.map(|place| {
+            let square = place.rect;
+            let black = egui::epaint::ClippedShape {
+                clip_rect: square,
+                shape: egui::Shape::rect_filled(square, 0.0, Color32::BLACK),
+            };
+            (square, self.ctx.tessellate(vec![black], pixels_per_point))
+        });
         StepOutput {
             textures_delta: output.textures_delta,
             primitives,
