@@ -18,9 +18,7 @@ use std::sync::OnceLock;
 
 use parking_lot::Mutex;
 use winapi::Interface;
-use winapi::shared::dxgi::{
-    CreateDXGIFactory1, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIDevice, IDXGIFactory1,
-};
+use winapi::shared::dxgi::{DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIDevice};
 use winapi::shared::minwindef::{BOOL, LPARAM, TRUE};
 use winapi::shared::ntdef::{LARGE_INTEGER, LUID};
 use winapi::shared::windef::{HDC, HMONITOR, LPRECT};
@@ -277,12 +275,10 @@ fn format_driver_version(packed: i64) -> String {
 fn log_gpus() -> Vec<(LUID, String)> {
     let mut names = Vec::new();
     unsafe {
-        let mut factory = null_mut();
-        if CreateDXGIFactory1(&IDXGIFactory1::uuidof(), &mut factory) < 0 || factory.is_null() {
+        let Some(factory) = crate::dxgi::create_factory1() else {
             info!("Machine: GPUs unknown, no DXGI factory");
             return names;
-        }
-        let factory = factory as *mut IDXGIFactory1;
+        };
         for index in 0..MAX_ADAPTERS {
             let mut adapter = null_mut();
             if (*factory).EnumAdapters1(index, &mut adapter) < 0 || adapter.is_null() {

@@ -55,6 +55,7 @@ mod companion;
 mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
+mod dxgi;
 #[cfg(debug_assertions)]
 mod forced_crash;
 mod forge;

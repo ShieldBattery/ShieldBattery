@@ -11,10 +11,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
-use winapi::Interface;
-use winapi::shared::dxgi::{
-    CreateDXGIFactory1, DXGI_OUTPUT_DESC, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput,
-};
+use winapi::shared::dxgi::{DXGI_OUTPUT_DESC, IDXGIAdapter1, IDXGIOutput};
 use winapi::shared::windef::{HMONITOR, HWND};
 use winapi::um::processthreadsapi::{GetCurrentThread, SetThreadPriority};
 use winapi::um::unknwnbase::IUnknown;
@@ -229,11 +226,7 @@ unsafe fn output_for_monitor(
     monitor: HMONITOR,
 ) -> Option<(Com<IDXGIOutput>, [u16; 32], Option<Duration>)> {
     unsafe {
-        let mut factory = null_mut();
-        if CreateDXGIFactory1(&IDXGIFactory1::uuidof(), &mut factory) < 0 {
-            return None;
-        }
-        let factory = Com::new(factory as *mut IDXGIFactory1)?;
+        let factory = Com::new(crate::dxgi::create_factory1()?)?;
         for adapter_index in 0.. {
             let mut adapter = null_mut();
             if factory.as_ref().EnumAdapters1(adapter_index, &mut adapter) < 0 {

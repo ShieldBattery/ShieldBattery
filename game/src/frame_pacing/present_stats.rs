@@ -23,9 +23,8 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use winapi::Interface;
 use winapi::shared::dxgi::{
-    CreateDXGIFactory1, DXGI_ADAPTER_DESC, DXGI_FRAME_STATISTICS, DXGI_OUTPUT_DESC,
-    DXGI_SWAP_CHAIN_DESC, IDXGIAdapter, IDXGIDevice, IDXGIFactory, IDXGIFactory1, IDXGIOutput,
-    IDXGISwapChain,
+    DXGI_ADAPTER_DESC, DXGI_FRAME_STATISTICS, DXGI_OUTPUT_DESC, DXGI_SWAP_CHAIN_DESC, IDXGIAdapter,
+    IDXGIDevice, IDXGIFactory, IDXGIOutput, IDXGISwapChain,
 };
 use winapi::shared::dxgi1_2::{
     DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FULLSCREEN_DESC, IDXGIFactory2, IDXGISwapChain1,
@@ -101,12 +100,10 @@ pub fn install() {
 
 unsafe fn replace_creation_methods() {
     unsafe {
-        let mut factory = null_mut();
-        if CreateDXGIFactory1(&IDXGIFactory1::uuidof(), &mut factory) < 0 || factory.is_null() {
+        let Some(factory) = crate::dxgi::create_factory1() else {
             warn!("Frame statistics: no DXGI factory, not tracking when frames are shown");
             return;
-        }
-        let factory = factory as *mut IDXGIFactory1;
+        };
         let vtable = (*factory).lpVtbl as *mut winapi::shared::dxgi::IDXGIFactory1Vtbl;
         replace(
             (&raw mut (*vtable).parent.CreateSwapChain).cast(),
