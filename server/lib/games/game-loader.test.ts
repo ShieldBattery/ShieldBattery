@@ -284,13 +284,17 @@ describe('games/game-loader/GameLoader', () => {
 
   /**
    * Starts a networked lobby load for `roster`, in order, and drains its setup like
-   * `startNetworkedLoad`. The first player hosts, so slots follow roster order.
+   * `startNetworkedLoad`. Unless `lobbyHost` names someone else, the first playing human hosts, so
+   * slots follow roster order with observers after the playing humans.
    */
-  async function startRosterLoad(gameId: string, roster: GameLoadPlayer[]) {
-    const entries = roster.map(player => ({
-      player,
-      playerInfo: makePlayer(player.userId).playerInfo,
-    }))
+  async function startRosterLoad(gameId: string, roster: GameLoadPlayer[], lobbyHost?: SbUserId) {
+    const entries = roster.map(player => {
+      const { playerInfo } = makePlayer(player.userId)
+      return {
+        player,
+        playerInfo: player.isObserver ? { ...playerInfo, type: SlotType.Observer } : playerInfo,
+      }
+    })
     registerActiveClients(roster)
     asMockedFunction(findUsersById).mockResolvedValue(roster.map(p => makeUser(p.userId)))
     netcodeV2Service.isEnabled.mockReturnValue(true)
@@ -307,15 +311,88 @@ describe('games/game-loader/GameLoader', () => {
       players: roster,
       playerInfos: entries.map(e => e.playerInfo),
       mapId,
-      gameConfig: lobbyConfig([
-        roster.map(p => ({ id: p.userId, race: 'r' as const, isComputer: false })),
-      ]),
+      gameConfig: {
+        ...lobbyConfig([
+          roster
+            .filter(p => !p.isObserver)
+            .map(p => ({ id: p.userId, race: 'r' as const, isComputer: false })),
+        ]),
+        ...(lobbyHost !== undefined ? { gameSourceExtra: { host: lobbyHost } } : {}),
+      } as GameConfig,
     })
     for (let i = 0; i < 100; i++) {
       await Promise.resolve()
     }
     return { load }
   }
+
+  /** The `setGameConfig` setup published to `userId`. */
+  function publishedSetupFor(userId: SbUserId) {
+    return publisher.publish.mock.calls.find(
+      (call: any[]) => call[1]?.type === 'setGameConfig' && call[0].endsWith(`/${userId}`),
+    )?.[1].setup
+  }
+
+  test('an observing lobby host hands the session to a playing human', async () => {
+    const observingHost = makeSbUserId(7)
+    const otherObserver = makeSbUserId(8)
+    const p3 = makeSbUserId(3)
+    const roster = [
+      { userId: observingHost, isObserver: true },
+      { userId: p1, isObserver: false },
+      { userId: otherObserver, isObserver: true },
+      { userId: p2, isObserver: false },
+      { userId: p3, isObserver: false },
+    ]
+    const { load } = await startRosterLoad('game-observing-host', roster, observingHost)
+
+    await vi.waitFor(() => expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1))
+    const slots = netcodeV2Service.createSessionForGame.mock.calls[0][0].slots
+    // Playing humans take the first slots (the session creator at 0), observers the ones after.
+    expect(slots.map(s => [s.slot, s.userId, s.observer])).toEqual([
+      [0, p1, false],
+      [1, p2, false],
+      [2, p3, false],
+      [3, observingHost, true],
+      [4, otherObserver, true],
+    ])
+
+    const setup = publishedSetupFor(p1)
+    expect(setup.host.userId).toBe(p1)
+    expect(setup.creatorUserId).toBe(observingHost)
+
+    for (const { userId } of roster) {
+      gameLoader.registerGameAsLoaded('game-observing-host', userId)
+    }
+    await load
+  })
+
+  test('a playing lobby host keeps the session and is the only creator named', async () => {
+    const observer = makeSbUserId(7)
+    const roster = [
+      { userId: p1, isObserver: false },
+      { userId: observer, isObserver: true },
+      { userId: p2, isObserver: false },
+    ]
+    const { load } = await startRosterLoad('game-playing-host', roster, p2)
+
+    await vi.waitFor(() => expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1))
+    const slots = netcodeV2Service.createSessionForGame.mock.calls[0][0].slots
+    expect(slots.map(s => [s.slot, s.userId, s.observer])).toEqual([
+      [0, p2, false],
+      [1, p1, false],
+      [2, observer, true],
+    ])
+
+    const setup = publishedSetupFor(p1)
+    expect(setup.host.userId).toBe(p2)
+    expect(setup).not.toHaveProperty('creatorUserId')
+
+    for (const { userId } of roster) {
+      gameLoader.registerGameAsLoaded('game-playing-host', userId)
+    }
+    await load
+  })
 
   test.each([false, true])(
     'copies the active client mode per player (matchmaking=%s)',

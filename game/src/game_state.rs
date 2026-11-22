@@ -433,6 +433,21 @@ impl GameState {
                         "local user has no slot in the session roster".into(),
                     ));
                 };
+                // BW only runs commands from storm ids 0..7 (its per-player tables keep observers
+                // at 8..11), so a playing human past 7 would load fine and then never have a
+                // command executed. Fail the load instead.
+                if let Some((user_id, storm)) = info
+                    .slots
+                    .iter()
+                    .filter(|slot| slot.is_human())
+                    .filter_map(|slot| slot.user_id)
+                    .filter_map(|user_id| storm_id_map.get(&user_id).map(|&s| (user_id, s)))
+                    .find(|&(_, storm)| storm >= 8)
+                {
+                    return Err(GameInitError::NetcodeV2SessionInit(format!(
+                        "playing user {user_id:?} has rp2 slot {storm}, past the 8 player storm ids"
+                    )));
+                }
 
                 // storm_create_game validates both names as non-empty. Strip any interior NULs so
                 // the CStrings are well-formed, and fall back to a constant game name if empty.
@@ -1445,8 +1460,9 @@ fn build_bw_game_data(
         ..unsafe { mem::zeroed() }
     };
 
-    let creator = if let Some(host) = info.users.iter().find(|u| Some(u.id) == info.host.user_id) {
-        host.name.as_str()
+    let creator_id = info.creator_user_id.or(info.host.user_id);
+    let creator = if let Some(creator) = info.users.iter().find(|u| Some(u.id) == creator_id) {
+        creator.name.as_str()
     } else {
         "fakename"
     };
@@ -2095,6 +2111,23 @@ mod tests {
         assert!(name.starts_with(b"test game"));
         let map_name = data.map_name;
         assert!(map_name.starts_with(b"Fighting Spirit"));
+    }
+
+    #[test]
+    fn build_bw_game_data_names_the_creator_over_the_host() {
+        let mut info = v2_setup_info();
+        info.creator_user_id = Some(SbUserId(20));
+        let MapInfo::Game(ref game_map) = info.map else {
+            panic!("fixture is a map game");
+        };
+        let data = build_bw_game_data(
+            &info,
+            BwGameType::melee(),
+            &game_map.map_data,
+            &game_map.name,
+        );
+        let creator = data.game_creator;
+        assert!(creator.starts_with(b"oppname"));
     }
 
     #[test]

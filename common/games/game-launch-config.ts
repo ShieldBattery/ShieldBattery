@@ -72,7 +72,18 @@ export interface GameSetup {
   gameType: GameType
   gameSubType: number
   slots: PlayerInfo[]
+  /**
+   * The player whose game process creates the game's network session. For netcode v2 games this
+   * is always a playing human (never an observer) when the game has one, since the session creator
+   * holds network id 0 and StarCraft only runs commands from player network ids 0..7.
+   */
   host: PlayerInfo
+  /**
+   * The user to name as the game's creator (e.g. in the replay header), if that isn't `host`. Set
+   * when a lobby's host is observing, so the lobby host stays the named creator even though a
+   * playing human creates the network session.
+   */
+  creatorUserId?: SbUserId
   users: SbUser[]
   /** For matchmaking, each player's standing in the match's mode going into the game. */
   ranks?: GamePlayerRank[]

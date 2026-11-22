@@ -520,11 +520,11 @@ unsafe fn game_results() -> GameThreadResults {
                     StormPlayerId(i as u8),
                     FinalNetworkStatus {
                         // Players and observers share the full storm id space (a session holds up
-                        // to 8 players + 4 observers, and an observer host takes slot 0, pushing a
-                        // player onto id 8), so every id needs an entry here — a missing one reads
-                        // as "has quit" downstream. BW's drop flags only exist for the first 8
-                        // ids, though; higher ids just report not-dropped, and the relay's own
-                        // leave reporting stays the authoritative drop signal for those.
+                        // to 8 players at 0..7 + 4 observers after them), so every id needs an
+                        // entry here — a missing one reads as "has quit" downstream. BW's drop
+                        // flags only exist for the first 8 ids, though; observer ids just report
+                        // not-dropped, and the relay's own leave reporting stays the authoritative
+                        // drop signal for those.
                         was_dropped: player_was_dropped
                             .get(i)
                             .is_some_and(|&dropped| dropped != 0),

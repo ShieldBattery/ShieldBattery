@@ -508,7 +508,13 @@ pub struct GameSetupInfo {
     pub game_type: GameType,
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
+    /// The player whose game creates the network session. Always a playing human in a netcode v2
+    /// game that has one, even when the lobby's host is observing.
     pub host: PlayerInfo,
+    /// The user named as the game's creator (in the replay header) when that isn't `host`, e.g.
+    /// a lobby host who is observing.
+    #[serde(default)]
+    pub creator_user_id: Option<SbUserId>,
     pub users: Vec<SbUser>,
     /// For matchmaking, each player's standing in the match's mode going into the game.
     #[serde(default)]

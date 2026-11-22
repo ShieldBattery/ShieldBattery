@@ -380,7 +380,8 @@ export interface GameLoadRequest {
   /**
    * The players that should be created as human (or observer) type slots. At least one player
    * should be present for things to work properly. The order is preserved when assigning netcode v2
-   * slots (aside from the host, who is always moved to slot 0).
+   * slots, aside from the host, who is always moved to slot 0, and observers, who are moved after
+   * every playing human.
    */
   players: ReadonlyArray<GameLoadPlayer>
   /**
@@ -436,13 +437,25 @@ function getGeneralGameSetup({
   if (gameConfig.gameSource === GameSource.Lobby) {
     // NOTE(tec27): For launching lobbies this should now always be set (the optional bit is just
     // for DB-stored configs), but we fall back to the first human player just in case
-    let host: PlayerInfo | undefined
+    let lobbyHost: PlayerInfo | undefined
     if (gameConfig.gameSourceExtra?.host) {
-      host = playerInfos.find(p => p.userId === gameConfig.gameSourceExtra!.host)
+      lobbyHost = playerInfos.find(p => p.userId === gameConfig.gameSourceExtra!.host)
     }
-    if (!host) {
-      host = playerInfos.find(p => p.type === 'human' && p.userId)!
+    const firstPlayingHuman = playerInfos.find(p => p.type === 'human' && p.userId)
+    if (!lobbyHost) {
+      lobbyHost = firstPlayingHuman!
     }
+    // The game's host creates its network session and so holds network id 0, and StarCraft only
+    // runs commands from player network ids 0..7 (it keeps observers in a separate range). An
+    // observing host would push a playing human past 7, where none of their commands would ever
+    // execute, so a playing human hosts instead and the lobby host is only named as the creator.
+    //
+    // This differs from native StarCraft, where an observing host still creates the session at id
+    // 0, and at game start the game moves observers into their own range and gives the freed ids
+    // to players. Netcode v2 network ids are fixed rally-point2 slots for the whole session, so the
+    // ids are laid out correctly up front instead. Nothing in SB gives the game's host special
+    // abilities, so who hosts doesn't matter beyond creating the session.
+    const host = lobbyHost.type === 'observer' && firstPlayingHuman ? firstPlayingHuman : lobbyHost
 
     return {
       gameId,
@@ -452,6 +465,7 @@ function getGeneralGameSetup({
       gameSubType: gameConfig.gameSubType,
       slots: playerInfos,
       host,
+      ...(host !== lobbyHost && lobbyHost.userId ? { creatorUserId: lobbyHost.userId } : {}),
       users,
       seed,
       turnRate,
@@ -1401,11 +1415,19 @@ export class GameLoader {
         // BW Storm ids to rp2 slots by identity, so this roster has to agree the host is slot 0 or
         // that mapping breaks. Reuse the host already resolved for `generalSetup` (the same user
         // named in the published `GameSetup.host`) rather than re-deriving it here.
+        //
+        // Every playing human must also come before every observer: BW only runs commands from
+        // Storm ids 0..7, and its per-player tables keep observers at 8..11.
         const hostUserId = generalSetup.host.userId
         const hostPlayer = players.find(p => p.userId === hostUserId)
         let orderedPlayers: ReadonlyArray<GameLoadPlayer>
         if (hostPlayer) {
-          orderedPlayers = [hostPlayer, ...players.filter(p => p !== hostPlayer)]
+          const others = players.filter(p => p !== hostPlayer)
+          orderedPlayers = [
+            hostPlayer,
+            ...others.filter(p => !p.isObserver),
+            ...others.filter(p => p.isObserver),
+          ]
         } else {
           // Shouldn't happen — the host is always a human participant — but don't let it crash the
           // load, just fall back to the unordered assignment.
