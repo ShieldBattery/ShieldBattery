@@ -6,13 +6,19 @@
 //! are picked through the nearest-palette-color lookup, which reads a table that terrain shutdown
 //! has already freed earlier in the same teardown, so the dialog faults. This module reproduces the
 //! parts of the autosave that are safe there and reports the failure through the log instead.
+//!
+//! When `LastReplay.rep` itself can't be replaced (a file another program locked down, say), the
+//! autosave is written to a file of its own next to it, which SC:R's copy into its autosave folder
+//! is then made from.
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fs;
 use std::io;
 use std::os::windows::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+
+use parking_lot::Mutex;
 
 use winapi::um::fileapi::SetFileAttributesW;
 use winapi::um::winnt::FILE_ATTRIBUTE_READONLY;
@@ -32,6 +38,21 @@ const REPLACE_FAILED: i32 = -1;
 /// Set while the replay file on disk is not the one from the most recent `save_replay_by_name`
 /// call, because the hook skipped that save.
 static LAST_SAVE_SKIPPED: AtomicBool = AtomicBool::new(false);
+
+/// Where the most recent replay autosave was written instead of `LastReplay.rep`, when that file
+/// couldn't be replaced but a file of its own next to it could be written.
+static FALLBACK_SAVE: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// Appended to the autosave's name for the file it's written to when `LastReplay.rep` can't be
+/// replaced.
+const FALLBACK_NAME_SUFFIX: &str = " (ShieldBattery)";
+
+/// The file the most recent replay autosave went to in place of `LastReplay.rep`, if it went to
+/// one. SC:R copies `LastReplay.rep` into its autosave folder after saving, so that copy has to be
+/// made from this file instead.
+pub fn fallback_save() -> Option<PathBuf> {
+    FALLBACK_SAVE.lock().clone()
+}
 
 /// Whether the most recent replay autosave was skipped, leaving `LastReplay.rep` holding an
 /// earlier game. SC:R copies `LastReplay.rep` into its autosave folder after saving whatever the
@@ -109,6 +130,7 @@ pub unsafe fn save_replay_by_name_hook(
 ) -> i32 {
     unsafe {
         LAST_SAVE_SKIPPED.store(false, Ordering::Relaxed);
+        *FALLBACK_SAVE.lock() = None;
         if replace_existing == 0 {
             return orig(name, replace_existing);
         }
@@ -136,6 +158,15 @@ pub unsafe fn save_replay_by_name_hook(
             }
             Ok(RemovedReplayFile::Deleted | RemovedReplayFile::NotPresent) => (),
             Err(error) => {
+                if let Some((fallback_name, fallback_path)) = writable_fallback(autosave, name) {
+                    warn!(
+                        "Could not replace replay file {path}: {error}; saving the replay to {} \
+                         instead",
+                        fallback_path.display(),
+                    );
+                    *FALLBACK_SAVE.lock() = Some(fallback_path);
+                    return orig(fallback_name.as_ptr(), replace_existing);
+                }
                 warn!(
                     "Could not replace replay file {path}: {error}; skipping SC:R's replay autosave"
                 );
@@ -145,6 +176,48 @@ pub unsafe fn save_replay_by_name_hook(
         }
         orig(name, replace_existing)
     }
+}
+
+/// A name to save the autosave under in place of `name`, and the path SC:R will write it to, if
+/// that path can be cleared and written. Only the file itself can be in the way: when the whole
+/// folder refuses writes (Windows' controlled folder access, say), so does this file, and the
+/// save is skipped instead. SC:R's writer is only handed a path known to take a new file, as what
+/// it does when it can't create one isn't known to be safe during teardown.
+unsafe fn writable_fallback(
+    autosave: &ReplayAutosave,
+    name: *const i8,
+) -> Option<(CString, PathBuf)> {
+    unsafe {
+        let name = CStr::from_ptr(name).to_str().ok()?;
+        let fallback_name = CString::new(format!("{name}{FALLBACK_NAME_SUFFIX}")).ok()?;
+        let mut buffer = [0u8; REPLAY_PATH_BUFFER_SIZE];
+        if (autosave.build_replay_file_path)(
+            fallback_name.as_ptr(),
+            buffer.as_mut_ptr(),
+            REPLAY_PATH_BUFFER_SIZE as u32,
+        ) == 0
+        {
+            return None;
+        }
+        let path = PathBuf::from(CStr::from_bytes_until_nul(&buffer).ok()?.to_str().ok()?);
+        if let Err(error) = remove_replay_file(&path).and_then(|_| probe_writable(&path)) {
+            warn!(
+                "Can't save the replay to {} either: {error}",
+                path.display()
+            );
+            return None;
+        }
+        Some((fallback_name, path))
+    }
+}
+
+/// Creates a new file at `path` and removes it again, to tell whether SC:R could create one there.
+fn probe_writable(path: &Path) -> io::Result<()> {
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    fs::remove_file(path)
 }
 
 /// The byte length of the longest prefix of a replay recording buffer that SC:R's replay writer
@@ -319,6 +392,26 @@ mod tests {
         let mut permissions = fs::metadata(path).unwrap().permissions();
         permissions.set_readonly(true);
         fs::set_permissions(path, permissions).unwrap();
+    }
+
+    #[test]
+    fn probe_leaves_no_file_behind() {
+        let dir = TempDir::new();
+        let path = dir.join("LastReplay (ShieldBattery).rep");
+
+        probe_writable(&path).unwrap();
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn probe_fails_where_no_file_can_be_created() {
+        let dir = TempDir::new();
+        let path = dir
+            .join("missing folder")
+            .join("LastReplay (ShieldBattery).rep");
+
+        assert!(probe_writable(&path).is_err());
     }
 
     #[test]

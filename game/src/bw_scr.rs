@@ -6241,8 +6241,23 @@ fn copy_file_hook(
             i += 1;
         }
 
-        let result = orig(src_name, windows::winapi_str(&path).as_ptr(), fail_if_exist);
+        // The autosave went to a file of its own when LastReplay.rep couldn't be replaced, which
+        // only exists to be copied here.
+        let fallback = replay_save::fallback_save();
+        let fallback_name = fallback.as_ref().map(windows::winapi_str);
+        let source = fallback_name
+            .as_ref()
+            .map_or(src_name, |name| name.as_ptr());
+        let result = orig(source, windows::winapi_str(&path).as_ptr(), fail_if_exist);
         if result != 0 {
+            if let Some(fallback) = fallback
+                && let Err(e) = std::fs::remove_file(&fallback)
+            {
+                warn!(
+                    "Couldn't remove {} after copying it: {e}",
+                    fallback.display()
+                );
+            }
             send_game_msg_to_async(GameThreadMessage::ReplaySaved(path));
         }
 
