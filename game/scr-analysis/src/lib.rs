@@ -13,6 +13,10 @@
 //! implemented in samase_scarf — check the pinned samase_scarf rev's `Analysis` API before
 //! concluding new binary analysis is needed; if it exists there, adding a one-line wrapper
 //! method in this file is the whole job.
+//!
+//! Analysis itself never goes in this crate: no `Analyzer` impls, no walking functions here.
+//! samase_scarf tests each analysis against every game build it supports; code here would be
+//! checked against none. A missing analysis is added to samase_scarf, then wrapped here.
 
 pub use samase_scarf::scarf;
 pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, DynamicPathing, StateBlockSizes};

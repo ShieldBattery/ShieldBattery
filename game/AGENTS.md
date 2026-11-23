@@ -85,6 +85,18 @@ steps (`fmt`, `clippy`, `clippy-release`, `test`, `clippy-release-x86`, `build`,
 check the pinned samase_scarf rev's `Analysis` API — if it's there, the fix is a one-line wrapper
 method in `scr-analysis/src/lib.rs`, not new analysis work.
 
+**Never write binary analysis in this repo.** Anything that locates a function, global or offset by
+examining the game's code (a scarf `Analyzer`, a `FuncAnalysis` walk, an instruction or byte
+pattern match) belongs in samase_scarf, and this repo gets only the wrapper method. samase_scarf's
+tests check every analysis against each game build it supports, on both architectures. An analysis
+written here is checked against nothing but the build its author happened to run, which makes
+supporting more than one game version brittle: on another build it can miss, or match the wrong
+function, and a wrong match on a hook target replaces an arbitrary game function. When the analysis
+you need doesn't exist, add it to samase_scarf (`tec27/samase_scarf`, branch
+`shieldbattery-current`) with assertions for each build in its test set, then bump the pinned `rev`
+in `scr-analysis/Cargo.toml`. If you can't push there, stop and ask for the samase_scarf side to be
+landed; don't work around it with a local analyzer.
+
 **Dependency licenses are checked.** CI runs `cargo deny check licenses` against the allowlist in
 `deny.toml`, and release builds generate `dist/THIRD_PARTY_NOTICES.txt` with cargo-about
 (`about.toml` + `about.hbs`). A new dependency must be under an allowed license; if its manifest
