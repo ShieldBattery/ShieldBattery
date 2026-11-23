@@ -1,10 +1,10 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { Link, useRoute } from 'wouter'
+import { useRoute } from 'wouter'
 import {
   ALL_MAP_COMPARE_VIEWS,
   MAP_COMPARE_SEGMENT,
@@ -16,13 +16,16 @@ import {
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapChange, MapStartLocationChangeKind } from '../gql/graphql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { IconButton, TextButton } from '../material/button'
+import { IconButton } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
+import { LinkButton } from '../material/link-button'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { SegmentedButtonGroup } from '../material/segmented-button'
 import { Tooltip } from '../material/tooltip'
@@ -30,6 +33,7 @@ import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
+import { useMultiplexRef } from '../react/refs'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
@@ -39,6 +43,7 @@ import {
   labelLarge,
   singleLine,
   titleLarge,
+  titleMedium,
   titleSmall,
 } from '../styles/typography'
 import {
@@ -48,7 +53,6 @@ import {
 } from './map-compare-picker'
 import { compareViewportHeight, isPixelView, MapCompareViewer } from './map-compare-viewer'
 import { urlForMapFile, useFamilyFileLabel } from './map-family-files'
-import { MapFileImage } from './map-image'
 import { MapReportBar } from './map-report-bar'
 import { MapTileSource, useMapTileSource } from './map-tile-source'
 import {
@@ -57,6 +61,7 @@ import {
   MapViewImage,
   useViewTransform,
   Viewport,
+  ZoomControls,
 } from './map-viewport'
 
 const MapCompareQuery = graphql(/* GraphQL */ `
@@ -163,7 +168,7 @@ interface ComparisonDetails {
 
 /**
  * Changes that matter to how the map plays, most important first. The rest are listed apart,
- * collapsed.
+ * under their own title.
  */
 const GAMEPLAY_CHANGES: ReadonlyArray<MapChange> = [
   MapChange.StartLocations,
@@ -434,12 +439,12 @@ const HeaderActions = styled.div`
 const COLLAPSE_WIDTH = '1100px'
 
 /**
- * The main area and the right column. Collapsed into one column, the maps card comes first, then the
- * main area, then the rest of the right column.
+ * The main area, and the right column beside it when there is one. Collapsed into one column, the
+ * right column goes below the main area.
  */
-const Columns = styled.div`
+const Columns = styled.div<{ $hasSide: boolean }>`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: ${props => (props.$hasSide ? 'minmax(0, 1fr) 300px' : 'minmax(0, 1fr)')};
   align-items: start;
   gap: 24px;
 
@@ -450,136 +455,113 @@ const Columns = styled.div`
 `
 
 const MainArea = styled.div`
-  grid-column: 1;
-  grid-row: 1;
   min-width: 0;
 
   display: flex;
   flex-direction: column;
   gap: 16px;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    grid-column: auto;
-    grid-row: auto;
-    order: 1;
-  }
 `
 
-/**
- * The right column: the maps card, then the changes card or the picker. With `$fill`, it's as tall
- * as the compare viewer's viewports and the picker takes the height the maps card leaves.
- */
-const SideColumn = styled.div<{ $fill: boolean }>`
+const SideColumn = styled.div`
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+`
+
+/** The pane headers and the panes they describe. */
+const PaneStack = styled.div`
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+/** The headers of the two panes, with the swap button between them. */
+const PaneHeaders = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+`
+
+const HeaderCell = styled.div<{ $align: 'start' | 'end' }>`
+  min-width: 0;
+
+  display: flex;
+  justify-content: ${props => (props.$align === 'start' ? 'flex-start' : 'flex-end')};
+`
+
+const SwapCell = styled.div`
   grid-column: 2;
-  grid-row: 1;
-  min-width: 0;
-  ${props => (props.$fill ? compareViewportHeight : '')};
-
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    display: contents;
-  }
 `
 
-const MapsCard = styled(Card)`
-  flex-shrink: 0;
-  padding-block: 8px;
-
-  display: flex;
-  flex-direction: column;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    order: 0;
-  }
-`
-
-/** Below the maps card, and below the main area when the columns are collapsed. */
-const SideContent = styled.div`
-  flex: 1 1 auto;
-  min-height: 0;
+/** A map's header: the button that changes the map, and the link to the map's page. */
+const MapHeaderRoot = styled.div`
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    order: 2;
-  }
-`
-
-const MapRowRoot = styled.div`
-  min-width: 0;
-  height: 56px;
 
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 `
 
-const MapRowImage = styled.div`
-  width: 40px;
-  height: 40px;
+/** The page link keeps its size, so only the name gives up room when there's too little. */
+const OpenPageTooltip = styled(Tooltip)`
   flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 4px;
 `
 
-const EmptyMapRowImage = styled.div`
-  width: 40px;
+const MapHeaderButton = styled.button`
+  ${buttonReset};
   height: 40px;
-  flex-shrink: 0;
-  border: 1px dashed var(--theme-outline);
-  border-radius: 4px;
-`
-
-/** The map's name, and below it the file's name when the map has more than one. */
-const MapRowText = styled.div`
-  flex: 1 1 auto;
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-`
-
-const MapRowName = styled(Link)`
-  ${titleSmall};
-  ${singleLine};
-  min-width: 0;
-`
-
-const MapRowFileName = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  min-width: 0;
-  color: var(--theme-on-surface-variant);
-`
-
-const EmptyMapRowText = styled.div`
-  ${titleSmall};
-  ${singleLine};
-  min-width: 0;
-  color: var(--theme-on-surface-variant);
-`
-
-/** Holds the swap button, keeping its room while there's nothing to swap. */
-const SwapRow = styled.div`
-  height: 40px;
+  padding: 0 8px 0 12px;
 
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+
+  border-radius: 6px;
+  color: var(--theme-on-surface);
+
+  &:hover {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
+`
+
+const MapHeaderName = styled.span`
+  ${titleMedium};
+  ${singleLine};
+  min-width: 0;
+`
+
+const MapHeaderIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
 `
 
 const PopoverPicker = styled.div`
-  width: min(400px, calc(100vw - 32px));
-  max-height: min(480px, 70vh);
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(560px, 70vh);
   padding: 12px;
 
   display: flex;
   flex-direction: column;
+`
+
+/** Two equal panes side by side, stacking in one column on narrow screens. */
+const Panes = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 `
 
 /** The lone map's viewport, with its zoom controls floating over it. */
@@ -593,16 +575,12 @@ const SingleViewport = styled(Viewport)`
 `
 
 const PickerCard = styled(Card)`
-  flex: 1 1 auto;
-  min-height: 0;
+  ${compareViewportHeight};
+  min-width: 0;
   padding: 12px;
 
   display: flex;
   flex-direction: column;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    max-height: 480px;
-  }
 `
 
 /** Stands in for the viewer until there's a map to show. */
@@ -617,10 +595,6 @@ const EmptyViewer = styled.div`
   border-radius: 8px;
   background-color: var(--theme-container-lowest);
   text-align: center;
-
-  @media (max-width: ${COLLAPSE_WIDTH}) {
-    height: 160px;
-  }
 `
 
 const Controls = styled.div`
@@ -628,6 +602,11 @@ const Controls = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 24px;
+`
+
+const ControlsZoom = styled(ZoomControls)`
+  flex-shrink: 0;
+  margin-left: auto;
 `
 
 const ChangesCard = styled(Card)`
@@ -652,8 +631,23 @@ const ChangeList = styled.ul`
 
 const ChangeRow = styled.li`
   display: flex;
+  align-items: flex-start;
+  gap: 8px;
+`
+
+const ChangeText = styled.div`
+  flex: 1 1 auto;
+  min-width: 0;
+
+  display: flex;
   flex-direction: column;
   gap: 2px;
+`
+
+/** Sits at the row's end without making the row taller than its text. */
+const ChangeAction = styled.div`
+  flex-shrink: 0;
+  margin: -8px -8px -8px 0;
 `
 
 const ChangeLabel = styled.div`
@@ -672,12 +666,9 @@ const EmptyText = styled.div`
 
 const NoteText = styled.div`
   ${bodySmall};
+  flex: 1 1 240px;
+  min-width: 0;
   color: var(--theme-on-surface-variant);
-`
-
-const TechnicalToggle = styled(TextButton)`
-  align-self: flex-start;
-  margin-inline-start: -12px;
 `
 
 function viewLabel(t: TFunction, view: MapCompareView): string {
@@ -781,10 +772,12 @@ function CompareBody({
   const b = useCompareSide(bRef)
   const aTiles = useMapTileSource(a.id)
   const bTiles = useMapTileSource(b.id)
+  const showCompare = useShowCompare()
+  const viewTransform = useViewTransform()
   const [viewParam, setViewParam] = useLocationSearchParam('view')
   const [showSpawns, setShowSpawns] = useState(true)
   const [showTerrainChanges, setShowTerrainChanges] = useState(false)
-  const [showTechnical, setShowTechnical] = useState(false)
+  const swapLabel = t('maps.compare.swap', 'Swap sides')
 
   const sameSize = a.file.width === b.file.width && a.file.height === b.file.height
   const views = ALL_MAP_COMPARE_VIEWS.filter(v => sameSize || !isPixelView(v))
@@ -797,6 +790,20 @@ function CompareBody({
   const technical = details.changes
     .filter(c => !GAMEPLAY_CHANGES.includes(c))
     .map(c => describeChange(t, c, a, b, details))
+
+  const terrainToggleLabel = showTerrainChanges
+    ? t('maps.compare.hideOnMap', 'Hide on the map')
+    : t('maps.compare.showOnMap', 'Show on the map')
+  const terrainToggle = terrainChanges ? (
+    <Tooltip text={terrainToggleLabel} position='bottom' tabIndex={-1}>
+      <IconButton
+        icon={<MaterialIcon icon={showTerrainChanges ? 'visibility' : 'visibility_off'} />}
+        ariaLabel={terrainToggleLabel}
+        ariaPressed={showTerrainChanges}
+        onClick={() => setShowTerrainChanges(!showTerrainChanges)}
+      />
+    </Tooltip>
+  ) : undefined
 
   const main = (
     <>
@@ -813,13 +820,6 @@ function CompareBody({
           disabled={isPixelView(view)}
           onChange={event => setShowSpawns(event.target.checked)}
         />
-        {terrainChanges ? (
-          <CheckBox
-            label={t('maps.compare.showTerrainChanges', 'Show terrain shape changes')}
-            checked={showTerrainChanges}
-            onChange={event => setShowTerrainChanges(event.target.checked)}
-          />
-        ) : null}
         {sameSize ? null : (
           <NoteText>
             {t(
@@ -829,15 +829,36 @@ function CompareBody({
             )}
           </NoteText>
         )}
+        <ControlsZoom view={viewTransform} />
       </Controls>
-      <MapCompareViewer
-        view={view}
-        before={compareImage(a, aTiles)}
-        after={compareImage(b, bTiles)}
-        terrainChanges={terrainChanges}
-        showTerrainChanges={showTerrainChanges}
-        showSpawns={showSpawns && !isPixelView(view)}
-      />
+      <PaneStack>
+        <PaneHeaders>
+          <HeaderCell $align='start'>
+            <MapHeader side={a} other={b} align='start' onPick={id => showCompare(id, b.id)} />
+          </HeaderCell>
+          <SwapCell>
+            <Tooltip text={swapLabel} position='bottom' tabIndex={-1}>
+              <IconButton
+                icon={<MaterialIcon icon='swap_horiz' />}
+                ariaLabel={swapLabel}
+                onClick={() => showCompare(b.id, a.id)}
+              />
+            </Tooltip>
+          </SwapCell>
+          <HeaderCell $align='end'>
+            <MapHeader side={b} other={a} align='end' onPick={id => showCompare(a.id, id)} />
+          </HeaderCell>
+        </PaneHeaders>
+        <MapCompareViewer
+          view={view}
+          before={compareImage(a, aTiles)}
+          after={compareImage(b, bTiles)}
+          terrainChanges={terrainChanges}
+          showTerrainChanges={showTerrainChanges}
+          showSpawns={showSpawns && !isPixelView(view)}
+          viewTransform={viewTransform}
+        />
+      </PaneStack>
     </>
   )
 
@@ -853,7 +874,11 @@ function CompareBody({
           {gameplay.length ? (
             <ChangeList>
               {gameplay.map(c => (
-                <ChangeItem key={c.key} entry={c} />
+                <ChangeItem
+                  key={c.key}
+                  entry={c}
+                  action={c.key === MapChange.Terrain ? terrainToggle : undefined}
+                />
               ))}
             </ChangeList>
           ) : (
@@ -863,26 +888,12 @@ function CompareBody({
           )}
           {technical.length ? (
             <>
-              <TechnicalToggle
-                label={
-                  showTechnical
-                    ? t('maps.compare.hideTechnical', 'Hide other changes')
-                    : t('maps.compare.showTechnical', {
-                        defaultValue: 'Show {{count}} other changes',
-                        defaultValue_one: 'Show {{count}} other change',
-                        count: technical.length,
-                      })
-                }
-                iconEnd={showTechnical ? 'expand_less' : 'expand_more'}
-                onClick={() => setShowTechnical(!showTechnical)}
-              />
-              {showTechnical ? (
-                <ChangeList>
-                  {technical.map(c => (
-                    <ChangeItem key={c.key} entry={c} />
-                  ))}
-                </ChangeList>
-              ) : null}
+              <SectionTitle>{t('maps.compare.otherChanges', 'Other changes')}</SectionTitle>
+              <ChangeList>
+                {technical.map(c => (
+                  <ChangeItem key={c.key} entry={c} />
+                ))}
+              </ChangeList>
             </>
           ) : null}
         </ChangesCard>
@@ -893,8 +904,7 @@ function CompareBody({
 
 /**
  * The layout every state of the page shares: the title (with the copy link button once both sides
- * have a map), then the main area beside a right column holding the maps card above `side`. With
- * `fillSide`, the right column is as tall as the compare viewer's viewports.
+ * have a map), then the main area, beside the right column when there's a `side` for it.
  */
 function CompareLayout({
   a,
@@ -902,14 +912,12 @@ function CompareLayout({
   view,
   main,
   side,
-  fillSide = false,
 }: {
   a?: CompareSide
   b?: CompareSide
   view?: MapCompareView
   main: React.ReactNode
-  side: React.ReactNode
-  fillSide?: boolean
+  side?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
@@ -941,76 +949,29 @@ function CompareLayout({
           </HeaderActions>
         ) : null}
       </Header>
-      <Columns>
+      <Columns $hasSide={!!side}>
         <MainArea>{main}</MainArea>
-        <SideColumn $fill={fillSide}>
-          <ComparedMapsCard a={a} b={b} />
-          <SideContent>{side}</SideContent>
-        </SideColumn>
+        {side ? <SideColumn>{side}</SideColumn> : null}
       </Columns>
     </>
   )
 }
 
 /**
- * The two sides' maps, the before side above the after side, with the swap button between them
- * once both have a map. A side without a map says that one is still to be chosen.
+ * The header of the pane showing one side's map: a button with the file's name that opens a
+ * picker to change the map (which also offers the map's other files), and a link to the map's page.
+ * With `align` `'end'` the picker opens with its right edge at the button's.
  */
-function ComparedMapsCard({ a, b }: { a?: CompareSide; b?: CompareSide }) {
-  const { t } = useTranslation()
-  const showCompare = useShowCompare()
-  const swapLabel = t('maps.compare.swap', 'Swap sides')
-
-  return (
-    <MapsCard>
-      {a ? (
-        <FilledMapRow side={a} other={b} onPick={id => showCompare(id, b?.id)} />
-      ) : (
-        <EmptyMapRow />
-      )}
-      <SwapRow>
-        {a && b ? (
-          <Tooltip text={swapLabel} position='left' tabIndex={-1}>
-            <IconButton
-              icon={<MaterialIcon icon='swap_vert' />}
-              ariaLabel={swapLabel}
-              onClick={() => showCompare(b.id, a.id)}
-            />
-          </Tooltip>
-        ) : null}
-      </SwapRow>
-      {a && b ? (
-        <FilledMapRow side={b} other={a} onPick={id => showCompare(a.id, id)} />
-      ) : (
-        <EmptyMapRow />
-      )}
-    </MapsCard>
-  )
-}
-
-function EmptyMapRow() {
-  const { t } = useTranslation()
-  return (
-    <MapRowRoot>
-      <EmptyMapRowImage />
-      <EmptyMapRowText>{t('maps.compare.chooseMap', 'Choose a map')}</EmptyMapRowText>
-    </MapRowRoot>
-  )
-}
-
-/**
- * One side's map: its image, the map's name linking to its page (with the file's name below when
- * the map has more than one file the viewer can see) and a button opening the picker to change it,
- * which also offers the map's other files.
- */
-function FilledMapRow({
+function MapHeader({
   side,
   other,
+  align,
   onPick,
 }: {
   side: CompareSide
   /** The map on the other side, if it has one. */
   other?: CompareSide
+  align: 'start' | 'end'
   onPick: (fileId: SbMapId) => void
 }) {
   const { t } = useTranslation()
@@ -1020,43 +981,52 @@ function FilledMapRow({
   // An unlisted file only some viewers can see may not be among the map's files
   const files = familyFiles.some(f => f.id === side.id) ? familyFiles : [...familyFiles, file]
   const fileLabel = useFamilyFileLabel(files)
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const anchorOrigin = align === 'start' ? 'left' : 'right'
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition<HTMLButtonElement>(
+    anchorOrigin,
+    'bottom',
+  )
   const [open, openPicker, closePicker] = usePopoverController({ refreshAnchorPos })
-  const changeLabel = t('maps.compare.changeMap', 'Change map')
+  const openPageLabel = t('maps.compare.openMapPage', 'Open map page')
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const buttonMultiRef = useMultiplexRef(anchorRef, buttonRef)
+  const [nameRef, nameOverflowing] = useOverflowingElement<HTMLSpanElement>()
+  const label = fileLabel(file)
 
   return (
     <>
-      <MapRowRoot ref={anchorRef}>
-        <MapRowImage>
-          <MapFileImage
-            file={file.file}
-            name={filterColorCodes(side.name)}
-            size={64}
-            forceAspectRatio={1}
-          />
-        </MapRowImage>
-        <MapRowText>
-          <MapRowName href={urlForMapFile(family, side.id)}>
-            {filterColorCodes(family.name)}
-          </MapRowName>
-          {files.length > 1 ? <MapRowFileName>{fileLabel(file)}</MapRowFileName> : null}
-        </MapRowText>
-        {/* The picker opens below the row, where the tooltip would cover it */}
-        <Tooltip text={changeLabel} position='left' tabIndex={-1} disabled={open}>
-          <IconButton
-            icon={<MaterialIcon icon='edit' />}
-            ariaLabel={changeLabel}
-            ariaExpanded={open}
-            onClick={openPicker}
-          />
+      <MapHeaderRoot>
+        {/* The picker opens below the button, where the tooltip would cover it */}
+        <Tooltip text={label} position='bottom' tabIndex={-1} disabled={!nameOverflowing || open}>
+          <MapHeaderButton
+            ref={buttonMultiRef}
+            type='button'
+            aria-haspopup='dialog'
+            aria-expanded={open}
+            onClick={openPicker}>
+            <MapHeaderName ref={nameRef}>{label}</MapHeaderName>
+            <MapHeaderIcon icon='arrow_drop_down' />
+          </MapHeaderButton>
         </Tooltip>
-      </MapRowRoot>
+        <OpenPageTooltip text={openPageLabel} position='bottom' tabIndex={-1}>
+          <LinkButton href={urlForMapFile(family, side.id)} aria-label={openPageLabel}>
+            <IconButton styledAs='div' icon={<MaterialIcon icon='open_in_new' />} />
+          </LinkButton>
+        </OpenPageTooltip>
+      </MapHeaderRoot>
       <Popover
         open={open}
-        onDismiss={closePicker}
+        onDismiss={event => {
+          closePicker()
+          // A click that dismisses the picker has already focused what it landed on; only a
+          // dismissal from the keyboard hands focus back to the button.
+          if (!event) {
+            buttonRef.current?.focus()
+          }
+        }}
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
-        originX='right'
+        originX={anchorOrigin}
         originY='top'
         // The search field takes focus when it shows
         focusOnMount={false}>
@@ -1115,27 +1085,33 @@ function OneMapBody({ side: sideRef }: { side: FragmentType<typeof MapCompareSid
   return (
     <CompareLayout
       a={side}
-      fillSide={true}
       main={
-        <SingleViewer>
-          <SingleViewport
-            transform={viewTransform.transform}
-            onTransform={viewTransform.onTransform}
-            onSize={viewTransform.onSize}
-            tiles={{ width: image.width, height: image.height }}
-            content={frame => <MapImageBox image={image} frame={frame} showSpawns={true} />}
-          />
-          <FloatingZoomControls view={viewTransform} />
-        </SingleViewer>
-      }
-      side={
-        <PickerCard>
-          <MapComparePicker
-            other={{ file: side, family: side.family }}
-            autoFocus={true}
-            onPick={fileId => showCompare(side.id, fileId)}
-          />
-        </PickerCard>
+        <PaneStack>
+          <PaneHeaders>
+            <HeaderCell $align='start'>
+              <MapHeader side={side} align='start' onPick={id => showCompare(id)} />
+            </HeaderCell>
+          </PaneHeaders>
+          <Panes>
+            <SingleViewer>
+              <SingleViewport
+                transform={viewTransform.transform}
+                onTransform={viewTransform.onTransform}
+                onSize={viewTransform.onSize}
+                tiles={{ width: image.width, height: image.height }}
+                content={frame => <MapImageBox image={image} frame={frame} showSpawns={true} />}
+              />
+              <FloatingZoomControls view={viewTransform} />
+            </SingleViewer>
+            <PickerCard>
+              <MapComparePicker
+                other={{ file: side, family: side.family }}
+                autoFocus={true}
+                onPick={fileId => showCompare(side.id, fileId)}
+              />
+            </PickerCard>
+          </Panes>
+        </PaneStack>
       }
     />
   )
@@ -1148,28 +1124,30 @@ function NoMapCompare() {
 
   return (
     <CompareLayout
-      fillSide={true}
       main={
-        <EmptyViewer>
-          <EmptyText>{t('maps.compare.chooseTwo', 'Choose two maps to compare')}</EmptyText>
-        </EmptyViewer>
-      }
-      side={
-        <PickerCard>
-          <MapComparePicker autoFocus={true} onPick={fileId => showCompare(fileId)} />
-        </PickerCard>
+        <Panes>
+          <PickerCard>
+            <MapComparePicker autoFocus={true} onPick={fileId => showCompare(fileId)} />
+          </PickerCard>
+          <EmptyViewer>
+            <EmptyText>{t('maps.compare.chooseTwo', 'Choose two maps to compare')}</EmptyText>
+          </EmptyViewer>
+        </Panes>
       }
     />
   )
 }
 
-function ChangeItem({ entry }: { entry: ChangeEntry }) {
+function ChangeItem({ entry, action }: { entry: ChangeEntry; action?: React.ReactNode }) {
   return (
     <ChangeRow>
-      <ChangeLabel>{entry.label}</ChangeLabel>
-      {entry.lines.map((line, i) => (
-        <ChangeDetail key={i}>{line}</ChangeDetail>
-      ))}
+      <ChangeText>
+        <ChangeLabel>{entry.label}</ChangeLabel>
+        {entry.lines.map((line, i) => (
+          <ChangeDetail key={i}>{line}</ChangeDetail>
+        ))}
+      </ChangeText>
+      {action ? <ChangeAction>{action}</ChangeAction> : null}
     </ChangeRow>
   )
 }

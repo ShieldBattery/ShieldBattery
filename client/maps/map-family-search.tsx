@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
@@ -177,19 +177,21 @@ const MutedText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const CandidateRow = styled.div`
+type CandidateRowSize = 'default' | 'large'
+
+const CandidateRow = styled.div<{ $size: CandidateRowSize }>`
   width: 100%;
   min-width: 0;
-  padding-block: 4px;
+  padding-block: ${props => (props.$size === 'large' ? 0 : '4px')};
 
   display: flex;
   align-items: center;
   gap: 12px;
 `
 
-const CandidateImage = styled.div`
-  width: 40px;
-  height: 40px;
+const CandidateImage = styled.div<{ $size: CandidateRowSize }>`
+  width: ${props => (props.$size === 'large' ? 48 : 40)}px;
+  height: ${props => (props.$size === 'large' ? 48 : 40)}px;
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 4px;
@@ -259,35 +261,56 @@ export function familyCandidateMeta(
   return meta.join(' · ')
 }
 
-/** A map file's row in a map search: its image, name and facts, and a note at the end. */
+/**
+ * A map file's row in a map search: its image, name and facts, and a note and `trailing` content
+ * at the end.
+ */
 export function MapCandidateRow({
   file,
   name,
   meta,
   note,
+  trailing,
+  size = 'default',
 }: {
   file: FragmentType<typeof MapFileImage_FileFragment>
   /** The display name, with color codes already stripped. */
   name: string
   meta: string
   note?: string
+  /** Shown after the note, e.g. an icon. */
+  trailing?: ReactNode
+  /** `large` shows a bigger image, for lists with room for it. */
+  size?: CandidateRowSize
 }) {
   return (
-    <CandidateRow>
-      <CandidateImage>
-        <MapFileImage file={file} name={name} size={64} forceAspectRatio={1} />
+    <CandidateRow $size={size}>
+      <CandidateImage $size={size}>
+        <MapFileImage
+          file={file}
+          name={name}
+          size={size === 'large' ? 96 : 64}
+          forceAspectRatio={1}
+        />
       </CandidateImage>
       <CandidateText>
         <CandidateName>{name}</CandidateName>
         <CandidateMeta>{meta}</CandidateMeta>
       </CandidateText>
       {note ? <CandidateNote>{note}</CandidateNote> : null}
+      {trailing}
     </CandidateRow>
   )
 }
 
 /** A candidate map's row in a map search, showing its current file. */
-export function MapFamilyCandidateRow({ candidate }: { candidate: MapFamilyCandidate }) {
+export function MapFamilyCandidateRow({
+  candidate,
+  size,
+}: {
+  candidate: MapFamilyCandidate
+  size?: CandidateRowSize
+}) {
   const { t } = useTranslation()
   const numbers = useFormat(countFormat)
   const family = useFragment(MapFamilySearch_FamilyFragment, candidate.family)
@@ -298,6 +321,7 @@ export function MapFamilyCandidateRow({ candidate }: { candidate: MapFamilyCandi
       name={filterColorCodes(family.name)}
       meta={familyCandidateMeta(family, t, numbers)}
       note={candidate.note}
+      size={size}
     />
   )
 }

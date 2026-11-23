@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
@@ -6,6 +6,7 @@ import { filterColorCodes, SbMapId } from '../../common/maps'
 import { useSelfUser } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { SectionLabel } from '../lobbies/room/room-parts'
 import { buttonReset } from '../material/button-reset'
 import { TextField } from '../material/text-field'
@@ -84,7 +85,7 @@ const Root = styled.div`
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 `
 
 const List = styled.div`
@@ -94,7 +95,7 @@ const List = styled.div`
 
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 `
 
 const Group = styled.div`
@@ -105,17 +106,25 @@ const Group = styled.div`
 
 const GroupLabel = styled(SectionLabel)`
   /** Lines the label up with the rows' text. */
-  padding-inline: 12px;
+  padding: 4px 12px;
+`
+
+/** A group's rows: one column when narrow, more when there's room. */
+const Rows = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 2px 8px;
 `
 
 const RowButton = styled.button`
   ${buttonReset};
   width: 100%;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 6px 12px;
 
   display: block;
 
-  border-radius: 6px;
+  border-radius: 8px;
   color: inherit;
   text-align: start;
 
@@ -127,6 +136,13 @@ const RowButton = styled.button`
     outline: 2px solid var(--theme-primary);
     outline-offset: -2px;
   }
+`
+
+/** A row that can't be picked, because it shows a file that's already on one of the sides. */
+const StaticRow = styled.div<{ $dimmed?: boolean }>`
+  min-width: 0;
+  padding: 6px 12px;
+  opacity: ${props => (props.$dimmed ? 0.6 : 1)};
 `
 
 const MutedText = styled.div`
@@ -143,11 +159,12 @@ export interface ComparePickerSide {
 
 /**
  * Picks the map file for one side of the compare page. Clicking a row picks it at once. With an
- * empty search it suggests the other files of this side's map, then the other files of the other
- * side's map (when it's a different map), then the viewer's starred maps; a search finds maps by
- * name, or by a pasted map link or id. A found map picks its recommended file, unless the pasted
- * link named one of its files. Neither the file this side shows nor the one on the other side is
- * ever offered.
+ * empty search it lists the files of this side's map, then the files of the other side's map (when
+ * it's a different map), then the viewer's starred maps; a search finds maps by name, or by a
+ * pasted map link or id. A found map picks its recommended file, unless the pasted link named one
+ * of its files. In a map's files, the file this side shows is marked as the current one and the file
+ * on the other side is dimmed; neither can be picked, and neither is offered among starred or found
+ * maps.
  */
 export function MapComparePicker({
   own,
@@ -170,6 +187,7 @@ export function MapComparePicker({
   const otherFile = useFragment(MapComparePicker_FileFragment, other?.file)
   const ownFamily = useFragment(MapComparePicker_FamilyFragment, own?.family)
   const otherFamily = useFragment(MapComparePicker_FamilyFragment, other?.family)
+  const inputRef = useRef<HTMLInputElement>(null)
   const excluded = new Set<SbMapId>()
   if (ownFile) {
     excluded.add(ownFile.id)
@@ -178,15 +196,38 @@ export function MapComparePicker({
     excluded.add(otherFile.id)
   }
 
+  useEffect(() => {
+    if (!autoFocus) {
+      return undefined
+    }
+    // A popover keeps its content `visibility: hidden` until it has measured where to go, and
+    // hidden elements can't take focus, so keep trying until the field accepts it.
+    let frame = 0
+    let attempts = 0
+    const tryFocus = () => {
+      const input = inputRef.current
+      if (!input) {
+        return
+      }
+      input.focus()
+      if (document.activeElement !== input && ++attempts < 30) {
+        frame = requestAnimationFrame(tryFocus)
+      }
+    }
+    tryFocus()
+    return () => cancelAnimationFrame(frame)
+  }, [autoFocus])
+
   return (
     <Root className={className}>
       <TextField
+        ref={inputRef}
         label={t('maps.familySearch.search', 'Search maps, or paste a map link')}
         dense={true}
         allowErrors={false}
         hasClearButton={true}
+        leadingIcons={[<MaterialIcon icon='search' key='search' />]}
         value={search}
-        inputProps={{ autoFocus }}
         onChange={e => setSearch(e.target.value)}
       />
       <List>
@@ -195,10 +236,20 @@ export function MapComparePicker({
         ) : (
           <>
             {own ? (
-              <OtherFilesGroup family={own.family} excluded={excluded} onPick={onPick} />
+              <FilesGroup
+                family={own.family}
+                ownFileId={ownFile?.id}
+                otherFileId={otherFile?.id}
+                onPick={onPick}
+              />
             ) : null}
             {other && otherFamily?.id !== ownFamily?.id ? (
-              <OtherFilesGroup family={other.family} excluded={excluded} onPick={onPick} />
+              <FilesGroup
+                family={other.family}
+                ownFileId={ownFile?.id}
+                otherFileId={otherFile?.id}
+                onPick={onPick}
+              />
             ) : null}
             <StarredGroup excluded={excluded} onPick={onPick} />
           </>
@@ -208,13 +259,19 @@ export function MapComparePicker({
   )
 }
 
-function OtherFilesGroup({
+/**
+ * All of a map's files. The file this side shows and the one on the other side can't be picked;
+ * the group is left out when every file is one of them.
+ */
+function FilesGroup({
   family: familyRef,
-  excluded,
+  ownFileId,
+  otherFileId,
   onPick,
 }: {
   family: FragmentType<typeof MapComparePicker_FamilyFragment>
-  excluded: ReadonlySet<SbMapId>
+  ownFileId?: SbMapId
+  otherFileId?: SbMapId
   onPick: (fileId: SbMapId) => void
 }) {
   const { t } = useTranslation()
@@ -227,40 +284,66 @@ function OtherFilesGroup({
     files.map(f => ({ ...f, gamesTotal: f.stats?.gamesTotal ?? 0 })),
     family.current.id,
   )
-  const rows = ordered.filter(f => !excluded.has(f.id))
-  if (!rows.length) {
+  if (!ordered.some(f => f.id !== ownFileId && f.id !== otherFileId)) {
     return null
   }
 
   return (
     <Group>
       <GroupLabel>
-        {t('maps.compare.otherFilesOf', {
-          defaultValue: 'Other files of {{mapName}}',
+        {t('maps.compare.filesOf', {
+          defaultValue: 'Files of {{mapName}}',
           mapName: filterColorCodes(family.name),
         })}
       </GroupLabel>
-      {rows.map(file => {
-        const meta = [
-          t('maps.files.games', {
-            defaultValue: '{{formattedCount}} games',
-            defaultValue_one: '{{formattedCount}} game',
-            count: file.gamesTotal,
-            formattedCount: numbers.format(file.gamesTotal),
-          }),
-        ]
-        if (file.id === family.current.id) {
-          meta.unshift(t('maps.files.recommended', 'Recommended'))
-        }
-        if (!file.listed) {
-          meta.push(t('maps.page.unlisted', 'Unlisted'))
-        }
-        return (
-          <RowButton key={file.id} type='button' onClick={() => onPick(file.id)}>
-            <MapCandidateRow file={file.file} name={fileLabel(file)} meta={meta.join(' · ')} />
-          </RowButton>
-        )
-      })}
+      <Rows>
+        {ordered.map(file => {
+          const meta = [
+            t('maps.files.games', {
+              defaultValue: '{{formattedCount}} games',
+              defaultValue_one: '{{formattedCount}} game',
+              count: file.gamesTotal,
+              formattedCount: numbers.format(file.gamesTotal),
+            }),
+          ]
+          if (file.id === family.current.id) {
+            meta.unshift(t('maps.files.recommended', 'Recommended'))
+          }
+          if (!file.listed) {
+            meta.push(t('maps.page.unlisted', 'Unlisted'))
+          }
+          const row = (note?: string, trailing?: ReactNode) => (
+            <MapCandidateRow
+              file={file.file}
+              name={fileLabel(file)}
+              meta={meta.join(' · ')}
+              note={note}
+              trailing={trailing}
+              size='large'
+            />
+          )
+
+          if (file.id === ownFileId) {
+            return (
+              <StaticRow key={file.id} aria-current='true'>
+                {row(undefined, <MaterialIcon icon='check' />)}
+              </StaticRow>
+            )
+          } else if (file.id === otherFileId) {
+            return (
+              <StaticRow key={file.id} $dimmed={true}>
+                {row(t('maps.compare.onOtherSide', 'On the other side'))}
+              </StaticRow>
+            )
+          } else {
+            return (
+              <RowButton key={file.id} type='button' onClick={() => onPick(file.id)}>
+                {row()}
+              </RowButton>
+            )
+          }
+        })}
+      </Rows>
     </Group>
   )
 }
@@ -361,19 +444,22 @@ function CandidateGroup({
   return (
     <Group>
       {label ? <GroupLabel>{label}</GroupLabel> : null}
-      {rows.map(({ candidate, family, fileId }) => (
-        <RowButton key={candidate.familyId} type='button' onClick={() => onPick(fileId)}>
-          {candidate.file && candidate.file.id !== family.current.id ? (
-            <MapCandidateRow
-              file={candidate.file.file}
-              name={filterColorCodes(candidate.file.name)}
-              meta={familyCandidateMeta(family, t, numbers)}
-            />
-          ) : (
-            <MapFamilyCandidateRow candidate={candidate} />
-          )}
-        </RowButton>
-      ))}
+      <Rows>
+        {rows.map(({ candidate, family, fileId }) => (
+          <RowButton key={candidate.familyId} type='button' onClick={() => onPick(fileId)}>
+            {candidate.file && candidate.file.id !== family.current.id ? (
+              <MapCandidateRow
+                file={candidate.file.file}
+                name={filterColorCodes(candidate.file.name)}
+                meta={familyCandidateMeta(family, t, numbers)}
+                size='large'
+              />
+            ) : (
+              <MapFamilyCandidateRow candidate={candidate} size='large' />
+            )}
+          </RowButton>
+        ))}
+      </Rows>
     </Group>
   )
 }
