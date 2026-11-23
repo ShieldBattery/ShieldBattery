@@ -1016,9 +1016,13 @@ function MapHeader({
       </MapHeaderRoot>
       <Popover
         open={open}
-        onDismiss={() => {
+        onDismiss={event => {
           closePicker()
-          buttonRef.current?.focus()
+          // A click that dismisses the picker has already focused what it landed on; only a
+          // dismissal from the keyboard hands focus back to the button.
+          if (!event) {
+            buttonRef.current?.focus()
+          }
         }}
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
