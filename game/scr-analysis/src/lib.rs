@@ -26,7 +26,7 @@ use std::rc::Rc;
 use scarf::analysis::{Analyzer, Control, DefaultState, FuncAnalysis};
 use scarf::exec_state::ExecutionState as _;
 use scarf::exec_state::VirtualAddress as _;
-use scarf::{BinaryFile, DestOperand, MemAccessSize, Operand, OperandCtx, Operation};
+use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx, Operation};
 
 #[cfg(target_arch = "x86")]
 use scarf::ExecutionStateX86 as ExecutionState;
@@ -792,23 +792,11 @@ impl<'e> Analysis<'e> {
 
     /// `fn(unit, toggle)`, cdecl on 32-bit: has the game's view follow `unit` for a replay viewer
     /// or observer, or stops following when `unit` is null, or when `toggle` is set and `unit` is
-    /// already followed. A right click on a unit on the map, or on its wireframe in the console,
+    /// already followed. A right click on a unit on the map, or on its portrait in the console,
     /// calls it with `toggle` set. While the game follows a unit, `move_screen` and every scroll
     /// do nothing.
-    ///
-    /// Found as the function `game_screen_rclick` calls that keeps the follow in a byte flag next
-    /// to a 32-bit unit id: it stores 1 and 0 to the flag, and a computed id and 0 to the id.
     pub fn set_follow_unit(&mut self) -> Option<VirtualAddress> {
-        let game_screen_rclick = self.0.game_screen_rclick()?;
-        let mut analyzer = FollowSetterSearch {
-            binary: self.1,
-            ctx: self.2,
-            candidates_left: FOLLOW_SETTER_MAX_CANDIDATES,
-            result: None,
-        };
-        let mut analysis = FuncAnalysis::new(self.1, self.2, game_screen_rclick);
-        analysis.analyze(&mut analyzer);
-        analyzer.result
+        self.0.set_follow_unit()
     }
 
     /// Recomputes the furthest the view can scroll from the map's size, the view's size and the
@@ -1904,114 +1892,6 @@ impl<'e> Analyzer<'e> for VisionMaskAnalyzer {
                     }
                 }
             }
-            _ => (),
-        }
-    }
-}
-
-/// How many of the functions `game_screen_rclick` calls are checked for the follow setter before
-/// giving up. The handler's replay branch calls it within its first few calls; the bound keeps a
-/// miss from checking every order function the rest of the handler reaches.
-const FOLLOW_SETTER_MAX_CANDIDATES: u32 = 32;
-
-/// How many operations of one candidate are looked at. The follow setter is a few dozen
-/// instructions; anything longer is something else.
-const FOLLOW_SETTER_MAX_OPERATIONS: u32 = 256;
-
-/// The farthest apart, in bytes, the follow's flag and unit id are allowed to be.
-const FOLLOW_GLOBALS_MAX_DISTANCE: u64 = 8;
-
-/// Checks the functions `game_screen_rclick` calls for the one that keeps the game's unit follow.
-struct FollowSetterSearch<'e> {
-    binary: &'e BinaryFile<VirtualAddress>,
-    ctx: OperandCtx<'e>,
-    candidates_left: u32,
-    result: Option<VirtualAddress>,
-}
-
-impl<'e> Analyzer<'e> for FollowSetterSearch<'e> {
-    type State = DefaultState;
-    type Exec = ExecutionState<'e>;
-
-    fn operation(&mut self, ctrl: &mut Control<'e, '_, '_, Self>, op: &Operation<'e>) {
-        let Operation::Call(dest) = *op else {
-            return;
-        };
-        let Some(dest) = ctrl.resolve(dest).if_constant() else {
-            return;
-        };
-        let dest = VirtualAddress::from_u64(dest);
-        if is_follow_setter(self.binary, self.ctx, dest) {
-            self.result = Some(dest);
-            ctrl.end_analysis();
-            return;
-        }
-        self.candidates_left = self.candidates_left.saturating_sub(1);
-        if self.candidates_left == 0 {
-            ctrl.end_analysis();
-        }
-    }
-}
-
-/// Whether `func` stores both 1 and 0 to a byte global, and both a computed value and 0 to a
-/// 32-bit global right next to it: setting the follow's flag and unit id, or clearing both.
-fn is_follow_setter<'e>(
-    binary: &'e BinaryFile<VirtualAddress>,
-    ctx: OperandCtx<'e>,
-    func: VirtualAddress,
-) -> bool {
-    let mut analyzer = FollowStores {
-        flag_set: Vec::new(),
-        flag_cleared: Vec::new(),
-        id_set: Vec::new(),
-        id_cleared: Vec::new(),
-        operations_left: FOLLOW_SETTER_MAX_OPERATIONS,
-    };
-    let mut analysis = FuncAnalysis::new(binary, ctx, func);
-    analysis.analyze(&mut analyzer);
-    analyzer.operations_left != 0
-        && analyzer.flag_set.iter().any(|&flag| {
-            analyzer.flag_cleared.contains(&flag)
-                && analyzer.id_set.iter().any(|&id| {
-                    id != flag
-                        && id.abs_diff(flag) <= FOLLOW_GLOBALS_MAX_DISTANCE
-                        && analyzer.id_cleared.contains(&id)
-                })
-        })
-}
-
-/// The stores to constant addresses one function makes, sorted by what they could be in the
-/// game's unit follow.
-struct FollowStores {
-    flag_set: Vec<u64>,
-    flag_cleared: Vec<u64>,
-    id_set: Vec<u64>,
-    id_cleared: Vec<u64>,
-    operations_left: u32,
-}
-
-impl<'e> Analyzer<'e> for FollowStores {
-    type State = DefaultState;
-    type Exec = ExecutionState<'e>;
-
-    fn operation(&mut self, ctrl: &mut Control<'e, '_, '_, Self>, op: &Operation<'e>) {
-        self.operations_left = self.operations_left.saturating_sub(1);
-        if self.operations_left == 0 {
-            ctrl.end_analysis();
-            return;
-        }
-        let Operation::Move(DestOperand::Memory(ref mem), value) = *op else {
-            return;
-        };
-        let mem = ctrl.resolve_mem(mem);
-        let Some(address) = mem.if_constant_address() else {
-            return;
-        };
-        match (mem.size, ctrl.resolve(value).if_constant()) {
-            (MemAccessSize::Mem8, Some(1)) => self.flag_set.push(address),
-            (MemAccessSize::Mem8, Some(0)) => self.flag_cleared.push(address),
-            (MemAccessSize::Mem32, Some(0)) => self.id_cleared.push(address),
-            (MemAccessSize::Mem32, None) => self.id_set.push(address),
             _ => (),
         }
     }

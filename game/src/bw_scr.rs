@@ -2417,7 +2417,7 @@ impl BwScr {
     }
 
     /// Stands in for the game's own unit follow, which a watcher's right click on a unit on the
-    /// map, or on its wireframe in the console, starts. The game's follow keeps every other way of
+    /// map, or on its portrait in the console, starts. The game's follow keeps every other way of
     /// moving the view from doing anything until the minimap is clicked; this one lets go as soon
     /// as anything else moves the view, and [`Self::follow_unit`] keeps it from the next frame on.
     ///
