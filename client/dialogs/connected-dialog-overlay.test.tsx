@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import i18next from 'i18next'
+import { Provider as JotaiProvider } from 'jotai'
 import { LazyMotion } from 'motion/react'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
@@ -7,7 +8,9 @@ import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../common/testing/mocks'
 import createStore from '../create-store'
 import { isActivatingClick } from '../dom/activating-click'
-import { KeyListenerBoundary } from '../keyboard/key-listener'
+import { jotaiStore } from '../jotai-store'
+import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
+import { draftStateAtom } from '../matchmaking/draft-atoms'
 import { Popover, PopoverOpenState } from '../material/popover'
 import { domMax } from '../motion-features'
 import {
@@ -54,6 +57,7 @@ function setVisibility(state: DocumentVisibilityState) {
 }
 
 afterEach(() => {
+  setDraft(false)
   visibilityState = 'visible'
   isActivatingClickMock.mockReturnValue(false)
   vi.useRealTimers()
@@ -72,16 +76,39 @@ function passExitDeadline() {
 function renderOverlay(extra?: React.ReactNode) {
   const store = createStore()
   render(
-    <ReduxProvider store={store}>
-      <KeyListenerBoundary>
-        <LazyMotion features={domMax}>
-          {extra}
-          <ConnectedDialogOverlay />
-        </LazyMotion>
-      </KeyListenerBoundary>
-    </ReduxProvider>,
+    <JotaiProvider store={jotaiStore}>
+      <ReduxProvider store={store}>
+        <KeyListenerBoundary>
+          <LazyMotion features={domMax}>
+            {extra}
+            <ConnectedDialogOverlay />
+          </LazyMotion>
+        </KeyListenerBoundary>
+      </ReduxProvider>
+    </JotaiProvider>,
   )
   return store
+}
+
+function setDraft(inDraft: boolean) {
+  act(() => {
+    jotaiStore.set(draftStateAtom, inDraft ? ({ isCompleted: false } as any) : undefined)
+  })
+}
+
+function isShown(elem: Element) {
+  for (let e: Element | null = elem; e; e = e.parentElement) {
+    if ((e as HTMLElement).style.display === 'none') {
+      return false
+    }
+  }
+  return true
+}
+
+/** Stands in for a screen beneath the dialogs, receiving whatever keys no dialog takes. */
+function KeysBeneath({ onKeyDown }: { onKeyDown: (event: KeyboardEvent) => boolean }) {
+  useKeyListener({ onKeyDown })
+  return null
 }
 
 function openDialog(store: ReturnType<typeof createStore>) {
@@ -217,6 +244,54 @@ describe('ConnectedDialogOverlay', () => {
 
     expect(store.getState().dialog.history.map(d => d.id)).toEqual([firstId])
     expect(screen.getByText('Some content').closest('[role=dialog]')).toBe(firstSurface)
+  })
+
+  test('a dialog open when a draft starts is held without taking input, then comes back', async () => {
+    const keysBeneath = vi.fn(() => true)
+    const store = renderOverlay(<KeysBeneath onKeyDown={keysBeneath} />)
+    openDialog(store)
+    const surface = await screen.findByRole('dialog')
+
+    setDraft(true)
+
+    expect(isShown(surface)).toBe(false)
+    expect(isShown(screen.getByTestId('dialog-scrim'))).toBe(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(keysBeneath).toHaveBeenCalledTimes(1)
+    expect(store.getState().dialog.history).toHaveLength(1)
+
+    setDraft(false)
+
+    expect(screen.getByRole('dialog')).toBe(surface)
+    expect(isShown(surface)).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(keysBeneath).toHaveBeenCalledTimes(1)
+  })
+
+  test('a dialog opened during a draft is held until it ends', async () => {
+    const store = renderOverlay()
+    setDraft(true)
+    openDialog(store)
+    const surface = await screen.findByText('Some content')
+
+    expect(isShown(surface)).toBe(false)
+
+    setDraft(false)
+
+    expect(isShown(surface)).toBe(true)
+  })
+
+  test('a dialog closed during a draft is removed right away', async () => {
+    const store = renderOverlay()
+    const id = openDialog(store)
+    await screen.findByRole('dialog')
+    setDraft(true)
+
+    act(() => {
+      store.dispatch(closeDialogById(id))
+    })
+
+    expect(screen.queryByText('Some content')).toBeNull()
   })
 })
 
