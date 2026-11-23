@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
@@ -16,6 +16,7 @@ import {
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapChange, MapStartLocationChangeKind } from '../gql/graphql'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -24,7 +25,6 @@ import { IconButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
-import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { SegmentedButtonGroup } from '../material/segmented-button'
@@ -33,6 +33,7 @@ import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
+import { useMultiplexRef } from '../react/refs'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
@@ -40,6 +41,7 @@ import {
   bodyMedium,
   bodySmall,
   labelLarge,
+  singleLine,
   titleLarge,
   titleMedium,
   titleSmall,
@@ -502,11 +504,11 @@ const MapHeaderRoot = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+`
 
-  /* Only the name gives up room when there's too little */
-  & > :not(button) {
-    flex-shrink: 0;
-  }
+/** The page link keeps its size, so only the name gives up room when there's too little. */
+const OpenPageTooltip = styled(Tooltip)`
+  flex-shrink: 0;
 `
 
 const MapHeaderButton = styled.button`
@@ -532,8 +534,9 @@ const MapHeaderButton = styled.button`
   }
 `
 
-const MapHeaderName = styled(EllipsizedText)`
+const MapHeaderName = styled.span`
   ${titleMedium};
+  ${singleLine};
   min-width: 0;
 `
 
@@ -542,8 +545,8 @@ const MapHeaderIcon = styled(MaterialIcon)`
 `
 
 const PopoverPicker = styled.div`
-  width: min(400px, calc(100vw - 32px));
-  max-height: min(480px, 70vh);
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(560px, 70vh);
   padding: 12px;
 
   display: flex;
@@ -979,34 +982,44 @@ function MapHeader({
   const files = familyFiles.some(f => f.id === side.id) ? familyFiles : [...familyFiles, file]
   const fileLabel = useFamilyFileLabel(files)
   const anchorOrigin = align === 'start' ? 'left' : 'right'
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition(
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition<HTMLButtonElement>(
     anchorOrigin,
     'bottom',
   )
   const [open, openPicker, closePicker] = usePopoverController({ refreshAnchorPos })
   const openPageLabel = t('maps.compare.openMapPage', 'Open map page')
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const buttonMultiRef = useMultiplexRef(anchorRef, buttonRef)
+  const [nameRef, nameOverflowing] = useOverflowingElement<HTMLSpanElement>()
+  const label = fileLabel(file)
 
   return (
     <>
       <MapHeaderRoot>
-        <MapHeaderButton
-          ref={anchorRef}
-          type='button'
-          aria-haspopup='dialog'
-          aria-expanded={open}
-          onClick={openPicker}>
-          <MapHeaderName text={fileLabel(file)} />
-          <MapHeaderIcon icon='arrow_drop_down' />
-        </MapHeaderButton>
-        <Tooltip text={openPageLabel} position='bottom' tabIndex={-1}>
+        {/* The picker opens below the button, where the tooltip would cover it */}
+        <Tooltip text={label} position='bottom' tabIndex={-1} disabled={!nameOverflowing || open}>
+          <MapHeaderButton
+            ref={buttonMultiRef}
+            type='button'
+            aria-haspopup='dialog'
+            aria-expanded={open}
+            onClick={openPicker}>
+            <MapHeaderName ref={nameRef}>{label}</MapHeaderName>
+            <MapHeaderIcon icon='arrow_drop_down' />
+          </MapHeaderButton>
+        </Tooltip>
+        <OpenPageTooltip text={openPageLabel} position='bottom' tabIndex={-1}>
           <LinkButton href={urlForMapFile(family, side.id)} aria-label={openPageLabel}>
             <IconButton styledAs='div' icon={<MaterialIcon icon='open_in_new' />} />
           </LinkButton>
-        </Tooltip>
+        </OpenPageTooltip>
       </MapHeaderRoot>
       <Popover
         open={open}
-        onDismiss={closePicker}
+        onDismiss={() => {
+          closePicker()
+          buttonRef.current?.focus()
+        }}
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
         originX={anchorOrigin}
