@@ -1,7 +1,8 @@
 import { Immutable } from 'immer'
+import { useAtomValue } from 'jotai'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useEffect, useEffectEvent, useState } from 'react'
+import React, { Activity, useEffect, useEffectEvent, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { isActivatingClick } from '../dom/activating-click'
@@ -9,6 +10,7 @@ import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
+import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { DialogContext } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -349,11 +351,17 @@ function getDialog(dialogType: DialogType): {
 export const ConnectedDialogOverlay = () => {
   const dispatch = useAppDispatch()
   const dialogHistory = useAppSelector(s => s.dialog.history)
+  const inDraft = useAtomValue(isInDraftAtom)
   const portalElem = useExternalElement()
 
+  // Nothing is shown over the draft screen. It fills the window while the player's pick timer runs,
+  // and a dialog on top would take the pointer (its scrim), keys (its key boundary) and focus away
+  // from it. Dialogs opened before or during the draft are held, state intact, until it ends, so
+  // anything a player must see during a draft has to be part of the draft screen itself.
   return ReactDOM.createPortal(
     <DialogOverlayContent
       dialogHistory={dialogHistory}
+      hidden={inDraft}
       onCancel={id => dispatch(closeDialogById(id))}
       onScrimClick={(id, event) => {
         // A click outside of a popover dismisses that popover, so a scrim click that did so is not
@@ -404,24 +412,31 @@ export function mergeExitingDialogs<T extends { readonly id: string }>(
 
 function DialogOverlayContent({
   dialogHistory,
+  hidden,
   onCancel,
   onScrimClick,
 }: {
   dialogHistory: Immutable<DialogState[]>
+  /**
+   * Whether to hold every dialog off screen. Held dialogs stay mounted with their state, but take
+   * no pointer, keyboard or focus input, since their effects are torn down until they're shown.
+   */
+  hidden: boolean
   onCancel: (id: string) => void
   onScrimClick: (id: string, event: React.MouseEvent) => void
 }) {
   const isDocVisible = useIsDocumentVisible()
   // Dialogs that have left the history keep rendering here until their exit animation completes.
-  // Animation frames stop entirely while the document is hidden (window minimized/fully occluded),
-  // so an exit could never finish then: dialogs closed while hidden, or still exiting when the
-  // document becomes hidden, are dropped immediately instead.
+  // An exit can't finish while the document is hidden (window minimized/fully occluded), since
+  // animation frames stop entirely, nor while the dialogs are held, since their effects don't run.
+  // Dialogs closed then, or still exiting when that starts, are dropped immediately instead.
+  const canAnimate = isDocVisible && !hidden
   const [rendered, setRendered] = useState<ReadonlyArray<Immutable<DialogState>>>(dialogHistory)
   const [prevHistory, setPrevHistory] = useState(dialogHistory)
   if (dialogHistory !== prevHistory) {
     setPrevHistory(dialogHistory)
-    setRendered(isDocVisible ? mergeExitingDialogs(rendered, dialogHistory) : dialogHistory)
-  } else if (!isDocVisible && rendered.length > dialogHistory.length) {
+    setRendered(canAnimate ? mergeExitingDialogs(rendered, dialogHistory) : dialogHistory)
+  } else if (!canAnimate && rendered.length > dialogHistory.length) {
     setRendered(dialogHistory)
   }
 
@@ -430,7 +445,7 @@ function DialogOverlayContent({
   const onExited = (id: string) => setRendered(dialogs => dialogs.filter(d => d.id !== id))
 
   return (
-    <>
+    <Activity mode={hidden ? 'hidden' : 'visible'}>
       {rendered.map(dialogState => (
         <DialogPresence
           key={dialogState.id}
@@ -445,7 +460,7 @@ function DialogOverlayContent({
           />
         </DialogPresence>
       ))}
-    </>
+    </Activity>
   )
 }
 
