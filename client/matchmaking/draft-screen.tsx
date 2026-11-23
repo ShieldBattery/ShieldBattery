@@ -802,6 +802,8 @@ const ActivePickerIndicator = styled.div`
   border: 2px solid var(--color-blue80);
   border-radius: inherit;
   opacity: 0.75;
+  /* This covers the whole card, whose player name needs to stay clickable. */
+  pointer-events: none;
 `
 
 function MyDraftTeam({
