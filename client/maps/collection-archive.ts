@@ -1,5 +1,6 @@
 import { downloadZip } from 'client-zip'
 import { CollectionDownloadFile } from '../../common/typeshare'
+import { fetchRaw } from '../network/fetch'
 
 /**
  * The most bytes of map files one archive may hold. The archive is assembled in the browser's
@@ -45,12 +46,11 @@ export async function buildCollectionArchive(
 
   const fetchFile = async (file: CollectionDownloadFile): Promise<Blob> => {
     try {
-      // The files are on another origin, with signed URLs that need no session or app headers, so
-      // the app's own fetch wrapper doesn't apply
-      // eslint-disable-next-line no-restricted-globals
-      const response = await fetch(file.url, {
+      // The files are on another origin, at signed URLs that take no session
+      const response = await fetchRaw(file.url, {
         signal: controller.signal,
         credentials: 'omit',
+        headers: { Accept: '*/*' },
       })
       if (!response.ok) {
         throw new Error(`Fetching ${file.name} failed with status ${response.status}`)

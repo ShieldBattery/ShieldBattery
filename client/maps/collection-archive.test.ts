@@ -1,6 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { asMockedFunction } from '../../common/testing/mocks'
 import { CollectionDownloadFile } from '../../common/typeshare'
+import { fetchRaw } from '../network/fetch'
 import { buildCollectionArchive, CollectionTooLargeError } from './collection-archive'
+
+vi.mock('../network/fetch', () => ({
+  fetchRaw: vi.fn(),
+}))
+
+const fetchRawMock = asMockedFunction(fetchRaw)
 
 interface ZipEntry {
   name: string
@@ -47,23 +55,22 @@ async function readZip(blob: Blob): Promise<ZipEntry[]> {
   return entries
 }
 
+/** Makes fetching each URL answer with its bytes, or with an empty response of its status. */
 function stubFetch(contents: Record<string, Uint8Array | number>) {
-  const fetchMock = vi.fn(async (url: string) => {
+  fetchRawMock.mockImplementation(async url => {
     const content = contents[url]
     if (typeof content === 'number') {
       return new Response('nope', { status: content })
     }
     return new Response(content as Uint8Array<ArrayBuffer>)
   })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
 }
 
 const bytes = (...values: number[]) => new Uint8Array(values)
 
 describe('client/maps/collection-archive', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+  beforeEach(() => {
+    fetchRawMock.mockReset()
   })
 
   const files: CollectionDownloadFile[] = [
@@ -78,7 +85,7 @@ describe('client/maps/collection-archive', () => {
   }
 
   it('writes the files in order, stored, under their names', async () => {
-    const fetchMock = stubFetch(contents)
+    stubFetch(contents)
 
     const blob = await buildCollectionArchive(files, {})
     const entries = await readZip(blob)
@@ -90,7 +97,7 @@ describe('client/maps/collection-archive', () => {
     expect(Array.from(entries[1].bytes)).toEqual([4, 5, 6, 7, 8])
     expect(Array.from(entries[0].bytes)).toEqual([1, 2, 3])
     expect(Array.from(entries[2].bytes)).toEqual([9])
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchRawMock).toHaveBeenCalledWith(
       'https://files/a',
       expect.objectContaining({ credentials: 'omit' }),
     )
