@@ -77,6 +77,13 @@ const PositioningArea = styled.div`
   z-index: ${zIndexDialogScrim - 1};
 `
 
+interface WidgetDrag {
+  widget: HTMLElement
+  /** Where the widget was grabbed, relative to its top-left corner. */
+  offsetX: number
+  offsetY: number
+}
+
 export function GameplayActivityWidget() {
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
@@ -87,41 +94,37 @@ export function GameplayActivityWidget() {
   const [onLobbyRoute] = useRoute('/lobbies/:lobbyId/*?')
 
   const positioningAreaRef = useRef<HTMLDivElement>(null)
-  const widgetRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useAtom(widgetPositionAtom)
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
-  const [dragging, setDragging] = useState(false)
+  const [drag, setDrag] = useState<WidgetDrag>()
 
-  const onDragStart = (e: React.MouseEvent) => {
+  const onDragStart = (e: React.MouseEvent, widget: HTMLElement) => {
     if (e.button !== 0) return
-    const widget = widgetRef.current
-    if (!widget) return
     const widgetRect = widget.getBoundingClientRect()
-    setDragOffset({
-      x: e.clientX - widgetRect.left,
-      y: e.clientY - widgetRect.top,
+    setDrag({
+      widget,
+      offsetX: e.clientX - widgetRect.left,
+      offsetY: e.clientY - widgetRect.top,
     })
-    setDragging(true)
     e.preventDefault()
   }
 
   useEffect(() => {
-    if (!dragging) {
+    if (!drag) {
       return () => {}
     }
+    const { widget, offsetX, offsetY } = drag
 
     // The position as last rendered, saved once when the drag ends rather than on every move
     let latest: WidgetPosition | undefined
 
     function onMouseMove(e: MouseEvent) {
       const area = positioningAreaRef.current
-      const widget = widgetRef.current
-      if (!area || !widget) return
+      if (!area) return
       const areaRect = area.getBoundingClientRect()
       latest = anchorWidgetPosition(
         {
-          left: e.clientX - areaRect.left - (dragOffset?.x ?? 0),
-          top: e.clientY - areaRect.top - (dragOffset?.y ?? 0),
+          left: e.clientX - areaRect.left - offsetX,
+          top: e.clientY - areaRect.top - offsetY,
         },
         areaRect,
         placementSize(widget),
@@ -132,7 +135,7 @@ export function GameplayActivityWidget() {
       if (latest) {
         savedWidgetPosition.setValue(latest)
       }
-      setDragging(false)
+      setDrag(undefined)
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
@@ -140,13 +143,29 @@ export function GameplayActivityWidget() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [dragging, dragOffset, setPosition])
+  }, [drag, setPosition])
+
+  let kind: 'lobby' | 'matchmaking' | undefined
+  if (isConnected && inLobby && !onLobbyRoute) {
+    kind = 'lobby'
+  } else if (isConnected && isMatchmaking && !inDraft && !isMatchLaunching) {
+    kind = 'matchmaking'
+  }
+
+  // Each appearance of a widget gets its own key, so one that returns while its predecessor is
+  // still exiting is a new element rather than the exiting one brought back. An exit can't finish
+  // while the document is hidden, and motion leaves an element that exits and returns in that time
+  // at the exit's opacity for good.
+  const [appearance, setAppearance] = useState({ kind, id: 0 })
+  if (appearance.kind !== kind) {
+    setAppearance({ kind, id: appearance.id + 1 })
+  }
 
   let widget: React.ReactNode | undefined
-  if (isConnected && inLobby && !onLobbyRoute) {
-    widget = <LobbyWidget key='lobby' ref={widgetRef} onDragStart={onDragStart} />
-  } else if (isConnected && isMatchmaking && !inDraft && !isMatchLaunching) {
-    widget = <MatchmakingWidget key='matchmaking' ref={widgetRef} onDragStart={onDragStart} />
+  if (kind === 'lobby') {
+    widget = <LobbyWidget key={appearance.id} onDragStart={onDragStart} />
+  } else if (kind === 'matchmaking') {
+    widget = <MatchmakingWidget key={appearance.id} onDragStart={onDragStart} />
   }
 
   return (
@@ -261,17 +280,15 @@ const TitleActionButton = styled(IconButton)`
 `
 
 interface WidgetProps {
-  ref: React.Ref<HTMLDivElement>
   title: string
   hasTitlePip?: boolean
   /** An optional icon button rendered at the end of the title bar (e.g. to reopen a dialog). */
   titleAction?: React.ReactNode
-  onDragStart: (e: React.MouseEvent) => void
+  onDragStart: (e: React.MouseEvent, widget: HTMLElement) => void
   children: React.ReactNode
 }
 
 function Widget({
-  ref,
   title,
   hasTitlePip = false,
   titleAction,
@@ -279,8 +296,9 @@ function Widget({
   children,
   ...rest
 }: WidgetProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const [sizeRef, contentRect] = useObservedDimensions<HTMLDivElement>()
-  const composedRef = useMultiplexRef(ref, sizeRef)
+  const composedRef = useMultiplexRef(rootRef, sizeRef)
 
   const width = contentRect?.width ?? 0
   const height = contentRect?.height ?? 0
@@ -320,7 +338,9 @@ function Widget({
       }}>
       <WidgetTitleArea
         layout='size'
-        onMouseDown={onDragStart}
+        onMouseDown={e => {
+          if (rootRef.current) onDragStart(e, rootRef.current)
+        }}
         style={{ cursor: 'move' }}
         $hasPip={hasTitlePip}>
         <DragHandle />
