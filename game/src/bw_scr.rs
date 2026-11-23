@@ -53,7 +53,6 @@ use crate::bw::{UserLatency, commands};
 use crate::bw_scr::draw_inject::warn_once;
 use crate::bw_scr::game_stats::GameStats;
 use crate::client_sdk_agent;
-use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
@@ -742,10 +741,17 @@ unsafe fn safe_read_bytes(addr: *const u8, len: usize) -> Option<Vec<u8>> {
 /// Our middle-down hook lets the original run (so the cursor still hides for the duration) and then
 /// swaps the slot to a callback of our own that pans the camera by the cursor's movement times the
 /// user's gain, rather than BW's fraction-of-the-whole-map mapping. To make this a *relative* drag
-/// that can pan arbitrarily far — and to keep the OS cursor off the window edge, where the
-/// `MouseConfine` clip would otherwise pin it and stall the pan — the callback warps the cursor back
-/// to the window center every pass and accumulates the offset from center. On middle-up we restore
-/// the cursor to where the drag began.
+/// that can pan arbitrarily far, the callback warps the cursor back to an anchor every pass and
+/// pans by its offset from there. The anchor is where the drag began, moved
+/// [`GRAB_PAN_EDGE_MARGIN`] inside the window if it began closer to the edge than that, so the
+/// cursor doesn't stop at the window edge (where the `MouseConfine` clip would pin it) partway
+/// through a pass. On middle-up the cursor is put back where the drag began.
+///
+/// Every warp is kept short. Windows applies a mouse move relative to the cursor position it read
+/// when it took the move in, so a move in flight when the cursor is warped (pressing or releasing
+/// the button nudges the mouse) lands on the old position and undoes the warp. A short warp undone
+/// costs a few pixels; a long one, say to the window center and back, would pan by the whole
+/// distance or leave the cursor far from where the drag began.
 ///
 /// The cursor is read and warped with the Win32 `GetCursorPos`/`SetCursorPos` (screen coordinates),
 /// not the game's cursor globals: the warp needs to *set* the cursor in screen space anyway, and
@@ -754,8 +760,8 @@ unsafe fn safe_read_bytes(addr: *const u8, len: usize) -> Option<Vec<u8>> {
 ///
 /// A drag can also end without middle-up firing (UI transitions that null or memset the handler
 /// table), so the swapped-in callback keeps no resources needing teardown: it simply stops being
-/// called. The only cost of a middle-up we miss is the cursor staying at center instead of being
-/// restored, until the next input moves it.
+/// called. The only cost of a middle-up we miss is the cursor staying at the anchor instead of
+/// being put back, until the next input moves it.
 struct GrabPan {
     middle_down_handler: VirtualAddress,
     middle_up_handler: VirtualAddress,
@@ -768,15 +774,17 @@ struct GrabPan {
     anchor: Mutex<Option<GrabPanAnchor>>,
 }
 
+/// How far inside the game window's edge, in screen pixels, a grab pan's anchor is kept (see
+/// [`GrabPan`]): more than a fast flick moves the cursor between two passes.
+const GRAB_PAN_EDGE_MARGIN: i32 = 64;
+
 #[derive(Copy, Clone)]
 struct GrabPanAnchor {
     /// Where the cursor was when the drag began, restored on middle-up.
-    origin_x: i32,
-    origin_y: i32,
-    /// The window-center point the cursor is warped back to each pass; the per-pass camera movement
-    /// is the cursor's offset from here.
-    center_x: i32,
-    center_y: i32,
+    origin: (i32, i32),
+    /// The point the cursor is warped back to each pass; the per-pass camera movement is the
+    /// cursor's offset from here.
+    anchor: (i32, i32),
     /// Leftover sub-pixel camera movement carried between passes, so a gain below 1 still pans on
     /// slow drags instead of truncating every fractional step to zero.
     frac_x: f32,
@@ -2537,8 +2545,8 @@ impl BwScr {
 
     /// Runs after the game's middle-mouse-down handler (which has hidden the cursor and installed
     /// the built-in pan callback). If the custom sensitivity is enabled, records where the drag
-    /// began, warps the cursor to the window center, and swaps the active-drag slot to
-    /// [`grab_pan_update_hook`].
+    /// began and its anchor (see [`GrabPan`]), moves the cursor onto the anchor when the two
+    /// differ, and swaps the active-drag slot to [`grab_pan_update_hook`].
     fn grab_pan_middle_down(&self) {
         use winapi::shared::windef::POINT;
         use winapi::um::winuser::{GetCursorPos, SetCursorPos};
@@ -2556,19 +2564,21 @@ impl BwScr {
             return;
         };
         unsafe {
-            let mut origin = POINT { x: 0, y: 0 };
-            if GetCursorPos(&mut origin) == 0 {
+            let mut cursor = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut cursor) == 0 {
                 return;
             }
-            let Some((center_x, center_y)) = window_client_center(hwnd) else {
+            let Some(window) = crate::forge::window_client_screen_rect(hwnd) else {
                 return;
             };
-            SetCursorPos(center_x, center_y);
+            let origin = (cursor.x, cursor.y);
+            let anchor = crate::forge::point_inside(origin, &window, GRAB_PAN_EDGE_MARGIN);
+            if anchor != origin {
+                SetCursorPos(anchor.0, anchor.1);
+            }
             *grab_pan.anchor.lock() = Some(GrabPanAnchor {
-                origin_x: origin.x,
-                origin_y: origin.y,
-                center_x,
-                center_y,
+                origin,
+                anchor,
                 frac_x: 0.0,
                 frac_y: 0.0,
             });
@@ -2580,10 +2590,9 @@ impl BwScr {
     }
 
     /// The active-drag callback while a custom-sensitivity grab pan is in progress. Moves the camera
-    /// by the cursor's offset from the window center times the gain, then warps the cursor back to
-    /// center so the next pass measures fresh movement and the cursor never reaches the confine
-    /// edge. The dispatcher only calls this on passes where the mouse actually moved, so a still
-    /// cursor simply holds the camera.
+    /// by the cursor's offset from the anchor times the gain, then warps the cursor back to the
+    /// anchor so the next pass measures fresh movement. The dispatcher only calls this on passes
+    /// where the mouse actually moved, so a still cursor simply holds the camera.
     fn grab_pan_update(&self) {
         use winapi::shared::windef::POINT;
         use winapi::um::winuser::{GetCursorPos, SetCursorPos};
@@ -2606,8 +2615,8 @@ impl BwScr {
             let Some(anchor) = guard.as_mut() else {
                 return;
             };
-            let dx = pos.x - anchor.center_x;
-            let dy = pos.y - anchor.center_y;
+            let dx = pos.x - anchor.anchor.0;
+            let dy = pos.y - anchor.anchor.1;
             if dx == 0 && dy == 0 {
                 return;
             }
@@ -2619,7 +2628,7 @@ impl BwScr {
             let whole_y = move_y.trunc();
             anchor.frac_x = move_x - whole_x;
             anchor.frac_y = move_y - whole_y;
-            let (center_x, center_y) = (anchor.center_x, anchor.center_y);
+            let (anchor_x, anchor_y) = anchor.anchor;
             drop(guard);
 
             let x = self.screen_x.resolve() as f32 + whole_x;
@@ -2627,13 +2636,13 @@ impl BwScr {
             // The `as u32` casts saturate, clamping negatives to 0; move_screen clamps to the
             // map's scroll bounds itself.
             (self.move_screen)(x as u32, y as u32);
-            SetCursorPos(center_x, center_y);
+            SetCursorPos(anchor_x, anchor_y);
         }
     }
 
-    /// Runs on middle-mouse-up before the game's handler reveals the cursor again. Restores the
-    /// cursor to where the drag began, undoing the warping done during the drag. Does nothing if no
-    /// warp drag was active (the custom sensitivity was off, so the cursor was never warped).
+    /// Runs on middle-mouse-up before the game's handler reveals the cursor again. Puts the cursor
+    /// back where the drag began, from the anchor the drag kept it at. Does nothing if no warp drag
+    /// was active (the custom sensitivity was off, so the cursor was never warped).
     fn grab_pan_middle_up(&self) {
         use winapi::um::winuser::SetCursorPos;
 
@@ -2643,8 +2652,14 @@ impl BwScr {
         let Some(anchor) = grab_pan.anchor.lock().take() else {
             return;
         };
+        let (x, y) = anchor.origin;
         unsafe {
-            SetCursorPos(anchor.origin_x, anchor.origin_y);
+            SetCursorPos(x, y);
+        }
+        if anchor.anchor != anchor.origin {
+            // SC:R took its cursor position from the middle-up message, at the anchor, and draws its
+            // software cursor there until told otherwise.
+            crate::forge::post_cursor_position(x, y);
         }
     }
 

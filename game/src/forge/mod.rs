@@ -1318,14 +1318,64 @@ fn client_area_center(hwnd: HWND) -> Option<POINT> {
     }
 }
 
-/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
-/// the window is minimized).
-pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
-    let mut point = client_area_center(hwnd)?;
-    if unsafe { ClientToScreen(hwnd, &mut point) } == 0 {
-        return None;
+/// A window's client area in screen coordinates, or `None` if it can't be measured (e.g. the window
+/// is minimized).
+pub fn window_client_screen_rect(hwnd: HWND) -> Option<RECT> {
+    unsafe {
+        let mut rect: RECT = mem::zeroed();
+        if GetClientRect(hwnd, &mut rect) == 0 || rect.right <= 0 || rect.bottom <= 0 {
+            return None;
+        }
+        let mut top_left = POINT { x: 0, y: 0 };
+        if ClientToScreen(hwnd, &mut top_left) == 0 {
+            return None;
+        }
+        Some(RECT {
+            left: top_left.x,
+            top: top_left.y,
+            right: top_left.x + rect.right,
+            bottom: top_left.y + rect.bottom,
+        })
     }
-    Some((point.x, point.y))
+}
+
+/// `point` moved the least it takes to be at least `margin` inside `rect` (or at its middle, on an
+/// axis too short for that margin).
+pub fn point_inside(point: (i32, i32), rect: &RECT, margin: i32) -> (i32, i32) {
+    let clamp = |value: i32, low: i32, high: i32| {
+        let (low, high) = (low + margin, high - 1 - margin);
+        if low > high {
+            (low + high) / 2
+        } else {
+            value.clamp(low, high)
+        }
+    };
+    (
+        clamp(point.0, rect.left, rect.right),
+        clamp(point.1, rect.top, rect.bottom),
+    )
+}
+
+/// Tells SC:R its cursor is at `(x, y)` (screen coordinates) with a mouse move posted to its
+/// window. SC:R takes its cursor position only from mouse messages, and a warp makes one only for
+/// the window under the cursor, and none at all while raw input is taken, so a warp SC:R must
+/// follow (its software cursor is drawn where it thinks the cursor is) needs this.
+pub fn post_cursor_position(x: i32, y: i32) {
+    let Some(hwnd) = game_window_handle() else {
+        return;
+    };
+    let mut client = POINT { x, y };
+    if unsafe { ScreenToClient(hwnd, &mut client) } == 0 {
+        return;
+    }
+    post_client_cursor_position(hwnd, client);
+}
+
+fn post_client_cursor_position(hwnd: HWND, client: POINT) {
+    let lparam = ((client.y as u32 & 0xffff) << 16 | (client.x as u32 & 0xffff)) as isize;
+    unsafe {
+        PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam);
+    }
 }
 
 /// Centers the cursor in the game window's client area. Called when the loading screen hands off to
@@ -1363,10 +1413,7 @@ pub fn center_cursor_in_game_window() {
     } else {
         debug!("Game window isn't in front, centering only the game's cursor");
     }
-    let lparam = ((center.y as u32 & 0xffff) << 16 | (center.x as u32 & 0xffff)) as isize;
-    unsafe {
-        PostMessageW(hwnd, WM_MOUSEMOVE, 0, lparam);
-    }
+    post_client_cursor_position(hwnd, center);
 }
 
 pub fn hide_window() {
@@ -1401,4 +1448,41 @@ pub fn restore_saved_window_pos() {
     };
 
     settings.restore(handle);
+}
+
+#[cfg(test)]
+mod test {
+    use winapi::shared::windef::RECT;
+
+    use super::point_inside;
+
+    const WINDOW: RECT = RECT {
+        left: 100,
+        top: 50,
+        right: 1380,
+        bottom: 1010,
+    };
+
+    #[test]
+    fn point_well_inside_stays() {
+        assert_eq!(point_inside((700, 500), &WINDOW, 64), (700, 500));
+    }
+
+    #[test]
+    fn point_near_an_edge_moves_in_by_the_margin() {
+        assert_eq!(point_inside((105, 500), &WINDOW, 64), (164, 500));
+        assert_eq!(point_inside((1379, 1009), &WINDOW, 64), (1315, 945));
+        assert_eq!(point_inside((20, 0), &WINDOW, 64), (164, 114));
+    }
+
+    #[test]
+    fn axis_too_short_for_the_margin_takes_its_middle() {
+        let narrow = RECT {
+            left: 0,
+            top: 0,
+            right: 100,
+            bottom: 1000,
+        };
+        assert_eq!(point_inside((10, 500), &narrow, 64), (49, 500));
+    }
 }
