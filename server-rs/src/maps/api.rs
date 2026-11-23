@@ -1,5 +1,6 @@
-//! HTTP routes for uploading maps and regenerating their images. Uploads are plain multipart
-//! requests rather than GraphQL, since they carry files of up to 100 MB.
+//! HTTP routes for uploading maps, regenerating their images and listing the files of a collection
+//! download. Uploads are plain multipart requests rather than GraphQL, since they carry files of up
+//! to 100 MB.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -9,7 +10,7 @@ use axum::extract::multipart::MultipartError;
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use tower_http::timeout::TimeoutLayer;
@@ -17,6 +18,7 @@ use tracing::error;
 use typeshare::typeshare;
 
 use crate::maps::SbMapId;
+use crate::maps::collections::download::list_download_files;
 use crate::maps::ingest::MapIngestError;
 use crate::maps::parse::{MAX_MAP_FILE_BYTES, MapExtension};
 use crate::state::AppState;
@@ -34,6 +36,10 @@ pub fn create_maps_api() -> Router<AppState> {
     Router::new()
         .route("/", post(upload_map))
         .route("/{map_id}/regenerate", post(regenerate_map_images))
+        .route(
+            "/collections/{collection_id}/download-files",
+            get(list_download_files),
+        )
         .layer(DefaultBodyLimit::max(
             MAX_MAP_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
         ))
@@ -53,13 +59,14 @@ pub struct UploadMapResponse {
 /// Error codes match the ones the client already handles for map uploads
 /// (`MapServiceErrorCode` and `FilesErrorCode`).
 #[derive(Debug)]
-enum MapApiError {
+pub(crate) enum MapApiError {
     InvalidMapFile,
     NoPlayerSlots,
     FileTooLarge,
     BadRequest(&'static str),
     Forbidden,
     NotFound,
+    CollectionNotFound,
     TooManyUploads,
     Internal,
 }
@@ -91,6 +98,7 @@ impl IntoResponse for MapApiError {
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "badRequest", message),
             Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "Forbidden"),
             Self::NotFound => (StatusCode::NOT_FOUND, "notFound", "Map not found"),
+            Self::CollectionNotFound => (StatusCode::NOT_FOUND, "notFound", "Collection not found"),
             Self::TooManyUploads => (
                 StatusCode::TOO_MANY_REQUESTS,
                 "tooManyRequests",

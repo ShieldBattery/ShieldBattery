@@ -1609,6 +1609,12 @@ async function createWindow() {
     }
   })
 
+  // A download of a blob URL (e.g. an archive the renderer built) opens the native save dialog
+  // titled with the raw `blob:` URL unless it's given a title, so use the file name instead.
+  mainWindow.webContents.session.on('will-download', (_event, item) => {
+    item.setSaveDialogOptions({ title: item.getFilename() })
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsedUrl = new URL(url)

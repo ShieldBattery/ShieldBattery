@@ -209,6 +209,7 @@
     "@vitest/ui": "^5.0.4",
     "browserslist": "^4.29.3",
     "bw-chk": "^1.4.1",
+    "client-zip": "^2.5.1",
     "concat-stream": "^2.0.0",
     "d3-time-format": "^4.1.0",
     "dedent": "^1.7.2",

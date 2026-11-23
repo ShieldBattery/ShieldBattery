@@ -12,6 +12,18 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
+export interface CollectionDownloadFile {
+  /** The file's name in the archive, unique within it. */
+  name: string
+  /** A signed URL to fetch the file from. */
+  url: string
+}
+
+export interface CollectionDownloadFilesResponse {
+  /** The files to download, in the collection's order. */
+  files: CollectionDownloadFile[]
+}
+
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.

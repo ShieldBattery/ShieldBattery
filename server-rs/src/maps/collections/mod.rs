@@ -12,6 +12,7 @@
 //! Who can see what is decided by [`CollectionRow::can_read`] and
 //! [`CollectionRow::sees_all_entries`].
 
+pub mod download;
 pub mod graphql;
 pub mod pools;
 
@@ -23,8 +24,8 @@ use uuid::Uuid;
 use crate::maps::SbMapId;
 use crate::maps::families::edit::MAX_REPORTS_PER_HOUR;
 use crate::maps::families::publish::text_hits_restricted_names;
-use crate::users::SbUserId;
 use crate::users::names::NameChecker;
+use crate::users::{CurrentUser, SbUserId};
 
 /// The most `user` collections one player can have.
 pub const MAX_COLLECTIONS_PER_OWNER: i64 = 100;
@@ -64,6 +65,17 @@ pub struct Viewer {
     pub staff: bool,
     /// Whether the viewer can manage ladder map pools.
     pub manage_map_pools: bool,
+}
+
+impl Viewer {
+    /// The viewer a request comes from, given its logged-in user (if any).
+    pub fn of(user: Option<&CurrentUser>) -> Self {
+        Self {
+            id: user.map(|u| u.id),
+            staff: user.is_some_and(|u| u.permissions.manage_maps),
+            manage_map_pools: user.is_some_and(|u| u.permissions.manage_map_pools),
+        }
+    }
 }
 
 /// A collection as stored.

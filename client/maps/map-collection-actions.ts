@@ -5,11 +5,15 @@ import { CombinedError, useMutation, UseQueryState } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { urlForMapCollection } from '../../common/map-url'
 import { MapCollectionId, SbMapId } from '../../common/maps'
+import { CollectionDownloadFilesResponse } from '../../common/typeshare'
+import { urlPath } from '../../common/urls'
 import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { push } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
+import { fetchJson } from '../network/fetch'
+import { makeServerRsUrl, makeServerUrl } from '../network/server-url'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { buildCollectionArchive, CollectionTooLargeError } from './collection-archive'
 import { CollectionChange, collectionErrorText } from './map-collection-text'
 import { errorCode } from './map-owner-actions'
 
@@ -142,6 +146,78 @@ export function useCopyCollectionLink(): (id: MapCollectionId, title?: string) =
         snackbarController.showSnackbar(t('maps.page.linkCopyError', "Couldn't copy the link")),
       )
   }
+}
+
+/**
+ * How long a saved archive's object URL stays valid after the save is triggered. The browser can
+ * still be reading the blob for a while after the click.
+ */
+const OBJECT_URL_REVOKE_DELAY_MS = 60_000
+
+/** How far a collection download is, as files added to its archive out of the total. */
+export interface CollectionDownloadProgress {
+  done: number
+  /** 0 until the list of files to download is known. */
+  total: number
+}
+
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_REVOKE_DELAY_MS)
+}
+
+function downloadErrorText(err: unknown, t: TFunction): string {
+  if (err instanceof CollectionTooLargeError) {
+    return t(
+      'maps.collections.downloadTooLarge',
+      'This collection is too large to download as one archive.',
+    )
+  }
+  return t(
+    'maps.collections.downloadError',
+    "Couldn't download the collection. Please try again later.",
+  )
+}
+
+/**
+ * Returns a function that downloads every map of a collection the viewer sees as one .zip archive
+ * named after `title`, and the progress of the download while one is running. The archive is built
+ * in the browser, and a started download finishes and saves even if the viewer leaves the page. A
+ * failure is reported with a snackbar.
+ */
+export function useDownloadCollection(): [
+  download: (id: MapCollectionId, title: string) => void,
+  progress: CollectionDownloadProgress | undefined,
+] {
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+  const [progress, setProgress] = useState<CollectionDownloadProgress>()
+
+  const download = (id: MapCollectionId, title: string) => {
+    if (progress) {
+      return
+    }
+    setProgress({ done: 0, total: 0 })
+    fetchJson<CollectionDownloadFilesResponse>(
+      makeServerRsUrl(urlPath`/maps/collections/${id}/download-files`),
+    )
+      .then(({ files }) =>
+        buildCollectionArchive(files, {
+          onProgress: (done, total) => setProgress({ done, total }),
+        }),
+      )
+      .then(blob => saveBlob(blob, `${title.trim() || 'maps'}.zip`))
+      .catch(err => {
+        snackbarController.showSnackbar(downloadErrorText(err, t))
+      })
+      .finally(() => setProgress(undefined))
+  }
+
+  return [download, progress]
 }
 
 /**
