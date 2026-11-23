@@ -13,16 +13,19 @@
 //! implemented in samase_scarf — check the pinned samase_scarf rev's `Analysis` API before
 //! concluding new binary analysis is needed; if it exists there, adding a one-line wrapper
 //! method in this file is the whole job.
+//!
+//! Analysis itself never goes in this crate: no `Analyzer` impls, no walking functions here.
+//! samase_scarf tests each analysis against every game build it supports; code here would be
+//! checked against none. A missing analysis is added to samase_scarf, then wrapped here.
 
 pub use samase_scarf::scarf;
 pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, DynamicPathing, StateBlockSizes};
 
 use std::rc::Rc;
 
-use scarf::analysis::{Analyzer, Control, DefaultState, FuncAnalysis};
 use scarf::exec_state::ExecutionState as _;
 use scarf::exec_state::VirtualAddress as _;
-use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx, Operation};
+use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx};
 
 #[cfg(target_arch = "x86")]
 use scarf::ExecutionStateX86 as ExecutionState;
@@ -673,21 +676,8 @@ impl<'e> Analysis<'e> {
     /// bit per player starting at bit 8: SC:R keeps it at `local_visions << 8`, sets it alongside
     /// `local_visions` when the replay or observer vision filter is applied, and clears a player's
     /// bit as they leave.
-    ///
-    /// Found from the turn sync hash, which xors it with `local_visions`. The hash is filled in
-    /// `record_turn_sync_slot`, or in a function it calls on builds that don't inline it.
     pub fn minimap_tile_vision_mask(&mut self) -> Option<Operand<'e>> {
-        let local_visions = self.0.local_visions()?.if_mem32()?.if_constant_address()?;
-        let record_turn_sync_slot = self.0.record_turn_sync_slot()?;
-        let ctx = self.2;
-        let mut analyzer = VisionMaskAnalyzer {
-            local_visions,
-            result: None,
-            inline_depth: 0,
-        };
-        let mut analysis = FuncAnalysis::new(self.1, ctx, record_turn_sync_slot);
-        analysis.analyze(&mut analyzer);
-        analyzer.result.map(|address| ctx.mem32c(address))
+        self.0.minimap_tile_vision_mask()
     }
 
     /// The byte that decides whether the order confirmation marker is drawn. Clicks set it; the
@@ -784,6 +774,15 @@ impl<'e> Analysis<'e> {
 
     pub fn move_screen(&mut self) -> Option<VirtualAddress> {
         self.0.move_screen()
+    }
+
+    /// `fn(unit, toggle)`, cdecl on 32-bit: has the game's view follow `unit` for a replay viewer
+    /// or observer, or stops following when `unit` is null, or when `toggle` is set and `unit` is
+    /// already followed. A right click on a unit on the map, or on its portrait in the console,
+    /// calls it with `toggle` set. While the game follows a unit, `move_screen` and every scroll
+    /// do nothing.
+    pub fn set_follow_unit(&mut self) -> Option<VirtualAddress> {
+        self.0.set_follow_unit()
     }
 
     /// Recomputes the furthest the view can scroll from the map's size, the view's size and the
@@ -1835,51 +1834,5 @@ impl<'e> Analysis<'e> {
     /// zeroes them rather than from a struct declaration.
     pub fn state_block_sizes(&mut self) -> StateBlockSizes {
         self.0.state_block_sizes()
-    }
-}
-
-/// Finds the global the turn sync hash xors with `local_visions`, given `local_visions`'s
-/// constant address. Follows the calls of the function it starts in, one level deep.
-struct VisionMaskAnalyzer {
-    local_visions: u64,
-    result: Option<u64>,
-    inline_depth: u8,
-}
-
-impl<'e> Analyzer<'e> for VisionMaskAnalyzer {
-    type State = DefaultState;
-    type Exec = ExecutionState<'e>;
-
-    fn operation(&mut self, ctrl: &mut Control<'e, '_, '_, Self>, op: &Operation<'e>) {
-        match *op {
-            Operation::Move(_, value) => {
-                let value = ctrl.resolve(value);
-                let Some((left, right)) = value.if_arithmetic_xor() else {
-                    return;
-                };
-                let global = |op: Operand<'e>| op.if_mem32()?.if_constant_address();
-                for (other, local) in [(left, right), (right, left)] {
-                    if global(local) == Some(self.local_visions)
-                        && let Some(address) = global(other)
-                        && address != self.local_visions
-                    {
-                        self.result = Some(address);
-                        ctrl.end_analysis();
-                        return;
-                    }
-                }
-            }
-            Operation::Call(dest) if self.inline_depth == 0 => {
-                if let Some(dest) = ctrl.resolve(dest).if_constant() {
-                    self.inline_depth = 1;
-                    ctrl.analyze_with_current_state(self, VirtualAddress::from_u64(dest));
-                    self.inline_depth = 0;
-                    if self.result.is_some() {
-                        ctrl.end_analysis();
-                    }
-                }
-            }
-            _ => (),
-        }
     }
 }

@@ -709,6 +709,18 @@ impl BwScr {
                 );
             }
 
+            // The game's follow never starts: ours stands in for it, so that scrolling or anything
+            // else that moves the view lets go of the unit instead of doing nothing.
+            if let Some(address) = self.set_follow_unit {
+                exe.hook_closure_address(
+                    SetFollowUnit,
+                    move |unit, toggle, _orig| {
+                        self.follow_unit_for_game(unit, toggle != 0);
+                    },
+                    address.0 as usize - base,
+                );
+            }
+
             let address = self.init_game_data.0 as usize - base;
             exe.hook_closure_address(
                 InitGameData,
