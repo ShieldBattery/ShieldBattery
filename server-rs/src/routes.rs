@@ -596,9 +596,7 @@ pub async fn create_app(
         twitch_client,
         map_ingester,
         map_upload_throttle: Arc::new(UploadThrottle::for_uploads()),
-        collection_downloads: Arc::new(CollectionDownloads::new(
-            settings.jwt_secret.expose_secret().as_ref(),
-        )),
+        collection_downloads: Arc::new(CollectionDownloads::default()),
     };
 
     Ok(Router::new()
@@ -616,8 +614,7 @@ pub async fn create_app(
             Duration::from_secs(15),
         ))
         // Map uploads need a longer timeout and a larger body limit, so they sit outside the
-        // default timeout and set their own. The timeout bounds the time until response headers
-        // are sent, so it doesn't cut off a long collection download.
+        // default timeout and set their own.
         .nest("/maps", create_maps_api())
         .layer(
             ServiceBuilder::new()
@@ -650,9 +647,7 @@ pub async fn create_app(
                         SizeAbove::new(1024)
                             .and(NotForContentType::GRPC)
                             .and(NotForContentType::IMAGES)
-                            .and(NotForContentType::SSE)
-                            // Collection archives hold map files, which are already compressed
-                            .and(NotForContentType::const_new("application/zip")),
+                            .and(NotForContentType::SSE),
                     ),
                 )
                 .layer(middleware::from_fn(mark_cors_preflights))

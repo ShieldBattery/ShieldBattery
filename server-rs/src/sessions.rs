@@ -376,47 +376,6 @@ mod tests {
     }
 
     #[test]
-    fn session_and_collection_download_tokens_are_not_interchangeable() {
-        use crate::maps::collections::download::DownloadTokens;
-        use jsonwebtoken::{EncodingKey, Header};
-        use uuid::Uuid;
-
-        let secret = b"shared-secret";
-        let collection_id = Uuid::new_v4();
-        let download_tokens = DownloadTokens::new(secret);
-
-        let session_token = jsonwebtoken::encode(
-            &Header::default(),
-            &serde_json::json!({
-                "sessionId": "abc",
-                "userId": 7,
-                "authTime": 123,
-                "stayLoggedIn": true,
-                "exp": jsonwebtoken::get_current_timestamp() + 60,
-            }),
-            &EncodingKey::from_secret(secret),
-        )
-        .unwrap();
-        let session_key = DecodingKey::from_secret(secret);
-        assert!(
-            jsonwebtoken::decode::<JwtClaims>(&session_token, &session_key, &JWT_VALIDATION)
-                .is_ok()
-        );
-        assert_eq!(download_tokens.verify(&session_token, collection_id), None);
-
-        let download_token = download_tokens.issue(collection_id, true).unwrap();
-        assert!(
-            download_tokens
-                .verify(&download_token, collection_id)
-                .is_some()
-        );
-        assert!(
-            jsonwebtoken::decode::<JwtClaims>(&download_token, &session_key, &JWT_VALIDATION)
-                .is_err()
-        );
-    }
-
-    #[test]
     fn destroy_state_is_shared_between_session_clones() {
         let session = AuthenticatedSession::new(JwtClaims {
             session_id: "abc".into(),

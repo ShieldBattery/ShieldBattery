@@ -1,7 +1,6 @@
 use std::{
     io::ErrorKind,
     path::{Component, Path, PathBuf},
-    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -16,7 +15,6 @@ use aws_sdk_s3::{
 };
 use color_eyre::eyre::{self, Context as _, bail};
 use secrecy::ExposeSecret;
-use tokio::io::AsyncRead;
 use url::Url;
 
 use crate::configuration::SpacesFileStoreSettings;
@@ -37,9 +35,6 @@ pub struct WriteOptions {
     /// The `Cache-Control` the file should be served with. Defaults to a two week `max-age`.
     pub cache_control: Option<String>,
 }
-
-/// The contents of a stored file, read a piece at a time.
-pub type FileReader = Pin<Box<dyn AsyncRead + Send>>;
 
 #[derive(Debug, Clone)]
 pub enum FileStore {
@@ -118,14 +113,6 @@ impl FileStore {
         }
     }
 
-    /// Opens `filename` for reading its contents a piece at a time, failing if it doesn't exist.
-    pub async fn read_stream(&self, filename: &str) -> eyre::Result<FileReader> {
-        match self {
-            FileStore::Local(store) => store.read_stream(filename).await,
-            FileStore::Spaces(store) => store.read_stream(filename).await,
-        }
-    }
-
     /// Deletes `filename`. Deleting a file that doesn't exist is not an error.
     pub async fn delete(&self, filename: &str) -> eyre::Result<()> {
         match self {
@@ -156,7 +143,6 @@ trait FileStoreImpl {
         options: &WriteOptions,
     ) -> eyre::Result<()>;
     async fn read(&self, filename: &str) -> eyre::Result<Vec<u8>>;
-    async fn read_stream(&self, filename: &str) -> eyre::Result<FileReader>;
     async fn delete(&self, filename: &str) -> eyre::Result<()>;
 }
 
@@ -324,14 +310,6 @@ impl FileStoreImpl for LocalFileStore {
         tokio::fs::read(&full_path)
             .await
             .wrap_err("Failed to read file")
-    }
-
-    async fn read_stream(&self, filename: &str) -> eyre::Result<FileReader> {
-        let full_path = self.get_full_path(filename)?;
-        let file = tokio::fs::File::open(&full_path)
-            .await
-            .wrap_err("Failed to open file")?;
-        Ok(Box::pin(file))
     }
 
     async fn delete(&self, filename: &str) -> eyre::Result<()> {
@@ -545,19 +523,6 @@ impl FileStoreImpl for SpacesFileStore {
         Ok(bytes.to_vec())
     }
 
-    async fn read_stream(&self, filename: &str) -> eyre::Result<FileReader> {
-        let normalized = self.normalize_path(filename)?;
-        let output = self
-            .client
-            .get_object()
-            .bucket(&self.bucket)
-            .key(&normalized)
-            .send()
-            .await
-            .wrap_err("Failed to download file")?;
-        Ok(Box::pin(output.body.into_async_read()))
-    }
-
     async fn delete(&self, filename: &str) -> eyre::Result<()> {
         let normalized = self.normalize_path(filename)?;
         // S3 deletes are idempotent: deleting a missing key succeeds.
@@ -664,23 +629,6 @@ mod tests {
     async fn read_missing_file_errors() {
         let root = TempRoot::new();
         assert!(root.store().read("missing").await.is_err());
-        assert!(root.store().read_stream("missing").await.is_err());
-    }
-
-    #[tokio::test]
-    async fn read_stream_reads_contents() {
-        use tokio::io::AsyncReadExt;
-
-        let root = TempRoot::new();
-        let store = root.store();
-        store
-            .write("a/b.bin", vec![4, 5, 6], &WriteOptions::default())
-            .await
-            .unwrap();
-        let mut data = Vec::new();
-        let mut reader = store.read_stream("a/b.bin").await.unwrap();
-        reader.read_to_end(&mut data).await.unwrap();
-        assert_eq!(data, vec![4, 5, 6]);
     }
 
     #[tokio::test]

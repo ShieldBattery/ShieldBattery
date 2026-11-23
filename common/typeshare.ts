@@ -12,9 +12,16 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
-export interface CollectionDownloadTokenResponse {
-  /** Passed as the `token` query parameter of the collection's download URL. */
-  token: string
+export interface CollectionDownloadFile {
+  /** The file's name in the archive, unique within it. */
+  name: string
+  /** A signed URL to fetch the file from. */
+  url: string
+}
+
+export interface CollectionDownloadFilesResponse {
+  /** The files to download, in the collection's order. */
+  files: CollectionDownloadFile[]
 }
 
 /**

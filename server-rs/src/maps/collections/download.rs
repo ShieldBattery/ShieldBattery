@@ -1,44 +1,25 @@
-//! Downloading every map of a collection as one zip archive.
+//! The list of map files a collection download fetches.
 //!
-//! A browser can't attach the session JWT to a plain navigation, so a download takes two requests:
-//! the client asks for a short-lived download token with its session (`POST .../download-url`),
-//! then navigates to the archive with that token in the URL (`GET .../download`). The token
-//! carries what the viewer was allowed to see when it was issued.
-//!
-//! Archives are streamed: map files are read from the file store one at a time, a piece at a time,
-//! and written as stored (uncompressed) entries, since map files are already compressed. Archives
-//! over 4 GB use Zip64. A build fails if its client stops reading, or takes too long.
+//! A collection is downloaded by the client, which fetches each map file from the file store and
+//! builds the archive itself. This module answers which files a viewer's download holds: each
+//! one's name in the archive and a signed file store URL to fetch it from.
 
 use std::collections::HashSet;
-use std::fmt::Write as _;
-use std::future::Future;
-use std::io;
 use std::net::IpAddr;
 use std::time::Duration;
 
-use async_graphql::futures_util::{AsyncWriteExt as _, StreamExt, future, stream};
-use async_zip::base::write::ZipFileWriter;
-use async_zip::{Compression, ZipDateTime, ZipDateTimeBuilder, ZipEntryBuilder};
 use axum::Json;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::header;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum_client_ip::ClientIp;
-use chrono::{DateTime, Datelike, Timelike, Utc};
 use color_eyre::eyre::{self, WrapErr};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder};
-use tokio::io::{AsyncWrite, AsyncWriteExt as _};
-use tokio::time::timeout;
-use tokio_util::io::ReaderStream;
-use tokio_util::task::AbortOnDropHandle;
 use tracing::error;
 use typeshare::typeshare;
 use uuid::Uuid;
 
-use crate::file_store::{FileReader, FileStore};
 use crate::maps::api::{MapApiError, Throttle};
 use crate::maps::collections::{self, Viewer};
 use crate::maps::ingest::map_file_path;
@@ -47,27 +28,14 @@ use crate::maps::{MapHash, SbMapId};
 use crate::state::AppState;
 use crate::users::{CurrentUser, SbUserId};
 
-/// The `purpose` claim of a download token, which no other token the server reads carries.
-const TOKEN_PURPOSE: &str = "collection-download";
-/// How long a download token can be used for. The client uses it right after it gets it.
-const TOKEN_LIFETIME_SECS: u64 = 60;
-/// How many download tokens each user (or, logged out, each IP address) can get per window.
+/// How many file lists each user (or, logged out, each IP address) can get per window.
 const DOWNLOADS_PER_WINDOW: u32 = 6;
 const DOWNLOAD_WINDOW: Duration = Duration::from_secs(10 * 60);
-/// How long building and sending one archive can take before it fails, so a client that keeps
-/// reading too slowly to ever stall still can't keep a build running indefinitely.
-const MAX_ARCHIVE_BUILD_TIME: Duration = Duration::from_secs(2 * 60 * 60);
-/// How long writing one chunk of a map file to an archive can take before the build fails. A write
-/// only waits while the archive buffer is full, so this fails a client that stops reading.
-const MAX_CLIENT_STALL: Duration = Duration::from_secs(30);
-/// How much of an archive is buffered between writing it and sending it.
-const ARCHIVE_BUFFER_BYTES: usize = 256 * 1024;
-/// The most of a map file that is read at a time when writing it to an archive.
-const FILE_CHUNK_BYTES: usize = 64 * 1024;
-/// The longest a file name in or of an archive can be, in characters, before its extension.
+/// How long the signed URLs of a file list can be used for. A download fetches the files one after
+/// another, so the last URL is used long after the first.
+const FILE_URL_LIFETIME: Duration = Duration::from_secs(60 * 60);
+/// The longest a file name in an archive can be, in characters, before its extension.
 const MAX_FILE_NAME_CHARS: usize = 100;
-/// The name of an archive whose requested name has nothing usable left after sanitizing.
-const FALLBACK_ARCHIVE_NAME: &str = "maps";
 
 /// Characters that are left out of file names: path separators, double quotes and the rest of the
 /// characters Windows doesn't allow in file names.
@@ -76,12 +44,22 @@ const FORBIDDEN_FILE_NAME_CHARS: &[char] = &['<', '>', ':', '"', '/', '\\', '|',
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[typeshare]
-pub struct CollectionDownloadTokenResponse {
-    /// Passed as the `token` query parameter of the collection's download URL.
-    pub token: String,
+pub struct CollectionDownloadFilesResponse {
+    /// The files to download, in the collection's order.
+    pub files: Vec<CollectionDownloadFile>,
 }
 
-/// Who asked for a download token, for throttling.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[typeshare]
+pub struct CollectionDownloadFile {
+    /// The file's name in the archive, unique within it.
+    pub name: String,
+    /// A signed URL to fetch the file from.
+    pub url: String,
+}
+
+/// Who asked for a file list, for throttling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum DownloadRequester {
     User(SbUserId),
@@ -90,86 +68,14 @@ enum DownloadRequester {
 
 /// What collection downloads share across requests.
 pub struct CollectionDownloads {
-    tokens: DownloadTokens,
     throttle: Throttle<DownloadRequester>,
 }
 
-impl CollectionDownloads {
-    /// `jwt_secret` signs download tokens. A download token can't be used as a session token, nor
-    /// the reverse.
-    pub fn new(jwt_secret: &[u8]) -> Self {
+impl Default for CollectionDownloads {
+    fn default() -> Self {
         Self {
-            tokens: DownloadTokens::new(jwt_secret),
             throttle: Throttle::new(DOWNLOADS_PER_WINDOW, DOWNLOAD_WINDOW),
         }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DownloadClaims {
-    purpose: String,
-    collection_id: Uuid,
-    /// Whether the archive holds every entry of the collection, rather than only the entries whose
-    /// map is listed.
-    all_entries: bool,
-    exp: u64,
-}
-
-/// Issues and checks download tokens: JWTs that let their holder download one collection's archive
-/// for [`TOKEN_LIFETIME_SECS`].
-pub(crate) struct DownloadTokens {
-    encoding_key: EncodingKey,
-    decoding_key: DecodingKey,
-    validation: Validation,
-}
-
-impl DownloadTokens {
-    pub(crate) fn new(secret: &[u8]) -> Self {
-        let mut validation = Validation::new(Algorithm::HS256);
-        // The lifetime is short enough that the default leeway would more than double it
-        validation.leeway = 0;
-        validation.set_required_spec_claims(&["exp"]);
-        Self {
-            encoding_key: EncodingKey::from_secret(secret),
-            decoding_key: DecodingKey::from_secret(secret),
-            validation,
-        }
-    }
-
-    pub(crate) fn issue(&self, collection_id: Uuid, all_entries: bool) -> eyre::Result<String> {
-        self.issue_expiring_at(
-            collection_id,
-            all_entries,
-            jsonwebtoken::get_current_timestamp() + TOKEN_LIFETIME_SECS,
-        )
-    }
-
-    fn issue_expiring_at(
-        &self,
-        collection_id: Uuid,
-        all_entries: bool,
-        exp: u64,
-    ) -> eyre::Result<String> {
-        let claims = DownloadClaims {
-            purpose: TOKEN_PURPOSE.to_string(),
-            collection_id,
-            all_entries,
-            exp,
-        };
-        jsonwebtoken::encode(&Header::new(Algorithm::HS256), &claims, &self.encoding_key)
-            .wrap_err("Failed to sign download token")
-    }
-
-    /// Returns the `all_entries` claim of `token`, or `None` if it isn't a valid, unexpired
-    /// download token for the collection `collection_id`.
-    pub(crate) fn verify(&self, token: &str, collection_id: Uuid) -> Option<bool> {
-        let claims =
-            jsonwebtoken::decode::<DownloadClaims>(token, &self.decoding_key, &self.validation)
-                .ok()?
-                .claims;
-        (claims.purpose == TOKEN_PURPOSE && claims.collection_id == collection_id)
-            .then_some(claims.all_entries)
     }
 }
 
@@ -189,7 +95,6 @@ async fn load_archive_files(
     db: &PgPool,
     collection_id: Uuid,
     all_entries: bool,
-    limit: Option<i64>,
 ) -> eyre::Result<Vec<ArchiveFile>> {
     let mut query = QueryBuilder::<Postgres>::new(
         "SELECT m.id, m.hash, m.extension::text AS extension, COALESCE(m.name, '') AS name \
@@ -202,9 +107,6 @@ async fn load_archive_files(
         " ORDER BY cm.position, \
          CASE WHEN isfinite(cm.added_at) THEN cm.added_at END DESC NULLS LAST, m.id",
     );
-    if let Some(limit) = limit {
-        query.push(" LIMIT ").push_bind(limit);
-    }
     let files = query
         .build_query_as::<ArchiveFile>()
         .fetch_all(db)
@@ -219,20 +121,19 @@ fn internal_error(e: eyre::Report) -> MapApiError {
     MapApiError::Internal
 }
 
-/// Issues a token for downloading a collection's archive. Fails with `CollectionNotFound` when the
-/// collection doesn't exist, the viewer can't see it, or it holds no maps the viewer sees.
-pub(crate) async fn create_download_token(
+/// Lists the files of a collection's download. Fails with `CollectionNotFound` when the collection
+/// doesn't exist, the viewer can't see it, or it holds no maps the viewer sees.
+pub(crate) async fn list_download_files(
     State(state): State<AppState>,
     ClientIp(ip): ClientIp,
     current_user: Option<CurrentUser>,
     Path(collection_id): Path<Uuid>,
-) -> Result<Json<CollectionDownloadTokenResponse>, MapApiError> {
-    let downloads = &state.collection_downloads;
+) -> Result<Response, MapApiError> {
     let requester = match &current_user {
         Some(user) => DownloadRequester::User(user.id),
         None => DownloadRequester::Ip(ip),
     };
-    if !downloads.throttle.try_acquire(requester) {
+    if !state.collection_downloads.throttle.try_acquire(requester) {
         return Err(MapApiError::TooManyDownloads);
     }
 
@@ -242,92 +143,33 @@ pub(crate) async fn create_download_token(
         .map_err(internal_error)?
         .filter(|row| row.can_read(viewer))
         .ok_or(MapApiError::CollectionNotFound)?;
-    let all_entries = row.sees_all_entries(viewer);
-    let any_files = !load_archive_files(&state.db_pool, collection_id, all_entries, Some(1))
+    let files = load_archive_files(&state.db_pool, collection_id, row.sees_all_entries(viewer))
         .await
-        .map_err(internal_error)?
-        .is_empty();
-    if !any_files {
+        .map_err(internal_error)?;
+    if files.is_empty() {
         return Err(MapApiError::CollectionNotFound);
     }
 
-    let token = downloads
-        .tokens
-        .issue(collection_id, all_entries)
-        .map_err(internal_error)?;
-    Ok(Json(CollectionDownloadTokenResponse { token }))
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct DownloadQuery {
-    #[serde(default)]
-    token: String,
-    /// What to name the archive (without `.zip`), sanitized before use.
-    #[serde(default)]
-    name: String,
-}
-
-/// Streams a collection's archive to the holder of a download token for it.
-pub(crate) async fn download_collection(
-    State(state): State<AppState>,
-    Path(collection_id): Path<Uuid>,
-    Query(query): Query<DownloadQuery>,
-) -> Result<Response, MapApiError> {
-    let downloads = &state.collection_downloads;
-    let all_entries = downloads
-        .tokens
-        .verify(&query.token, collection_id)
-        .ok_or(MapApiError::Forbidden)?;
-    collections::load(&state.db_pool, collection_id)
-        .await
-        .map_err(internal_error)?
-        .ok_or(MapApiError::CollectionNotFound)?;
-    let files = load_archive_files(&state.db_pool, collection_id, all_entries, None)
-        .await
-        .map_err(internal_error)?;
-    let entries = archive_entries(&files);
-
-    let (reader, writer) = tokio::io::duplex(ARCHIVE_BUFFER_BYTES);
-    let file_store = state.file_store.clone();
-    // Aborted when the response body is dropped (e.g. the client disconnected), which also closes
-    // any file it has open
-    let build = AbortOnDropHandle::new(tokio::spawn(async move {
-        let archive = write_archive(
-            writer,
-            &entries,
-            &file_store,
-            zip_timestamp(Utc::now()),
-            MAX_CLIENT_STALL,
-        );
-        match tokio::time::timeout(MAX_ARCHIVE_BUILD_TIME, archive).await {
-            Ok(Ok(_)) => Ok(()),
-            Ok(Err(e)) => Err(format!("{e:?}")),
-            Err(_) => Err(format!("it took longer than {MAX_ARCHIVE_BUILD_TIME:?}")),
-        }
-    }));
-    // Ends the body with an error if the archive couldn't be finished, so the download fails
-    // instead of ending with a truncated archive
-    let finish = stream::once(async move {
-        let error = match build.await {
-            Ok(Ok(())) => return None,
-            Ok(Err(e)) => e,
-            Err(e) => format!("{e:?}"),
-        };
-        error!("Building collection {collection_id}'s archive failed: {error}");
-        Some(Err(io::Error::other("building the archive failed")))
-    })
-    .filter_map(future::ready);
-    let body = Body::from_stream(ReaderStream::new(reader).chain(finish));
-
-    Response::builder()
-        .header(header::CONTENT_TYPE, "application/zip")
-        .header(
-            header::CONTENT_DISPOSITION,
-            content_disposition(&query.name),
-        )
-        .header(header::CACHE_CONTROL, "no-store")
-        .body(body)
-        .map_err(|e| internal_error(e.into()))
+    let mut download_files = Vec::new();
+    for entry in archive_entries(&files) {
+        let url = state
+            .file_store
+            .signed_url_with_expiry(&entry.path, FILE_URL_LIFETIME)
+            .await
+            .wrap_err_with(|| format!("Failed to sign the URL of {}", entry.path))
+            .map_err(internal_error)?;
+        download_files.push(CollectionDownloadFile {
+            name: entry.name,
+            url,
+        });
+    }
+    Ok((
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(CollectionDownloadFilesResponse {
+            files: download_files,
+        }),
+    )
+        .into_response())
 }
 
 /// Something a collection archive holds: the name it has in the archive, and where to read it from.
@@ -354,67 +196,6 @@ fn archive_entries(files: &[ArchiveFile]) -> Vec<ArchiveEntry> {
             path: map_file_path(&file.hash, file.extension.trim()),
         })
         .collect()
-}
-
-/// Where the files of an archive are read from.
-trait ArchiveSource: Sync {
-    fn open(&self, path: &str) -> impl Future<Output = eyre::Result<FileReader>> + Send;
-}
-
-impl ArchiveSource for FileStore {
-    fn open(&self, path: &str) -> impl Future<Output = eyre::Result<FileReader>> + Send {
-        self.read_stream(path)
-    }
-}
-
-/// Writes a zip archive of `entries` to `writer`, reading their files from `source` one at a time.
-/// Entries are stored rather than compressed. A file that can't be opened is logged and left out.
-/// Fails if starting an entry or writing a chunk of a file to `writer` takes longer than
-/// `stall_timeout`. Returns `writer` once the archive is complete and `writer` is shut down.
-async fn write_archive<W: AsyncWrite + Unpin>(
-    writer: W,
-    entries: &[ArchiveEntry],
-    source: &impl ArchiveSource,
-    modified: ZipDateTime,
-    stall_timeout: Duration,
-) -> eyre::Result<W> {
-    const STALLED: &str = "The client stopped reading the archive";
-    let mut zip = ZipFileWriter::with_tokio(writer);
-    for entry in entries {
-        let file = match source.open(&entry.path).await {
-            Ok(file) => file,
-            Err(e) => {
-                error!("Leaving {} out of a collection archive: {e:?}", entry.path);
-                continue;
-            }
-        };
-        let zip_entry = ZipEntryBuilder::new(entry.name.clone().into(), Compression::Stored)
-            .last_modification_date(modified);
-        let start = zip.write_entry_stream(zip_entry);
-        let mut entry_writer = timeout(stall_timeout, start).await.wrap_err(STALLED)??;
-        let mut chunks = ReaderStream::with_capacity(file, FILE_CHUNK_BYTES);
-        while let Some(chunk) = chunks.next().await {
-            let chunk = chunk.wrap_err_with(|| format!("Failed to read {}", entry.path))?;
-            let write = entry_writer.write_all(&chunk);
-            timeout(stall_timeout, write).await.wrap_err(STALLED)??;
-        }
-        entry_writer.close().await?;
-    }
-    let mut writer = zip.close().await?.into_inner();
-    writer.shutdown().await?;
-    Ok(writer)
-}
-
-/// `time` as an archive entry's modification time.
-fn zip_timestamp(time: DateTime<Utc>) -> ZipDateTime {
-    ZipDateTimeBuilder::new()
-        .year(time.year())
-        .month(time.month())
-        .day(time.day())
-        .hour(time.hour())
-        .minute(time.minute())
-        .second(time.second())
-        .build()
 }
 
 /// Makes `name` safe to use as a file name (without its extension) on any OS: leaves out control
@@ -458,52 +239,9 @@ fn unique_file_names(names: impl IntoIterator<Item = (String, String)>) -> Vec<S
         .collect()
 }
 
-/// The `Content-Disposition` of an archive named `name` (sanitized here): an ASCII `filename` for
-/// older clients, and the full name as `filename*` (RFC 5987) for the rest.
-fn content_disposition(name: &str) -> String {
-    let name = sanitize_file_name(name, FALLBACK_ARCHIVE_NAME);
-    let ascii = name
-        .chars()
-        .filter(char::is_ascii)
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    let ascii = if ascii.chars().any(|c| c.is_ascii_alphanumeric()) {
-        ascii
-    } else {
-        FALLBACK_ARCHIVE_NAME.to_string()
-    };
-    format!(
-        "attachment; filename=\"{ascii}.zip\"; filename*=UTF-8''{}",
-        encode_rfc5987(&format!("{name}.zip"))
-    )
-}
-
-/// Percent-encodes `value` as an RFC 5987 `ext-value`, leaving only `attr-char`s as they are.
-fn encode_rfc5987(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for &byte in value.as_bytes() {
-        if byte.is_ascii_alphanumeric() || b"!#$&+-.^_`|~".contains(&byte) {
-            encoded.push(byte as char);
-        } else {
-            write!(encoded, "%{byte:02X}").expect("writing to a String can't fail");
-        }
-    }
-    encoded
-}
-
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    // The newer `read1` reader doesn't expose entry names yet
-    #[allow(deprecated)]
-    use async_zip::base::read::mem::ZipFileReader;
-
     use super::*;
-
-    const SECRET: &[u8] = b"test-secret";
 
     #[test]
     fn file_names_are_sanitized() {
@@ -580,153 +318,5 @@ mod tests {
             entries[1].path,
             format!("maps/cd/cd/{}.SCX", "cd".repeat(32))
         );
-    }
-
-    #[test]
-    fn content_disposition_has_ascii_and_utf8_names() {
-        assert_eq!(
-            content_disposition("My maps"),
-            "attachment; filename=\"My maps.zip\"; filename*=UTF-8''My%20maps.zip"
-        );
-        assert_eq!(
-            content_disposition("투혼 maps"),
-            "attachment; filename=\"maps.zip\"; \
-             filename*=UTF-8''%ED%88%AC%ED%98%BC%20maps.zip"
-        );
-        assert_eq!(
-            content_disposition("스타"),
-            "attachment; filename=\"maps.zip\"; filename*=UTF-8''%EC%8A%A4%ED%83%80.zip"
-        );
-        assert_eq!(
-            content_disposition("\"; evil=1"),
-            "attachment; filename=\"; evil=1.zip\"; filename*=UTF-8''%3B%20evil%3D1.zip"
-        );
-        assert_eq!(
-            content_disposition("Hunter's maps"),
-            "attachment; filename=\"Hunter's maps.zip\"; \
-             filename*=UTF-8''Hunter%27s%20maps.zip"
-        );
-        assert_eq!(
-            content_disposition(""),
-            "attachment; filename=\"maps.zip\"; filename*=UTF-8''maps.zip"
-        );
-    }
-
-    #[test]
-    fn tokens_round_trip() {
-        let tokens = DownloadTokens::new(SECRET);
-        let id = Uuid::new_v4();
-        let token = tokens.issue(id, true).unwrap();
-        assert_eq!(tokens.verify(&token, id), Some(true));
-        let token = tokens.issue(id, false).unwrap();
-        assert_eq!(tokens.verify(&token, id), Some(false));
-    }
-
-    #[test]
-    fn expired_tokens_are_rejected() {
-        let tokens = DownloadTokens::new(SECRET);
-        let id = Uuid::new_v4();
-        let past = jsonwebtoken::get_current_timestamp() - 1;
-        let token = tokens.issue_expiring_at(id, true, past).unwrap();
-        assert_eq!(tokens.verify(&token, id), None);
-    }
-
-    #[test]
-    fn tokens_for_other_collections_are_rejected() {
-        let tokens = DownloadTokens::new(SECRET);
-        let token = tokens.issue(Uuid::new_v4(), true).unwrap();
-        assert_eq!(tokens.verify(&token, Uuid::new_v4()), None);
-    }
-
-    #[test]
-    fn tokens_with_another_purpose_are_rejected() {
-        let tokens = DownloadTokens::new(SECRET);
-        let id = Uuid::new_v4();
-        let claims = DownloadClaims {
-            purpose: "something-else".to_string(),
-            collection_id: id,
-            all_entries: true,
-            exp: jsonwebtoken::get_current_timestamp() + TOKEN_LIFETIME_SECS,
-        };
-        let token = jsonwebtoken::encode(
-            &Header::new(Algorithm::HS256),
-            &claims,
-            &EncodingKey::from_secret(SECRET),
-        )
-        .unwrap();
-        assert_eq!(tokens.verify(&token, id), None);
-    }
-
-    #[test]
-    fn tokens_signed_with_another_secret_are_rejected() {
-        let id = Uuid::new_v4();
-        let token = DownloadTokens::new(b"other-secret")
-            .issue(id, true)
-            .unwrap();
-        assert_eq!(DownloadTokens::new(SECRET).verify(&token, id), None);
-    }
-
-    impl ArchiveSource for HashMap<String, Vec<u8>> {
-        async fn open(&self, path: &str) -> eyre::Result<FileReader> {
-            let data = self.get(path).ok_or(eyre::eyre!("{path} not found"))?;
-            Ok(Box::pin(io::Cursor::new(data.clone())))
-        }
-    }
-
-    fn entry(name: &str, path: &str) -> ArchiveEntry {
-        let (name, path) = (name.to_string(), path.to_string());
-        ArchiveEntry { name, path }
-    }
-
-    #[tokio::test]
-    #[allow(deprecated)]
-    async fn archives_round_trip() {
-        let files = HashMap::from([
-            ("a.scm".to_string(), b"first map".to_vec()),
-            ("b.scx".to_string(), vec![0u8; 70_000]),
-            ("c.scx".to_string(), b"third".to_vec()),
-        ]);
-        let entries = [
-            entry("투혼 1.3.scm", "a.scm"),
-            entry("Big.scx", "b.scx"),
-            entry("Missing.scx", "missing.scx"),
-            entry("Third.scx", "c.scx"),
-        ];
-        let modified = zip_timestamp(Utc::now());
-
-        let archive = write_archive(Vec::new(), &entries, &files, modified, MAX_CLIENT_STALL)
-            .await
-            .unwrap();
-
-        let reader = ZipFileReader::new(archive).await.unwrap();
-        let mut read = Vec::new();
-        for index in 0..reader.file().entries().len() {
-            let mut entry_reader = reader.reader_with_entry(index).await.unwrap();
-            let entry = entry_reader.entry();
-            assert_eq!(entry.compression(), Compression::Stored);
-            let name = entry.filename().as_str().unwrap().to_string();
-            let mut data = Vec::new();
-            entry_reader.read_to_end_checked(&mut data).await.unwrap();
-            read.push((name, data));
-        }
-        assert_eq!(
-            read,
-            [
-                ("투혼 1.3.scm".to_string(), files["a.scm"].clone()),
-                ("Big.scx".to_string(), files["b.scx"].clone()),
-                ("Third.scx".to_string(), files["c.scx"].clone()),
-            ]
-        );
-    }
-
-    #[tokio::test]
-    async fn archives_fail_when_the_client_stops_reading() {
-        let files = HashMap::from([("a.scm".to_string(), vec![0u8; 100_000])]);
-        let (_unread, writer) = tokio::io::duplex(1024);
-        let (modified, stall) = (zip_timestamp(Utc::now()), Duration::from_millis(50));
-        let entries = [entry("A.scm", "a.scm")];
-        let archive = write_archive(writer, &entries, &files, modified, stall);
-        let result = tokio::time::timeout(Duration::from_secs(5), archive).await;
-        assert!(matches!(result, Ok(Err(e)) if e.to_string().contains("stopped reading")));
     }
 }

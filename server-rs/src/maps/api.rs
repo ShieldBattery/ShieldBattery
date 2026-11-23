@@ -1,6 +1,6 @@
-//! HTTP routes for uploading maps, regenerating their images and downloading collections. Uploads
-//! are plain multipart requests rather than GraphQL, since they carry files of up to 100 MB, and
-//! collection downloads stream archives far larger than a GraphQL response could hold.
+//! HTTP routes for uploading maps, regenerating their images and listing the files of a collection
+//! download. Uploads are plain multipart requests rather than GraphQL, since they carry files of up
+//! to 100 MB.
 
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -19,14 +19,13 @@ use tracing::error;
 use typeshare::typeshare;
 
 use crate::maps::SbMapId;
-use crate::maps::collections::download::{create_download_token, download_collection};
+use crate::maps::collections::download::list_download_files;
 use crate::maps::ingest::MapIngestError;
 use crate::maps::parse::{MAX_MAP_FILE_BYTES, MapExtension};
 use crate::state::AppState;
 use crate::users::{CurrentUser, SbUserId};
 
-/// Uploads, parsing and rendering a 100 MB map included, take far longer than other requests. This
-/// bounds the time until a response's headers are sent, not how long its body takes to stream.
+/// Uploads, parsing and rendering a 100 MB map included, take far longer than other requests.
 const MAP_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 /// Room for the multipart framing and the other form fields around the file.
 const MULTIPART_OVERHEAD_BYTES: usize = 64 * 1024;
@@ -39,12 +38,8 @@ pub fn create_maps_api() -> Router<AppState> {
         .route("/", post(upload_map))
         .route("/{map_id}/regenerate", post(regenerate_map_images))
         .route(
-            "/collections/{collection_id}/download-url",
-            post(create_download_token),
-        )
-        .route(
-            "/collections/{collection_id}/download",
-            get(download_collection),
+            "/collections/{collection_id}/download-files",
+            get(list_download_files),
         )
         .layer(DefaultBodyLimit::max(
             MAX_MAP_FILE_BYTES + MULTIPART_OVERHEAD_BYTES,
