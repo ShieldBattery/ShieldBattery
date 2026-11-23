@@ -19,7 +19,6 @@ import {
   stageStyle,
   useViewTransform,
   Viewport,
-  ZoomControls,
 } from './map-viewport'
 import { decodeTerrainChanges } from './terrain-changes'
 
@@ -33,10 +32,6 @@ const Root = styled.div`
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-`
-
-const CompareZoomControls = styled(ZoomControls)`
-  margin-left: auto;
 `
 
 const Viewports = styled.div<{ $split: boolean }>`
@@ -289,6 +284,8 @@ export interface MapCompareViewerProps {
   terrainChanges?: string
   showTerrainChanges: boolean
   showSpawns: boolean
+  /** The zoom and pan shared by the viewports, which the caller can drive with `ZoomControls`. */
+  viewTransform: ReturnType<typeof useViewTransform>
 }
 
 /** Whether a view needs both maps to be the same size, since it compares them pixel by pixel. */
@@ -296,7 +293,11 @@ export function isPixelView(view: MapCompareView) {
   return view === MapCompareView.Highlight || view === MapCompareView.Subtract
 }
 
-/** Shows two maps' images in one of the compare page's views, with shared zoom and pan. */
+/**
+ * Shows two maps' images in one of the compare page's views, with shared zoom and pan, and the
+ * view's own controls (if it has any) below the viewports. Which map is which is for the caller to
+ * show; only the flicker view tags the map it's currently showing.
+ */
 export function MapCompareViewer({
   view,
   before,
@@ -304,10 +305,10 @@ export function MapCompareViewer({
   terrainChanges,
   showTerrainChanges,
   showSpawns,
+  viewTransform,
 }: MapCompareViewerProps) {
   const { t } = useTranslation()
   const isFocused = useWindowFocus()
-  const viewTransform = useViewTransform()
   const { transform } = viewTransform
   const [dividerPosition, setDividerPosition] = useState(0.5)
   const [fade, setFade] = useState(50)
@@ -353,24 +354,14 @@ export function MapCompareViewer({
     case MapCompareView.Split:
       viewports = (
         <>
-          {renderViewport(
-            l => (
-              <MapImageBox image={before} frame={l} showSpawns={showSpawns} />
-            ),
-            () => (
-              <BeforeTag>{before.name}</BeforeTag>
-            ),
-          )}
-          {renderViewport(
-            l => (
-              <MapImageBox image={after} frame={l} showSpawns={showSpawns}>
-                {terrainOverlay}
-              </MapImageBox>
-            ),
-            () => (
-              <AfterTag>{after.name}</AfterTag>
-            ),
-          )}
+          {renderViewport(l => (
+            <MapImageBox image={before} frame={l} showSpawns={showSpawns} />
+          ))}
+          {renderViewport(l => (
+            <MapImageBox image={after} frame={l} showSpawns={showSpawns}>
+              {terrainOverlay}
+            </MapImageBox>
+          ))}
         </>
       )
       break
@@ -387,8 +378,6 @@ export function MapCompareViewer({
                 </MapImageBox>
               </Stage>
             </ClipLayer>
-            <BeforeTag>{before.name}</BeforeTag>
-            <AfterTag>{after.name}</AfterTag>
             <SliderDivider position={dividerPosition} onPosition={setDividerPosition} />
           </>
         ),
@@ -508,11 +497,8 @@ export function MapCompareViewer({
   return (
     <Root>
       <HighlightFilter />
-      <ControlRow>
-        {below}
-        <CompareZoomControls view={viewTransform} />
-      </ControlRow>
       <Viewports $split={view === MapCompareView.Split}>{viewports}</Viewports>
+      {below ? <ControlRow>{below}</ControlRow> : null}
     </Root>
   )
 }
