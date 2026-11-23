@@ -9,8 +9,9 @@ import { MapCollectionKind } from '../gql/graphql'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { OutlinedButton, TextButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { LoadingDotsArea } from '../progress/dots'
-import { bodyMedium, singleLine, titleMedium } from '../styles/typography'
+import { bodyMedium, titleMedium } from '../styles/typography'
 import {
   CatalogDensity,
   DENSITY_LAYOUT,
@@ -287,11 +288,13 @@ const OpenedHeader = styled.div`
   gap: 8px 16px;
 `
 
-const OpenedTitle = styled.h2`
-  ${titleMedium};
-  ${singleLine};
+const OpenedHeading = styled.h2`
   min-width: 0;
   margin: 0;
+`
+
+const OpenedTitle = styled(EllipsizedText)`
+  ${titleMedium};
 `
 
 const OpenedCount = styled.div`
@@ -423,7 +426,9 @@ function OpenedCollection({
           iconStart='arrow_back'
           onClick={onBack}
         />
-        <OpenedTitle>{collection.title}</OpenedTitle>
+        <OpenedHeading>
+          <OpenedTitle text={collection.title} />
+        </OpenedHeading>
         {totalCount !== undefined ? <OpenedCount>{mapCountText(totalCount, t)}</OpenedCount> : null}
         {addAll ? (
           <OutlinedButton

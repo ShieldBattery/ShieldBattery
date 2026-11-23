@@ -789,7 +789,7 @@ function RowFileLink({ map }: { map: PoolRowMap }) {
       </MapRowThumbnail>
       <MapRowText>
         <MapRowNameLine>
-          <MapRowName>{name}</MapRowName>
+          <MapRowName text={name} />
           {map.listed ? null : <MapRowChip>Unlisted</MapRowChip>}
         </MapRowNameLine>
         <MapRowMeta>{mapTileMeta(tile, t)}</MapRowMeta>
@@ -808,7 +808,7 @@ function RowPlaceholder({ mapId, failed }: { mapId: SbMapId; failed: boolean }) 
       <MapRowText>
         {failed ? (
           <>
-            <MapRowName>Couldn't load this file</MapRowName>
+            <MapRowName text="Couldn't load this file" />
             <MapRowMeta>{mapId}</MapRowMeta>
           </>
         ) : null}

@@ -21,7 +21,6 @@ import { RaceChar } from '../../common/races'
 import { loadMatchmakingSeasons } from '../games/game-link-card'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapKind } from '../gql/graphql'
-import { NarrowDuration } from '../i18n/date-formats'
 import { dateTimeFormat, numberFormat, useFormat } from '../i18n/locale-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { SectionLabel } from '../lobbies/room/room-parts'
@@ -49,10 +48,8 @@ export const MapPageStats_FamilyFragment = graphql(/* GraphQL */ `
     stats {
       id
       gamesTotal
-      games28d
       players90d
       medianLength90d
-      lastPlayedAt
     }
     weeklyActivity(weeks: 26) {
       id
@@ -215,12 +212,6 @@ export function MapStatsCard({
           </NumberLabel>
         </Sparkline>
       </Numbers>
-      {stats.games28d === 0 ? (
-        <StatsLine>
-          {t('maps.page.lastPlayed', 'Last played')}{' '}
-          <NarrowDuration to={new Date(stats.lastPlayedAt)} />
-        </StatsLine>
-      ) : null}
     </StatsCard>
   )
 }
@@ -266,6 +257,11 @@ const MatchupsCard = styled(Card)`
   display: flex;
   flex-direction: column;
   gap: 16px;
+
+  /* The label lines up with the rows under it, which start flush with the card's padding. */
+  & ${SectionLabel} {
+    padding: 0;
+  }
 `
 
 const MatchupsHeader = styled.div`

@@ -249,6 +249,7 @@ function makeMap({
     })),
     moderation: {
       id,
+      publishedAt: listed ? new Date(NOW - 200 * DAY).toISOString() : null,
       delistedAt: delisted ? new Date(NOW - 3 * DAY).toISOString() : null,
       delistedKind: delisted ? MapDelistedKind.Staff : null,
       delistedNote: delisted ? 'Copied from another author without their permission.' : null,
@@ -498,6 +499,18 @@ const STAFF_PICKS = {
   pool: null,
 }
 
+/** A public collection whose title is longer than the Collections card has room for. */
+const LONG_TITLE_COLLECTION = {
+  id: 'c0000000-0000-4000-8000-000000000002',
+  kind: MapCollectionKind.User,
+  title: 'Every Fighting Spirit variant that was ever played in a Korean ladder season',
+  public: true,
+  canEdit: false,
+  mapCount: 9,
+  owner: { id: MAKER, name: 'LancerMapper' },
+  pool: null,
+}
+
 /** A 1v1 ladder pool the scenario's map is in, starting `startDays` ago. */
 function ladderPool(id: number, startDays: number, endDays: number | null) {
   return {
@@ -598,7 +611,7 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
               id: familyIdOf(scenario),
               name,
               listed,
-              current: { id, name },
+              current: { id, name, kind: scenario.map.kind },
               ...maker,
               tags: tagsFor(scenario),
               // Staff edit any map's tags and the maker their own map's; anyone else only those of
@@ -693,7 +706,7 @@ function fixtureExchange(scenario: Scenario, viewer: ViewerId): Exchange {
             id: operation.variables?.familyId,
             family: {
               id: familyIdOf(scenario),
-              collections: scenario.map.staffPick ? [STAFF_PICKS] : [],
+              collections: scenario.map.staffPick ? [STAFF_PICKS, LONG_TITLE_COLLECTION] : [],
               ladderPools: scenario.map.staffPick ? LADDER_POOLS : [],
             },
           },

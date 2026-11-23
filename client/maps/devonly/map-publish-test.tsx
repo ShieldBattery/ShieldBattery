@@ -23,6 +23,7 @@ type ScenarioId =
   | 'oneSuggestion'
   | 'oneLongName'
   | 'threeSuggestions'
+  | 'listLongName'
   | 'needsReview'
   | 'ownedMaps'
   | 'ownedNoSuggestion'
@@ -37,6 +38,7 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'oneSuggestion', label: 'One suggestion' },
   { id: 'oneLongName', label: 'One suggestion, long name' },
   { id: 'threeSuggestions', label: 'Three suggestions' },
+  { id: 'listLongName', label: 'Two suggestions, long name' },
   { id: 'needsReview', label: 'Needs review' },
   { id: 'ownedMaps', label: 'Owns maps' },
   { id: 'ownedNoSuggestion', label: 'Owns maps, no suggestion' },
@@ -123,6 +125,12 @@ const HUNTERS = suggestion(3, BigGameHunters, 'Big Game Hunters', {
   similarity: 0.81,
   sameKind: false,
 })
+const VERY_LONG_NAME = suggestion(
+  5,
+  FightingSpirit,
+  'Fighting Spirit (Korean ladder edition, with the fixed ramps and the 2020 balance patch)',
+  { similarity: 0.95 },
+)
 const UMS = suggestion(4, BigGameHunters, 'Hunters Defense', {
   similarity: 0.72,
   triggerSimilarity: 0.3,
@@ -153,6 +161,7 @@ const PREVIEWS: Record<ScenarioId, ReturnType<typeof preview>> = {
   oneSuggestion: preview({ suggestions: [FIGHTING_SPIRIT] }),
   oneLongName: preview({ suggestions: [LONG_NAME] }),
   threeSuggestions: preview({ suggestions: [FIGHTING_SPIRIT, HUNTERS, UMS] }),
+  listLongName: preview({ suggestions: [VERY_LONG_NAME, HUNTERS] }),
   needsReview: preview({ needsReview: true, suggestions: [FIGHTING_SPIRIT] }),
   ownedMaps: preview({ suggestions: [FIGHTING_SPIRIT] }),
   ownedNoSuggestion: preview({}),

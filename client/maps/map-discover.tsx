@@ -17,14 +17,15 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { TextButton } from '../material/button'
 import { Card } from '../material/card'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
 import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { bodyMedium, bodySmall, singleLine, titleLarge, titleSmall } from '../styles/typography'
+import { bodyMedium, bodySmall, titleLarge, titleSmall } from '../styles/typography'
 import { UserProfileSubPage } from '../users/user-profile-sub-page'
-import { VerifiedMakerChip } from './map-byline'
+import { VerifiedMakerIcon } from './map-byline'
 import { CatalogSearchInput, MapCatalogFrame, useSavedCatalogFilters } from './map-catalog'
 import {
   CatalogDensity,
@@ -416,7 +417,13 @@ const MakerCard = styled(Card)`
   min-width: 0;
   padding: 20px 16px;
 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
   border-radius: 8px;
+  text-align: center;
 
   &:hover {
     background-color: var(--theme-container);
@@ -427,13 +434,13 @@ const MakerCard = styled(Card)`
   }
 `
 
+/** The maker's name as a link, whose click target is stretched over the whole card. */
 const MakerLink = styled(LinkButton)`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  && {
+    position: static;
+  }
 
-  text-align: center;
+  min-width: 0;
 
   &:focus-visible {
     outline: none;
@@ -453,9 +460,24 @@ const MakerAvatar = styled(Avatar)`
   height: 56px;
 `
 
-const MakerName = styled.div`
+/** The maker's name and, if staff confirmed them, the Verified icon beside it. */
+const MakerNameRow = styled.div`
+  max-width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+`
+
+/**
+ * Sits above the link's overlay, so hovering the name shows its tooltip while a click on it still
+ * reaches the link.
+ */
+const MakerName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
+  position: relative;
+  z-index: 1;
   max-width: 100%;
   color: var(--theme-on-surface);
 `
@@ -469,8 +491,8 @@ const MakerMeta = styled.div`
 const MakerVerified = styled.div`
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
   display: flex;
-  justify-content: center;
 `
 
 /** The route for the map browser's front page: `/maps`. */
@@ -807,7 +829,7 @@ export function RecentMapCard({
           <MapFileImage file={map.file} name={name} size={64} forceAspectRatio={1} />
         </MapRowThumbnail>
         <MapRowText>
-          <MapRowName>{name}</MapRowName>
+          <MapRowName text={name} />
           <MapRowMeta>
             {t('maps.discover.playedAgo', 'Played {{time}}', {
               time: relative.format(new Date(recent.lastPlayedAt)),
@@ -845,21 +867,23 @@ export function MapMakerCard({
 
   return (
     <MakerCard>
-      <MakerLink href={urlPath`/users/${user.id}/${user.name}/${UserProfileSubPage.Maps}`}>
-        <MakerAvatar user={user.name} image={user.avatarUrl ?? undefined} />
-        <MakerName>{user.name}</MakerName>
-        <MakerMeta>{mapCountText(maker.mapCount, t)}</MakerMeta>
-      </MakerLink>
-      {maker.verified ? (
-        <MakerVerified>
-          <VerifiedMakerChip
-            tooltip={t(
-              'maps.discover.verifiedMakerTooltip',
-              'Staff confirmed this user made some of these maps',
-            )}
-          />
-        </MakerVerified>
-      ) : null}
+      <MakerAvatar user={user.name} image={user.avatarUrl ?? undefined} />
+      <MakerNameRow>
+        <MakerLink href={urlPath`/users/${user.id}/${user.name}/${UserProfileSubPage.Maps}`}>
+          <MakerName text={user.name} />
+        </MakerLink>
+        {maker.verified ? (
+          <MakerVerified>
+            <VerifiedMakerIcon
+              tooltip={t(
+                'maps.discover.verifiedMakerTooltip',
+                'Staff confirmed this user made some of these maps',
+              )}
+            />
+          </MakerVerified>
+        ) : null}
+      </MakerNameRow>
+      <MakerMeta>{mapCountText(maker.mapCount, t)}</MakerMeta>
     </MakerCard>
   )
 }

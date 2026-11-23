@@ -2820,10 +2820,8 @@ export type MapPageStats_FamilyFragmentFragment = {
   stats: {
     id: string
     gamesTotal: number
-    games28d: number
     players90d: number
     medianLength90d: number | null
-    lastPlayedAt: string
   } | null
   weeklyActivity: Array<{
     id: string
@@ -6525,10 +6523,8 @@ export const MapPageStats_FamilyFragmentFragmentDoc = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'players90d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'medianLength90d' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'lastPlayedAt' } },
               ],
             },
           },
@@ -20341,10 +20337,8 @@ export const MapPageFamilyDocument = {
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'players90d' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'medianLength90d' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'lastPlayedAt' } },
               ],
             },
           },

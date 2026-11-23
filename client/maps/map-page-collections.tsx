@@ -12,6 +12,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { SectionLabel } from '../lobbies/room/room-parts'
 import { TextButton } from '../material/button'
 import { Card } from '../material/card'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { useLastSettledData } from './map-collection-actions'
 import { useCollectionSubtitleDate } from './map-collection-card'
@@ -106,9 +107,8 @@ const RowLink = styled(Link)`
   }
 `
 
-const RowTitle = styled.span`
+const RowTitle = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
   min-width: 0;
   color: var(--theme-amber);
 `
@@ -194,7 +194,7 @@ function CollectionRow({
 
   return (
     <RowLink href={urlForMapCollection(makeMapCollectionId(c.id), c.title ?? undefined)}>
-      <RowTitle>{title}</RowTitle>
+      <RowTitle text={title} />
       <RowMeta>{collectionSubtitle(c, selfUser?.id, formatDate, t)}</RowMeta>
     </RowLink>
   )

@@ -6,6 +6,7 @@ import { GameType } from '../../common/games/game-type'
 import { SbMapId } from '../../common/maps'
 import { MapLens } from '../gql/graphql'
 import { OutlinedButton, TextButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { TabItem, Tabs } from '../material/tabs'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
@@ -285,9 +286,8 @@ const TopRow = styled.div`
   gap: 12px;
 `
 
-const Title = styled.div`
+const Title = styled(EllipsizedText)`
   ${titleLarge};
-  ${singleLine};
   flex-grow: 1;
 `
 
@@ -596,7 +596,7 @@ export function MapPicker({
             iconStart='arrow_back'
             onClick={onClose}
           />
-          <Title>{title}</Title>
+          <Title text={title} />
           {inCollectionMode ? (
             <QueueStatus>
               {collection.full

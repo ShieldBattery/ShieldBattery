@@ -13,6 +13,7 @@ import { AdminMapFeaturesQuery } from '../gql/graphql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { IconButton, OutlinedButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -129,6 +130,19 @@ const ActionsCell = styled(Cell)`
 const BlurbText = styled.span`
   ${singleLine};
   display: block;
+`
+
+/** A pick's name, which gives way to the chip beside it when they don't both fit. */
+const PickLink = styled(Link)`
+  min-width: 0;
+`
+
+const MutedPickName = styled(EllipsizedText)`
+  color: var(--theme-on-surface-variant);
+`
+
+const NotShownTooltip = styled(Tooltip)`
+  flex-shrink: 0;
 `
 
 const MutedText = styled.span`
@@ -294,13 +308,19 @@ function FeatureRow({ feature: featureNode }: { feature: FeatureNode }) {
       </WeekCell>
       <Cell $width={80}>{kindLabel}</Cell>
       <WeekCell $width={220}>
-        {pickUrl ? <Link href={pickUrl}>{name}</Link> : <MutedText>{name}</MutedText>}
+        {pickUrl ? (
+          <PickLink href={pickUrl}>
+            <EllipsizedText text={name} />
+          </PickLink>
+        ) : (
+          <MutedPickName text={name} />
+        )}
         {featureNode.shown ? null : (
-          <Tooltip
+          <NotShownTooltip
             text="The map is no longer listed or is now of the other kind, or the collection isn't public, so the automatic pick shows instead"
             position='bottom'>
             <MarkerChip>Not shown</MarkerChip>
-          </Tooltip>
+          </NotShownTooltip>
         )}
       </WeekCell>
       <Cell>

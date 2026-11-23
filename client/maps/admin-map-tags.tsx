@@ -382,7 +382,7 @@ function TagListRow({
     <TagRow>
       <MapRowPlaceholder>
         <MapRowNameLine>
-          <MapRowName>{tag.name}</MapRowName>
+          <MapRowName text={tag.name} />
           {/* A tag keeps the id it was created with, which is what links to it use */}
           {tag.id !== tagIdForName(tag.name) ? <IdText>{tag.id}</IdText> : null}
         </MapRowNameLine>

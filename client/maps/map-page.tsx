@@ -40,7 +40,7 @@ import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { RoomChip, SectionLabel } from '../lobbies/room/room-parts'
-import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Divider } from '../material/menu/divider'
@@ -59,7 +59,6 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import {
   bodyLarge,
   bodyMedium,
-  bodySmall,
   displayMedium,
   displaySmall,
   labelLarge,
@@ -397,7 +396,7 @@ export function MapPage({ pageId, subPage, correctUrl = true }: MapPageProps) {
 const SINGLE_COLUMN_BELOW_PX = 760
 
 const PageContent = styled.div`
-  padding-block: 16px 48px;
+  padding-block: 32px 48px;
   container: map-page / inline-size;
 
   display: flex;
@@ -654,8 +653,19 @@ const Chips = styled.div`
   gap: 8px;
 `
 
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const CopyLinkButton = styled.div`
+  flex-shrink: 0;
+`
+
 const Title = styled.h1`
   ${displayMedium};
+  min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--theme-on-surface);
@@ -686,7 +696,7 @@ const NoticeDetail = styled.div`
 
 /** A quiet line under the title that says where the shown file sits among the map's files. */
 const FileNote = styled.div`
-  ${bodySmall};
+  ${bodyMedium};
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -703,20 +713,38 @@ const InlineParts = styled.span`
   gap: 4px;
 `
 
-const Description = styled.div`
-  ${bodyMedium};
-  max-width: 640px;
+const HeaderByline = styled(MapByline)`
+  && {
+    ${bodyMedium};
+  }
+`
 
-  color: var(--theme-on-surface-variant);
+/** A card of prose: the map's description, and what its file says about itself. */
+const ProseCard = styled(Card)<{ $gap?: number }>`
+  padding: 16px 20px;
+
+  display: flex;
+  flex-direction: column;
+  gap: ${props => props.$gap ?? 8}px;
+
+  /* The label lines up with the text under it, which starts flush with the card's padding. */
+  & ${SectionLabel} {
+    padding: 0;
+  }
+`
+
+const ProseSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const ProseText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
-`
-
-const FromFile = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 `
 
 const FromFileName = styled.div`
@@ -771,47 +799,54 @@ const MapPage_TagsFragment = graphql(/* GraphQL */ `
   }
 `)
 
-const TagRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-`
-
 const TagEditButton = styled(IconButton)`
   width: 32px;
   min-height: 32px;
 `
 
-/** Lines the label up with the text above it, past the button's own padding. */
-const AddTagsButton = styled(TextButton)`
-  align-self: flex-start;
-  margin-left: -12px;
+/** An empty chip slot that starts tagging, shaped like the chips it will be replaced by. */
+const AddTagsChip = styled(RoomChip).attrs({ as: 'button', type: 'button' })`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  border: 1px dashed var(--theme-outline);
+  background-color: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--theme-container-high);
+    color: var(--theme-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: 2px;
+  }
 `
 
 /**
- * The map's tags, each a link to every map with that tag, and the way to change them for a viewer
- * who can.
+ * The map's tags, each a link to every map with that tag, followed by the way to change them for a
+ * viewer who can. A map with no tags shows an "Add tags" chip instead, for a viewer who can edit
+ * them. Renders as a fragment of chips, to sit in a row of other chips.
  */
-function MapTagRow({ family: familyRef }: { family: FragmentType<typeof MapPage_TagsFragment> }) {
+function MapTagChips({ family: familyRef }: { family: FragmentType<typeof MapPage_TagsFragment> }) {
   const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
   const family = useFragment(MapPage_TagsFragment, familyRef)
-  const openEditor = () => dispatch(openMapTagsDialog({ familyId: family.id }))
 
   if (!family.tags.length) {
     return family.canEditTags ? (
-      <AddTagsButton
-        label={t('maps.tags.addTags', 'Add tags')}
-        iconStart='add'
-        onClick={openEditor}
-      />
+      <AddTagsChip onClick={() => dispatch(openMapTagsDialog({ familyId: family.id }))}>
+        <MaterialIcon icon='add' size={14} />
+        {t('maps.tags.addTags', 'Add tags')}
+      </AddTagsChip>
     ) : null
   }
 
   const editLabel = t('maps.tags.editTitle', 'Edit tags')
   return (
-    <TagRow>
+    <>
       {family.tags.map(tag => (
         <TagLink key={tag.id} href={urlForMapCatalog(MapCatalogTab.All, catalogSearchForTag(tag))}>
           <TagChip>{mapTagLabel(tag, i18n.language)}</TagChip>
@@ -822,20 +857,25 @@ function MapTagRow({ family: familyRef }: { family: FragmentType<typeof MapPage_
           <TagEditButton
             icon={<MaterialIcon icon='edit' size={18} />}
             ariaLabel={editLabel}
-            onClick={openEditor}
+            onClick={() => dispatch(openMapTagsDialog({ familyId: family.id }))}
           />
         </Tooltip>
       ) : null}
-    </TagRow>
+    </>
   )
 }
 
+/**
+ * The map's chips (status, then tags or the way to add them) and name, its byline and notices,
+ * then its actions, then a card with its description and what the map file says about itself.
+ */
 function MapHeader({
   map: mapRef,
   family,
   tags,
   featured,
   editing,
+  actions,
   onEditDone,
   onChanged,
 }: {
@@ -844,6 +884,8 @@ function MapHeader({
   tags: FragmentType<typeof MapPage_TagsFragment>
   featured: FragmentType<typeof MapPage_FeaturedFragment>
   editing: 'name' | 'description' | undefined
+  /** The map's actions, shown between its header and the card of its description. */
+  actions: React.ReactNode
   onEditDone: () => void
   onChanged: () => void
 }) {
@@ -851,6 +893,7 @@ function MapHeader({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const map = useFragment(MapPage_HeaderFragment, mapRef)
+  const tagsData = useFragment(MapPage_TagsFragment, tags)
   const publishedDate = useFormat(publishedDateFormat)
   const poolTypes = map.ladderPools
 
@@ -883,7 +926,13 @@ function MapHeader({
   }
 
   const featuredText = useFeaturedChipText(featured)
-  const hasChips = map.staffPick || !map.listed || poolTypes.length > 0 || !!featuredText
+  const hasChips =
+    map.staffPick ||
+    !map.listed ||
+    poolTypes.length > 0 ||
+    !!featuredText ||
+    tagsData.tags.length > 0 ||
+    tagsData.canEditTags
 
   let delistedText: React.ReactNode
   if (delisted?.delistedAt) {
@@ -916,10 +965,21 @@ function MapHeader({
       />
     )
   } else if (showDescription) {
-    descriptionElem = <Description>{description}</Description>
+    descriptionElem = <ProseText>{description}</ProseText>
+  }
+  const hasFromFile = !!fromFileName || !!fromFileDescription
+
+  const onCopyLink = () => {
+    const url = new URL(makeServerUrl(urlForMapFile(family, map.id)), location.origin).toString()
+    navigator.clipboard
+      .writeText(url)
+      .then(() => snackbarController.showSnackbar(t('maps.page.linkCopied', 'Link copied')))
+      .catch(() =>
+        snackbarController.showSnackbar(t('maps.page.linkCopyError', "Couldn't copy the link")),
+      )
   }
 
-  return (
+  const header = (
     <Header>
       {hasChips ? (
         <Chips>
@@ -941,6 +1001,7 @@ function MapHeader({
               </Tooltip>
             )
           })}
+          <MapTagChips family={tags} />
         </Chips>
       ) : null}
       {editing === 'name' ? (
@@ -950,7 +1011,18 @@ function MapHeader({
           onCancel={onEditDone}
         />
       ) : (
-        <Title>{name}</Title>
+        <TitleRow>
+          <Title>{name}</Title>
+          <CopyLinkButton>
+            <Tooltip text={t('maps.page.copyLink', 'Copy link')} position='bottom' tabIndex={-1}>
+              <IconButton
+                icon={<MaterialIcon icon='link' />}
+                ariaLabel={t('maps.page.copyLink', 'Copy link')}
+                onClick={onCopyLink}
+              />
+            </Tooltip>
+          </CopyLinkButton>
+        </TitleRow>
       )}
       {family.current.id !== map.id ? (
         <FileNote>
@@ -966,14 +1038,13 @@ function MapHeader({
           </Link>
         </FileNote>
       ) : null}
-      <MapByline
+      <HeaderByline
         owner={family.owner}
         ownerKind={family.ownerKind}
         credit={family.credit}
         publisher={map.listed && map.publishedAt ? (map.publisher ?? undefined) : undefined}
         publishedAt={map.listed ? (map.publishedAt ?? undefined) : undefined}
       />
-      <MapTagRow family={tags} />
       {!map.listed ? (
         <Notice>
           <MaterialIcon icon='link' size={20} />
@@ -991,15 +1062,31 @@ function MapHeader({
           ) : null}
         </>
       ) : null}
-      {descriptionElem}
-      {fromFileName || fromFileDescription ? (
-        <FromFile>
-          <SectionLabel>{t('maps.page.fromMapFile', 'From the map file')}</SectionLabel>
-          {fromFileName ? <FromFileName>{fromFileName}</FromFileName> : null}
-          {fromFileDescription ? <Description>{fromFileDescription}</Description> : null}
-        </FromFile>
-      ) : null}
     </Header>
+  )
+
+  return (
+    <>
+      {header}
+      {actions}
+      {descriptionElem || hasFromFile ? (
+        <ProseCard $gap={16}>
+          {descriptionElem ? (
+            <ProseSection>
+              <SectionLabel>{t('maps.page.descriptionLabel', 'Description')}</SectionLabel>
+              {descriptionElem}
+            </ProseSection>
+          ) : null}
+          {hasFromFile ? (
+            <ProseSection>
+              <SectionLabel>{t('maps.page.fromMapFile', 'From the map file')}</SectionLabel>
+              {fromFileName ? <FromFileName>{fromFileName}</FromFileName> : null}
+              {fromFileDescription ? <ProseText>{fromFileDescription}</ProseText> : null}
+            </ProseSection>
+          ) : null}
+        </ProseCard>
+      ) : null}
+    </>
   )
 }
 
@@ -1111,7 +1198,10 @@ interface ActionsFamily {
   credit?: string
 }
 
-/** The map's header, and the actions under it (which can put the header's text into editing). */
+/**
+ * The map's header, the actions under it (which can put the header's name and description into
+ * editing), and the card of its description.
+ */
 function MapHeaderAndActions({
   header,
   actions,
@@ -1138,8 +1228,10 @@ function MapHeaderAndActions({
         editing={editing}
         onEditDone={() => setEditing(undefined)}
         onChanged={onChanged}
+        actions={
+          <MapActions map={actions} family={family} onEdit={setEditing} onChanged={onChanged} />
+        }
       />
-      <MapActions map={actions} family={family} onEdit={setEditing} onChanged={onChanged} />
     </>
   )
 }
@@ -1186,14 +1278,6 @@ function MapActions({
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   const showError = (message: string) => snackbarController.showSnackbar(message)
-
-  const onCopyLink = () => {
-    const url = new URL(makeServerUrl(urlForMapFile(family, map.id)), location.origin).toString()
-    navigator.clipboard
-      .writeText(url)
-      .then(() => snackbarController.showSnackbar(t('maps.page.linkCopied', 'Link copied')))
-      .catch(() => showError(t('maps.page.linkCopyError', "Couldn't copy the link")))
-  }
 
   const onUnlink = () => {
     unlinkFile({ fileId: map.id })
@@ -1506,13 +1590,6 @@ function MapActions({
           onClick={() => push(urlForMapCompare(map.id))}
         />
       </Tooltip>
-      <Tooltip text={t('maps.page.copyLink', 'Copy link')} position='bottom' tabIndex={-1}>
-        <IconButton
-          icon={<MaterialIcon icon='link' />}
-          ariaLabel={t('maps.page.copyLink', 'Copy link')}
-          onClick={onCopyLink}
-        />
-      </Tooltip>
       {reportOnly ? (
         <Tooltip
           text={t('maps.report.iconLabel', 'Report a problem')}
@@ -1582,22 +1659,6 @@ const MapPage_HowToPlayFragment = graphql(/* GraphQL */ `
   }
 `)
 
-const HowToPlayCard = styled(Card)`
-  padding: 16px 20px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const HowToPlayText = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: text;
-`
-
 /** A UMS map's own description, which is where its author explains how to play it. */
 function MapHowToPlay({ map: mapRef }: { map: FragmentType<typeof MapPage_HowToPlayFragment> }) {
   const { t } = useTranslation()
@@ -1608,9 +1669,9 @@ function MapHowToPlay({ map: mapRef }: { map: FragmentType<typeof MapPage_HowToP
   }
 
   return (
-    <HowToPlayCard>
+    <ProseCard>
       <SectionLabel>{t('maps.page.howToPlay', 'How to play')}</SectionLabel>
-      <HowToPlayText>{text}</HowToPlayText>
-    </HowToPlayCard>
+      <ProseText>{text}</ProseText>
+    </ProseCard>
   )
 }

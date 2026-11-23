@@ -16,6 +16,7 @@ import {
 import { NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -174,6 +175,16 @@ const Cell = styled.div<{ $width?: number }>`
   flex: ${props => (props.$width ? `0 0 ${props.$width}px` : '1 1 0')};
   min-width: 0;
   padding: 8px 12px;
+`
+
+/**
+ * A map or collection's name in a cell, as wide as its text but no wider than the cell, so only the
+ * text is the link.
+ */
+const NameLink = styled(Link)`
+  display: block;
+  width: fit-content;
+  max-width: 100%;
 `
 
 const WrappingCell = styled(Cell)`
@@ -393,7 +404,9 @@ function ReportsPage({
             </Cell>
             <Cell $width={200} onClick={e => e.stopPropagation()}>
               {r.family && mapUrl ? (
-                <Link href={mapUrl}>{filterColorCodes(r.family.name)}</Link>
+                <NameLink href={mapUrl}>
+                  <EllipsizedText text={filterColorCodes(r.family.name)} />
+                </NameLink>
               ) : (
                 <MutedText>Deleted map</MutedText>
               )}
@@ -779,9 +792,9 @@ export function ClaimRow({
       </Cell>
       <Cell $width={200}>
         {family ? (
-          <Link href={urlForMap(makeMapFamilyId(family.id), family.name)}>
-            {filterColorCodes(family.name)}
-          </Link>
+          <NameLink href={urlForMap(makeMapFamilyId(family.id), family.name)}>
+            <EllipsizedText text={filterColorCodes(family.name)} />
+          </NameLink>
         ) : (
           <MutedText>Deleted map</MutedText>
         )}
@@ -909,7 +922,11 @@ function CollectionReportsPage({
               <NarrowDuration to={new Date(r.createdAt)} />
             </Cell>
             <Cell $width={240}>
-              {collection ? collection.title : <MutedText>Made private by its owner</MutedText>}
+              {collection ? (
+                <EllipsizedText text={collection.title ?? ''} />
+              ) : (
+                <MutedText>Made private by its owner</MutedText>
+              )}
             </Cell>
             <Cell $width={140} onClick={e => e.stopPropagation()}>
               {collection?.owner ? <ConnectedUsername userId={collection.owner.id} /> : null}
