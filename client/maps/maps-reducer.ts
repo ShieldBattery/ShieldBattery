@@ -1,4 +1,4 @@
-import { Immutable } from 'immer'
+import { Draft, Immutable } from 'immer'
 import { MapInfoJson, SbMapId } from '../../common/maps'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -7,6 +7,8 @@ export interface MapsState {
   byId: Map<SbMapId, MapInfoJson>
   /** A set of favorited map IDs for the current user. */
   favoritedMapIds: Set<SbMapId>
+  /** A set of the map IDs that are in the current user's own maps. */
+  libraryMapIds: Set<SbMapId>
   /** A map of map ID -> the time it was last retrieved. */
   lastRetrieved: Map<SbMapId, number>
 }
@@ -14,7 +16,28 @@ export interface MapsState {
 const DEFAULT_STATE: Immutable<MapsState> = {
   byId: new Map(),
   favoritedMapIds: new Set(),
+  libraryMapIds: new Set(),
   lastRetrieved: new Map(),
+}
+
+/**
+ * Updates which of `maps` are in the current user's own maps, given the subset of them a server
+ * response says are. Maps that aren't in that subset are removed from the set, since the response
+ * is authoritative for every map it returned.
+ */
+function updateLibraryMapIds(
+  state: Draft<MapsState>,
+  maps: ReadonlyArray<{ id: SbMapId }>,
+  libraryMapIds: ReadonlyArray<SbMapId>,
+) {
+  const inLibrary = new Set(libraryMapIds)
+  for (const map of maps) {
+    if (inLibrary.has(map.id)) {
+      state.libraryMapIds.add(map.id)
+    } else {
+      state.libraryMapIds.delete(map.id)
+    }
+  }
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -25,38 +48,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@maps/getMaps'](state, action) {
-    const {
-      payload: { maps },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of maps) {
-      state.byId.set(map.id, map)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-  },
-
-  ['@maps/getFavoritedMaps'](state, action) {
-    const {
-      payload: { favoritedMaps },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of favoritedMaps) {
-      state.byId.set(map.id, map)
-      state.favoritedMapIds.add(map.id)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-  },
-
   ['@maps/getBatchMapInfo'](state, action) {
     if (action.error) {
       return
     }
 
     const {
-      payload: { maps, favoritedMapIds },
+      payload: { maps, favoritedMapIds, libraryMapIds },
       system: { monotonicTime },
     } = action
 
@@ -68,6 +66,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     for (const mapId of favoritedMapIds) {
       state.favoritedMapIds.add(mapId)
     }
+    updateLibraryMapIds(state, maps, libraryMapIds)
   },
 
   ['@maps/loadMapInfos'](state, { payload: maps, system: { monotonicTime } }) {
@@ -85,6 +84,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.favoritedMapIds.delete(action.payload)
   },
 
+  ['@maps/removeFromMyMaps'](state, action) {
+    state.libraryMapIds.delete(action.payload)
+  },
+
   ['@maps/updateMap'](state, action) {
     const {
       payload: { map },
@@ -95,14 +98,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.lastRetrieved.set(map.id, monotonicTime)
   },
 
-  ['@maps/uploadLocalMap'](state, action) {
+  ['@maps/uploadMap'](state, action) {
     const {
-      payload: { map },
+      payload: { map, libraryMapIds },
       system: { monotonicTime },
     } = action
 
     state.byId.set(map.id, map)
     state.lastRetrieved.set(map.id, monotonicTime)
+    updateLibraryMapIds(state, [map], libraryMapIds)
   },
 
   ['@matchmaking/getCurrentMapPool'](state, action) {
@@ -192,6 +196,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@leagues/getLeagueGames'](state, action) {
+    const {
+      payload: { maps },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
+  ['@maps/getMapGames'](state, action) {
     const {
       payload: { maps },
       system: { monotonicTime },

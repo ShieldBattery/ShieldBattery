@@ -1,218 +1,151 @@
 import prettyBytes from 'pretty-bytes'
 import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
+import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
+import { MapPageId } from '../../common/map-url'
 import {
   GetBatchMapInfoResponse,
-  GetFavoritedMapsQueryParams,
-  GetFavoritesResponse,
-  GetMapsQueryParams,
-  GetMapsResponse,
   MapServiceErrorCode,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
   UpdateMapResponse,
   UpdateMapServerRequest,
-  UploadMapResponse,
 } from '../../common/maps'
+import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { openDialog } from '../dialogs/action-creators'
+import {
+  DialogType,
+  MapFamilyActionKind,
+  MapFeatureDialogData,
+  MapFeatureRemoveDialogData,
+  MapTagDeleteDialogData,
+  MapTagEditDialogData,
+} from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
+import { buildGameListSearchParams } from '../games/game-filter-url'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { ClientSideUploadError, upload } from './upload'
+import { makeServerRsUrl } from '../network/server-url'
+import { UploadedMap } from './actions'
+import { ClientSideUploadError, uploadFile } from './upload'
 
-async function uploadMap(filePath: string) {
-  if (IS_ELECTRON) {
-    return upload<UploadMapResponse>(filePath, apiUrl`maps`, MAX_MAP_FILE_SIZE_BYTES)
-  } else {
-    throw new Error('cannot upload maps on non-electron clients')
+function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal) {
+  const params = mapIds.map(m => urlPath`m=${m}`).join('&')
+  return fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params, { signal })
+}
+
+/**
+ * Uploads a map file to the current user's own maps, returning the uploaded map along with the
+ * info needed to display it. Upload progress is reported to `onProgress`.
+ */
+async function uploadMap(
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<UploadedMap> {
+  const url = makeServerRsUrl(urlPath`/maps`)
+  const { mapId } = await uploadFile<UploadMapResponse>(
+    file,
+    url,
+    MAX_MAP_FILE_SIZE_BYTES,
+    onProgress,
+  )
+  return loadUploadedMap(mapId)
+}
+
+async function loadUploadedMap(mapId: SbMapId): Promise<UploadedMap> {
+  const { maps, libraryMapIds, users } = await fetchBatchMapInfo([mapId])
+  const map = maps.find(m => m.id === mapId)
+  if (!map) {
+    throw new Error(`uploaded map ${mapId} could not be found`)
   }
+
+  return { map, libraryMapIds, users }
 }
 
-export function uploadLocalMap(
-  path: string,
-  spec: RequestHandlingSpec<UploadMapResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    try {
-      const result = await uploadMap(path)
-
-      dispatch({
-        type: '@maps/uploadLocalMap',
-        payload: result,
-        meta: { path },
+/** Returns a message explaining why uploading a map failed with `err`, for showing the user. */
+export function mapUploadErrorMessage(err: unknown): string {
+  if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
+    if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
+      return i18n.t('maps.local.mapFileSizeErrorMessage', {
+        defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
+        fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
       })
-
-      return result
-    } catch (err) {
-      let message = i18n.t(
-        'maps.local.uploadMapError',
-        'An unknown error occurred while uploading the map. Please try again later.',
+    } else if (err.code === MapServiceErrorCode.NoPlayerSlots) {
+      return i18n.t(
+        'maps.local.uploadMapNoPlayerSlotsError',
+        'This map has no start locations or usable player slots, so it can never be ' +
+          'played. Add start locations to the map and try again.',
       )
-
-      if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
-        if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
-          message = i18n.t('maps.local.mapFileSizeErrorMessage', {
-            defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
-            fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
-          })
-        } else if (err.code === MapServiceErrorCode.NoPlayerSlots) {
-          message = i18n.t(
-            'maps.local.uploadMapNoPlayerSlotsError',
-            'This map has no start locations or usable player slots, so it can never be ' +
-              'played. Add start locations to the map and try again.',
-          )
-        } else if (err.code === MapServiceErrorCode.InvalidMapFile) {
-          message = i18n.t(
-            'maps.local.uploadMapInvalidFileError',
-            "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a " +
-              'way we cannot read.',
-          )
-        }
-      }
-
-      dispatch(
-        openSimpleDialog(
-          i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
-          message,
-          true,
-        ),
+    } else if (err.code === MapServiceErrorCode.InvalidMapFile) {
+      return i18n.t(
+        'maps.local.uploadMapInvalidFileError',
+        "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a " +
+          'way we cannot read.',
       )
-
-      throw err
     }
-  })
+  }
+
+  return i18n.t(
+    'maps.local.uploadMapError',
+    'An unknown error occurred while uploading the map. Please try again later.',
+  )
 }
 
-export function getMaps(
-  params: GetMapsQueryParams,
-  spec: RequestHandlingSpec<GetMapsResponse>,
+/**
+ * Uploads a map file the user picked or dropped to their own maps, reporting the fraction of it
+ * sent so far to `onProgress`. Callers show failures themselves, with
+ * {@link mapUploadErrorMessage}.
+ */
+export function uploadMapFile(
+  file: File,
+  spec: RequestHandlingSpec<UploadedMap>,
+  onProgress?: (fraction: number) => void,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const { visibility, sort, numPlayers, tilesets, q, offset } = params
-
-    const queryParams = new URLSearchParams()
-    if (visibility) {
-      queryParams.set('visibility', visibility)
-    }
-    if (sort !== undefined) {
-      queryParams.set('sort', sort.toString())
-    }
-    if (numPlayers) {
-      for (const playerCount of numPlayers) {
-        queryParams.append('numPlayers', playerCount.toString())
-      }
-    }
-    if (tilesets) {
-      for (const tileset of tilesets) {
-        queryParams.append('tilesets', tileset.toString())
-      }
-    }
-    if (q) {
-      queryParams.set('q', q)
-    }
-    if (offset !== undefined) {
-      queryParams.set('offset', offset.toString())
-    }
-
-    const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/getMaps',
-      payload: result,
-      meta: params,
-    })
-
+    const result = await uploadMap(file, onProgress)
+    dispatch({ type: '@maps/uploadMap', payload: result })
     return result
   })
 }
 
-export function getFavorites(
-  params: GetFavoritedMapsQueryParams,
-  spec: RequestHandlingSpec<GetFavoritesResponse>,
+/**
+ * Stores a map that was just added to the current user's own maps without uploading its file (the
+ * server already had it), the same way an upload of it would.
+ */
+export function loadMapAddedToLibrary(
+  mapId: SbMapId,
+  spec: RequestHandlingSpec<UploadedMap>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const { sort, numPlayers, tilesets, q } = params
-
-    const queryParams = new URLSearchParams()
-    if (sort !== undefined) {
-      queryParams.set('sort', sort.toString())
-    }
-    if (numPlayers) {
-      for (const playerCount of numPlayers) {
-        queryParams.append('numPlayers', playerCount.toString())
-      }
-    }
-    if (tilesets) {
-      for (const tileset of tilesets) {
-        queryParams.append('tilesets', tileset.toString())
-      }
-    }
-    if (q) {
-      queryParams.set('q', q)
-    }
-
-    const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites?${queryParams}`, {
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/getFavoritedMaps',
-      payload: result,
-      meta: params,
-    })
-
+    const result = await loadUploadedMap(mapId)
+    dispatch({ type: '@maps/uploadMap', payload: result })
     return result
   })
 }
 
-export function addToFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+/** Removes a map from the current user's own maps. The map itself stays available to others. */
+export function removeFromMyMaps(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
-      method: 'POST',
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/addToFavorites',
-      payload: mapId,
-    })
-  })
-}
-
-export function removeFromFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
+    await fetchJson<void>(apiUrl`maps/${mapId}`, {
       method: 'DELETE',
       signal: spec.signal,
     })
 
     dispatch({
-      type: '@maps/removeFromFavorites',
+      type: '@maps/removeFromMyMaps',
       payload: mapId,
-    })
-  })
-}
-
-export function removeMap(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    return fetchJson<void>(apiUrl`maps/${mapId}`, {
-      method: 'DELETE',
-      signal: spec.signal,
     })
   })
 }
 
 export function regenMapImage(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    return fetchJson<void>(apiUrl`maps/${mapId}/regenerate`, {
+    return fetchJson<void>(makeServerRsUrl(urlPath`/maps/${mapId}/regenerate`), {
       method: 'POST',
       signal: spec.signal,
     })
@@ -243,11 +176,10 @@ export function updateMap(
 
 const MAX_BATCH_MAP_REQUESTS = 50
 
-const mapsBatchRequester = new MicrotaskBatchRequester<string>(
+const mapsBatchRequester = new MicrotaskBatchRequester<SbMapId>(
   MAX_BATCH_MAP_REQUESTS,
   (dispatch, items) => {
-    const params = items.map(m => urlPath`m=${m}`).join('&')
-    const promise = fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params)
+    const promise = fetchBatchMapInfo(items)
     dispatch({
       type: '@maps/getBatchMapInfo',
       payload: promise,
@@ -280,8 +212,163 @@ export function batchGetMapInfo(mapId: SbMapId, maxCacheAgeMillis = 60000): Thun
   }
 }
 
+/**
+ * Requests a single map's info from the server, succeeding once the response has been stored. A map
+ * the server doesn't know succeeds without being stored.
+ */
+export function getMapInfo(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    dispatch({
+      type: '@maps/getBatchMapInfo',
+      payload: await fetchBatchMapInfo([mapId], spec.signal),
+    })
+  })
+}
+
 export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
+}
+
+/** Opens the dialog that confirms a staff change to a map's files, spelling out its effects. */
+export function openMapFamilyActionDialog(initData: {
+  action: MapFamilyActionKind
+  familyId: string
+  fileId?: SbMapId
+  selectedId?: SbMapId
+  reportId?: string
+  targetFamilyId?: string
+}) {
+  return openDialog({ type: DialogType.MapFamilyAction, initData })
+}
+
+/** Opens the dialog that makes a collection of the viewer's and opens it. */
+export function openMapCollectionCreateDialog() {
+  return openDialog({ type: DialogType.MapCollectionCreate })
+}
+
+/** Opens the dialog that changes a collection's title and description. */
+export function openMapCollectionEditDialog(initData: {
+  collectionId: string
+  title: string
+  description: string
+}) {
+  return openDialog({ type: DialogType.MapCollectionEdit, initData })
+}
+
+/** Opens the dialog that deletes a collection once the viewer confirms. */
+export function openMapCollectionDeleteDialog(initData: {
+  collectionId: string
+  title: string
+  mapCount: number
+}) {
+  return openDialog({ type: DialogType.MapCollectionDelete, initData })
+}
+
+/** Opens the dialog for telling staff something is wrong with a public collection. */
+export function openMapCollectionReportDialog(initData: { collectionId: string }) {
+  return openDialog({ type: DialogType.MapCollectionReport, initData })
+}
+
+/** Opens the dialog that hides a player's collection as staff. */
+export function openMapCollectionHideDialog(initData: { collectionId: string; title: string }) {
+  return openDialog({ type: DialogType.MapCollectionHide, initData })
+}
+
+/** Opens the dialog for telling staff that a map's files are wrong. */
+export function openMapFamilyReportDialog(initData: {
+  familyId: string
+  fileId: SbMapId
+  fileCount: number
+}) {
+  return openDialog({ type: DialogType.MapFamilyReport, initData })
+}
+
+/**
+ * Opens the dialog that publishes a file from the user's maps. `selectedId` is the file a map's
+ * page shows, when it's opened from one.
+ */
+export function openMapPublishDialog(initData: { fileId: SbMapId; selectedId?: SbMapId }) {
+  return openDialog({ type: DialogType.MapPublish, initData })
+}
+
+/** Opens the dialog that adds a file its publisher listed alone to one of the maps it resembles. */
+export function openMapFileLinkDialog(initData: { fileId: SbMapId; selectedId?: SbMapId }) {
+  return openDialog({ type: DialogType.MapFileLink, initData })
+}
+
+/** Opens the dialog that confirms taking a file its publisher listed out of its map. */
+export function openMapFileUnlinkDialog(initData: {
+  fileName: string
+  mapName: string
+  onConfirm: () => void
+}) {
+  return openDialog({ type: DialogType.MapFileUnlink, initData })
+}
+
+/**
+ * Opens the dialog for staff to take a file out of the listings, or block it from them. A report
+ * given as `reportId` is resolved once the file is delisted.
+ */
+export function openMapDelistDialog(initData: {
+  fileId: SbMapId
+  name: string
+  listed: boolean
+  reportId?: string
+}) {
+  return openDialog({ type: DialogType.MapDelist, initData })
+}
+
+/** Opens the dialog that sends staff a user's claim to be the maker of a map. */
+export function openMapOwnerClaimDialog(initData: { familyId: string; ownerName?: string }) {
+  return openDialog({ type: DialogType.MapOwnerClaim, initData })
+}
+
+/** Opens the dialog that confirms giving up a map that staff confirmed the user made. */
+export function openMapOwnerRelinquishDialog(initData: { onConfirm: () => void }) {
+  return openDialog({ type: DialogType.MapOwnerRelinquish, initData })
+}
+
+/** Opens the dialog that sets which tags a map has. */
+export function openMapTagsDialog(initData: { familyId: string }) {
+  return openDialog({ type: DialogType.MapTags, initData })
+}
+
+/** Opens the dialog for staff to add a map tag to the list, or to change one. */
+export function openMapTagEditDialog(initData: MapTagEditDialogData) {
+  return openDialog({ type: DialogType.MapTagEdit, initData })
+}
+
+/** Opens the dialog that confirms deleting a map tag that maps have. */
+export function openMapTagDeleteDialog(initData: MapTagDeleteDialogData) {
+  return openDialog({ type: DialogType.MapTagDelete, initData })
+}
+
+/** Opens the dialog that confirms uploading a large batch of map files. */
+export function openMapUploadConfirmDialog(initData: { count: number; onConfirm: () => void }) {
+  return openDialog({ type: DialogType.MapUploadConfirm, initData })
+}
+
+/**
+ * Opens the dialog for staff to make a map or a collection the staff pick of a week, or to change
+ * the blurb of a week's pick.
+ */
+export function openMapFeatureDialog(initData: MapFeatureDialogData) {
+  return openDialog({ type: DialogType.MapFeature, initData })
+}
+
+/** Opens the dialog that confirms removing the staff pick of a week. */
+export function openMapFeatureRemoveDialog(initData: MapFeatureRemoveDialogData) {
+  return openDialog({ type: DialogType.MapFeatureRemove, initData })
+}
+
+/** Opens the dialog for staff to change who made a map: its owner and its credit. */
+export function openMapOwnerEditDialog(initData: { familyId: string }) {
+  return openDialog({ type: DialogType.MapOwnerEdit, initData })
+}
+
+/** Opens the dialog that adds a file to a map the current user owns. */
+export function openMapOwnerAddFileDialog(initData: { familyId: string; mapName: string }) {
+  return openDialog({ type: DialogType.MapOwnerAddFile, initData })
 }
 
 export function openMapDownloadDialog(mapId: SbMapId) {
@@ -296,5 +383,30 @@ export function getMapDownloadUrl(mapId: SbMapId, spec: RequestHandlingSpec<stri
     })
 
     return result.url
+  })
+}
+
+/**
+ * Gets a page of the games played on a map, newest first unless `params` sorts them otherwise. A
+ * map family's ID gives the games played on any of its files; a file's ID, the games of that file.
+ */
+export function getMapGames(
+  mapId: MapPageId,
+  params: GetGamesQueryParams,
+  spec: RequestHandlingSpec<GetGamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = buildGameListSearchParams(params)
+
+    const result = await fetchJson<GetGamesResponse>(apiUrl`maps/${mapId}/games?${queryParams}`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@maps/getMapGames',
+      payload: result,
+    })
+
+    return result
   })
 }

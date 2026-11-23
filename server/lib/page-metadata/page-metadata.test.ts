@@ -3,6 +3,11 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
+import {
+  mapCollectionPageMetadata,
+  mapComparePageMetadata,
+  mapPageMetadata,
+} from '../maps/map-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import { PageMetadata, PageMetadataContext, resolvePageMetadata } from './page-metadata'
@@ -27,11 +32,20 @@ vi.mock('../lobbies/lobby-page-meta', () => ({
   lobbyPageMetadata: vi.fn(),
 }))
 
+vi.mock('../maps/map-page-meta', () => ({
+  mapPageMetadata: vi.fn(),
+  mapComparePageMetadata: vi.fn(),
+  mapCollectionPageMetadata: vi.fn(),
+}))
+
 const newsPostPageMetadataMock = asMockedFunction(newsPostPageMetadata)
 const leaguePageMetadataMock = asMockedFunction(leaguePageMetadata)
 const userPageMetadataMock = asMockedFunction(userPageMetadata)
 const gamePageMetadataMock = asMockedFunction(gamePageMetadata)
 const lobbyPageMetadataMock = asMockedFunction(lobbyPageMetadata)
+const mapPageMetadataMock = asMockedFunction(mapPageMetadata)
+const mapComparePageMetadataMock = asMockedFunction(mapComparePageMetadata)
+const mapCollectionPageMetadataMock = asMockedFunction(mapCollectionPageMetadata)
 
 const CONTEXT: PageMetadataContext = {
   canonicalHost: 'https://shieldbattery.net',
@@ -53,6 +67,9 @@ describe('page-metadata/page-metadata', () => {
     userPageMetadataMock.mockReset()
     gamePageMetadataMock.mockReset()
     lobbyPageMetadataMock.mockReset()
+    mapPageMetadataMock.mockReset()
+    mapComparePageMetadataMock.mockReset()
+    mapCollectionPageMetadataMock.mockReset()
   })
 
   test('matches a news post route and calls the resolver with the id param (no wildcard)', async () => {
@@ -183,6 +200,111 @@ describe('page-metadata/page-metadata', () => {
       { id: 'abc123', '*': 'some-lobby-slug' },
       CONTEXT,
     )
+  })
+
+  test('matches the map route and calls the resolver with the id param', async () => {
+    mapPageMetadataMock.mockResolvedValueOnce(undefined)
+
+    await resolvePageMetadata('/maps/abc123/polypoid-1-75/games', CONTEXT)
+
+    expect(mapPageMetadataMock).toHaveBeenCalledWith(
+      { id: 'abc123', '*': 'polypoid-1-75/games' },
+      CONTEXT,
+    )
+  })
+
+  test('matches the map compare route ahead of the map route', async () => {
+    mapComparePageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/compare/abc123/def456',
+      type: 'website',
+      title: 'Polypoid vs. Fighting Spirit',
+      description: 'Compare them',
+      image: 'https://cdn.example.com/b.jpg',
+    })
+
+    const result = await resolvePageMetadata('/maps/compare/abc123/def456', CONTEXT)
+
+    expect(mapComparePageMetadataMock).toHaveBeenCalledWith({ a: 'abc123', b: 'def456' }, CONTEXT)
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toContain('Polypoid vs. Fighting Spirit')
+  })
+
+  test.each([
+    ['/maps/compare', { a: undefined, b: undefined }],
+    ['/maps/compare/abc123', { a: 'abc123', b: undefined }],
+  ])('matches %s as the map compare route, not a map page', async (path, params) => {
+    mapComparePageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/compare',
+      type: 'website',
+      title: 'Compare maps',
+      description: 'Compare them',
+      image: 'https://cdn.example.com/b.jpg',
+    })
+
+    const result = await resolvePageMetadata(path, CONTEXT)
+
+    expect(mapComparePageMetadataMock).toHaveBeenCalledWith(params, CONTEXT)
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toBe('Compare maps · ShieldBattery')
+  })
+
+  test('matches the map collection route ahead of the map route', async () => {
+    mapCollectionPageMetadataMock.mockResolvedValueOnce({
+      url: 'https://shieldbattery.net/maps/collections/abc123/ums-night',
+      type: 'website',
+      title: 'UMS night',
+      description: '3 maps',
+      image: 'https://cdn.example.com/a.jpg',
+    })
+
+    const result = await resolvePageMetadata('/maps/collections/abc123/ums-night', CONTEXT)
+
+    expect(mapCollectionPageMetadataMock).toHaveBeenCalledWith(
+      { id: 'abc123', slug: 'ums-night' },
+      CONTEXT,
+    )
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.title).toBe('UMS night · ShieldBattery')
+
+    mapCollectionPageMetadataMock.mockResolvedValueOnce(undefined)
+    await resolvePageMetadata('/maps/collections/abc123', CONTEXT)
+    expect(mapCollectionPageMetadataMock).toHaveBeenLastCalledWith(
+      { id: 'abc123', slug: undefined },
+      CONTEXT,
+    )
+  })
+
+  test('resolves the collections tab to its static metadata without the map resolvers', async () => {
+    const result = await resolvePageMetadata('/maps/collections', CONTEXT)
+
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(mapCollectionPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.url).toBe('https://shieldbattery.net/maps/collections')
+    expect(result?.title).toContain('ShieldBattery Map Collections')
+  })
+
+  test('resolves the discover page to its own static metadata without the map resolver', async () => {
+    const result = await resolvePageMetadata('/maps', CONTEXT)
+
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      url: 'https://shieldbattery.net/maps',
+      type: 'website',
+      title: 'Discover Maps on ShieldBattery',
+      description:
+        'Discover StarCraft: Brood War maps on ShieldBattery: the map of the week, maps on the ' +
+        'rise, new maps, and the mapmakers behind them.',
+      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+    })
+    expect(result?.noindex).toBeUndefined()
+  })
+
+  test('resolves the all maps tab to its static metadata without the map resolver', async () => {
+    const result = await resolvePageMetadata('/maps/all', CONTEXT)
+
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.url).toBe('https://shieldbattery.net/maps/all')
+    expect(result?.title).toContain('ShieldBattery Maps')
   })
 
   test('resolves a static route to its fixed title/description/canonical url', async () => {

@@ -12,6 +12,7 @@ import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { OriginX, Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
+import { ProgressBar, ProgressTrack } from '../progress/progress-bar'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, labelMedium, singleLine } from '../styles/typography'
 import { LibraryView } from './replay-library-helpers'
@@ -345,26 +346,6 @@ function PlaylistRailItem({
   )
 }
 
-const ProgressTrack = styled.div`
-  position: relative;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background-color: var(--theme-container-highest);
-`
-
-const ProgressFill = styled.div<{ $scale: number }>`
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  background-color: var(--theme-amber);
-  transform: ${props => `scaleX(${props.$scale})`};
-  transform-origin: 0% 50%;
-  transition: transform 120ms linear;
-  will-change: transform;
-`
-
 const indeterminateSlide = keyframes`
   0% { transform: translateX(-100%); }
   100% { transform: translateX(350%); }
@@ -431,9 +412,7 @@ export function BackfillProgressBar({ backfill }: { backfill: ReplayBackfillProg
           total,
         })}
       </BackfillLabel>
-      <ProgressTrack>
-        <ProgressFill $scale={scale} />
-      </ProgressTrack>
+      <ProgressBar value={scale} />
     </BackfillBar>
   )
 }

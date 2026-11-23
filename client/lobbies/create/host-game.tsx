@@ -4,17 +4,22 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useClient } from 'urql'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
-import { LobbyVisibility, NUM_RECENT_MAPS } from '../../../common/lobbies'
+import { LobbyVisibility, MAX_MAP_QUEUE, NUM_RECENT_MAPS } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
-import { SbMapId } from '../../../common/maps'
+import { makeMapCollectionId, makeSbMapId, MapCollectionId, SbMapId } from '../../../common/maps'
 import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
+import { graphql } from '../../gql'
+import { getMapInfo } from '../../maps/action-creators'
+import { MapPickerMode } from '../../maps/map-picker'
 import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
+import { useLocationSearchParam } from '../../navigation/router-hooks'
 import DotsIndicator, { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
@@ -25,6 +30,8 @@ import {
 } from '../action-creators'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
+import { splitMapAndQueue, useMapQueueEditor } from '../map-queue-editor'
+import { MapQueueSection } from '../room/room-map-queue'
 import {
   GameSetupForm,
   GameSetupFormHandle,
@@ -32,7 +39,8 @@ import {
   Section,
   SectionHeader,
 } from './game-setup-form'
-import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from './game-setup-page'
+import { formatGameSetupSummary, GameSetupPage, useMapPickerState } from './game-setup-page'
+import { gameTypeForSelectedMap } from './map-game-type'
 import { VisibilityPicker } from './visibility-picker'
 
 const LoadingContainer = styled.div`
@@ -60,6 +68,34 @@ function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, NUM_RECENT_MAPS - 1)]
 }
 
+/** The search param that preselects a map in the form. */
+const PRESELECTED_MAP_PARAM = 'map'
+/**
+ * The search param naming a collection whose first map is preselected in the form, with the maps
+ * after it queued. Ignored when {@link PRESELECTED_MAP_PARAM} is set.
+ */
+const PRESELECTED_COLLECTION_PARAM = 'collection'
+
+const HostGameCollectionMapsQuery = graphql(/* GraphQL */ `
+  query HostGameCollectionMaps($id: UUID!, $first: Int!) {
+    mapCollection(id: $id) {
+      id
+      maps(first: $first) {
+        edges {
+          node {
+            id
+          }
+        }
+      }
+    }
+  }
+`)
+
+/** The maps a collection starts a lobby with: its first map, then the queue's worth after it. */
+const COLLECTION_SEED_SIZE = 1 + MAX_MAP_QUEUE
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export interface HostGameProps {
   onNavigateToList?: () => void
   /**
@@ -77,8 +113,58 @@ export interface HostGameProps {
 }
 
 /**
+ * The maps of a collection that a lobby is being created from, in the collection's order, once
+ * they've loaded. Empty when the collection couldn't be loaded.
+ */
+interface CollectionSeed {
+  collectionId: MapCollectionId
+  mapIds: SbMapId[]
+}
+
+/**
+ * Loads the maps the collection `collectionId` starts a lobby with, once. Later changes to the
+ * collection don't reach the form, which only reads them when it first shows. Undefined while
+ * they load, and when there's no collection.
+ */
+function useCollectionSeed(collectionId: MapCollectionId | undefined): SbMapId[] | undefined {
+  const client = useClient()
+  const [seed, setSeed] = useState<CollectionSeed>()
+
+  useEffect(() => {
+    if (!collectionId) {
+      return undefined
+    }
+
+    let cancelled = false
+    const settle = (mapIds: SbMapId[]) => {
+      if (!cancelled) {
+        setSeed({ collectionId, mapIds })
+      }
+    }
+    client
+      .query(
+        HostGameCollectionMapsQuery,
+        { id: collectionId, first: COLLECTION_SEED_SIZE },
+        { requestPolicy: 'network-only' },
+      )
+      .toPromise()
+      .then(result =>
+        settle(result.data?.mapCollection?.maps.edges.map(edge => makeSbMapId(edge.node.id)) ?? []),
+      )
+      .catch(() => settle([]))
+    return () => {
+      cancelled = true
+    }
+  }, [client, collectionId])
+
+  return seed && seed.collectionId === collectionId ? seed.mapIds : undefined
+}
+
+/**
  * The "Host a game" surface: a form built on the shared `GameSetupForm` core, prefilled from the
- * user's saved lobby preferences.
+ * user's saved lobby preferences. A valid map ID in the `map` search param takes precedence over
+ * the saved map selection. Without one, a valid collection ID in the `collection` search param
+ * preselects the collection's first map and queues the maps after it.
  */
 export function HostGame(props: HostGameProps) {
   useTrackPageView('/lobbies/create')
@@ -87,11 +173,51 @@ export function HostGame(props: HostGameProps) {
   const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
 
+  const [mapParam] = useLocationSearchParam(PRESELECTED_MAP_PARAM)
+  const [collectionParam] = useLocationSearchParam(PRESELECTED_COLLECTION_PARAM)
+  const paramMapId = UUID_PATTERN.test(mapParam) ? makeSbMapId(mapParam.toLowerCase()) : undefined
+  const collectionId =
+    !paramMapId && UUID_PATTERN.test(collectionParam)
+      ? makeMapCollectionId(collectionParam.toLowerCase())
+      : undefined
+  const collectionMapIds = useCollectionSeed(collectionId)
+  const collectionSplit = splitMapAndQueue(collectionMapIds ?? [])
+  const preselectedMapId = paramMapId ?? collectionSplit.mapId
+  const preselectedMapLoaded = useAppSelector(s =>
+    preselectedMapId ? s.maps.byId.has(preselectedMapId) : true,
+  )
+  // The preselected map whose request has finished, whether or not the map was found
+  const [settledMapId, setSettledMapId] = useState<SbMapId>()
+
   useEffect(() => {
     dispatch(getLobbyPreferences())
   }, [dispatch])
 
-  if (isRequesting || !hasLoaded) {
+  // The form reads the selected map's info from the store when it mounts (for slot counts), so a
+  // preselected map is requested up front and the form waits for the server's answer.
+  useEffect(() => {
+    if (!preselectedMapId) {
+      return undefined
+    }
+
+    const abortController = new AbortController()
+    const onSettled = () => setSettledMapId(preselectedMapId)
+    dispatch(
+      getMapInfo(preselectedMapId, {
+        signal: abortController.signal,
+        onSuccess: onSettled,
+        onError: onSettled,
+      }),
+    )
+    return () => abortController.abort()
+  }, [dispatch, preselectedMapId])
+
+  if (
+    isRequesting ||
+    !hasLoaded ||
+    (collectionId && !collectionMapIds) ||
+    (preselectedMapId && !preselectedMapLoaded && settledMapId !== preselectedMapId)
+  ) {
     return (
       <LoadingContainer>
         <LoadingDotsArea />
@@ -99,14 +225,26 @@ export function HostGame(props: HostGameProps) {
     )
   }
 
-  return <HostGameContent {...props} />
+  return (
+    <HostGameContent
+      {...props}
+      preselectedMapId={preselectedMapLoaded ? preselectedMapId : undefined}
+      initialQueue={collectionSplit.queue}
+    />
+  )
 }
 
 function HostGameContent({
+  preselectedMapId,
+  initialQueue,
   onNavigateToList,
   createLobbyOverride,
   savePreferencesOverride,
-}: HostGameProps) {
+}: HostGameProps & {
+  preselectedMapId?: SbMapId
+  /** The maps the queue starts with. Only read when this mounts. */
+  initialQueue: ReadonlyArray<SbMapId>
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -128,6 +266,10 @@ function HostGameContent({
   const prefsAllowObservers = useAppSelector(s => s.lobbyPreferences.allowObservers)
   const prefsSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const prefsRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
+  // The preselected map is only passed in once its info is in the store
+  const preselectedMapKind = useAppSelector(s =>
+    preselectedMapId ? s.maps.byId.get(preselectedMapId)?.kind : undefined,
+  )
 
   // Captured once when this mounts (which only happens once preferences have loaded): the form's
   // starting point. Later preference changes -- including this component's own autosaves as the
@@ -135,15 +277,22 @@ function HostGameContent({
   // edit would keep overwriting what the user is typing.
   const [initial] = useState(() => ({
     name: prefsName,
-    gameType: prefsGameType ?? GameType.Melee,
+    gameType: gameTypeForSelectedMap(
+      prefsGameType ?? GameType.Melee,
+      preselectedMapKind ?? 'melee',
+    ),
     gameSubType: prefsGameSubType,
     useLegacyLimits: prefsUseLegacyLimits ?? false,
     starcraftCompatibleReplays: prefsStarcraftCompatibleReplays ?? true,
     lockedAlliances: prefsLockedAlliances ?? false,
     visibility: prefsVisibility ?? ('listed' as LobbyVisibility),
     allowObservers: prefsAllowObservers ?? true,
-    selectedMap: prefsSelectedMap ?? undefined,
-    recentMaps: prefsRecentMaps,
+    selectedMap: preselectedMapId ?? prefsSelectedMap ?? undefined,
+    // A preselected map is promoted into the recents like a picked one, which also keeps the
+    // invariant that any selected map is among the saved recent maps.
+    recentMaps: preselectedMapId
+      ? updateRecentMaps(preselectedMapId, prefsRecentMaps)
+      : prefsRecentMaps,
   }))
 
   const [isCreating, setIsCreating] = useState(false)
@@ -213,12 +362,19 @@ function HostGameContent({
   }, [])
 
   const formRef = useRef<GameSetupFormHandle>(null)
-  const [browseState, setBrowseState] = useState(MapBrowseState.None)
+  const picker = useMapPickerState()
+  const { queue, setQueue, queueIds, canQueueMore, addMap, addMaps } =
+    useMapQueueEditor(initialQueue)
 
+  // Maps added to the queue keep the picker open, so several can be added in one go
   const pick = (mapId: SbMapId) => {
-    setRecentMaps(maps => updateRecentMaps(mapId, maps))
-    formRef.current?.setMap(mapId)
-    setBrowseState(MapBrowseState.None)
+    if (picker.mode === MapPickerMode.Queue) {
+      addMap(mapId)
+    } else {
+      setRecentMaps(maps => updateRecentMaps(mapId, maps))
+      formRef.current?.setMap(mapId)
+      picker.close()
+    }
   }
 
   const showErrorDialog = () => {
@@ -284,9 +440,13 @@ function HostGameContent({
     <GameSetupPage
       title={t('lobbies.createLobby.title', 'Create lobby')}
       onBack={onNavigateToList}
-      browseState={browseState}
-      onBrowseStateChange={setBrowseState}
+      picker={picker}
       onMapPicked={pick}
+      onMapsQueued={addMaps}
+      gameType={setup.gameType}
+      selectedMapId={setup.mapId}
+      queuedMapIds={queueIds}
+      canQueueMore={canQueueMore}
       summary={summary}
       footerActions={
         <FilledButton
@@ -337,7 +497,14 @@ function HostGameContent({
             />
           </Section>
         }
-        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+        mapQueueSection={
+          <MapQueueSection
+            queue={queue}
+            onChange={setQueue}
+            onAddMap={() => picker.open(MapPickerMode.Queue, setup.gameType)}
+          />
+        }
+        onChangeMap={() => picker.open(MapPickerMode.Map, setup.gameType)}
         onValidatedChange={model => {
           setSetup(model)
           debouncedSaveRef.current?.()
@@ -355,6 +522,7 @@ function HostGameContent({
             lockedAlliances: model.lockedAlliances,
             allowObservers: model.allowObservers,
             visibility,
+            mapQueue: queueIds.length ? queueIds : undefined,
             leaveCurrentLobby: inCurrentLobby,
           }
 

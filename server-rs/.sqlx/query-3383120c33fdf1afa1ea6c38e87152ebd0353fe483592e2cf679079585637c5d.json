@@ -1,0 +1,208 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT hash as \"hash: _\", extension, title, description,\n                    width, height, tileset, players_melee, players_ums,\n                    lobby_init_data as \"lobby_init_data: _\", is_eud, parser_version, image_version,\n                    render_version, start_locations as \"start_locations: _\", ums_content\n                FROM maps\n                WHERE hash = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: _",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "extension",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "extension"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "tileset",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "tileset"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "players_melee",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "players_melee"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "players_ums",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "players_ums"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "lobby_init_data: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "lobby_init_data"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "is_eud",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "is_eud"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "parser_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "parser_version"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "image_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "image_version"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "render_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "render_version"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "start_locations: _",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "start_locations"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "ums_content",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "ums_content"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "3383120c33fdf1afa1ea6c38e87152ebd0353fe483592e2cf679079585637c5d"
+}

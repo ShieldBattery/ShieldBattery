@@ -4,7 +4,6 @@ import Koa from 'koa'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
 import path from 'path'
-import { rimraf } from 'rimraf'
 import { Readable } from 'stream'
 import { FileStore, GetSignedUrlOptions, StoredFileStream } from './store'
 
@@ -58,11 +57,6 @@ export default class LocalFsStore implements FileStore {
   async delete(filename: string) {
     const full = this.getFullPath(filename)
     await unlink(full)
-  }
-
-  async deleteFiles(prefix: string) {
-    const full = this.getFullPath(prefix)
-    await rimraf(full)
   }
 
   url(filename: string) {

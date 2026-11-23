@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT tag_id, count(*) as \"count!\"\n                FROM map_family_tags\n                WHERE tag_id = ANY($1)\n                GROUP BY tag_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_tags",
+            "name": "tag_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "fcfa90545fd4741af2b53c9ef22c51d2b7f2dfdf24f4136c4abfe649f178c64f"
+}

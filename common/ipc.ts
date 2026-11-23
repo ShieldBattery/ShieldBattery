@@ -16,6 +16,13 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
+import {
+  LocalMapFolder,
+  LocalMapIndexProgress,
+  LocalMapLibraryStatus,
+  LocalMapQuery,
+  LocalMapQueryResult,
+} from './map-library'
 import { MapDownloadOutcome, MapExtension } from './maps'
 import { ReplayChat } from './replays'
 import {
@@ -40,36 +47,6 @@ const IS_RENDERER = typeof process === 'undefined' || !process || process.type =
 const ipcRenderer =
   IS_ELECTRON && IS_RENDERER ? window.SHIELDBATTERY_ELECTRON_API!.ipcRenderer : null
 const ipcMain = IS_ELECTRON && !IS_RENDERER ? require('electron').ipcMain : null
-
-/**
- * Equivalent to a node.js fs.Dirent object, but with relevant functions converted to be raw values,
- * so that it can be passed across IPC.
- */
-export interface FsDirent {
-  isFile: boolean
-  isDirectory: boolean
-  name: string
-}
-
-/**
- * Equivalent to a node.js fs.Stats object, but with relevant functions converted to be raw values,
- * so that it can be passed across IPC.
- */
-export interface FsStats {
-  isFile: boolean
-  isDirectory: boolean
-  size: number
-  blksize: number
-  blocks: number
-  atimeMs: number
-  mtimeMs: number
-  ctimeMs: number
-  birthtimeMs: number
-  atime: Date
-  mtime: Date
-  ctime: Date
-  birthtime: Date
-}
 
 /**
  * The result of running the Twitch OAuth flow in the desktop app, which opens the authorize URL in
@@ -256,12 +233,8 @@ interface IpcInvokeables {
    */
   discordCanShowActivity: () => boolean
 
-  // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
-  // well with the current approach for typing these invokes =/
-  fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
   // TODO(tec27): Add types for options + returning a string if encoding is specified?
   fsReadFile: (filePath: string) => Promise<ArrayBuffer>
-  fsStat: (filePath: string) => Promise<FsStats>
   fsUnlink: (filePath: string) => Promise<void>
 
   /**
@@ -320,6 +293,16 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
+
+  /** Returns the page of indexed local map files matching `query`, plus the total match count. */
+  localMapsQuery: (query: LocalMapQuery) => Promise<LocalMapQueryResult>
+  /**
+   * Returns the folders directly beneath `parent` that hold map files (at any depth), or the
+   * indexed roots when `parent` is unset.
+   */
+  localMapsFolders: (parent?: string) => Promise<LocalMapFolder[]>
+  /** Current status of the local map index (total indexed, progress, indexed folders). */
+  localMapsStatus: () => Promise<LocalMapLibraryStatus>
   /**
    * Bookmarks or unbookmarks replays in a single transaction. Resolves to the ids whose state
    * actually changed (replays already in the requested state are left out).
@@ -570,6 +553,14 @@ interface IpcMainSendables {
    * status fetch.
    */
   replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
+
+  /** Sent whenever the local map index changes (files added, removed or updated). */
+  localMapsChanged: () => void
+  /**
+   * Sent as the local map index scans and indexes files. `undefined` means it finished (or had no
+   * work).
+   */
+  localMapsIndexProgress: (progress: LocalMapIndexProgress | undefined) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

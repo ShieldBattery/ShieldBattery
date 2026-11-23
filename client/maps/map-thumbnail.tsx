@@ -3,31 +3,33 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
-import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
+import { useQuery } from 'urql'
+import { urlForMap } from '../../common/map-url'
+import { MapImageInfo, SbMapId } from '../../common/maps'
+import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { graphql } from '../gql'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
-import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
+import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 import {
-  addToFavorites,
   batchGetMapInfo,
   openMapPreviewDialog,
   regenMapImage,
-  removeFromFavorites,
-  removeMap,
+  removeFromMyMaps,
 } from './action-creators'
+import { useToggleMapFavorite } from './map-favorites'
 import { MapInfoImage } from './map-image'
 
 // The overlay chrome self-hides on small tiles so the map art stays recognizable: the two 48px
@@ -253,6 +255,7 @@ export interface MapThumbnailProps {
   onAddToFavorites?: (mapId: SbMapId) => void
   onRemoveFromFavorites?: (mapId: SbMapId) => void
   onMapDetails?: (mapId: SbMapId) => void
+  /** Removes the map from the current user's own maps. */
   onRemove?: (mapId: SbMapId) => void
   onRegenMapImage?: (mapId: SbMapId) => void
 }
@@ -304,8 +307,8 @@ export function MapThumbnail({
   if (onAddToFavorites && onRemoveFromFavorites) {
     mapActions.push([
       isFavorited
-        ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
-        : t('maps.thumbnail.addToFavorites', 'Add to favorites'),
+        ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+        : t('maps.thumbnail.addToStarred', 'Add to Starred'),
       () => (isFavorited ? onRemoveFromFavorites(map.id) : onAddToFavorites(map.id)),
     ])
   }
@@ -316,7 +319,10 @@ export function MapThumbnail({
     ])
   }
   if (onRemove) {
-    mapActions.push([t('common.actions.remove', 'Remove'), () => onRemove(map.id)])
+    mapActions.push([
+      t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
+      () => onRemove(map.id),
+    ])
   }
 
   const actions = mapActions.map(([text, handler], i) => (
@@ -354,8 +360,8 @@ export function MapThumbnail({
           icon={<MaterialIcon icon='star' filled={isFavorited} />}
           title={
             isFavorited
-              ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
-              : t('maps.thumbnail.addToFavorites', 'Add to favorites')
+              ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+              : t('maps.thumbnail.addToStarred', 'Add to Starred')
           }
           onClick={
             isFavorited ? () => onRemoveFromFavorites(map.id) : () => onAddToFavorites(map.id)
@@ -407,19 +413,32 @@ export function MapThumbnail({
   )
 }
 
-export function ReduxMapThumbnail({
-  mapId,
-  hasMapDetailsAction = true,
-  hasDownloadAction = true,
-  hasFavoriteAction = true,
-  hasMapPreviewAction = true,
-  hasRegenMapImageAction = true,
-  hasMapPoolChips = false,
-  ...props
-}: Simplify<
+const MapThumbnailLadderPoolsQuery = graphql(/* GraphQL */ `
+  query MapThumbnailLadderPools($id: SbMapId!) {
+    map(id: $id) {
+      id
+      ladderPools
+    }
+  }
+`)
+
+/**
+ * Requests results without suspending: the thumbnail shows without its chips until they load.
+ * Module-level so the query sees the same context every render.
+ */
+const NO_SUSPENSE_CONTEXT = { suspense: false }
+
+type ReduxMapThumbnailProps = Simplify<
   Omit<
     MapThumbnailProps,
-    'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview' | 'mapPoolLabels'
+    | 'map'
+    | 'isFavorited'
+    | 'onMapDetails'
+    | 'onRegenMapImage'
+    | 'onPreview'
+    | 'mapPoolLabels'
+    | 'onAddToFavorites'
+    | 'onRemoveFromFavorites'
   > & {
     mapId: SbMapId
     hasMapDetailsAction?: boolean
@@ -430,7 +449,42 @@ export function ReduxMapThumbnail({
     /** Whether to show a chip for each matchmaking mode whose current map pool has this map. */
     hasMapPoolChips?: boolean
   }
->) {
+>
+
+type ReduxMapThumbnailContentProps = Omit<ReduxMapThumbnailProps, 'hasMapPoolChips'> & {
+  /** The matchmaking modes whose current map pool has this map, each shown as a chip. */
+  mapPoolTypes?: ReadonlyArray<MatchmakingType>
+}
+
+export function ReduxMapThumbnail({ hasMapPoolChips = false, ...props }: ReduxMapThumbnailProps) {
+  return hasMapPoolChips ? (
+    <ReduxMapThumbnailWithPools {...props} />
+  ) : (
+    <ReduxMapThumbnailContent {...props} />
+  )
+}
+
+/** A thumbnail with a chip for each matchmaking mode whose current map pool has the map. */
+function ReduxMapThumbnailWithPools(props: Omit<ReduxMapThumbnailProps, 'hasMapPoolChips'>) {
+  const [{ data }] = useQuery({
+    query: MapThumbnailLadderPoolsQuery,
+    variables: { id: props.mapId },
+    requestPolicy: 'cache-and-network',
+    context: NO_SUSPENSE_CONTEXT,
+  })
+  return <ReduxMapThumbnailContent {...props} mapPoolTypes={data?.map?.ladderPools} />
+}
+
+function ReduxMapThumbnailContent({
+  mapId,
+  hasMapDetailsAction = true,
+  hasDownloadAction = true,
+  hasFavoriteAction = true,
+  hasMapPreviewAction = true,
+  hasRegenMapImageAction = true,
+  mapPoolTypes,
+  ...props
+}: ReduxMapThumbnailContentProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -440,7 +494,10 @@ export function ReduxMapThumbnail({
 
   const map = useAppSelector(s => s.maps.byId.get(mapId))
   const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
-  const mapPoolTypes = useCurrentMapPoolTypes(mapId)
+  const libraryMapIds = useAppSelector(s => s.maps.libraryMapIds)
+  // A favorite is of the map a file is in, so this goes through the same path as the map page and
+  // catalog, which keeps every file of the map (in Redux and the GraphQL cache) in step
+  const [toggleFavorite] = useToggleMapFavorite()
 
   useEffect(() => {
     dispatch(batchGetMapInfo(mapId))
@@ -459,15 +516,7 @@ export function ReduxMapThumbnail({
   const canFavorite = selfUser && hasFavoriteAction
   const canPreviewMap = hasMapPreviewAction
   const canManageMaps = !!selfPermissions?.manageMaps
-  let canRemoveMap = false
-  if (selfUser) {
-    if (canManageMaps) {
-      canRemoveMap = true
-    } else if (map.visibility === MapVisibility.Unlisted && map.uploadedBy === selfUser.id) {
-      canRemoveMap = true
-    }
-  }
-  canRemoveMap = !!props.onRemove && canRemoveMap
+  const canRemoveMap = !!selfUser && !!props.onRemove && libraryMapIds.has(map.id)
   const canRegenMapImage = selfUser && canManageMaps && hasRegenMapImageAction
 
   return (
@@ -475,14 +524,8 @@ export function ReduxMapThumbnail({
       {...props}
       map={map}
       isFavorited={isFavorited}
-      mapPoolLabels={
-        hasMapPoolChips ? mapPoolTypes.map(type => matchmakingTypeToLabel(type, t)) : undefined
-      }
-      onMapDetails={
-        canOpenMapDetails
-          ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
-          : undefined
-      }
+      mapPoolLabels={mapPoolTypes?.map(type => matchmakingTypeToLabel(type, t))}
+      onMapDetails={canOpenMapDetails ? () => push(urlForMap(map.id, map.name)) : undefined}
       onDownload={
         hasDownloadAction
           ? mapId => {
@@ -491,65 +534,29 @@ export function ReduxMapThumbnail({
           : undefined
       }
       onAddToFavorites={
-        canFavorite
-          ? mapId => {
-              dispatch(
-                addToFavorites(mapId, {
-                  onSuccess: () => {
-                    props.onAddToFavorites?.(mapId)
-                    snackbarController.showSnackbar(
-                      t('maps.server.favorites.added', 'Added to favorites'),
-                    )
-                  },
-                  onError: () => {
-                    snackbarController.showSnackbar(
-                      t(
-                        'maps.server.favorites.addedError',
-                        'An error occurred while adding to favorites',
-                      ),
-                    )
-                  },
-                }),
-              )
-            }
-          : undefined
+        canFavorite ? mapId => toggleFavorite({ id: mapId, isFavorited: false }) : undefined
       }
       onRemoveFromFavorites={
-        canFavorite
-          ? mapId => {
-              dispatch(
-                removeFromFavorites(mapId, {
-                  onSuccess: () => {
-                    props.onRemoveFromFavorites?.(mapId)
-                    snackbarController.showSnackbar(
-                      t('maps.server.favorites.removed', 'Removed from favorites'),
-                    )
-                  },
-                  onError: () => {
-                    snackbarController.showSnackbar(
-                      t(
-                        'maps.server.favorites.removedError',
-                        'An error occurred while removing from favorites',
-                      ),
-                    )
-                  },
-                }),
-              )
-            }
-          : undefined
+        canFavorite ? mapId => toggleFavorite({ id: mapId, isFavorited: true }) : undefined
       }
       onPreview={canPreviewMap ? () => dispatch(openMapPreviewDialog(map.id)) : undefined}
       onRemove={
         canRemoveMap
           ? mapId => {
               dispatch(
-                removeMap(mapId, {
+                removeFromMyMaps(mapId, {
                   onSuccess: () => {
                     props.onRemove?.(mapId)
+                    snackbarController.showSnackbar(
+                      t('maps.server.removedFromMyMaps', 'Removed from your maps'),
+                    )
                   },
                   onError: () => {
                     snackbarController.showSnackbar(
-                      t('maps.server.removeError', 'An error occurred while removing the map'),
+                      t(
+                        'maps.server.removeFromMyMapsError',
+                        'An error occurred while removing the map from your maps',
+                      ),
                     )
                   },
                 }),

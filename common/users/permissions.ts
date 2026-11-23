@@ -18,7 +18,6 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   manageMatchmaking: false,
   manageMatchmakingSeasons: false,
   manageMatchmakingTimes: false,
-  massDeleteMaps: false,
   moderateChatChannels: false,
   manageNews: false,
   manageBugReports: false,

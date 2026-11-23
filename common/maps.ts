@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
-import { Tagged } from 'type-fest'
+import { ReadonlyDeep, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/game-type'
 import { Jsonify } from './json'
@@ -22,6 +22,32 @@ export type SbMapId = Tagged<string, 'SbMapId'>
  */
 export function makeSbMapId(id: string): SbMapId {
   return id as SbMapId
+}
+
+/**
+ * The ID of a map family: a map as players know it ("Fighting Spirit"), made of one or more map
+ * files. Every map file (`SbMapId`) is in exactly one family.
+ */
+export type MapFamilyId = Tagged<string, 'MapFamilyId'>
+
+/**
+ * Converts a map family ID string into a properly typed version. Alternative methods of retrieving
+ * a MapFamilyId should be preferred, such as using a value retrieved from the database.
+ */
+export function makeMapFamilyId(id: string): MapFamilyId {
+  return id as MapFamilyId
+}
+
+/** The ID of a map collection: a named, ordered list of maps. */
+export type MapCollectionId = Tagged<string, 'MapCollectionId'>
+
+/**
+ * Converts a map collection ID string into a properly typed version. Alternative methods of
+ * retrieving a MapCollectionId should be preferred, such as using a value retrieved from the
+ * database.
+ */
+export function makeMapCollectionId(id: string): MapCollectionId {
+  return id as MapCollectionId
 }
 
 export enum Tileset {
@@ -132,19 +158,6 @@ export const ALL_MAP_SORT_TYPES: Readonly<MapSortType[]> = [
   MapSortType.Date,
 ]
 
-export function mapSortTypeToLabel(sortType: MapSortType, t: TFunction) {
-  switch (sortType) {
-    case MapSortType.Name:
-      return t('maps.server.sortMaps.option.name', 'Name')
-    case MapSortType.NumberOfPlayers:
-      return t('maps.server.sortMaps.option.numberOfPlayers', 'Number of players')
-    case MapSortType.Date:
-      return t('maps.server.sortMaps.option.dateUploaded', 'Date uploaded')
-    default:
-      return sortType satisfies never
-  }
-}
-
 export { MapVisibility }
 export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
 
@@ -187,6 +200,16 @@ export interface MapForce {
   players: MapForcePlayer[]
 }
 
+/**
+ * A start location placed for a player slot. `x` and `y` are in map pixels, and `slot` is the player
+ * slot (0-7) the start location belongs to.
+ */
+export interface MapStartLocation {
+  slot: number
+  x: number
+  y: number
+}
+
 export interface MapData {
   format: MapExtension
   tileset: Tileset
@@ -198,16 +221,32 @@ export interface MapData {
   width: number
   height: number
   isEud: boolean
+  /** The map's start locations. Empty until the map file has been analyzed. */
+  startLocations: MapStartLocation[]
+  /**
+   * Whether the map has UMS content: trigger actions that melee games don't use, more than 8
+   * preplaced player-owned units, or EUDs. Undefined until the map file has been analyzed.
+   */
+  umsContent?: boolean
   parserVersion: number
 }
+
+/**
+ * Which way a map file is meant to be played: `melee` for a regular game type, `ums` for the Use
+ * Map Settings game type. Which one a file is decided by the database's `maps.kind` column.
+ */
+export type MapInfoKind = 'melee' | 'ums'
 
 export interface MapInfo {
   id: SbMapId
   hash: string
   name: string
   description: string
-  uploadedBy: SbUserId
-  uploadDate: Date
+  kind: MapInfoKind
+  /** The user who listed the map, if it's listed (`visibility` is not `Unlisted`). */
+  publishedBy?: SbUserId
+  publishedAt?: Date
+  /** Where the map is listed. Unlisted maps are only reachable by id or from users' own maps. */
   visibility: MapVisibility
   mapData: MapData
   mapUrl?: string
@@ -215,7 +254,14 @@ export interface MapInfo {
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
+  /** A 1024px JPEG of the map, for consumers that can't decode the other images' format. */
+  jpegImageUrl?: string
   imageVersion: number
+  /**
+   * Whether the map's images have its start locations drawn in. Images without them are meant to
+   * have start locations drawn on top.
+   */
+  imageSpawnsBaked: boolean
 }
 
 export type MapInfoJson = Jsonify<MapInfo>
@@ -223,7 +269,7 @@ export type MapInfoJson = Jsonify<MapInfo>
 export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
   return {
     ...mapInfo,
-    uploadDate: Number(mapInfo.uploadDate),
+    publishedAt: mapInfo.publishedAt ? Number(mapInfo.publishedAt) : undefined,
   }
 }
 
@@ -238,7 +284,62 @@ export interface MapImageInfo {
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
-  mapData: { width: number; height: number }
+  /**
+   * Whether the images have the map's start locations drawn in. Spawn markers are only drawn over
+   * images that are known not to have them, so this being omitted means no markers.
+   */
+  imageSpawnsBaked?: boolean
+  mapData: {
+    width: number
+    height: number
+    startLocations?: ReadonlyArray<MapStartLocation>
+    umsContent?: boolean
+  }
+}
+
+/**
+ * Returns the start locations of `map` that are spawns where its image is shown, i.e. the ones to
+ * draw markers for.
+ *
+ * A map's start locations only count as spawns if it has no UMS content: UMS maps often stack them
+ * in one spot or park them in an off-play area, since their triggers move the players.
+ */
+export function visibleSpawns(map: ReadonlyDeep<MapImageInfo>): ReadonlyArray<MapStartLocation> {
+  const { width, height, startLocations, umsContent } = map.mapData
+  if (map.imageSpawnsBaked !== false || !startLocations?.length) {
+    return []
+  }
+  if (umsContent !== false) {
+    return []
+  }
+  return startLocations.filter(l => l.x >= 0 && l.x <= width * 32 && l.y >= 0 && l.y <= height * 32)
+}
+
+/**
+ * Returns a `srcset` for a map's images. Images are rendered at a whole number of pixels per tile
+ * (at most 32) that fits each size along the map's longest side, so they can be narrower than
+ * their nominal size.
+ */
+export function mapImageSrcSet(map: ReadonlyDeep<MapImageInfo>): string {
+  const { width, height } = map.mapData
+  const longestSide = Math.max(width, height, 1)
+  const sizes = [
+    [256, map.image256Url],
+    [512, map.image512Url],
+    [1024, map.image1024Url],
+    [2048, map.image2048Url],
+  ] as const
+  // Small maps reach the pixels-per-tile cap below the largest sizes, and a srcset can't repeat a
+  // width
+  const candidates = new Map<number, string>()
+  for (const [size, url] of sizes) {
+    const pixelsPerTile = Math.min(Math.max(Math.floor(size / longestSide), 1), 32)
+    const imageWidth = width * pixelsPerTile
+    if (url && !candidates.has(imageWidth)) {
+      candidates.set(imageWidth, url)
+    }
+  }
+  return Array.from(candidates, ([imageWidth, url]) => `${url} ${imageWidth}w`).join(', ')
 }
 
 /** Returns the number of teams for a map/game type. */
@@ -341,27 +442,19 @@ export interface GetMapsQueryParams {
   offset?: number
 }
 
-export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
-
-export interface UploadMapResponse {
-  map: MapInfoJson
-  users: SbUser[]
-}
-
 export interface GetMapsResponse {
   maps: MapInfoJson[]
   hasMoreMaps: boolean
-  users: SbUser[]
-}
-
-export interface GetFavoritesResponse {
-  favoritedMaps: MapInfoJson[]
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 
 export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
   favoritedMapIds: SbMapId[]
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE collections\n            SET title = COALESCE($2, title),\n                description = COALESCE($3, description),\n                published_at = CASE\n                    WHEN $4::boolean IS NULL THEN published_at\n                    WHEN $4 THEN COALESCE(published_at, now())\n                    ELSE NULL\n                END,\n                updated_at = now()\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c24e1ef2e9cb0291d3c14d26583bf45266e5085d69e2021deaca10248349d921"
+}

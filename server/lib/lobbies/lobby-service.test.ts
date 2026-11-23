@@ -36,7 +36,6 @@ import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
@@ -103,8 +102,9 @@ const BIG_GAME_HUNTERS: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -117,9 +117,11 @@ const BIG_GAME_HUNTERS: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 /** A map small enough that changing to it leaves an 8-slot lobby with players to reconcile. */
@@ -137,6 +139,7 @@ const UMS_MAP: MapInfo = {
   id: makeSbMapId('team-micro'),
   hash: '13579',
   name: 'Team Micro',
+  kind: 'ums',
   mapData: {
     ...BIG_GAME_HUNTERS.mapData,
     originalName: 'Team Micro',
@@ -173,11 +176,6 @@ vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
 vi.mock('../maps/map-models', async () => {
   const actual = await vi.importActual<typeof import('../maps/map-models')>('../maps/map-models')
   return { ...actual, getMapInfos: vi.fn() }
-})
-vi.mock('../maps/map-operations', async () => {
-  const actual =
-    await vi.importActual<typeof import('../maps/map-operations')>('../maps/map-operations')
-  return { ...actual, reparseMapsAsNeeded: vi.fn() }
 })
 vi.mock('../users/user-model', async () => {
   const actual = await vi.importActual<typeof import('../users/user-model')>('../users/user-model')
@@ -425,7 +423,6 @@ describe('lobbies/lobby-service', () => {
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
-    asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
     asMockedFunction(findChannelsByName).mockResolvedValue([])
     // A game's results are settled some time after it ends, so nothing is reconciled by default
@@ -817,7 +814,6 @@ describe('lobbies/lobby-service', () => {
 
     test('seats players with their map-defined races when the UMS slots force them', async () => {
       asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([UMS_MAP])
 
       const { id } = await lobbyService.createLobby({
         name: 'UMS lobby',
@@ -1742,6 +1738,34 @@ describe('lobbies/lobby-service', () => {
     })
   })
 
+  describe('createLobby with Use Map Settings', () => {
+    test('creating on a map with no human force slot is rejected and leaves no lobby', async () => {
+      // Big Game Hunters has no UMS forces to take its settings from
+      await expect(
+        createLobby(host, 'UMS lobby', 'listed', false, GameType.UseMapSettings),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidGameType })
+
+      expect(lobbyService.getListedSummaries()).toEqual([])
+      // The failed create didn't take the host's gameplay activity
+      await expect(createLobby(host, 'Melee lobby', 'listed')).resolves.toBeDefined()
+    })
+
+    test('creating on a map with human force slots works', async () => {
+      asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
+
+      const { id } = await lobbyService.createLobby({
+        name: 'UMS lobby',
+        map: UMS_MAP.id,
+        gameType: GameType.UseMapSettings,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+
+      expect(lobbyService.getListedSummaries().map(l => l.id)).toEqual([id])
+    })
+  })
+
   describe('updateSettings', () => {
     test('only the host can change the settings', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
@@ -1844,7 +1868,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       await joinLobby(otherHost, id)
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
       fakeNydus.publish.mockClear()
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
@@ -1864,7 +1887,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
       fakeNydus.publish.mockClear()
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
@@ -1909,7 +1931,6 @@ describe('lobbies/lobby-service', () => {
     test("a change to a sub-type beyond the new map's slots is rejected", async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
 
       // The sub-type is validated against the map's own slot count (not team melee's fixed 8
       // total), the same way creating this lobby would be
@@ -2017,7 +2038,6 @@ describe('lobbies/lobby-service', () => {
       asMockedFunction(getMapInfos).mockImplementation(async ids =>
         maps.filter(map => ids.includes(map.id)),
       )
-      asMockedFunction(reparseMapsAsNeeded).mockImplementation(async found => [...found])
     }
 
     /** Ends the lobby's game for everyone, regrouping it. */
@@ -2038,6 +2058,107 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       return id
     }
+
+    test('a lobby created with a queue starts with it, in order and with repeats', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+
+      const { id } = await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id, TWO_SLOT_MAP.id],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(BIG_GAME_HUNTERS.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([
+        TWO_SLOT_MAP.id,
+        BIG_GAME_HUNTERS.id,
+        TWO_SLOT_MAP.id,
+      ])
+    })
+
+    test('a lobby created with a queue queues the same maps a settings update would', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const queue = [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id]
+      const { id: createdId } = await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: queue,
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      const { id: updatedId } = await createLobby(otherHost, 'Updated lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: otherHost.client,
+        lobbyId: updatedId,
+        mapQueue: queue,
+      })
+
+      expect(lobbyService.lobbies.get(createdId)!.mapQueue).toEqual(
+        lobbyService.lobbies.get(updatedId)!.mapQueue,
+      )
+    })
+
+    test('creating with a queue that names a map that does not exist fails the create', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+
+      await expect(
+        lobbyService.createLobby({
+          name: 'Queued lobby',
+          map: BIG_GAME_HUNTERS.id,
+          mapQueue: [BIG_GAME_HUNTERS.id, makeSbMapId('no-such-map')],
+          gameType: GameType.Melee,
+          visibility: 'listed',
+          user: host.user,
+          client: host.client,
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidMap })
+
+      expect(lobbyService.lobbies.size).toBe(0)
+      expect(lobbyService.lobbyClients.get(host.client)).toBeUndefined()
+      expect(listPublishes()).toEqual([])
+    })
+
+    test('creating with an empty or absent queue starts with none', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+      const { id: absentId } = await createLobby(host, 'No queue', 'listed')
+      const { id: emptyId } = await lobbyService.createLobby({
+        name: 'Empty queue',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: otherHost.user,
+        client: otherHost.client,
+      })
+
+      expect(lobbyService.lobbies.get(absentId)!.mapQueue).toEqual([])
+      expect(lobbyService.lobbies.get(emptyId)!.mapQueue).toEqual([])
+    })
+
+    test('a lobby created with a queue publishes the same list entry as one without', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      await lobbyService.createLobby({
+        name: 'Queued lobby',
+        map: BIG_GAME_HUNTERS.id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await createLobby(otherHost, 'Queued lobby', 'listed')
+
+      const [queued, plain] = listPublishes()
+      expect(queued.action).toBe(plain.action)
+      expect(JSON.stringify(queued.payload).includes(TWO_SLOT_MAP.id)).toBe(false)
+    })
 
     test('queueing maps leaves every seat and ready mark alone', async () => {
       mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
@@ -3860,7 +3981,6 @@ describe('lobbies/lobby-service', () => {
       asMockedFunction(getMapInfos).mockImplementation(async ids =>
         maps.filter(map => ids.includes(map.id)),
       )
-      asMockedFunction(reparseMapsAsNeeded).mockImplementation(async found => [...found])
     }
 
     test('a report is announced, and is in the init payload of whoever joins next', async () => {
@@ -4328,7 +4448,6 @@ describe('lobbies/lobby-service', () => {
 
       test("a UMS lobby deals across the map's forces and leaves its computers alone", async () => {
         asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
-        asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([UMS_MAP])
         const { id } = await lobbyService.createLobby({
           name: 'UMS lobby',
           map: UMS_MAP.id,

@@ -25,11 +25,15 @@ const LoadableGameReports = React.lazy(async () => ({
 const LoadableReviewRequests = React.lazy(async () => ({
   default: (await import('../games/admin-review-requests')).AdminReviewRequests,
 }))
-const LoadableMapManager = IS_ELECTRON
-  ? React.lazy(async () => ({
-      default: (await import('./map-manager')).AdminMapManager,
-    }))
-  : () => null
+const LoadableMapReports = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-reports')).AdminMapReports,
+}))
+const LoadableMapFeatures = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-features')).AdminMapFeatures,
+}))
+const LoadableMapTags = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tags')).AdminMapTags,
+}))
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
@@ -332,13 +336,29 @@ export default function AdminPanel() {
           icon: 'live_tv',
         },
         {
-          path: '/admin/map-manager',
-          // The map manager needs local file access, so it only exists in the app
-          allowed: IS_ELECTRON && !!(perms?.manageMaps || perms?.massDeleteMaps),
-          Component: LoadableMapManager,
-          title: 'Maps',
-          description: 'Upload and remove maps',
-          icon: 'landscape',
+          path: '/admin/maps/reports',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapReports,
+          title: 'Map reports',
+          description: 'Reports about which files make up a map',
+          icon: 'flag',
+          reportKind: 'mapReports',
+        },
+        {
+          path: '/admin/maps/featured',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapFeatures,
+          title: 'Featured maps',
+          description: 'The map or collection of the week on the Discover page',
+          icon: 'star',
+        },
+        {
+          path: '/admin/maps/tags',
+          allowed: !!perms?.manageMaps,
+          Component: LoadableMapTags,
+          title: 'Map tags',
+          description: 'The tags maps can be given',
+          icon: 'sell',
         },
       ],
     },

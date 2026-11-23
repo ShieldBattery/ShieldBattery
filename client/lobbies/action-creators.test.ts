@@ -77,7 +77,14 @@ test('host and join requests use the last accepted personal race, including Rand
     createLobby(CREATE_PARAMS, { onSuccess, onError })(vi.fn(), getState)
   })
 
-  expect(vi.mocked(fetchJson).mock.calls.map(([, options]) => options?.body)).toEqual([
+  // The create request's body is JSON text; the others are form params, which the mocked encoder
+  // leaves as objects.
+  const bodies = vi
+    .mocked(fetchJson)
+    .mock.calls.map(([, options]) =>
+      typeof options?.body === 'string' ? JSON.parse(options.body) : options?.body,
+    )
+  expect(bodies).toEqual([
     expect.objectContaining({ slotId: OWN_SLOT.id, race: 'p' }),
     expect.objectContaining({ slotId: OWN_SLOT.id, race: 'r' }),
     expect.objectContaining({ race: 'r' }),

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO collection_saves (user_id, collection_id)\n            VALUES ($1, $2)\n            ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4d9ed1dcec0324ce9966d8e6d94f061ea6d75623db9f2ee6652be447063d91e5"
+}

@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { TranslationLanguage } from './i18n'
+import { MapCollectionId, MapFamilyId, SbMapId } from './maps'
 import { MatchmakingBanReason } from './matchmaking'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
@@ -46,6 +47,14 @@ export enum NotificationType {
   CommendReceived = 'commendReceived',
   /** The user was automatically banned or warned for not readying up or not loading into a match. */
   MatchmakingBan = 'matchmakingBan',
+  /** Staff took a map file the user published out of the listings. */
+  MapFileDelisted = 'mapFileDelisted',
+  /** A map file the user published was held for review, and staff listed it. */
+  MapPublishApproved = 'mapPublishApproved',
+  /** Something changed about who is the maker (owner) of a map the user made or claimed. */
+  MapOwner = 'mapOwner',
+  /** A map or collection the user made is the staff pick of the week. */
+  MapFeatured = 'mapFeatured',
 }
 
 export type SbNotification =
@@ -67,6 +76,10 @@ export type SbNotification =
   | GamePointsRefundedNotification
   | CommendReceivedNotification
   | MatchmakingBanNotification
+  | MapFileDelistedNotification
+  | MapPublishApprovedNotification
+  | MapOwnerNotification
+  | MapFeaturedNotification
 
 export interface BaseNotification {
   /**
@@ -253,4 +266,75 @@ export interface ClearNotificationsServerResponse {
 
 export interface MarkNotificationsReadServerRequest {
   notificationIds: ReadonlyArray<string>
+}
+
+/** Tells a player that staff took a map file they published out of the listings. */
+export interface MapFileDelistedNotification extends BaseNotification {
+  type: NotificationType.MapFileDelisted
+  /** The ID of the file. */
+  mapId: SbMapId
+  /** The ID of the map (family) the file belongs to. */
+  familyId: string
+  /** The file's name when it was delisted. May contain StarCraft color codes. */
+  mapName: string
+  /** The note staff left, if they left one. */
+  note?: string
+}
+
+/** Tells a player that staff reviewed a map file they published and listed it. */
+export interface MapPublishApprovedNotification extends BaseNotification {
+  type: NotificationType.MapPublishApproved
+  /** The ID of the file. */
+  mapId: SbMapId
+  /** The ID of the map (family) the file belongs to. */
+  familyId: string
+  /** The file's name when it was listed. May contain StarCraft color codes. */
+  mapName: string
+}
+
+/** What happened to a map's ownership, from the point of view of the notified user. */
+export type MapOwnerNotificationEvent =
+  /** Staff confirmed the user's claim. */
+  | { kind: 'claimGranted' }
+  /** Staff turned down the user's claim. */
+  | { kind: 'claimRejected' }
+  /** Staff made the user the map's owner. */
+  | { kind: 'ownerSet' }
+  /** The user lost the map through someone else's action. */
+  | { kind: 'ownershipRemoved' }
+  /** Someone else moved a file into the user's map. */
+  | { kind: 'fileAdded'; actorId: SbUserId; fileId: SbMapId; fileName: string }
+  /** Someone else moved a file out of the user's map. */
+  | { kind: 'fileRemoved'; actorId: SbUserId; fileId: SbMapId; fileName: string }
+
+/** Tells a player about a change to the ownership of a map they made or claimed. */
+export interface MapOwnerNotification extends BaseNotification {
+  type: NotificationType.MapOwner
+  /** The ID of the map (family). May be an old ID that now resolves to a merged map. */
+  familyId: string
+  /** The map's name when the change happened. May contain StarCraft color codes. */
+  mapName: string
+  event: MapOwnerNotificationEvent
+}
+
+/** What a weekly staff pick points at, with the name it had when the notification was sent. */
+export type MapFeaturedNotificationPick =
+  | {
+      kind: 'map'
+      /** The ID of the map (family). May be an old ID that now resolves to a merged map. */
+      id: MapFamilyId
+      /** The name of the map's current file. May contain StarCraft color codes. */
+      name: string
+    }
+  | {
+      kind: 'collection'
+      id: MapCollectionId
+      /** The collection's title. */
+      name: string
+    }
+
+/** Tells a player that a map or collection they made is the map or collection of the week. */
+export interface MapFeaturedNotification extends BaseNotification {
+  type: NotificationType.MapFeatured
+  pick: MapFeaturedNotificationPick
 }

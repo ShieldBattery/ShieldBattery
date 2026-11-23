@@ -198,15 +198,15 @@ importers:
       '@redis/client':
         specifier: ^6.3.0
         version: 6.3.0(@node-rs/xxhash@1.7.8)(@opentelemetry/api@1.9.1)
+      '@shieldbattery/broodmap':
+        specifier: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz
+        version: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz
       '@shieldbattery/broodrep':
         specifier: ^0.6.0
         version: 0.6.0
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
-      bw-chk:
-        specifier: ^1.4.1
-        version: 1.4.1
       core-js:
         specifier: ^3.50.0
         version: 3.50.0
@@ -249,9 +249,6 @@ importers:
       joi:
         specifier: ^18.2.9
         version: 18.2.9
-      jpeg-js:
-        specifier: ^0.4.4
-        version: 0.4.4
       js-yaml:
         specifier: ^5.4.3
         version: 5.4.3
@@ -324,9 +321,6 @@ importers:
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
-      scm-extractor:
-        specifier: ^1.1.0
-        version: 1.1.0
       semver-compare:
         specifier: ^1.0.0
         version: 1.0.0
@@ -336,9 +330,6 @@ importers:
       slug:
         specifier: ^12.0.1
         version: 12.0.1
-      tmp-promise:
-        specifier: ^3.0.3
-        version: 3.0.3
       tsyringe:
         specifier: ^4.10.0
         version: 4.10.0
@@ -514,9 +505,6 @@ importers:
       '@types/slug':
         specifier: ^5.0.9
         version: 5.0.9
-      '@types/tmp':
-        specifier: ^0.2.6
-        version: 0.2.6
       '@types/uid-safe':
         specifier: ^2.1.5
         version: 2.1.5
@@ -547,6 +535,12 @@ importers:
       browserslist:
         specifier: ^4.29.3
         version: 4.29.3
+      bw-chk:
+        specifier: ^1.4.1
+        version: 1.4.1
+      client-zip:
+        specifier: ^2.5.1
+        version: 2.5.1
       concat-stream:
         specifier: ^2.0.0
         version: 2.0.0
@@ -703,6 +697,9 @@ importers:
       run-pty:
         specifier: ^6.0.2
         version: 6.0.2
+      scm-extractor:
+        specifier: ^1.1.0
+        version: 1.1.0
       stream-browserify:
         specifier: ^3.0.0
         version: 3.0.0
@@ -3016,6 +3013,11 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
+  '@shieldbattery/broodmap@file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz':
+    resolution: {integrity: sha512-tiYdTLPs8LlmMlgFntqvcmkp88xNR0TmqJEwt63kumiN7nXUOrZfjvP8dpQvPdUvM4Q0SDtSD6605HOvjqhyCA==, tarball: file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz}
+    version: 0.2.0
+    engines: {node: '>=22.13.1'}
+
   '@shieldbattery/broodrep@0.6.0':
     resolution: {integrity: sha512-HUxGjAOKzjnCuWVoaRGZmtUF5RgzVPmbhNTULhWDg+U6U7eiB/yLi/Y9FbTatznX0DyqECnhDykBl9jG1ueC1A==}
     engines: {node: '>= 22.12.0'}
@@ -3545,9 +3547,6 @@ packages:
 
   '@types/stylis@4.2.7':
     resolution: {integrity: sha512-VgDNokpBoKF+wrdvhAAfS55OMQpL6QRglwTwNC3kIgBrzZxA4WsFj+2eLfEA/uMUDzBcEhYmjSbwQakn/i3ajA==}
-
-  '@types/tmp@0.2.6':
-    resolution: {integrity: sha512-chhaNf2oKHlRkDGt+tiKE2Z5aJ6qalm7Z9rlLdBwmOiAAf09YQvvoLXjWK4HWPF1xU/fqvMgfNfpVoBscA/tKA==}
 
   '@types/uid-safe@2.1.5':
     resolution: {integrity: sha512-RwEfbxqXKEay2b5p8QQVllfnMbVPUZChiKKZ2M6+OSRRmvr4HTCCUZTWhr/QlmrMnNE0ViNBBbP1+5plF9OGRw==}
@@ -4177,6 +4176,9 @@ packages:
 
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
+
+  client-zip@2.5.1:
+    resolution: {integrity: sha512-yOvNSBsQX1B7wtdvIVXJEIIShrlPiX+adhli7sWvQhsx3nX1DjvpSt+AwOxaX+3DCsT/Yx0nRy5hIjRLIYfebw==}
 
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
@@ -5690,9 +5692,6 @@ packages:
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
-
-  jpeg-js@0.4.4:
-    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -10470,6 +10469,8 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
+  '@shieldbattery/broodmap@file:vendor/shieldbattery-broodmap-0.2.0-region-render.tgz': {}
+
   '@shieldbattery/broodrep@0.6.0': {}
 
   '@sindresorhus/is@4.6.0': {}
@@ -11032,8 +11033,6 @@ snapshots:
   '@types/slug@5.0.9': {}
 
   '@types/stylis@4.2.7': {}
-
-  '@types/tmp@0.2.6': {}
 
   '@types/uid-safe@2.1.5': {}
 
@@ -11700,6 +11699,8 @@ snapshots:
   cli-width@4.1.0: {}
 
   client-only@0.0.1: {}
+
+  client-zip@2.5.1: {}
 
   cliui@8.0.1:
     dependencies:
@@ -13376,8 +13377,6 @@ snapshots:
       react: 19.3.0
 
   joycon@3.1.1: {}
-
-  jpeg-js@0.4.4: {}
 
   js-tokens@10.0.0: {}
 

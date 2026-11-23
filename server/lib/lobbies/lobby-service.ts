@@ -73,7 +73,6 @@ import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { outcomeField } from '../messaging/outcome-field'
@@ -383,7 +382,7 @@ async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]>
     return []
   }
 
-  const found = await reparseMapsAsNeeded(await getMapInfos([...new Set(mapIds)]))
+  const found = await getMapInfos([...new Set(mapIds)])
   const byId = new Map(found.map(map => [map.id, map]))
   return mapIds.map(id => {
     const map = byId.get(id)
@@ -694,6 +693,7 @@ export class LobbyService {
     regionManual,
     clientPubkey,
     leaveCurrentLobby,
+    mapQueue,
     user,
     client,
   }: {
@@ -718,48 +718,44 @@ export class LobbyService {
      * so a failed create never strands the client lobby-less.
      */
     leaveCurrentLobby?: boolean
+    /** The maps the lobby plays after its first one, in order. */
+    mapQueue?: SbMapId[]
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
     const hostRegion = await this._resolveRegion(region)
 
-    let mapInfo = (await getMapInfos([map]))[0]
+    const mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
     }
-    ;[mapInfo] = await reparseMapsAsNeeded([mapInfo])
-    checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
-
-    let numSlots
-    switch (gameType) {
-      case 'oneVOne':
-        // 1v1 mode always has 2 player slots
-        numSlots = 2
-        break
-      case 'teamMelee':
-      case 'teamFfa':
-        // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
-        numSlots = 8
-        break
-      default:
-        numSlots = mapInfo.mapData.slots
-    }
+    const settings = validatedLobbySettings({
+      map: mapInfo,
+      gameType,
+      gameSubType: gameSubType ?? 0,
+      allowObservers: allowObservers ?? false,
+      useLegacyLimits: useLegacyLimits ?? false,
+      starcraftCompatibleReplays: starcraftCompatibleReplays ?? true,
+      lockedAlliances: lockedAlliances ?? false,
+    })
+    const fetchedQueue = mapQueue !== undefined ? await fetchMapQueue(mapQueue) : []
 
     const lobbyVisibility = visibility ?? 'listed'
 
     const lobby = Lobbies.createLobby({
       name,
       map: mapInfo,
-      gameType,
-      gameSubType: gameSubType ?? undefined,
-      numSlots,
+      mapQueue: fetchedQueue,
+      gameType: settings.gameType,
+      gameSubType: settings.gameSubType,
+      numSlots: settings.numSlots,
       hostUserId: client.userId,
       hostRace: race,
       hostRegion,
-      allowObservers: allowObservers ?? false,
-      useLegacyLimits,
-      starcraftCompatibleReplays,
-      lockedAlliances,
+      allowObservers: settings.allowObservers,
+      useLegacyLimits: settings.useLegacyLimits,
+      starcraftCompatibleReplays: settings.starcraftCompatibleReplays,
+      lockedAlliances: settings.lockedAlliances,
       visibility: lobbyVisibility,
     })
 
@@ -1399,11 +1395,10 @@ export class LobbyService {
 
     let fetchedMap: MapInfo | undefined
     if (map !== undefined) {
-      const found = (await getMapInfos([map]))[0]
-      if (!found) {
+      fetchedMap = (await getMapInfos([map]))[0]
+      if (!fetchedMap) {
         throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
       }
-      ;[fetchedMap] = await reparseMapsAsNeeded([found])
     }
     let fetchedQueue: MapInfo[] | undefined
     if (mapQueue !== undefined) {

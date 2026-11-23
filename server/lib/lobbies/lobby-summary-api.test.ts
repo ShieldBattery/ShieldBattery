@@ -37,14 +37,15 @@ const HOST: SbUser = { id: HOST_ID, name: 'HostUser', created: 0 }
 
 // A FULL map fixture, including everything the unauthenticated summary endpoint must strip
 // (`mapUrl`, `hash`, `description`, `uploadedBy`, `visibility`, `imageVersion`, and the extra
-// `mapData` fields beyond width/height).
+// `mapData` fields beyond the size and spawn data).
 const FULL_MAP_INFO: MapInfoJson = {
   id: makeSbMapId('map-1'),
   hash: 'deadbeef',
   name: 'Fighting Spirit',
   description: 'A classic 2-player map.',
-  uploadedBy: makeSbUserId(7),
-  uploadDate: 1234567890,
+  kind: 'melee',
+  publishedBy: makeSbUserId(7),
+  publishedAt: 1234567890,
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -57,6 +58,11 @@ const FULL_MAP_INFO: MapInfoJson = {
     width: 128,
     height: 96,
     isEud: false,
+    startLocations: [
+      { slot: 0, x: 320, y: 2768 },
+      { slot: 1, x: 3776, y: 304 },
+    ],
+    umsContent: false,
     parserVersion: 1,
   },
   mapUrl: 'https://cdn.example.com/maps/fs.scm?signature=secret',
@@ -65,6 +71,7 @@ const FULL_MAP_INFO: MapInfoJson = {
   image1024Url: 'https://cdn.example.com/maps/fs-1024.jpg',
   image2048Url: 'https://cdn.example.com/maps/fs-2048.jpg',
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const BASE_SUMMARY: LobbySummaryJson = {
@@ -148,11 +155,14 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
         'image2048Url',
         'image256Url',
         'image512Url',
+        'imageSpawnsBaked',
         'mapData',
         'name',
       ].sort(),
     )
-    expect(Object.keys(response.summary.map.mapData).sort()).toEqual(['height', 'width'].sort())
+    expect(Object.keys(response.summary.map.mapData).sort()).toEqual(
+      ['height', 'startLocations', 'umsContent', 'width'].sort(),
+    )
   })
 
   test('passes through the whitelisted map values unchanged', async () => {
@@ -169,7 +179,13 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
       image512Url: FULL_MAP_INFO.image512Url,
       image1024Url: FULL_MAP_INFO.image1024Url,
       image2048Url: FULL_MAP_INFO.image2048Url,
-      mapData: { width: FULL_MAP_INFO.mapData.width, height: FULL_MAP_INFO.mapData.height },
+      imageSpawnsBaked: FULL_MAP_INFO.imageSpawnsBaked,
+      mapData: {
+        width: FULL_MAP_INFO.mapData.width,
+        height: FULL_MAP_INFO.mapData.height,
+        startLocations: FULL_MAP_INFO.mapData.startLocations,
+        umsContent: FULL_MAP_INFO.mapData.umsContent,
+      },
     })
   })
 

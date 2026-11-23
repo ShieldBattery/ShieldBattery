@@ -6,6 +6,7 @@ import {
   desktopCapturer,
   dialog,
   Menu,
+  nativeImage,
   powerMonitor,
   protocol,
   screen,
@@ -29,7 +30,9 @@ import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { DISCORD_APPLICATION_IDS } from '../common/discord-presence'
 import { getErrorStack } from '../common/errors'
-import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { LOCAL_MAP_IMAGE_PATH_PREFIX, LocalMapRoot } from '../common/map-library'
+import { MAP_TILE_PATH_PREFIX, parseMapTilePath } from '../common/map-tiles'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -53,6 +56,11 @@ import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
+import { LocalMapLibraryService, setupLocalMapLibrary } from './map-library'
+import { MapRootFolder } from './map-library/map-folders'
+import { LOCAL_MAP_JPEG_QUALITY, LocalMapImages } from './map-library/map-images'
+import { LocalMapTiles, MAP_TILE_JPEG_QUALITY } from './map-library/map-tiles'
+import { RenderedMapImage, WorkerMapImageRenderer } from './map-library/worker/map-renderer-client'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
@@ -205,9 +213,13 @@ let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
 let replayLibrary: ReplayLibraryService | undefined
+let localMapLibrary: LocalMapLibraryService | undefined
+let localMapImages: LocalMapImages | undefined
+let localMapTiles: LocalMapTiles | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
 let lastReplayFolders: string[] | undefined
+let lastMapRoots: MapRootFolder[] | undefined
 // Whether the renderer has reported itself fully bootstrapped (see `rendererReady` in
 // common/ipc.ts). Until then, `replaysOpen` sends are queued rather than sent: on a cold start the
 // launch args are handled before the renderer's IPC listeners exist, and messages sent with no
@@ -328,6 +340,22 @@ function resolveReplayFolders(settings: Readonly<Partial<LocalSettings>>): strin
     return [defaultReplayFolder()]
   }
   return configured.map(folder => path.normalize(folder)).filter(folder => folder.length > 0)
+}
+
+/**
+ * The map folders the local map index covers for the given settings: the StarCraft install's
+ * `Maps` folder (when the install path is set) and `Documents\StarCraft\maps`.
+ */
+function resolveMapRoots(settings: Readonly<Partial<LocalSettings>>): MapRootFolder[] {
+  const roots: MapRootFolder[] = []
+  if (settings.starcraftPath) {
+    roots.push({ root: LocalMapRoot.Install, path: path.join(settings.starcraftPath, 'Maps') })
+  }
+  roots.push({
+    root: LocalMapRoot.Documents,
+    path: path.join(app.getPath('documents'), 'Starcraft', 'maps'),
+  })
+  return roots
 }
 
 let cachedIds: [number, string][] = []
@@ -686,6 +714,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       })
       lastRunAppAtSystemStart = settings.runAppAtSystemStart
       lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
+    }
+
+    if (localMapLibrary) {
+      const roots = resolveMapRoots(settings)
+      if (
+        !lastMapRoots ||
+        roots.length !== lastMapRoots.length ||
+        roots.some((root, i) => root.path !== lastMapRoots![i].path)
+      ) {
+        lastMapRoots = roots
+        localMapLibrary.setRoots(roots)
+      }
     }
 
     if (replayLibrary) {
@@ -1144,32 +1184,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     // were, it wouldn't be transferable anyway (thus it'd cause an error)
     return (await fsPromises.readFile(filePath)).buffer as ArrayBuffer
   })
-  ipcMain.handle('fsReadDir', async (_, dirPath, options) => {
-    const result = await fsPromises.readdir(dirPath, options)
-    return result.map<FsDirent>(d => ({
-      isFile: d.isFile(),
-      isDirectory: d.isDirectory(),
-      name: d.name,
-    }))
-  })
-  ipcMain.handle('fsStat', async (_, filePath) => {
-    const result = await fsPromises.stat(filePath)
-    return {
-      isFile: result.isFile(),
-      isDirectory: result.isDirectory(),
-      size: result.size,
-      blksize: result.blksize,
-      blocks: result.blocks,
-      atimeMs: result.atimeMs,
-      mtimeMs: result.mtimeMs,
-      ctimeMs: result.ctimeMs,
-      birthtimeMs: result.birthtimeMs,
-      atime: result.atime,
-      mtime: result.mtime,
-      ctime: result.ctime,
-      birthtime: result.birthtime,
-    }
-  })
   ipcMain.handle('fsUnlink', async (_, filePath) => {
     await fsPromises.unlink(filePath)
   })
@@ -1276,7 +1290,20 @@ function setupCspProtocol(curSession: Session) {
     const pathname = path.posix.normalize(url.pathname)
 
     try {
-      if (pathname.match(/^\/(assets|dist)\/.+$/)) {
+      if (pathname.startsWith(LOCAL_MAP_IMAGE_PATH_PREFIX)) {
+        const image = await localMapImages?.getImage(
+          pathname.slice(LOCAL_MAP_IMAGE_PATH_PREFIX.length),
+        )
+        return image
+          ? new Response(new Uint8Array(image), { headers: { 'content-type': 'image/jpeg' } })
+          : new Response('Not Found', { status: 404, statusText: 'Not Found' })
+      } else if (pathname.startsWith(MAP_TILE_PATH_PREFIX)) {
+        const tile = parseMapTilePath(pathname.slice(MAP_TILE_PATH_PREFIX.length))
+        const image = tile ? await localMapTiles?.getTile(tile) : undefined
+        return image
+          ? new Response(new Uint8Array(image), { headers: { 'content-type': 'image/jpeg' } })
+          : new Response('Not Found', { status: 404, statusText: 'Not Found' })
+      } else if (pathname.match(/^\/(assets|dist)\/.+$/)) {
         const contents = await readFile(path.join(APP_ROOT, pathname))
         // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
         // happy with to pass to Response?
@@ -1582,6 +1609,12 @@ async function createWindow() {
     }
   })
 
+  // A download of a blob URL (e.g. an archive the renderer built) opens the native save dialog
+  // titled with the raw `blob:` URL unless it's given a title, so use the file name instead.
+  mainWindow.webContents.session.on('will-download', (_event, item) => {
+    item.setSaveDialogOptions({ title: item.getFilename() })
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsedUrl = new URL(url)
@@ -1719,6 +1752,65 @@ app.on('ready', () => {
       } catch (err) {
         // A failure to set up the replay index shouldn't take down the whole app.
         logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)
+      }
+
+      try {
+        const roots = resolveMapRoots(await localSettings.get())
+        lastMapRoots = roots
+        // Namespaced by SB_SESSION like the replay index, so dev instances don't share one file
+        const sbSessionName = process.env.SB_SESSION
+        const dbFileName = sbSessionName
+          ? `map-library-${sbSessionName}.sqlite`
+          : 'map-library.sqlite'
+        const library = setupLocalMapLibrary({
+          dbPath: path.join(app.getPath('userData'), dbFileName),
+          roots,
+          getSender: () => TypedIpcSender.from(mainWindow?.webContents),
+        })
+        localMapLibrary = library
+        const getInstallPath = async () => (await localSettings.get()).starcraftPath
+        // One renderer for images and tiles, so their renders share its asset cache
+        const renderer = new WorkerMapImageRenderer()
+        const encodeJpeg = (quality: number) => (image: RenderedMapImage) =>
+          nativeImage
+            .createFromBitmap(
+              Buffer.from(image.bgra.buffer, image.bgra.byteOffset, image.bgra.byteLength),
+              { width: image.width, height: image.height },
+            )
+            .toJPEG(quality)
+        localMapImages = new LocalMapImages({
+          // Shared by dev instances: images are keyed by file hash and game build, not by session
+          cacheDir: path.join(app.getPath('userData'), 'map-images'),
+          getInstallPath,
+          findPathByHash: hash => library.findPathByHash(hash),
+          renderer,
+          encodeJpeg: encodeJpeg(LOCAL_MAP_JPEG_QUALITY),
+          logger,
+        })
+        localMapTiles = new LocalMapTiles({
+          // Shared by dev instances, like the images
+          cacheDir: path.join(app.getPath('userData'), 'map-tiles'),
+          getInstallPath,
+          // Maps on this PC, or ones the client downloaded to the map store (as it does for games)
+          findPath: async (hash, format) => {
+            const localPath = await library.findPathByHash(hash)
+            if (localPath) {
+              return localPath
+            }
+            const storePath = mapStore.getPath(hash, format)
+            try {
+              await fsPromises.stat(storePath)
+              return storePath
+            } catch {
+              return undefined
+            }
+          },
+          renderer,
+          encodeJpeg: encodeJpeg(MAP_TILE_JPEG_QUALITY),
+          logger,
+        })
+      } catch (err) {
+        logger.error(`Error setting up the local map library: ${getErrorStack(err)}`)
       }
 
       systemTray = new SystemTray(mainWindow, () => quitApp('tray menu'))

@@ -1,0 +1,270 @@
+import { describe, expect, test } from 'vitest'
+import { LocalMapKind, LocalMapSize, LocalMapSort } from '../../common/map-library'
+import { Tileset } from '../../common/maps'
+import { EudFilter, MapKind, MapLens, MapSizeClass } from '../gql/graphql'
+import {
+  CatalogPlayers,
+  catalogSearchForTag,
+  CatalogSort,
+  CLEARED_CATALOG_FILTERS,
+  DEFAULT_CATALOG_FILTERS,
+  defaultPickerSortForListing,
+  defaultSortForListing,
+  effectiveSort,
+  filtersOf,
+  hasCatalogParams,
+  hasNonDefaultFilters,
+  LOCAL_SORTS,
+  MapListing,
+  parseCatalogParams,
+  serializeCatalogParams,
+  toLocalMapQuery,
+  toMapFilter,
+  validateSavedFilters,
+  validateSavedSort,
+  withSearch,
+} from './map-catalog-params'
+
+/** The server's tag list, in its order, as far as the catalog's params use it. */
+const TAG_LIST = [{ id: 'standard' }, { id: 'island' }, { id: 'defense' }, { id: 'co-op' }]
+
+const parse = (search: string) => parseCatalogParams(new URLSearchParams(search), TAG_LIST)
+
+describe('client/maps/map-catalog-params', () => {
+  test('parses every param', () => {
+    expect(
+      parse(
+        'q=bound&sort=name&lens=ums&players=5%2B&size=large,tiny&tileset=ice,jungle&eud=hide' +
+          '&staff-pick=1&verified=1&tags=co-op,defense',
+      ),
+    ).toEqual({
+      search: 'bound',
+      sort: CatalogSort.Name,
+      lens: MapLens.Ums,
+      players: CatalogPlayers.FivePlus,
+      sizes: [MapSizeClass.Tiny, MapSizeClass.Large],
+      tilesets: [Tileset.Jungle, Tileset.Ice],
+      eud: EudFilter.Exclude,
+      staffPick: true,
+      verified: true,
+      tags: ['defense', 'co-op'],
+    })
+  })
+
+  test('falls back to defaults for missing and unknown values', () => {
+    const defaults = { search: '', sort: undefined, ...CLEARED_CATALOG_FILTERS }
+    expect(parse('')).toEqual(defaults)
+    expect(
+      parse(
+        'sort=popular&lens=melee2&players=9&size=enormous&tileset=space&eud=x&staff-pick=yes' +
+          '&verified=true&tags=zombies,,',
+      ),
+    ).toEqual(defaults)
+  })
+
+  test('round-trips, leaving defaults out and keeping canonical order', () => {
+    const search = serializeCatalogParams(
+      parse('tileset=twilight,badlands&size=huge,small&lens=melee&players=2&eud=only'),
+    )
+    expect(search).toBe('lens=melee&players=2&size=small,huge&tileset=badlands,twilight&eud=only')
+    expect(parse(search)).toEqual(
+      parse('lens=melee&players=2&size=small,huge&tileset=badlands,twilight&eud=only'),
+    )
+    expect(serializeCatalogParams(parse(''))).toBe('')
+    expect(serializeCatalogParams(parse('verified=1&staff-pick=1'))).toBe('staff-pick=1&verified=1')
+    expect(serializeCatalogParams(parse('tags=co-op,,defense,co-op&lens=ums'))).toBe(
+      'lens=ums&tags=defense,co-op',
+    )
+  })
+
+  test('keeps the tags as the URL has them until the tag list is loaded', () => {
+    const unloaded = parseCatalogParams(new URLSearchParams('tags=co-op,zombies,,defense,co-op'))
+    expect(unloaded.tags).toEqual(['co-op', 'zombies', 'defense'])
+    expect(serializeCatalogParams(unloaded)).toBe('tags=co-op,zombies,defense')
+  })
+
+  test("never saves tags among the viewer's default filters", () => {
+    expect(filtersOf(parse('lens=ums&tags=defense&eud=hide'))).toEqual({
+      ...DEFAULT_CATALOG_FILTERS,
+      lens: MapLens.Ums,
+      eud: EudFilter.Exclude,
+    })
+  })
+
+  test("links to the catalog showing a tag's maps", () => {
+    expect(catalogSearchForTag({ id: 'co-op', kind: MapKind.Ums })).toBe('lens=ums&tags=co-op')
+    expect(catalogSearchForTag({ id: 'standard', kind: MapKind.Melee })).toBe(
+      'lens=melee&tags=standard',
+    )
+  })
+
+  test('keeps unrelated params and drops cleared ones', () => {
+    const base = new URLSearchParams('lens=ums&other=1')
+    expect(serializeCatalogParams({ ...parse(''), search: 'x' }, base)).toBe('other=1&q=x')
+  })
+
+  test('detects catalog params', () => {
+    expect(hasCatalogParams(new URLSearchParams(''))).toBe(false)
+    expect(hasCatalogParams(new URLSearchParams('other=1'))).toBe(false)
+    expect(hasCatalogParams(new URLSearchParams('staff-pick=1'))).toBe(true)
+    expect(hasNonDefaultFilters(DEFAULT_CATALOG_FILTERS)).toBe(false)
+    expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, staffPick: true })).toBe(true)
+    expect(hasCatalogParams(new URLSearchParams('verified=1'))).toBe(true)
+    expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, verified: true })).toBe(true)
+    expect(hasCatalogParams(new URLSearchParams('tags=defense'))).toBe(true)
+    expect(hasNonDefaultFilters(CLEARED_CATALOG_FILTERS)).toBe(false)
+    expect(hasNonDefaultFilters({ ...CLEARED_CATALOG_FILTERS, tags: ['defense'] })).toBe(true)
+  })
+
+  test('picks the sort from the URL, then searching, then saved, then the listing default', () => {
+    const all = defaultSortForListing(MapListing.All)
+    const yours = defaultSortForListing(MapListing.Yours)
+    expect(effectiveSort({ search: '', sort: undefined }, undefined, all)).toBe(
+      CatalogSort.Trending,
+    )
+    expect(effectiveSort({ search: '', sort: undefined }, undefined, yours)).toBe(
+      CatalogSort.Newest,
+    )
+    expect(effectiveSort({ search: '', sort: undefined }, CatalogSort.Name, all)).toBe(
+      CatalogSort.Name,
+    )
+    expect(effectiveSort({ search: 'x', sort: undefined }, CatalogSort.Name, all)).toBe(
+      CatalogSort.BestMatch,
+    )
+    expect(effectiveSort({ search: 'x', sort: CatalogSort.Newest }, undefined, all)).toBe(
+      CatalogSort.Newest,
+    )
+    expect(effectiveSort({ search: '  ', sort: CatalogSort.BestMatch }, undefined, all)).toBe(
+      CatalogSort.Trending,
+    )
+  })
+
+  test('defaults the picker to the most played maps', () => {
+    expect(defaultPickerSortForListing(MapListing.All)).toBe(CatalogSort.MostPlayed)
+    expect(defaultPickerSortForListing(MapListing.Yours)).toBe(CatalogSort.Newest)
+    expect(defaultPickerSortForListing(MapListing.Starred)).toBe(CatalogSort.Newest)
+  })
+
+  test('switches to and from Best match as a search starts and ends', () => {
+    const base = parse('sort=name')
+    const searching = withSearch(base, 'bound')
+    expect(searching.search).toBe('bound')
+    expect(searching.sort).toBeUndefined()
+    expect(withSearch({ ...searching, sort: CatalogSort.Newest }, 'bounds').sort).toBe(
+      CatalogSort.Newest,
+    )
+    expect(withSearch({ ...searching, sort: CatalogSort.BestMatch }, '').sort).toBeUndefined()
+    expect(withSearch({ ...searching, sort: CatalogSort.Newest }, '').sort).toBe(CatalogSort.Newest)
+    expect(withSearch(base, '').sort).toBe(CatalogSort.Name)
+  })
+
+  test('only uses sorts the listing offers', () => {
+    const local = defaultSortForListing(MapListing.Local)
+    expect(local).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: CatalogSort.Trending }, undefined, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: undefined }, CatalogSort.MostPlayed, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: undefined }, CatalogSort.Players, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Players)
+    // No Best match among the maps on this PC, so searching keeps the chosen sort
+    expect(
+      effectiveSort({ search: 'x', sort: undefined }, CatalogSort.Newest, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Newest)
+  })
+
+  test('builds the local map index query', () => {
+    expect(
+      toLocalMapQuery(
+        parse(
+          'q=+Bound+&lens=ums&players=5%2B&size=tiny,huge&tileset=jungle&eud=hide&staff-pick=1' +
+            '&tags=defense',
+        ),
+        CatalogSort.Players,
+        { path: 'documents/UMS', recursive: true },
+      ),
+    ).toEqual({
+      search: 'Bound',
+      kind: LocalMapKind.Ums,
+      players: [5, 6, 7, 8],
+      sizes: [LocalMapSize.Tiny, LocalMapSize.Huge],
+      tilesets: [Tileset.Jungle],
+      eud: false,
+      folder: { path: 'documents/UMS', recursive: true },
+      sort: LocalMapSort.Players,
+    })
+    expect(toLocalMapQuery(parse(''), CatalogSort.Newest)).toEqual({
+      search: undefined,
+      kind: undefined,
+      players: undefined,
+      sizes: undefined,
+      tilesets: undefined,
+      eud: undefined,
+      folder: undefined,
+      sort: LocalMapSort.Newest,
+    })
+    expect(toLocalMapQuery(parse('eud=only&lens=melee'), CatalogSort.Name)).toMatchObject({
+      kind: LocalMapKind.Melee,
+      eud: true,
+      sort: LocalMapSort.Name,
+    })
+  })
+
+  test('builds the GraphQL filter', () => {
+    expect(toMapFilter(parse(''))).toEqual({
+      search: undefined,
+      lens: MapLens.All,
+      players: undefined,
+      sizes: undefined,
+      tilesets: undefined,
+      eud: EudFilter.Any,
+      staffPick: undefined,
+      verified: undefined,
+      tags: undefined,
+    })
+    expect(
+      toMapFilter(
+        parse('q=%20bound%20&players=5%2B&staff-pick=1&tileset=ice&verified=1&tags=island'),
+      ),
+    ).toEqual({
+      search: 'bound',
+      lens: MapLens.All,
+      players: [5, 6, 7, 8],
+      sizes: undefined,
+      tilesets: [Tileset.Ice],
+      eud: EudFilter.Any,
+      staffPick: true,
+      verified: true,
+      tags: ['island'],
+    })
+  })
+
+  test('validates saved defaults', () => {
+    expect(validateSavedFilters(undefined)).toBeUndefined()
+    expect(validateSavedFilters('nope')).toBeUndefined()
+    expect(
+      validateSavedFilters({
+        lens: 'UMS',
+        players: '5+',
+        sizes: ['HUGE', 'BOGUS'],
+        tilesets: [7, 99],
+        eud: 'ONLY',
+        staffPick: 'true',
+        verified: true,
+      }),
+    ).toEqual({
+      lens: MapLens.Ums,
+      players: CatalogPlayers.FivePlus,
+      sizes: [MapSizeClass.Huge],
+      tilesets: [Tileset.Twilight],
+      eud: EudFilter.Only,
+      staffPick: false,
+      verified: true,
+    })
+    expect(validateSavedSort('name')).toBe(CatalogSort.Name)
+    expect(validateSavedSort('match')).toBeUndefined()
+  })
+})

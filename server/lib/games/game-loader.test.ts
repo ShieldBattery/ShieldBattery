@@ -102,11 +102,13 @@ function makeMapInfo(): MapInfo {
     hash: 'hash',
     name: 'Test Map',
     description: '',
-    uploadedBy: p1,
-    uploadDate: new Date(0),
+    kind: 'melee',
+    publishedBy: p1,
+    publishedAt: new Date(0),
     visibility: MapVisibility.Public,
     mapData: {} as any,
     imageVersion: 1,
+    imageSpawnsBaked: true,
   }
 }
 

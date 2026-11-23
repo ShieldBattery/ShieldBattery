@@ -143,19 +143,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@maps/getMaps'](state, action) {
-    updateUsers(state, action.payload.users)
-  },
-
-  ['@maps/getFavoritedMaps'](state, action) {
-    updateUsers(state, action.payload.users)
-  },
-
   ['@maps/updateMap'](state, action) {
     updateUsers(state, action.payload.users)
   },
 
-  ['@maps/uploadLocalMap'](state, action) {
+  ['@maps/uploadMap'](state, action) {
     updateUsers(state, action.payload.users)
   },
 
@@ -208,6 +200,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@leagues/getLeagueGames'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
+  ['@maps/getMapGames'](state, { payload: { users } }) {
     updateUsers(state, users)
   },
 

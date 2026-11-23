@@ -48,8 +48,9 @@ const BigGameHunters: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -62,9 +63,11 @@ const BigGameHunters: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const BOXER_LOBBY = createLobby({
@@ -1153,8 +1156,9 @@ const UMS_MAP_1: MapInfo = {
   hash: 'defe175e',
   name: 'Sunken Defense',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scx',
@@ -1190,17 +1194,20 @@ const UMS_MAP_1: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_2: MapInfo = {
   id: makeSbMapId('tappavat'),
   hash: '12345',
   name: 'tappavat',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -1236,17 +1243,20 @@ const UMS_MAP_2: MapInfo = {
     width: 128,
     height: 128,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_3: MapInfo = {
   id: makeSbMapId('accipiter'),
   hash: '987654321',
   name: 'Accipiter',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -1276,17 +1286,20 @@ const UMS_MAP_3: MapInfo = {
     width: 128,
     height: 128,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_4: MapInfo = {
   id: makeSbMapId('team-micro'),
   hash: '13579',
   name: 'Team Micro',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
@@ -1328,9 +1341,11 @@ const UMS_MAP_4: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_LOBBY_1 = createLobby({
   name: 'Sunken Defence',

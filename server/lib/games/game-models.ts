@@ -14,6 +14,7 @@ import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/g
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
+import { MapFamilyId, SbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
@@ -21,6 +22,7 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
+import { mapNameMatches } from '../maps/map-search'
 
 /**
  * A row shape for the `games` table. `manually_resolved` has no physical column behind it — it's
@@ -828,13 +830,18 @@ function getGameSourceWhereClause(source: GameSourceFilter | undefined): SqlTemp
  * has no computer players.
  *
  * If `leagueId` is given, the list is restricted to games played in that league (that is, games
- * that produced a `league_user_changes` row), which is what backs a league's Games tab.
+ * that produced a `league_user_changes` row), which is what backs a league's Games tab. If `mapId`
+ * is given, the list is restricted to games played on that map file (a canonical map ID, see
+ * `resolveMapIds`). If `mapFamilyId` is given, it's restricted to games played on any file of that
+ * map family, which backs a map page's games.
  */
 export async function getGames(
   params: {
     limit: number
     offset: number
     leagueId?: LeagueId
+    mapId?: SbMapId
+    mapFamilyId?: MapFamilyId
     source?: GameSourceFilter
     duration?: GameDurationFilter
     mapName?: string
@@ -853,6 +860,8 @@ export async function getGames(
     limit,
     offset,
     leagueId,
+    mapId,
+    mapFamilyId,
     source,
     duration,
     mapName,
@@ -882,6 +891,13 @@ export async function getGames(
         SELECT 1 FROM league_user_changes luc
         WHERE luc.league_id = ${leagueId} AND luc.game_id = g.id
       )`)
+    }
+
+    if (mapId) {
+      whereClauses.push(sql`g.map_id = ${mapId}`)
+    }
+    if (mapFamilyId) {
+      whereClauses.push(sql`g.map_id IN (SELECT id FROM maps WHERE family_id = ${mapFamilyId})`)
     }
 
     if (duration && duration !== GameDurationFilter.All) {
@@ -917,7 +933,7 @@ export async function getGames(
 
     if (mapName) {
       needMapJoin = true
-      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+      whereClauses.push(mapNameMatches(mapName))
     }
 
     if (playerName) {
@@ -994,7 +1010,7 @@ export async function getGames(
 
     if (needMapJoin) {
       query = query.append(sql`
-        INNER JOIN uploaded_maps m ON g.map_id = m.id
+        INNER JOIN maps m ON g.map_id = m.id
       `)
     }
 
@@ -1108,7 +1124,7 @@ export async function getGamesForUser(
 
     if (mapName) {
       needMapJoin = true
-      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+      whereClauses.push(mapNameMatches(mapName))
     }
 
     if (playerName) {
@@ -1179,7 +1195,7 @@ export async function getGamesForUser(
 
     if (needMapJoin) {
       query = query.append(sql`
-        INNER JOIN uploaded_maps m ON g.map_id = m.id
+        INNER JOIN maps m ON g.map_id = m.id
       `)
     }
 

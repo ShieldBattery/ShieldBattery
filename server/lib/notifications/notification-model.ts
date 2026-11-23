@@ -1,10 +1,13 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
+import { SbMapId } from '../../../common/maps'
 import { MatchmakingBanReason } from '../../../common/matchmaking'
 import {
   LeagueBanNotification,
   LeagueStartNotification,
   LeagueUnbanNotification,
+  MapFeaturedNotificationPick,
+  MapOwnerNotificationEvent,
   NotificationType,
 } from '../../../common/notifications'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
@@ -38,6 +41,10 @@ export type NotificationData =
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
   | MatchmakingBanNotificationData
+  | MapFileDelistedNotificationData
+  | MapPublishApprovedNotificationData
+  | MapOwnerNotificationData
+  | MapFeaturedNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -157,6 +164,41 @@ export interface MatchmakingBanNotificationData extends BaseNotificationData {
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
 
+export interface MapFileDelistedNotificationData extends BaseNotificationData {
+  type: NotificationType.MapFileDelisted
+  mapId: SbMapId
+  familyId: string
+  mapName: string
+  note?: string
+}
+
+type MapFileDelistedSearchNotificationData = MakeSearchable<MapFileDelistedNotificationData>
+
+export interface MapPublishApprovedNotificationData extends BaseNotificationData {
+  type: NotificationType.MapPublishApproved
+  mapId: SbMapId
+  familyId: string
+  mapName: string
+}
+
+type MapPublishApprovedSearchNotificationData = MakeSearchable<MapPublishApprovedNotificationData>
+
+export interface MapOwnerNotificationData extends BaseNotificationData {
+  type: NotificationType.MapOwner
+  familyId: string
+  mapName: string
+  event: MapOwnerNotificationEvent
+}
+
+type MapOwnerSearchNotificationData = MakeSearchable<MapOwnerNotificationData>
+
+export interface MapFeaturedNotificationData extends BaseNotificationData {
+  type: NotificationType.MapFeatured
+  pick: MapFeaturedNotificationPick
+}
+
+type MapFeaturedSearchNotificationData = MakeSearchable<MapFeaturedNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -176,6 +218,10 @@ export type SearchNotificationData =
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | MatchmakingBanSearchNotificationData
+  | MapFileDelistedSearchNotificationData
+  | MapPublishApprovedSearchNotificationData
+  | MapOwnerSearchNotificationData
+  | MapFeaturedSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

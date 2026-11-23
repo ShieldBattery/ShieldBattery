@@ -1,58 +1,94 @@
-import { lazy, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { SbMapId } from '../../common/maps'
-import { useTrackPageView } from '../analytics/analytics'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch } from '../redux-hooks'
-import { CenteredContentContainer } from '../styles/centered-container'
-import { BrowseServerMaps } from './browse-server-maps'
+import { lazy, Suspense, useEffect } from 'react'
+import { useRoute } from 'wouter'
+import {
+  ALL_MAP_CATALOG_TABS,
+  MAP_COLLECTIONS_SEGMENT,
+  MAP_COMPARE_SEGMENT,
+  MAP_FAVORITES_SEGMENT,
+  MapCatalogTab,
+  urlForMapCatalog,
+  urlForMapCollections,
+} from '../../common/map-url'
+import { replace } from '../navigation/routing'
+import { LoadingDotsArea } from '../progress/dots'
+import { MapCatalogRoute } from './map-catalog'
+import { MapCollectionsRoute } from './map-collections-tab'
 
-const LoadableLocalMaps = lazy(async () => ({
-  default: (await import('./browse-local-maps')).BrowseLocalMaps,
+const LoadableMapDiscover = lazy(async () => ({
+  default: (await import('./map-discover')).MapDiscoverRoute,
 }))
 
+const LoadableMapPage = lazy(async () => ({
+  default: (await import('./map-page')).MapPageRoute,
+}))
+
+const LoadableMapComparePage = lazy(async () => ({
+  default: (await import('./map-compare-page')).MapComparePageRoute,
+}))
+
+const LoadableMapCollectionPage = lazy(async () => ({
+  default: (await import('./map-collection-page')).MapCollectionPageRoute,
+}))
+
+/** Sends the tab that listed starred maps to the Collections tab, where Starred is listed. */
+function FavoritesRedirect() {
+  useEffect(() => {
+    replace(urlForMapCollections())
+  }, [])
+  return null
+}
+
+/**
+ * Sends a path under `/maps` that names nothing to the map browser's front page, keeping any
+ * filters in its URL.
+ */
+function DiscoverRedirect() {
+  useEffect(() => {
+    replace(urlForMapCatalog(MapCatalogTab.Discover, location.search.slice(1)))
+  }, [])
+  return null
+}
+
 export function MapsRoot() {
-  useTrackPageView('/maps')
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
+  const [isDiscover] = useRoute('/maps')
+  const [isCatalogTab, params] = useRoute('/maps/:tab')
+  const [isComparePage] = useRoute(`/maps/${MAP_COMPARE_SEGMENT}/*?`)
+  const [isCollectionPage] = useRoute(`/maps/${MAP_COLLECTIONS_SEGMENT}/:id/:slug?`)
+  const [isMapPage] = useRoute('/maps/:id/:slug?/:subPage?')
 
-  const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
-  const [uploadedMapId, setUploadedMapId] = useState<SbMapId>()
-
-  const onBrowseLocalMaps = useStableCallback(() => {
-    setBrowsingLocalMaps(true)
-    setUploadedMapId(undefined)
-  })
-
-  const onMapUpload = useStableCallback((mapId: SbMapId) => {
-    setBrowsingLocalMaps(false)
-    setUploadedMapId(mapId)
-  })
-
-  const onMapRemove = useStableCallback((mapId: SbMapId) => {
-    if (uploadedMapId === mapId) {
-      setUploadedMapId(undefined)
-    }
-  })
-
-  return (
-    <CenteredContentContainer>
-      {IS_ELECTRON && browsingLocalMaps ? (
-        <LoadableLocalMaps onMapUpload={onMapUpload} />
-      ) : (
-        <BrowseServerMaps
-          key={uploadedMapId ?? '-'}
-          title={t('maps.activity.title', 'Maps')}
-          uploadedMapId={uploadedMapId}
-          onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
-          onMapClick={(mapId: SbMapId) => {
-            dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId } }))
-          }}
-          onMapRemove={onMapRemove}
-        />
-      )}
-    </CenteredContentContainer>
-  )
+  if (isDiscover) {
+    return (
+      <Suspense fallback={<LoadingDotsArea />}>
+        <LoadableMapDiscover />
+      </Suspense>
+    )
+  } else if (isComparePage) {
+    return (
+      <Suspense fallback={<LoadingDotsArea />}>
+        <LoadableMapComparePage />
+      </Suspense>
+    )
+  } else if (isCollectionPage) {
+    return (
+      <Suspense fallback={<LoadingDotsArea />}>
+        <LoadableMapCollectionPage />
+      </Suspense>
+    )
+  } else if (isCatalogTab && params.tab === MAP_FAVORITES_SEGMENT) {
+    return <FavoritesRedirect />
+  } else if (isCatalogTab && params.tab === MapCatalogTab.Discover) {
+    return <DiscoverRedirect />
+  } else if (isCatalogTab && params.tab === MapCatalogTab.Collections) {
+    return <MapCollectionsRoute />
+  } else if (isCatalogTab && ALL_MAP_CATALOG_TABS.includes(params.tab as MapCatalogTab)) {
+    return <MapCatalogRoute tab={params.tab as MapCatalogTab} />
+  } else if (isMapPage) {
+    return (
+      <Suspense fallback={<LoadingDotsArea />}>
+        <LoadableMapPage />
+      </Suspense>
+    )
+  } else {
+    return <DiscoverRedirect />
+  }
 }

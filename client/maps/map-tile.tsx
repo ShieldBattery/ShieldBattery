@@ -1,0 +1,1080 @@
+import { TFunction } from 'i18next'
+import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import styled, { keyframes } from 'styled-components'
+import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
+import { urlForMap } from '../../common/map-url'
+import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
+import { useSelfUser } from '../auth/auth-utils'
+import { FragmentType, graphql, useFragment } from '../gql'
+import { MapKind, MapTile_SbMapFragmentFragment } from '../gql/graphql'
+import { narrowDuration } from '../i18n/date-formats'
+import { numberFormat, useFormat } from '../i18n/locale-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { RoomChip } from '../lobbies/room/room-parts'
+import { IconButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
+import { LinkButton } from '../material/link-button'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
+import { push } from '../navigation/routing'
+import { LoadingDotsArea } from '../progress/dots'
+import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
+import {
+  openMapDownloadDialog,
+  openMapPreviewDialog,
+  openMapPublishDialog,
+  removeFromMyMaps,
+} from './action-creators'
+import { useLocalMapImage } from './local-map-images'
+import { LocalMapUpload } from './local-maps'
+import { urlForMapFile } from './map-family-files'
+import { useToggleMapFavorite } from './map-favorites'
+import { MapFileImage } from './map-image'
+import { umsForceLayout } from './map-page-summaries'
+import { useUnpublishMap } from './map-unpublish'
+import { uploadStatusText } from './map-uploads'
+
+export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
+  fragment MapTile_SbMapFragment on SbMap {
+    id
+    name
+    kind
+    playerCount
+    staffPick
+    listed
+    publishedAt
+    isFavorited
+    ladderPools
+    publisher {
+      id
+    }
+    family {
+      id
+      name
+      current {
+        id
+      }
+    }
+    stats {
+      id
+      games7d
+      games28d
+      gamesTotal
+      trendingScore
+    }
+    file {
+      id
+      ...MapFileImage_FileFragment
+      width
+      height
+      tileset
+      isEud
+      umsForces {
+        name
+        teamId
+        players {
+          playerId
+          isComputer
+        }
+      }
+    }
+  }
+`)
+
+/** How long after being published a map counts as new. */
+const NEW_MAP_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * The trending score from which a map counts as rising: lobby play this week at least 2 standard
+ * deviations above what the weeks before it predict.
+ */
+export const RISING_TRENDING_SCORE = 200
+
+/** Which fact the line under a tile's name shows, chosen to explain the order of the list. */
+export enum MapTileSignal {
+  /** Games this week for maps that are rising, otherwise games this month. */
+  Trending,
+  /** When the map was published. */
+  Published,
+  /** When the map was added to the viewer's maps (`addedAt`). */
+  Added,
+  /** Games ever. */
+  Total,
+}
+
+const compactNumber = numberFormat({ notation: 'compact', maximumFractionDigits: 1 })
+
+const Root = styled.div`
+  position: relative;
+  min-width: 0;
+`
+
+const TileLink = styled(LinkButton)`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  border-radius: 8px;
+  outline-offset: 2px;
+`
+
+const TilePickButton = styled.button`
+  width: 100%;
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  border: none;
+  border-radius: 8px;
+  outline-offset: 2px;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+  }
+`
+
+const ImageBox = styled.div<{ $selected?: boolean }>`
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  overflow: hidden;
+
+  border: 1px solid rgb(from var(--color-blue80) r g b / 0.12);
+  border-radius: 6px;
+  background-color: var(--theme-container-low);
+  container-type: inline-size;
+
+  ${TileLink}:hover &, ${TilePickButton}:hover:not(:disabled) & {
+    outline: 2px solid var(--theme-outline-variant);
+  }
+
+  && {
+    ${props => (props.$selected ? 'outline: 2px solid var(--theme-amber);' : '')}
+  }
+`
+
+/** Covers the image while a pick of the map is being completed. */
+const PendingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background-color: rgb(from var(--color-blue10) r g b / 0.6);
+`
+
+/**
+ * The chips along the bottom of a tile's image: the picker's marker (where the map sits in the
+ * queue, or that it's in a collection) on its own line, above the ladder pool chips, so neither
+ * covers the other however many pools there are.
+ */
+const BottomChips = styled.div`
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+
+  pointer-events: none;
+`
+
+const QueueChip = styled.div`
+  ${labelMedium};
+  ${singleLine};
+  max-width: 100%;
+  padding: 2px 8px;
+
+  border-radius: 999px;
+  background-color: var(--theme-amber-container);
+  color: var(--theme-on-amber-container);
+  pointer-events: none;
+`
+
+/** A word over the top left corner of a map or collection image, such as "New". */
+export const TileBadge = styled.div`
+  ${labelSmall};
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+
+  border-radius: 999px;
+  background-color: var(--theme-amber-container);
+  color: var(--theme-on-amber-container);
+  pointer-events: none;
+`
+
+const PoolChips = styled.div`
+  align-self: stretch;
+
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+
+  pointer-events: auto;
+
+  @container (max-width: 140px) {
+    display: none;
+  }
+`
+
+const PoolChip = styled(Tooltip)`
+  ${labelMedium};
+  ${singleLine};
+  padding: 2px 8px;
+
+  border-radius: 999px;
+  background-color: rgb(from var(--color-blue10) r g b / 0.72);
+  color: var(--theme-on-surface);
+`
+
+/** The buttons over the top right corner of the image. */
+const CornerActions = styled.div`
+  position: absolute;
+  top: 6px;
+  right: 6px;
+
+  display: flex;
+  gap: 4px;
+`
+
+const CornerButton = styled(IconButton)<{ $favorited?: boolean }>`
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+
+  background-color: rgb(from var(--color-blue10) r g b / 0.6);
+  color: ${props => (props.$favorited ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+`
+
+const Text = styled.div`
+  min-width: 0;
+  padding-inline: 2px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+const NameRow = styled.div`
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`
+
+const Name = styled(EllipsizedText)`
+  ${titleSmall};
+  min-width: 0;
+  color: var(--theme-on-surface);
+`
+
+const Meta = styled(EllipsizedText)`
+  ${bodySmall};
+  color: var(--color-grey-blue80);
+`
+
+enum SignalTone {
+  Default,
+  Rising,
+  Fresh,
+  Error,
+}
+
+const Signal = styled(EllipsizedText)<{ $tone?: SignalTone }>`
+  ${labelSmall};
+  color: ${props => {
+    switch (props.$tone) {
+      case SignalTone.Rising:
+        return 'var(--theme-positive)'
+      case SignalTone.Fresh:
+        return 'var(--color-amber70)'
+      case SignalTone.Error:
+        return 'var(--theme-error)'
+      default:
+        return 'var(--color-grey-blue70)'
+    }
+  }};
+`
+
+/** The row under one of the viewer's own maps: its visibility and the actions for it. */
+const LibraryFooter = styled.div`
+  min-height: 32px;
+  padding-left: 2px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const UnlistedChip = styled(RoomChip)`
+  padding-block: 2px;
+`
+
+const FooterMenuButton = styled(IconButton)`
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin-left: auto;
+`
+
+export interface MapTileProps {
+  map: FragmentType<typeof MapTile_SbMapFragment>
+  signal: MapTileSignal
+  /** When the map was added to the viewer's maps, for {@link MapTileSignal.Added}. */
+  addedAt?: string
+  /**
+   * Whether the tile has a menu with actions for one of the viewer's own maps. Called with the
+   * map's id once it has been removed from them.
+   */
+  onRemovedFromLibrary?: (id: SbMapId) => void
+  /** The width the tile's image is expected to be drawn at, in CSS pixels. */
+  imageSize: number
+  /** When set, the tile picks the map (for a lobby) rather than linking to its page. */
+  pick?: MapTilePick
+}
+
+/** How a tile behaves when picking maps for a lobby. */
+export interface MapTilePick {
+  /** Called with the map's name, as the tile shows it. */
+  onPick: (name: string) => void
+  /**
+   * Whether the tile shows as chosen: the map currently chosen, or a marked map that picking takes
+   * back out (e.g. of a collection).
+   */
+  selected: boolean
+  /** Where the map sits in the lobby's map queue (1-based), if it's queued. */
+  queuePositions?: ReadonlyArray<number>
+  /** A chip saying why the map is marked (e.g. that it's already in a collection), if it is. */
+  markedLabel?: string
+  /** Whether a pick of this map is being completed. */
+  pending: boolean
+  /** Whether the last pick of this map failed. */
+  failed: boolean
+  disabled: boolean
+}
+
+/**
+ * A map in the catalog: its image and the facts to judge it by, linking to its page (or, when
+ * picking a map for a lobby, picking it).
+ */
+export function MapTile({
+  map: mapRef,
+  signal,
+  addedAt,
+  onRemovedFromLibrary,
+  imageSize,
+  pick,
+}: MapTileProps) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const map = useFragment(MapTile_SbMapFragment, mapRef)
+  const poolTypes = map.ladderPools
+  const [toggleFavorite, favoritePending] = useToggleMapFavorite()
+
+  // When the tile first rendered is recent enough to judge "new" by
+  const [now] = useState(() => Date.now())
+
+  const name = filterColorCodes(map.name)
+  const isNew = !!map.publishedAt && now - Date.parse(map.publishedAt) < NEW_MAP_MS
+  let badge: string | undefined
+  if (map.staffPick) {
+    badge = t('maps.page.staffPick', 'Staff pick')
+  } else if (isNew) {
+    badge = t('maps.catalog.newBadge', 'New')
+  }
+
+  const favoriteLabel = map.isFavorited
+    ? t('maps.thumbnail.removeFromStarred', 'Remove from Starred')
+    : t('maps.thumbnail.addToStarred', 'Add to Starred')
+
+  const previewLabel = t('maps.thumbnail.showMapPreview', 'Show map preview')
+
+  const contents = (
+    <>
+      <ImageBox $selected={pick?.selected}>
+        <MapFileImage file={map.file} name={name} size={imageSize} forceAspectRatio={1} />
+        {badge ? <TileBadge>{badge}</TileBadge> : null}
+        {pick?.markedLabel || pick?.queuePositions?.length || poolTypes.length ? (
+          <BottomChips>
+            {pick?.markedLabel ? <QueueChip>{pick.markedLabel}</QueueChip> : null}
+            {!pick?.markedLabel && pick?.queuePositions?.length ? (
+              <QueueChip>
+                {t('maps.picker.inQueue', {
+                  defaultValue: '{{positions}} in queue',
+                  positions: pick.queuePositions.map(p => `#${p}`).join(', '),
+                })}
+              </QueueChip>
+            ) : null}
+            {poolTypes.length ? (
+              <PoolChips>
+                {poolTypes.map(type => {
+                  const label = matchmakingTypeToLabel(type, t)
+                  return (
+                    <PoolChip
+                      key={type}
+                      text={t(
+                        'maps.thumbnail.mapPoolChipTooltip',
+                        'In the current {{mode}} ladder map pool',
+                        { mode: label },
+                      )}
+                      position='top'
+                      tabIndex={-1}>
+                      {label}
+                    </PoolChip>
+                  )
+                })}
+              </PoolChips>
+            ) : null}
+          </BottomChips>
+        ) : null}
+        {pick?.pending ? (
+          <PendingOverlay>
+            <LoadingDotsArea />
+          </PendingOverlay>
+        ) : null}
+      </ImageBox>
+      <Text>
+        <NameRow>
+          <Name text={name} />
+        </NameRow>
+        <Meta text={mapTileMeta(map, t)} />
+        {pick?.failed ? (
+          <Signal
+            $tone={SignalTone.Error}
+            text={t('maps.picker.pickFailed', "Couldn't load this map. Select it to try again.")}
+          />
+        ) : (
+          <MapTileSignalLine map={map} signal={signal} addedAt={addedAt} />
+        )}
+      </Text>
+    </>
+  )
+
+  return (
+    <Root>
+      {pick ? (
+        <TilePickButton
+          type='button'
+          aria-pressed={pick.selected}
+          disabled={pick.disabled || pick.pending}
+          onClick={() => pick.onPick(name)}>
+          {contents}
+        </TilePickButton>
+      ) : (
+        <TileLink href={urlForMapFile(map.family, map.id)}>{contents}</TileLink>
+      )}
+      {onRemovedFromLibrary ? (
+        <LibraryFooter>
+          {map.listed ? null : <UnlistedChip>{t('maps.page.unlisted', 'Unlisted')}</UnlistedChip>}
+          <LibraryMapMenu map={map} onRemoved={onRemovedFromLibrary} />
+        </LibraryFooter>
+      ) : (
+        <CornerActions>
+          {pick ? (
+            <Tooltip text={previewLabel} position='bottom' tabIndex={-1}>
+              <CornerButton
+                icon={<MaterialIcon icon='zoom_in' size={18} />}
+                ariaLabel={previewLabel}
+                onClick={() => dispatch(openMapPreviewDialog(map.id))}
+              />
+            </Tooltip>
+          ) : null}
+          <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
+            <CornerButton
+              $favorited={map.isFavorited}
+              icon={<MaterialIcon icon='star' size={18} filled={map.isFavorited} />}
+              ariaLabel={favoriteLabel}
+              disabled={favoritePending}
+              onClick={() => toggleFavorite(map)}
+            />
+          </Tooltip>
+        </CornerActions>
+      )}
+    </Root>
+  )
+}
+
+type TileMap = MapTile_SbMapFragmentFragment
+
+/**
+ * The line of facts under a map's name: its player count, size and tileset, or for a UMS map its
+ * forces and whether it's EUD.
+ */
+export function mapTileMeta(map: TileMap, t: TFunction): string {
+  const players = t('maps.catalog.players', {
+    defaultValue: '{{count}} players',
+    defaultValue_one: '{{count}} player',
+    count: map.playerCount,
+  })
+
+  if (map.kind === MapKind.Ums) {
+    const parts: string[] = []
+    const layout = umsForceLayout(map.file.umsForces)
+    if (layout) {
+      const teams = layout.teams.join(` ${t('maps.page.forceVersus', 'vs')} `)
+      parts.push(
+        layout.computers > 0
+          ? t('maps.page.forcesWithComputers', {
+              defaultValue: '{{teams}} + {{count}} computers',
+              defaultValue_one: '{{teams}} + {{count}} computer',
+              teams,
+              count: layout.computers,
+            })
+          : teams,
+      )
+    } else {
+      parts.push(players)
+    }
+    if (map.file.isEud) {
+      parts.push(t('maps.page.eud', 'EUD'))
+    }
+    return parts.join(' · ')
+  }
+
+  return [
+    players,
+    `${map.file.width}×${map.file.height}`,
+    tilesetToName(map.file.tileset as Tileset, t),
+  ].join(' · ')
+}
+
+function MapTileSignalLine({
+  map,
+  signal,
+  addedAt,
+}: {
+  map: TileMap
+  signal: MapTileSignal
+  addedAt?: string
+}) {
+  const { t } = useTranslation()
+  const numbers = useFormat(compactNumber)
+  const durations = useFormat(narrowDuration)
+  const { stats } = map
+
+  switch (signal) {
+    case MapTileSignal.Added:
+      if (addedAt) {
+        return (
+          <Signal
+            text={t('maps.catalog.addedAgo', {
+              defaultValue: 'Added {{time}}',
+              time: durations.format(new Date(addedAt)),
+            })}
+          />
+        )
+      }
+      break
+    case MapTileSignal.Published:
+      if (map.publishedAt) {
+        return (
+          <Signal
+            $tone={SignalTone.Fresh}
+            text={t('maps.catalog.publishedAgo', {
+              defaultValue: 'Published {{time}}',
+              time: durations.format(new Date(map.publishedAt)),
+            })}
+          />
+        )
+      }
+      break
+    case MapTileSignal.Trending:
+      if (stats && stats.trendingScore >= RISING_TRENDING_SCORE) {
+        return (
+          <Signal
+            $tone={SignalTone.Rising}
+            text={t('maps.catalog.gamesThisWeek', {
+              defaultValue: '{{formattedCount}} games this week',
+              defaultValue_one: '{{formattedCount}} game this week',
+              count: stats.games7d,
+              formattedCount: numbers.format(stats.games7d),
+            })}
+          />
+        )
+      }
+      return <MonthSignal games={stats?.games28d} />
+    case MapTileSignal.Total:
+      break
+    default:
+      signal satisfies never
+  }
+
+  return (
+    <Signal
+      text={
+        stats
+          ? t('maps.catalog.totalGames', {
+              defaultValue: '{{formattedCount}} games',
+              defaultValue_one: '{{formattedCount}} game',
+              count: stats.gamesTotal,
+              formattedCount: numbers.format(stats.gamesTotal),
+            })
+          : t('maps.catalog.notPlayed', 'Not played yet')
+      }
+    />
+  )
+}
+
+function MonthSignal({ games }: { games: number | undefined }) {
+  const { t } = useTranslation()
+  const numbers = useFormat(compactNumber)
+  return (
+    <Signal
+      text={
+        games === undefined
+          ? t('maps.catalog.notPlayed', 'Not played yet')
+          : t('maps.catalog.gamesThisMonth', {
+              defaultValue: '{{formattedCount}} games this month',
+              defaultValue_one: '{{formattedCount}} game this month',
+              count: games,
+              formattedCount: numbers.format(games),
+            })
+      }
+    />
+  )
+}
+
+function LibraryMapMenu({
+  map,
+  onRemoved,
+}: {
+  map: Pick<TileMap, 'id' | 'name' | 'listed' | 'publisher'>
+  onRemoved: (id: SbMapId) => void
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const selfUser = useSelfUser()
+  const unpublish = useUnpublishMap()
+  const mapId = map.id
+  const canUnpublish = map.listed && !!selfUser && map.publisher?.id === selfUser.id
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+
+  const onRemove = () => {
+    dispatch(
+      removeFromMyMaps(mapId, {
+        onSuccess: () => {
+          snackbarController.showSnackbar(
+            t('maps.server.removedFromMyMaps', 'Removed from your maps'),
+          )
+          onRemoved(mapId)
+        },
+        onError: () =>
+          snackbarController.showSnackbar(
+            t(
+              'maps.server.removeFromMyMapsError',
+              'An error occurred while removing the map from your maps',
+            ),
+          ),
+      }),
+    )
+  }
+
+  return (
+    <>
+      <FooterMenuButton
+        ref={anchorRef}
+        icon={<MaterialIcon icon='more_vert' size={20} />}
+        ariaLabel={t('maps.catalog.mapActions', 'Map actions')}
+        onClick={openMenu}
+      />
+      <Popover
+        open={open}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList dense={true}>
+          <MenuItem
+            text={t('maps.catalog.viewMap', 'View map')}
+            icon={<MaterialIcon icon='info' />}
+            onClick={() => {
+              closeMenu()
+              push(urlForMap(mapId, map.name))
+            }}
+          />
+          <MenuItem
+            text={t('maps.thumbnail.downloadMap', 'Download')}
+            icon={<MaterialIcon icon='download' />}
+            onClick={() => {
+              closeMenu()
+              dispatch(openMapDownloadDialog(mapId))
+            }}
+          />
+          {!map.listed ? (
+            <MenuItem
+              text={t('maps.publish.publishMenuItem', 'Publish')}
+              icon={<MaterialIcon icon='public' />}
+              onClick={() => {
+                closeMenu()
+                dispatch(openMapPublishDialog({ fileId: mapId }))
+              }}
+            />
+          ) : null}
+          {canUnpublish ? (
+            <MenuItem
+              text={t('maps.publish.unpublish', 'Unpublish')}
+              icon={<MaterialIcon icon='public_off' />}
+              onClick={() => {
+                closeMenu()
+                unpublish(mapId)
+              }}
+            />
+          ) : null}
+          <DestructiveMenuItem
+            text={t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps')}
+            icon={<MaterialIcon icon='delete' />}
+            onClick={() => {
+              closeMenu()
+              onRemove()
+            }}
+          />
+        </MenuList>
+      </Popover>
+    </>
+  )
+}
+
+function localMapMeta(map: LocalMapInfo, t: TFunction): string {
+  const players = t('maps.catalog.players', {
+    defaultValue: '{{count}} players',
+    defaultValue_one: '{{count}} player',
+    count: map.playerCount,
+  })
+  if (map.kind === LocalMapKind.Ums) {
+    const parts = [players, t('maps.catalog.lensUms', 'UMS')]
+    if (map.isEud) {
+      parts.push(t('maps.page.eud', 'EUD'))
+    }
+    return parts.join(' · ')
+  }
+  return [players, `${map.width}×${map.height}`, tilesetToName(map.tileset as Tileset, t)].join(
+    ' · ',
+  )
+}
+
+/** The name a map file on this PC goes by: its own name, else its file name. */
+export function localMapName(file: LocalMapFile): string {
+  if (file.map?.name) {
+    return file.map.name
+  }
+  const dot = file.fileName.lastIndexOf('.')
+  return dot === -1 ? file.fileName : file.fileName.slice(0, dot)
+}
+
+/**
+ * A map file on this PC, read from the file itself, with an image the app renders from the
+ * StarCraft install. Choosing it uses the server's copy of the map, uploading the file first if the
+ * server doesn't have one.
+ */
+export function LocalMapTile({
+  file,
+  upload,
+  disabled = false,
+  folderLabel,
+  onActivate,
+}: {
+  file: LocalMapFile
+  /** What's happening with the file since it was chosen, until that's done or if it failed. */
+  upload?: LocalMapUpload
+  disabled?: boolean
+  /** Where the file is, for listings that span folders. */
+  folderLabel?: string
+  onActivate: () => void
+}) {
+  const { t } = useTranslation()
+  const busy = !!upload && !upload.error && !upload.pickFailed
+  const uploading = busy && !upload.checking
+  const readable = !!file.map
+  // The hash whose image failed to load, so the tile falls back to its icon for that file only
+  const [failedImageHash, setFailedImageHash] = useState<string>()
+  const imageHash = readable && file.hash !== failedImageHash ? file.hash : undefined
+  const imageAreaRef = useRef<HTMLDivElement>(null)
+  const image = useLocalMapImage(imageHash, imageAreaRef)
+
+  let signal: React.ReactNode = null
+  if (upload?.pickFailed) {
+    signal = (
+      <Signal
+        $tone={SignalTone.Error}
+        text={t('maps.picker.pickFailed', "Couldn't load this map. Select it to try again.")}
+      />
+    )
+  } else if (upload?.error) {
+    signal = (
+      <Signal
+        $tone={SignalTone.Error}
+        text={t('maps.local.cantBeUsed', {
+          defaultValue: "Can't be used: {{reason}}",
+          reason: upload.error,
+        })}
+      />
+    )
+  } else if (upload?.checking) {
+    signal = <Signal text={t('maps.local.checking', 'Checking…')} />
+  } else if (uploading) {
+    signal = <Signal text={uploadStatusText(upload.progress, t)} />
+  }
+
+  return (
+    <Root>
+      <TilePickButton
+        type='button'
+        disabled={!readable || busy || disabled}
+        title={file.path}
+        onClick={onActivate}>
+        <LocalImage ref={imageAreaRef}>
+          <MaterialIcon icon={readable ? 'map' : 'block'} size={40} />
+          {image.src ? (
+            <LocalMapImg
+              src={image.src}
+              alt=''
+              draggable={false}
+              decoding='async'
+              onLoad={() => image.onSettled(true)}
+              onError={() => {
+                image.onSettled(false)
+                setFailedImageHash(imageHash)
+              }}
+            />
+          ) : null}
+          {uploading && upload.progress !== undefined ? (
+            <UploadProgressBar progress={upload.progress} overImage={!!image.src} />
+          ) : null}
+          {upload?.checking ? (
+            <PendingOverlay>
+              <LoadingDotsArea />
+            </PendingOverlay>
+          ) : null}
+        </LocalImage>
+        <Text>
+          <Name text={filterColorCodes(localMapName(file))} />
+          <Meta
+            text={
+              file.map
+                ? localMapMeta(file.map, t)
+                : t('maps.local.unreadable', "Can't read this map file")
+            }
+          />
+          {folderLabel ? <Meta text={folderLabel} /> : null}
+          {signal}
+        </Text>
+      </TilePickButton>
+    </Root>
+  )
+}
+
+const LocalImage = styled.div`
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 16px;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border: 1px solid rgb(from var(--color-blue80) r g b / 0.12);
+  border-radius: 6px;
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant);
+
+  ${TilePickButton}:hover:not(:disabled) & {
+    outline: 2px solid var(--theme-outline-variant);
+  }
+`
+
+/** Covers the tile's icon once the app's render of the file has loaded. */
+const LocalMapImg = styled.img`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`
+
+/**
+ * A tile-shaped placeholder for a map file that's being uploaded, that's waiting its turn to be, or
+ * that failed to upload.
+ */
+export function PendingMapTile({
+  fileName,
+  queued,
+  progress,
+  error,
+  onRemove,
+}: {
+  fileName: string
+  /** Whether the file is still waiting for the uploads before it to finish. */
+  queued?: boolean
+  /** The fraction of the file sent so far, once sending it has started. */
+  progress?: number
+  /** Why the upload failed. Unset while it's still uploading. */
+  error?: string
+  /** Called to take a queued or failed upload off the list. */
+  onRemove: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Root>
+      <PendingImage $error={!!error}>
+        {error ? (
+          <>
+            <MaterialIcon icon='error' size={32} />
+            <PendingError>{error}</PendingError>
+          </>
+        ) : null}
+        {!error && queued ? (
+          <>
+            <MaterialIcon icon='schedule' size={32} />
+            <PendingStatus>{t('maps.catalog.queued', 'Queued')}</PendingStatus>
+          </>
+        ) : null}
+        {!error && !queued ? (
+          <>
+            <MaterialIcon icon='upload' size={32} />
+            <PendingStatus>{uploadStatusText(progress, t)}</PendingStatus>
+            {progress !== undefined ? <UploadProgressBar progress={progress} /> : null}
+          </>
+        ) : null}
+      </PendingImage>
+      <Text>
+        <Name text={fileName} />
+        <Meta
+          text={
+            error
+              ? t('maps.catalog.uploadFailed', 'Upload failed')
+              : t('maps.catalog.privateUpload', 'Private upload')
+          }
+        />
+      </Text>
+      <LibraryFooter>
+        {error || queued ? (
+          <FooterMenuButton
+            icon={<MaterialIcon icon='close' size={20} />}
+            ariaLabel={
+              error
+                ? t('maps.catalog.dismissUpload', 'Dismiss')
+                : t('maps.catalog.removeQueuedUpload', 'Remove from queue')
+            }
+            onClick={onRemove}
+          />
+        ) : null}
+      </LibraryFooter>
+    </Root>
+  )
+}
+
+const PendingImage = styled.div<{ $error: boolean }>`
+  aspect-ratio: 1;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 16px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  border: 2px dashed
+    ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-outline-variant)')};
+  border-radius: 6px;
+  color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-on-surface-variant)')};
+  text-align: center;
+`
+
+const PendingStatus = styled.div`
+  ${bodySmall};
+`
+
+const ProgressTrack = styled.div<{ $overImage?: boolean }>`
+  width: 80%;
+  height: 4px;
+  overflow: hidden;
+  ${props =>
+    props.$overImage
+      ? 'position: absolute; left: 10%; bottom: 12px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);'
+      : ''}
+
+  border-radius: 2px;
+  background-color: var(--theme-container-highest);
+`
+
+const ProgressFill = styled.div`
+  height: 100%;
+  background-color: var(--theme-primary);
+  transition: width 150ms linear;
+`
+
+const processingSweep = keyframes`
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+`
+
+/** Fills the track while the server works on a file that's been sent, for as long as that takes. */
+const ProcessingFill = styled.div`
+  width: 40%;
+  height: 100%;
+  background-color: var(--theme-primary);
+  animation: ${processingSweep} 1.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+`
+
+/** The bar for {@link uploadStatusText}: filling as the file is sent, then sweeping. */
+function UploadProgressBar({ progress, overImage }: { progress: number; overImage?: boolean }) {
+  return (
+    <ProgressTrack $overImage={overImage}>
+      {progress >= 1 ? (
+        <ProcessingFill />
+      ) : (
+        <ProgressFill style={{ width: `${progress * 100}%` }} />
+      )}
+    </ProgressTrack>
+  )
+}
+
+const PendingError = styled.div`
+  ${bodySmall};
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+`

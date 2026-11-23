@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH moving AS (\n                SELECT c.id, c.claimant, v.into_id,\n                    row_number() OVER (\n                        PARTITION BY v.into_id, c.claimant ORDER BY c.created_at, c.id\n                    ) AS n\n                FROM map_owner_claims c\n                INNER JOIN unnest($1::uuid[], $2::uuid[]) AS v(from_id, into_id)\n                    ON v.from_id = c.family_id\n                WHERE c.status = 'open'\n            )\n            DELETE FROM map_owner_claims c\n            USING moving mv\n            WHERE c.id = mv.id AND (\n                mv.n > 1\n                OR EXISTS (\n                    SELECT 1 FROM map_owner_claims o\n                    WHERE o.family_id = mv.into_id AND o.claimant = mv.claimant\n                        AND o.status = 'open'\n                )\n                OR EXISTS (\n                    SELECT 1 FROM map_families t\n                    WHERE t.id = mv.into_id AND t.owner_id = mv.claimant\n                )\n            )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c0a31ae21fdfda8bc182677bba958ad44d1ed82e270a753652025cee073c285d"
+}

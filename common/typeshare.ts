@@ -12,6 +12,18 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
+export interface CollectionDownloadFile {
+  /** The file's name in the archive, unique within it. */
+  name: string
+  /** A signed URL to fetch the file from. */
+  url: string
+}
+
+export interface CollectionDownloadFilesResponse {
+  /** The files to download, in the collection's order. */
+  files: CollectionDownloadFile[]
+}
+
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.
@@ -77,7 +89,6 @@ export interface SbPermissions {
   manageMatchmaking: boolean
   manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
-  massDeleteMaps: boolean
   moderateChatChannels: boolean
   manageNews: boolean
   manageBugReports: boolean
@@ -85,6 +96,10 @@ export interface SbPermissions {
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
   manageLiveStreams: boolean
+}
+
+export interface UploadMapResponse {
+  mapId: TypeshareTypes.SbMapId
 }
 
 export interface UrgentMessageTranslation {
@@ -111,7 +126,7 @@ export enum MapVisibility {
   Unlisted = 'UNLISTED',
   /** Listed for everyone in the community maps. */
   Public = 'PUBLIC',
-  /** Listed for everyone in the official maps. */
+  /** Listed for everyone, and its map is one of the staff picks. */
   Official = 'OFFICIAL',
 }
 
@@ -174,6 +189,151 @@ export type PublishedGameReportMessage =
       }
     }
 
+/**
+ * Messages published to Node (via Redis pub/sub) about family reports. Node uses them to refresh
+ * the open-report counts it pushes to staff.
+ */
+export type PublishedMapFamilyReportMessage =
+  /**
+   * A report was filed, or an open report was updated by its reporter. Also sent for reports
+   * the server files when a file is published.
+   */
+  | {
+      type: 'reportCreated'
+      data: {
+        reportId: string
+      }
+    }
+  /** Staff resolved, dismissed or reopened a report. */
+  | {
+      type: 'reportStatusChanged'
+      data: {
+        reportId: string
+      }
+    }
+
+/**
+ * Messages published to Node (via Redis pub/sub) about the weekly picks. Node tells the maker of
+ * each of the running week's picks, once, that it is the map or collection of the week.
+ */
+export type PublishedMapFeatureMessage =
+  /**
+   * The pick of one of a week's slots was set to another map or collection, or its blurb
+   * changed. `week` is the instant the week starts. Only sent for the week that is running.
+   */
+  | {
+      type: 'pickChanged'
+      data: {
+        week: string
+      }
+    }
+
+/**
+ * Messages published to Node (via Redis pub/sub) about changes to who owns a map, for the users
+ * they concern. Node turns them into notifications. `name` is the map's name (its current file's
+ * name) when the change was made.
+ */
+export type PublishedMapOwnerMessage =
+  /**
+   * Staff granted a claim, making the claimant the map's owner. Not sent for claims granted at
+   * once, nor to staff granting their own claim.
+   */
+  | {
+      type: 'claimGranted'
+      data: {
+        claimId: string
+        familyId: string
+        claimantId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Staff rejected a claim. Not sent to staff rejecting their own claim. */
+  | {
+      type: 'claimRejected'
+      data: {
+        claimId: string
+        familyId: string
+        claimantId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Staff made a user the map's owner directly (or verified them as its owner). */
+  | {
+      type: 'ownerSet'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /**
+   * The owner lost the map through someone else's action: staff removed or replaced them, or
+   * the map was merged into another one (`familyId` is then an old id of that map). Not sent
+   * when the owner gave the map up or made the change themselves.
+   */
+  | {
+      type: 'ownershipRemoved'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
+  /** Someone other than the owner moved a file into their map. */
+  | {
+      type: 'fileAdded'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        fileId: TypeshareTypes.SbMapId
+        fileName: string
+        name: string
+        actorId: TypeshareTypes.SbUserId
+      }
+    }
+  /** Someone other than the owner moved a file out of their map. */
+  | {
+      type: 'fileRemoved'
+      data: {
+        familyId: string
+        ownerId: TypeshareTypes.SbUserId
+        fileId: TypeshareTypes.SbMapId
+        fileName: string
+        name: string
+        actorId: TypeshareTypes.SbUserId
+      }
+    }
+
+/**
+ * Messages published to Node (via Redis pub/sub) about publishing outcomes that concern the
+ * file's publisher. Node turns them into notifications.
+ */
+export type PublishedMapPublishMessage =
+  /** Staff took a listed file out of the listings. */
+  | {
+      type: 'fileDelisted'
+      data: {
+        fileId: TypeshareTypes.SbMapId
+        familyId: string
+        publisherId: TypeshareTypes.SbUserId
+        /** The file's name when it was delisted. */
+        name: string
+        /** The note staff left, when they left one. */
+        note?: string
+      }
+    }
+  /** Staff approved a file held for review, which listed it. */
+  | {
+      type: 'heldPublishListed'
+      data: {
+        fileId: TypeshareTypes.SbMapId
+        familyId: string
+        publisherId: TypeshareTypes.SbUserId
+        /** The file's name when it was listed. */
+        name: string
+      }
+    }
+
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
 
@@ -183,6 +343,10 @@ export type PublishedMessage =
   | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
   | { type: 'gameReport'; data: PublishedGameReportMessage }
   | { type: 'gameCommend'; data: PublishedGameCommendMessage }
+  | { type: 'mapFamilyReport'; data: PublishedMapFamilyReportMessage }
+  | { type: 'mapPublish'; data: PublishedMapPublishMessage }
+  | { type: 'mapOwner'; data: PublishedMapOwnerMessage }
+  | { type: 'mapFeature'; data: PublishedMapFeatureMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

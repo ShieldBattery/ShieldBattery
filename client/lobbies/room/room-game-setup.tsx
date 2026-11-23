@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
@@ -12,6 +11,7 @@ import {
 } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
 import { openSimpleDialog } from '../../dialogs/action-creators'
+import { MapPickerMode } from '../../maps/map-picker'
 import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
@@ -24,17 +24,10 @@ import {
   Section,
   SectionHeader,
 } from '../create/game-setup-form'
-import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
+import { formatGameSetupSummary, GameSetupPage, useMapPickerState } from '../create/game-setup-page'
 import { VisibilityPicker } from '../create/visibility-picker'
-import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
-
-/** Which map a pick from the map browser is for. */
-enum MapPickTarget {
-  /** The map the lobby's next game is played on. */
-  Current,
-  /** A map added to the end of the queue for the games after that. */
-  Queue,
-}
+import { useMapQueueEditor } from '../map-queue-editor'
+import { MapQueueSection } from './room-map-queue'
 
 /**
  * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
@@ -69,30 +62,24 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
   const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
-  const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
-    initialQueue.map(mapId => ({ key: nanoid(), mapId })),
-  )
+  const { queue, setQueue, queueIds, canQueueMore, addMap, addMaps } =
+    useMapQueueEditor(initialQueue)
 
   const selectedMapInfo = useAppSelector(s =>
     setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
   )
 
   const formRef = useRef<GameSetupFormHandle>(null)
-  const [browseState, setBrowseState] = useState(MapBrowseState.None)
-  const [pickTarget, setPickTarget] = useState(MapPickTarget.Current)
+  const picker = useMapPickerState()
 
-  const browseFor = (target: MapPickTarget) => {
-    setPickTarget(target)
-    setBrowseState(MapBrowseState.Server)
-  }
-
+  // Maps added to the queue keep the picker open, so several can be added in one go
   const pick = (mapId: SbMapId) => {
-    if (pickTarget === MapPickTarget.Queue) {
-      setQueue([...queue, { key: nanoid(), mapId }])
+    if (picker.mode === MapPickerMode.Queue) {
+      addMap(mapId)
     } else {
       formRef.current?.setMap(mapId)
+      picker.close()
     }
-    setBrowseState(MapBrowseState.None)
   }
 
   const summary = formatGameSetupSummary(t, {
@@ -105,9 +92,13 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
     <GameSetupPage
       title={t('lobbies.gameSetup.title', 'Game setup')}
       onBack={onClose}
-      browseState={browseState}
-      onBrowseStateChange={setBrowseState}
+      picker={picker}
       onMapPicked={pick}
+      onMapsQueued={addMaps}
+      gameType={setup.gameType}
+      selectedMapId={setup.mapId}
+      queuedMapIds={queueIds}
+      canQueueMore={canQueueMore}
       summary={summary}
       footerActions={
         <>
@@ -148,10 +139,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           <MapQueueSection
             queue={queue}
             onChange={setQueue}
-            onAddMap={() => browseFor(MapPickTarget.Queue)}
+            onAddMap={() => picker.open(MapPickerMode.Queue, setup.gameType)}
           />
         }
-        onChangeMap={() => browseFor(MapPickTarget.Current)}
+        onChangeMap={() => picker.open(MapPickerMode.Map, setup.gameType)}
         onValidatedChange={model => setSetup(model)}
         onSubmit={model => {
           const settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>> = {}
@@ -183,7 +174,6 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
           }
-          const queueIds = queue.map(entry => entry.mapId)
           if (
             queueIds.length !== initialQueue.length ||
             queueIds.some((id, i) => id !== initialQueue[i])

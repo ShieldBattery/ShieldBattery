@@ -21,6 +21,8 @@ ENV SB_SERVER_ONLY=1
 # dependency `overrides` (and other pnpm settings); without it `pnpm install --frozen-lockfile` fails
 # with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH since the lockfile records overrides this stage can't see.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Packages installed from a local tarball (`file:vendor/...` in package.json).
+COPY vendor/ ./vendor/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
   pnpm install --frozen-lockfile
 
@@ -87,7 +89,7 @@ RUN chmod +x ./server/deployment_files/wait.sh ./server/update_server.sh ./serve
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)
-RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sprite_data
+RUN mkdir ./server/logs && mkdir ./server/uploaded_files
 
 RUN touch /var/lib/logrotate.status
 

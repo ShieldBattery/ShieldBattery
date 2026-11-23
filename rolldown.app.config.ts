@@ -82,6 +82,12 @@ export default defineConfig([
       // The replay library's DB, watcher and parser run in a worker thread; this is its entry,
       // loaded via `new Worker(...)` from the main bundle.
       'db-worker': path.join(ROOT, 'app/replay-library/worker/db-worker.ts'),
+      // Likewise the local map index, in its own worker.
+      'map-worker': path.join(ROOT, 'app/map-library/worker/map-worker.ts'),
+      // The map index's file readers, started by its worker for each indexing pass.
+      'map-reader': path.join(ROOT, 'app/map-library/worker/map-reader.ts'),
+      // The renderer of local map files' images, started by the main bundle on demand.
+      'map-renderer': path.join(ROOT, 'app/map-library/worker/map-renderer.ts'),
     },
     plugins: [
       mainAddons,
@@ -95,6 +101,12 @@ export default defineConfig([
         // The replay parser is compiled to WebAssembly, which its Node entry loads by reading the
         // file next to itself.
         { test: /broodrep[\\/]pkg-node[\\/]broodrep_wasm\.js$/, files: ['broodrep_wasm_bg.wasm'] },
+        // So is broodmap, which reads and renders local map files; its Node entry reads the file from
+        // `pkg/` beside itself.
+        {
+          test: /[\\/]broodmap[\\/]node-entry\.js$/,
+          files: ['pkg/broodmap_wasm_bg.wasm'],
+        },
       ]),
     ],
   },

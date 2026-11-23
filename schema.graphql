@@ -37,6 +37,43 @@ type BlockedStream {
 	blockedBy: SbUser
 }
 
+type CollectionMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [CollectionMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type CollectionMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was added to the collection. Null for stars from before this was recorded.
+	"""
+	addedAt: DateTime
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
 type CommendPlayerPayload {
 	feedback: GameFeedback!
 	"""
@@ -87,6 +124,36 @@ type CurrentUser {
 	permissions: SbPermissions!
 	canChangeDisplayName: Boolean!
 	nextDisplayNameChangeAllowedAt: DateTime
+	"""
+	The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+	arguments as `maps`; `NEWEST` sorts by when each map was added.
+	"""
+	mapLibrary(filter: MapFilter, sort: MapSort, after: String, first: Int): MapLibraryConnection!
+	"""
+	The maps this user has favorited, listed or not. Takes the same arguments as `maps`;
+	`NEWEST` sorts by when each map was favorited.
+	"""
+	favoriteMaps(filter: MapFilter, sort: MapSort, after: String, first: Int): FavoriteMapConnection!
+	"""
+	This user's own list of collections: their Starred collection (made now if they have
+	none), then their own collections, most recently changed first, then the collections they
+	saved and can still see, most recently saved first.
+	"""
+	mapCollections: [MapCollection!]!
+	"""
+	The different maps this user played in their most recent games (of any kind, canceled
+	games aside), the most recently played first; `first` of them (at most 12). Includes maps
+	that aren't listed, except where every file of the map the user played was delisted by
+	staff. `lens` keeps, for `MELEE` or `UMS`, only the maps whose current file is of that kind.
+	"""
+	recentMaps(first: Int! = 6, lens: MapLens! = ALL): [RecentMap!]!
+	"""
+	Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
+	the last 28 days: listed maps of that map's kind (for a melee map, also with as many
+	players) sharing a tag with it, that the user hasn't played in the last 90 days. Null when
+	none of the 5 maps they played most in lobbies gives at least 4.
+	"""
+	mapRecommendation(lens: MapLens! = ALL): MapRecommendation
 }
 
 """
@@ -108,6 +175,61 @@ type DisplayNameAuditEntry {
 	usedToken: Boolean!
 	changedByUser: SbUser
 	ipAddress: String
+}
+
+"""
+How to treat maps that use EUD triggers.
+"""
+enum EudFilter {
+	"""
+	Include EUD maps.
+	"""
+	ANY
+	"""
+	Leave EUD maps out.
+	"""
+	EXCLUDE
+	"""
+	Only show EUD maps.
+	"""
+	ONLY
+}
+
+type FavoriteMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [FavoriteMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type FavoriteMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was favorited. Null for favorites from before this was recorded.
+	"""
+	addedAt: DateTime
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
 }
 
 type Game {
@@ -478,6 +600,949 @@ type LoginNameAuditEntry {
 	ipAddress: String
 }
 
+"""
+What analyzing a map file found about how it plays.
+"""
+type MapAnalysis {
+	"""
+	The map file's hash, the same as the map file's id.
+	"""
+	id: String!
+	"""
+	The number of resource bases. Null if the bases couldn't be found.
+	"""
+	baseCount: Int
+	triggerCount: Int!
+	"""
+	The kinds of trigger actions the map uses that melee games don't, e.g. `CreateUnit`. Empty
+	for melee maps.
+	"""
+	umsActionKinds: [String!]!
+	"""
+	The resource bases. Null if they couldn't be found.
+	"""
+	bases: [MapBase!]
+}
+
+"""
+A resource base: a town hall position with minerals or geysers around it.
+"""
+type MapBase {
+	"""
+	The map file's hash and the base's index, unique across all map files.
+	"""
+	id: String!
+	"""
+	The center of the town hall position, in map pixels (32 per tile).
+	"""
+	x: Int!
+	y: Int!
+	mineralFields: Int!
+	"""
+	The minerals in all of the base's mineral fields.
+	"""
+	minerals: Int!
+	geysers: Int!
+	"""
+	The player slots (0-7) whose start location is at this base.
+	"""
+	startSlots: [Int!]!
+}
+
+"""
+A base of either map, matched to the other map's base at (about) the same position.
+"""
+type MapBaseChange {
+	"""
+	The base's index in the first map's `analysis.bases`. Null for a base only the second map
+	has.
+	"""
+	beforeIndex: Int
+	"""
+	The base's index in the second map's `analysis.bases`. Null for a base only the first map
+	has.
+	"""
+	afterIndex: Int
+	"""
+	Whether the base's position or resources differ.
+	"""
+	changed: Boolean!
+	id: String!
+}
+
+"""
+Something that differs between two maps.
+"""
+enum MapChange {
+	NAME
+	DESCRIPTION
+	DIMENSIONS
+	TILESET
+	PLAYER_COUNT
+	"""
+	The forces (teams) and their slots' races and controllers.
+	"""
+	FORCES
+	EUD
+	"""
+	The trigger actions the maps use that melee games don't.
+	"""
+	UMS_ACTIONS
+	TRIGGER_COUNT
+	START_LOCATIONS
+	BASES
+	"""
+	The walkable shape of the terrain (only compared between maps of the same dimensions).
+	"""
+	TERRAIN
+}
+
+"""
+A named, ordered list of maps: a player's own collection, a player's Starred maps, a collection
+made by staff, or a ladder map pool. Everyone other than its owner (and, for a staff collection,
+users who can manage maps) sees only its listed maps, and its `mapCount` and `cover` count only
+those; a ladder map pool shows all of its maps to everyone who can see it.
+"""
+type MapCollection {
+	id: UUID!
+	kind: MapCollectionKind!
+	"""
+	The title its owner or staff gave it. Null for `STARRED` and `LADDER_POOL`, which the
+	client names.
+	"""
+	title: String
+	"""
+	Plain text, possibly empty.
+	"""
+	description: String!
+	"""
+	The player whose collection it is. Null for `STAFF` and `LADDER_POOL`.
+	"""
+	owner: SbUser
+	"""
+	Whether everyone can see the collection: always for `STAFF`, for `USER` while its owner has
+	made it public and staff haven't hidden it, and for `LADDER_POOL` once the pool has started
+	and holds at least 2 maps.
+	"""
+	public: Boolean!
+	"""
+	Whether this is Staff picks, the staff collection whose maps are marked as staff picks. It
+	can't be deleted.
+	"""
+	grantsStaffPick: Boolean!
+	"""
+	The ladder map pool this collection is. Null unless it's a `LADDER_POOL`.
+	"""
+	pool: MapCollectionPool
+	"""
+	That staff hid the collection, keeping it from everyone but its owner and staff. Only shown
+	to its owner and to users who can manage maps; null otherwise, and while it isn't hidden.
+	"""
+	hidden: MapCollectionHidden
+	"""
+	How many maps the viewer sees in the collection.
+	"""
+	mapCount: Int!
+	"""
+	The first 4 maps the viewer sees, in the collection's order.
+	"""
+	cover: [SbMap!]!
+	"""
+	How many players saved the collection.
+	"""
+	saveCount: Int!
+	"""
+	Whether the viewer saved the collection. False when logged out.
+	"""
+	isSaved: Boolean!
+	"""
+	Whether the viewer can add, remove and move the collection's maps: its owner, or for
+	`STAFF`, users who can manage maps. `STARRED` can't be renamed, reordered or deleted, and
+	its maps are ordered newest first. Nobody edits a `LADDER_POOL`.
+	"""
+	canEdit: Boolean!
+	createdAt: DateTime!
+	"""
+	When its owner (or staff) last changed it or its maps.
+	"""
+	updatedAt: DateTime!
+	"""
+	The maps the viewer sees in the collection, each as its current file (or, for an entry
+	naming an exact file, that file). Takes the same arguments as `maps`; sorts by
+	`COLLECTION_ORDER` unless told otherwise, and `NEWEST` sorts by when each map was added.
+	"""
+	maps(filter: MapFilter, sort: MapSort, after: String, first: Int): CollectionMapConnection!
+}
+
+type MapCollectionConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapCollectionEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapCollection!]!
+	"""
+	How many collections the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type MapCollectionEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapCollection!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+That staff hid a collection, and why.
+"""
+type MapCollectionHidden {
+	id: String!
+	"""
+	What staff told the owner.
+	"""
+	note: String!
+	hiddenAt: DateTime!
+}
+
+"""
+What kind of collection something is, which decides who edits it and who sees it.
+"""
+enum MapCollectionKind {
+	"""
+	Made by a player, who titles and orders it. Private until they make it public.
+	"""
+	USER
+	"""
+	A player's starred maps, newest first. Every player has one; only they see it.
+	"""
+	STARRED
+	"""
+	Made by staff. Everyone sees it.
+	"""
+	STAFF
+	"""
+	A ladder map pool.
+	"""
+	LADDER_POOL
+}
+
+"""
+A ladder map pool: the maps a matchmaking type plays from its start until the next pool of that
+type starts.
+"""
+type MapCollectionPool {
+	"""
+	The pool's id in the matchmaking map pool APIs.
+	"""
+	id: Int!
+	matchmakingType: MatchmakingType!
+	startDate: DateTime!
+	"""
+	When the next pool of the same matchmaking type starts, ending this one. Null for the
+	latest pool of its type.
+	"""
+	endDate: DateTime
+	"""
+	How many of the pool's maps each player can veto, in matchmaking types that have vetoes.
+	"""
+	maxVetoCount: Int!
+	"""
+	Whether this is the pool its matchmaking type plays now: the latest one that has started.
+	"""
+	isCurrent: Boolean!
+	"""
+	The pool of the same matchmaking type before this one that the viewer can see.
+	"""
+	previous: MapCollection
+	"""
+	The pool of the same matchmaking type after this one that the viewer can see.
+	"""
+	next: MapCollection
+}
+
+"""
+A player's report about a public collection. Only available to users who can manage maps.
+"""
+type MapCollectionReport {
+	id: UUID!
+	"""
+	The reported collection. Null if staff can no longer see it (its owner made it private).
+	"""
+	collection: MapCollection
+	reporter: SbUser
+	note: String!
+	createdAt: DateTime!
+	resolvedAt: DateTime
+	resolvedBy: SbUser
+	resolution: MapCollectionReportResolution
+}
+
+type MapCollectionReportConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapCollectionReportEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapCollectionReport!]!
+	"""
+	How many reports the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type MapCollectionReportEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapCollectionReport!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+How staff resolved a collection report.
+"""
+enum MapCollectionReportResolution {
+	"""
+	Staff found nothing to do.
+	"""
+	DISMISSED
+	"""
+	Staff hid the collection.
+	"""
+	HIDDEN
+}
+
+"""
+Which collections `mapCollections` lists.
+"""
+enum MapCollectionSection {
+	"""
+	Every staff collection, oldest first.
+	"""
+	STAFF
+	"""
+	The current ladder map pool of each matchmaking type that the viewer can see, in
+	matchmaking type order. Pools have no title, so a search leaves none.
+	"""
+	LADDER
+	"""
+	Players' public collections that aren't hidden and hold at least one listed map, the most
+	saved first, then the most recently made public. `owner` narrows it to one player's.
+	"""
+	PLAYERS
+}
+
+"""
+What differs between two maps. `a` is treated as the before side and `b` as the after side.
+"""
+type MapComparison {
+	id: String!
+	a: SbMap!
+	b: SbMap!
+	"""
+	Everything that differs, in a fixed order. Things that couldn't be compared (e.g. bases
+	when either map's couldn't be found) are left out.
+	"""
+	changes: [MapChange!]!
+	"""
+	The player slots whose start location moved, appeared or disappeared.
+	"""
+	startLocations: [MapStartLocationChange!]!
+	"""
+	Every base of either map, paired with the other map's base at about the same position.
+	Empty when either map's bases couldn't be found.
+	"""
+	bases: [MapBaseChange!]!
+	"""
+	The share of the walkable terrain the maps have in common, from 0 to 1. Null unless both
+	maps have the same dimensions and analyzed terrain.
+	"""
+	terrainSimilarity: Float
+	"""
+	The build tiles (32x32 pixels) whose terrain shape (walkability and elevation, not tile
+	art) differs, as a base64 bitmask: 1 bit per tile, row-major, low bit first in each byte.
+	Null when `terrainSimilarity` is.
+	"""
+	terrainChanges: String
+}
+
+"""
+Who took a map file out of the listings, or blocked it from being listed.
+"""
+enum MapDelistedKind {
+	"""
+	The file's publisher unpublished it. Anyone may publish it again.
+	"""
+	PUBLISHER
+	"""
+	Staff delisted it, whether or not it was listed. Only staff can list it again.
+	"""
+	STAFF
+}
+
+"""
+A map as players know it ("Fighting Spirit"), made of one or more map files. Every file is in
+exactly one family. Any family can be viewed by anyone who has its id.
+"""
+type MapFamily {
+	id: UUID!
+	"""
+	The map's name: its current file's name.
+	"""
+	name: String!
+	"""
+	Whether any of the map's files is listed.
+	"""
+	listed: Boolean!
+	"""
+	The file players get when they pick this map: the picked default while it's eligible,
+	otherwise the most played (listed files before unlisted ones), then the newest. A listed
+	map's current file is always listed.
+	"""
+	current: SbMap!
+	"""
+	The map's owner: its original maker, who picks its default file. Null when nobody owns it.
+	"""
+	owner: SbUser
+	"""
+	How the owner became the owner: by claiming a map whose every listed file they published,
+	or by staff granting it (shown as verified). Null when nobody owns the map.
+	"""
+	ownerKind: MapOwnerKind
+	"""
+	When the owner became the owner, or was last verified by staff. Null when nobody owns the
+	map.
+	"""
+	ownerSetAt: DateTime
+	"""
+	The user who made the owner the owner: the owner themselves for a claim, otherwise staff.
+	Only available to users who can manage maps.
+	"""
+	ownerSetBy: SbUser
+	"""
+	The maker's name staff credited the map to, for a maker who has no account.
+	"""
+	credit: String
+	"""
+	The file staff or the map's owner picked as its default, even while it isn't eligible (it's
+	unlisted while another file is listed). Null when the default is derived, or when the viewer
+	can't see the picked file (see `files`).
+	"""
+	defaultMap: SbMap
+	"""
+	When the default was picked. Null when the default is derived.
+	"""
+	defaultSetAt: DateTime
+	"""
+	The user who picked the default. Only available to users who can manage maps.
+	"""
+	defaultSetBy: SbUser
+	"""
+	The map's files that the viewer can see, the current file first, then the most played, then
+	the newest. Users who can manage maps see every file; everyone else sees the listed files,
+	the current file, and the unlisted files in their own library.
+	"""
+	files: [SbMap!]!
+	"""
+	The staff collections, then the public players' collections, holding this map (or one of
+	its files), the most saved first within each; `first` of them (at most 20).
+	"""
+	collections(first: Int! = 6): [MapCollection!]!
+	"""
+	The ids of the viewer's own collections holding this map, and of the staff collections
+	holding it when the viewer can manage maps. Starred isn't included (see
+	`SbMap.isFavorited`). Empty when logged out.
+	"""
+	viewerCollectionIds: [UUID!]!
+	"""
+	The files of this map that current ladder map pools hold, one entry for each file a pool
+	holds, in matchmaking type order. The ladder plays these exact files, which needn't be the
+	map's current file.
+	"""
+	ladderFiles: [MapLadderFile!]!
+	"""
+	The ladder map pools that have started and hold a file of this map, newest first (current
+	pools included); `first` of them (at most 100). Pools the viewer can't see are left out.
+	"""
+	ladderPools(first: Int! = 20): [MapCollection!]!
+	"""
+	The map's tags, in list order. Only tags of its current file's kind count.
+	"""
+	tags: [MapTag!]!
+	"""
+	The ids of the map's tags the viewer can't remove, because someone who outranks them set
+	them (staff over the map's maker over players). Empty when logged out, and when the viewer
+	can't edit the map's tags.
+	"""
+	lockedTagIds: [String!]!
+	"""
+	Whether the viewer can edit the map's tags: they can manage maps, they're its maker (and
+	not restricted from publishing), or the map is listed and has no maker, and they've verified
+	their email and aren't restricted from publishing. Players' hourly limit isn't considered.
+	"""
+	canEditTags: Boolean!
+	"""
+	The weeks in which the map was the staff pick leading the Discover page, each as the instant
+	it starts (a Monday at 00:00 UTC), up to and including the current week, newest first.
+	"""
+	featuredWeeks: [DateTime!]!
+	"""
+	Play statistics summed over every file of the map, or null if none has been played.
+	Recomputed hourly; until then a map's stats are its current file's.
+	"""
+	stats: MapStats
+	"""
+	The games played on any of the map's files in each of the last `weeks` weeks (at most 104),
+	oldest first. Weeks start on Monday (UTC) and end with the current week, which is still in
+	progress. Weeks without games are included.
+	"""
+	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
+}
+
+"""
+A family's default pick before and after a change.
+"""
+type MapFamilyDefaultChange {
+	id: String!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	familyId: UUID!
+	"""
+	Null when the default was derived.
+	"""
+	before: SbMap
+	"""
+	Null when the default is derived.
+	"""
+	after: SbMap
+}
+
+"""
+The family a file was in before and after a change.
+"""
+type MapFamilyFileChange {
+	id: String!
+	mapId: SbMapId!
+	map: SbMap!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	before: UUID!
+	"""
+	The family's id when the change was made. It may since have been merged into another one.
+	"""
+	after: UUID!
+}
+
+type MapFamilyFileMove {
+	id: String!
+	file: SbMap!
+	"""
+	The map the file is in now.
+	"""
+	family: MapFamily!
+	"""
+	The map the file left. Null when it had no other files, so it was merged into `family`.
+	"""
+	previousFamily: MapFamily
+}
+
+"""
+A change made to families, family reports or file listings.
+"""
+type MapFamilyHistory {
+	id: String!
+	kind: MapFamilyHistoryKind!
+	actor: SbUser
+	"""
+	The family acted on, as its id was when the change was made: where a file moved or a family
+	was merged to, the new family of a split, the family whose default changed, or the family a
+	report is about.
+	"""
+	familyId: UUID!
+	"""
+	The family a file left, the family merged away, or the other family of a `SAME_MAP`
+	report, as its id was when the change was made.
+	"""
+	otherFamilyId: UUID
+	"""
+	The file that moved, was split out, was made the default or was listed or delisted, or the
+	file of a `WRONG_MAP` or `PUBLISH_REVIEW` report.
+	"""
+	map: SbMap
+	"""
+	Every file that changed families, including every file of a merged family.
+	"""
+	fileChanges: [MapFamilyFileChange!]!
+	"""
+	Every default pick that changed, including the pick of a merged family and a pick cleared
+	because its file left the family.
+	"""
+	defaultChanges: [MapFamilyDefaultChange!]!
+	reportId: UUID
+	reportStatusBefore: MapFamilyReportStatus
+	reportStatusAfter: MapFamilyReportStatus
+	"""
+	The note staff left when delisting the file. Only for `DELIST`.
+	"""
+	note: String
+	"""
+	The map's owner before the change. Only for `SET_OWNER` and `REMOVE_OWNER`.
+	"""
+	ownerBefore: SbUser
+	"""
+	The map's owner after the change. Only for `SET_OWNER`.
+	"""
+	ownerAfter: SbUser
+	"""
+	How the owner after the change became the owner. Only for `SET_OWNER`.
+	"""
+	ownerKindAfter: MapOwnerKind
+	"""
+	The claim that made the owner the owner, when a claim did. Only for `SET_OWNER`.
+	"""
+	claimId: UUID
+	"""
+	The maker's name the map was credited to before the change. Only for `SET_CREDIT`.
+	"""
+	creditBefore: String
+	"""
+	The maker's name the map is credited to after the change. Only for `SET_CREDIT`.
+	"""
+	creditAfter: String
+	"""
+	The owner of the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away (`otherFamilyId`),
+	who lost it with the map.
+	"""
+	retiredOwner: SbUser
+	"""
+	The maker's name the map that a `MERGE`, `MOVE_FILE` or `LINK` merged away
+	(`otherFamilyId`) was credited to, lost with it.
+	"""
+	retiredCredit: String
+	"""
+	The map's tags before the change, in list order. Only for `SET_TAGS`.
+	"""
+	tagsBefore: [String!]
+	"""
+	The map's tags after the change, in list order. Only for `SET_TAGS`.
+	"""
+	tagsAfter: [String!]
+	createdAt: DateTime!
+}
+
+"""
+What kind of change a history entry records.
+"""
+enum MapFamilyHistoryKind {
+	"""
+	A file was moved to another family.
+	"""
+	MOVE_FILE
+	"""
+	A family was merged into another one.
+	"""
+	MERGE
+	"""
+	A file was split out into a family of its own.
+	"""
+	SPLIT
+	"""
+	Staff or the family's owner picked its default file.
+	"""
+	SET_DEFAULT
+	"""
+	Staff or the family's owner cleared the pick of its default file.
+	"""
+	CLEAR_DEFAULT
+	"""
+	A family report was resolved, dismissed or reopened.
+	"""
+	REPORT_STATUS
+	"""
+	A file was listed.
+	"""
+	PUBLISH
+	"""
+	A file's publisher took it out of the listings.
+	"""
+	UNPUBLISH
+	"""
+	Staff took a file out of the listings.
+	"""
+	DELIST
+	"""
+	Staff listed a delisted file again.
+	"""
+	RELIST
+	"""
+	A file's publisher moved it into a suggested map or one they own, while publishing it or
+	later.
+	"""
+	LINK
+	"""
+	A file's publisher, or its map's owner, moved it out of the map into a new map of its own.
+	"""
+	UNLINK
+	"""
+	A map's owner was set: by a claim, or by staff.
+	"""
+	SET_OWNER
+	"""
+	A map's owner was removed, or gave the map up.
+	"""
+	REMOVE_OWNER
+	"""
+	Staff set or cleared the maker's name a map is credited to.
+	"""
+	SET_CREDIT
+	"""
+	A map's tags were changed: by staff, its maker or a player, or by publishing its file.
+	"""
+	SET_TAGS
+}
+
+"""
+The map an id from a map page URL names, and the file it named, if it named one.
+"""
+type MapFamilyLookup {
+	"""
+	The id that was looked up.
+	"""
+	id: UUID!
+	family: MapFamily!
+	"""
+	The file the id named, when it was a file's id (or an old id of one) rather than a map's.
+	"""
+	file: SbMap
+}
+
+"""
+A user's report about a map or one of its files, or a file held for staff when it was published.
+"""
+type MapFamilyReport {
+	id: UUID!
+	kind: MapFamilyReportKind!
+	"""
+	The map the report is about: the map the file was in when it was reported, the map said to
+	be the same as `otherFamily`, or the map whose owner is said not to have made it. If it has
+	since been merged, the map it was merged into.
+	"""
+	family: MapFamily
+	"""
+	The file said not to be part of `family` (`WRONG_MAP`), held for review (`PUBLISH_REVIEW`),
+	said to be the better default (`WRONG_DEFAULT`) or said to be inappropriate
+	(`INAPPROPRIATE`). Null for the other kinds.
+	"""
+	map: SbMap
+	"""
+	For `SAME_MAP`, the map said to be the same as `family`. For `PUBLISH_REVIEW`, the map the
+	publisher answered their file is (or might be) a version of, if they answered so (see
+	`publishAnswer`). If it has since been merged, the map it was merged into.
+	"""
+	otherFamily: MapFamily
+	note: String
+	"""
+	Whether the report was filed on the reporter's behalf when they published a file and
+	weren't sure it's a version of `otherFamily`. Only for `SAME_MAP`.
+	"""
+	fromPublish: Boolean!
+	"""
+	What the publisher of a file held for review answered about `otherFamily`: that the file is
+	a version of it (`JOIN`) or might be (`UNSURE`). Applied when staff approve the review. Only
+	for `PUBLISH_REVIEW`, and null when the publisher gave no such answer.
+	"""
+	publishAnswer: MapPublishReviewAnswer
+	reportedAt: DateTime!
+	status: MapFamilyReportStatus!
+	"""
+	Only available to users who can manage maps.
+	"""
+	reportedBy: SbUser
+	"""
+	Only available to users who can manage maps.
+	"""
+	resolvedBy: SbUser
+	resolvedAt: DateTime
+}
+
+"""
+A user's report about a map.
+"""
+input MapFamilyReportInput {
+	kind: MapFamilyReportKind!
+	"""
+	The file that isn't part of its map (`WRONG_MAP`), should be the default of its map, which
+	has no owner (`WRONG_DEFAULT`; a listed file that isn't the current one), or is
+	inappropriate (`INAPPROPRIATE`). Required for those, ignored otherwise.
+	"""
+	mapId: SbMapId
+	"""
+	The map that is the same as `otherFamilyId` (`SAME_MAP`), or whose owner didn't make it
+	(`WRONG_OWNER`; the reporter can't be its owner). Required for those. For `WRONG_DEFAULT`
+	and `INAPPROPRIATE`, optionally the map the reporter saw `mapId` in, which it must still be
+	in. Ignored otherwise.
+	"""
+	familyId: UUID
+	"""
+	The map that is the same as `familyId`. Required for `SAME_MAP`, ignored otherwise.
+	"""
+	otherFamilyId: UUID
+	note: String
+}
+
+"""
+What a user is telling staff about a map.
+"""
+enum MapFamilyReportKind {
+	"""
+	A file isn't part of the map it's in.
+	"""
+	WRONG_MAP
+	"""
+	A map is the same as another map.
+	"""
+	SAME_MAP
+	"""
+	A file's name or description hit the restricted names list when it was published, so it
+	waits for staff to list it or dismiss the report. Only filed by the server.
+	"""
+	PUBLISH_REVIEW
+	"""
+	A map's owner didn't make it.
+	"""
+	WRONG_OWNER
+	"""
+	A map with no owner should have another file as its default.
+	"""
+	WRONG_DEFAULT
+	"""
+	A file's name, description or content is inappropriate.
+	"""
+	INAPPROPRIATE
+}
+
+"""
+How staff closed a family report.
+"""
+enum MapFamilyReportStatus {
+	"""
+	Waiting for staff.
+	"""
+	OPEN
+	"""
+	Staff acted on it.
+	"""
+	RESOLVED
+	"""
+	Staff found nothing to change.
+	"""
+	DISMISSED
+}
+
+"""
+The map or collection leading the Discover page of a kind of map for a week: one staff picked
+for that kind's slot, or when staff picked nothing shown there, the map of that kind rising
+fastest.
+"""
+type MapFeature {
+	id: String!
+	"""
+	When the week starts: a Monday at 00:00 UTC. The week ends when the next one starts.
+	"""
+	week: DateTime!
+	"""
+	The kind of map whose Discover page the pick leads: the slot it's in. A map is picked for
+	the slot of its current file's kind; a collection for whichever slot staff chose.
+	"""
+	kind: MapKind!
+	"""
+	The picked map's current file. Null for a collection.
+	"""
+	map: SbMap
+	"""
+	The picked collection. Null for a map, and when the viewer can't see the collection.
+	"""
+	collection: MapCollection
+	"""
+	What staff wrote about the pick, plain text on one line. Empty when they wrote nothing, and
+	for an automatic pick.
+	"""
+	blurb: String!
+	"""
+	Whether this is the automatic pick, the map rising fastest, standing in for a slot without
+	a staff pick that is shown.
+	"""
+	automatic: Boolean!
+	"""
+	Who made the pick. Null for an automatic pick, and for users who can't manage maps.
+	"""
+	createdBy: SbUser
+	"""
+	Whether the pick is shown: it points at a listed map whose current file is of the slot's
+	kind, or at a collection everyone can see. A slot whose pick isn't shown gets the automatic
+	pick instead. Only available to users who can manage maps.
+	"""
+	shown: Boolean!
+}
+
+type MapFeatureConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapFeatureEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [MapFeature!]!
+}
+
+"""
+An edge in a connection.
+"""
+type MapFeatureEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: MapFeature!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
 type MapFile {
 	format: String!
 	tileset: Int!
@@ -491,11 +1556,104 @@ type MapFile {
 	isEud: Boolean!
 	parserVersion: Int!
 	imageVersion: Int!
+	renderVersion: Int!
+	"""
+	Whether the map has UMS content: trigger actions that melee games don't use, more than 8
+	preplaced player-owned units, or EUDs. Null until the map file has been analyzed.
+	"""
+	umsContent: Boolean
 	id: String!
 	image256Url: String!
 	image512Url: String!
 	image1024Url: String!
 	image2048Url: String!
+	"""
+	A 1024px JPEG of the map, for consumers that can't decode the other images' format.
+	"""
+	jpegImageUrl: String!
+	"""
+	The start location placed for each player slot, at most one per slot. Empty until the map
+	file has been analyzed.
+	"""
+	startLocations: [MapFileStartLocation!]!
+	"""
+	What analyzing the map file found about how it plays. Null until the map file has been
+	analyzed.
+	"""
+	analysis: MapAnalysis
+	"""
+	Whether the map's images have its start locations drawn in. Images without them are meant
+	to have start locations drawn on top.
+	"""
+	imageSpawnsBaked: Boolean!
+}
+
+"""
+A start location placed for a player slot.
+"""
+type MapFileStartLocation {
+	"""
+	The map file's hash and the slot, unique across all map files.
+	"""
+	id: String!
+	"""
+	The player slot (0-7) the start location belongs to.
+	"""
+	slot: Int!
+	"""
+	The center of the start location, in map pixels (32 per tile).
+	"""
+	x: Int!
+	y: Int!
+}
+
+"""
+Filters for map listings. Every filter that is set must match.
+"""
+input MapFilter {
+	"""
+	Text to search for in map names (curated and original) and descriptions. Case,
+	punctuation and spacing are ignored, and longer queries tolerate small typos.
+	"""
+	search: String
+	lens: MapLens! = ALL
+	"""
+	Exact player counts to include.
+	"""
+	players: [Int!]
+	"""
+	Only maps with at least this many player slots.
+	"""
+	minPlayers: Int
+	sizes: [MapSizeClass!]
+	"""
+	Tileset ids to include.
+	"""
+	tilesets: [Int!]
+	eud: EudFilter! = ANY
+	"""
+	Only maps whose file shown in the listing was published at or after this time: for a map
+	listed as its current file, when that file was published.
+	"""
+	publishedSince: DateTime
+	"""
+	Only staff picks (`true`) or only maps that aren't staff picks (`false`).
+	"""
+	staffPick: Boolean
+	"""
+	Only maps (families) this user owns.
+	"""
+	owner: SbUserId
+	"""
+	Only verified maps (`true`): staff picks, and maps whose ownership staff granted. With
+	`false`, only the other maps.
+	"""
+	verified: Boolean
+	"""
+	Only maps (families) with every one of these tags (at most 5 tag ids; an id that names no
+	tag is ignored). A tag only counts on a map whose current file is of the tag's kind.
+	"""
+	tags: [String!]
 }
 
 type MapForce {
@@ -517,9 +1675,684 @@ The race configuration for a player in a map force (either a preset race or 'any
 scalar MapForcePlayerRace
 
 """
+Whether a map is played as a regular melee map or with its own Use Map Settings rules.
+"""
+enum MapKind {
+	MELEE
+	UMS
+}
+
+"""
+A file of a map that a current ladder map pool holds.
+"""
+type MapLadderFile {
+	id: String!
+	"""
+	The matchmaking type whose current pool holds the file.
+	"""
+	matchmakingType: MatchmakingType!
+	"""
+	The file the pool holds. The ladder plays this exact file, whichever file is its map's
+	current one.
+	"""
+	map: SbMap!
+	"""
+	The pool's collection. Null when the viewer can't see it (a pool of one map).
+	"""
+	collection: MapCollection
+}
+
+"""
+Which kind of maps to show.
+"""
+enum MapLens {
+	"""
+	Every map.
+	"""
+	ALL
+	"""
+	Maps meant for regular melee games.
+	"""
+	MELEE
+	"""
+	Use Map Settings maps: custom games, scenarios and other non-melee maps.
+	"""
+	UMS
+}
+
+type MapLibraryConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapLibraryEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type MapLibraryEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was added to the library.
+	"""
+	addedAt: DateTime!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+A user who is the maker of listed maps, counting only the maps that fit the lens asked for.
+"""
+type MapMaker {
+	id: String!
+	user: SbUser!
+	"""
+	Whether staff set them as the maker of at least one of their maps.
+	"""
+	verified: Boolean!
+	"""
+	How many of their maps are listed.
+	"""
+	mapCount: Int!
+	"""
+	The games played on their listed maps in the last 28 days.
+	"""
+	games28d: Int!
+}
+
+"""
+A matchmaking season and type with matchup results on a map.
+"""
+type MapMatchupSeason {
+	"""
+	The map, season and matchmaking type, unique across all of these.
+	"""
+	id: String!
+	seasonId: Int!
+	matchmakingType: MatchmakingType!
+	"""
+	The number of decided games played in this season and type, across all matchups.
+	"""
+	games: Int!
+}
+
+"""
+Matchmaking results for one matchup on a map.
+"""
+type MapMatchupStats {
+	"""
+	The map, season (or `all`), matchmaking type and matchup, unique across all matchups.
+	"""
+	id: String!
+	"""
+	The races on each side, as a canonical matchup string: each side's races sorted, the
+	sides sorted, joined with `-` (e.g. `p-z`, `pt-tz`).
+	"""
+	matchup: String!
+	"""
+	The number of decided games played in this matchup.
+	"""
+	games: Int!
+	"""
+	Games won by the races on the left of `matchup`. Always 0 for mirror matchups.
+	"""
+	leftWins: Int!
+	"""
+	Games won by the races on the right of `matchup`. Always 0 for mirror matchups.
+	"""
+	rightWins: Int!
+	"""
+	The median game length in milliseconds for a single season. When summing seasons, the
+	typical length (games-weighted mean of season medians), since medians can't be summed.
+	"""
+	medianLength: Int
+}
+
+"""
+Who listed and delisted a map and when.
+"""
+type MapModeration {
+	"""
+	When the map was most recently listed. Kept after it is delisted.
+	"""
+	publishedAt: DateTime
+	"""
+	When the map was taken out of the listings, or (by staff) blocked from being listed while
+	it wasn't. Null while it is listed, and for a map nobody delisted.
+	"""
+	delistedAt: DateTime
+	"""
+	Who delisted the map. Set exactly when `delistedAt` is.
+	"""
+	delistedKind: MapDelistedKind
+	"""
+	Why staff delisted the map, if they said. Only set while it is delisted.
+	"""
+	delistedNote: String
+	id: String!
+	"""
+	The user who most recently listed the map. Kept after it is delisted.
+	"""
+	publishedBy: SbUser
+	"""
+	The user who delisted the map, if known. Null while it is listed.
+	"""
+	delistedBy: SbUser
+}
+
+"""
+A user's claim to be the maker of a map. Visible to staff and to the claimant.
+"""
+type MapOwnerClaim {
+	id: UUID!
+	"""
+	The claimed map. If it has since been merged, the map it was merged into.
+	"""
+	family: MapFamily
+	claimant: SbUser
+	"""
+	What the claimant told staff. Null for a claim granted at once.
+	"""
+	note: String
+	status: MapOwnerClaimStatus!
+	createdAt: DateTime!
+	"""
+	Who granted or rejected the claim: staff, or the claimant for a claim granted at once. Only
+	available to users who can manage maps.
+	"""
+	resolvedBy: SbUser
+	resolvedAt: DateTime
+}
+
+"""
+Why a user can't claim a map.
+"""
+enum MapOwnerClaimBlockedReason {
+	"""
+	The user is restricted from publishing maps.
+	"""
+	RESTRICTED
+	"""
+	The user hasn't verified their email address.
+	"""
+	EMAIL_UNVERIFIED
+	"""
+	The user already owns the map.
+	"""
+	ALREADY_OWNER
+	"""
+	The map has no listed file.
+	"""
+	NOT_LISTED
+	"""
+	The user made too many claims recently.
+	"""
+	RATE_LIMITED
+}
+
+type MapOwnerClaimPreview {
+	id: String!
+	"""
+	Why the current user can't claim the map. Null when they can.
+	"""
+	blockedReason: MapOwnerClaimBlockedReason
+	"""
+	Whether claiming would make them the owner at once: nobody owns the map or is credited with
+	it, and they published every one of its listed files. Otherwise a claim needs a note and
+	waits for staff.
+	"""
+	instant: Boolean!
+	"""
+	The current user's claim on the map that is waiting for staff, if they have one.
+	"""
+	openClaim: MapOwnerClaim
+}
+
+type MapOwnerClaimResult {
+	id: String!
+	claim: MapOwnerClaim!
+	family: MapFamily!
+	"""
+	Whether the current user became the map's owner at once. Otherwise the claim waits for
+	staff.
+	"""
+	granted: Boolean!
+}
+
+"""
+Where a claim to own a map stands.
+"""
+enum MapOwnerClaimStatus {
+	"""
+	Waiting for staff.
+	"""
+	OPEN
+	"""
+	The claimant was made the owner, by staff or at once.
+	"""
+	GRANTED
+	"""
+	Staff turned it down.
+	"""
+	REJECTED
+}
+
+"""
+How a map's owner became its owner.
+"""
+enum MapOwnerKind {
+	"""
+	They claimed the map themselves, having published every listed file of it.
+	"""
+	CLAIM
+	"""
+	Staff granted their claim or set them as the owner.
+	"""
+	STAFF
+}
+
+input MapPublishAnswerInput {
+	kind: MapPublishAnswerKind!
+	"""
+	One of the suggested maps. Required for `JOIN` and `UNSURE`, ignored for `KEEP`.
+	"""
+	familyId: UUID
+}
+
+"""
+How the publisher answers "is this file a version of one of these maps?".
+"""
+enum MapPublishAnswerKind {
+	"""
+	List the file where it is: in a map of its own, or in its `existingMap`.
+	"""
+	KEEP
+	"""
+	The file is a version of `familyId`: list it in that map.
+	"""
+	JOIN
+	"""
+	The file might be a version of `familyId`: list it in a map of its own, and let staff
+	decide.
+	"""
+	UNSURE
+}
+
+"""
+Why a user can't publish a file.
+"""
+enum MapPublishBlockedReason {
+	"""
+	The file is already listed.
+	"""
+	ALREADY_LISTED
+	"""
+	The user is restricted from publishing maps.
+	"""
+	RESTRICTED
+	"""
+	The user hasn't verified their email address.
+	"""
+	EMAIL_UNVERIFIED
+	"""
+	The user published too many files recently.
+	"""
+	RATE_LIMITED
+	"""
+	The file isn't in the user's library.
+	"""
+	NOT_IN_LIBRARY
+	"""
+	The file's name is empty once color codes are stripped.
+	"""
+	EMPTY_NAME
+	"""
+	Staff took the file out of the listings, so only staff can list it again.
+	"""
+	STAFF_DELISTED
+}
+
+type MapPublishPreview {
+	id: String!
+	"""
+	Why the current user can't publish the file. Null when they can.
+	"""
+	blockedReason: MapPublishBlockedReason
+	"""
+	The map the file is already in along with other files, because it's the same as one of
+	them. Publishing lists the file in this map, and asks nothing. While none of this map's
+	files is listed, a `JOIN` into a map the current user owns takes the file out of it instead.
+	"""
+	existingMap: MapFamily
+	"""
+	The maps the file may be a version of, the likeliest first. Empty when `existingMap` is set,
+	and when the file's own map has a credit or an owner other than the current user: joining
+	another map would merge it away, which only staff may do.
+	"""
+	suggestions: [MapPublishSuggestion!]!
+	"""
+	Whether publishing will hold the file for staff to review instead of listing it, because
+	its name or description needs a look.
+	"""
+	needsReview: Boolean!
+}
+
+type MapPublishResult {
+	id: String!
+	file: SbMap!
+	"""
+	The map the file is in now.
+	"""
+	family: MapFamily!
+	"""
+	Whether the file was held for staff to review instead of listed.
+	"""
+	heldForReview: Boolean!
+}
+
+"""
+What a publisher said about the map their file may be a version of, kept on a publish review
+while the file is held and applied when staff approve it.
+"""
+enum MapPublishReviewAnswer {
+	"""
+	The file is a version of that map: approving the review moves the file into it.
+	"""
+	JOIN
+	"""
+	The file might be a version of that map: approving the review files a `SAME_MAP` report.
+	"""
+	UNSURE
+}
+
+type MapPublishSuggestion {
+	id: String!
+	"""
+	The suggested map.
+	"""
+	family: MapFamily!
+	"""
+	The suggested map's listed file most similar to the file.
+	"""
+	file: SbMap!
+	"""
+	The share of the walkable terrain the two files have in common, from 0 to 1. Only maps
+	with a file similar enough to be a likely version are suggested.
+	"""
+	similarity: Float!
+	"""
+	Whether both files are melee maps, or both are UMS maps.
+	"""
+	sameKind: Boolean!
+	"""
+	How alike the two files' triggers are, from 0 to 1, when both are UMS maps.
+	"""
+	triggerSimilarity: Float
+	"""
+	Whether the files have the same number of mineral fields and geysers, and the same minerals
+	in total.
+	"""
+	sameResources: Boolean!
+}
+
+"""
+Maps sharing tags with a map the current user played in lobbies lately (the seed), which they
+haven't played lately themselves.
+"""
+type MapRecommendation {
+	"""
+	The seed map's id.
+	"""
+	id: UUID!
+	"""
+	The seed map's current file.
+	"""
+	seed: SbMap!
+	"""
+	The seed map's tags, in list order. The recommended maps each share at least one of them.
+	"""
+	tags: [MapTag!]!
+	"""
+	The recommended maps' current files: the most tags shared with the seed first, then the
+	most played in the last 28 days.
+	"""
+	maps: [SbMap!]!
+}
+
+type MapSimilarFile {
+	id: String!
+	map: SbMap!
+	"""
+	The share of the walkable terrain the files have in common, from 0.9 to 1.
+	"""
+	similarity: Float!
+}
+
+"""
+A size class, by the larger of a map's width and height (in tiles).
+"""
+enum MapSizeClass {
+	"""
+	Up to 64.
+	"""
+	TINY
+	"""
+	65 to 96.
+	"""
+	SMALL
+	"""
+	97 to 128.
+	"""
+	MEDIUM
+	"""
+	129 to 192.
+	"""
+	LARGE
+	"""
+	Larger than 192.
+	"""
+	HUGE
+}
+
+"""
+The order maps are listed in.
+"""
+enum MapSort {
+	"""
+	Best search matches first, then the most played in the last 28 days. Without a search, the
+	same as `POPULAR_28D`.
+	"""
+	RELEVANCE
+	"""
+	Maps whose lobby play is rising fastest first, then the most played in the last 28 days.
+	"""
+	TRENDING
+	"""
+	Most games in the last 7 days first.
+	"""
+	POPULAR_7D
+	"""
+	Most games in the last 28 days first.
+	"""
+	POPULAR_28D
+	"""
+	Most games in the last 90 days first.
+	"""
+	POPULAR_90D
+	"""
+	Most games ever first.
+	"""
+	POPULAR_ALL_TIME
+	"""
+	In the listed maps, the maps whose current file (the file each map is shown as) was
+	published most recently first. In a user's library, favorites or a collection, the most
+	recently added first.
+	"""
+	NEWEST
+	"""
+	Most favorited first.
+	"""
+	MOST_FAVORITED
+	"""
+	Alphabetical, ignoring leading player-count prefixes and bracketed tags.
+	"""
+	NAME
+	"""
+	Fewest player slots first.
+	"""
+	PLAYERS
+	"""
+	A collection's own order: as its editor arranged it, or for a Starred collection, the most
+	recently starred first. The default when listing a collection's maps; any other listing
+	treats it as its own default sort.
+	"""
+	COLLECTION_ORDER
+}
+
+"""
+A player slot whose start location differs between two maps. Positions are in map pixels.
+"""
+type MapStartLocationChange {
+	slot: Int!
+	kind: MapStartLocationChangeKind!
+	beforeX: Int
+	beforeY: Int
+	afterX: Int
+	afterY: Int
+	id: String!
+}
+
+"""
+What happened to a start location between two maps.
+"""
+enum MapStartLocationChangeKind {
+	MOVED
+	ADDED
+	REMOVED
+}
+
+"""
+How much a map has been played, across every kind of game.
+"""
+type MapStats {
+	games7d: Int!
+	games28d: Int!
+	games90d: Int!
+	gamesTotal: Int!
+	"""
+	Distinct users who played the map in the last 90 days.
+	"""
+	players90d: Int!
+	"""
+	The median game length over the last 90 days, in milliseconds.
+	"""
+	medianLength90d: Int
+	lastPlayedAt: DateTime!
+	"""
+	How far lobby play in the last 7 days exceeds what the 3 weeks before it predict, in
+	hundredths of a standard deviation. 0 for maps that aren't rising or that fewer than 5
+	people played in lobbies this week. Updated hourly.
+	"""
+	trendingScore: Int!
+	id: String!
+}
+
+"""
+A word from a list staff manage describing what kind of map a map is (e.g. "Defense").
+"""
+type MapTag {
+	"""
+	Fixed when the tag is created, from its English name at the time: renaming the tag keeps it.
+	"""
+	id: String!
+	"""
+	The kind of map the tag is for. A tag only counts on a map whose current file is of this
+	kind.
+	"""
+	kind: MapKind!
+	"""
+	The tag's English name.
+	"""
+	name: String!
+	"""
+	The tag's names in other languages, in locale code order. A language without one shows the
+	English name.
+	"""
+	names: [MapTagName!]!
+	"""
+	How many listed maps have the tag.
+	"""
+	mapCount: Int!
+	"""
+	How many maps hold the tag at all, listed or not and whatever the kind of their current
+	file: the maps deleting the tag would take it off.
+	"""
+	usageCount: Int!
+}
+
+"""
+A map tag's name in a language other than English.
+"""
+type MapTagName {
+	"""
+	The language's locale code (e.g. `zh-Hans`).
+	"""
+	locale: String!
+	name: String!
+}
+
+"""
+A map tag's name in a language other than English.
+"""
+input MapTagNameInput {
+	"""
+	The language's locale code (e.g. `zh-Hans`): 2 or 3 letters, then any number of `-` and 2 to
+	8 letters or digits. Not `en`, which is the tag's own name.
+	"""
+	locale: String!
+	"""
+	Trimmed; left empty, the language shows the English name.
+	"""
+	name: String!
+}
+
+"""
 Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
 """
 scalar MapVisibility
+
+"""
+The games played on a map in one week (starting Monday, UTC).
+"""
+type MapWeeklyActivity {
+	"""
+	The map (or family) and week, unique across all weeks of all maps.
+	"""
+	id: String!
+	"""
+	The start of the week: midnight UTC on its Monday.
+	"""
+	weekStart: DateTime!
+	lobbyGames: Int!
+	matchmakingGames: Int!
+}
 
 """
 The built-in default knob values, returned alongside the stored overrides so the admin UI can
@@ -704,6 +2537,298 @@ type Mutation {
 	exactly as if each had been resolved individually. Returns how many were resolved.
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
+	"""
+	Adds the map (family) a file is in to the current user's favorites, their Starred
+	collection. Favoriting a map that is already a favorite does nothing.
+	"""
+	mapAddFavorite(id: SbMapId!): SbMap!
+	"""
+	Adds a map to the current user's library, for maps they hold a copy of without having
+	uploaded it. Adding a map that's already in the library moves it to the front of `NEWEST`.
+	"""
+	mapAddToLibrary(id: SbMapId!): SbMap!
+	"""
+	Removes the map (family) a file is in from the current user's favorites, their Starred
+	collection. Removing a map that isn't a favorite does nothing.
+	"""
+	mapRemoveFavorite(id: SbMapId!): SbMap!
+	"""
+	Moves a file to another map. A map left without files is merged into the other map: its id
+	keeps working as an alias, and its favorites and collection entries move along. A file
+	that shares its map with other files can't be moved while a current or scheduled ladder map
+	pool holds it (`IN_LADDER_POOL`). Only available to users who can manage maps.
+	"""
+	mapFamilyMoveFile(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
+	"""
+	Moves a file out of its map into a new map of its own. Refused while a current or scheduled
+	ladder map pool holds the file (`IN_LADDER_POOL`). Only available to users who can manage
+	maps.
+	"""
+	mapFamilySplitFile(fileId: SbMapId!): MapFamilyFileMove!
+	"""
+	Moves every file of `familyId` into `intoFamilyId`. `familyId`'s id keeps working as an
+	alias of `intoFamilyId`, its favorites, collection entries and open owner claims move along
+	(one per collection or user), and its default pick, owner and credit are dropped
+	(`intoFamilyId` keeps its own). Returns the map merged into. Only available to users who can
+	manage maps.
+	"""
+	mapFamilyMerge(familyId: UUID!, intoFamilyId: UUID!): MapFamily!
+	"""
+	Makes a file its map's default, the file players get. Only a listed file can be the default
+	of a map with listed files. Returns the file's map. Only available to the map's owner (while
+	they aren't restricted from publishing) and users who can manage maps.
+	"""
+	mapFamilySetDefault(fileId: SbMapId!): MapFamily!
+	"""
+	Clears the pick of a map's default, so its default is derived again: the most played file,
+	then the newest. Only available to the map's owner (while they aren't restricted from
+	publishing) and users who can manage maps.
+	"""
+	mapFamilyClearDefault(familyId: UUID!): MapFamily!
+	"""
+	Tells staff something about a map: that a file isn't part of it, that it's the same as
+	another map, that its owner didn't make it, that another file should be its default, or
+	that a file is inappropriate. Changes nothing by itself. Reporting the same thing again
+	while a report is open updates that report.
+	"""
+	mapFamilyReport(input: MapFamilyReportInput!): MapFamilyReport!
+	"""
+	Sets a family report's status. Only available to users who can manage maps.
+	"""
+	mapFamilyReportSetStatus(id: UUID!, status: MapFamilyReportStatus!): MapFamilyReport!
+	"""
+	Publishes a file from the current user's library: lists it in the catalog, in the map
+	`answer` says. `JOIN` takes one of the suggested maps or a map the current user owns, and is
+	refused when the file's own map has a credit or an owner other than the current user.
+	`JOIN` and `UNSURE` are refused for a file with an `existingMap`, except a `JOIN` into a map
+	the current user owns while none of the `existingMap`'s files is listed. Users who can
+	manage maps can publish any file, and `JOIN` it to any map other than its own, as
+	`mapFamilyMoveFile` would move it. A file that's already listed is left as it is. A file
+	whose name or description needs a look is held for staff instead (`heldForReview`), who
+	list it or not.
+	
+	`tags` sets the tags of the file's map when the file is left as the only file of its map
+	(`KEEP` or `UNSURE` for a file without an `existingMap`, including when the file is held for
+	review), as `mapFamilySetTags` would but without needing the map to be listed or counting
+	toward the hourly limit; otherwise it's ignored. An invalid tag set refuses the publish before
+	anything changes. Null leaves the map's tags alone.
+	"""
+	mapPublish(fileId: SbMapId!, answer: MapPublishAnswerInput!, tags: [String!]): MapPublishResult!
+	"""
+	Lists the file of an open `PUBLISH_REVIEW` report, as published by the user who published
+	it, and resolves the report. If this lists the file, the report's `publishAnswer` is then
+	applied on the publisher's behalf: `JOIN` moves the file into `otherFamily`, `UNSURE` files a
+	`SAME_MAP` report about the file's map and `otherFamily`. The answer is skipped when
+	`otherFamily` no longer exists, already holds the file, or the file shares its map with
+	other files, unless the answer is a `JOIN` into a map the publisher owns and none of those
+	files is listed; a `JOIN` answer is also skipped when the file's map has a credit or an
+	owner other than the publisher, which moving the file would merge away. Only available to
+	users who can manage maps.
+	"""
+	mapPublishReviewApprove(reportId: UUID!): MapFamilyReport!
+	"""
+	Takes a file the current user published out of the listings. Anyone may publish it again.
+	Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
+	"""
+	mapUnpublish(fileId: SbMapId!): SbMap!
+	"""
+	Blocks a file, with an optional note (at most 500 characters) saying why, so only staff can
+	list it from then on. Works on any file staff haven't delisted already: a listed file is
+	taken out of the listings, a file its publisher unpublished stays unlisted, and a file that
+	was never published stays unpublished. Refused while a current or scheduled ladder map pool
+	holds the file (`IN_LADDER_POOL`). Only available to users who can manage maps.
+	"""
+	mapDelist(fileId: SbMapId!, note: String): SbMap!
+	"""
+	Undoes a delisting by staff or by the file's publisher. A file that was published is listed
+	again, as published by whoever published it last; a file that never was is left
+	unpublished, for anyone holding it to publish. Only available to users who can manage
+	maps.
+	"""
+	mapRelist(fileId: SbMapId!): SbMap!
+	"""
+	Moves a listed file the current user published, while it's the only file of its map, into
+	one of the maps suggested for it (see `mapLinkSuggestions`) or a map the current user owns.
+	Its old map is merged into that map, so this is refused when that map has a credit or an
+	owner other than the current user. Users who can manage maps can move any listed file into
+	any other map, as `mapFamilyMoveFile` would.
+	"""
+	mapFileLink(fileId: SbMapId!, familyId: UUID!): MapFamilyFileMove!
+	"""
+	Moves a file out of a map holding other files, into a new map of its own. Only available to
+	the file's publisher and the map's owner (while they aren't restricted from publishing).
+	Refused while a current or scheduled ladder map pool holds the file (`IN_LADDER_POOL`).
+	"""
+	mapFileUnlink(fileId: SbMapId!): MapFamilyFileMove!
+	"""
+	Claims to be the maker of a map. Someone who published every listed file of a map nobody
+	owns or is credited with becomes its owner at once (`granted`). Any other claim needs a
+	`note` (at most 500 characters) telling staff why the map is theirs, and waits for staff;
+	claiming again while it waits updates its note. A map that already has an owner can be
+	claimed this way too.
+	"""
+	mapOwnerClaim(familyId: UUID!, note: String): MapOwnerClaimResult!
+	"""
+	Gives up the current user's ownership of a map.
+	"""
+	mapOwnerRelinquish(familyId: UUID!): MapFamily!
+	"""
+	Makes a user a map's owner, as granted by staff, replacing any owner it has. Setting a map's
+	self-claimed owner again verifies them. The user's claim on the map waiting for staff, if
+	any, is granted along with it. Only available to users who can manage maps.
+	"""
+	mapFamilySetOwner(familyId: UUID!, userId: SbUserId!): MapFamily!
+	"""
+	Removes a map's owner. Only available to users who can manage maps.
+	"""
+	mapFamilyRemoveOwner(familyId: UUID!): MapFamily!
+	"""
+	Credits a map to a maker's name (at most 100 characters), for a maker who has no account.
+	Null or blank text clears it. Only available to users who can manage maps.
+	"""
+	mapFamilySetCredit(familyId: UUID!, credit: String): MapFamily!
+	"""
+	Grants a claim waiting for staff: the claimant becomes the claimed map's owner (through any
+	merges since), as granted by staff, replacing any owner it has. Other claims on the map stay
+	open. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimGrant(claimId: UUID!): MapOwnerClaim!
+	"""
+	Rejects a claim waiting for staff. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimReject(claimId: UUID!): MapOwnerClaim!
+	"""
+	Sets the tags of the map a file is in: `tags` is every tag the map should have, at most 3,
+	each of the kind of the map's current file. Tags of the other kind are removed. Users who
+	can manage maps can set any map's tags; the map's maker (while not restricted from
+	publishing) can set theirs; anyone else can set the tags of a listed map with no maker if
+	they've verified their email and aren't restricted from publishing, up to 30 times an hour.
+	A tag set by someone who outranks the current user (staff over the maker over players)
+	can't be removed (`TAG_LOCKED`). Setting the tags the map already has changes nothing.
+	"""
+	mapFamilySetTags(mapId: SbMapId!, tags: [String!]!): MapFamily!
+	"""
+	Adds a tag of `kind` at the end of that kind's tags, with the English name `name` and the
+	names in other languages `names`. Names are trimmed, and must be 1 to 24 characters without
+	control characters (`BAD_REQUEST`); a name in another language left empty is dropped. No
+	other tag of the kind may have the same English name, ignoring case (`NAME_TAKEN`). A locale
+	code that doesn't look like one, `en`, a locale given twice or more than 20 of them is
+	`BAD_REQUEST`. The tag's id is made from its English name: lowercase, every run of
+	characters other than `a`-`z` and `0`-`9` turned into one `-`, without `-` at either end, at
+	most 32 characters, and `-2`, `-3`, ... added when another tag of either kind has it. A name
+	without any of those characters is `BAD_REQUEST`. Only available to users who can manage
+	maps.
+	"""
+	mapTagCreate(name: String!, kind: MapKind!, names: [MapTagNameInput!]): MapTag!
+	"""
+	Changes a tag (`NOT_FOUND` if there's none with the id): `name`, when given, becomes its
+	English name, and `names`, when given, replaces all its names in other languages, by the
+	rules of `mapTagCreate`. Its id and kind never change. Only available to users who can
+	manage maps.
+	"""
+	mapTagUpdate(id: String!, name: String, names: [MapTagNameInput!]): MapTag!
+	"""
+	Puts the tags of `kind` in the order of `ids`, which must list every tag of that kind
+	exactly once (`BAD_REQUEST`). The other kind's order is kept. Returns every tag, in list
+	order. Only available to users who can manage maps.
+	"""
+	mapTagsSetOrder(kind: MapKind!, ids: [String!]!): [MapTag!]!
+	"""
+	Deletes a tag (`NOT_FOUND` if there's none with the id), taking it off every map. Returns
+	the deleted tag's id. Only available to users who can manage maps.
+	"""
+	mapTagDelete(id: String!): String!
+	"""
+	Creates a private collection of the current user's (at most 100), or with `staff`, a staff
+	collection (only for users who can manage maps). The title must be 3 to 50 characters
+	after trimming and differ from the user's other collections' titles, ignoring case; the
+	description may be up to 500 characters. With `addMapId`, the map that file is in is the
+	collection's first map.
+	"""
+	mapCollectionCreate(title: String!, description: String, staff: Boolean! = false, addMapId: SbMapId): MapCollection!
+	"""
+	Changes a collection's title and description, and makes a player's collection public or
+	private. Only what's given changes. Making a collection public needs a verified email, no
+	restriction on publishing maps, and a title and description without words that aren't
+	allowed; while it's public, its title and description are checked the same way. A hidden
+	collection can't be made public or private. Available to the collection's owner and, for a
+	staff collection, users who can manage maps.
+	"""
+	mapCollectionUpdate(id: UUID!, title: String, description: String, public: Boolean): MapCollection!
+	"""
+	Deletes a collection, along with its saves and reports. Starred can't be deleted. Returns
+	the deleted collection's id.
+	"""
+	mapCollectionDelete(id: UUID!): UUID!
+	"""
+	Adds the map a file is in to the end of a collection (at most 200 maps; Starred has no
+	limit). Adding a map that's already in does nothing.
+	"""
+	mapCollectionAddMap(collectionId: UUID!, mapId: SbMapId!): MapCollection!
+	"""
+	Removes the map a file is in from a collection. Removing a map that isn't in does nothing.
+	"""
+	mapCollectionRemoveMap(collectionId: UUID!, mapId: SbMapId!): MapCollection!
+	"""
+	Moves the map a file is in to `toIndex` (from 0) in a collection's order, shifting the maps
+	between. An index past the end moves it to the end. Starred can't be reordered.
+	"""
+	mapCollectionMoveMap(collectionId: UUID!, mapId: SbMapId!, toIndex: Int!): MapCollection!
+	"""
+	Saves someone else's collection to the current user's list (at most 500). Saving a saved
+	collection does nothing.
+	"""
+	mapCollectionSave(id: UUID!): MapCollection!
+	"""
+	Takes a collection out of the current user's saved list. Unsaving a collection that isn't
+	saved does nothing. Returns the collection, or null when the user can no longer see it (it
+	was made private, hidden or deleted), which is still unsaved.
+	"""
+	mapCollectionUnsave(id: UUID!): MapCollection
+	"""
+	Tells staff something is wrong with a public player's collection. The note is required
+	(at most 500 characters). Reporting it again while the report is open replaces the note.
+	A user can file at most 10 collection reports an hour; replacing a note doesn't count.
+	"""
+	mapCollectionReport(id: UUID!, note: String!): MapCollection!
+	"""
+	Hides a player's collection from everyone but its owner and staff, telling its owner why
+	(`note`, required, at most 500 characters), and resolves its open reports. Its owner can
+	still edit and delete it, but can't make it public or private until staff unhide it.
+	Hiding a hidden collection replaces the note. Only available to users who can manage maps.
+	"""
+	mapCollectionHide(id: UUID!, note: String!): MapCollection!
+	"""
+	Shows a hidden collection again. Only available to users who can manage maps.
+	"""
+	mapCollectionUnhide(id: UUID!): MapCollection!
+	"""
+	Dismisses an open collection report, leaving the collection as it is. Returns the report.
+	Only available to users who can manage maps.
+	"""
+	mapCollectionReportDismiss(reportId: UUID!): MapCollectionReport!
+	"""
+	Makes a map (the map the file `mapId` is in) or a collection the staff pick of one of a
+	week's slots, replacing that slot's pick if it has one. The week's other slot is left as it
+	is. Give exactly one of `mapId` and `collectionId` (`BAD_REQUEST`). A map goes in the slot
+	of its current file's kind: `kind` can be left out, and if given must be that kind
+	(`BAD_REQUEST`). A collection goes in the slot `kind`, which it then requires
+	(`BAD_REQUEST`). The map must be listed (`NOT_LISTED`), and the collection one everyone can
+	see (`NOT_PUBLIC`). `week` is the instant the week starts, a Monday at 00:00 UTC
+	(`INVALID_WEEK`), from this week (`WEEK_PASSED`) up to 26 weeks ahead (`WEEK_TOO_FAR`).
+	`blurb` is trimmed, and must be one line of at most 400 characters (`INVALID_BLURB`).
+	Picking another map or collection for a slot makes a new pick whose maker hasn't been told;
+	picking the same one again only changes the blurb. Only available to users who can manage
+	maps.
+	"""
+	mapFeatureSet(week: DateTime!, kind: MapKind, mapId: SbMapId, collectionId: UUID, blurb: String): MapFeature!
+	"""
+	Removes the staff pick of the `kind` slot of a week, past or to come, leaving the week's
+	other slot as it is. `week` is the instant the week starts, a Monday at 00:00 UTC
+	(`INVALID_WEEK`). Returns whether the slot had a pick. Only available to users who can
+	manage maps.
+	"""
+	mapFeatureRemove(week: DateTime!, kind: MapKind!): Boolean!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -919,6 +3044,139 @@ type Query {
 	activeLeagues: [League!]!
 	futureLeagues: [League!]!
 	pastLeagues: [League!]!
+	"""
+	Looks up a map by id, listed or not. Old ids of a map resolve to it, so the returned map's
+	id can differ from the one requested.
+	"""
+	map(id: SbMapId!): SbMap
+	"""
+	Looks up maps by the hashes of their files, listed or not. A file's hash is the
+	hex-encoded SHA-256 of its lowercase extension followed by its contents (`MapFile.id` is
+	the same hash, base64-encoded), so the app can tell which of a user's local map files are
+	already known without uploading them. Hashes that match no map are left out, and the maps come back in
+	no particular order. Takes at most 500 hashes.
+	"""
+	mapsByHash(hashes: [String!]!): [SbMap!]!
+	"""
+	What changed between two maps, e.g. two files of one map. Any two maps can be compared.
+	"""
+	mapComparison(a: SbMapId!, b: SbMapId!): MapComparison!
+	"""
+	Searches and pages through the listed maps, one per family: each family with a listed file
+	shows its current file. A search matches a family when it matches any of its listed files.
+	With a search, sorts by `RELEVANCE` unless
+	told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says
+	otherwise (at most 100). A cursor only continues the listing it came from: using it with a
+	different filter or sort is an error.
+	"""
+	maps(filter: MapFilter, sort: MapSort, after: String, first: Int): SbMapConnection!
+	"""
+	Looks up the map an id from a map page URL names, trying it in order as a map's id, an old
+	id of a map that was merged into another one, a file's id, and an old id of a file. A
+	file's id gives the map the file is in, along with the file.
+	"""
+	mapFamily(id: UUID!): MapFamilyLookup
+	"""
+	The listed files of other maps whose terrain is at least 90% similar to a file's, the most
+	similar first. Only files of the same dimensions can be compared. Only available to users
+	who can manage maps.
+	"""
+	similarFiles(fileId: SbMapId!): [MapSimilarFile!]!
+	"""
+	Family reports with a status, oldest first. Only available to users who can manage maps.
+	"""
+	mapFamilyReports(status: MapFamilyReportStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapFamilyReport!]!
+	"""
+	A family report by its id, whatever its status. Only available to users who can manage
+	maps.
+	"""
+	mapFamilyReportById(id: UUID!): MapFamilyReport
+	"""
+	How many family reports have a status. Only available to users who can manage maps.
+	"""
+	mapFamilyReportCount(status: MapFamilyReportStatus! = OPEN): Int!
+	"""
+	Changes made to families, family reports and file listings, newest first. Filtered to
+	changes about any of `familyIds` (including maps since merged into them) or `mapIds` when
+	either is given, and to changes `actorId` made. Only available to users who can manage
+	maps.
+	"""
+	mapFamilyHistory(familyIds: [UUID!], mapIds: [SbMapId!], actorId: SbUserId, limit: Int! = 50, offset: Int! = 0): [MapFamilyHistory!]!
+	"""
+	What publishing a file would do for the current user: whether they can, the map it would be
+	listed in if it's the same as a file already there, the maps it may be a version of, and
+	whether it would be held for review. Changes nothing.
+	"""
+	mapPublishPreview(fileId: SbMapId!): MapPublishPreview!
+	"""
+	The maps a file may be a version of, the likeliest first, which its publisher can link it
+	to. Empty when the file's own map has a credit or an owner other than its publisher: linking
+	would merge it away, which only staff may do. Only available to the file's publisher and
+	users who can manage maps.
+	"""
+	mapLinkSuggestions(fileId: SbMapId!): [MapPublishSuggestion!]!
+	"""
+	What claiming a map would do for the current user: whether they can, whether it would make
+	them the owner at once, and their claim on it that's waiting for staff. Changes nothing.
+	"""
+	mapOwnerClaimPreview(familyId: UUID!): MapOwnerClaimPreview!
+	"""
+	Claims with a status, oldest first. Only available to users who can manage maps.
+	"""
+	mapOwnerClaims(status: MapOwnerClaimStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapOwnerClaim!]!
+	"""
+	How many claims have a status. Only available to users who can manage maps.
+	"""
+	mapOwnerClaimCount(status: MapOwnerClaimStatus! = OPEN): Int!
+	"""
+	Every map tag, in list order: melee tags first, then UMS tags.
+	"""
+	mapTags: [MapTag!]!
+	"""
+	Looks up a collection by id. Null when there's no such collection or the viewer can't see
+	it.
+	"""
+	mapCollection(id: UUID!): MapCollection
+	"""
+	Pages through a section of the collections everyone can see. `owner` keeps one player's
+	collections (only with `PLAYERS`; the player sees the same ones as everyone else). `search`
+	keeps the collections whose title contains it, ignoring case, punctuation and spacing.
+	`lens` keeps, for `MELEE` or `UMS`, the collections where at least half of the maps others
+	can see are of that kind, and at least one is. Pages are 40 collections unless `first` says
+	otherwise (at most 100).
+	"""
+	mapCollections(section: MapCollectionSection!, lens: MapLens! = ALL, owner: SbUserId, search: String, after: String, first: Int): MapCollectionConnection!
+	"""
+	Collection reports: the open ones oldest first with `open: true`, otherwise the newest
+	first (only the resolved ones with `open: false`). Pages are 40 reports unless `first` says
+	otherwise (at most 100). Only available to users who can manage maps.
+	"""
+	mapCollectionReports(open: Boolean, after: String, first: Int): MapCollectionReportConnection!
+	"""
+	How many collection reports are open. Only available to users who can manage maps.
+	"""
+	mapCollectionReportCount: Int!
+	"""
+	The map or collection leading the Discover page of `kind` this week: the staff pick of the
+	week's `kind` slot if it is shown (see `MapFeature.shown`), otherwise the automatic pick:
+	the listed map whose current file is of `kind` with the highest trending score, at least
+	200, that wasn't a staff pick of either slot in any of the last 8 weeks (this one included),
+	the most played in the last 28 days first on a tie. Null when nothing qualifies.
+	"""
+	mapFeature(kind: MapKind!): MapFeature
+	"""
+	Every staff pick, whether or not it's shown, the latest week first: the weeks to come, then
+	this one, then the past, and within a week the melee slot before the UMS one. Pages are 30
+	picks unless `first` says otherwise (at most 100). Only available to users who can manage
+	maps.
+	"""
+	mapFeatures(after: String, first: Int): MapFeatureConnection!
+	"""
+	The users who are the maker (owner) of listed maps fitting `lens`, counting only those
+	maps: the most games on them in the last 28 days first, then the most maps. A maker is only
+	listed once their maps' `players90d` add up to at least 10. `first` of them (at most 24).
+	"""
+	mapMakers(lens: MapLens! = ALL, first: Int! = 8): [MapMaker!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -1024,6 +3282,21 @@ type RecentCommend {
 	availableAt: DateTime!
 }
 
+"""
+A map the current user played recently.
+"""
+type RecentMap {
+	id: String!
+	"""
+	The map's current file, which may not be the file that was played.
+	"""
+	map: SbMap!
+	"""
+	When the user's most recent game on any of the map's files started.
+	"""
+	lastPlayedAt: DateTime!
+}
+
 type ReconciledPlayerResult {
 	apm: Int!
 	race: AssignedRace!
@@ -1065,6 +3338,128 @@ enum RestrictedNameReason {
 }
 
 """
+A map: one map file, with its curated name and description and its place in the listings. Any
+map can be viewed, downloaded and played by anyone who has its id, listed or not.
+"""
+type SbMap {
+	id: SbMapId!
+	"""
+	The curated name if the map has one, otherwise the file's own title.
+	"""
+	name: String!
+	"""
+	The curated description if the map has one, otherwise the file's own description.
+	"""
+	description: String!
+	kind: MapKind!
+	"""
+	The number of player slots the map is played with, given its kind.
+	"""
+	playerCount: Int!
+	"""
+	Whether the map appears in the public map listings.
+	"""
+	listed: Boolean!
+	"""
+	Whether the map (family) this file is in is one of the staff picks.
+	"""
+	staffPick: Boolean!
+	"""
+	When the map was listed. Null unless it is listed.
+	"""
+	publishedAt: DateTime
+	"""
+	Play statistics of this file alone, or null if it has never been played.
+	"""
+	stats: MapStats
+	"""
+	How many users have favorited the map (family) this file is in.
+	"""
+	favoriteCount: Int!
+	"""
+	When the server first saw the map's file.
+	"""
+	firstSeenAt: DateTime!
+	file: MapFile!
+	"""
+	The user who listed this map. Null unless it is listed.
+	"""
+	publisher: SbUser
+	"""
+	Who listed and delisted this map and when, whether or not it is listed now. Only available
+	to users who can manage maps.
+	"""
+	moderation: MapModeration
+	"""
+	Matchmaking results on this map for each matchup in a matchmaking type, most played first.
+	Covers one season, or every season summed when `seasonId` is null. Counts are raw: no
+	minimum number of games is applied.
+	"""
+	matchups(matchmakingType: MatchmakingType!, seasonId: Int): [MapMatchupStats!]!
+	"""
+	The matchmaking seasons and types this map has matchup results in, newest season first.
+	"""
+	matchupSeasons: [MapMatchupSeason!]!
+	"""
+	The games played on this map in each of the last `weeks` weeks (at most 104), oldest
+	first. Weeks start on Monday (UTC) and end with the current week, which is still in
+	progress. Weeks without games are included.
+	"""
+	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
+	"""
+	Whether the current user has favorited the map (family) this file is in. False when logged
+	out.
+	"""
+	isFavorited: Boolean!
+	"""
+	Whether this map is in the current user's library. False when logged out.
+	"""
+	inLibrary: Boolean!
+	"""
+	The map (family) this file is in.
+	"""
+	family: MapFamily!
+	"""
+	The matchmaking types whose current ladder map pool holds this exact file, in matchmaking
+	type order. Usually empty.
+	"""
+	ladderPools: [MatchmakingType!]!
+}
+
+type SbMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [SbMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
+}
+
+"""
+An edge in a connection.
+"""
+type SbMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
 A map ID in the ShieldBattery system.
 """
 scalar SbMapId
@@ -1085,7 +3480,6 @@ type SbPermissions {
 	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
-	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
@@ -1111,7 +3505,6 @@ input SbPermissionsInput {
 	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
-	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
@@ -1242,9 +3635,12 @@ type UploadedMap {
 	id: SbMapId!
 	name: String!
 	description: String!
-	uploadDate: DateTime!
+	publishedAt: DateTime
 	visibility: MapVisibility!
-	uploader: SbUser!
+	"""
+	The user who listed this map, if it has been published.
+	"""
+	publisher: SbUser
 	mapFile: MapFile!
 }
 

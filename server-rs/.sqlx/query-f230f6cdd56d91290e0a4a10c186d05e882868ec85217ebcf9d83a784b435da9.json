@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                EXISTS (\n                    SELECT 1 FROM collection_maps WHERE collection_id = $1 AND family_id = $2\n                ) as \"present!\",\n                (SELECT count(*) FROM collection_maps WHERE collection_id = $1) as \"count!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "present!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f230f6cdd56d91290e0a4a10c186d05e882868ec85217ebcf9d83a784b435da9"
+}

@@ -34,6 +34,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
+import { resolveMapId, resolveMapIds } from '../maps/map-models'
 import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -121,6 +122,9 @@ const lobbyOutcomeBody = Joi.object<SendLobbyOutcomeRequest>({
   ...ROLLED_OUTCOME_REQUEST_KEYS,
 })
 
+/** The maps a lobby plays after its current one: a bounded, ordered list that may repeat a map. */
+export const mapQueueSchema = Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE)
+
 /** The body every operation on a single slot shares. */
 const lobbySlotBody = Joi.object<LobbySlotRequest>({
   clientId: clientIdSchema,
@@ -145,7 +149,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   useLegacyLimits: Joi.boolean(),
   starcraftCompatibleReplays: Joi.boolean(),
   lockedAlliances: Joi.boolean(),
-  mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
+  mapQueue: mapQueueSchema,
 })
   .or(
     'name',
@@ -284,6 +288,7 @@ export class LobbyApi {
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         leaveCurrentLobby: Joi.boolean(),
+        mapQueue: mapQueueSchema,
       }),
     })
 
@@ -291,7 +296,7 @@ export class LobbyApi {
 
     return await this.lobbyService.createLobby({
       name: body.name,
-      map: body.map,
+      map: await resolveMapId(body.map),
       gameType: body.gameType,
       gameSubType: body.gameSubType,
       race: body.race,
@@ -305,6 +310,7 @@ export class LobbyApi {
       regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
       leaveCurrentLobby: body.leaveCurrentLobby,
+      mapQueue: body.mapQueue !== undefined ? await resolveMapIds(body.mapQueue) : undefined,
       user,
       client,
     })
@@ -405,14 +411,14 @@ export class LobbyApi {
       lobbyId: params.lobbyId,
       name: body.name,
       visibility: body.visibility,
-      map: body.map,
+      map: body.map !== undefined ? await resolveMapId(body.map) : undefined,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
-      mapQueue: body.mapQueue,
+      mapQueue: body.mapQueue !== undefined ? await resolveMapIds(body.mapQueue) : undefined,
     })
   }
 

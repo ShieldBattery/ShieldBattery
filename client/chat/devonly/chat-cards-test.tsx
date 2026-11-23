@@ -218,8 +218,9 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
     hash,
     name,
     description: '',
-    uploadedBy: makeSbUserId(1),
-    uploadDate: Date.now(),
+    kind: 'melee',
+    publishedBy: makeSbUserId(1),
+    publishedAt: Date.now(),
     visibility: MapVisibility.Public,
     mapData: {
       format: 'scx',
@@ -232,9 +233,11 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
       width: 128,
       height: 128,
       isEud: false,
+      startLocations: [],
       parserVersion: 1,
     },
     imageVersion: 1,
+    imageSpawnsBaked: true,
     ...devMapImages(hash),
   }
 }

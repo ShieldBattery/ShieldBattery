@@ -1,5 +1,8 @@
 use crate::{
     game_commends::PublishedGameCommendMessage, game_reports::PublishedGameReportMessage,
+    maps::PublishedMapFeatureMessage, maps::families::graphql::PublishedMapFamilyReportMessage,
+    maps::families::owners_graphql::PublishedMapOwnerMessage,
+    maps::families::publish_graphql::PublishedMapPublishMessage,
     matchmaking::PublishedMatchmakingMessage, news::PublishedNewsMessage,
     users::PublishedUserMessage,
 };
@@ -15,6 +18,10 @@ pub enum PublishedMessage {
     Matchmaking(PublishedMatchmakingMessage),
     GameReport(PublishedGameReportMessage),
     GameCommend(PublishedGameCommendMessage),
+    MapFamilyReport(PublishedMapFamilyReportMessage),
+    MapPublish(PublishedMapPublishMessage),
+    MapOwner(PublishedMapOwnerMessage),
+    MapFeature(PublishedMapFeatureMessage),
 }
 
 impl PublishedMessage {
@@ -26,6 +33,10 @@ impl PublishedMessage {
             Self::Matchmaking(_) => "matchmaking",
             Self::GameReport(_) => "gameReport",
             Self::GameCommend(_) => "gameCommend",
+            Self::MapFamilyReport(_) => "mapFamilyReport",
+            Self::MapPublish(_) => "mapPublish",
+            Self::MapOwner(_) => "mapOwner",
+            Self::MapFeature(_) => "mapFeature",
         }
     }
 }
@@ -57,5 +68,29 @@ impl From<PublishedGameReportMessage> for PublishedMessage {
 impl From<PublishedGameCommendMessage> for PublishedMessage {
     fn from(value: PublishedGameCommendMessage) -> Self {
         Self::GameCommend(value)
+    }
+}
+
+impl From<PublishedMapFamilyReportMessage> for PublishedMessage {
+    fn from(value: PublishedMapFamilyReportMessage) -> Self {
+        Self::MapFamilyReport(value)
+    }
+}
+
+impl From<PublishedMapPublishMessage> for PublishedMessage {
+    fn from(value: PublishedMapPublishMessage) -> Self {
+        Self::MapPublish(value)
+    }
+}
+
+impl From<PublishedMapOwnerMessage> for PublishedMessage {
+    fn from(value: PublishedMapOwnerMessage) -> Self {
+        Self::MapOwner(value)
+    }
+}
+
+impl From<PublishedMapFeatureMessage> for PublishedMessage {
+    fn from(value: PublishedMapFeatureMessage) -> Self {
+        Self::MapFeature(value)
     }
 }

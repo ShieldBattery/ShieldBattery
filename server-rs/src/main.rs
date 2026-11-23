@@ -1,3 +1,7 @@
+// The async-graphql query root's resolver future nests deeply enough that rustc's layout
+// computation exceeds the default recursion limit in release builds.
+#![recursion_limit = "256"]
+
 use std::io::IsTerminal;
 use std::net::SocketAddr;
 use std::time::Duration;

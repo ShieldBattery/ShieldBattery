@@ -60,12 +60,14 @@ const MAP: MapInfo = {
   hash: MAP_HASH,
   name: 'Fighting Spirit',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(1787600000000),
+  kind: 'melee',
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(1787600000000),
   visibility: 'OFFICIAL' as any,
   mapData: { format: 'scx' } as any,
   mapUrl: 'https://store.example/signed-map-url?sig=secret',
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const REPLAY = {

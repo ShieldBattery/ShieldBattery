@@ -1,0 +1,152 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
+import { useQuery } from 'urql'
+import { filterColorCodes, SbMapId } from '../../common/maps'
+import { useOverflowingElement } from '../dom/overflowing-element'
+import { graphql } from '../gql'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { Label, TextButton } from '../material/button'
+import { Tooltip } from '../material/tooltip'
+import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { bodySmall } from '../styles/typography'
+import { getMapInfo } from './action-creators'
+
+const MapDefaultNudgeQuery = graphql(/* GraphQL */ `
+  query MapDefaultNudge($id: SbMapId!) {
+    map(id: $id) {
+      id
+      family {
+        id
+        current {
+          id
+          name
+          listed
+        }
+      }
+    }
+  }
+`)
+
+/**
+ * Requests results without suspending: the nudge shows nothing until it knows. Module-level so the
+ * query sees the same context every render.
+ */
+const NO_SUSPENSE_CONTEXT = { suspense: false }
+
+const Root = styled.div`
+  min-width: 0;
+  padding-top: 4px;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+`
+
+const NudgeIcon = styled(MaterialIcon).attrs({ icon: 'info', size: 16 })`
+  flex-shrink: 0;
+  color: var(--color-amber80);
+`
+
+const NudgeText = styled.div`
+  ${bodySmall};
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--theme-on-surface);
+`
+
+/** Holds the switch button's tooltip, which the button's own width limit is measured against. */
+const SwitchTooltip = styled(Tooltip)`
+  max-width: 100%;
+`
+
+const SwitchButton = styled(TextButton)`
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 8px;
+
+  /* The button's label is a nowrap flex box that has to be allowed to shrink for a long file name
+     to be cut short */
+  ${Label} {
+    min-width: 0;
+  }
+`
+
+const SwitchLabel = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`
+
+/**
+ * A line telling a lobby's host that the chosen file isn't the one players get when they pick its
+ * map, with an action to switch to that one. Not a prompt: hosts sometimes want a particular file on
+ * purpose (a rematch, a replay study), so it stays out of the way.
+ */
+export function MapDefaultNudge({
+  mapId,
+  disabled,
+  onSwitch,
+}: {
+  mapId: SbMapId
+  disabled?: boolean
+  /** Called with the default file's id once its info is in the store. */
+  onSwitch: (mapId: SbMapId) => void
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const [switching, setSwitching] = useState(false)
+  const [{ data }] = useQuery({
+    query: MapDefaultNudgeQuery,
+    variables: { id: mapId },
+    context: NO_SUSPENSE_CONTEXT,
+  })
+
+  const [labelRef, labelCut] = useOverflowingElement<HTMLSpanElement>()
+
+  const family = data?.map?.id === mapId ? data.map.family : undefined
+  const current = family?.current
+  if (!family || !current || !current.listed || current.id === mapId) {
+    return null
+  }
+
+  const switchLabel = t('maps.nudge.useFile', {
+    defaultValue: 'Use {{name}}',
+    name: filterColorCodes(current.name),
+  })
+  const onClick = () => {
+    setSwitching(true)
+    // The lobby's setup reads the chosen map's info from the store, so it has to be there first
+    dispatch(
+      getMapInfo(current.id, {
+        onSuccess: () => {
+          setSwitching(false)
+          onSwitch(current.id)
+        },
+        onError: () => {
+          setSwitching(false)
+          snackbarController.showSnackbar(
+            t('maps.nudge.switchRecommendedError', "Couldn't load the recommended file"),
+          )
+        },
+      }),
+    )
+  }
+
+  return (
+    <Root>
+      <NudgeIcon />
+      <NudgeText>{t('maps.files.notRecommended', 'Not the recommended file')}</NudgeText>
+      <SwitchTooltip text={switchLabel} position='top' tabIndex={-1} disabled={!labelCut}>
+        <SwitchButton
+          label={<SwitchLabel ref={labelRef}>{switchLabel}</SwitchLabel>}
+          disabled={disabled || switching}
+          onClick={onClick}
+        />
+      </SwitchTooltip>
+    </Root>
+  )
+}

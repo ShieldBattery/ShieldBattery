@@ -13,6 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { MapKind } from '../gql/graphql'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
@@ -53,9 +54,29 @@ export enum DialogType {
   LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
-  MapDetails = 'mapDetails',
+  MapCollectionCreate = 'mapCollectionCreate',
+  MapCollectionDelete = 'mapCollectionDelete',
+  MapCollectionEdit = 'mapCollectionEdit',
+  MapCollectionHide = 'mapCollectionHide',
+  MapCollectionReport = 'mapCollectionReport',
+  MapDelist = 'mapDelist',
   MapDownload = 'mapDownload',
+  MapFamilyAction = 'mapFamilyAction',
+  MapFamilyReport = 'mapFamilyReport',
+  MapFeature = 'mapFeature',
+  MapFeatureRemove = 'mapFeatureRemove',
+  MapFileLink = 'mapFileLink',
+  MapFileUnlink = 'mapFileUnlink',
+  MapOwnerAddFile = 'mapOwnerAddFile',
+  MapOwnerClaim = 'mapOwnerClaim',
+  MapOwnerEdit = 'mapOwnerEdit',
+  MapOwnerRelinquish = 'mapOwnerRelinquish',
   MapPreview = 'mapPreview',
+  MapPublish = 'mapPublish',
+  MapTagDelete = 'mapTagDelete',
+  MapTagEdit = 'mapTagEdit',
+  MapTags = 'mapTags',
+  MapUploadConfirm = 'mapUploadConfirm',
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
@@ -331,22 +352,251 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
   }
 >
 
-type MapDetailsDialogPayload = BaseDialogPayload<
-  typeof DialogType.MapDetails,
+type MapCollectionCreateDialogPayload = BaseDialogPayload<typeof DialogType.MapCollectionCreate>
+
+type MapCollectionDeleteDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionDelete,
   {
-    mapId: SbMapId
+    collectionId: string
+    /** The collection's title, as the viewer sees it. */
+    title: string
+    /** How many maps the viewer sees in it. */
+    mapCount: number
   }
 >
+
+type MapCollectionEditDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionEdit,
+  {
+    collectionId: string
+    title: string
+    description: string
+  }
+>
+
+type MapCollectionHideDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionHide,
+  {
+    collectionId: string
+    /** The collection's title. */
+    title: string
+  }
+>
+
+type MapCollectionReportDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCollectionReport,
+  {
+    collectionId: string
+  }
+>
+
+type MapDelistDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapDelist,
+  {
+    fileId: SbMapId
+    /** The file's name. */
+    name: string
+    /** Whether the file is listed right now. */
+    listed: boolean
+    /** A map report to resolve once the file is delisted. */
+    reportId?: string
+  }
+>
+
 type MapDownloadDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDownload,
   {
     mapId: SbMapId
   }
 >
+/** A staff change to which files a map holds. */
+export type MapFamilyActionKind = 'split' | 'move' | 'merge'
+
+type MapFamilyActionDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyAction,
+  {
+    action: MapFamilyActionKind
+    /** The map acted on. */
+    familyId: string
+    /** The file acted on. Unused for `merge`, which acts on every file of the map. */
+    fileId?: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
+    /** A map report to resolve once the change is made. */
+    reportId?: string
+    /** For `merge`, the map to merge into, which can still be changed in the dialog. */
+    targetFamilyId?: string
+  }
+>
+
+type MapFamilyReportDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyReport,
+  {
+    familyId: string
+    /** The file the reporter is looking at. */
+    fileId: SbMapId
+    /** How many of the map's files the reporter can see. */
+    fileCount: number
+  }
+>
+
+type MapFileLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFileLink,
+  {
+    /** The file to add to another map. */
+    fileId: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
+  }
+>
+
+/** What the dialog that sets the staff pick of one of a week's slots is opened with. */
+export interface MapFeatureDialogData {
+  /**
+   * What to make the staff pick of a week: the map `familyId` (given by one of its files), or a
+   * collection, with the name the dialog shows for it. `kind` is the slot, one per kind of map,
+   * that the pick goes in: for a map, the kind of its current file. For a collection it fixes the
+   * slot; unset lets staff choose one.
+   */
+  target:
+    | { mapId: SbMapId; familyId: string; kind: MapKind; name: string }
+    | { collectionId: string; kind?: MapKind; name: string }
+  /** The week (as the instant it starts) whose pick is edited. Unset lets staff choose one. */
+  week?: string
+  /** The blurb the dialog starts out with. */
+  blurb?: string
+}
+
+type MapFeatureDialogPayload = BaseDialogPayload<typeof DialogType.MapFeature, MapFeatureDialogData>
+
+/** What the dialog confirming the removal of a staff pick of a week's slot is opened with. */
+export interface MapFeatureRemoveDialogData {
+  /** The days of the week whose pick is removed, as staff read them. */
+  weekText: string
+  /** The slot whose pick is removed. */
+  kind: MapKind
+  /** The name of the week's pick. */
+  name: string
+  /** Removes the pick once the user confirms. */
+  onConfirm: () => void
+}
+
+type MapFeatureRemoveDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFeatureRemove,
+  MapFeatureRemoveDialogData
+>
+
+type MapFileUnlinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFileUnlink,
+  {
+    /** The name of the file to take out of its map. */
+    fileName: string
+    /** The name of the map it's in. */
+    mapName: string
+    /** Takes the file out of its map once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
+type MapUploadConfirmDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapUploadConfirm,
+  {
+    /** How many map files are about to be uploaded. */
+    count: number
+    /** Starts uploading the files once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
+type MapOwnerAddFileDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerAddFile,
+  {
+    /** The map the viewer owns, to add files to. */
+    familyId: string
+    /** The map's name. */
+    mapName: string
+  }
+>
+
+type MapOwnerClaimDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerClaim,
+  {
+    /** The map being claimed. */
+    familyId: string
+    /** The name of the map's current owner, if it has one. */
+    ownerName?: string
+  }
+>
+
+type MapOwnerEditDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerEdit,
+  {
+    /** The map whose owner and credit staff change. */
+    familyId: string
+  }
+>
+
+type MapOwnerRelinquishDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapOwnerRelinquish,
+  {
+    /** Gives up the ownership once the user confirms. */
+    onConfirm: () => void
+  }
+>
+
+/** What the dialog that adds a map tag, or changes one, is opened with. */
+export interface MapTagEditDialogData {
+  /** The kind of map the tag is for. */
+  kind: MapKind
+  /** The tag to change, as it is. Unset adds a tag of `kind` at the end of the list. */
+  tag?: {
+    id: string
+    /** The tag's English name. */
+    name: string
+    /** The tag's names in other languages. */
+    names: Array<{ locale: string; name: string }>
+  }
+}
+
+type MapTagEditDialogPayload = BaseDialogPayload<typeof DialogType.MapTagEdit, MapTagEditDialogData>
+
+/** What the dialog confirming the deletion of a map tag that maps have is opened with. */
+export interface MapTagDeleteDialogData {
+  /** The tag's English name. */
+  name: string
+  /** How many maps have the tag. */
+  usageCount: number
+  /** Deletes the tag once the user confirms. */
+  onConfirm: () => void
+}
+
+type MapTagDeleteDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapTagDelete,
+  MapTagDeleteDialogData
+>
+
+type MapTagsDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapTags,
+  {
+    /** The map whose tags are edited. */
+    familyId: string
+  }
+>
+
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
     mapId: SbMapId
+  }
+>
+
+type MapPublishDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapPublish,
+  {
+    /** The file to publish. */
+    fileId: SbMapId
+    /** The file the map's page currently shows, if the dialog was opened from a map's page. */
+    selectedId?: SbMapId
   }
 >
 type GameVerificationFailedDialogPayload = BaseDialogPayload<
@@ -536,9 +786,29 @@ export type DialogPayload =
   | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
-  | MapDetailsDialogPayload
+  | MapCollectionCreateDialogPayload
+  | MapCollectionDeleteDialogPayload
+  | MapCollectionEditDialogPayload
+  | MapCollectionHideDialogPayload
+  | MapCollectionReportDialogPayload
+  | MapDelistDialogPayload
   | MapDownloadDialogPayload
+  | MapFamilyActionDialogPayload
+  | MapFamilyReportDialogPayload
+  | MapFileLinkDialogPayload
+  | MapFeatureDialogPayload
+  | MapFeatureRemoveDialogPayload
+  | MapFileUnlinkDialogPayload
+  | MapOwnerAddFileDialogPayload
+  | MapOwnerClaimDialogPayload
+  | MapOwnerEditDialogPayload
+  | MapOwnerRelinquishDialogPayload
   | MapPreviewDialogPayload
+  | MapPublishDialogPayload
+  | MapTagDeleteDialogPayload
+  | MapTagEditDialogPayload
+  | MapTagsDialogPayload
+  | MapUploadConfirmDialogPayload
   | MarkdownDialogPayload
   | GameVerificationFailedDialogPayload
   | MatchCanceledDialogPayload

@@ -1,7 +1,8 @@
-import { Cache, cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
+import { Cache, cacheExchange, Data, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { graphql } from '../gql'
 import schema from '../gql/schema.json'
 import { CREDENTIAL_STORAGE } from './fetch'
 import { requestPolicyExchange } from './improved-request-policy-exchange'
@@ -51,6 +52,374 @@ function invalidateNewsPostLists(cache: Cache) {
   }
 }
 
+/**
+ * Query fields whose results depend on which files make up each map, or on which file each map
+ * gives players: the catalog shows each map's current file, a map page id resolves through the
+ * maps, and the reports and history are about them. What claiming a map would do depends on its
+ * listed files and who published them, so the claim preview is among them. A tag counts the listed
+ * maps whose current file is of its kind.
+ */
+const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'maps',
+  'mapFamily',
+  'mapOwnerClaimPreview',
+  'similarFiles',
+  'mapFamilyReports',
+  'mapFamilyReportCount',
+  'mapFamilyHistory',
+  'mapTags',
+])
+
+const MAP_FAMILY_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'mapFamilyReports',
+  'mapFamilyReportCount',
+  'mapFamilyHistory',
+])
+
+/**
+ * Query fields whose results depend on who owns a map or who it's credited to: the listings of a
+ * user's maps, what claiming a map would do, the claims and their counts, the history, and what
+ * publishing or linking a file would offer (a map with another owner or a credit can't be merged
+ * away). The mutations that change an owner or a credit return the map with its owner fields, so the
+ * map itself is never invalidated whole.
+ */
+const MAP_OWNER_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'maps',
+  'mapOwnerClaimPreview',
+  'mapOwnerClaims',
+  'mapOwnerClaimCount',
+  'mapFamilyHistory',
+  'mapPublishPreview',
+  'mapLinkSuggestions',
+])
+
+/** The current user's map listings, which show each favorite as its map's current file. */
+const USER_MAP_LISTING_FIELDS: ReadonlySet<string> = new Set(['favoriteMaps', 'mapLibrary'])
+
+/**
+ * Query fields listing collections, which a collection's change can move it into or out of, or
+ * reorder (the viewer's own list is ordered by when each collection last changed).
+ */
+const COLLECTION_LIST_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapCollections'])
+
+/** Query fields listing the map tags. */
+const MAP_TAG_LIST_FIELDS: ReadonlySet<string> = new Set(['mapTags'])
+
+/**
+ * Query fields holding staff picks: the ones the Discover page shows (one per kind of map, under
+ * the `kind` argument), and the schedule.
+ */
+const MAP_FEATURE_QUERY_FIELDS: ReadonlySet<string> = new Set(['mapFeature', 'mapFeatures'])
+
+/** Query fields listing and counting collection reports. */
+const COLLECTION_REPORT_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'mapCollectionReports',
+  'mapCollectionReportCount',
+])
+
+/** Invalidates `fieldNames` of the root query under every argument combination they were cached with. */
+function invalidateQueryFields(cache: Cache, fieldNames: ReadonlySet<string>) {
+  for (const field of cache.inspectFields('Query')) {
+    if (fieldNames.has(field.fieldName)) {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+function invalidateUserMapListings(cache: Cache) {
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey !== 'string') {
+    return
+  }
+  for (const field of cache.inspectFields(userKey)) {
+    if (USER_MAP_LISTING_FIELDS.has(field.fieldName)) {
+      cache.invalidate(userKey, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/** Whether a cached map listing field was filtered by tags. */
+function isTagFilteredListing(args: Record<string, unknown> | null | undefined): boolean {
+  const filter = args?.filter as { tags?: unknown } | null | undefined
+  return Array.isArray(filter?.tags) && filter.tags.length > 0
+}
+
+/**
+ * Invalidates what a change to a map's tags can affect: how many maps have each tag, the listings
+ * filtered by tags (the catalog's and the current user's), and the history. The map itself is kept,
+ * since `mapFamilySetTags` returns it with its tags.
+ */
+function invalidateMapTags(cache: Cache) {
+  for (const field of cache.inspectFields('Query')) {
+    if (
+      field.fieldName === 'mapTags' ||
+      field.fieldName === 'mapFamilyHistory' ||
+      (field.fieldName === 'maps' && isTagFilteredListing(field.arguments))
+    ) {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey !== 'string') {
+    return
+  }
+  for (const field of cache.inspectFields(userKey)) {
+    if (USER_MAP_LISTING_FIELDS.has(field.fieldName) && isTagFilteredListing(field.arguments)) {
+      cache.invalidate(userKey, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/** Invalidates `fieldName` of the entity `key` under every argument combination it was cached with. */
+function invalidateEntityField(cache: Cache, key: string, fieldName: string) {
+  for (const field of cache.inspectFields(key)) {
+    if (field.fieldName === fieldName) {
+      cache.invalidate(key, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/**
+ * Invalidates the lists of collections: the ones on the Collections tab and the current user's own
+ * list. The collections themselves are kept, since the mutations changing them return them.
+ */
+function invalidateCollectionLists(cache: Cache) {
+  invalidateQueryFields(cache, COLLECTION_LIST_QUERY_FIELDS)
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey === 'string') {
+    invalidateEntityField(cache, userKey, 'mapCollections')
+  }
+}
+
+/**
+ * The cache keys of the maps (families) of the cached staff picks: the ones the Discover page shows
+ * (`mapFeature`, for every kind cached) and the ones the schedule lists (`mapFeatures`).
+ */
+function cachedFeatureFamilyKeys(cache: Cache): Set<string> {
+  const keys = new Set<string>()
+  const addFeature = (featureKey: unknown) => {
+    const mapKey = typeof featureKey === 'string' ? cache.resolve(featureKey, 'map') : undefined
+    const familyKey = typeof mapKey === 'string' ? cache.resolve(mapKey, 'family') : undefined
+    if (typeof familyKey === 'string') {
+      keys.add(familyKey)
+    }
+  }
+  for (const field of cache.inspectFields('Query')) {
+    if (field.fieldName === 'mapFeature') {
+      addFeature(cache.resolve('Query', field.fieldKey))
+    } else if (field.fieldName === 'mapFeatures') {
+      const connection = cache.resolve('Query', field.fieldKey)
+      if (typeof connection !== 'string') {
+        continue
+      }
+      const edges = cache.resolve(connection, 'edges')
+      for (const edge of Array.isArray(edges) ? edges : []) {
+        addFeature(typeof edge === 'string' ? cache.resolve(edge, 'node') : undefined)
+      }
+      const nodes = cache.resolve(connection, 'nodes')
+      for (const node of Array.isArray(nodes) ? nodes : []) {
+        addFeature(node)
+      }
+    }
+  }
+  return keys
+}
+
+/**
+ * Invalidates what a change to the staff pick of one of a week's slots can affect: the picks the
+ * Discover page shows for every kind, the schedule, and the featured weeks of the maps involved.
+ * Those are the maps of the picks cached before the change (one of which the change may have
+ * replaced), and the map of `mapFeature`, the pick the change made, if any. Only the
+ * `featuredWeeks` field of each is invalidated, never the map or the pick, so a result returning
+ * them stays whole.
+ */
+function invalidateMapFeatures(cache: Cache, mapFeature?: { map?: { id: string } | null }) {
+  const familyKeys = cachedFeatureFamilyKeys(cache)
+  const pickedFamilyKey = mapFeature?.map
+    ? cache.resolve({ __typename: 'SbMap', id: mapFeature.map.id }, 'family')
+    : undefined
+  if (typeof pickedFamilyKey === 'string') {
+    familyKeys.add(pickedFamilyKey)
+  }
+  for (const key of familyKeys) {
+    invalidateEntityField(cache, key, 'featuredWeeks')
+  }
+  invalidateQueryFields(cache, MAP_FEATURE_QUERY_FIELDS)
+}
+
+const MapFamilyViewerCollectionIdsFragment = graphql(/* GraphQL */ `
+  fragment MapFamilyViewerCollectionIdsFragment on MapFamily {
+    id
+    viewerCollectionIds
+  }
+`)
+
+/**
+ * Records whether the collection `collectionId` holds the map that the file `fileId` is in, in that
+ * map's cached `viewerCollectionIds`. Written rather than invalidated, so a menu showing them keeps
+ * its checks while the collection lists load again.
+ */
+function setViewerCollectionHolds(
+  cache: Cache,
+  fileId: string,
+  collectionId: string,
+  holds: boolean,
+) {
+  const familyKey = cache.resolve({ __typename: 'SbMap', id: fileId }, 'family')
+  if (typeof familyKey !== 'string') {
+    return
+  }
+  const familyId = cache.resolve(familyKey, 'id')
+  const ids = cache.resolve(familyKey, 'viewerCollectionIds')
+  if (typeof familyId !== 'string' || !Array.isArray(ids)) {
+    return
+  }
+  const others = ids.filter((id): id is string => typeof id === 'string' && id !== collectionId)
+  cache.writeFragment(MapFamilyViewerCollectionIdsFragment, {
+    id: familyId,
+    viewerCollectionIds: holds ? [...others, collectionId] : others,
+  })
+}
+
+/**
+ * Invalidates what a change to the maps of the collection `collectionId` can affect: its listings
+ * of maps, and the collections listed on the page of the map that the file `fileId` is in (only
+ * public and staff collections are listed there, so a change to any other collection leaves them
+ * be). The collection's count and cover are kept, since the mutations changing its maps return
+ * them.
+ */
+function invalidateCollectionMaps(cache: Cache, collectionId: string, fileId: string | undefined) {
+  const collectionKey = cache.keyOfEntity({ __typename: 'MapCollection', id: collectionId })
+  if (collectionKey) {
+    invalidateEntityField(cache, collectionKey, 'maps')
+  }
+  invalidateCollectionLists(cache)
+  const familyKey = fileId
+    ? cache.resolve({ __typename: 'SbMap', id: fileId }, 'family')
+    : undefined
+  const listedOnMapPages = !collectionKey || cache.resolve(collectionKey, 'public') !== false
+  if (typeof familyKey === 'string' && listedOnMapPages) {
+    invalidateEntityField(cache, familyKey, 'collections')
+  }
+}
+
+/**
+ * Invalidates the current user's Starred collection's count, cover and maps, which starring or
+ * unstarring a map changes. The collection is found wherever it's cached: in the current user's
+ * list of collections, or looked up by its id (only its owner can see a Starred collection, so any
+ * one cached is the current user's). Only these fields are invalidated, never the collection, so a
+ * result returning it stays whole.
+ */
+function invalidateStarredCollection(cache: Cache) {
+  const keys = new Set<string>()
+  const addCollections = (value: unknown) => {
+    for (const key of Array.isArray(value) ? value : [value]) {
+      if (typeof key === 'string' && cache.resolve(key, 'kind') === 'STARRED') {
+        keys.add(key)
+      }
+    }
+  }
+
+  const userKey = cache.resolve('Query', 'currentUser')
+  if (typeof userKey === 'string') {
+    for (const field of cache.inspectFields(userKey)) {
+      if (field.fieldName === 'mapCollections') {
+        addCollections(cache.resolve(userKey, field.fieldKey))
+      }
+    }
+  }
+  for (const field of cache.inspectFields('Query')) {
+    if (field.fieldName === 'mapCollection') {
+      addCollections(cache.resolve('Query', field.fieldKey))
+    }
+  }
+
+  for (const key of keys) {
+    invalidateEntityField(cache, key, 'mapCount')
+    invalidateEntityField(cache, key, 'cover')
+    invalidateEntityField(cache, key, 'maps')
+  }
+}
+
+/**
+ * Invalidates everything cached that a change to which files make up a map, or to which file a map
+ * gives players, can affect. `familyIds` are maps whose files changed. `fileIds` are files that
+ * changed maps without the mutation's result saying where to, so their map is stale too; files
+ * that the result does place only have their favorite state invalidated, via `favoriteFileIds`.
+ */
+function invalidateMapFamilies(
+  cache: Cache,
+  {
+    familyIds = [],
+    fileIds = [],
+    favoriteFileIds = [],
+  }: { familyIds?: string[]; fileIds?: string[]; favoriteFileIds?: string[] } = {},
+) {
+  invalidateQueryFields(cache, MAP_FAMILY_QUERY_FIELDS)
+  invalidateUserMapListings(cache)
+  for (const id of fileIds) {
+    cache.invalidate({ __typename: 'SbMap', id }, 'family')
+  }
+  // A favorite is of a map, so a file's favorite state follows the map it's in
+  for (const id of [...fileIds, ...favoriteFileIds]) {
+    cache.invalidate({ __typename: 'SbMap', id }, 'isFavorited')
+    cache.invalidate({ __typename: 'SbMap', id }, 'favoriteCount')
+  }
+  for (const id of familyIds) {
+    cache.invalidate({ __typename: 'MapFamily', id })
+  }
+}
+
+/**
+ * The fields of the map a file moved into that the results of `mapFileLink`, `mapFileUnlink` and
+ * `mapPublish` select, so the result brings them fresh from the server.
+ */
+const MOVED_INTO_RESULT_FIELDS: ReadonlySet<string> = new Set([
+  '__typename',
+  'id',
+  'name',
+  'current',
+])
+
+/** A mutation result saying which map a file is in now, and which one it left. */
+type FileMovedIntoResult =
+  | { family?: { id: string }; previousFamily?: { id: string } | null }
+  | undefined
+
+/**
+ * Invalidates what moving the file `fileId` into the map `move.family` can affect, for a mutation
+ * whose result selects `MOVED_INTO_RESULT_FIELDS` of that map. Those fields are kept: the result
+ * returns the map in a non-null field, and the cache reads a result back as null once an entity it
+ * returns that way has been invalidated whole. The map the file left is invalidated whole.
+ */
+function invalidateFileMovedInto(cache: Cache, move: FileMovedIntoResult, fileId: string) {
+  invalidateMapFamilies(cache, {
+    familyIds: move?.previousFamily ? [move.previousFamily.id] : [],
+    favoriteFileIds: [fileId],
+  })
+  if (!move?.family) {
+    return
+  }
+  const family = { __typename: 'MapFamily', id: move.family.id }
+  for (const field of cache.inspectFields(family)) {
+    if (!MOVED_INTO_RESULT_FIELDS.has(field.fieldName)) {
+      cache.invalidate(family, field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
+/** The cached files of a map, read before a change moves them elsewhere. */
+function cachedFamilyFileIds(cache: Cache, familyId: string): string[] {
+  const files = cache.resolve({ __typename: 'MapFamily', id: familyId }, 'files')
+  if (!Array.isArray(files)) {
+    return []
+  }
+  return files.flatMap(key => {
+    const id = typeof key === 'string' ? cache.resolve(key, 'id') : undefined
+    return typeof id === 'string' ? [id] : []
+  })
+}
+
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
@@ -83,6 +452,150 @@ const cacheUpdates: UpdatesConfig = {
       cache.invalidate({ __typename: 'GameFeedback', id: (args.input as any).gameId })
     },
     newsUpdatePost: (_result, _args, cache) => invalidateNewsPostLists(cache),
+    // A favorite is of a map, shown in the favorites listing as the map's current file. The
+    // mutation's result carries the new state of each of the map's files.
+    mapAddFavorite: (_result, _args, cache) => {
+      invalidateUserMapListings(cache)
+      invalidateStarredCollection(cache)
+    },
+    mapRemoveFavorite: (_result, _args, cache) => {
+      invalidateUserMapListings(cache)
+      invalidateStarredCollection(cache)
+    },
+    // Collections: each mutation returns the collection it changed with the fields its views show,
+    // so only the lists it can move in and the listings of its maps are invalidated, never the
+    // collection itself
+    mapCollectionCreate: (result, args, cache) => {
+      invalidateCollectionLists(cache)
+      const created = result.mapCollectionCreate as { id?: string } | undefined
+      if (args.addMapId && created?.id) {
+        setViewerCollectionHolds(cache, args.addMapId as string, created.id, true)
+      }
+    },
+    mapCollectionUpdate: (_result, _args, cache) => invalidateCollectionLists(cache),
+    mapCollectionDelete: (_result, args, cache) => {
+      // The result is only the id, so the deleted collection can be dropped from the cache
+      cache.invalidate({ __typename: 'MapCollection', id: args.id as string })
+      invalidateCollectionLists(cache)
+      invalidateQueryFields(cache, COLLECTION_REPORT_QUERY_FIELDS)
+    },
+    mapCollectionAddMap: (_result, args, cache) => {
+      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string)
+      setViewerCollectionHolds(cache, args.mapId as string, args.collectionId as string, true)
+    },
+    mapCollectionRemoveMap: (_result, args, cache) => {
+      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string)
+      setViewerCollectionHolds(cache, args.mapId as string, args.collectionId as string, false)
+    },
+    mapCollectionMoveMap: (_result, args, cache) =>
+      invalidateCollectionMaps(cache, args.collectionId as string, args.mapId as string),
+    mapCollectionSave: (_result, _args, cache) => invalidateCollectionLists(cache),
+    mapCollectionUnsave: (_result, _args, cache) => invalidateCollectionLists(cache),
+    mapCollectionReport: (_result, _args, cache) =>
+      invalidateQueryFields(cache, COLLECTION_REPORT_QUERY_FIELDS),
+    // Hiding resolves the collection's open reports
+    mapCollectionHide: (_result, _args, cache) => {
+      invalidateCollectionLists(cache)
+      invalidateQueryFields(cache, COLLECTION_REPORT_QUERY_FIELDS)
+    },
+    mapCollectionUnhide: (_result, _args, cache) => invalidateCollectionLists(cache),
+    mapCollectionReportDismiss: (_result, _args, cache) =>
+      invalidateQueryFields(cache, COLLECTION_REPORT_QUERY_FIELDS),
+    mapFamilySetDefault: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapFamilyClearDefault: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapFamilyMoveFile: (result, args, cache) => {
+      const move = result.mapFamilyMoveFile as
+        | { previousFamily?: { id: string } | null; family?: { id: string } }
+        | undefined
+      invalidateMapFamilies(cache, {
+        familyIds: [move?.previousFamily?.id, move?.family?.id].filter((id): id is string => !!id),
+        favoriteFileIds: [args.fileId as string],
+      })
+    },
+    mapFamilySplitFile: (result, args, cache) => {
+      const move = result.mapFamilySplitFile as
+        | { previousFamily?: { id: string } | null }
+        | undefined
+      invalidateMapFamilies(cache, {
+        familyIds: move?.previousFamily ? [move.previousFamily.id] : [],
+        favoriteFileIds: [args.fileId as string],
+      })
+    },
+    mapFileLink: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapFileLink as FileMovedIntoResult,
+        args.fileId as string,
+      ),
+    mapFileUnlink: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapFileUnlink as FileMovedIntoResult,
+        args.fileId as string,
+      ),
+    mapFamilyMerge: (_result, args, cache) => {
+      const mergedId = args.familyId as string
+      invalidateMapFamilies(cache, {
+        familyIds: [mergedId, args.intoFamilyId as string],
+        fileIds: cachedFamilyFileIds(cache, mergedId),
+      })
+    },
+    // Listing or delisting a file can change its map's current file, or put its map in or out of
+    // the catalog
+    mapDelist: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapUnpublish: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapRelist: (_result, _args, cache) => invalidateMapFamilies(cache),
+    // Publishing can also move the file into another map. The invalidated fields include the
+    // reports, which publishing can file.
+    mapPublish: (result, args, cache) =>
+      invalidateFileMovedInto(
+        cache,
+        result.mapPublish as FileMovedIntoResult,
+        args.fileId as string,
+      ),
+    // Approving lists the file and resolves its report
+    mapPublishReviewApprove: (_result, _args, cache) => invalidateMapFamilies(cache),
+    mapFamilyReport: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
+    mapFamilyReportSetStatus: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_FAMILY_REPORT_QUERY_FIELDS),
+    mapFamilySetTags: (_result, _args, cache) => invalidateMapTags(cache),
+    // A created tag goes at the end of its kind's tags, and no map has it yet. The list is
+    // refetched to include it.
+    mapTagCreate: (_result, _args, cache) => invalidateQueryFields(cache, MAP_TAG_LIST_FIELDS),
+    // The result holds the whole list, in the order set
+    mapTagsSetOrder: (result, _args, cache) => {
+      if (result.mapTagsSetOrder) {
+        cache.link('Query', 'mapTags', result.mapTagsSetOrder as Data[])
+      }
+    },
+    // Deleting a tag takes it off every map, and listings filtered by it no longer are. Whatever
+    // holds the tag (a map's tags, the list) is refetched without it.
+    mapTagDelete: (result, args, cache) => {
+      if (result.mapTagDelete) {
+        cache.invalidate({ __typename: 'MapTag', id: args.id as string })
+        invalidateMapTags(cache)
+      }
+    },
+    mapFeatureSet: (result, _args, cache) =>
+      invalidateMapFeatures(
+        cache,
+        result.mapFeatureSet as { map?: { id: string } | null } | undefined,
+      ),
+    mapFeatureRemove: (_result, _args, cache) => invalidateMapFeatures(cache),
+    mapOwnerClaim: (_result, _args, cache) => invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerRelinquish: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilySetOwner: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilyRemoveOwner: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapFamilySetCredit: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerClaimGrant: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
+    mapOwnerClaimReject: (_result, _args, cache) =>
+      invalidateQueryFields(cache, MAP_OWNER_QUERY_FIELDS),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
         cache.invalidate({ __typename: 'NewsPost', id: args.id as string })
@@ -107,6 +620,8 @@ const cacheKeys: KeyingConfig = {
   LeagueTranslation: NON_KEYED_EMBEDDED,
   MapForce: NON_KEYED_EMBEDDED,
   MapForcePlayer: NON_KEYED_EMBEDDED,
+  // A tag's name in one language, only ever read through its (keyed) MapTag
+  MapTagName: NON_KEYED_EMBEDDED,
   MatchmakerConfigDefaults: NON_KEYED_EMBEDDED,
   NewsPostTranslation: NON_KEYED_EMBEDDED,
   MatchmakerConfigView: NON_KEYED_EMBEDDED,

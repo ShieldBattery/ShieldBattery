@@ -1,55 +1,39 @@
+import { GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
-  GetFavoritedMapsQueryParams,
-  GetFavoritesResponse,
-  GetMapsQueryParams,
-  GetMapsResponse,
   MapInfoJson,
   SbMapId,
   UpdateMapResponse,
   UpdateMapServerRequest,
-  UploadMapResponse,
 } from '../../common/maps'
+import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MapsActions =
-  | UploadLocalMap
-  | GetMaps
-  | GetFavorites
+  | UploadMap
   | GetBatchMapInfoSuccess
   | GetBatchMapInfoFailure
   | AddToFavorites
   | RemoveFromFavorites
+  | RemoveFromMyMaps
   | UpdateMapSuccess
   | LoadMapInfos
+  | GetMapGames
 
-/**
- * The server has returned the map that was uploaded.
- */
-export interface UploadLocalMap {
-  type: '@maps/uploadLocalMap'
-  payload: UploadMapResponse
-  meta: {
-    path: string
-  }
+/** A map that was just uploaded, along with the info needed to display it. */
+export interface UploadedMap {
+  map: MapInfoJson
+  /** Contains the map's ID if it's in the current user's own maps. */
+  libraryMapIds: SbMapId[]
+  users: SbUser[]
 }
 
 /**
- * The server has returned the list of maps with a particular visibility and other filters applied.
+ * A map file was uploaded to the current user's own maps.
  */
-export interface GetMaps {
-  type: '@maps/getMaps'
-  payload: GetMapsResponse
-  meta: GetMapsQueryParams
-}
-
-/**
- * The server has returned the list of favorited maps for the current user.
- */
-export interface GetFavorites {
-  type: '@maps/getFavoritedMaps'
-  payload: GetFavoritesResponse
-  meta: GetFavoritedMapsQueryParams
+export interface UploadMap {
+  type: '@maps/uploadMap'
+  payload: UploadedMap
 }
 
 /**
@@ -73,6 +57,12 @@ export interface RemoveFromFavorites {
   payload: SbMapId
 }
 
+/** The map has been removed from the current user's own maps. */
+export interface RemoveFromMyMaps {
+  type: '@maps/removeFromMyMaps'
+  payload: SbMapId
+}
+
 /**
  * The server has updated the map.
  */
@@ -89,4 +79,11 @@ export interface UpdateMapSuccess {
 export interface LoadMapInfos {
   type: '@maps/loadMapInfos'
   payload: MapInfoJson[]
+}
+
+/** The server has returned a page of the games played on a map. */
+export interface GetMapGames {
+  type: '@maps/getMapGames'
+  payload: GetGamesResponse
+  error?: false
 }

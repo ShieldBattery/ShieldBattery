@@ -107,9 +107,71 @@ const GameVerificationFailedDialog = React.lazy(async () => ({
   default: (await import('../starcraft/game-verification-failed-dialog'))
     .GameVerificationFailedDialog,
 }))
-const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
+const MapCollectionCreateDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionCreateDialog,
+}))
+const MapCollectionDeleteDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionDeleteDialog,
+}))
+const MapCollectionEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionEditDialog,
+}))
+const MapCollectionHideDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionHideDialog,
+}))
+const MapCollectionReportDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-collection-dialogs')).MapCollectionReportDialog,
+}))
+const MapDelistDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-delist-dialog')).MapDelistDialog,
+}))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
+}))
+const MapFamilyActionDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-family-action-dialog')).MapFamilyActionDialog,
+}))
+const MapFamilyReportDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-family-report-dialog')).MapFamilyReportDialog,
+}))
+const MapFileLinkDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapFileLinkDialog,
+}))
+const MapFileUnlinkDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapFileUnlinkDialog,
+}))
+const MapOwnerAddFileDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerAddFileDialog,
+}))
+const MapOwnerClaimDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerClaimDialog,
+}))
+const MapOwnerEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerEditDialog,
+}))
+const MapOwnerRelinquishDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-owner-dialogs')).MapOwnerRelinquishDialog,
+}))
+const MapFeatureDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-feature-dialog')).MapFeatureDialog,
+}))
+const MapFeatureRemoveDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-feature-dialog')).MapFeatureRemoveDialog,
+}))
+const MapPublishDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-publish-dialog')).MapPublishDialog,
+}))
+const MapTagsDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-tags-dialog')).MapTagsDialog,
+}))
+const MapUploadConfirmDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-upload-confirm-dialog')).MapUploadConfirmDialog,
+}))
+const MapTagEditDialog = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tag-dialogs')).MapTagEditDialog,
+}))
+const MapTagDeleteDialog = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-tag-dialogs')).MapTagDeleteDialog,
 }))
 const MapPreviewDialog = React.lazy(async () => ({
   default: (await import('../maps/map-preview')).MapPreviewDialog,
@@ -295,12 +357,52 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.ImageViewer:
       return { component: ImageViewerDialog }
-    case DialogType.MapDetails:
-      return { component: MapDetailsDialog }
+    case DialogType.MapCollectionCreate:
+      return { component: MapCollectionCreateDialog }
+    case DialogType.MapCollectionDelete:
+      return { component: MapCollectionDeleteDialog }
+    case DialogType.MapCollectionEdit:
+      return { component: MapCollectionEditDialog }
+    case DialogType.MapCollectionHide:
+      return { component: MapCollectionHideDialog }
+    case DialogType.MapCollectionReport:
+      return { component: MapCollectionReportDialog }
+    case DialogType.MapDelist:
+      return { component: MapDelistDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
+    case DialogType.MapFamilyAction:
+      return { component: MapFamilyActionDialog }
+    case DialogType.MapFamilyReport:
+      return { component: MapFamilyReportDialog }
+    case DialogType.MapFeature:
+      return { component: MapFeatureDialog }
+    case DialogType.MapFeatureRemove:
+      return { component: MapFeatureRemoveDialog }
+    case DialogType.MapFileLink:
+      return { component: MapFileLinkDialog }
+    case DialogType.MapFileUnlink:
+      return { component: MapFileUnlinkDialog }
+    case DialogType.MapOwnerAddFile:
+      return { component: MapOwnerAddFileDialog }
+    case DialogType.MapOwnerClaim:
+      return { component: MapOwnerClaimDialog }
+    case DialogType.MapOwnerEdit:
+      return { component: MapOwnerEditDialog }
+    case DialogType.MapOwnerRelinquish:
+      return { component: MapOwnerRelinquishDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
+    case DialogType.MapPublish:
+      return { component: MapPublishDialog }
+    case DialogType.MapTagDelete:
+      return { component: MapTagDeleteDialog }
+    case DialogType.MapTagEdit:
+      return { component: MapTagEditDialog }
+    case DialogType.MapTags:
+      return { component: MapTagsDialog }
+    case DialogType.MapUploadConfirm:
+      return { component: MapUploadConfirmDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
     case DialogType.GameVerificationFailed:

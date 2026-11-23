@@ -1,8 +1,12 @@
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   MapExtension,
+  MapFamilyId,
   MapForce,
   MapInfo,
+  MapInfoKind,
   MapSortType,
+  MapStartLocation,
   MapVisibility,
   NumPlayers,
   SbMapId,
@@ -14,19 +18,19 @@ import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../files'
-import { MapParseData } from './parse-data'
+import { mapNameMatches } from './map-search'
 import { imagePath, mapPath } from './paths'
 
-// TODO(tec27): Make the MapInfo structure more closely align to what we store here?
 type DbMapInfo = Dbify<{
   id: SbMapId
-  mapHash: Buffer
+  hash: Buffer
   name: string
   description: string
-  uploadedBy: SbUserId
-  uploadedByName: string
-  uploadDate: Date
-  visibility: MapVisibility
+  kind: MapInfoKind
+  staffPick: boolean
+  listed: boolean
+  publishedBy: SbUserId | null
+  publishedAt: Date | null
   extension: MapExtension
   tileset: Tileset
   originalName: string
@@ -39,9 +43,40 @@ type DbMapInfo = Dbify<{
   }
   width: number
   height: number
+  startLocations: MapStartLocation[]
+  umsContent: boolean | null
   parserVersion: number
   imageVersion: number
+  renderVersion: number
 }>
+
+/** The columns of `maps` (aliased as `m`) that make up a `DbMapInfo`. */
+const MAP_INFO_COLUMNS = sql`
+  m.id,
+  m.hash,
+  m.name,
+  COALESCE(m.public_description, m.description) AS description,
+  m.kind,
+  map_family_is_staff_pick(m.family_id) AS staff_pick,
+  m.listed,
+  m.published_by,
+  m.published_at,
+  m.extension,
+  m.title AS original_name,
+  m.description AS original_description,
+  m.width,
+  m.height,
+  m.tileset,
+  m.players_melee,
+  m.players_ums,
+  m.is_eud,
+  m.start_locations,
+  m.ums_content,
+  m.parser_version,
+  m.image_version,
+  m.render_version,
+  m.lobby_init_data
+`
 
 interface MapUrlProps {
   mapUrl?: string
@@ -49,17 +84,31 @@ interface MapUrlProps {
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
+  jpegImageUrl?: string
+}
+
+/**
+ * Returns which listing a map appears in, given how the database records it: listed files whose map
+ * is a staff pick make up the official listing.
+ */
+function toVisibility(info: Pick<DbMapInfo, 'listed' | 'staff_pick'>) {
+  if (!info.listed) {
+    return MapVisibility.Unlisted
+  }
+  return info.staff_pick ? MapVisibility.Official : MapVisibility.Public
 }
 
 function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
   return {
     id: props.id,
-    hash: props.map_hash.toString('hex'),
+    hash: props.hash.toString('hex'),
     name: props.name,
     description: props.description,
-    uploadedBy: props.uploaded_by,
-    uploadDate: props.upload_date,
-    visibility: props.visibility,
+    kind: props.kind,
+    // A delisted map keeps its publishing record, but only a listed map has a publisher
+    publishedBy: props.listed ? (props.published_by ?? undefined) : undefined,
+    publishedAt: props.listed ? (props.published_at ?? undefined) : undefined,
+    visibility: toVisibility(props),
     mapData: {
       format: props.extension,
       tileset: props.tileset,
@@ -71,20 +120,13 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       width: props.width,
       height: props.height,
       isEud: props.is_eud,
+      startLocations: props.start_locations,
+      umsContent: props.ums_content ?? undefined,
       parserVersion: props.parser_version,
     },
     imageVersion: props.image_version,
+    imageSpawnsBaked: props.render_version === 0,
     ...urls,
-  }
-}
-
-function addImageVersion(url: string | undefined, imageVersion: number): string | undefined {
-  if (!url) {
-    return url
-  } else if (url.includes('?')) {
-    return `${url}&v=${imageVersion}`
-  } else {
-    return `${url}?v=${imageVersion}`
   }
 }
 
@@ -100,273 +142,48 @@ export interface MapInfoOptions {
 }
 
 async function createMapInfo(info: DbMapInfo, options: MapInfoOptions = {}): Promise<MapInfo> {
-  const hashString = info.map_hash.toString('hex')
-
-  const mapUrl = await getSignedUrl(mapPath(hashString, info.extension), {
-    expires: options.mapUrlExpiresSec,
-  })
-  const image256Url = getUrl(imagePath(hashString, 256))
-  const image512Url = getUrl(imagePath(hashString, 512))
-  const image1024Url = getUrl(imagePath(hashString, 1024))
-  const image2048Url = getUrl(imagePath(hashString, 2048))
-
+  const hash = info.hash.toString('hex')
   const imageVersion = info.image_version
+  const renderVersion = info.render_version
+  const getImageUrl = (size: 256 | 512 | 1024 | 2048, format: 'avif' | 'jpg') => {
+    const url = getUrl(imagePath({ hash, imageVersion, renderVersion, size, format }))
+    // Images from before render versions are overwritten in place when re-rendered
+    if (!url || renderVersion !== 0) {
+      return url
+    }
+    return `${url}${url.includes('?') ? '&' : '?'}v=${imageVersion}`
+  }
 
   return convertFromDb(info, {
-    mapUrl,
-    image256Url: addImageVersion(image256Url, imageVersion),
-    image512Url: addImageVersion(image512Url, imageVersion),
-    image1024Url: addImageVersion(image1024Url, imageVersion),
-    image2048Url: addImageVersion(image2048Url, imageVersion),
-  })
-}
-
-export interface MapParams {
-  mapData: MapParseData
-  extension: MapExtension
-  uploadedBy: SbUserId
-  visibility: MapVisibility
-  parserVersion: number
-}
-
-/**
- * Adds a map to the database.
- *
- * @param mapParams Information about the map (should be parsed from the map file)
- * @param storeNewMapFn A function that should store the relevant map data/images if this is a
- *   new map. It is called before any rows are written, so that a `maps` row never refers to files
- *   that failed to store; if it rejects, nothing is written to the DB. It will not be called if
- *   this map already exists in the DB
- */
-export async function addMap(
-  mapParams: MapParams,
-  storeNewMapFn: () => Promise<void>,
-): Promise<MapInfo> {
-  const { mapData, extension, uploadedBy, visibility, parserVersion } = mapParams
-  const {
-    hash,
-    title,
-    description,
-    width,
-    height,
-    tileset,
-    meleePlayers,
-    umsPlayers,
-    isEud,
-    lobbyInitData,
-  } = mapData
-
-  const hashBuffer = Buffer.from(hash, 'hex')
-  // Stored files are keyed by the map hash, so storing them before the `maps` row exists is safe:
-  // the contents are identical for any given hash, and files with no row are inert (they're only
-  // ever reached through a row). Two concurrent uploads of the same new map both store the same
-  // bytes, and the loser of the `maps` insert fails its request, as it would have anyway.
-  const exists = await mapExists(hash)
-  if (!exists) {
-    await storeNewMapFn()
-  }
-
-  return transact(async client => {
-    if (!exists) {
-      const query = sql`
-        INSERT INTO maps (hash, extension, title, description,
-          width, height, tileset, players_melee, players_ums, lobby_init_data,
-          is_eud, parser_version, image_version)
-        VALUES (${hashBuffer}, ${extension}, ${title}, ${description},
-          ${width}, ${height}, ${tileset}, ${meleePlayers}, ${umsPlayers}, ${lobbyInitData},
-          ${isEud}, ${parserVersion}, 1);
-      `
-      await client.query(query)
-    }
-
-    const query = sql`
-      WITH ins AS (
-        INSERT INTO uploaded_maps AS um
-          (id, map_hash, uploaded_by,
-            upload_date, visibility, name, description)
-        VALUES (sb_uuid(), ${hashBuffer}, ${uploadedBy},
-          CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${visibility}, ${title}, ${description})
-        ON CONFLICT (map_hash, uploaded_by, visibility)
-        DO UPDATE
-        -- name/description are left alone so that edits made after the first upload survive
-        -- re-uploads of the same map
-        SET
-          removed_at = NULL,
-          upload_date = CURRENT_TIMESTAMP AT TIME ZONE 'UTC',
-          visibility = ${visibility}
-        WHERE um.map_hash = ${hashBuffer} AND
-          um.uploaded_by = ${uploadedBy} AND
-          um.visibility = ${visibility}
-        RETURNING *
-      )
-      SELECT
-        ins.*,
-        m.extension,
-        m.title AS original_name,
-        m.description AS original_description,
-        m.width,
-        m.height,
-        m.tileset,
-        m.players_melee,
-        m.players_ums,
-        m.is_eud,
-        m.parser_version,
-        m.image_version,
-        m.lobby_init_data
-      FROM ins
-      INNER JOIN maps AS m
-      ON ins.map_hash = m.hash;
-    `
-
-    const result = await client.query<DbMapInfo>(query)
-    return createMapInfo(result.rows[0])
-  })
-}
-
-/**
- * Updates a maps' parsed data in the database, calling `parseFn` to retreieve the new data.
- *
- * @param oldMapInfos An array of maps to update (note that this will be their OLD info, before
- *   reparsing).
- * @param parseFn A function called once per map, returning a Promise with the parsed data. If the
- *   map couldn't be parsed (or doesn't need to be any more), returning an empty tuple will no-op
- *   the update.
- */
-export async function updateParseData(
-  oldMapInfos: MapInfo[],
-  parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number] | []>,
-): Promise<void> {
-  // The parses can be very slow (remote file retrieval + worker-thread parsing), so they all
-  // complete before a DB client is acquired — holding a pooled connection idle across a whole
-  // batch of parses can starve the pool under concurrent requests.
-  const results = await Promise.allSettled(
-    oldMapInfos.map(async mapInfo => {
-      const [newData, parserVersion] = await parseFn(mapInfo)
-      return { mapInfo, newData, parserVersion }
+    mapUrl: await getSignedUrl(mapPath(hash, info.extension), {
+      expires: options.mapUrlExpiresSec,
     }),
-  )
-
-  const updates: Array<{ mapInfo: MapInfo; newData: MapParseData; parserVersion: number }> = []
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const { mapInfo, newData, parserVersion } = result.value
-      if (newData && parserVersion !== undefined) {
-        updates.push({ mapInfo, newData, parserVersion })
-      }
-    }
-  }
-  if (!updates.length) {
-    return
-  }
-
-  const { client, done } = await db()
-  try {
-    for (const { mapInfo, newData, parserVersion } of updates) {
-      const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
-      try {
-        await client.query<never>(sql`
-          UPDATE maps
-          SET
-            title = ${newData.title},
-            description = ${newData.description},
-            width = ${newData.width},
-            height = ${newData.height},
-            tileset = ${newData.tileset},
-            players_melee = ${newData.meleePlayers},
-            players_ums = ${newData.umsPlayers},
-            lobby_init_data = ${newData.lobbyInitData},
-            is_eud = ${newData.isEud},
-            parser_version = ${parserVersion}
-          WHERE hash = ${hashBuffer}
-        `)
-      } catch {
-        // A failed update just leaves that map on its old parser version, where it will be
-        // retried the next time it's requested — same as a failed parse.
-      }
-    }
-  } finally {
-    done()
-  }
-}
-
-/**
- * Updates the map's generated images in the database, calling `storeImagesFn` to store them for
- * serving to clients.
- */
-export async function updateMapImages(
-  mapHash: string,
-  storeImagesFn: () => Promise<void>,
-): Promise<void> {
-  // `image_version` is the cache-buster clients append to image URLs, so it can only be bumped
-  // once the new images are actually in place. If storing them fails, clients keep using the
-  // images that are still there, and the update can be retried.
-  await storeImagesFn()
-
-  const hashBuffer = Buffer.from(mapHash, 'hex')
-  const { client, done } = await db()
-  try {
-    await client.query<never>(sql`
-      UPDATE maps
-      SET image_version = image_version + 1
-      WHERE hash = ${hashBuffer}
-    `)
-  } finally {
-    done()
-  }
-}
-
-/**
- * Returns whether or not a map matching the specified hash exists. This can generally be used as
- * an indicator that the map file has already been stored on our servers, but is not an indication
- * that there is any map visible in the listing for a given user (e.g. it may be private, or may
- * have been deleted by whatever user uploaded it).
- */
-export async function mapExists(hash: string) {
-  const { client, done } = await db()
-  try {
-    const result = await client.query(sql`
-      SELECT 1
-      FROM maps
-      WHERE hash = ${Buffer.from(hash, 'hex')};
-    `)
-    return result.rows.length > 0
-  } finally {
-    done()
-  }
+    image256Url: getImageUrl(256, 'avif'),
+    image512Url: getImageUrl(512, 'avif'),
+    image1024Url: getImageUrl(1024, 'avif'),
+    image2048Url: getImageUrl(2048, 'avif'),
+    jpegImageUrl: getImageUrl(1024, 'jpg'),
+  })
 }
 
 /**
  * Retrieves information for the specified maps
  *
- * @param mapIds an array of map IDs to retrieve info for
+ * @param mapIds an array of map IDs to retrieve info for. IDs that came from a client should go
+ *   through `resolveMapIds` first
  * @param options options applied to every returned `MapInfo`
  *
  * @returns a Promise for an array of `MapInfo`s, ordered in the way they were passed. If a
  *   specified map ID could not be found, it will not be included in the result
  */
 export async function getMapInfos(
-  mapIds: SbMapId[],
+  mapIds: ReadonlyArray<SbMapId>,
   options: MapInfoOptions = {},
 ): Promise<MapInfo[]> {
   const query = sql`
-    SELECT
-      um.*,
-      m.extension,
-      m.title AS original_name,
-      m.description AS original_description,
-      m.width,
-      m.height,
-      m.tileset,
-      m.players_melee,
-      m.players_ums,
-      m.is_eud,
-      m.parser_version,
-      m.image_version,
-      m.lobby_init_data
-    FROM uploaded_maps AS um
-    INNER JOIN maps AS m
-    ON um.map_hash = m.hash
-    WHERE um.id = ANY(${mapIds})
+    SELECT ${MAP_INFO_COLUMNS}
+    FROM maps AS m
+    WHERE m.id = ANY(${mapIds})
   `
 
   const { client, done } = await db()
@@ -395,6 +212,115 @@ export async function getMapInfos(
   }
 }
 
+/**
+ * Resolves map IDs to the IDs of their maps. Maps used to have one ID per upload of their file, and
+ * clients that were running before that changed can still send those IDs, so this should be
+ * applied to any map IDs received from a client before they're used. Order is preserved, and IDs
+ * that don't resolve to anything are returned unchanged.
+ */
+export async function resolveMapIds(mapIds: ReadonlyArray<SbMapId>): Promise<SbMapId[]> {
+  if (!mapIds.length) {
+    return []
+  }
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ old_id: SbMapId; map_id: SbMapId }>(sql`
+      SELECT old_id, map_id
+      FROM map_id_aliases
+      WHERE old_id = ANY(${mapIds})
+    `)
+    const aliases = new Map(result.rows.map(r => [r.old_id, r.map_id]))
+    return mapIds.map(id => aliases.get(id) ?? id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Resolves several lists of map IDs with a single query (see `resolveMapIds`), removing any
+ * duplicates within each list that resolving produces.
+ */
+export async function resolveMapIdSets(
+  lists: ReadonlyArray<ReadonlyArray<SbMapId>>,
+): Promise<SbMapId[][]> {
+  const resolved = await resolveMapIds(lists.flat())
+  let start = 0
+  return lists.map(list => {
+    const ids = resolved.slice(start, start + list.length)
+    start += list.length
+    return Array.from(new Set(ids))
+  })
+}
+
+/** Resolves a single map ID, see `resolveMapIds`. */
+export async function resolveMapId(mapId: SbMapId): Promise<SbMapId> {
+  return (await resolveMapIds([mapId]))[0]
+}
+
+/** The map (family) an ID from a map page URL names. */
+export interface ResolvedMapPageId {
+  familyId: MapFamilyId
+  /** The family's current file, the one players get. */
+  currentMapId: SbMapId
+  /** Whether any of the family's files is listed. */
+  listed: boolean
+  /** The file the ID named, when it named a file rather than a family. */
+  fileId?: SbMapId
+}
+
+/**
+ * Resolves an ID from a map page URL, trying it in order as a family ID, an old ID of a family that
+ * was merged into another one, a file ID, and an old ID of a file. Returns `undefined` if it's none
+ * of these.
+ */
+export async function resolveMapPageId(id: string): Promise<ResolvedMapPageId | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      family_id: MapFamilyId
+      file_id: SbMapId | null
+      current_map_id: SbMapId
+      listed: boolean
+    }>(sql`
+      SELECT r.family_id, r.file_id, f.current_map_id, f.listed
+      FROM (
+        SELECT id AS family_id, NULL::uuid AS file_id, 1 AS priority
+        FROM map_families
+        WHERE id = ${id}
+        UNION ALL
+        SELECT family_id, NULL::uuid, 2
+        FROM map_family_aliases
+        WHERE old_id = ${id}
+        UNION ALL
+        SELECT family_id, id, 3
+        FROM maps
+        WHERE id = ${id}
+        UNION ALL
+        SELECT m.family_id, m.id, 4
+        FROM map_id_aliases a
+        INNER JOIN maps m ON m.id = a.map_id
+        WHERE a.old_id = ${id}
+      ) r
+      INNER JOIN map_families f ON f.id = r.family_id
+      ORDER BY r.priority
+      LIMIT 1
+    `)
+    const row = result.rows[0]
+    if (!row) {
+      return undefined
+    }
+    return {
+      familyId: row.family_id,
+      currentMapId: row.current_map_id,
+      listed: row.listed,
+      fileId: row.file_id ?? undefined,
+    }
+  } finally {
+    done()
+  }
+}
+
 function getWhereCondition(
   conditions: SqlTemplate[],
   numPlayers: NumPlayers[],
@@ -404,82 +330,92 @@ function getWhereCondition(
   // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
   // on, so we use players_melee in that case
   conditions.push(sql`(
-    players_ums = ANY(${numPlayers}) OR
-    players_ums = 0 AND players_melee = ANY(${numPlayers})
+    m.players_ums = ANY(${numPlayers}) OR
+    m.players_ums = 0 AND m.players_melee = ANY(${numPlayers})
   )`)
 
-  conditions.push(sql`tileset = ANY(${tilesets})`)
+  conditions.push(sql`m.tileset = ANY(${tilesets})`)
 
   if (searchStr) {
-    const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    conditions.push(sql`um.name ILIKE ${escapedStr}`)
+    conditions.push(mapNameMatches(searchStr))
   }
 
   return sqlConcat(' AND ', conditions)
 }
 
+/**
+ * Returns the ORDER BY for a map listing. Listing queries select the date that their "Date" sort
+ * uses as `sort_date`.
+ */
 function getOrderByStatement(sort: MapSortType): SqlTemplate {
   const sortByArray = ['name']
   if (sort === MapSortType.NumberOfPlayers) {
     // TODO(tec27): Use players_melee if this is 0?
     sortByArray.unshift('players_ums')
   } else if (sort === MapSortType.Date) {
-    sortByArray.unshift('upload_date DESC')
+    sortByArray.unshift('sort_date DESC NULLS LAST')
   }
 
   return sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
 }
 
+function getListingCondition(listing: MapVisibility): SqlTemplate {
+  switch (listing) {
+    case MapVisibility.Official:
+      return sql`WHERE m.listed AND map_family_is_staff_pick(m.family_id)`
+    case MapVisibility.Public:
+      return sql`WHERE m.listed AND NOT map_family_is_staff_pick(m.family_id)`
+    case MapVisibility.Unlisted:
+      return sql`WHERE NOT m.listed`
+    default:
+      return assertUnreachable(listing)
+  }
+}
+
+/** Where a map listing gets its maps from: a listing, or a user's own maps. */
+export type MapListSource = { listing: MapVisibility } | { libraryOf: SbUserId }
+
 export async function getMaps({
-  visibility,
+  source,
   sort,
   numPlayers,
   tilesets,
-  uploadedBy,
   searchStr,
   limit,
   offset = 0,
 }: {
-  visibility: MapVisibility
+  source: MapListSource
   sort: MapSortType
   numPlayers: NumPlayers[]
   tilesets: Tileset[]
-  uploadedBy?: SbUserId
   searchStr?: string
   limit: number
   offset?: number
-}) {
-  const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
-  if (uploadedBy) {
-    conditions.push(sql`uploaded_by = ${uploadedBy}`)
+}): Promise<MapInfo[]> {
+  let from: SqlTemplate
+  let sortDate: SqlTemplate
+  let conditions: SqlTemplate[]
+  if ('libraryOf' in source) {
+    from = sql`maps AS m INNER JOIN map_library AS l ON l.map_id = m.id`
+    sortDate = sql`l.added_at`
+    conditions = [sql`WHERE l.user_id = ${source.libraryOf}`]
+  } else {
+    from = sql`maps AS m`
+    sortDate = sql`m.published_at`
+    conditions = [getListingCondition(source.listing)]
   }
 
   const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
   const orderByStatement = getOrderByStatement(sort)
 
   const query = sql`
-    WITH maps AS (
-      SELECT
-        um.*,
-        m.extension,
-        m.title AS original_name,
-        m.description AS original_description,
-        m.width,
-        m.height,
-        m.tileset,
-        m.players_melee,
-        m.players_ums,
-        m.is_eud,
-        m.parser_version,
-        m.image_version,
-        m.lobby_init_data
-      FROM uploaded_maps AS um
-      INNER JOIN maps AS m
-      ON um.map_hash = m.hash
+    WITH listed AS (
+      SELECT ${MAP_INFO_COLUMNS}, ${sortDate} AS sort_date
+      FROM ${from}
       ${whereCondition}
     )
-    SELECT maps.*
-    FROM maps
+    SELECT *
+    FROM listed
     ${orderByStatement}
     LIMIT ${limit}
     OFFSET ${offset};
@@ -496,74 +432,19 @@ export async function getMaps({
 }
 
 /**
- * Retrieves the list of favorited maps for a user.
- *
- * Favorited maps potentially include "removed" maps as well, since it's possible to favorite maps
- * of other users which they can subsequently remove for themselves.
- */
-export async function getFavoritedMaps({
-  favoritedBy,
-  sort,
-  numPlayers,
-  tilesets,
-  searchStr,
-}: {
-  favoritedBy: SbUserId
-  sort: MapSortType
-  numPlayers: NumPlayers[]
-  tilesets: Tileset[]
-  searchStr?: string
-}): Promise<MapInfo[]> {
-  const conditions = [sql`WHERE favorited_by = ${favoritedBy}`]
-
-  const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
-  const orderByStatement = getOrderByStatement(sort)
-
-  const query = sql`
-    SELECT
-      um.*,
-      m.extension,
-      m.title AS original_name,
-      m.description AS original_description,
-      m.width,
-      m.height,
-      m.tileset,
-      m.players_melee,
-      m.players_ums,
-      m.is_eud,
-      m.parser_version,
-      m.image_version,
-      m.lobby_init_data
-    FROM favorited_maps AS fm
-    INNER JOIN uploaded_maps AS um
-    ON fm.map_id = um.id
-    INNER JOIN maps AS m
-    ON um.map_hash = m.hash
-    ${whereCondition}
-    ${orderByStatement}
-  `
-
-  const { client, done } = await db()
-  try {
-    const result = await client.query<DbMapInfo>(query)
-    // NOTE(tec27): no need to await this because it doesn't utilize the client
-    return Promise.all(result.rows.map(info => createMapInfo(info)))
-  } finally {
-    done()
-  }
-}
-
-/**
- * Takes in a list of map IDs and returns only those that are favorited by a particular user.
+ * Takes in a list of map IDs and returns only those whose family is favorited by a particular user
+ * (is in their Starred collection).
  */
 export async function getFavoritedFromMapIds(
   favoritedBy: SbUserId,
-  mapIds: SbMapId[],
+  mapIds: ReadonlyArray<SbMapId>,
 ): Promise<SbMapId[]> {
   const query = sql`
-    SELECT map_id
-    FROM favorited_maps
-    WHERE favorited_by = ${favoritedBy} AND map_id = ANY(${mapIds})
+    SELECT m.id AS map_id
+    FROM maps m
+    INNER JOIN collection_maps cm ON cm.family_id = m.family_id
+    INNER JOIN collections c ON c.id = cm.collection_id
+    WHERE c.owner_id = ${favoritedBy} AND c.kind = 'starred' AND m.id = ANY(${mapIds})
   `
 
   const { client, done } = await db()
@@ -576,7 +457,33 @@ export async function getFavoritedFromMapIds(
 }
 
 /**
- * Updates the name or description of an existing map. Throws an error if there are no updates, so
+ * Takes in a list of map IDs and returns only those that are in a particular user's own maps.
+ */
+export async function getLibraryFromMapIds(
+  userId: SbUserId,
+  mapIds: ReadonlyArray<SbMapId>,
+): Promise<SbMapId[]> {
+  if (!mapIds.length) {
+    return []
+  }
+
+  const query = sql`
+    SELECT map_id
+    FROM map_library
+    WHERE user_id = ${userId} AND map_id = ANY(${mapIds})
+  `
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ map_id: SbMapId }>(query)
+    return result.rows.map(row => row.map_id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Updates the curated name or description of a map. Throws an error if there are no updates, so
  * make sure to only call this method when you update one of the map's fields.
  */
 export async function updateMap(
@@ -587,10 +494,10 @@ export async function updateMap(
   const updates = []
 
   if (name) {
-    updates.push(sql`name = ${name}`)
+    updates.push(sql`public_name = ${name}`)
   }
   if (description) {
-    updates.push(sql`description = ${description}`)
+    updates.push(sql`public_description = ${description}`)
   }
 
   if (!updates.length) {
@@ -598,30 +505,15 @@ export async function updateMap(
   }
 
   const query = sql`
-    WITH update AS (
-      UPDATE uploaded_maps
+    WITH updated AS (
+      UPDATE maps
       SET
       ${sqlConcat(', ', updates)}
       WHERE id = ${mapId}
       RETURNING *
     )
-    SELECT
-      um.*,
-      m.extension,
-      m.title AS original_name,
-      m.description AS original_description,
-      m.width,
-      m.height,
-      m.tileset,
-      m.players_melee,
-      m.players_ums,
-      m.is_eud,
-      m.parser_version,
-      m.image_version,
-      m.lobby_init_data
-    FROM update AS um
-    INNER JOIN maps AS m
-    ON um.map_hash = m.hash
+    SELECT ${MAP_INFO_COLUMNS}
+    FROM updated AS m
   `
 
   const { client, done } = await db()
@@ -633,73 +525,69 @@ export async function updateMap(
   }
 }
 
-export async function removeMap(mapId: SbMapId): Promise<void> {
+/** Removes a map from a user's own maps. Returns whether it was in them. */
+export async function removeMapFromLibrary(mapId: SbMapId, userId: SbUserId): Promise<boolean> {
   const query = sql`
-    UPDATE uploaded_maps
-    SET removed_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
-    WHERE id = ${mapId};
+    DELETE FROM map_library
+    WHERE map_id = ${mapId} AND user_id = ${userId};
   `
 
   const { client, done } = await db()
   try {
-    await client.query(query)
-  } finally {
-    done()
-  }
-}
-
-export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
-  const query = sql`
-    INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
-    VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-    ON CONFLICT (map_id, favorited_by)
-    DO NOTHING;
-  `
-
-  const { client, done } = await db()
-  try {
-    await client.query(query)
-  } finally {
-    done()
-  }
-}
-
-export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
-  const query = sql`
-    DELETE FROM favorited_maps
-    WHERE map_id = ${mapId} AND favorited_by = ${userId};
-  `
-
-  const { client, done } = await db()
-  try {
-    await client.query(query)
+    const result = await client.query(query)
+    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }
 }
 
 /**
- * Removes all maps in the database.
- *
- * This function should only be used by users with necessary, super-restrictive, permissions. Note
- * that unlike the user-facing "removeMap" function, which soft-deletes a map, this one actually
- * deletes all maps from the database. Use with care!
- *
- * @param deleteFromStoreFn A function that will be called during the database transaction that
- *   should delete the map contents from the file store as well. If this function fails, the
- *   transaction will be rolled back
+ * Adds the family a map file is in to a user's favorites (their Starred collection, which is created
+ * if they don't have one yet). Favoriting a map that's already a favorite does nothing.
  */
-export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promise<void>) {
-  return transact(async client => {
-    const query = sql`
-      BEGIN;
-        UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
-        UPDATE matchmaking_preferences SET map_selections = '{}';
-        TRUNCATE matchmaking_map_pools, favorited_maps, uploaded_maps, maps;
-      COMMIT;
-    `
-
-    await client.query(query)
-    await deleteFromStoreFn()
+export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
+  await transact(async client => {
+    await client.query(sql`
+      INSERT INTO collections (kind, owner_id)
+      VALUES ('starred', ${userId})
+      ON CONFLICT (owner_id) WHERE kind = 'starred' DO NOTHING
+    `)
+    await client.query(sql`
+      WITH added AS (
+        INSERT INTO collection_maps (collection_id, family_id, position, added_at)
+        SELECT c.id, m.family_id, 0, now()
+        FROM collections c, maps m
+        WHERE c.owner_id = ${userId} AND c.kind = 'starred' AND m.id = ${mapId}
+        ON CONFLICT (collection_id, family_id) WHERE family_id IS NOT NULL DO NOTHING
+        RETURNING collection_id
+      )
+      UPDATE collections SET updated_at = now()
+      WHERE id IN (SELECT collection_id FROM added)
+    `)
   })
+}
+
+/**
+ * Removes the family a map file is in from a user's favorites (their Starred collection). Removing a
+ * map that isn't a favorite does nothing.
+ */
+export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
+  const query = sql`
+    WITH removed AS (
+      DELETE FROM collection_maps cm
+      USING collections c, maps m
+      WHERE c.id = cm.collection_id AND c.kind = 'starred' AND c.owner_id = ${userId}
+        AND m.id = ${mapId} AND cm.family_id = m.family_id
+      RETURNING cm.collection_id
+    )
+    UPDATE collections SET updated_at = now()
+    WHERE id IN (SELECT collection_id FROM removed)
+  `
+
+  const { client, done } = await db()
+  try {
+    await client.query(query)
+  } finally {
+    done()
+  }
 }

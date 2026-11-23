@@ -36,6 +36,12 @@ use crate::email::{
 use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::maps::search::{MapFilter, MapLens, MapSort};
+use crate::maps::{
+    DEFAULT_RECENT_MAPS, FavoriteMapConnection, MapCollection, MapLibraryConnection,
+    MapRecommendation, RecentMap, load_favorite_maps, load_map_library, load_map_recommendation,
+    load_recent_maps, viewer_collections,
+};
 use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
 use crate::sessions::SbSession;
@@ -275,6 +281,64 @@ impl CurrentUser {
         Ok(self
             .last_name_change
             .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN))
+    }
+
+    /// The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+    /// arguments as `maps`; `NEWEST` sorts by when each map was added.
+    async fn map_library(
+        &self,
+        ctx: &Context<'_>,
+        filter: Option<MapFilter>,
+        sort: Option<MapSort>,
+        after: Option<String>,
+        first: Option<i32>,
+    ) -> Result<MapLibraryConnection> {
+        load_map_library(ctx, self.id, filter, sort, after, first).await
+    }
+
+    /// The maps this user has favorited, listed or not. Takes the same arguments as `maps`;
+    /// `NEWEST` sorts by when each map was favorited.
+    async fn favorite_maps(
+        &self,
+        ctx: &Context<'_>,
+        filter: Option<MapFilter>,
+        sort: Option<MapSort>,
+        after: Option<String>,
+        first: Option<i32>,
+    ) -> Result<FavoriteMapConnection> {
+        load_favorite_maps(ctx, self.id, filter, sort, after, first).await
+    }
+
+    /// This user's own list of collections: their Starred collection (made now if they have
+    /// none), then their own collections, most recently changed first, then the collections they
+    /// saved and can still see, most recently saved first.
+    async fn map_collections(&self, ctx: &Context<'_>) -> Result<Vec<MapCollection>> {
+        viewer_collections(ctx, self.id).await
+    }
+
+    /// The different maps this user played in their most recent games (of any kind, canceled
+    /// games aside), the most recently played first; `first` of them (at most 12). Includes maps
+    /// that aren't listed, except where every file of the map the user played was delisted by
+    /// staff. `lens` keeps, for `MELEE` or `UMS`, only the maps whose current file is of that kind.
+    async fn recent_maps(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default_with = "DEFAULT_RECENT_MAPS")] first: i32,
+        #[graphql(default)] lens: MapLens,
+    ) -> Result<Vec<RecentMap>> {
+        load_recent_maps(ctx, self.id, first, lens).await
+    }
+
+    /// Maps for this user to try, from the tags of a map fitting `lens` they played in lobbies in
+    /// the last 28 days: listed maps of that map's kind (for a melee map, also with as many
+    /// players) sharing a tag with it, that the user hasn't played in the last 90 days. Null when
+    /// none of the 5 maps they played most in lobbies gives at least 4.
+    async fn map_recommendation(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default)] lens: MapLens,
+    ) -> Result<Option<MapRecommendation>> {
+        load_map_recommendation(ctx, self.id, lens).await
     }
 }
 
@@ -910,15 +974,14 @@ impl UsersMutation {
                     manage_matchmaking = $8,
                     manage_matchmaking_seasons = $9,
                     manage_matchmaking_times = $10,
-                    mass_delete_maps = $11,
-                    moderate_chat_channels = $12,
-                    manage_news = $13,
-                    manage_bug_reports = $14,
-                    manage_game_reports = $15,
-                    manage_restricted_names = $16,
-                    manage_signup_codes = $17,
-                    manage_live_streams = $18,
-                    use_development_client = $19
+                    moderate_chat_channels = $11,
+                    manage_news = $12,
+                    manage_bug_reports = $13,
+                    manage_game_reports = $14,
+                    manage_restricted_names = $15,
+                    manage_signup_codes = $16,
+                    manage_live_streams = $17,
+                    use_development_client = $18
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -931,7 +994,6 @@ impl UsersMutation {
             permissions.manage_matchmaking,
             permissions.manage_matchmaking_seasons,
             permissions.manage_matchmaking_times,
-            permissions.mass_delete_maps,
             permissions.moderate_chat_channels,
             permissions.manage_news,
             permissions.manage_bug_reports,
@@ -1473,7 +1535,7 @@ impl CurrentUserRepo {
                     SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
                         manage_maps, manage_map_pools, manage_matchmaking,
                         manage_matchmaking_seasons, manage_matchmaking_times,
-                        mass_delete_maps, moderate_chat_channels,
+                        moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
                         manage_restricted_names, manage_signup_codes, manage_live_streams,
                         use_development_client

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        UPDATE map_owner_claims\n                        SET status = 'granted', resolved_by = claimant, resolved_at = now(),\n                            note = COALESCE($2, note)\n                        WHERE id = $1\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8cee3072c18c0717f821f9ce409ac33b7638ff3c6d4cffcb61e4b64a64a07c28"
+}
