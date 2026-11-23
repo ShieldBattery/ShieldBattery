@@ -7,7 +7,7 @@ import styled from 'styled-components'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
-import { zIndexDialogScrim } from '../material/zindex'
+import { zIndexDraftScreen } from '../material/zindex'
 import { useNavigationTrap } from '../navigation/navigation-trap'
 import { LoadingDotsArea } from '../progress/dots'
 import { isInDraftAtom } from './draft-atoms'
@@ -27,7 +27,7 @@ const Root = styled(m.div)`
 
   background-color: var(--theme-surface);
   contain: content;
-  z-index: ${zIndexDialogScrim - 1};
+  z-index: ${zIndexDraftScreen};
 `
 
 const NAVIGATION_TRAP_KEY = 'DRAFT_SCREEN_NAV_TRAP'

@@ -31,7 +31,7 @@ import { useAcceptMatch } from '../matchmaking/use-accept-match'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
-import { zIndexDialogScrim } from '../material/zindex'
+import { zIndexGameplayActivity } from '../material/zindex'
 import { MessagePreviewLine } from '../messaging/message-preview-line'
 import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'
@@ -74,7 +74,7 @@ const PositioningArea = styled.div`
 
   contain: layout;
   pointer-events: none;
-  z-index: ${zIndexDialogScrim - 1};
+  z-index: ${zIndexGameplayActivity};
 `
 
 interface WidgetDrag {
