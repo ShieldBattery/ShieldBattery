@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { filterColorCodes, SbMapId } from '../../common/maps'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Label, TextButton } from '../material/button'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall } from '../styles/typography'
@@ -55,6 +57,11 @@ const NudgeText = styled.div`
   color: var(--theme-on-surface);
 `
 
+/** Holds the switch button's tooltip, which the button's own width limit is measured against. */
+const SwitchTooltip = styled(Tooltip)`
+  max-width: 100%;
+`
+
 const SwitchButton = styled(TextButton)`
   min-width: 0;
   max-width: 100%;
@@ -98,13 +105,18 @@ export function MapDefaultNudge({
     context: NO_SUSPENSE_CONTEXT,
   })
 
+  const [labelRef, labelCut] = useOverflowingElement<HTMLSpanElement>()
+
   const family = data?.map?.id === mapId ? data.map.family : undefined
   const current = family?.current
   if (!family || !current || !current.listed || current.id === mapId) {
     return null
   }
 
-  const currentName = filterColorCodes(current.name)
+  const switchLabel = t('maps.nudge.useFile', {
+    defaultValue: 'Use {{name}}',
+    name: filterColorCodes(current.name),
+  })
   const onClick = () => {
     setSwitching(true)
     // The lobby's setup reads the chosen map's info from the store, so it has to be there first
@@ -128,15 +140,13 @@ export function MapDefaultNudge({
     <Root>
       <NudgeIcon />
       <NudgeText>{t('maps.files.notRecommended', 'Not the recommended file')}</NudgeText>
-      <SwitchButton
-        label={
-          <SwitchLabel>
-            {t('maps.nudge.useFile', { defaultValue: 'Use {{name}}', name: currentName })}
-          </SwitchLabel>
-        }
-        disabled={disabled || switching}
-        onClick={onClick}
-      />
+      <SwitchTooltip text={switchLabel} position='top' tabIndex={-1} disabled={!labelCut}>
+        <SwitchButton
+          label={<SwitchLabel ref={labelRef}>{switchLabel}</SwitchLabel>}
+          disabled={disabled || switching}
+          onClick={onClick}
+        />
+      </SwitchTooltip>
     </Root>
   )
 }

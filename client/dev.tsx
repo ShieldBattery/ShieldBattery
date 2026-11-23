@@ -57,7 +57,7 @@ export default function Dev() {
             ['Link previews', 'page-metadata', DevPageMetadata],
             ['List components', 'lists', DevLists],
             ['Lobby components', 'lobbies', DevLobbies],
-            ['Map search', 'maps', DevMaps],
+            ['Map components', 'maps', DevMaps],
             ['Matchmaking components', 'matchmaking', DevMatchmaking],
             ['Material components', 'material', DevMaterial],
             ['Network status', 'network', ConnectionStatusTest],

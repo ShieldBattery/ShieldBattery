@@ -34,6 +34,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { Tooltip } from '../material/tooltip'
 import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
+import { ProgressBar } from '../progress/progress-bar'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium, bodySmall, displaySmall, labelMedium } from '../styles/typography'
@@ -487,6 +488,21 @@ const ActionRow = styled.div`
   gap: 8px;
 `
 
+const DownloadStatus = styled.div`
+  min-width: 160px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const DownloadStatusLabel = styled.div`
+  ${labelMedium};
+  white-space: nowrap;
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
 /** The collection's mosaic, what kind of collection it is, its title and description, and its actions. */
 function CollectionHeader({
   collection,
@@ -738,11 +754,12 @@ function CollectionActions({
     ? t('maps.collections.saved', 'Saved')
     : t('maps.collections.save', 'Save')
   const copyLabel = t('maps.page.copyLink', 'Copy link')
-  let downloadLabel = t('maps.collections.downloadZip', 'Download all as .zip')
+  const downloadLabel = t('maps.collections.downloadZip', 'Download all as .zip')
+  let downloadStatus: string | undefined
   if (downloadProgress?.total === 0) {
-    downloadLabel = t('maps.collections.downloadStarting', 'Starting download…')
+    downloadStatus = t('maps.collections.downloadStarting', 'Starting download…')
   } else if (downloadProgress) {
-    downloadLabel = t(
+    downloadStatus = t(
       'maps.collections.downloadProgress',
       'Downloading maps: {{done}} of {{total}}',
       {
@@ -847,6 +864,14 @@ function CollectionActions({
             onClick={() => dispatch(openMapCollectionReportDialog({ collectionId: collection.id }))}
           />
         </Tooltip>
+      ) : null}
+      {downloadProgress && downloadStatus ? (
+        <DownloadStatus role='status'>
+          <DownloadStatusLabel>{downloadStatus}</DownloadStatusLabel>
+          <ProgressBar
+            value={downloadProgress.total > 0 ? downloadProgress.done / downloadProgress.total : 0}
+          />
+        </DownloadStatus>
       ) : null}
     </ActionRow>
   )
@@ -1348,7 +1373,7 @@ function CollectionMapRow({
         </MapRowThumbnail>
         <MapRowText>
           <MapRowNameLine>
-            <MapRowName>{name}</MapRowName>
+            <MapRowName text={name} />
             {row.family.listed ? null : (
               <MapRowChip>{t('maps.page.unlisted', 'Unlisted')}</MapRowChip>
             )}

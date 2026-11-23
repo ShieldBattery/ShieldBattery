@@ -22,6 +22,7 @@ import { TransInterpolation } from '../i18n/i18next'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -320,9 +321,8 @@ const PairLabel = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const PairName = styled.div`
+const PairName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
   color: var(--theme-on-surface);
 `
 
@@ -378,9 +378,8 @@ const SuggestionText = styled.div`
   gap: 2px;
 `
 
-const SuggestionName = styled.div`
+const SuggestionName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
 `
 
 const SuggestionMeta = styled.div`
@@ -428,7 +427,7 @@ function SuggestionOption({
         <MapFileImage file={suggestion.file.file} name={name} size={64} forceAspectRatio={1} />
       </SuggestionImage>
       <SuggestionText>
-        <SuggestionName>{name}</SuggestionName>
+        <SuggestionName text={name} />
         <SuggestionMeta>
           <Evidence suggestion={suggestion} fileId={fileId} close={close} />
         </SuggestionMeta>
@@ -537,7 +536,7 @@ function SuggestionPair({
             <MapFileImage file={file.file} name={fileName} size={256} forceAspectRatio={1} />
           </PairImage>
           <PairLabel>{t('maps.publish.yourFile', 'Your file')}</PairLabel>
-          <PairName>{fileName}</PairName>
+          <PairName text={fileName} />
         </PairSide>
         <PairSide>
           <PairImage>
@@ -549,7 +548,7 @@ function SuggestionPair({
             />
           </PairImage>
           <PairLabel>{t('maps.publish.inCatalog', 'In the catalog')}</PairLabel>
-          <PairName>{mapName}</PairName>
+          <PairName text={mapName} />
         </PairSide>
       </Pair>
       <EvidenceLine>

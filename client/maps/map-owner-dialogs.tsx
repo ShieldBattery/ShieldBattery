@@ -22,6 +22,7 @@ import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { OutlinedButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
@@ -33,7 +34,6 @@ import {
   bodySmall,
   labelLarge,
   labelMedium,
-  singleLine,
   titleSmall,
 } from '../styles/typography'
 import { findUserByName } from '../users/action-creators'
@@ -697,9 +697,8 @@ const FileThumbnail = styled.div`
   background-color: var(--theme-container-low);
 `
 
-const FileName = styled.div`
+const FileName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
   flex: 1 1 auto;
   min-width: 0;
 `
@@ -1190,7 +1189,7 @@ function AddFileRow({
       <FileThumbnail>
         <MapFileImage file={file.file} name={fileName} size={64} forceAspectRatio={1} />
       </FileThumbnail>
-      <FileName>{fileName}</FileName>
+      <FileName text={fileName} />
       <FileMeta>{meta.join(' · ')}</FileMeta>
       <TextButton label={label} disabled={disabled} onClick={() => onAdd(file)} />
     </FileRow>

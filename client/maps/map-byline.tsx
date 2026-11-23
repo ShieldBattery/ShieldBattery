@@ -5,7 +5,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { MapOwnerKind } from '../gql/graphql'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RoomChip } from '../lobbies/room/room-parts'
 import { Tooltip } from '../material/tooltip'
 import { bodySmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -22,13 +21,33 @@ const Byline = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-/** Marks a maker staff confirmed. Sized to sit in a line of small text. */
-const VerifiedChip = styled(RoomChip)`
-  padding: 2px 6px;
-
+/** Marks a maker staff confirmed. Centres its icon vertically in a line of small text. */
+const VerifiedMark = styled.span`
   display: flex;
   align-items: center;
-  gap: 2px;
+
+  color: var(--theme-primary);
+`
+
+/** The name of a maker who has an account, as an accented link. */
+const MakerName = styled(ConnectedUsername)`
+  color: var(--theme-amber);
+  font-weight: 500;
+`
+
+/**
+ * Who published the shown file and when, plus the separator leading into it. Smaller and fainter
+ * than the rest of the line, and sized by its own rule so a byline restyling its root's text size
+ * doesn't resize it.
+ */
+const PublishedPart = styled.span`
+  ${bodySmall};
+  color: var(--color-grey-blue60);
+
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 `
 
 /** A maker staff credited the map to, who has no account to link to. */
@@ -36,15 +55,14 @@ const CreditedMaker = styled.span`
   color: var(--theme-on-surface);
 `
 
-/** The Verified mark of a maker staff confirmed, with `tooltip` saying what staff confirmed. */
-export function VerifiedMakerChip({ tooltip }: { tooltip: string }) {
+/** The Verified icon of a maker staff confirmed, with `tooltip` saying what staff confirmed. */
+export function VerifiedMakerIcon({ tooltip }: { tooltip: string }) {
   const { t } = useTranslation()
   return (
     <Tooltip text={tooltip} position='bottom'>
-      <VerifiedChip>
-        <MaterialIcon icon='verified' size={14} filled={true} />
-        {t('maps.page.verified', 'Verified')}
-      </VerifiedChip>
+      <VerifiedMark role='img' aria-label={t('maps.page.verified', 'Verified')}>
+        <MaterialIcon icon='verified' size={16} filled={true} />
+      </VerifiedMark>
     </Tooltip>
   )
 }
@@ -65,7 +83,8 @@ export interface MapBylineProps {
 
 /**
  * Who made the map and who published the shown file, on one line. The maker is the map's owner,
- * marked Verified when staff confirmed them, or else the name staff credited the map to.
+ * marked Verified when staff confirmed them, or else the name staff credited the map to. The
+ * maker's name is accented, and the published part is smaller and fainter.
  */
 export function MapByline({
   owner,
@@ -100,9 +119,9 @@ export function MapByline({
     makerPart = (
       <>
         <span>{t('maps.page.by', 'by')}</span>
-        <ConnectedUsername userId={owner.id} />
+        <MakerName userId={owner.id} />
         {ownerKind === MapOwnerKind.Staff ? (
-          <VerifiedMakerChip
+          <VerifiedMakerIcon
             tooltip={t('maps.page.verifiedTooltip', 'Staff confirmed this user made the map')}
           />
         ) : null}
@@ -123,8 +142,13 @@ export function MapByline({
   return (
     <Byline className={className}>
       {makerPart}
-      {makerPart && (publishedPart || facts) ? <span>·</span> : null}
-      {publishedPart}
+      {makerPart && facts && !publishedPart ? <span>·</span> : null}
+      {publishedPart ? (
+        <PublishedPart>
+          {makerPart ? <span>·</span> : null}
+          {publishedPart}
+        </PublishedPart>
+      ) : null}
       {publishedPart && facts ? <span>·</span> : null}
       {facts ? <span>{facts}</span> : null}
     </Byline>

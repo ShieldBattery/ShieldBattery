@@ -65,6 +65,10 @@ export function tileMap({
     ladderPools,
     publishedAt: new Date(NOW - publishedDaysAgo * DAY).toISOString(),
     isFavorited: false,
+    listed: true,
+    publisher: null,
+    // Family ids are encoded as UUIDs in URLs, so this has to be one (distinct from the file's)
+    family: { id: `ffffffff${id.slice(8)}`, name, current: { id: mapId } },
     stats: stats ? { id: `map-stats:${mapId}`, ...stats } : null,
     file: {
       id: `file:${id}`,

@@ -174,6 +174,10 @@ export function MapDiscoverTest() {
       <Row>
         <MapMakerCard maker={maker(1, 'Ederos', true, 3)} />
         <MapMakerCard maker={maker(2, 'kiseyras', false, 1)} />
+        {/* A card narrower than a long name and the icon beside it */}
+        <div style={{ maxWidth: 140 }}>
+          <MapMakerCard maker={maker(3, 'Mapmaker_With_A_Long_Name', true, 12)} />
+        </div>
       </Row>
     </Root>
   )

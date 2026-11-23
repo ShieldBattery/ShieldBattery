@@ -142,7 +142,9 @@ function claim(
     family: family
       ? {
           id: `f0a0f0a0-0000-4000-8000-00000000000${n}`,
-          name: ['Eclipse 1.2', 'Sylphid', 'Python 1.3'][n % 3],
+          name: ['Eclipse 1.2 (Korean ladder edition, fixed ramps)', 'Sylphid', 'Python 1.3'][
+            n % 3
+          ],
           owner: owner ? { id: owner } : null,
         }
       : null,
@@ -357,6 +359,10 @@ const LIBRARY_FILES: ReadonlyArray<AddFileData> = [
     publishedDaysAgo: 400,
   }),
   libraryFile(4, BigGameHunters, { name: 'eclipse test', listed: false, playerCount: 8 }),
+  libraryFile(5, FightingSpirit, {
+    name: 'Eclipse 1.2 (Korean ladder edition, with the fixed ramps and the 2020 balance patch)',
+    listed: false,
+  }),
 ]
 
 const ADD_FILE_STATES: Partial<
@@ -405,7 +411,7 @@ export function MapOwnersTest() {
   return (
     <Container>
       <Controls>
-        <ControlsTitle>Map makers</ControlsTitle>
+        <ControlsTitle>Map makers and claims</ControlsTitle>
         <ScenarioPicker scenarios={SCENARIOS} active={scenarioId} onChange={setScenarioId} />
       </Controls>
       <ScenarioView key={scenarioId} scenarioId={scenarioId} />

@@ -12,6 +12,7 @@ import { filterColorCodes, SbMapId } from '../../common/maps'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MapFamilySearch_FamilyFragmentFragment } from '../gql/graphql'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
@@ -204,9 +205,8 @@ const CandidateText = styled.div`
   flex-direction: column;
 `
 
-const CandidateName = styled.div`
+const CandidateName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
 `
 
 const CandidateMeta = styled.div`
@@ -294,7 +294,7 @@ export function MapCandidateRow({
         />
       </CandidateImage>
       <CandidateText>
-        <CandidateName>{name}</CandidateName>
+        <CandidateName text={name} />
         <CandidateMeta>{meta}</CandidateMeta>
       </CandidateText>
       {note ? <CandidateNote>{note}</CandidateNote> : null}

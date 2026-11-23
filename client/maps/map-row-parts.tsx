@@ -3,6 +3,7 @@ import styled, { css } from 'styled-components'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { IconButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
 import { Tooltip } from '../material/tooltip'
 import { bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
@@ -175,9 +176,8 @@ export const MapRowNameLine = styled.div`
   gap: 8px;
 `
 
-export const MapRowName = styled.div`
+export const MapRowName = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
   min-width: 0;
   color: var(--theme-on-surface);
 `

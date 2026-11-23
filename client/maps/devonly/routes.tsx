@@ -15,7 +15,7 @@ export function DevMaps() {
       routes={[
         ['Discover page parts', 'discover', MapDiscoverTest],
         ['Map page', 'page', MapPageTest],
-        ['Map makers', 'makers', MapOwnersTest],
+        ['Map makers and claims', 'makers', MapOwnersTest],
         ['Publish dialog', 'publish', MapPublishTest],
         ['Map search', 'search', MapSearchTest],
         ['Map spawns', 'spawns', MapSpawnsTest],
