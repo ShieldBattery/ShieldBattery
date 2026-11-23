@@ -5,14 +5,12 @@
 //! one's name in the archive and a signed file store URL to fetch it from.
 
 use std::collections::HashSet;
-use std::net::IpAddr;
 use std::time::Duration;
 
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
-use axum_client_ip::ClientIp;
 use color_eyre::eyre::{self, WrapErr};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder};
@@ -20,17 +18,14 @@ use tracing::error;
 use typeshare::typeshare;
 use uuid::Uuid;
 
-use crate::maps::api::{MapApiError, Throttle};
+use crate::maps::api::MapApiError;
 use crate::maps::collections::{self, Viewer};
 use crate::maps::ingest::map_file_path;
 use crate::maps::search::{COLLECTION_JOINS, push_collection_entries_condition};
 use crate::maps::{MapHash, SbMapId};
 use crate::state::AppState;
-use crate::users::{CurrentUser, SbUserId};
+use crate::users::CurrentUser;
 
-/// How many file lists each user (or, logged out, each IP address) can get per window.
-const DOWNLOADS_PER_WINDOW: u32 = 6;
-const DOWNLOAD_WINDOW: Duration = Duration::from_secs(10 * 60);
 /// How long the signed URLs of a file list can be used for. A download fetches the files one after
 /// another, so the last URL is used long after the first.
 const FILE_URL_LIFETIME: Duration = Duration::from_secs(60 * 60);
@@ -57,26 +52,6 @@ pub struct CollectionDownloadFile {
     pub name: String,
     /// A signed URL to fetch the file from.
     pub url: String,
-}
-
-/// Who asked for a file list, for throttling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum DownloadRequester {
-    User(SbUserId),
-    Ip(IpAddr),
-}
-
-/// What collection downloads share across requests.
-pub struct CollectionDownloads {
-    throttle: Throttle<DownloadRequester>,
-}
-
-impl Default for CollectionDownloads {
-    fn default() -> Self {
-        Self {
-            throttle: Throttle::new(DOWNLOADS_PER_WINDOW, DOWNLOAD_WINDOW),
-        }
-    }
 }
 
 /// A map file a collection archive holds.
@@ -125,18 +100,9 @@ fn internal_error(e: eyre::Report) -> MapApiError {
 /// doesn't exist, the viewer can't see it, or it holds no maps the viewer sees.
 pub(crate) async fn list_download_files(
     State(state): State<AppState>,
-    ClientIp(ip): ClientIp,
     current_user: Option<CurrentUser>,
     Path(collection_id): Path<Uuid>,
 ) -> Result<Response, MapApiError> {
-    let requester = match &current_user {
-        Some(user) => DownloadRequester::User(user.id),
-        None => DownloadRequester::Ip(ip),
-    };
-    if !state.collection_downloads.throttle.try_acquire(requester) {
-        return Err(MapApiError::TooManyDownloads);
-    }
-
     let viewer = Viewer::of(current_user.as_ref());
     let row = collections::load(&state.db_pool, collection_id)
         .await

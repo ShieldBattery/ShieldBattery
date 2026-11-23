@@ -2247,7 +2247,6 @@
       "downloadError": "Couldn't download the collection. Please try again later.",
       "downloadProgress": "Downloading maps: {{done}} of {{total}}",
       "downloadStarting": "Starting download…",
-      "downloadThrottled": "You've downloaded a lot of collections recently. Please try again in a few minutes.",
       "downloadTooLarge": "This collection is too large to download as one archive.",
       "downloadZip": "Download all as .zip",
       "editDetails": "Edit details",

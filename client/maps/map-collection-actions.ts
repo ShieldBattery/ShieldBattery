@@ -11,7 +11,6 @@ import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
 import { makeServerRsUrl, makeServerUrl } from '../network/server-url'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { buildCollectionArchive, CollectionTooLargeError } from './collection-archive'
@@ -176,12 +175,6 @@ function downloadErrorText(err: unknown, t: TFunction): string {
     return t(
       'maps.collections.downloadTooLarge',
       'This collection is too large to download as one archive.',
-    )
-  }
-  if (isFetchError(err) && err.status === 429) {
-    return t(
-      'maps.collections.downloadThrottled',
-      "You've downloaded a lot of collections recently. Please try again in a few minutes.",
     )
   }
   return t(

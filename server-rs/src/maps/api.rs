@@ -3,7 +3,6 @@
 //! to 100 MB.
 
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -69,7 +68,6 @@ pub(crate) enum MapApiError {
     NotFound,
     CollectionNotFound,
     TooManyUploads,
-    TooManyDownloads,
     Internal,
 }
 
@@ -106,11 +104,6 @@ impl IntoResponse for MapApiError {
                 "tooManyRequests",
                 "Too many map uploads, try again later",
             ),
-            Self::TooManyDownloads => (
-                StatusCode::TOO_MANY_REQUESTS,
-                "tooManyRequests",
-                "Too many collection downloads, try again later",
-            ),
             Self::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internalServerError",
@@ -145,44 +138,24 @@ impl From<MultipartError> for MapApiError {
     }
 }
 
-/// Limits how many requests each key (a user, an IP address, ...) can make in a fixed window that
-/// starts with its first request.
-pub struct Throttle<K> {
-    limit: u32,
-    window: Duration,
-    windows: Mutex<HashMap<K, (Instant, u32)>>,
+/// Limits how many maps each user can upload per minute.
+#[derive(Default)]
+pub struct UploadThrottle {
+    windows: Mutex<HashMap<SbUserId, (Instant, u32)>>,
 }
 
-impl<K: Eq + Hash> Throttle<K> {
-    pub fn new(limit: u32, window: Duration) -> Self {
-        Self {
-            limit,
-            window,
-            windows: Mutex::new(HashMap::new()),
-        }
-    }
-
-    /// Counts a request from `key`, returning whether it is within the limit.
-    pub fn try_acquire(&self, key: K) -> bool {
+impl UploadThrottle {
+    fn try_acquire(&self, user_id: SbUserId) -> bool {
         let now = Instant::now();
-        let mut windows = self.windows.lock().expect("throttle lock");
-        windows.retain(|_, (start, _)| now.duration_since(*start) < self.window);
-        let (_, count) = windows.entry(key).or_insert((now, 0));
-        if *count >= self.limit {
+        let mut windows = self.windows.lock().expect("upload throttle lock");
+        windows.retain(|_, (start, _)| now.duration_since(*start) < UPLOAD_WINDOW);
+        let (_, count) = windows.entry(user_id).or_insert((now, 0));
+        if *count >= UPLOADS_PER_WINDOW {
             false
         } else {
             *count += 1;
             true
         }
-    }
-}
-
-/// Limits how many maps each user can upload per minute.
-pub type UploadThrottle = Throttle<SbUserId>;
-
-impl UploadThrottle {
-    pub fn for_uploads() -> Self {
-        Self::new(UPLOADS_PER_WINDOW, UPLOAD_WINDOW)
     }
 }
 
@@ -253,25 +226,4 @@ async fn regenerate_map_images(
     }
     state.map_ingester.regenerate_images(map_id).await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn throttle_limits_each_key_separately() {
-        let throttle = Throttle::new(2, Duration::from_secs(60));
-        assert!(throttle.try_acquire("a"));
-        assert!(throttle.try_acquire("a"));
-        assert!(!throttle.try_acquire("a"));
-        assert!(throttle.try_acquire("b"));
-    }
-
-    #[test]
-    fn throttle_resets_after_its_window() {
-        let throttle = Throttle::new(1, Duration::ZERO);
-        assert!(throttle.try_acquire("a"));
-        assert!(throttle.try_acquire("a"));
-    }
 }

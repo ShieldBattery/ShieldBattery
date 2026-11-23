@@ -46,7 +46,6 @@ use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
 use crate::maps::api::{UploadThrottle, create_maps_api};
-use crate::maps::collections::download::CollectionDownloads;
 use crate::maps::ingest::MapIngester;
 use crate::matchmaking::api::create_matchmaking_api;
 use crate::matchmaking::config::load_matchmaker_config;
@@ -595,8 +594,7 @@ pub async fn create_app(
         graphql_schema: schema.clone(),
         twitch_client,
         map_ingester,
-        map_upload_throttle: Arc::new(UploadThrottle::for_uploads()),
-        collection_downloads: Arc::new(CollectionDownloads::default()),
+        map_upload_throttle: Arc::new(UploadThrottle::default()),
     };
 
     Ok(Router::new()
