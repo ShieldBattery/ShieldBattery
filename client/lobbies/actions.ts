@@ -22,6 +22,7 @@ import {
   LobbySlotChangeEvent,
   LobbySlotCreateEvent,
   LobbySummaryJson,
+  LobbyTeamsShuffledEvent,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot } from '../../common/lobbies/slot'
@@ -63,6 +64,7 @@ export type LobbyActions =
   | LobbyUpdateSettingsChange
   | LobbyUpdateSlotChange
   | LobbyUpdateSlotCreate
+  | LobbyUpdateTeamsShuffled
   | LobbyUpdateBenchAdd
   | LobbyUpdateBenchRemove
   | GetLobbyPreferencesBegin
@@ -201,6 +203,12 @@ export interface LobbyUpdateGameStarted {
 export interface LobbyUpdateMemberGameEnded {
   type: '@lobbies/updateMemberGameEnded'
   payload: LobbyMemberGameEndedEvent
+}
+
+/** The host of a lobby we're in shuffled its teams. */
+export interface LobbyUpdateTeamsShuffled {
+  type: '@lobbies/updateTeamsShuffled'
+  payload: LobbyTeamsShuffledEvent
 }
 
 /**

@@ -19,6 +19,8 @@ export enum LobbyMessageType {
   LobbyMemberGameEnded = 'lobbyMemberGameEnded',
   LobbyRegroup = 'lobbyRegroup',
   LobbyMapQueueAdvance = 'lobbyMapQueueAdvance',
+  LobbyTeamsShuffled = 'lobbyTeamsShuffled',
+  LobbyPriorShuffles = 'lobbyPriorShuffles',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -115,6 +117,24 @@ export interface LobbyMapQueueAdvanceMessage extends BaseMessage {
   readonly skippedMapNames: ReadonlyArray<string>
 }
 
+/** The host shuffled the teams. */
+export interface TeamsShuffledMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyTeamsShuffled
+  /** Who shuffled. Only the host can shuffle, so this is always them. */
+  readonly userId: SbUserId
+  /** How many times the teams have been shuffled, including this shuffle. */
+  readonly shuffleCount: number
+}
+
+/**
+ * Tells someone arriving in a lobby whose teams were already shuffled before they got there, since
+ * they never saw the messages for the individual shuffles.
+ */
+export interface PriorShufflesMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyPriorShuffles
+  readonly shuffleCount: number
+}
+
 export type LobbyMessage =
   | JoinLobbyMessage
   | LeaveLobbyMessage
@@ -132,3 +152,5 @@ export type LobbyMessage =
   | LobbyMemberGameEndedMessage
   | LobbyRegroupMessage
   | LobbyMapQueueAdvanceMessage
+  | TeamsShuffledMessage
+  | PriorShufflesMessage

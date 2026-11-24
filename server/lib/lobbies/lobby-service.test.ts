@@ -4468,6 +4468,128 @@ describe('lobbies/lobby-service', () => {
         ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
       })
 
+      /** Returns the shuffle counts the lobby has published, in order. */
+      function publishedShuffleCounts(id: SbLobbyId): number[] {
+        return lobbyPublishes(id)
+          .filter(data => data?.type === 'teamsShuffled')
+          .map(data => data.shuffleCount)
+      }
+
+      test('each shuffle publishes a running count that later arrivals are told', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+        // Dealing everyone back into the same seats is still a shuffle
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: inPlace })
+
+        expect(publishedShuffleCounts(id)).toEqual([1, 2, 3])
+        expect(lobbyService.shuffleCounts.get(id)).toBe(3)
+
+        await joinLobby(otherHost, id)
+        await expect(initPayload(otherHost, id)).resolves.toMatchObject({ shuffleCount: 3 })
+      })
+
+      test('the shuffle event follows the slot changes of the shuffle', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        expect(lobbyPublishes(id).map(data => data?.type)).toEqual(['diff', 'teamsShuffled'])
+      })
+
+      test('a lobby that was never shuffled starts its arrivals at zero', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+
+        await expect(initPayload(joiner, id)).resolves.toMatchObject({ shuffleCount: 0 })
+      })
+
+      test('a rejected shuffle leaves the count alone', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+        fakeNydus.publish.mockClear()
+
+        expect(() =>
+          lobbyService.shuffleSlots({ client: joiner.client, lobbyId: id, shuffleFn: reversed }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
+
+        expect(lobbyService.shuffleCounts.get(id)).toBe(1)
+        expect(publishedShuffleCounts(id)).toEqual([])
+      })
+
+      test('a single team layout rejects without counting', async () => {
+        const single = await createLobby(host, 'Listed lobby', 'listed')
+
+        expect(() =>
+          lobbyService.shuffleSlots({
+            client: host.client,
+            lobbyId: single.id,
+            shuffleFn: reversed,
+          }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidTeamLayout }))
+        expect(lobbyService.shuffleCounts.has(single.id)).toBe(false)
+      })
+
+      test('computers in a controlled-opens game type reject without counting', async () => {
+        const { id } = await lobbyService.createLobby({
+          name: 'Controlled lobby',
+          map: BIG_GAME_HUNTERS.id,
+          gameType: GameType.TeamMelee,
+          gameSubType: 2,
+          visibility: 'listed',
+          user: host.user,
+          client: host.client,
+        })
+        // Fills the empty second team with computers, the only way they exist in team melee
+        lobbyService.addComputer({
+          client: host.client,
+          slotId: lobbyService.lobbies.get(id)!.teams[1].slots[0].id,
+        })
+        fakeNydus.publish.mockClear()
+
+        expect(() =>
+          lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidTeamLayout }))
+
+        expect(lobbyService.shuffleCounts.has(id)).toBe(false)
+        expect(publishedShuffleCounts(id)).toEqual([])
+      })
+
+      test('swapping teams does not count as a shuffle', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.swapTeams({ client: host.client, lobbyId: id })
+
+        expect(lobbyService.shuffleCounts.has(id)).toBe(false)
+        expect(publishedShuffleCounts(id)).toEqual([])
+      })
+
+      test('the count starts over once a game starts from the lobby', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+        expect(lobbyService.shuffleCounts.get(id)).toBe(2)
+
+        await runCountdown(host)
+        expect(lobbyService.shuffleCounts.has(id)).toBe(false)
+        endGameFor(host)
+        endGameFor(joiner)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        expect(publishedShuffleCounts(id)).toEqual([1])
+      })
+
       test('neither team tool touches who is ready or counts as a settings change', async () => {
         const { id } = await createTeamLobby()
         await joinLobby(joiner, id)

@@ -139,6 +139,7 @@ function lastJoinMessage(state: CurrentLobbyState): JoinLobbyMessage {
 function initAction(
   extra: Partial<{
     readyUsers: SbUserId[]
+    shuffleCount: number
     mapStatuses: LobbyMemberMapStatusJson[]
     series: LobbySeriesGameJson[]
   }> = {},
@@ -151,6 +152,7 @@ function initAction(
       lobby,
       userInfos: [],
       readyUsers: extra.readyUsers ?? [],
+      shuffleCount: extra.shuffleCount ?? 0,
       mapStatuses: extra.mapStatuses ?? [],
       series: extra.series ?? [],
     },
@@ -844,6 +846,7 @@ describe('client/lobbies/lobby-reducer', () => {
         lobby: LOBBY,
         userInfos: [],
         readyUsers: [],
+        shuffleCount: 0,
         mapStatuses: [],
         series: [],
         runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!], elapsedMs: 0 },
@@ -863,6 +866,7 @@ describe('client/lobbies/lobby-reducer', () => {
           lobby: LOBBY,
           userInfos: [],
           readyUsers: [],
+          shuffleCount: 0,
           mapStatuses: [],
           series: [],
           launch,
@@ -1196,6 +1200,72 @@ describe('client/lobbies/lobby-reducer', () => {
     }).not.toThrow()
 
     expect(state.series).toEqual([SERIES_GAME])
+  })
+
+  test('init seeds the shuffle count and tells the arrival about earlier shuffles', () => {
+    const state = lobbyReducer(undefined, initAction({ shuffleCount: 3 }))
+
+    expect(state.shuffleCount).toBe(3)
+    expect(state.chat.at(-1)).toMatchObject({
+      type: LobbyMessageType.LobbyPriorShuffles,
+      shuffleCount: 3,
+    })
+  })
+
+  test('init with no shuffles has a zero count and no prior shuffles message', () => {
+    const state = lobbyReducer(undefined, initAction())
+
+    expect(state.shuffleCount).toBe(0)
+    expect(state.chat.some(m => m.type === LobbyMessageType.LobbyPriorShuffles)).toBe(false)
+  })
+
+  test('teamsShuffled sets the count and says who shuffled', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateTeamsShuffled',
+      payload: { type: 'teamsShuffled', shuffleCount: 1 },
+    })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateTeamsShuffled',
+      payload: { type: 'teamsShuffled', shuffleCount: 2 },
+    })
+
+    expect(state.shuffleCount).toBe(2)
+    expect(state.chat.at(-1)).toMatchObject({
+      type: LobbyMessageType.LobbyTeamsShuffled,
+      userId: HOST_SLOT.userId,
+      shuffleCount: 2,
+    })
+  })
+
+  test('teamsShuffled is ignored when not in a lobby', () => {
+    const state = lobbyReducer(undefined, {
+      type: '@lobbies/updateTeamsShuffled',
+      payload: { type: 'teamsShuffled', shuffleCount: 1 },
+    })
+
+    expect(state.shuffleCount).toBe(0)
+    expect(state.chat).toEqual([])
+  })
+
+  test('gameStarted resets the shuffle count', () => {
+    let state = lobbyReducer(undefined, initAction({ shuffleCount: 2 }))
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 } },
+    })
+
+    expect(state.shuffleCount).toBe(0)
+  })
+
+  test('leaving the lobby forgets the shuffle count', () => {
+    let state = lobbyReducer(undefined, initAction({ shuffleCount: 2 }))
+
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    expect(state.shuffleCount).toBe(0)
   })
 
   test('leaving the lobby forgets its ready marks and its games', () => {

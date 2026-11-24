@@ -458,6 +458,12 @@ export class LobbyService {
    */
   readonly readyUsers = new Map<SbLobbyId, Set<SbUserId>>()
   /**
+   * How many times each lobby's teams have been shuffled since its last game started, or since it
+   * was created if it hasn't played one. A lobby with no entry hasn't been shuffled, and a lobby's
+   * count lives no longer than the lobby does.
+   */
+  readonly shuffleCounts = new Map<SbLobbyId, number>()
+  /**
    * The members of each lobby whose app reported that it doesn't have the lobby's current map yet.
    * A member with no entry has the map: apps that predate map status reporting never report, and
    * must not hold up a start. Entries describe the lobby's current map only, so a lobby's statuses
@@ -1041,6 +1047,7 @@ export class LobbyService {
           launch: this._launchJson(lobbyId),
           userInfos,
           readyUsers: this._readyUsersJson(lobbyId),
+          shuffleCount: this.shuffleCounts.get(lobbyId) ?? 0,
           mapStatuses: this._mapStatusesJson(lobbyId),
           series: this._seriesJson(lobbyId),
         }
@@ -1764,6 +1771,10 @@ export class LobbyService {
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
+
+    const shuffleCount = (this.shuffleCounts.get(lobby.id) ?? 0) + 1
+    this.shuffleCounts.set(lobby.id, shuffleCount)
+    this._publishTo(updated, { type: 'teamsShuffled', shuffleCount })
   }
 
   addComputer({
@@ -2349,6 +2360,7 @@ export class LobbyService {
       this.lobbyBannedUsers.delete(lobby.id)
       this._clearRunState(lobby.id)
       this.readyUsers.delete(lobby.id)
+      this.shuffleCounts.delete(lobby.id)
       this.mapStatuses.delete(lobby.id)
       this._forgetSeries(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
@@ -2632,8 +2644,10 @@ export class LobbyService {
   _onGameStarted(lobbyId: SbLobbyId, gameId: string, inGameUsers: ReadonlyArray<SbUserId>) {
     this.loadingLobbies.delete(lobbyId)
     // The game the members were ready for is the one that just started, so their marks are spent:
-    // the next game gathers its own.
+    // the next game gathers its own. Likewise the shuffles so far are the ones that led to the
+    // teams of this game, so the next game's teams start their own tally.
     this.readyUsers.delete(lobbyId)
+    this.shuffleCounts.delete(lobbyId)
     const lobby = this.lobbies.get(lobbyId)
     if (!lobby) {
       // Everyone left while the game was loading, so there's no lobby left for it to belong to.

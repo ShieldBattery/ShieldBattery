@@ -341,6 +341,11 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
+  teamsShuffled: (lobbyId, event) => ({
+    type: '@lobbies/updateTeamsShuffled',
+    payload: event,
+  }),
+
   readyChange: (lobbyId, event) => ({
     type: '@lobbies/updateReadyChange',
     payload: event,

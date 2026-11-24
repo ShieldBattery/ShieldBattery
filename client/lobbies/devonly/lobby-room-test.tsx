@@ -382,6 +382,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         lobby,
         userInfos: MOCK_USERS,
         readyUsers: [],
+        shuffleCount: 0,
         mapStatuses: [],
         series: [],
       },
@@ -429,6 +430,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       lobby,
       userInfos: MOCK_USERS,
       readyUsers: [PACHI, HEARTCUTTER, NERDRAGE],
+      shuffleCount: 0,
       // Pachi's download failed, so the member viewpoint shows the retry; dronebro's is underway.
       mapStatuses:
         scenario === 'mapDownloads'
@@ -457,6 +459,13 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       },
     })
     sendMockChat(dispatch, SUNN0, 'yo. one game then I gotta sleep')
+    // Two shuffles by the host, which show up as chat messages and in the host's readout.
+    for (const shuffleCount of [1, 2]) {
+      dispatch({
+        type: '@lobbies/updateTeamsShuffled',
+        payload: { type: 'teamsShuffled', shuffleCount },
+      })
+    }
   }
 
   if (scenario === 'settingsChanged') {
