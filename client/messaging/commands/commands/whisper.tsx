@@ -112,7 +112,7 @@ export function sendWhisperInPlace(
  * in the surface the command was typed in. Each user is offered once, in the best position they
  * reach, and the user running the command is never offered, since the server refuses self-whispers.
  */
-function getWhisperTargets({ context, getState }: ArgSuggestDeps): ArgSuggestion[] {
+export function getWhisperTargets({ context, getState }: ArgSuggestDeps): ArgSuggestion[] {
   const { relationships, users, whispers } = getState()
 
   const suggestions: ArgSuggestion[] = []

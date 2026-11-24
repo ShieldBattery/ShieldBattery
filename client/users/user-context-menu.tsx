@@ -4,9 +4,13 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap, mergeMultimaps } from '../../common/data-structures/maps'
+import { getLobbyPlayers } from '../../common/lobbies'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { useCurrentActivity } from '../activity/current-activity'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { inviteToLobby } from '../lobbies/action-creators'
+import { lobbyInviteErrorMessage } from '../lobbies/lobby-invite-errors'
 import logger from '../logging/logger'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -182,7 +186,8 @@ function ConnectedUserContextMenuContents({
   const snackbarController = useSnackbarController()
   const { onNavigation } = useNavigationTracker()
   const isNavigationAvailable = useIsNavigationAvailable()
-
+  const currentActivity = useCurrentActivity()
+  const isInCurrentLobby = useAppSelector(s => getLobbyPlayers(s.lobby.info).includes(userId))
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
       return UserRelationshipKind.Friend
@@ -254,6 +259,39 @@ function ConnectedUserContextMenuContents({
     }
 
     if (user.id !== selfUser?.id) {
+      if (
+        currentActivity?.kind === 'lobby' &&
+        relationshipKind !== UserRelationshipKind.Block &&
+        !isInCurrentLobby
+      ) {
+        appendToMultimap(
+          items,
+          MenuItemCategory.General,
+          <MenuItem
+            key='invite-to-lobby'
+            text={t('users.contextMenu.inviteToLobby', 'Invite to Lobby')}
+            onClick={() => {
+              dispatch(
+                inviteToLobby(user!.id, {
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('users.contextMenu.inviteToLobbySuccess', 'Invited {{user}} to lobby.', {
+                        user: user!.name,
+                      }),
+                    )
+                  },
+                  onError: err => {
+                    logger.error(`Error inviting ${user!.id} to lobby: ${err}`)
+                    snackbarController.showSnackbar(lobbyInviteErrorMessage(err, t))
+                  },
+                }),
+              )
+              onDismiss()
+            }}
+          />,
+        )
+      }
+
       if (isNavigationAvailable && relationshipKind !== UserRelationshipKind.Block) {
         appendToMultimap(
           items,

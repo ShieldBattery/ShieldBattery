@@ -7,6 +7,7 @@ import {
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
+  InviteToLobbyRequest,
   JoinLobbyRequest,
   LobbyClientRequest,
   LobbyNetworkParams,
@@ -180,6 +181,17 @@ export function joinLobby(
       signal: spec.signal,
     })
   })
+}
+
+/** Invites a user to the lobby the current client is in. */
+export function inviteToLobby(targetId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/invite`, {
+      method: 'POST',
+      body: encodeBodyAsParams<InviteToLobbyRequest>({ clientId, targetId }),
+      signal: spec.signal,
+    }),
+  )
 }
 
 /**

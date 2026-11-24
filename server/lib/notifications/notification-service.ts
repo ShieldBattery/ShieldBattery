@@ -9,6 +9,7 @@ import {
   addNotificationForUsers,
   clearBefore,
   clearById,
+  clearMatching,
   markRead,
   NotificationData,
   retrieveNotifications,
@@ -143,11 +144,26 @@ export default class NotificationService {
         userId: criteria.userId,
         data: criteria.data,
         visible: true,
+        limit: 1,
       })
     )[0]
 
     if (notification) {
       await this.clearById(criteria.userId, notification.id)
+    }
+  }
+
+  /**
+   * Clears every visible notification matching the given data, whichever users they belong to, and
+   * tells each affected user's connected clients which notifications went away.
+   */
+  async clearAllMatching(data: SearchNotificationData) {
+    const cleared = await clearMatching(data)
+    for (const { userId, id } of cleared) {
+      this.publisher.publish(getNotificationsPath(userId), {
+        type: 'clearById',
+        notificationId: id,
+      })
     }
   }
 
