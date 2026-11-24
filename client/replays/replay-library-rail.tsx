@@ -14,7 +14,7 @@ import { OriginX, Popover, usePopoverController, useRefAnchorPosition } from '..
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, labelMedium, singleLine } from '../styles/typography'
-import { LibraryView } from './replay-library-helpers'
+import { LibraryView } from './replay-library-urls'
 
 // The width at which the rail collapses to an icon-only strip, keyed to the ancestor
 // `replay-library-body` container's inline-size (set up in replay-library.tsx). This mirrors the

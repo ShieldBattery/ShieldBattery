@@ -78,14 +78,10 @@ import {
   ReplayInspector,
 } from './replay-inspector'
 import {
-  encodeViewPathname,
-  FOLDER_SEARCH_PARAM,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
-  LibraryView,
   playersToDisplayTeams,
-  searchForViewChange,
 } from './replay-library-helpers'
 import { ReplayLibraryRail } from './replay-library-rail'
 import {
@@ -97,6 +93,14 @@ import {
   selectRangeTo,
   toggleInSelection,
 } from './replay-library-selection'
+import {
+  encodeViewPathname,
+  FOLDER_SEARCH_PARAM,
+  LibraryView,
+  searchForViewChange,
+  useRememberedLibraryFolder,
+  useRememberedLibraryView,
+} from './replay-library-urls'
 import { getBulkReplayActionMenuItems, ReplaySelectionSummary } from './replay-selection-summary'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -137,10 +141,6 @@ interface RailSnapshot {
 // the rail stable across that remount — without it, the rail would blank (counts at zero, playlist
 // rows gone) until the mount-time fetches answer. The fetches still run and replace the seed.
 let railSnapshot: RailSnapshot = { status: undefined, backfill: undefined, playlists: [] }
-
-function validateRememberedFolder(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
 
 /** A folder listing, tagged with the folder it was requested for (it may have resolved elsewhere). */
 interface RequestedFolderListing {
@@ -842,12 +842,20 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     replace(window.location.pathname + (searchString ? `?${searchString}` : ''))
   }, [folderListing, folder, status, backfill])
 
-  // The folder last browsed in the folders view, which the rail's Folders entry reopens.
-  const [rememberedFolder, setRememberedFolder] = useUserLocalStorageValue(
-    'replays.library.folder',
-    '',
-    validateRememberedFolder,
-  )
+  // The view last shown, however it was reached (the rail, a link, Back/Forward, or a redirect away
+  // from a deleted playlist), which app-level links into the library reopen.
+  const [, setRememberedView] = useRememberedLibraryView()
+  const viewPathname = encodeViewPathname(view)
+  const rememberView = useEffectEvent(() => {
+    setRememberedView(viewPathname)
+  })
+  useEffect(() => {
+    rememberView()
+  }, [viewPathname])
+
+  // The folder last browsed in the folders view, which the rail's Folders entry and app-level links
+  // into the library reopen.
+  const [rememberedFolder, setRememberedFolder] = useRememberedLibraryFolder()
   const rememberFolder = useEffectEvent(() => {
     setRememberedFolder(folder)
   })
