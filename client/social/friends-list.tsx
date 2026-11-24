@@ -38,6 +38,7 @@ import {
   removeFriendRequest,
 } from './action-creators'
 import { FriendActivityStatusLine, NameBlock, NameLine } from './friend-activity-status'
+import { JoinFriendLobbyIconButton } from './join-friend-lobby-button'
 import { userRelationshipErrorToString } from './relationship-errors'
 
 const FadedFriendsIcon = styledWithAttrs(MaterialIcon, { icon: 'group' })`
@@ -668,6 +669,7 @@ function FriendEntry({
   actions?: React.ReactNode
 }) {
   const { t } = useTranslation()
+  const { onNavigation } = useNavigationTracker()
   const user = useAppSelector(s => s.users.byId.get(userId))
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
@@ -703,6 +705,7 @@ function FriendEntry({
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}
         {isLive ? <EntryLiveLabel /> : null}
+        <JoinFriendLobbyIconButton userId={userId} onJoin={onNavigation} />
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>
     </div>

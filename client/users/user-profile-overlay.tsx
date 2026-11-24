@@ -30,6 +30,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
+import { JoinFriendLobbyTextButton } from '../social/join-friend-lobby-button'
 import {
   bodyLarge,
   BodyMedium,
@@ -232,6 +233,37 @@ const HintText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const ActivityRowRoot = styled.div`
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  /* Nothing to show (no status, no lobby): take no space, including the parent's gap. */
+  &:empty {
+    display: none;
+  }
+
+  & > :first-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+`
+
+/**
+ * The user's activity status line, with a button to join their lobby beside it when they're in one
+ * the viewer can join.
+ */
+function ActivityRow({ userId, onDismiss }: { userId: SbUserId; onDismiss?: () => void }) {
+  return (
+    <ActivityRowRoot>
+      <FriendActivityStatusLine userId={userId} />
+      <JoinFriendLobbyTextButton userId={userId} onJoin={onDismiss} />
+    </ActivityRowRoot>
+  )
+}
+
 // NOTE(tec27): We need to push this content down a level from the Popover so the hooks inside only
 // run when it's visible (otherwise we'd request all the user profiles once they e.g. appeared in
 // the user list)
@@ -332,7 +364,7 @@ export function UserProfileOverlayContents({
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
-      <FriendActivityStatusLine userId={userId} />
+      <ActivityRow userId={userId} onDismiss={onDismiss} />
       {liveStream ? (
         <LiveWatchRow
           twitchLogin={liveStream.twitchLogin}

@@ -10,6 +10,8 @@ import { CommonTextMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 import { NameBlock, NameLine } from '../social/friend-activity-status'
+import { useJoinFriendLobby } from '../social/join-friend-lobby'
+import { JoinFriendLobbyIconButton } from '../social/join-friend-lobby-button'
 import { bodyLarge, bodyMedium, bodySmall, labelMedium, titleLarge } from '../styles/typography'
 import { UserStatusText } from './whisper-header'
 import { urlForWhisper } from './whisper-url'
@@ -35,9 +37,28 @@ const SectionHeader = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const Row = styled.div`
+/** The room at a row's end that the join button over it takes: its width, inset and the row's gap. */
+const JOIN_BUTTON_RESERVED_END = 52
+
+const RowWrapper = styled.div`
+  position: relative;
+`
+
+/**
+ * The join button sits beside the row rather than inside it: the row is itself a `role='link'`,
+ * which can't contain another control.
+ */
+const RowJoinButton = styled(JoinFriendLobbyIconButton)`
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+`
+
+const Row = styled.div<{ $reserveEnd?: boolean }>`
   min-height: 52px;
   padding: 6px 8px;
+  ${props => (props.$reserveEnd ? `padding-right: ${JOIN_BUTTON_RESERVED_END}px;` : '')}
 
   display: flex;
   align-items: center;
@@ -100,33 +121,41 @@ function PersonRow({
   userId,
   secondary,
   trailing,
+  showJoin = false,
 }: {
   userId: SbUserId
   secondary: React.ReactNode
   trailing?: React.ReactNode
+  /** Offers joining the person's lobby, when they're in one, at the end of the row. */
+  showJoin?: boolean
 }) {
+  const joinFriendLobby = useJoinFriendLobby(userId)
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
   const url = urlForWhisper(userId, username ?? '')
 
   return (
-    <Row
-      role='link'
-      tabIndex={0}
-      aria-label={username}
-      onClick={() => push(url)}
-      onKeyDown={event => {
-        if (event.key === 'Enter') {
-          event.preventDefault()
-          push(url)
-        }
-      }}>
-      <RowAvatar userId={userId} showAvailability={true} />
-      <NameBlock>
-        <RowName>{username}</RowName>
-        {secondary}
-      </NameBlock>
-      {trailing}
-    </Row>
+    <RowWrapper>
+      <Row
+        $reserveEnd={showJoin && !!joinFriendLobby}
+        role='link'
+        tabIndex={0}
+        aria-label={username}
+        onClick={() => push(url)}
+        onKeyDown={event => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            push(url)
+          }
+        }}>
+        <RowAvatar userId={userId} showAvailability={true} />
+        <NameBlock>
+          <RowName>{username}</RowName>
+          {secondary}
+        </NameBlock>
+        {trailing}
+      </Row>
+      {showJoin ? <RowJoinButton userId={userId} /> : null}
+    </RowWrapper>
   )
 }
 
@@ -186,7 +215,12 @@ export function SuggestedPeople() {
             <span>{onlineFriends.length}</span>
           </SectionHeader>
           {onlineFriends.map(id => (
-            <PersonRow key={id} userId={id} secondary={<StatusText userId={id} />} />
+            <PersonRow
+              key={id}
+              userId={id}
+              secondary={<StatusText userId={id} />}
+              showJoin={true}
+            />
           ))}
         </Section>
       ) : null}

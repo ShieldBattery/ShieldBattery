@@ -9,11 +9,19 @@ export class FakeActivityStatusService
   implements
     Pick<
       ActivityStatusService,
-      'getStatus' | 'setActivity' | 'clearActivity' | 'setInGame' | 'clearInGame'
+      | 'getStatus'
+      | 'getStatusEvent'
+      | 'setActivity'
+      | 'updateLobby'
+      | 'clearActivity'
+      | 'setInGame'
+      | 'clearInGame'
     >
 {
   getStatus = vi.fn().mockReturnValue(FriendActivityStatus.Online)
+  getStatusEvent = vi.fn()
   setActivity = vi.fn()
+  updateLobby = vi.fn()
   clearActivity = vi.fn()
   setInGame = vi.fn()
   clearInGame = vi.fn()

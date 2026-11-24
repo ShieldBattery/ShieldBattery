@@ -1,11 +1,12 @@
 import { singleton } from 'tsyringe'
+import { FriendActivityLobby, FriendActivityStatus } from '../../../common/users/relationships'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { ActivityStatusService, GameplayActivityStatus } from '../users/activity-status-service'
+import { ActivityStatusService, GameplayActivity } from '../users/activity-status-service'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 
 interface RegisteredActivity {
   client: ClientSocketsGroup
-  status: GameplayActivityStatus
+  activity: GameplayActivity
 }
 
 @singleton()
@@ -22,7 +23,7 @@ export class GameplayActivityRegistry {
   registerActiveClient(
     userId: SbUserId,
     client: ClientSocketsGroup,
-    status: GameplayActivityStatus,
+    activity: GameplayActivity,
   ): boolean {
     if (!client.isConnected()) {
       throw new Error('Cannot register a disconnected client')
@@ -32,8 +33,8 @@ export class GameplayActivityRegistry {
       return false
     }
 
-    this.userClients.set(userId, { client, status })
-    this.activityStatusService.setActivity(userId, status)
+    this.userClients.set(userId, { client, activity })
+    this.activityStatusService.setActivity(userId, activity)
     return true
   }
 
@@ -56,7 +57,7 @@ export class GameplayActivityRegistry {
       return false
     }
 
-    this.userClients.set(userId, { client, status: registered.status })
+    this.userClients.set(userId, { client, activity: registered.activity })
     return true
   }
 
@@ -72,7 +73,7 @@ export class GameplayActivityRegistry {
     }
 
     this.userClients.delete(userId)
-    this.activityStatusService.clearActivity(userId, registered.status)
+    this.activityStatusService.clearActivity(userId, registered.activity.status)
     return true
   }
 
@@ -89,7 +90,28 @@ export class GameplayActivityRegistry {
       return
     }
 
-    this.activityStatusService.setActivity(userId, registered.status)
+    this.activityStatusService.setActivity(userId, registered.activity)
+  }
+
+  /**
+   * Replaces the details of the lobby a user is registered as being in, e.g. after the lobby was
+   * renamed, so that both the published status and any later `reapplyStatus` describe the lobby as
+   * it is now. No-op for a user whose registered activity isn't being in that lobby.
+   */
+  updateLobby(userId: SbUserId, lobby: FriendActivityLobby): void {
+    const registered = this.userClients.get(userId)
+    if (
+      registered?.activity.status !== FriendActivityStatus.InLobby ||
+      registered.activity.lobby.id !== lobby.id
+    ) {
+      return
+    }
+
+    this.userClients.set(userId, {
+      client: registered.client,
+      activity: { status: FriendActivityStatus.InLobby, lobby },
+    })
+    this.activityStatusService.updateLobby(userId, lobby)
   }
 
   /**

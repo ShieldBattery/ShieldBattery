@@ -1,6 +1,11 @@
 import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test } from 'vitest'
-import { FriendActivityStatus } from '../../../common/users/relationships'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import {
+  FriendActivityLobby,
+  FriendActivityStatus,
+  FriendActivityStatusUpdateEvent,
+} from '../../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import { RequestSessionLookup } from '../websockets/session-lookup'
@@ -18,6 +23,10 @@ import { ActivityStatusService, getFriendActivityStatusPath } from './activity-s
 const USER = makeSbUserId(1)
 const GAME_ID = 'game-1'
 const GRACE_MS = 60_000
+const LOBBY: FriendActivityLobby = { id: makeSbLobbyId('lobby-1'), name: 'Lobby One' }
+const OTHER_LOBBY: FriendActivityLobby = { id: makeSbLobbyId('lobby-2'), name: 'Lobby Two' }
+const IN_LOBBY = { status: FriendActivityStatus.InLobby, lobby: LOBBY } as const
+const IN_QUEUE = { status: FriendActivityStatus.InQueue } as const
 
 describe('users/activity-status-service', () => {
   let nydus: NydusServer
@@ -52,11 +61,22 @@ describe('users/activity-status-service', () => {
     return connector.connectClient({ id: userId, name: `user-${userId}`, created: 0 }, clientId)
   }
 
-  function expectPublished(userId: SbUserId, status: FriendActivityStatus) {
-    expect(fakeNydus.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(userId), {
-      userId,
-      status,
-    })
+  function expectPublished(
+    userId: SbUserId,
+    status: FriendActivityStatus,
+    lobby?: FriendActivityLobby,
+  ) {
+    expect(fakeNydus.publish).toHaveBeenCalledWith(
+      getFriendActivityStatusPath(userId),
+      lobby ? { userId, status, lobby } : { userId, status },
+    )
+  }
+
+  /** Returns every status update published for a user, in order. */
+  function publishedEvents(userId: SbUserId): FriendActivityStatusUpdateEvent[] {
+    return fakeNydus.publish.mock.calls
+      .filter(([path]) => path === getFriendActivityStatusPath(userId))
+      .map(([, data]) => data)
   }
 
   function expectNotPublished(userId: SbUserId) {
@@ -91,20 +111,20 @@ describe('users/activity-status-service', () => {
     connect(USER, 'one')
     clearTestLogs(nydus)
 
-    activityStatusService.setActivity(USER, FriendActivityStatus.InLobby)
+    activityStatusService.setActivity(USER, IN_LOBBY)
 
     expect(activityStatusService.getStatus(USER)).toBe(FriendActivityStatus.InLobby)
-    expectPublished(USER, FriendActivityStatus.InLobby)
+    expectPublished(USER, FriendActivityStatus.InLobby, LOBBY)
 
     clearTestLogs(nydus)
-    activityStatusService.setActivity(USER, FriendActivityStatus.InLobby)
+    activityStatusService.setActivity(USER, { ...IN_LOBBY })
 
     expectNotPublished(USER)
   })
 
   test('clearing an activity the user is not doing is a no-op', () => {
     connect(USER, 'one')
-    activityStatusService.setActivity(USER, FriendActivityStatus.InQueue)
+    activityStatusService.setActivity(USER, IN_QUEUE)
     clearTestLogs(nydus)
 
     activityStatusService.clearActivity(USER, FriendActivityStatus.InLobby)
@@ -120,7 +140,7 @@ describe('users/activity-status-service', () => {
 
   test('clearing a lobby activity for an in-game user is a no-op', () => {
     connect(USER, 'one')
-    activityStatusService.setActivity(USER, FriendActivityStatus.InLobby)
+    activityStatusService.setActivity(USER, IN_LOBBY)
     activityStatusService.setInGame(USER, GAME_ID, clientSocketsManager.getById(USER, 'one')!)
     clearTestLogs(nydus)
 
@@ -205,6 +225,148 @@ describe('users/activity-status-service', () => {
     await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
 
     expect(activityStatusService.getStatus(USER)).toBe(FriendActivityStatus.InGame)
+  })
+
+  describe('lobby details', () => {
+    test('moving to another lobby publishes the new lobby', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      activityStatusService.setActivity(USER, {
+        status: FriendActivityStatus.InLobby,
+        lobby: OTHER_LOBBY,
+      })
+
+      expect(publishedEvents(USER)).toEqual([
+        { userId: USER, status: FriendActivityStatus.InLobby, lobby: OTHER_LOBBY },
+      ])
+    })
+
+    test('a lobby name change is published', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      activityStatusService.updateLobby(USER, { id: LOBBY.id, name: 'Renamed' })
+
+      expect(publishedEvents(USER)).toEqual([
+        {
+          userId: USER,
+          status: FriendActivityStatus.InLobby,
+          lobby: { id: LOBBY.id, name: 'Renamed' },
+        },
+      ])
+    })
+
+    test('updating a lobby with an unchanged name publishes nothing', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      activityStatusService.updateLobby(USER, { ...LOBBY })
+
+      expectNotPublished(USER)
+    })
+
+    test('updating a lobby the user is not in is a no-op', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      activityStatusService.updateLobby(USER, { id: OTHER_LOBBY.id, name: 'Renamed' })
+
+      expectNotPublished(USER)
+      expect(activityStatusService.getStatusEvent(USER)).toEqual({
+        userId: USER,
+        status: FriendActivityStatus.InLobby,
+        lobby: LOBBY,
+      })
+    })
+
+    test('updating the lobby of an in-game user leaves them in the game', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      activityStatusService.setInGame(USER, GAME_ID, clientSocketsManager.getById(USER, 'one')!)
+      clearTestLogs(nydus)
+
+      activityStatusService.updateLobby(USER, { id: LOBBY.id, name: 'Renamed' })
+
+      expect(activityStatusService.getStatus(USER)).toBe(FriendActivityStatus.InGame)
+      expectNotPublished(USER)
+    })
+
+    test('the lobby only goes out with the in-lobby status', () => {
+      connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      activityStatusService.setInGame(USER, GAME_ID, clientSocketsManager.getById(USER, 'one')!)
+      activityStatusService.clearInGame(USER, GAME_ID)
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      activityStatusService.clearActivity(USER, FriendActivityStatus.InLobby)
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      activityStatusService.setActivity(USER, IN_QUEUE)
+
+      expect(publishedEvents(USER)).toEqual([
+        { userId: USER, status: FriendActivityStatus.InGame },
+        { userId: USER, status: FriendActivityStatus.Online },
+        { userId: USER, status: FriendActivityStatus.InLobby, lobby: LOBBY },
+        { userId: USER, status: FriendActivityStatus.Online },
+        { userId: USER, status: FriendActivityStatus.InLobby, lobby: LOBBY },
+        { userId: USER, status: FriendActivityStatus.InQueue },
+      ])
+    })
+
+    test('an offline user with a lingering lobby is published without it', () => {
+      const client = connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      clearTestLogs(nydus)
+
+      client.disconnect()
+
+      expect(publishedEvents(USER)).toEqual([
+        { userId: USER, status: FriendActivityStatus.Offline },
+      ])
+      expect(activityStatusService.getStatusEvent(USER)).toEqual({
+        userId: USER,
+        status: FriendActivityStatus.Offline,
+      })
+    })
+
+    test('reconnecting while still in a lobby publishes the lobby again', () => {
+      const client = connect(USER, 'one')
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      client.disconnect()
+      clearTestLogs(nydus)
+
+      connect(USER, 'one')
+
+      expect(publishedEvents(USER)).toEqual([
+        { userId: USER, status: FriendActivityStatus.InLobby, lobby: LOBBY },
+      ])
+    })
+
+    test('the status event describes what the user is doing now', () => {
+      connect(USER, 'one')
+      expect(activityStatusService.getStatusEvent(USER)).toEqual({
+        userId: USER,
+        status: FriendActivityStatus.Online,
+      })
+
+      activityStatusService.setActivity(USER, IN_LOBBY)
+      expect(activityStatusService.getStatusEvent(USER)).toEqual({
+        userId: USER,
+        status: FriendActivityStatus.InLobby,
+        lobby: LOBBY,
+      })
+
+      activityStatusService.setInGame(USER, GAME_ID, clientSocketsManager.getById(USER, 'one')!)
+      expect(activityStatusService.getStatusEvent(USER)).toEqual({
+        userId: USER,
+        status: FriendActivityStatus.InGame,
+      })
+    })
   })
 
   test('the in-game state is dropped if the user stays disconnected past the grace period', async () => {

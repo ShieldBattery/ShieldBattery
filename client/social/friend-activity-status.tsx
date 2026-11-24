@@ -142,19 +142,24 @@ export function FriendActivityStatusGlyph({
 }) {
   const { t } = useTranslation()
   const status = useFriendActivityStatus(userId)
+  const lobbyName = useAppSelector(s => s.relationships.friendActivityLobby.get(userId)?.name)
   const descriptor = getActivityDescriptor(status, t)
 
   if (!descriptor) {
     return null
   }
 
+  const label =
+    status === FriendActivityStatus.InLobby && lobbyName !== undefined
+      ? t('users.activityStatus.inLobbyNamed', {
+          defaultValue: 'In lobby: {{lobbyName}}',
+          lobbyName,
+        })
+      : descriptor.label
+
   return (
-    <GlyphContainer
-      className={className}
-      $color={descriptor.color}
-      role='img'
-      aria-label={descriptor.label}>
-      <Tooltip text={descriptor.label} position='left' tabIndex={-1}>
+    <GlyphContainer className={className} $color={descriptor.color} role='img' aria-label={label}>
+      <Tooltip text={label} position='left' tabIndex={-1}>
         <MaterialIcon icon={descriptor.icon} size={16} />
       </Tooltip>
     </GlyphContainer>

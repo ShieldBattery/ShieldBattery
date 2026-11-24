@@ -28,6 +28,7 @@ import {
   sendFriendRequest,
   unblockUser,
 } from '../social/action-creators'
+import { useJoinFriendLobby } from '../social/join-friend-lobby'
 import { userRelationshipErrorToString } from '../social/relationship-errors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
@@ -188,6 +189,8 @@ function ConnectedUserContextMenuContents({
   const isNavigationAvailable = useIsNavigationAvailable()
   const currentActivity = useCurrentActivity()
   const isInCurrentLobby = useAppSelector(s => getLobbyPlayers(s.lobby.info).includes(userId))
+  const joinFriendLobby = useJoinFriendLobby(userId)
+
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
       return UserRelationshipKind.Friend
@@ -301,6 +304,23 @@ function ConnectedUserContextMenuContents({
             text={t('users.contextMenu.whisper', 'Whisper')}
             onClick={() => {
               navigateToWhisper(user!.id, user!.name)
+              onNavigation()
+              onDismiss()
+            }}
+          />,
+        )
+      }
+
+      if (joinFriendLobby) {
+        appendToMultimap(
+          items,
+          MenuItemCategory.General,
+          <MenuItem
+            key='join-lobby'
+            text={t('users.contextMenu.joinLobby', 'Join lobby')}
+            disabled={joinFriendLobby.isPending}
+            onClick={() => {
+              joinFriendLobby.join()
               onNavigation()
               onDismiss()
             }}

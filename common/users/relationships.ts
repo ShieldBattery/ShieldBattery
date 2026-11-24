@@ -1,4 +1,5 @@
 import { Jsonify } from '../json'
+import { SbLobbyId } from '../lobbies/sb-lobby-id'
 import { SbUser } from './sb-user'
 import { SbUserId } from './sb-user-id'
 
@@ -103,7 +104,19 @@ export enum FriendActivityStatus {
   InGame = 'inGame',
 }
 
+/**
+ * The lobby a friend is seated in, with just enough to join it and say which one it is. Like the
+ * status it rides along with, it only ever reaches the user's friends, which is what lets them into
+ * an unlisted lobby without being handed its link.
+ */
+export interface FriendActivityLobby {
+  id: SbLobbyId
+  name: string
+}
+
 export interface FriendActivityStatusUpdateEvent {
   userId: SbUserId
   status: FriendActivityStatus
+  /** The lobby the user is in. Only present while `status` is `InLobby`. */
+  lobby?: FriendActivityLobby
 }

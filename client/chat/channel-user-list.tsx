@@ -15,6 +15,8 @@ import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { SearchInput } from '../search/search-input'
 import { FriendActivityStatusLine, NameBlock, NameLine } from '../social/friend-activity-status'
+import { useJoinFriendLobby } from '../social/join-friend-lobby'
+import { JoinFriendLobbyIconButton } from '../social/join-friend-lobby-button'
 import {
   bodyMedium,
   bodySmall,
@@ -128,9 +130,16 @@ const fadedCss = css`
   }
 `
 
+/**
+ * Room at the end of a row for the join button that sits over it: the button's width, the gap
+ * before it, and what remains of its inset after the row's own end padding.
+ */
+const JOIN_BUTTON_RESERVED_END = 36
+
 interface UserListEntryItemProps {
   $isOverlayOpen?: boolean
   $faded?: boolean
+  $reserveEnd?: boolean
 }
 
 const UserListEntryItem = styled.div<UserListEntryItemProps>`
@@ -140,6 +149,7 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
   border-radius: 4px;
   padding-top: 4px;
   padding-bottom: 4px;
+  ${props => (props.$reserveEnd ? `padding-right: ${JOIN_BUTTON_RESERVED_END}px;` : '')}
 
   display: flex;
   align-items: center;
@@ -185,11 +195,27 @@ interface UserListEntryProps {
   style?: React.CSSProperties
 }
 
+const EntryWrapper = styled.div`
+  position: relative;
+`
+
+/**
+ * The join button sits beside the row rather than inside it: the row is itself a `role='button'`,
+ * which can't contain another control.
+ */
+const EntryJoinButton = styled(JoinFriendLobbyIconButton)`
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+`
+
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
   const { UserMenu } = useContext(ChatContext)
+  const joinFriendLobby = useJoinFriendLobby(props.userId)
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
     useUserOverlays({
@@ -236,7 +262,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   }
 
   return (
-    <div style={props.style}>
+    <EntryWrapper style={props.style}>
       <ConnectedUserProfileOverlay {...profileOverlayProps} />
       <ConnectedUserContextMenu {...contextMenuProps} />
 
@@ -249,6 +275,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         tabIndex={0}
         $faded={!!props.faded}
         $isOverlayOpen={isOverlayOpen}
+        $reserveEnd={!!joinFriendLobby}
         onClick={onClick}
         onContextMenu={onContextMenu}
         onKeyDown={onKeyDown}>
@@ -266,7 +293,8 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         )}
         {props.isLive ? <EntryLiveLabel /> : null}
       </UserListEntryItem>
-    </div>
+      <EntryJoinButton userId={props.userId} />
+    </EntryWrapper>
   )
 })
 
