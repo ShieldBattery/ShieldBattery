@@ -2,6 +2,7 @@ import { register } from '@prometheus-io/client'
 import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegionId, makeGameServerRegionId } from '../../../common/game-server-regions'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   defaultPreferences,
@@ -2104,7 +2105,10 @@ describe('matchmaking/matchmaking-service', () => {
       onClose(clientA)
       const lobbyClient = createFakeClient(USER_A, 'CLIENT_A2')
       expect(
-        activityRegistry.registerActiveClient(USER_A, lobbyClient, FriendActivityStatus.InLobby),
+        activityRegistry.registerActiveClient(USER_A, lobbyClient, {
+          status: FriendActivityStatus.InLobby,
+          lobby: { id: makeSbLobbyId('lobby-1'), name: 'Lobby' },
+        }),
       ).toBe(true)
       return lobbyClient
     }

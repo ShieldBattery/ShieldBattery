@@ -1,5 +1,6 @@
 import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import {
@@ -371,6 +372,7 @@ describe('users/user-relationship-service', () => {
   let connector: NydusConnector
   let notificationService: NotificationService
   let clock: FakeClock
+  let activityStatusService: ActivityStatusService
 
   let client1: InspectableNydusClient
   let client2: InspectableNydusClient
@@ -388,7 +390,7 @@ describe('users/user-relationship-service', () => {
 
     clearFakeDb()
 
-    const activityStatusService = new ActivityStatusService(
+    activityStatusService = new ActivityStatusService(
       publisher,
       userSocketsManager,
       clientSocketsManager,
@@ -1132,6 +1134,23 @@ describe('users/user-relationship-service', () => {
       expect(client2.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(USER), {
         userId: USER,
         status: FriendActivityStatus.Online,
+      })
+    })
+
+    test("includes the lobby a friend is in with the status they're first given", async () => {
+      const USER = makeSbUserId(1)
+      const OTHER = makeSbUserId(2)
+      const lobby = { id: makeSbLobbyId('lobby-1'), name: 'Friendly lobby' }
+      activityStatusService.setActivity(OTHER, { status: FriendActivityStatus.InLobby, lobby })
+
+      await userRelationshipService.sendFriendRequest(OTHER, USER)
+      await userRelationshipService.acceptFriendRequest(USER, OTHER)
+      await Promise.resolve()
+
+      expect(client1.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(OTHER), {
+        userId: OTHER,
+        status: FriendActivityStatus.InLobby,
+        lobby,
       })
     })
 

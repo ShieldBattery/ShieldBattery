@@ -44,6 +44,7 @@ import { createFakeNotificationService } from '../notifications/testing/notifica
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import {
   ActivityStatusService,
+  getFriendActivityStatusPath,
   IN_GAME_DISCONNECT_GRACE_MS,
 } from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
@@ -2004,6 +2005,55 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
+    test("renaming tells the members' friends the new name", async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      const lobby = lobbyService.lobbies.get(id)!
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      await joinLobby(lister, id)
+      // Both teams are full, so this member waits on the bench
+      const benched = connectExtra(100)
+      await joinLobby(benched, id)
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(1)
+      // A member whose game is still running stays in it
+      activityStatusService.setInGame(LISTER_USER.id, 'test-game-id', lister.client)
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, name: 'Renamed lobby' })
+
+      const renamed = { id, name: 'Renamed lobby' }
+      for (const userId of [HOST_USER.id, JOINER_USER.id, OTHER_HOST_USER.id, makeSbUserId(100)]) {
+        expect(fakeNydus.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(userId), {
+          userId,
+          status: FriendActivityStatus.InLobby,
+          lobby: renamed,
+        })
+      }
+      expect(fakeNydus.publish).not.toHaveBeenCalledWith(
+        getFriendActivityStatusPath(LISTER_USER.id),
+        expect.anything(),
+      )
+      expect(activityStatusService.getStatus(LISTER_USER.id)).toBe(FriendActivityStatus.InGame)
+
+      // Once back in the lobby, the in-game member is announced under the new name
+      activityStatusService.clearInGame(LISTER_USER.id, 'test-game-id')
+      activityRegistry.reapplyStatus(LISTER_USER.id)
+      expect(activityStatusService.getStatusEvent(LISTER_USER.id)).toEqual({
+        userId: LISTER_USER.id,
+        status: FriendActivityStatus.InLobby,
+        lobby: renamed,
+      })
+    })
+
     test('a rename combined with another setting reports both as changed', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -3238,7 +3288,7 @@ describe('lobbies/lobby-service', () => {
     })
 
     test('a member is in the lobby again once their game is reported over', async () => {
-      await createLobbyInGame()
+      const id = await createLobbyInGame()
       // Everyone is marked as playing once the game is actually running.
       activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
       expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InGame)
@@ -3248,7 +3298,11 @@ describe('lobbies/lobby-service', () => {
       activityStatusService.clearInGame(JOINER_USER.id, 'test-game-id')
       endGameFor(joiner)
 
-      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+      expect(activityStatusService.getStatusEvent(JOINER_USER.id)).toEqual({
+        userId: JOINER_USER.id,
+        status: FriendActivityStatus.InLobby,
+        lobby: { id, name: 'Listed lobby' },
+      })
     })
 
     test('a member is in the lobby again when only a result ends their game', async () => {

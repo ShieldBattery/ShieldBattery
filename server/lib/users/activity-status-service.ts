@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { singleton } from 'tsyringe'
 import {
+  FriendActivityLobby,
   FriendActivityStatus,
   FriendActivityStatusUpdateEvent,
 } from '../../../common/users/relationships'
@@ -32,9 +33,13 @@ export function getFriendActivityStatusPath(userId: SbUserId): string {
  */
 export type GameplayActivityStatus = FriendActivityStatus.InLobby | FriendActivityStatus.InQueue
 
-interface GameplayActivity {
-  status: GameplayActivityStatus
-}
+/**
+ * An activity owned by a client's entry in the gameplay activity registry. A lobby activity names
+ * the lobby, which is published to the user's friends along with the status.
+ */
+export type GameplayActivity =
+  | { status: FriendActivityStatus.InQueue }
+  | { status: FriendActivityStatus.InLobby; lobby: FriendActivityLobby }
 
 interface InGameActivity {
   status: FriendActivityStatus.InGame
@@ -111,9 +116,32 @@ export class ActivityStatusService extends EventEmitter<ActivityStatusServiceEve
     return this.activities.get(userId)?.status ?? FriendActivityStatus.Online
   }
 
+  /**
+   * Returns the status update a friend of the given user should see right now: what they are doing,
+   * plus the lobby they are in while that is what they are doing.
+   */
+  getStatusEvent(userId: SbUserId): FriendActivityStatusUpdateEvent {
+    return this.toStatusEvent(userId, this.getStatus(userId))
+  }
+
   /** Marks a user as being in a lobby or in the matchmaking queue. */
-  setActivity(userId: SbUserId, status: GameplayActivityStatus): void {
-    this.updateActivity(userId, { status })
+  setActivity(userId: SbUserId, activity: GameplayActivity): void {
+    this.updateActivity(userId, activity)
+  }
+
+  /**
+   * Replaces the details of the lobby a user is in, e.g. after the lobby was renamed. This only has
+   * an effect if the user's current activity is being in that same lobby: a user that is playing
+   * the lobby's game stays in the in-game state, and one that has moved on keeps doing what they are
+   * doing now.
+   */
+  updateLobby(userId: SbUserId, lobby: FriendActivityLobby): void {
+    const current = this.activities.get(userId)
+    if (current?.status !== FriendActivityStatus.InLobby || current.lobby.id !== lobby.id) {
+      return
+    }
+
+    this.updateActivity(userId, { status: FriendActivityStatus.InLobby, lobby })
   }
 
   /**
@@ -157,6 +185,7 @@ export class ActivityStatusService extends EventEmitter<ActivityStatusServiceEve
 
   private updateActivity(userId: SbUserId, activity: Activity | undefined): void {
     const prevStatus = this.getStatus(userId)
+    const prevLobby = this.getPublishedLobby(userId, prevStatus)
     const prev = this.activities.get(userId)
     if (prev && prev !== activity) {
       tearDownActivity(prev, this.clock)
@@ -169,9 +198,32 @@ export class ActivityStatusService extends EventEmitter<ActivityStatusServiceEve
     }
 
     const status = this.getStatus(userId)
-    if (status !== prevStatus) {
+    const lobby = this.getPublishedLobby(userId, status)
+    if (status !== prevStatus || lobby?.id !== prevLobby?.id || lobby?.name !== prevLobby?.name) {
       this.publish(userId, status)
     }
+  }
+
+  /** Returns the lobby that goes out to friends along with `status` for the given user, if any. */
+  private getPublishedLobby(
+    userId: SbUserId,
+    status: FriendActivityStatus,
+  ): FriendActivityLobby | undefined {
+    const activity = this.activities.get(userId)
+    return status === FriendActivityStatus.InLobby &&
+      activity?.status === FriendActivityStatus.InLobby
+      ? activity.lobby
+      : undefined
+  }
+
+  private toStatusEvent(
+    userId: SbUserId,
+    status: FriendActivityStatus,
+  ): FriendActivityStatusUpdateEvent {
+    const lobby = this.getPublishedLobby(userId, status)
+    return lobby
+      ? { userId, status, lobby: { id: lobby.id, name: lobby.name } }
+      : { userId, status }
   }
 
   private bindClose(
@@ -204,7 +256,7 @@ export class ActivityStatusService extends EventEmitter<ActivityStatusServiceEve
   }
 
   private publish(userId: SbUserId, status: FriendActivityStatus): void {
-    this.publisher.publish(getFriendActivityStatusPath(userId), { userId, status })
+    this.publisher.publish(getFriendActivityStatusPath(userId), this.toStatusEvent(userId, status))
     this.emit('change', userId, status)
   }
 }

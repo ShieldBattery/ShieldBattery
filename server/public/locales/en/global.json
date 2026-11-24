@@ -3584,7 +3584,9 @@
     "activityStatus": {
       "inGame": "In game",
       "inLobby": "In lobby",
-      "inQueue": "In queue"
+      "inLobbyNamed": "In lobby: {{lobbyName}}",
+      "inQueue": "In queue",
+      "joinLobby": "Join lobby: {{lobbyName}}"
     },
     "admin": {
       "avatar": {
@@ -3669,6 +3671,7 @@
       "friendRequestSent": "Friend request sent",
       "inviteToLobby": "Invite to Lobby",
       "inviteToLobbySuccess": "Invited {{user}} to lobby.",
+      "joinLobby": "Join lobby",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
@@ -3749,6 +3752,7 @@
       "commends": "Commends: {{commends}}",
       "info": "Info",
       "joined": "Joined {{date}}",
+      "joinLobby": "Join lobby",
       "ranked": "Ranked",
       "rightClick": "Right-click user for more actions",
       "viewProfile": "View profile"

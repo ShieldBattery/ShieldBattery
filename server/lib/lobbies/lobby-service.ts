@@ -776,7 +776,10 @@ export class LobbyService {
     }
 
     if (
-      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
+      !this.activityRegistry.registerActiveClient(user.userId, client, {
+        status: FriendActivityStatus.InLobby,
+        lobby: { id: lobby.id, name: lobby.name },
+      })
     ) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.AlreadyInActivity,
@@ -914,7 +917,10 @@ export class LobbyService {
     }
 
     if (
-      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
+      !this.activityRegistry.registerActiveClient(user.userId, client, {
+        status: FriendActivityStatus.InLobby,
+        lobby: { id: updated.id, name: updated.name },
+      })
     ) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.JoinAlreadyInActivity,
@@ -1503,6 +1509,15 @@ export class LobbyService {
     }
 
     this.lobbies.set(updated.id, updated)
+    if (changedSettings.includes('name')) {
+      // Friends of the members see the lobby's name along with their status, so it goes out to them
+      // again. Members playing the lobby's game keep their in-game status, and the new name goes
+      // out once they are back in the lobby.
+      const lobbyInfo = { id: updated.id, name: updated.name }
+      for (const userId of getLobbyMemberIds(updated)) {
+        this.activityRegistry.updateLobby(userId, lobbyInfo)
+      }
+    }
     this._publishTo(updated, {
       type: 'settingsChange',
       changedSettings,

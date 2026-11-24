@@ -23,6 +23,7 @@ import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
+import { TextButton } from '../material/button'
 import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useIsNavigationAvailable } from '../navigation/navigation-available'
@@ -30,6 +31,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
+import { useJoinFriendLobby } from '../social/join-friend-lobby'
 import {
   bodyLarge,
   BodyMedium,
@@ -232,6 +234,61 @@ const HintText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const ActivityRowRoot = styled.div`
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  & > :first-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+`
+
+const JoinLobbyButton = styled(TextButton)`
+  flex-shrink: 0;
+  min-height: 32px;
+`
+
+/**
+ * The user's activity status line, with a button to join their lobby beside it when they're in one
+ * the viewer can join.
+ */
+function ActivityRow({ userId, onDismiss }: { userId: SbUserId; onDismiss?: () => void }) {
+  const { t } = useTranslation()
+  const joinFriendLobby = useJoinFriendLobby(userId)
+
+  if (!joinFriendLobby) {
+    return <FriendActivityStatusLine userId={userId} />
+  }
+
+  const { lobby, join, isPending } = joinFriendLobby
+
+  return (
+    <ActivityRowRoot>
+      <FriendActivityStatusLine userId={userId} />
+      <Tooltip
+        text={t('users.activityStatus.joinLobby', {
+          defaultValue: 'Join lobby: {{lobbyName}}',
+          lobbyName: lobby.name,
+        })}
+        tabIndex={-1}>
+        <JoinLobbyButton
+          label={t('users.profileOverlay.joinLobby', 'Join lobby')}
+          iconStart='login'
+          disabled={isPending}
+          onClick={() => {
+            onDismiss?.()
+            join()
+          }}
+        />
+      </Tooltip>
+    </ActivityRowRoot>
+  )
+}
+
 // NOTE(tec27): We need to push this content down a level from the Popover so the hooks inside only
 // run when it's visible (otherwise we'd request all the user profiles once they e.g. appeared in
 // the user list)
@@ -332,7 +389,7 @@ export function UserProfileOverlayContents({
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
-      <FriendActivityStatusLine userId={userId} />
+      <ActivityRow userId={userId} onDismiss={onDismiss} />
       {liveStream ? (
         <LiveWatchRow
           twitchLogin={liveStream.twitchLogin}

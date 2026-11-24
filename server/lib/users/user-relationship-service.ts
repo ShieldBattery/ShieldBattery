@@ -106,8 +106,8 @@ export class UserRelationshipService {
         // NOTE(tec27): We only send updates for online users, just to minimize the amount of data
         // that needs to be sent. Clients can assume their friends are offline until they receive
         // this event
-        const status = this.activityStatusService.getStatus(friendId)
-        return status !== FriendActivityStatus.Offline ? { userId: friendId, status } : undefined
+        const event = this.activityStatusService.getStatusEvent(friendId)
+        return event.status !== FriendActivityStatus.Offline ? event : undefined
       },
     )
     userSockets?.subscribe<AvailabilityUpdateEvent>(getAvailabilityPath(friendId), async () => {

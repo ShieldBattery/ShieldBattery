@@ -686,11 +686,9 @@ export class MatchmakingService {
     }
 
     if (
-      !this.activityRegistry.registerActiveClient(
-        userId,
-        clientSockets,
-        FriendActivityStatus.InQueue,
-      )
+      !this.activityRegistry.registerActiveClient(userId, clientSockets, {
+        status: FriendActivityStatus.InQueue,
+      })
     ) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.GameplayConflict,

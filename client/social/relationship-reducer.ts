@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import {
+  FriendActivityLobby,
   FriendActivityStatus,
   UserRelationshipJson,
   UserRelationshipKind,
@@ -15,6 +16,8 @@ export interface RelationshipState {
   outgoingRequests: Map<SbUserId, UserRelationshipJson>
 
   friendActivityStatus: Map<SbUserId, FriendActivityStatus>
+  /** The lobby each friend is in, present only for friends whose status is `InLobby`. */
+  friendActivityLobby: Map<SbUserId, FriendActivityLobby>
 
   loaded: boolean
   loadedAt: number
@@ -32,6 +35,7 @@ const DEFAULT_STATE: Immutable<RelationshipState> = {
   outgoingRequests: new Map(),
 
   friendActivityStatus: new Map(),
+  friendActivityLobby: new Map(),
 
   loaded: false,
   loadedAt: -1,
@@ -53,6 +57,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         state.friendActivityStatus.get(r.toId) ?? FriendActivityStatus.Offline,
       ]),
     )
+    state.friendActivityLobby = new Map(
+      summary.friends.flatMap(r => {
+        const lobby = state.friendActivityLobby.get(r.toId)
+        return lobby ? [[r.toId, lobby] as const] : []
+      }),
+    )
 
     state.loaded = true
     state.loadedAt = action.system.monotonicTime
@@ -70,6 +80,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     if (relationship.kind === UserRelationshipKind.Friend) {
       state.friends.set(relationship.toId, relationship)
       state.friendActivityStatus.set(relationship.toId, FriendActivityStatus.Offline)
+      state.friendActivityLobby.delete(relationship.toId)
 
       state.outgoingRequests.delete(relationship.toId)
       state.incomingRequests.delete(relationship.toId)
@@ -81,6 +92,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.incomingRequests.delete(relationship.toId)
       state.friends.delete(relationship.toId)
       state.friendActivityStatus.delete(relationship.toId)
+      state.friendActivityLobby.delete(relationship.toId)
     } else if (relationship.kind === UserRelationshipKind.FriendRequest) {
       if (relationship.fromId === selfId) {
         state.outgoingRequests.set(relationship.toId, relationship)
@@ -89,6 +101,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         state.incomingRequests.delete(relationship.toId)
         state.friends.delete(relationship.toId)
         state.friendActivityStatus.delete(relationship.toId)
+        state.friendActivityLobby.delete(relationship.toId)
       } else {
         state.incomingRequests.set(relationship.fromId, relationship)
 
@@ -96,6 +109,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         state.outgoingRequests.delete(relationship.fromId)
         state.friends.delete(relationship.fromId)
         state.friendActivityStatus.delete(relationship.fromId)
+        state.friendActivityLobby.delete(relationship.fromId)
       }
     } else {
       assertUnreachable(relationship.kind)
@@ -108,10 +122,16 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.incomingRequests.delete(targetUser)
     state.outgoingRequests.delete(targetUser)
     state.friendActivityStatus.delete(targetUser)
+    state.friendActivityLobby.delete(targetUser)
   },
 
-  ['@users/updateFriendActivityStatus'](state, { payload: { userId, status } }) {
+  ['@users/updateFriendActivityStatus'](state, { payload: { userId, status, lobby } }) {
     state.friendActivityStatus.set(userId, status)
+    if (status === FriendActivityStatus.InLobby && lobby) {
+      state.friendActivityLobby.set(userId, lobby)
+    } else {
+      state.friendActivityLobby.delete(userId)
+    }
   },
 
   ['@network/connect']() {

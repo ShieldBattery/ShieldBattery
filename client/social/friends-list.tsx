@@ -668,6 +668,7 @@ function FriendEntry({
   actions?: React.ReactNode
 }) {
   const { t } = useTranslation()
+  const { onNavigation } = useNavigationTracker()
   const user = useAppSelector(s => s.users.byId.get(userId))
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
@@ -697,7 +698,7 @@ function FriendEntry({
         {user ? (
           <NameBlock>
             <NameLine>{user.name}</NameLine>
-            <FriendActivityStatusLine userId={userId} />
+            <FriendActivityStatusLine userId={userId} joinable={true} onJoin={onNavigation} />
           </NameBlock>
         ) : (
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
