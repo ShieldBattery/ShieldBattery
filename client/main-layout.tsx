@@ -51,6 +51,7 @@ import { LoadingDotsArea } from './progress/dots'
 import { useMultiplexRef } from './react/refs'
 import { useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
+import { useReplaysLink } from './replays/replay-library-urls'
 import { RULES_PATH } from './rules/rules-urls'
 import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
@@ -285,6 +286,8 @@ interface MenuItemProps {
   flipped?: boolean
   hotkey: HotkeyProp
   showPip?: boolean
+  /** Runs before the link navigates; preventing the event's default cancels the navigation. */
+  onClick?: (event: React.MouseEvent) => void
   children: React.ReactNode
   ref?: React.Ref<HTMLAnchorElement>
 }
@@ -295,6 +298,7 @@ function AppBarMenuItem({
   flipped,
   hotkey,
   showPip,
+  onClick,
   children,
   ref,
 }: MenuItemProps) {
@@ -307,7 +311,7 @@ function AppBarMenuItem({
   useButtonHotkey({ elem: linkElem, hotkey })
 
   return (
-    <Link href={href} asChild={true}>
+    <Link href={href} asChild={true} onClick={onClick}>
       <MenuItemRoot
         ref={combinedRef}
         $isActive={isActive}
@@ -655,6 +659,7 @@ function AppBar({
   const [onLoginPage] = useRoute('/login')
   const [appMenuOpen, onOpenAppMenu, onCloseAppMenu] = useNavigationMenuState('mainLayout.appMenu')
   const [appMenuFocusable, setAppMenuFocusable] = useState<HTMLAnchorElement | null>(null)
+  const replaysLink = useReplaysLink()
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const [profileEntryElem, setProfileEntryElem] = useState<HTMLButtonElement | null>(null)
@@ -796,7 +801,11 @@ function AppBar({
                 <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
                   {t('games.activity.title', 'Games')}
                 </AppBarMenuItem>
-                <AppBarMenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
+                <AppBarMenuItem
+                  href={replaysLink.href}
+                  routePattern='/replays/*?'
+                  hotkey={ALT_R}
+                  onClick={replaysLink.onClick}>
                   {t('replays.activity.title', 'Replays')}
                 </AppBarMenuItem>
               </MenuItemsStart>
@@ -883,8 +892,15 @@ function AppBar({
           text={t('games.activity.title', 'Games')}
         />
         <NavigationMenuItem
-          href='/replays/'
+          href={replaysLink.href}
           routePattern='/replays/*?'
+          onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
+            replaysLink.onClick(event)
+            // Already on that view, so there's nowhere to go; the menu just closes.
+            if (event.defaultPrevented) {
+              onCloseAppMenu()
+            }
+          }}
           icon={<MaterialIcon icon='movie' />}
           text={t('replays.activity.title', 'Replays')}
         />

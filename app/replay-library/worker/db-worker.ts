@@ -2,6 +2,7 @@ import { rmSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 import { getErrorStack } from '../../../common/errors'
+import { countByFolder, listReplayFolders } from '../../../common/replay-folders'
 import { ReplayLibraryStatus } from '../../../common/replays-library'
 import { ReplayDb } from '../replay-db'
 import {
@@ -106,6 +107,8 @@ async function indexFile(path: string): Promise<number | undefined> {
 const calls: ReplayDbCalls = {
   query: filters => db.query(filters),
   status: () => getStatus(),
+  folders: parent =>
+    listReplayFolders(countByFolder(db.getAllPaths()), watcher.getWatchedFolders(), parent),
   setBookmarked: (replayIds, bookmarked) => db.setBookmarked(replayIds, bookmarked),
   listPlaylists: () => db.listPlaylists(),
   createPlaylist: name => db.createPlaylist(name),

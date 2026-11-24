@@ -7,12 +7,10 @@ import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
-  encodeViewPathname,
   getGameRecordUserIds,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
-  parseViewPathname,
   playersToDisplayTeams,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
@@ -288,47 +286,6 @@ describe('groupReplaysByDay', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0].unreadable).toBe(true)
     expect(groups[0].entries.map(e => e.id)).toEqual([2, 1])
-  })
-})
-
-describe('parseViewPathname / encodeViewPathname', () => {
-  test('parses "/replays" and "/replays/" as the "all" view', () => {
-    expect(parseViewPathname('/replays')).toEqual({ kind: 'all' })
-    expect(parseViewPathname('/replays/')).toEqual({ kind: 'all' })
-  })
-
-  test('parses "/replays/bookmarked" and its trailing-slash form as the bookmarked view', () => {
-    expect(parseViewPathname('/replays/bookmarked')).toEqual({ kind: 'bookmarked' })
-    expect(parseViewPathname('/replays/bookmarked/')).toEqual({ kind: 'bookmarked' })
-  })
-
-  test('parses "/replays/playlists/<id>" as a playlist view', () => {
-    expect(parseViewPathname('/replays/playlists/42')).toEqual({ kind: 'playlist', id: 42 })
-  })
-
-  test('falls back to "all" for a playlists subpath missing an id', () => {
-    expect(parseViewPathname('/replays/playlists')).toEqual({ kind: 'all' })
-  })
-
-  test('falls back to "all" for a malformed playlist id', () => {
-    expect(parseViewPathname('/replays/playlists/notanumber')).toEqual({ kind: 'all' })
-  })
-
-  test('falls back to "all" for an unrecognized subpath', () => {
-    expect(parseViewPathname('/replays/something-else')).toEqual({ kind: 'all' })
-  })
-
-  test('encodes each view kind to its canonical pathname', () => {
-    expect(encodeViewPathname({ kind: 'all' })).toBe('/replays')
-    expect(encodeViewPathname({ kind: 'bookmarked' })).toBe('/replays/bookmarked')
-    expect(encodeViewPathname({ kind: 'playlist', id: 42 })).toBe('/replays/playlists/42')
-  })
-
-  test('round-trips a playlist view through encode then parse', () => {
-    expect(parseViewPathname(encodeViewPathname({ kind: 'playlist', id: 7 }))).toEqual({
-      kind: 'playlist',
-      id: 7,
-    })
   })
 })
 

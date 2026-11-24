@@ -1,59 +1,10 @@
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
-import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
-
-/** Which subset of the library the rail is currently pointed at, addressed by the `/replays…` pathname. */
-export type LibraryView =
-  | { kind: 'all' }
-  | { kind: 'bookmarked' }
-  | { kind: 'playlist'; id: number }
-
-/**
- * Parses a pathname under `/replays` into the `LibraryView` it addresses:
- * - `/replays` (and `/replays/`) -> the whole library (`all`)
- * - `/replays/bookmarked` -> `bookmarked`
- * - `/replays/playlists/<id>` -> `playlist` with that id
- *
- * Trailing slashes are tolerated. Anything else — an unparseable playlist id, an unrecognized
- * subpath, extra segments — falls back to `all`; callers that need the URL itself to reflect that
- * fallback canonicalize it separately (see `encodeViewPathname`).
- */
-export function parseViewPathname(pathname: string): LibraryView {
-  const segments = pathname.split('/').filter(segment => segment.length > 0)
-
-  if (segments.length === 2 && segments[1] === 'bookmarked') {
-    return { kind: 'bookmarked' }
-  }
-  if (segments.length === 3 && segments[1] === 'playlists') {
-    const id = Number.parseInt(segments[2], 10)
-    if (Number.isFinite(id)) {
-      return { kind: 'playlist', id }
-    }
-  }
-  return { kind: 'all' }
-}
-
-/**
- * Encodes a `LibraryView` into its canonical `/replays…` pathname (the form `parseViewPathname`
- * parses back to the same view).
- */
-export function encodeViewPathname(view: LibraryView): string {
-  switch (view.kind) {
-    case 'all':
-      return '/replays'
-    case 'bookmarked':
-      return '/replays/bookmarked'
-    case 'playlist':
-      return urlPath`/replays/playlists/${view.id}`
-    default:
-      return assertUnreachable(view)
-  }
-}
+import { LibraryView } from './replay-library-urls'
 
 /**
  * True when `view` is a playlist and the user hasn't chosen an explicit sort (`rawSort` is the sort

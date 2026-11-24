@@ -98,6 +98,11 @@ export interface ReplayLibraryFilters {
   bookmarked?: boolean
   /** Only match replays in this playlist, ordered by the playlist's manual order unless `sort` is set. */
   playlistId?: number
+  /**
+   * Only match replays inside this folder (an absolute path, matched case-insensitively): directly
+   * in it when `recursive` is false, or at any depth beneath it when true.
+   */
+  folder?: { path: string; recursive: boolean }
   /** Result ordering. Defaults to newest-first when omitted. */
   sort?: GameSortOption
   /** Number of matching entries to skip from the start of the results (for pagination). */
@@ -108,6 +113,26 @@ export interface ReplayLibraryFilters {
   gameTimeFrom?: number
   /** Inclusive upper bound (unix ms) on `gameTime`. */
   gameTimeTo?: number
+}
+
+/** A folder on disk that holds indexed replays. */
+export interface ReplayLibraryFolder {
+  /** The folder's absolute path, spelled the way the index spells it. */
+  path: string
+  name: string
+  /** How many indexed replays the folder holds at any depth, with no filters applied. */
+  replayCount: number
+}
+
+/** The folders inside one folder of the replay library (or inside the top level). */
+export interface ReplayLibraryFolderListing {
+  /**
+   * The folder these are the contents of: the requested folder exactly as it was passed when it
+   * still holds indexed replays, otherwise its nearest ancestor within a watched folder that does,
+   * or `undefined` for the top level (whose contents are the watched folders themselves).
+   */
+  folder: string | undefined
+  folders: ReplayLibraryFolder[]
 }
 
 /**

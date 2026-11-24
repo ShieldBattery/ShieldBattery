@@ -3,7 +3,7 @@ import { useLocation } from 'wouter'
 import { useTrackPageView } from '../analytics/analytics'
 import { OnlyInAppPage } from '../download/only-in-app'
 import { replace } from '../navigation/routing'
-import { encodeViewPathname, parseViewPathname } from './replay-library-helpers'
+import { encodeViewPathname, parseViewPathname } from './replay-library-urls'
 
 const LoadableReplayLibrary = lazy(async () => ({
   default: (await import('./replay-library')).ReplayLibrary,

@@ -529,6 +529,11 @@ export class ReplayDb {
     this.updateReplayFileStmt.run(newPath, fileMtime, id)
   }
 
+  /** The paths of every indexed replay (including parse-error rows), in no particular order. */
+  getAllPaths(): string[] {
+    return this.db.prepare('SELECT path FROM replays').pluck().all() as string[]
+  }
+
   /** Number of replays currently in the index (including parse-error rows). */
   getTotalIndexed(): number {
     const row = this.db.prepare('SELECT COUNT(*) AS count FROM replays').get() as { count: number }
