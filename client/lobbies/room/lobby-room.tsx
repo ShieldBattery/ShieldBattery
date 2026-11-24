@@ -121,7 +121,6 @@ export function LobbyRoom({
                   onUpdateBestOf={onUpdateBestOf}
                   onEndBestOf={onEndBestOf}
                   onDiscardBestOfGame={onDiscardBestOfGame}
-
                   onWatchReplay={onWatchReplay}
                   onViewGameSummary={onViewGameSummary}
                 />
