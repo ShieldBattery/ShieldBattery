@@ -2,6 +2,7 @@ import {
   ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
+  ReplayLibraryFolderListing,
   ReplayLibraryStatus,
   ReplayPlaylist,
 } from '../../../common/replays-library'
@@ -31,6 +32,8 @@ export interface ReplayQueryResult {
 export interface ReplayDbCalls {
   query: (filters: ReplayLibraryFilters) => ReplayQueryResult
   status: () => ReplayLibraryStatus
+  /** Lists the folders inside `parent` (or the watched folders), per `listReplayFolders`. */
+  folders: (parent?: string) => ReplayLibraryFolderListing
   /** Returns the ids whose bookmark state actually changed (not already in that state). */
   setBookmarked: (replayIds: number[], bookmarked: boolean) => number[]
   listPlaylists: () => ReplayPlaylist[]

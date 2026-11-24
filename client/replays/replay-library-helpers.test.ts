@@ -14,6 +14,7 @@ import {
   isManualPlaylistOrder,
   parseViewPathname,
   playersToDisplayTeams,
+  searchForViewChange,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
 
@@ -306,6 +307,15 @@ describe('parseViewPathname / encodeViewPathname', () => {
     expect(parseViewPathname('/replays/playlists/42')).toEqual({ kind: 'playlist', id: 42 })
   })
 
+  test('parses "/replays/folders" and its trailing-slash form as the folders view', () => {
+    expect(parseViewPathname('/replays/folders')).toEqual({ kind: 'folders' })
+    expect(parseViewPathname('/replays/folders/')).toEqual({ kind: 'folders' })
+  })
+
+  test('falls back to "all" for extra segments under the folders view', () => {
+    expect(parseViewPathname('/replays/folders/C:')).toEqual({ kind: 'all' })
+  })
+
   test('falls back to "all" for a playlists subpath missing an id', () => {
     expect(parseViewPathname('/replays/playlists')).toEqual({ kind: 'all' })
   })
@@ -322,6 +332,7 @@ describe('parseViewPathname / encodeViewPathname', () => {
     expect(encodeViewPathname({ kind: 'all' })).toBe('/replays')
     expect(encodeViewPathname({ kind: 'bookmarked' })).toBe('/replays/bookmarked')
     expect(encodeViewPathname({ kind: 'playlist', id: 42 })).toBe('/replays/playlists/42')
+    expect(encodeViewPathname({ kind: 'folders' })).toBe('/replays/folders')
   })
 
   test('round-trips a playlist view through encode then parse', () => {
@@ -329,6 +340,30 @@ describe('parseViewPathname / encodeViewPathname', () => {
       kind: 'playlist',
       id: 7,
     })
+  })
+})
+
+describe('searchForViewChange', () => {
+  test('carries the filters but drops the folder when leaving the folders view', () => {
+    expect(
+      searchForViewChange('?mapName=Fighting&folder=C%3A%5Creplays', { kind: 'all' }, 'C:\\x'),
+    ).toBe('?mapName=Fighting')
+    expect(searchForViewChange('?folder=C%3A%5Creplays', { kind: 'bookmarked' }, undefined)).toBe(
+      '',
+    )
+    expect(
+      searchForViewChange('?folder=C%3A%5Creplays&sort=oldest', { kind: 'playlist', id: 3 }, 'x'),
+    ).toBe('?sort=oldest')
+  })
+
+  test('entering the folders view reopens the remembered folder', () => {
+    expect(searchForViewChange('?mapName=Fighting', { kind: 'folders' }, 'C:\\replays')).toBe(
+      '?mapName=Fighting&folder=C%3A%5Creplays',
+    )
+  })
+
+  test('entering the folders view with nothing remembered opens the top level', () => {
+    expect(searchForViewChange('?sort=oldest', { kind: 'folders' }, undefined)).toBe('?sort=oldest')
   })
 })
 

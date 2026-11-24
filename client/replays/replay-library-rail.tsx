@@ -448,7 +448,7 @@ export interface ReplayLibraryRailProps {
   onSelectView: (view: LibraryView) => void
 }
 
-/** The left library rail: All replays/Bookmarked, and the user's playlists. */
+/** The left library rail: All replays/Bookmarked/Folders, and the user's playlists. */
 export function ReplayLibraryRail({
   view,
   totalIndexed,
@@ -486,6 +486,13 @@ export function ReplayLibraryRail({
           selected={view.kind === 'bookmarked'}
           collapsed={collapsed}
           onClick={() => onSelectView({ kind: 'bookmarked' })}
+        />
+        <RailItem
+          icon='folder'
+          label={t('replays.library.rail.folders', 'Folders')}
+          selected={view.kind === 'folders'}
+          collapsed={collapsed}
+          onClick={() => onSelectView({ kind: 'folders' })}
         />
       </RailSection>
 

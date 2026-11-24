@@ -55,6 +55,7 @@ export class ReplayLibraryService {
     const ipcMain = new TypedIpcMain()
     ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.call('query', filters))
     ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
+    ipcMain.handle('replayLibraryFolders', async (_event, parent) => this.call('folders', parent))
 
     ipcMain.handle('replayLibrarySetBookmarked', async (_event, replayIds, bookmarked) => {
       const changed = await this.call('setBookmarked', replayIds, bookmarked)

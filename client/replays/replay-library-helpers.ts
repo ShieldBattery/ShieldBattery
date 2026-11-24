@@ -12,11 +12,13 @@ export type LibraryView =
   | { kind: 'all' }
   | { kind: 'bookmarked' }
   | { kind: 'playlist'; id: number }
+  | { kind: 'folders' }
 
 /**
  * Parses a pathname under `/replays` into the `LibraryView` it addresses:
  * - `/replays` (and `/replays/`) -> the whole library (`all`)
  * - `/replays/bookmarked` -> `bookmarked`
+ * - `/replays/folders` -> `folders` (the folder being browsed rides in the `folder` search param)
  * - `/replays/playlists/<id>` -> `playlist` with that id
  *
  * Trailing slashes are tolerated. Anything else — an unparseable playlist id, an unrecognized
@@ -28,6 +30,9 @@ export function parseViewPathname(pathname: string): LibraryView {
 
   if (segments.length === 2 && segments[1] === 'bookmarked') {
     return { kind: 'bookmarked' }
+  }
+  if (segments.length === 2 && segments[1] === 'folders') {
+    return { kind: 'folders' }
   }
   if (segments.length === 3 && segments[1] === 'playlists') {
     const id = Number.parseInt(segments[2], 10)
@@ -50,9 +55,33 @@ export function encodeViewPathname(view: LibraryView): string {
       return '/replays/bookmarked'
     case 'playlist':
       return urlPath`/replays/playlists/${view.id}`
+    case 'folders':
+      return '/replays/folders'
     default:
       return assertUnreachable(view)
   }
+}
+
+/** The search param holding the folder the folders view is browsing (absent at the top level). */
+export const FOLDER_SEARCH_PARAM = 'folder'
+
+/**
+ * The search string to carry from `search` into `target` when switching views: the filters ride
+ * along, but the browsed folder belongs to the folders view alone. Entering the folders view
+ * reopens `rememberedFolder`, the folder last browsed there, when there is one.
+ */
+export function searchForViewChange(
+  search: string,
+  target: LibraryView,
+  rememberedFolder: string | undefined,
+): string {
+  const params = new URLSearchParams(search)
+  params.delete(FOLDER_SEARCH_PARAM)
+  if (target.kind === 'folders' && rememberedFolder) {
+    params.set(FOLDER_SEARCH_PARAM, rememberedFolder)
+  }
+  const searchString = params.toString()
+  return searchString ? `?${searchString}` : ''
 }
 
 /**

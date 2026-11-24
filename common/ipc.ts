@@ -22,6 +22,7 @@ import {
   ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
+  ReplayLibraryFolderListing,
   ReplayLibraryStatus,
   ReplayPlaylist,
   ReplayTrashResult,
@@ -320,6 +321,12 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
+  /**
+   * Lists the folders inside `parent` that hold indexed replays, or the watched folders themselves
+   * when `parent` is omitted. A `parent` that no longer holds any replays resolves to its nearest
+   * ancestor that does (see `ReplayLibraryFolderListing.folder`).
+   */
+  replayLibraryFolders: (parent?: string) => Promise<ReplayLibraryFolderListing>
   /**
    * Bookmarks or unbookmarks replays in a single transaction. Resolves to the ids whose state
    * actually changed (replays already in the requested state are left out).

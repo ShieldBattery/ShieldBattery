@@ -352,3 +352,77 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
     expect(params).toEqual([7])
   })
 })
+
+describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', () => {
+  test('recursive matches any path beneath the folder, ending the prefix on a separator', () => {
+    const { sql, countSql, params } = buildReplaySqlQuery({
+      folder: { path: 'C:\\replays\\2024', recursive: true },
+      includeShort: true,
+    })
+    expect(sql).toContain("WHERE r.path LIKE ? ESCAPE '\\' ORDER BY")
+    expect(sql).not.toContain('NOT LIKE')
+    expect(countSql).toContain("r.path LIKE ? ESCAPE '\\'")
+    // The trailing escaped separator is what keeps `C:\replays\2024-old` from matching.
+    expect(params).toEqual(['C:\\\\replays\\\\2024\\\\%'])
+  })
+
+  test('direct children only additionally excludes paths with a further separator', () => {
+    const { sql, params } = buildReplaySqlQuery({
+      folder: { path: 'C:\\replays\\2024', recursive: false },
+      includeShort: true,
+    })
+    expect(sql).toContain("r.path LIKE ? ESCAPE '\\' AND r.path NOT LIKE ? ESCAPE '\\'")
+    expect(params).toEqual(['C:\\\\replays\\\\2024\\\\%', 'C:\\\\replays\\\\2024\\\\%\\\\%'])
+  })
+
+  test('uses LIKE (case-insensitive) rather than an exact comparison', () => {
+    const { sql } = buildReplaySqlQuery({
+      folder: { path: 'c:\\REPLAYS', recursive: true },
+      includeShort: true,
+    })
+    expect(sql).toContain('r.path LIKE ?')
+    expect(sql).not.toContain('r.path = ?')
+  })
+
+  test('normalizes forward slashes and trailing separators in the folder', () => {
+    const { params } = buildReplaySqlQuery({
+      folder: { path: 'D:/more replays/', recursive: true },
+      includeShort: true,
+    })
+    expect(params).toEqual(['D:\\\\more replays\\\\%'])
+  })
+
+  test('escapes LIKE wildcards in folder names, leaving `[` literal', () => {
+    const { params } = buildReplaySqlQuery({
+      folder: { path: 'C:\\100%_[pro]', recursive: false },
+      includeShort: true,
+    })
+    expect(params).toEqual(['C:\\\\100\\%\\_[pro]\\\\%', 'C:\\\\100\\%\\_[pro]\\\\%\\\\%'])
+  })
+
+  test('each watched folder becomes its own prefix', () => {
+    expect(
+      buildReplaySqlQuery({ folder: { path: 'D:\\B', recursive: true }, includeShort: true })
+        .params,
+    ).toEqual(['D:\\\\B\\\\%'])
+    expect(
+      buildReplaySqlQuery({ folder: { path: 'C:\\A', recursive: true }, includeShort: true })
+        .params,
+    ).toEqual(['C:\\\\A\\\\%'])
+  })
+
+  test('is not a value filter, so unreadable replays still show in a folder', () => {
+    const { sql } = buildReplaySqlQuery({ folder: { path: 'C:\\replays', recursive: false } })
+    expect(sql).not.toContain('r.parse_error = 0')
+  })
+
+  test('ANDs with the other filters', () => {
+    const { sql, params } = buildReplaySqlQuery({
+      mapName: 'Fighting Spirit',
+      folder: { path: 'C:\\replays', recursive: true },
+    })
+    expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\' AND ")
+    expect(sql).toContain(" AND r.path LIKE ? ESCAPE '\\' AND r.parse_error = 0")
+    expect(params).toEqual(['%Fighting Spirit%', 2880, 'C:\\\\replays\\\\%'])
+  })
+})

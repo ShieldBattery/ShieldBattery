@@ -1,6 +1,6 @@
 import { debounce } from 'lodash-es'
 import * as React from 'react'
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
@@ -16,6 +16,7 @@ import {
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
+import { folderSegments } from '../../common/replay-folders'
 import {
   FEATURED_REPLAY_GAME_TYPES,
   replayGameTypeToLabel,
@@ -25,6 +26,7 @@ import {
   ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
+  ReplayLibraryFolderListing,
   ReplayLibraryStatus,
   ReplayPlaylist,
 } from '../../common/replays-library'
@@ -47,6 +49,7 @@ import { useRememberedFilters } from '../games/use-remembered-filters'
 import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import { FolderBreadcrumb, FolderCrumb, FolderRows } from '../lists/folder-navigation'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import logger from '../logging/logger'
 import { IconButton, TextButton, useButtonState } from '../material/button'
@@ -76,11 +79,13 @@ import {
 } from './replay-inspector'
 import {
   encodeViewPathname,
+  FOLDER_SEARCH_PARAM,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
   LibraryView,
   playersToDisplayTeams,
+  searchForViewChange,
 } from './replay-library-helpers'
 import { ReplayLibraryRail } from './replay-library-rail'
 import {
@@ -133,6 +138,16 @@ interface RailSnapshot {
 // rows gone) until the mount-time fetches answer. The fetches still run and replace the seed.
 let railSnapshot: RailSnapshot = { status: undefined, backfill: undefined, playlists: [] }
 
+function validateRememberedFolder(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+/** A folder listing, tagged with the folder it was requested for (it may have resolved elsewhere). */
+interface RequestedFolderListing {
+  requested: string | undefined
+  listing: ReplayLibraryFolderListing
+}
+
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
     ? (value as GameDurationFilter)
@@ -175,6 +190,7 @@ interface BuildFiltersParams {
   startDate: string
   endDate: string
   includeShort: boolean
+  folder: { path: string; recursive: boolean } | undefined
 }
 
 /** Assembles the query filters (everything but paging) from the current view and filter/sort values. */
@@ -190,6 +206,7 @@ function buildFilters({
   startDate,
   endDate,
   includeShort,
+  folder,
 }: BuildFiltersParams): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
   if (view.kind === 'bookmarked') {
@@ -210,6 +227,7 @@ function buildFilters({
   if (startMs !== undefined) filters.gameTimeFrom = startMs
   if (endMs !== undefined) filters.gameTimeTo = endMs
   if (includeShort) filters.includeShort = true
+  if (folder) filters.folder = folder
   return filters
 }
 
@@ -245,6 +263,13 @@ const ListColumn = styled.div`
     subtracted — rather than reacting to a width that still includes the rail.
   */
   container: game-list-rows / inline-size;
+`
+
+const FolderHeader = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
 `
 
 // ---- Empty / loading states ------------------------------------------------------------------
@@ -466,6 +491,12 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>(
     () => railSnapshot.playlists,
   )
+  // The latest folder listing to arrive. It stays on screen while the listing for a newly opened
+  // folder is in flight, so moving between folders doesn't flash the rows empty.
+  const [folderListing, setFolderListing] = useState<RequestedFolderListing>()
+  // Only the most recent listing request may land, so a slow answer for a folder the user has
+  // since left can't overwrite the current one.
+  const folderRequestRef = useRef(0)
   // Bumped on every index change so entry-scoped fetches (e.g. the inspector's playlist
   // membership) know to refresh.
   const [changeToken, setChangeToken] = useState(0)
@@ -515,9 +546,17 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
   const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
+  // Moving between folders is navigation (Back returns to the previous folder), so it pushes.
+  const [folderParam, navigateToFolderParam] = useLocationSearchParam(FOLDER_SEARCH_PARAM, push)
+  // The folder the folders view is browsing; `undefined` is its top level, listing the watched
+  // folders themselves.
+  const folder = view.kind === 'folders' && folderParam ? folderParam : undefined
+  const navigateToFolder = (path: string | undefined) => {
+    navigateToFolderParam(path ?? '')
+  }
 
   // The library's mode-like filters are remembered per user across visits, with every view (the
-  // whole library, bookmarks, each playlist) sharing one saved set. Each view names only the
+  // whole library, bookmarks, folders, each playlist) sharing one saved set. Each view names only the
   // params it actually uses, so a preference a view can't express is neither seeded into its URL
   // nor counted as "the URL specifies the filters" there (saved entries outside a view's params
   // survive its saves untouched).
@@ -531,7 +570,9 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     // seeding a remembered sort would make drag-to-reorder permanently unreachable.
     rememberedUrlValues.sort = sortParam
   }
-  if (view.kind === 'all') {
+  // The folders view browses the whole library, so it offers the same filters as `all`.
+  const isWholeLibraryView = view.kind === 'all' || view.kind === 'folders'
+  if (isWholeLibraryView) {
     rememberedUrlValues.includeShort = includeShortParam
   }
   const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters(
@@ -552,7 +593,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
   // URL param must not disable reordering via `hasActiveFilters`), seeded, or saved, and the
   // checkbox isn't offered.
-  const includeShort = view.kind === 'all' && filterValues.includeShort === 'true'
+  const includeShort = isWholeLibraryView && filterValues.includeShort === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -562,9 +603,9 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // spoiler) from the list rows and the inspector.
   const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
-  // The view is navigation rather than a filter: it isn't included here, and clearing filters
-  // leaves it alone.
-  const hasActiveFilters =
+  // Whether a filter constrains which replays match by their values. Including short replays
+  // widens the list rather than narrowing it, so it doesn't count here.
+  const isNarrowed =
     duration !== GameDurationFilter.All ||
     !!mapName ||
     !!playerName ||
@@ -572,8 +613,17 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     !!matchup ||
     gameType !== undefined ||
     !!startDate ||
-    !!endDate ||
-    includeShort
+    !!endDate
+  // The view is navigation rather than a filter: it isn't included here, and clearing filters
+  // leaves it alone.
+  const hasActiveFilters = isNarrowed || includeShort
+
+  // In the folders view, a folder shows its subfolders and the replays directly in it, while a
+  // narrowing filter searches everything beneath it instead (the whole library at the top level).
+  // The top level itself only lists the watched folders until something narrows it.
+  const folderFilter = folder !== undefined ? { path: folder, recursive: isNarrowed } : undefined
+  const showReplayList = view.kind !== 'folders' || isNarrowed || folder !== undefined
+  const showFolderRows = view.kind === 'folders' && !isNarrowed
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
@@ -616,6 +666,9 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // already been loaded) and replaces it wholesale. Used to pick up backfill progress and
   // added/removed files without collapsing the user's scroll position.
   const refreshLoadedWindow = useEffectEvent(() => {
+    if (!showReplayList) {
+      return
+    }
     // Invalidate any in-flight next-page load: it computed its offset against the pre-refresh
     // entries, so letting it append after the wholesale replacement would leave a gap in the
     // loaded window (which the id-dedupe in `onLoadNextData` can then never fill). Clearing
@@ -640,6 +693,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           startDate,
           endDate,
           includeShort,
+          folder: folderFilter,
         }),
         offset: 0,
         limit,
@@ -669,12 +723,32 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
       .catch(swallowNonBuiltins)
   })
 
+  // Fetches the folders view's listing of the current folder. Called whenever the folder changes
+  // and again (debounced) on every index change, since files moving on disk change what each
+  // folder holds.
+  const fetchFolders = useEffectEvent(() => {
+    if (view.kind !== 'folders') {
+      return
+    }
+    folderRequestRef.current += 1
+    const request = folderRequestRef.current
+    const requested = folder
+    ipcRenderer
+      .invoke('replayLibraryFolders', requested)
+      ?.then(listing => {
+        if (request !== folderRequestRef.current || !listing) return
+        setFolderListing({ requested, listing })
+      })
+      .catch(swallowNonBuiltins)
+  })
+
   // Re-runs everything the debounced `replayLibraryChanged` listener below refreshes: the loaded
-  // window, status/backfill, and playlists, plus bumping the change token.
+  // window, status/backfill, playlists, and folder listing, plus bumping the change token.
   const refreshAfterChange = useEffectEvent(() => {
     refreshLoadedWindow()
     fetchStatus()
     fetchPlaylists()
+    fetchFolders()
     setChangeToken(token => token + 1)
   })
 
@@ -723,6 +797,65 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
       ipcRenderer.removeAllListeners('replayLibraryBackfillProgress')
     }
   }, [initialWindow])
+
+  useEffect(() => {
+    fetchFolders()
+  }, [folder])
+
+  // A folder change keeps this instance (only the search string changes), so the list restarts
+  // here for every way the folder can change: opening one, a breadcrumb, Back/Forward, or the
+  // correction to a surviving ancestor below. Pre-paint, so the old folder's replays never show
+  // under the new folder's breadcrumb.
+  const lastFolderRef = useRef(folder)
+  const onFolderChange = useEffectEvent(() => {
+    reset()
+    scrollParent?.scrollTo(0, 0)
+  })
+  useLayoutEffect(() => {
+    if (lastFolderRef.current === folder) {
+      return
+    }
+    lastFolderRef.current = folder
+    onFolderChange()
+  }, [folder])
+
+  // A folder that no longer holds replays (renamed or deleted on disk) lists as its nearest
+  // surviving ancestor; the URL follows it there. Not while a backfill runs, though: the index may
+  // simply not have reached the folder yet.
+  useEffect(() => {
+    if (
+      !folderListing ||
+      folderListing.requested !== folder ||
+      folderListing.listing.folder === folder ||
+      !status ||
+      backfill
+    ) {
+      return
+    }
+    const params = new URLSearchParams(window.location.search)
+    if (folderListing.listing.folder !== undefined) {
+      params.set(FOLDER_SEARCH_PARAM, folderListing.listing.folder)
+    } else {
+      params.delete(FOLDER_SEARCH_PARAM)
+    }
+    const searchString = params.toString()
+    replace(window.location.pathname + (searchString ? `?${searchString}` : ''))
+  }, [folderListing, folder, status, backfill])
+
+  // The folder last browsed in the folders view, which the rail's Folders entry reopens.
+  const [rememberedFolder, setRememberedFolder] = useUserLocalStorageValue(
+    'replays.library.folder',
+    '',
+    validateRememberedFolder,
+  )
+  const rememberFolder = useEffectEvent(() => {
+    setRememberedFolder(folder)
+  })
+  useEffect(() => {
+    if (view.kind === 'folders') {
+      rememberFolder()
+    }
+  }, [view.kind, folder])
 
   // Mirrored on every change (rather than written through in each setter) so functional updates —
   // e.g. the optimistic bookmark-count bump in `setBookmarked` — are captured too.
@@ -1054,6 +1187,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           startDate,
           endDate,
           includeShort,
+          folder: folderFilter,
         }),
         offset: entries?.length ?? 0,
         limit: LOAD_CHUNK_SIZE,
@@ -1189,13 +1323,98 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     )
   }
 
+  let emptyLibraryContent: React.ReactNode
+  if (status && status.watchedFolders.length === 0) {
+    emptyLibraryContent = (
+      <CenteredState>
+        <EmptyStateTitle>{t('replays.library.noFolders', 'No replay folders')}</EmptyStateTitle>
+        <div>
+          {t(
+            'replays.library.noFoldersBody',
+            'Add a folder in Settings > App > System to start indexing replays.',
+          )}
+        </div>
+      </CenteredState>
+    )
+  } else if (backfill) {
+    // A backfill is still populating the index (progress shows in the bar above); don't claim
+    // there are no replays while it's just getting started.
+    emptyLibraryContent = <LoadingDotsArea />
+  } else {
+    emptyLibraryContent = (
+      <CenteredState>
+        <EmptyStateTitle>{t('replays.library.empty', 'No replays yet')}</EmptyStateTitle>
+        <div>
+          {t(
+            'replays.library.emptyBody',
+            'Replays you watch and play will show up here automatically.',
+          )}
+        </div>
+        {status?.watchedFolders.map(watchedFolder => (
+          <EmptyStatePath key={watchedFolder}>{watchedFolder}</EmptyStatePath>
+        ))}
+      </CenteredState>
+    )
+  }
+
+  // While a listing for the current folder resolved to an ancestor (the URL is about to follow it),
+  // its rows describe a different folder than the breadcrumb, so none show.
+  const folderListingIsCurrent = folderListing !== undefined && folderListing.requested === folder
+  const folderRows =
+    folderListing &&
+    (!folderListingIsCurrent || folderListing.listing.folder === folder) &&
+    showFolderRows
+      ? folderListing.listing.folders
+      : []
+
+  // Computed here rather than taken from the listing so the breadcrumb is right on the first
+  // render of a folder, without waiting on its listing.
+  const folderCrumbs: FolderCrumb[] = [
+    { path: undefined, label: t('replays.library.folders.topLevel', 'Replay folders') },
+  ]
+  if (folder !== undefined) {
+    for (const segment of folderSegments(folder, status?.watchedFolders ?? []) ?? []) {
+      folderCrumbs.push({ path: segment.path, label: segment.name })
+    }
+  }
+
   let listContent: React.ReactNode = null
-  if (entries === undefined) {
+  if (!showReplayList) {
+    // The folders view's top level lists just the watched folders, and is only empty when the
+    // library is.
+    if (!folderListingIsCurrent && folderRows.length === 0) {
+      listContent = <LoadingDotsArea />
+    } else if (folderRows.length === 0) {
+      listContent = emptyLibraryContent
+    }
+  } else if (entries === undefined) {
     // The backfill's own progress rides in the bar above the list; here we just need a light loader
     // until the first page resolves.
     listContent = <LoadingDotsArea />
   } else if (entries.length === 0) {
-    if (hasActiveFilters) {
+    if (view.kind === 'folders' && !isNarrowed) {
+      // A folder may hold nothing but subfolders, which its rows above already show. With no
+      // subfolders, the folder's replays exist (its listing counts them) but the minimum-length
+      // floor hides every one, so the empty pane needs explaining.
+      const holdsOnlyHiddenReplays =
+        folderListingIsCurrent &&
+        folderListing.listing.folder === folder &&
+        folderRows.length === 0 &&
+        !includeShort
+      listContent = holdsOnlyHiddenReplays ? (
+        <CenteredState>
+          <EmptyStateTitle>
+            {t('replays.library.folders.onlyShortTitle', 'No replays to show')}
+          </EmptyStateTitle>
+          <div>
+            {t(
+              'replays.library.folders.onlyShortBody',
+              'The replays in this folder are shorter than 2 minutes. Use the Advanced filters to include them.',
+            )}
+          </div>
+        </CenteredState>
+      ) : null
+    } else if (hasActiveFilters) {
       listContent = (
         <CenteredState>
           <EmptyStateTitle>{t('replays.library.noMatches', 'No replays match')}</EmptyStateTitle>
@@ -1226,37 +1445,8 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           <div>{t('replays.library.playlistEmptyBody', 'Add replays to it from the library.')}</div>
         </CenteredState>
       )
-    } else if (status && status.watchedFolders.length === 0) {
-      listContent = (
-        <CenteredState>
-          <EmptyStateTitle>{t('replays.library.noFolders', 'No replay folders')}</EmptyStateTitle>
-          <div>
-            {t(
-              'replays.library.noFoldersBody',
-              'Add a folder in Settings > App > System to start indexing replays.',
-            )}
-          </div>
-        </CenteredState>
-      )
-    } else if (backfill) {
-      // A backfill is still populating the index (progress shows in the bar above); don't claim
-      // there are no replays while it's just getting started.
-      listContent = <LoadingDotsArea />
     } else {
-      listContent = (
-        <CenteredState>
-          <EmptyStateTitle>{t('replays.library.empty', 'No replays yet')}</EmptyStateTitle>
-          <div>
-            {t(
-              'replays.library.emptyBody',
-              'Replays you watch and play will show up here automatically.',
-            )}
-          </div>
-          {status?.watchedFolders.map(folder => (
-            <EmptyStatePath key={folder}>{folder}</EmptyStatePath>
-          ))}
-        </CenteredState>
-      )
+      listContent = emptyLibraryContent
     }
   } else if (scrollParent) {
     // NOTE: `Virtuoso` and `GroupedVirtuoso` share the same underlying component type, so
@@ -1306,14 +1496,15 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // The backfill progress rides in the rail beneath the library counts. The scanning phase (total
   // unknown) is only surfaced while the list is still empty — an already-populated library re-scans
   // on every startup with no work to do, and a flashing "Scanning…" there would just be noise.
+  const isPageEmpty = showReplayList ? loadedEntries.length === 0 : folderRows.length === 0
   const railBackfill =
-    backfill && (backfill.phase === 'indexing' || loadedEntries.length === 0) ? backfill : undefined
+    backfill && (backfill.phase === 'indexing' || isPageEmpty) ? backfill : undefined
 
   // A view with no replays has nothing to inspect, so the panel is dropped entirely (letting the
   // list fill the width) rather than showing an empty "select a replay" placeholder beside the
   // empty-state message. It's kept while the query is still in flight (`entries === undefined`) so
   // it doesn't flicker out and back in on filter/view changes, which briefly clear the entries.
-  const showInspector = entries === undefined || loadedEntries.length > 0
+  const showInspector = showReplayList && (entries === undefined || loadedEntries.length > 0)
 
   let sidePanel: React.ReactNode = null
   if (showInspector && isMultiSelection) {
@@ -1472,7 +1663,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
             saveFilterPrefs()
             reset()
           }}
-          showIncludeShort={view.kind === 'all'}
+          showIncludeShort={isWholeLibraryView}
           showGameType={true}
           gameType={gameType}
           setGameType={v => {
@@ -1511,19 +1702,48 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
               // the view pathname, so the outgoing visit's entry window/scroll/selection save in
               // unmount cleanups and the new visit starts clean (which is why there's no `reset()`
               // here). The current filters ride along in the search string.
-              push(pathname + window.location.search)
+              push(
+                pathname +
+                  searchForViewChange(window.location.search, v, rememberedFolder || undefined),
+              )
             }}
           />
 
           <ListColumn>
-            <InfiniteScrollList
-              nextLoadingEnabled={true}
-              isLoadingNext={isLoadingNext}
-              hasNextData={hasNextData}
-              refreshToken={observerToken}
-              onLoadNextData={onLoadNextData}>
-              {listContent}
-            </InfiniteScrollList>
+            {view.kind === 'folders' ? (
+              <FolderHeader>
+                <FolderBreadcrumb crumbs={folderCrumbs} onNavigate={navigateToFolder} />
+                {folderRows.length > 0 ? (
+                  <FolderRows
+                    folders={folderRows.map(f => ({
+                      path: f.path,
+                      name: f.name,
+                      count: f.replayCount,
+                    }))}
+                    countLabel={count =>
+                      t('replays.library.folders.replayCount', {
+                        defaultValue_one: '{{count}} replay',
+                        defaultValue_other: '{{count}} replays',
+                        count,
+                      })
+                    }
+                    onOpen={navigateToFolder}
+                  />
+                ) : null}
+              </FolderHeader>
+            ) : null}
+            {showReplayList ? (
+              <InfiniteScrollList
+                nextLoadingEnabled={true}
+                isLoadingNext={isLoadingNext}
+                hasNextData={hasNextData}
+                refreshToken={observerToken}
+                onLoadNextData={onLoadNextData}>
+                {listContent}
+              </InfiniteScrollList>
+            ) : (
+              listContent
+            )}
           </ListColumn>
 
           {sidePanel}

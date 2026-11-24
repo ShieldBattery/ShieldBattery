@@ -6,6 +6,7 @@ import {
   MIN_GAME_LENGTH_MS,
 } from '../../common/games/game-filters'
 import { expandMatchupFilter } from '../../common/games/matchups'
+import { normalizeFolderPath } from '../../common/replay-folders'
 import { FEATURED_REPLAY_GAME_TYPES } from '../../common/replays'
 import { ReplayLibraryFilters } from '../../common/replays-library'
 
@@ -88,7 +89,8 @@ function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playli
 
 /**
  * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
- * type, duration bucket, minimum-length floor, format, matchup, bookmarked, playlist membership) —
+ * type, duration bucket, minimum-length floor, format, matchup, bookmarked, playlist membership,
+ * folder) —
  * nothing is filtered in JS afterwards. Format/matchup matching reads the `team_size`/`matchup`
  * columns computed once at parse time (see `mapReplayHeaderToRecord`). Unless `filters.includeShort`
  * is set, replays shorter than `MIN_GAME_LENGTH_MS` are excluded, same as every other games/replays
@@ -208,6 +210,20 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
 
   if (filters.bookmarked) {
     whereClauses.push('r.bookmarked_at IS NOT NULL')
+  }
+
+  if (filters.folder !== undefined) {
+    // Folder membership is where a replay lives rather than a value match, so like curation it
+    // leaves `hasValueFilter` alone and a folder still lists its unreadable replays. LIKE is
+    // case-insensitive (for ASCII), matching how Windows compares paths; the pattern ends on a
+    // separator so a sibling sharing a name prefix (`2024-old` next to `2024`) doesn't match.
+    const folderPattern = `${escapeLike(normalizeFolderPath(filters.folder.path))}\\\\`
+    whereClauses.push("r.path LIKE ? ESCAPE '\\'")
+    params.push(`${folderPattern}%`)
+    if (!filters.folder.recursive) {
+      whereClauses.push("r.path NOT LIKE ? ESCAPE '\\'")
+      params.push(`${folderPattern}%\\\\%`)
+    }
   }
 
   // Parse-error rows store zeroed values (see `makeParseErrorRecord`), so an active filter's match
