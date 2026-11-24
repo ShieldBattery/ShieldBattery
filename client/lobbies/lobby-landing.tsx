@@ -238,6 +238,7 @@ export function LobbyLandingContent({
       case 'loaded':
         content = (
           <LoadedState
+            key={state.data.summary.id}
             data={state.data}
             forceLaunchState={forceLaunchState}
             forceSchemeAvailable={forceSchemeAvailable}
@@ -343,56 +344,119 @@ function resolveDeepLinkScheme(forceAvailable: boolean | undefined): string | un
 function useLaunchFlow(
   launchUrl: string | undefined,
   forcedState?: LaunchFlowState,
-): { launchState: LaunchFlowState; fallbackHintVisible: boolean; launch: () => void } {
+): {
+  launchState: LaunchFlowState
+  fallbackHintVisible: boolean
+  launch: () => void
+  launchAutomatically: () => void
+  ensureAutomaticDetection: () => void
+  focusRequest: number
+  focusAllowed: boolean
+  lastAttemptWasAutomatic: boolean
+} {
   const [launchState, setLaunchState] = useState<LaunchFlowState>('idle')
   const [fallbackHintVisible, setFallbackHintVisible] = useState(false)
-  const [attempt, setAttempt] = useState(0)
+  const [focusRequest, setFocusRequest] = useState(0)
+  const [focusAllowed, setFocusAllowed] = useState(false)
+  const [lastAttemptWasAutomatic, setLastAttemptWasAutomatic] = useState(false)
+  const detectionCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const automaticAttemptActiveRef = useRef(false)
 
-  const launch = () => {
-    if (!launchUrl) {
-      return
-    }
-    // Must happen synchronously inside the click handler -- browsers ignore external-protocol
-    // navigation that isn't directly tied to a user gesture.
-    window.location.href = launchUrl
-    setFallbackHintVisible(false)
-    setLaunchState('opening')
-    setAttempt(a => a + 1)
+  const clearDetection = () => {
+    detectionCleanupRef.current?.()
   }
 
-  useEffect(() => {
-    if (forcedState !== undefined || launchState !== 'opening') {
-      return () => {}
-    }
+  const armDetection = (automatic: boolean) => {
+    clearDetection()
 
-    let signaled = false
-    const onSignal = () => {
-      signaled = true
-      setFallbackHintVisible(true)
-    }
-    window.addEventListener('blur', onSignal)
-    document.addEventListener('visibilitychange', onSignal)
-
-    const timeoutId = setTimeout(() => {
-      if (!signaled) {
-        setLaunchState('failed')
-      }
-    }, LAUNCH_DETECTION_TIMEOUT_MS)
-
-    return () => {
+    const cleanup = () => {
       window.removeEventListener('blur', onSignal)
       document.removeEventListener('visibilitychange', onSignal)
       clearTimeout(timeoutId)
+      if (detectionCleanupRef.current === cleanup) {
+        detectionCleanupRef.current = undefined
+      }
     }
-    // `attempt` is unused in the body but re-arms this effect on a retry fired while already in
-    // the `opening` phase, where `launchState` alone wouldn't change.
-  }, [forcedState, launchState, attempt])
+    const onSignal = () => {
+      automaticAttemptActiveRef.current = false
+      setFocusAllowed(false)
+      setFallbackHintVisible(true)
+      cleanup()
+    }
 
-  if (forcedState !== undefined) {
-    return { launchState: forcedState, fallbackHintVisible: forcedState === 'opening', launch }
+    window.addEventListener('blur', onSignal)
+    document.addEventListener('visibilitychange', onSignal)
+    const timeoutId = setTimeout(() => {
+      automaticAttemptActiveRef.current = false
+      cleanup()
+      setLaunchState('failed')
+    }, LAUNCH_DETECTION_TIMEOUT_MS)
+    detectionCleanupRef.current = cleanup
+    automaticAttemptActiveRef.current = automatic
   }
 
-  return { launchState, fallbackHintVisible, launch }
+  const invoke = (automatic: boolean) => {
+    if (!launchUrl) {
+      return
+    }
+
+    // Register detection before navigating so even an immediate blur or visibility change is
+    // observed. The manual path still invokes the protocol synchronously in its click handler.
+    setLastAttemptWasAutomatic(automatic)
+    setFocusAllowed(!automatic)
+    armDetection(automatic)
+    setFallbackHintVisible(false)
+    setLaunchState('opening')
+    if (!automatic) {
+      setFocusRequest(request => request + 1)
+    }
+
+    try {
+      window.location.assign(launchUrl)
+    } catch {
+      automaticAttemptActiveRef.current = false
+      clearDetection()
+      setLaunchState('failed')
+    }
+  }
+
+  const launch = () => invoke(false)
+  const launchAutomatically = () => invoke(true)
+  const ensureAutomaticDetection = () => {
+    // Strict Mode replays effects after cleaning them up. Keep the single protocol invocation, but
+    // restore its detector when the replay has removed it before the browser can signal a launch.
+    if (automaticAttemptActiveRef.current && !detectionCleanupRef.current) {
+      armDetection(true)
+    }
+  }
+
+  useEffect(() => {
+    return () => clearDetection()
+  }, [])
+
+  if (forcedState !== undefined) {
+    return {
+      launchState: forcedState,
+      fallbackHintVisible: forcedState === 'opening',
+      launch,
+      launchAutomatically,
+      ensureAutomaticDetection,
+      focusRequest,
+      focusAllowed,
+      lastAttemptWasAutomatic,
+    }
+  }
+
+  return {
+    launchState,
+    fallbackHintVisible,
+    launch,
+    launchAutomatically,
+    ensureAutomaticDetection,
+    focusRequest,
+    focusAllowed,
+    lastAttemptWasAutomatic,
+  }
 }
 
 function LoadedState({
@@ -409,19 +473,51 @@ function LoadedState({
   const launchUrl = scheme
     ? `${scheme}:/${urlForLobby(data.summary.id, data.summary.name)}`
     : undefined
-  const { launchState, fallbackHintVisible, launch } = useLaunchFlow(launchUrl, forceLaunchState)
+  const {
+    launchState,
+    fallbackHintVisible,
+    launch,
+    launchAutomatically,
+    ensureAutomaticDetection,
+    focusRequest,
+    focusAllowed,
+    lastAttemptWasAutomatic,
+  } = useLaunchFlow(launchUrl, forceLaunchState)
   const formattedCode = data.joinCode ? formatJoinCode(data.joinCode) : undefined
+  const attemptedLobbyIdRef = useRef<string | undefined>(undefined)
+  const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches
 
-  // Launching replaces the focused button with status text, which would silently drop keyboard
-  // focus to the body and leave screen readers unaware anything happened. The container is a live
-  // status region and takes focus itself across those transitions, so the announcement lands and
-  // tabbing continues from the launch area (next stop: the download/retry affordances).
+  useEffect(() => {
+    if (!launchUrl || forceLaunchState !== undefined || isTouchDevice) {
+      return
+    }
+
+    const lobbyId = data.summary.id
+    if (attemptedLobbyIdRef.current === lobbyId) {
+      ensureAutomaticDetection()
+      return
+    }
+
+    attemptedLobbyIdRef.current = lobbyId
+    launchAutomatically()
+  }, [
+    data.summary.id,
+    forceLaunchState,
+    isTouchDevice,
+    launchUrl,
+    launchAutomatically,
+    ensureAutomaticDetection,
+  ])
+
+  // Launching replaces the focused button with status text. Manual launches keep focus in the
+  // status area when the browser stays in the foreground; automatic launches rely on the live
+  // status announcement so they cannot pull focus back from the desktop application.
   const openInAppRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (launchState !== 'idle') {
+    if (focusRequest > 0 && focusAllowed) {
       openInAppRef.current?.focus()
     }
-  }, [launchState])
+  }, [focusAllowed, focusRequest])
 
   return (
     <>
@@ -429,7 +525,11 @@ function LoadedState({
       <CtaLayout>
         {scheme ? (
           <OpenInAppContainer ref={openInAppRef} tabIndex={-1} role='status'>
-            <OpenInAppPrimaryArea launchState={launchState} onLaunch={launch} />
+            <OpenInAppPrimaryArea
+              launchState={launchState}
+              automaticFailure={lastAttemptWasAutomatic}
+              onLaunch={launch}
+            />
           </OpenInAppContainer>
         ) : null}
         {formattedCode ? (
@@ -455,9 +555,11 @@ function LoadedState({
 /** The button or status line at the top of the CTA area, driven by the launch flow's state. */
 function OpenInAppPrimaryArea({
   launchState,
+  automaticFailure,
   onLaunch,
 }: {
   launchState: LaunchFlowState
+  automaticFailure: boolean
   onLaunch: () => void
 }) {
   const { t } = useTranslation()
@@ -482,12 +584,17 @@ function OpenInAppPrimaryArea({
       return (
         <>
           <StatusLine>
-            {t('lobbies.landing.appLaunch.failedTitle', "The app didn't open.")}
+            {automaticFailure
+              ? t(
+                  'lobbies.landing.appLaunch.automaticFailedTitle',
+                  "Couldn't open ShieldBattery automatically.",
+                )
+              : t('lobbies.landing.appLaunch.failedTitle', "The app didn't open.")}
           </StatusLine>
           <AppHint>
             {t(
               'lobbies.landing.appLaunch.failedSubtitle',
-              'It might not be installed on this computer.',
+              'Your browser may have blocked the launch, or the app may not be installed.',
             )}
           </AppHint>
           <DownloadButton />
