@@ -11,9 +11,16 @@ import {
   MAX_MAP_QUEUE,
 } from '../../../common/lobbies'
 import {
+  BEST_OF_MAX_LENGTH,
+  BEST_OF_MAX_SIDE_SIZE,
+  BEST_OF_TITLE_MAX_LENGTH,
+} from '../../../common/lobbies/lobby-best-of'
+import {
   ALL_LOBBY_MAP_STATUSES,
   CreateLobbyRequest,
   CreateLobbyResponse,
+  DiscardLobbyBestOfGameRequest,
+  EndLobbyBestOfRequest,
   GetLobbyMapUrlRequest,
   GetLobbyMapUrlResponse,
   GetLobbyStateResponse,
@@ -30,7 +37,9 @@ import {
   SetLobbyMapStatusRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
+  StartLobbyBestOfRequest,
   StartLobbyCountdownRequest,
+  UpdateLobbyBestOfRequest,
   UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
@@ -190,6 +199,46 @@ const moveSlotBody = Joi.object<MoveSlotRequest>({
 })
 
 /**
+ * A best-of series title, trimmed. Empty is accepted and means no title; the service has the final
+ * say on what a title can be.
+ */
+const bestOfTitleSchema = Joi.string().allow('').trim().max(BEST_OF_TITLE_MAX_LENGTH)
+
+/** One side of a best-of series: the user ids of the people playing for it. */
+const bestOfSideSchema = Joi.array()
+  .items(Joi.number().integer().min(1))
+  .min(1)
+  .max(BEST_OF_MAX_SIDE_SIZE)
+  .required()
+
+/**
+ * A best-of series' two sides, in order. Who may be on them (members of the lobby, nobody on both)
+ * is the service's to check.
+ */
+const bestOfSidesSchema = Joi.array().ordered(bestOfSideSchema, bestOfSideSchema).length(2)
+
+const startBestOfBody = Joi.object<StartLobbyBestOfRequest>({
+  clientId: clientIdSchema,
+  length: Joi.number().integer().min(1).max(BEST_OF_MAX_LENGTH).required(),
+  title: bestOfTitleSchema,
+  sides: bestOfSidesSchema.required(),
+})
+
+/** A change to the running best-of series, which has to change something. */
+const updateBestOfBody = Joi.object<UpdateLobbyBestOfRequest>({
+  clientId: clientIdSchema,
+  title: bestOfTitleSchema.allow(null),
+  sides: bestOfSidesSchema,
+})
+  .or('title', 'sides')
+  .required()
+
+const discardBestOfGameBody = Joi.object<DiscardLobbyBestOfGameRequest>({
+  clientId: clientIdSchema,
+  gameId: Joi.string().required(),
+})
+
+/**
  * Translates a failure from `LobbyService` into an HTTP error, passing anything that isn't a service
  * error through untouched.
  *
@@ -207,6 +256,7 @@ export function convertLobbyServiceError(err: unknown): void {
 
   switch (err.code) {
     case LobbyServiceErrorCode.ComputerInObserverSlot:
+    case LobbyServiceErrorCode.InvalidBestOf:
     case LobbyServiceErrorCode.InvalidGameSubType:
     case LobbyServiceErrorCode.InvalidGameType:
     case LobbyServiceErrorCode.InvalidMap:
@@ -231,10 +281,15 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.AlreadyInActivity:
     case LobbyServiceErrorCode.AlreadyInSlot:
     case LobbyServiceErrorCode.AlreadyStarted:
+    case LobbyServiceErrorCode.BestOfAlreadyRunning:
+    case LobbyServiceErrorCode.BestOfGameNotPending:
+    case LobbyServiceErrorCode.BestOfGamePending:
+    case LobbyServiceErrorCode.BestOfRosterMismatch:
     case LobbyServiceErrorCode.CountingDown:
     case LobbyServiceErrorCode.GameInProgress:
     case LobbyServiceErrorCode.InvalidTeamLayout:
     case LobbyServiceErrorCode.MapNotDownloaded:
+    case LobbyServiceErrorCode.NoBestOfRunning:
     case LobbyServiceErrorCode.NotCountingDown:
     case LobbyServiceErrorCode.NotEveryoneReady:
     case LobbyServiceErrorCode.TargetNoActiveClient:
@@ -740,6 +795,69 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     this.lobbyService.shuffleSlots({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/start-best-of')
+  @httpBefore(...authedAction)
+  async startBestOf(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: startBestOfBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.startBestOf({
+      client,
+      lobbyId: params.lobbyId,
+      length: body.length,
+      title: body.title,
+      sides: body.sides,
+    })
+  }
+
+  @httpPost('/:lobbyId/update-best-of')
+  @httpBefore(...authedAction)
+  async updateBestOf(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: updateBestOfBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.updateBestOf({
+      client,
+      lobbyId: params.lobbyId,
+      title: body.title,
+      sides: body.sides,
+    })
+  }
+
+  @httpPost('/:lobbyId/end-best-of')
+  @httpBefore(...authedAction)
+  async endBestOf(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<EndLobbyBestOfRequest>({ clientId: clientIdSchema }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.endBestOf({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/discard-best-of-game')
+  @httpBefore(...authedAction)
+  async discardBestOfGame(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: discardBestOfGameBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.discardBestOfGame({
+      client,
+      lobbyId: params.lobbyId,
+      gameId: body.gameId,
+    })
   }
 
   @httpPost('/:lobbyId/start-countdown')

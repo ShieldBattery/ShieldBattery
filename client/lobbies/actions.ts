@@ -3,6 +3,9 @@ import {
   LobbyBanEvent,
   LobbyBenchAddEvent,
   LobbyBenchRemoveEvent,
+  LobbyBestOfEndedEvent,
+  LobbyBestOfStartedEvent,
+  LobbyBestOfUpdatedEvent,
   LobbyChatEvent,
   LobbyCountdownJson,
   LobbyInitEvent,
@@ -65,6 +68,9 @@ export type LobbyActions =
   | LobbyUpdateSlotChange
   | LobbyUpdateSlotCreate
   | LobbyUpdateTeamsShuffled
+  | LobbyUpdateBestOfStarted
+  | LobbyUpdateBestOfUpdated
+  | LobbyUpdateBestOfEnded
   | LobbyUpdateBenchAdd
   | LobbyUpdateBenchRemove
   | GetLobbyPreferencesBegin
@@ -209,6 +215,24 @@ export interface LobbyUpdateMemberGameEnded {
 export interface LobbyUpdateTeamsShuffled {
   type: '@lobbies/updateTeamsShuffled'
   payload: LobbyTeamsShuffledEvent
+}
+
+/** The host of a lobby we're in started a best-of series. */
+export interface LobbyUpdateBestOfStarted {
+  type: '@lobbies/updateBestOfStarted'
+  payload: LobbyBestOfStartedEvent
+}
+
+/** The running best-of series of a lobby we're in changed without starting or ending. */
+export interface LobbyUpdateBestOfUpdated {
+  type: '@lobbies/updateBestOfUpdated'
+  payload: LobbyBestOfUpdatedEvent
+}
+
+/** A best-of series of a lobby we're in ended, won by one side or ended early by the host. */
+export interface LobbyUpdateBestOfEnded {
+  type: '@lobbies/updateBestOfEnded'
+  payload: LobbyBestOfEndedEvent
 }
 
 /**

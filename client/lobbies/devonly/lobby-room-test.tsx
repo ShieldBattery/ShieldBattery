@@ -4,6 +4,12 @@ import { GameType } from '../../../common/games/game-type'
 import { ReconciledResult } from '../../../common/games/results'
 import { BenchedUser, findSlotById, getHumanSlots, Lobby, Team } from '../../../common/lobbies'
 import {
+  BestOfSideIndex,
+  getRunningBestOf,
+  LobbyBestOfJson,
+  LobbyBestOfSides,
+} from '../../../common/lobbies/lobby-best-of'
+import {
   LobbySeriesGameJson,
   LobbySeriesGameResultJson,
   LobbySeriesTeamJson,
@@ -46,6 +52,10 @@ const SUNN0 = makeSbUserId(90004)
 const HEARTCUTTER = makeSbUserId(90005)
 const NERDRAGE = makeSbUserId(90006)
 const BLUESKY = makeSbUserId(90007)
+const LONG_1 = makeSbUserId(90008)
+const LONG_2 = makeSbUserId(90009)
+const LONG_3 = makeSbUserId(90010)
+const LONG_4 = makeSbUserId(90011)
 
 // Ids well above the ones a development database hands out, so background user fetches can't
 // overwrite these with whoever really holds the low ids.
@@ -57,6 +67,10 @@ const MOCK_USERS: SbUser[] = [
   { id: HEARTCUTTER, name: 'HeartcutterXVIII', created: 0 },
   { id: NERDRAGE, name: 'NerdRage', created: 0 },
   { id: BLUESKY, name: 'blueSky', created: 0 },
+  { id: LONG_1, name: 'OverlordOfTheCreepColony', created: 0 },
+  { id: LONG_2, name: 'CarrierHasArrived_1999', created: 0 },
+  { id: LONG_3, name: 'SpawningPoolPartyAnimal', created: 0 },
+  { id: LONG_4, name: 'NuclearLaunchDetected42', created: 0 },
 ]
 
 const MOCK_MAP: MapInfo = { ...BigGameHunters, uploadDate: new Date(BigGameHunters.uploadDate) }
@@ -73,6 +87,11 @@ type ScenarioId =
   | 'countingDown'
   | 'inGame'
   | 'regroup'
+  | 'bestOfRunning'
+  | 'bestOfPending'
+  | 'bestOfWon'
+  | 'bestOfEndedEarly'
+  | 'bestOfLong'
 type ViewpointId = 'host' | 'member' | 'benched'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -83,6 +102,11 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'countingDown', label: 'Counting down' },
   { id: 'inGame', label: 'In game' },
   { id: 'regroup', label: 'Regroup' },
+  { id: 'bestOfRunning', label: 'Series · Bo3 at 1–0' },
+  { id: 'bestOfPending', label: 'Series · game pending' },
+  { id: 'bestOfWon', label: 'Series · won' },
+  { id: 'bestOfEndedEarly', label: 'Series · ended early' },
+  { id: 'bestOfLong', label: 'Series · 4v4 Bo99' },
 ]
 
 const VIEWPOINTS: ReadonlyArray<{ id: ViewpointId; label: string }> = [
@@ -351,6 +375,230 @@ const REGROUP_SERIES: LobbySeriesGameJson[] = [
   },
 ]
 
+/** The 2v2 the best-of scenarios play, seated the way `makeRegroupLobby` seats them. */
+const TWO_V_TWO_TEAMS: LobbySeriesTeamJson[] = [
+  {
+    teamId: TOP_TEAM_ID,
+    name: 'Top',
+    players: [
+      { type: 'human', userId: TEC27, race: 't' },
+      { type: 'human', userId: PACHI, race: 'z' },
+    ],
+  },
+  {
+    teamId: BOTTOM_TEAM_ID,
+    name: 'Bottom',
+    players: [
+      { type: 'human', userId: DRONEBRO, race: 'p' },
+      { type: 'human', userId: HEARTCUTTER, race: 'r' },
+    ],
+  },
+]
+const TWO_V_TWO_SIDES: LobbyBestOfSides = [
+  [TEC27, PACHI],
+  [DRONEBRO, HEARTCUTTER],
+]
+
+/** A full 4v4 of people with names too long to fit anywhere they're listed side by side. */
+function makeLongNamesLobby(): Lobby {
+  return makeLobby(
+    [
+      createHuman(TEC27, 't'),
+      createHuman(LONG_1, 'z'),
+      createHuman(LONG_2, 'p'),
+      createHuman(HEARTCUTTER, 'r'),
+    ],
+    [
+      createHuman(LONG_3, 'z'),
+      createHuman(LONG_4, 't'),
+      createHuman(DRONEBRO, 'p'),
+      createHuman(PACHI, 'z'),
+    ],
+    observerSlots(),
+  )
+}
+const LONG_NAMES_SIDES: LobbyBestOfSides = [
+  [TEC27, LONG_1, LONG_2, HEARTCUTTER],
+  [LONG_3, LONG_4, DRONEBRO, PACHI],
+]
+const LONG_NAMES_TEAMS: LobbySeriesTeamJson[] = LONG_NAMES_SIDES.map((side, i) => ({
+  teamId: i === 0 ? TOP_TEAM_ID : BOTTOM_TEAM_ID,
+  name: i === 0 ? 'Top' : 'Bottom',
+  players: side.map(userId => ({ type: 'human' as const, userId, race: 'r' as const })),
+}))
+
+/**
+ * How one game of a scripted best-of series goes: won by a side, settled with no winner, still
+ * waiting for its result, or stopped from counting by the host.
+ */
+type BestOfGamePlan = BestOfSideIndex | 'noWinner' | 'pending' | 'notCounted'
+
+/**
+ * Plays a best-of series out through the same events the server sends for one: its start, then for
+ * each game the launch, the regroup, and the settled result, and finally its end if it has one.
+ */
+function playBestOf(
+  dispatch: LobbyTestDispatch,
+  {
+    title,
+    length,
+    games,
+    end,
+  }: {
+    title?: string
+    length: number
+    games: ReadonlyArray<BestOfGamePlan>
+    end?: 'won' | 'unfinished'
+  },
+) {
+  let bestOf: LobbyBestOfJson = {
+    id: 'mock-best-of',
+    ...(title ? { title } : {}),
+    length,
+    sides: TWO_V_TWO_SIDES,
+    games: [],
+  }
+  dispatch({ type: '@lobbies/updateBestOfStarted', payload: { type: 'bestOfStarted', bestOf } })
+
+  games.forEach((plan, index) => {
+    const gameId = `mock-best-of-game-${index + 1}`
+    dispatch({
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: { gameId, inGameUsers: [], elapsedMs: 0 } },
+    })
+    bestOf = { ...bestOf, games: [...bestOf.games, { gameId, status: 'pending' }] }
+    dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
+    dispatch({
+      type: '@lobbies/updateRegroup',
+      payload: {
+        type: 'regroup',
+        game: {
+          gameId,
+          mapId: index % 2 ? FightingSpirit.id : BigGameHunters.id,
+          teams: TWO_V_TWO_TEAMS,
+        },
+      },
+    })
+    if (plan === 'pending') {
+      return
+    }
+    if (plan === 'notCounted') {
+      bestOf = {
+        ...bestOf,
+        games: bestOf.games.map(g => (g.gameId === gameId ? { gameId, status: 'notCounted' } : g)),
+      }
+      dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
+      return
+    }
+
+    let winningTeamId: number | undefined
+    if (plan !== 'noWinner') {
+      winningTeamId = plan === 0 ? TOP_TEAM_ID : BOTTOM_TEAM_ID
+    }
+    dispatch({
+      type: '@lobbies/updateSeriesGameUpdated',
+      payload: {
+        type: 'seriesGameUpdated',
+        gameId,
+        result: {
+          outcomes: makeOutcomes(TWO_V_TWO_TEAMS, winningTeamId),
+          durationMs: (12 + index * 3) * 60 * 1000 + 17 * 1000,
+        },
+      },
+    })
+    bestOf = {
+      ...bestOf,
+      games: bestOf.games.map(g => {
+        if (g.gameId !== gameId) {
+          return g
+        }
+        return plan === 'noWinner'
+          ? { gameId, status: 'noWinner' }
+          : { gameId, status: 'won', winner: plan }
+      }),
+    }
+    if (end === 'won' && index === games.length - 1 && plan !== 'noWinner') {
+      bestOf = { ...bestOf, outcome: { kind: 'won', winner: plan } }
+      dispatch({ type: '@lobbies/updateBestOfEnded', payload: { type: 'bestOfEnded', bestOf } })
+    } else {
+      dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
+    }
+  })
+
+  if (end === 'unfinished') {
+    bestOf = {
+      ...bestOf,
+      games: bestOf.games.map(g =>
+        g.status === 'pending' ? { gameId: g.gameId, status: 'notCounted' } : g,
+      ),
+      outcome: { kind: 'unfinished' },
+    }
+    dispatch({ type: '@lobbies/updateBestOfEnded', payload: { type: 'bestOfEnded', bestOf } })
+  }
+}
+
+/**
+ * Seeds a long-running 4v4 best-of series straight into the arrival's init, the way someone joining
+ * partway through one gets it: a Bo99 at 12–10, with a couple of games that counted for nobody.
+ */
+function seedLongBestOf(dispatch: LobbyTestDispatch) {
+  const plans: BestOfGamePlan[] = []
+  for (let i = 0; i < 24; i++) {
+    if (i === 7) {
+      plans.push('noWinner')
+    } else if (i === 15) {
+      plans.push('notCounted')
+    } else {
+      plans.push(i % 11 < 6 && i !== 23 ? 0 : 1)
+    }
+  }
+  const series: LobbySeriesGameJson[] = plans.map((plan, i) => {
+    let winningTeamId: number | undefined
+    if (plan === 0 || plan === 1) {
+      winningTeamId = plan === 0 ? TOP_TEAM_ID : BOTTOM_TEAM_ID
+    }
+    return {
+      gameId: `mock-long-game-${i + 1}`,
+      mapId: i % 2 ? FightingSpirit.id : BigGameHunters.id,
+      teams: LONG_NAMES_TEAMS,
+      ...(plan === 'notCounted'
+        ? {}
+        : {
+            result: {
+              outcomes: makeOutcomes(LONG_NAMES_TEAMS, winningTeamId),
+              durationMs: (9 + (i % 7) * 4) * 60 * 1000,
+            },
+          }),
+    }
+  })
+  const bestOf: LobbyBestOfJson = {
+    id: 'mock-long-best-of',
+    title: 'Team League Season Finale: Upper Bracket Decider',
+    length: 99,
+    sides: LONG_NAMES_SIDES,
+    games: plans.map((plan, i): LobbyBestOfJson['games'][number] => {
+      const gameId = `mock-long-game-${i + 1}`
+      if (plan === 0 || plan === 1) {
+        return { gameId, status: 'won', winner: plan }
+      }
+      return { gameId, status: plan === 'noWinner' ? 'noWinner' : 'notCounted' }
+    }),
+  }
+  dispatch({
+    type: '@lobbies/init',
+    payload: {
+      type: 'init',
+      lobby: makeLongNamesLobby(),
+      userInfos: MOCK_USERS,
+      readyUsers: [],
+      shuffleCount: 0,
+      mapStatuses: [],
+      series,
+      bestOfs: [bestOf],
+    },
+  })
+}
+
 function sendMockChat(dispatch: LobbyTestDispatch, from: SbUserId, text: string) {
   dispatch({
     type: '@lobbies/updateChatMessage',
@@ -373,6 +621,50 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
   dispatch(loadMapsForTesting())
   dispatch({ type: '@users/loadUsers', payload: MOCK_USERS })
 
+  if (scenario === 'bestOfLong') {
+    seedLongBestOf(dispatch)
+    sendMockChat(dispatch, LONG_1, 'game 25, nobody is sleeping tonight')
+    return
+  }
+
+  if (
+    scenario === 'bestOfRunning' ||
+    scenario === 'bestOfPending' ||
+    scenario === 'bestOfWon' ||
+    scenario === 'bestOfEndedEarly'
+  ) {
+    dispatch({
+      type: '@lobbies/init',
+      payload: {
+        type: 'init',
+        lobby: makeRegroupLobby(),
+        userInfos: MOCK_USERS,
+        readyUsers: [],
+        shuffleCount: 0,
+        mapStatuses: [],
+        series: [],
+        bestOfs: [],
+      },
+    })
+    sendMockChat(dispatch, PACHI, 'ok for real this time, best of 3')
+    if (scenario === 'bestOfRunning') {
+      playBestOf(dispatch, { title: 'Grand Final', length: 3, games: [0] })
+    } else if (scenario === 'bestOfPending') {
+      playBestOf(dispatch, { length: 5, games: [0, 'noWinner', 'pending'] })
+    } else if (scenario === 'bestOfWon') {
+      playBestOf(dispatch, {
+        title: 'Grand Final',
+        length: 3,
+        games: [1, 0, 'notCounted', 0],
+        end: 'won',
+      })
+    } else {
+      playBestOf(dispatch, { length: 5, games: [0, 1], end: 'unfinished' })
+    }
+    sendMockChat(dispatch, DRONEBRO, 'gg')
+    return
+  }
+
   if (scenario === 'regroup') {
     const lobby = makeRegroupLobby()
     dispatch({
@@ -385,6 +677,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         shuffleCount: 0,
         mapStatuses: [],
         series: [],
+        bestOfs: [],
       },
     })
     // Plays the night out game by game, so every result lands its own summary card in the log
@@ -441,6 +734,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
             ]
           : [],
       series: [],
+      bestOfs: [],
     },
   })
 
@@ -580,6 +874,8 @@ function LobbyRoomTestInner() {
 
   const lobby = useAppSelector(s => s.lobby.info)
   const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(viewerId))
+  const bestOfs = useAppSelector(s => s.lobby.bestOfs)
+  const runningBestOf = getRunningBestOf(bestOfs)
 
   return (
     <Container>
@@ -671,6 +967,73 @@ function LobbyRoomTestInner() {
               })
             }}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
+            onStartBestOf={(request, spec) => {
+              const bestOf: LobbyBestOfJson = {
+                id: `mock-started-best-of-${bestOfs.length + 1}`,
+                ...(request.title ? { title: request.title } : {}),
+                length: request.length,
+                sides: request.sides,
+                games: [],
+              }
+              dispatch({
+                type: '@lobbies/updateBestOfStarted',
+                payload: { type: 'bestOfStarted', bestOf },
+              })
+              spec.onSuccess()
+            }}
+            onUpdateBestOf={(request, spec) => {
+              if (runningBestOf) {
+                const bestOf: LobbyBestOfJson = {
+                  ...runningBestOf,
+                  ...(request.sides ? { sides: request.sides } : {}),
+                }
+                if (request.title !== undefined) {
+                  delete bestOf.title
+                  if (request.title) {
+                    bestOf.title = request.title
+                  }
+                }
+                dispatch({
+                  type: '@lobbies/updateBestOfUpdated',
+                  payload: { type: 'bestOfUpdated', bestOf },
+                })
+              }
+              spec.onSuccess()
+            }}
+            onEndBestOf={() => {
+              if (runningBestOf) {
+                dispatch({
+                  type: '@lobbies/updateBestOfEnded',
+                  payload: {
+                    type: 'bestOfEnded',
+                    bestOf: {
+                      ...runningBestOf,
+                      games: runningBestOf.games.map(g =>
+                        g.status === 'pending' ? { gameId: g.gameId, status: 'notCounted' } : g,
+                      ),
+                      outcome: { kind: 'unfinished' },
+                    },
+                  },
+                })
+              }
+            }}
+            onDiscardBestOfGame={gameId => {
+              if (runningBestOf) {
+                dispatch({
+                  type: '@lobbies/updateBestOfUpdated',
+                  payload: {
+                    type: 'bestOfUpdated',
+                    bestOf: {
+                      ...runningBestOf,
+                      games: runningBestOf.games.map(g =>
+                        g.gameId === gameId ? { gameId, status: 'notCounted' } : g,
+                      ),
+                    },
+                  },
+                })
+              }
+            }}
+
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}
             onViewGameSummary={gameId => console.log('onViewGameSummary', gameId)}
           />

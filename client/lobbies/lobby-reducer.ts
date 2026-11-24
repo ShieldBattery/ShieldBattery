@@ -2,6 +2,7 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
+import { getBestOfScore, LobbyBestOfJson } from '../../common/lobbies/lobby-best-of'
 import {
   changesGameSettings,
   LobbyLaunchJson,
@@ -111,6 +112,8 @@ export interface CurrentLobbyState {
   mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
   series: LobbySeriesGameJson[]
+  /** The best-of series the lobby has played, oldest first. Only the last one can be running. */
+  bestOfs: LobbyBestOfJson[]
   activated: boolean
   hasUnread: boolean
 }
@@ -124,6 +127,7 @@ const DEFAULT_STATE: CurrentLobbyState = {
   shuffleCount: 0,
   mapStatuses: [],
   series: [],
+  bestOfs: [],
   activated: false,
   hasUnread: false,
 }
@@ -173,6 +177,7 @@ function clearLobby(draft: LobbyDraft): void {
   draft.shuffleCount = 0
   draft.mapStatuses = []
   draft.series = []
+  draft.bestOfs = []
 }
 
 /**
@@ -251,6 +256,19 @@ function finalizeLobbyUpdate(draft: LobbyDraft): void {
 }
 
 /**
+ * Puts the latest version of a best-of series in place of the one with the same id, or at the end
+ * of the list when this client never saw it start.
+ */
+function replaceBestOf(draft: LobbyDraft, bestOf: LobbyBestOfJson): void {
+  const index = draft.bestOfs.findIndex(b => b.id === bestOf.id)
+  if (index === -1) {
+    draft.bestOfs.push(castDraft(bestOf))
+  } else {
+    draft.bestOfs[index] = castDraft(bestOf)
+  }
+}
+
+/**
  * Keys are constrained to real action types (and the handler map below is declared with
  * `satisfies`, so excess-property checking applies): a typo'd key fails to compile instead of
  * producing a handler that silently never fires.
@@ -312,6 +330,7 @@ const lobbyHandlers = {
     draft.shuffleCount = action.payload.shuffleCount
     draft.mapStatuses = action.payload.mapStatuses.slice()
     draft.series = castDraft(action.payload.series.slice())
+    draft.bestOfs = castDraft(action.payload.bestOfs.slice())
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.SelfJoinLobby,
@@ -342,6 +361,48 @@ const lobbyHandlers = {
       time: Date.now(),
       userId: draft.info.host.userId!,
       shuffleCount: action.payload.shuffleCount,
+    })
+  },
+
+  '@lobbies/updateBestOfStarted'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    const { bestOf } = action.payload
+    replaceBestOf(draft, bestOf)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyBestOfStarted,
+      time: Date.now(),
+      ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
+      length: bestOf.length,
+      sides: bestOf.sides,
+    })
+  },
+
+  '@lobbies/updateBestOfUpdated'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    replaceBestOf(draft, action.payload.bestOf)
+  },
+
+  '@lobbies/updateBestOfEnded'(draft, action) {
+    const { bestOf } = action.payload
+    if (!draft.info.name || !bestOf.outcome) {
+      return
+    }
+
+    replaceBestOf(draft, bestOf)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyBestOfEnded,
+      time: Date.now(),
+      sides: bestOf.sides,
+      score: getBestOfScore(bestOf),
+      outcome: bestOf.outcome,
     })
   },
 

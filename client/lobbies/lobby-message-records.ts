@@ -1,3 +1,4 @@
+import { LobbyBestOfOutcome, LobbyBestOfSides } from '../../common/lobbies/lobby-best-of'
 import { LobbyChangedSetting } from '../../common/lobbies/lobby-network'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseMessage } from '../messaging/base-message-record'
@@ -21,6 +22,8 @@ export enum LobbyMessageType {
   LobbyMapQueueAdvance = 'lobbyMapQueueAdvance',
   LobbyTeamsShuffled = 'lobbyTeamsShuffled',
   LobbyPriorShuffles = 'lobbyPriorShuffles',
+  LobbyBestOfStarted = 'lobbyBestOfStarted',
+  LobbyBestOfEnded = 'lobbyBestOfEnded',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -135,6 +138,28 @@ export interface PriorShufflesMessage extends BaseMessage {
   readonly shuffleCount: number
 }
 
+/**
+ * The host started a best-of series. Its sides are captured when it starts, since the host can
+ * change them while it runs.
+ */
+export interface BestOfStartedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyBestOfStarted
+  readonly title?: string
+  readonly length: number
+  readonly sides: Readonly<LobbyBestOfSides>
+}
+
+/**
+ * A best-of series ended, either won by one side or ended early by the host. Its sides and score
+ * are captured as they stood when it ended.
+ */
+export interface BestOfEndedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyBestOfEnded
+  readonly sides: Readonly<LobbyBestOfSides>
+  readonly score: readonly [number, number]
+  readonly outcome: LobbyBestOfOutcome
+}
+
 export type LobbyMessage =
   | JoinLobbyMessage
   | LeaveLobbyMessage
@@ -154,3 +179,5 @@ export type LobbyMessage =
   | LobbyMapQueueAdvanceMessage
   | TeamsShuffledMessage
   | PriorShufflesMessage
+  | BestOfStartedMessage
+  | BestOfEndedMessage

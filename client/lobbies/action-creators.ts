@@ -6,6 +6,8 @@ import { findSlotByUserId, LobbyVisibility } from '../../common/lobbies'
 import {
   CreateLobbyRequest,
   CreateLobbyResponse,
+  DiscardLobbyBestOfGameRequest,
+  EndLobbyBestOfRequest,
   GetLobbyStateResponse,
   InviteToLobbyRequest,
   JoinLobbyRequest,
@@ -18,7 +20,9 @@ import {
   SendLobbyOutcomeRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
+  StartLobbyBestOfRequest,
   StartLobbyCountdownRequest,
+  UpdateLobbyBestOfRequest,
   UpdateLobbyPreferencesRequest,
   UpdateLobbySettingsRequest,
 } from '../../common/lobbies/lobby-network'
@@ -328,6 +332,71 @@ export function shuffleSlots(spec: RequestHandlingSpec<void>): ThunkAction {
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/shuffle`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/** What the host picked for a best-of series they're starting. */
+export type StartBestOfParams = Omit<StartLobbyBestOfRequest, 'clientId'>
+
+/** Starts a best-of series in the lobby the user is currently hosting. */
+export function startBestOf(
+  params: StartBestOfParams,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/start-best-of`, {
+      method: 'POST',
+      // Sent as JSON rather than form params so the sides arrive as two lists of user ids.
+      body: JSON.stringify({ clientId, ...params } satisfies StartLobbyBestOfRequest),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/**
+ * The changes the host made to the lobby's running best-of series. Only what changed should be
+ * given; anything absent is left as it is.
+ */
+export type UpdateBestOfParams = Omit<UpdateLobbyBestOfRequest, 'clientId'>
+
+/** Changes the title and/or sides of the running best-of series in the lobby the user is hosting. */
+export function updateBestOf(
+  params: UpdateBestOfParams,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/update-best-of`, {
+      method: 'POST',
+      // Sent as JSON rather than form params so that a cleared title arrives as `null` and the
+      // sides as two lists of user ids.
+      body: JSON.stringify({ clientId, ...params } satisfies UpdateLobbyBestOfRequest),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/** Ends the running best-of series in the lobby the user is hosting before either side won it. */
+export function endBestOf(spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/end-best-of`, {
+      method: 'POST',
+      body: encodeBodyAsParams<EndLobbyBestOfRequest>({ clientId }),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/**
+ * Stops counting a game of the running best-of series whose results haven't settled, so the
+ * series can go on without it.
+ */
+export function discardBestOfGame(gameId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/discard-best-of-game`, {
+      method: 'POST',
+      body: encodeBodyAsParams<DiscardLobbyBestOfGameRequest>({ clientId, gameId }),
       signal: spec.signal,
     }),
   )

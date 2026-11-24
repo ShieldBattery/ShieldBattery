@@ -9,6 +9,7 @@ import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
+import { LobbyBestOfJson, LobbyBestOfSides } from './lobby-best-of'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson, SlotType } from './slot'
 
@@ -49,11 +50,24 @@ export enum LobbyServiceErrorCode {
   AlreadyInSlot = 'AlreadyInSlot',
   AlreadyStarted = 'AlreadyStarted',
   Banned = 'Banned',
+  /** A best-of series was started while another one is still running. */
+  BestOfAlreadyRunning = 'BestOfAlreadyRunning',
+  /** The host tried to discard a game that isn't a pending game of the running best-of series. */
+  BestOfGameNotPending = 'BestOfGameNotPending',
+  /**
+   * A game was started while a game of the running best-of series has no settled result yet (nor
+   * has been discarded by the host).
+   */
+  BestOfGamePending = 'BestOfGamePending',
+  /** A game was started while the seats don't hold the running best-of series' two sides. */
+  BestOfRosterMismatch = 'BestOfRosterMismatch',
   ChatRestricted = 'ChatRestricted',
   ComputerInObserverSlot = 'ComputerInObserverSlot',
   CountingDown = 'CountingDown',
   ForcedRace = 'ForcedRace',
   GameInProgress = 'GameInProgress',
+  /** A best-of series' length, title or sides aren't ones it can be played with. */
+  InvalidBestOf = 'InvalidBestOf',
   InvalidGameSubType = 'InvalidGameSubType',
   InvalidGameType = 'InvalidGameType',
   InvalidMap = 'InvalidMap',
@@ -65,6 +79,8 @@ export enum LobbyServiceErrorCode {
   LobbyFull = 'LobbyFull',
   MapNotDownloaded = 'MapNotDownloaded',
   NoActiveClient = 'NoActiveClient',
+  /** A best-of series action needs one to be running, and none is. */
+  NoBestOfRunning = 'NoBestOfRunning',
   NoLobby = 'NoLobby',
   NotCountingDown = 'NotCountingDown',
   NotEnoughSides = 'NotEnoughSides',
@@ -238,6 +254,47 @@ export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   force?: boolean
 }
 
+/**
+ * The body of a request by the host to start a best-of series. Takes a lobby that has none running,
+ * and every member of either side has to be in the lobby (seated, observing, or on the bench).
+ */
+export interface StartLobbyBestOfRequest extends LobbyClientRequest {
+  /** An odd number of games, at most `BEST_OF_MAX_LENGTH`. */
+  length: number
+  /** Trimmed, at most `BEST_OF_TITLE_MAX_LENGTH` characters. An empty title is no title. */
+  title?: string
+  /** Two sides of 1 to `BEST_OF_MAX_SIDE_SIZE` people each, nobody on both. */
+  sides: LobbyBestOfSides
+}
+
+/**
+ * The body of a request by the host to change the running best-of series. Absent fields are left
+ * as they are, and at least one has to be given. Its length can't be changed.
+ */
+export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
+  /** The new title; `null` or an empty title clears it. */
+  title?: string | null
+  /**
+   * The new sides, validated the same way as when starting one, except that people already on
+   * either side don't have to still be in the lobby. Games already won stay with the side index.
+   */
+  sides?: LobbyBestOfSides
+}
+
+/**
+ * The body of a request by the host to end the running best-of series before either side has won
+ * it. Its games with no settled result are no longer counted.
+ */
+export type EndLobbyBestOfRequest = LobbyClientRequest
+
+/**
+ * The body of a request by the host to stop counting a game of the running best-of series whose
+ * results haven't settled, so the series can go on without them.
+ */
+export interface DiscardLobbyBestOfGameRequest extends LobbyClientRequest {
+  gameId: string
+}
+
 /** The body of a request that acts on a single slot of a lobby. */
 export interface LobbySlotRequest extends LobbyClientRequest {
   slotId: string
@@ -376,6 +433,9 @@ export type LobbyEvent =
   | LobbyReadyChangeEvent
   | LobbyMapStatusChangeEvent
   | LobbyTeamsShuffledEvent
+  | LobbyBestOfStartedEvent
+  | LobbyBestOfUpdatedEvent
+  | LobbyBestOfEndedEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -596,6 +656,8 @@ export interface LobbyInitEvent {
   mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
   series: LobbySeriesGameJson[]
+  /** The best-of series the lobby has played, oldest first. Only the last one can be running. */
+  bestOfs: LobbyBestOfJson[]
 }
 
 export interface LobbyDiffEvent {
@@ -707,6 +769,33 @@ export interface LobbySeriesGameUpdatedEvent {
   type: 'seriesGameUpdated'
   gameId: string
   result: LobbySeriesGameResultJson
+}
+
+/** The host started a best-of series, which is now the lobby's running one. */
+export interface LobbyBestOfStartedEvent {
+  type: 'bestOfStarted'
+  bestOf: LobbyBestOfJson
+}
+
+/**
+ * A best-of series changed without starting or ending: the host edited it, one of its games
+ * launched (published after the {@link LobbyGameStartedEvent}), or one of its games was settled
+ * (published after the {@link LobbySeriesGameUpdatedEvent}) or discarded. Carries the whole series,
+ * to replace the one with the same `id`.
+ */
+export interface LobbyBestOfUpdatedEvent {
+  type: 'bestOfUpdated'
+  bestOf: LobbyBestOfJson
+}
+
+/**
+ * A best-of series ended, either because a side won it (published after the
+ * {@link LobbySeriesGameUpdatedEvent} of the deciding game) or because the host ended it early.
+ * Carries the whole series with its `outcome` set, to replace the one with the same `id`.
+ */
+export interface LobbyBestOfEndedEvent {
+  type: 'bestOfEnded'
+  bestOf: LobbyBestOfJson
 }
 
 /**

@@ -35,6 +35,7 @@ import {
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
+import { getBestOfStartBlocker } from './best-of-display'
 import { LobbyStartBlocker, LobbyStartButton } from './lobby-start-button'
 import {
   getReadyEligibleUsers,
@@ -878,6 +879,7 @@ export function RoomRail({
   const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
   const mapStatusEntries = useAppSelector(s => s.lobby.mapStatuses)
   const runState = useAppSelector(s => s.lobby.runState)
+  const bestOfs = useAppSelector(s => s.lobby.bestOfs)
   const lifecycle = useLobbyLifecycle()
 
   const isHost = lobby.host.userId === viewerId
@@ -898,9 +900,11 @@ export function RoomRail({
   const everyoneHasMap = !eligible.some(userId => mapStatuses.has(userId))
   let startBlocker: LobbyStartBlocker | undefined
   if (!hasTwoSides) {
-    startBlocker = 'needsOpposingSides'
+    startBlocker = { kind: 'needsOpposingSides' }
   } else if (!everyoneHasMap) {
-    startBlocker = 'mapNotDownloaded'
+    startBlocker = { kind: 'mapNotDownloaded' }
+  } else {
+    startBlocker = getBestOfStartBlocker(lobby, bestOfs)
   }
 
   const playerTeams: Team[] = []

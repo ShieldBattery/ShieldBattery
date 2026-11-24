@@ -5,10 +5,11 @@ import { makeSbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { createComputer, createHuman } from '../../common/lobbies/slot'
 import { makeSbMapId } from '../../common/maps'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { setUserLocalStorageValue } from '../react/state-hooks'
 import { RootState } from '../root-reducer'
-import { createLobby, joinLobby, setRace } from './action-creators'
+import { createLobby, joinLobby, setRace, startBestOf, updateBestOf } from './action-creators'
 import lobbyReducer from './lobby-reducer'
 
 vi.mock('../../common/ipc', () => ({
@@ -114,4 +115,24 @@ test('computer edits and rejected personal edits leave the saved race alone', as
     expect.any(String),
     expect.objectContaining({ body: expect.objectContaining({ race: undefined }) }),
   )
+})
+
+test('best-of changes are sent as JSON, keeping a cleared title and both sides', async () => {
+  await new Promise<void>((onSuccess, onError) => {
+    startBestOf({ length: 3, sides: [[USER_ID], [makeSbUserId(2)]] }, { onSuccess, onError })(
+      vi.fn(),
+      getState,
+    )
+  })
+  await new Promise<void>((onSuccess, onError) => {
+    updateBestOf({ title: null }, { onSuccess, onError })(vi.fn(), getState)
+  })
+
+  expect(vi.mocked(fetchJson).mock.calls.map(([url, options]) => [url, options?.body])).toEqual([
+    [
+      expect.stringContaining('/start-best-of'),
+      JSON.stringify({ clientId, length: 3, sides: [[USER_ID], [2]] }),
+    ],
+    [expect.stringContaining('/update-best-of'), JSON.stringify({ clientId, title: null })],
+  ])
 })

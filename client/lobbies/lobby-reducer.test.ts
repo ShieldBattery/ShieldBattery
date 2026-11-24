@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
+import { LobbyBestOfJson } from '../../common/lobbies/lobby-best-of'
 import {
   LobbyLaunchJson,
   LobbyMapStatus,
@@ -142,6 +143,7 @@ function initAction(
     shuffleCount: number
     mapStatuses: LobbyMemberMapStatusJson[]
     series: LobbySeriesGameJson[]
+    bestOfs: LobbyBestOfJson[]
   }> = {},
   lobby: Lobby = LOBBY,
 ): LobbyActions {
@@ -155,8 +157,16 @@ function initAction(
       shuffleCount: extra.shuffleCount ?? 0,
       mapStatuses: extra.mapStatuses ?? [],
       series: extra.series ?? [],
+      bestOfs: extra.bestOfs ?? [],
     },
   }
+}
+
+const BEST_OF: LobbyBestOfJson = {
+  id: '1',
+  length: 3,
+  sides: [[HOST_SLOT.userId!], [SLOT_A.userId!]],
+  games: [],
 }
 
 /** Seeds explicit ready marks, including one the host can retain from before their promotion. */
@@ -849,6 +859,7 @@ describe('client/lobbies/lobby-reducer', () => {
         shuffleCount: 0,
         mapStatuses: [],
         series: [],
+        bestOfs: [],
         runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!], elapsedMs: 0 },
       },
     })
@@ -869,6 +880,7 @@ describe('client/lobbies/lobby-reducer', () => {
           shuffleCount: 0,
           mapStatuses: [],
           series: [],
+          bestOfs: [],
           launch,
         },
       })
@@ -1275,6 +1287,127 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.readyUserIds).toEqual([])
     expect(state.series).toEqual([])
+  })
+
+  describe('best-of series', () => {
+    test('init seeds the series the lobby has played without announcing them', () => {
+      const ended: LobbyBestOfJson = { ...BEST_OF, outcome: { kind: 'unfinished' } }
+      const state = lobbyReducer(undefined, initAction({ bestOfs: [ended] }))
+
+      expect(state.bestOfs).toEqual([ended])
+      expect(
+        state.chat.some(
+          m =>
+            m.type === LobbyMessageType.LobbyBestOfStarted ||
+            m.type === LobbyMessageType.LobbyBestOfEnded,
+        ),
+      ).toBe(false)
+    })
+
+    test('a started series is added and announced with its title, length and sides', () => {
+      let state = lobbyReducer(undefined, initAction())
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfStarted',
+        payload: { type: 'bestOfStarted', bestOf: { ...BEST_OF, title: 'Grand Final' } },
+      })
+
+      expect(state.bestOfs).toEqual([{ ...BEST_OF, title: 'Grand Final' }])
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfStarted,
+        title: 'Grand Final',
+        length: 3,
+        sides: BEST_OF.sides,
+      })
+    })
+
+    test('an updated series replaces the one with its id and says nothing', () => {
+      const earlier: LobbyBestOfJson = { ...BEST_OF, id: '0', outcome: { kind: 'unfinished' } }
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [earlier, BEST_OF] }))
+      const chatLength = state.chat.length
+
+      const updated: LobbyBestOfJson = {
+        ...BEST_OF,
+        games: [{ gameId: 'game-1', status: 'pending' }],
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfUpdated',
+        payload: { type: 'bestOfUpdated', bestOf: updated },
+      })
+
+      expect(state.bestOfs).toEqual([earlier, updated])
+      expect(state.chat).toHaveLength(chatLength)
+    })
+
+    test('a series won by a side is replaced and announced with its final score', () => {
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [BEST_OF] }))
+
+      const won: LobbyBestOfJson = {
+        ...BEST_OF,
+        games: [
+          { gameId: 'game-1', status: 'won', winner: 1 },
+          { gameId: 'game-2', status: 'noWinner' },
+          { gameId: 'game-3', status: 'won', winner: 0 },
+          { gameId: 'game-4', status: 'won', winner: 1 },
+        ],
+        outcome: { kind: 'won', winner: 1 },
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfEnded',
+        payload: { type: 'bestOfEnded', bestOf: won },
+      })
+
+      expect(state.bestOfs).toEqual([won])
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfEnded,
+        sides: BEST_OF.sides,
+        score: [1, 2],
+        outcome: { kind: 'won', winner: 1 },
+      })
+    })
+
+    test('a series the host ended early is announced with the score it stopped at', () => {
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [BEST_OF] }))
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfEnded',
+        payload: {
+          type: 'bestOfEnded',
+          bestOf: {
+            ...BEST_OF,
+            games: [
+              { gameId: 'game-1', status: 'won', winner: 0 },
+              { gameId: 'game-2', status: 'notCounted' },
+            ],
+            outcome: { kind: 'unfinished' },
+          },
+        },
+      })
+
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfEnded,
+        score: [1, 0],
+        outcome: { kind: 'unfinished' },
+      })
+    })
+
+    test('series events are ignored when not in a lobby', () => {
+      const state = lobbyReducer(undefined, {
+        type: '@lobbies/updateBestOfStarted',
+        payload: { type: 'bestOfStarted', bestOf: BEST_OF },
+      })
+
+      expect(state.bestOfs).toEqual([])
+      expect(state.chat).toEqual([])
+    })
+
+    test('leaving the lobby forgets its series', () => {
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [BEST_OF] }))
+
+      state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+      expect(state.bestOfs).toEqual([])
+    })
   })
 
   test('a local message lands in the log without marking an activated lobby unread', () => {
