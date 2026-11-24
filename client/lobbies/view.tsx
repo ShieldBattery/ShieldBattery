@@ -46,6 +46,7 @@ import {
   shuffleSlots,
   startCountdown,
   swapTeams,
+  transferHost,
 } from './action-creators'
 import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
@@ -286,6 +287,9 @@ function ConnectedLobby() {
             break
           case SlotAction.Kick:
             dispatch(kickPlayer(slotId, actionSpec))
+            break
+          case SlotAction.MakeHost:
+            dispatch(transferHost(slotId, actionSpec))
             break
           case SlotAction.Ban:
             dispatch(banPlayer(slotId, actionSpec))

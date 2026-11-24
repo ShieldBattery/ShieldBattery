@@ -176,7 +176,7 @@ playwright-cli --raw -s=c2 eval "document.querySelector('[data-testid=app-bar-us
 | `join-lobby-button` | Joins the selected lobby | lobby browser |
 | `lobby-slot` | One per slot (open/closed/player). **No index**: use `.nth()` or contained text | lobby view |
 | `lobby-slot-actions` | The host's per-slot menu button. Only clickable while its row is hovered or focused | lobby view |
-| `lobby-slot-action-<id>` | Slot menu items: `add-computer`, `close-slot`, `open-slot`, `kick`, `ban`, `remove`, `make-observer`, `move-into-player-slot` | lobby view |
+| `lobby-slot-action-<id>` | Slot menu items: `add-computer`, `close-slot`, `open-slot`, `make-host`, `kick`, `ban`, `remove`, `make-observer`, `move-into-player-slot` | lobby view |
 | `ready-up-button` / `cancel-ready-button` | A joiner's ready toggle | lobby view |
 | `start-game-button` | Host's Start game | lobby view |
 | `leave-lobby-button` | Leave lobby | lobby view |

@@ -56,6 +56,7 @@ export enum SlotAction {
   Close = 'close',
   Open = 'open',
   AddComputer = 'addComputer',
+  MakeHost = 'makeHost',
   Kick = 'kick',
   Ban = 'ban',
   MakeObserver = 'makeObserver',
@@ -460,15 +461,31 @@ interface SlotRowProps {
  * Only actions the server would accept are offered: a UMS map's computers belong to the map rather
  * than to the lobby, and moving someone between the player seats and the observer seats needs a
  * free seat on the other side.
+ *
+ * While a game is running the seating layout is frozen, so `gameRunning` narrows the menu to what
+ * still works then: handing the host role to someone seated.
  */
 function hostActionsFor(
   slot: Slot,
   isObserverTeam: boolean,
   limits: SlotMenuLimits,
+  gameRunning: boolean,
   onSlotAction: (action: SlotAction, slotId: string) => void,
   t: TFunction,
 ): SlotMenuAction[] {
   const actions: SlotMenuAction[] = []
+  const holdsPerson = slot.type === SlotType.Human || slot.type === SlotType.Observer
+
+  if (holdsPerson) {
+    actions.push({
+      id: 'make-host',
+      text: t('lobbies.room.slotMenu.makeHost', 'Make host'),
+      handler: () => onSlotAction(SlotAction.MakeHost, slot.id),
+    })
+  }
+  if (gameRunning) {
+    return actions
+  }
 
   switch (slot.type) {
     case SlotType.Human:
@@ -637,13 +654,16 @@ function SlotRow({
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
   const isGathering = lifecycle === 'gathering'
+  const gameRunning = lifecycle === 'inGame'
   // The seating layout is the host's to change only while the lobby is gathering: the countdown
   // snapshots what the game will be, and the server refuses changes to it until the game is over.
-  // The viewer's own row carries no menu either way — everything the host could do to themselves
-  // already has a dedicated affordance, and clicking an open seat moves them into it.
+  // Handing over the host role is the one change that also works while a game is running, but not
+  // while one is starting. The viewer's own row carries no menu either way — everything the host
+  // could do to themselves already has a dedicated affordance, and clicking an open seat moves
+  // them into it.
   const hostActions =
-    isHost && isGathering && slot.userId !== viewerId
-      ? hostActionsFor(slot, isObserverTeam, limits, onSlotAction, t)
+    isHost && (isGathering || gameRunning) && slot.userId !== viewerId
+      ? hostActionsFor(slot, isObserverTeam, limits, gameRunning, onSlotAction, t)
       : []
   const menu = hostActions.length ? <SlotMenu actions={hostActions} /> : null
 
