@@ -102,6 +102,11 @@ export interface CurrentLobbyState {
   chat: SbMessage[]
   /** The members who have marked themselves ready for the lobby's next game. */
   readyUserIds: SbUserId[]
+  /**
+   * How many times the lobby's teams have been shuffled since its last game started, or since it
+   * was created if it hasn't played one.
+   */
+  shuffleCount: number
   /** The members who don't have the lobby's current map yet. Everyone else has it. */
   mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
@@ -116,6 +121,7 @@ const DEFAULT_STATE: CurrentLobbyState = {
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
   readyUserIds: [],
+  shuffleCount: 0,
   mapStatuses: [],
   series: [],
   activated: false,
@@ -164,6 +170,7 @@ function clearLobby(draft: LobbyDraft): void {
   draft.runState = undefined
   draft.loadingState = EMPTY_LOADING_STATE
   draft.readyUserIds = []
+  draft.shuffleCount = 0
   draft.mapStatuses = []
   draft.series = []
 }
@@ -302,6 +309,7 @@ const lobbyHandlers = {
       : undefined
     draft.loadingState = loadingStateFor(action.payload.launch)
     draft.readyUserIds = action.payload.readyUsers.slice()
+    draft.shuffleCount = action.payload.shuffleCount
     draft.mapStatuses = action.payload.mapStatuses.slice()
     draft.series = castDraft(action.payload.series.slice())
     pushChat(draft, {
@@ -310,6 +318,30 @@ const lobbyHandlers = {
       time: Date.now(),
       lobby: draft.info.name,
       hostId: draft.info.host.userId!,
+    })
+    if (draft.shuffleCount > 0) {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.LobbyPriorShuffles,
+        time: Date.now(),
+        shuffleCount: draft.shuffleCount,
+      })
+    }
+  },
+
+  '@lobbies/updateTeamsShuffled'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    draft.shuffleCount = action.payload.shuffleCount
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyTeamsShuffled,
+      time: Date.now(),
+      userId: draft.info.host.userId!,
+      shuffleCount: action.payload.shuffleCount,
     })
   },
 
@@ -508,6 +540,8 @@ const lobbyHandlers = {
     draft.loadingState = EMPTY_LOADING_STATE
     // The game the members were ready for is the one that just launched, so their marks are spent.
     clearReady(draft)
+    // The shuffles so far led to the teams of the game that just launched.
+    draft.shuffleCount = 0
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyGameStarted,

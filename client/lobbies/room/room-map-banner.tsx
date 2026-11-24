@@ -194,6 +194,11 @@ const HostToolButton = styled(TextButton)`
   color: var(--theme-on-surface-variant);
 `
 
+const ShuffleCount = styled.span`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+`
+
 const TimelineSection = styled.div`
   margin-top: auto;
 
@@ -795,6 +800,7 @@ export function RoomMapBanner({
   const lobby = useAppSelector(s => s.lobby.info)
   const map = lobby.map!
   const series = useAppSelector(s => s.lobby.series)
+  const shuffleCount = useAppSelector(s => s.lobby.shuffleCount)
   const lifecycle = useLobbyLifecycle()
 
   const isHost = lobby.host.userId === viewerId
@@ -935,6 +941,15 @@ export function RoomMapBanner({
                 />
               ) : null}
               {shuffleTool}
+              {canShuffle && shuffleCount > 0 ? (
+                <ShuffleCount>
+                  {t('lobbies.room.banner.shuffleCount', {
+                    defaultValue: 'Shuffled {{count}} times',
+                    defaultValue_one: 'Shuffled {{count}} time',
+                    count: shuffleCount,
+                  })}
+                </ShuffleCount>
+              ) : null}
             </HostTools>
           ) : null}
           <TimelineSection>

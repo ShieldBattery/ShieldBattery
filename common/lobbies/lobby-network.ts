@@ -375,6 +375,7 @@ export type LobbyEvent =
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
   | LobbyMapStatusChangeEvent
+  | LobbyTeamsShuffledEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -586,6 +587,11 @@ export interface LobbyInitEvent {
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
   readyUsers: SbUserId[]
+  /**
+   * How many times the teams have been shuffled since the lobby's last game started, or since the
+   * lobby was created if it hasn't played one.
+   */
+  shuffleCount: number
   /** The members who don't have the lobby's current map yet. Everyone else has it. */
   mapStatuses: LobbyMemberMapStatusJson[]
   /** The games the lobby has played so far, oldest first. */
@@ -700,6 +706,19 @@ export interface LobbySeriesGameUpdatedEvent {
   type: 'seriesGameUpdated'
   gameId: string
   result: LobbySeriesGameResultJson
+}
+
+/**
+ * The host shuffled the lobby's teams. This is published after the slot changes of the shuffle
+ * itself, and only the host can shuffle.
+ *
+ * The count starts over when a game starts, without an event of its own: the game start is
+ * described by its own event, so a client applies the same rule when it handles that.
+ */
+export interface LobbyTeamsShuffledEvent {
+  type: 'teamsShuffled'
+  /** How many times the teams have been shuffled, including this shuffle. */
+  shuffleCount: number
 }
 
 /**

@@ -780,6 +780,25 @@ function RoomChatMessage({ message }: MessageComponentProps) {
           </Trans>
         </SystemMessage>
       )
+    case LobbyMessageType.LobbyTeamsShuffled:
+      return (
+        <SystemMessage time={msg.time}>
+          <Trans t={t} i18nKey='lobbies.room.chat.shuffledTeams'>
+            <Username userId={msg.userId} /> shuffled the teams (shuffle{' '}
+            {{ shuffleNumber: msg.shuffleCount }})
+          </Trans>
+        </SystemMessage>
+      )
+    case LobbyMessageType.LobbyPriorShuffles:
+      return (
+        <SystemMessage time={msg.time}>
+          {t('lobbies.room.chat.priorShuffles', {
+            defaultValue: 'The teams have been shuffled {{count}} times',
+            defaultValue_one: 'The teams have been shuffled {{count}} time',
+            count: msg.shuffleCount,
+          })}
+        </SystemMessage>
+      )
     case LobbyMessageType.LobbyBenchJoin:
       return (
         <SystemMessage time={msg.time}>
