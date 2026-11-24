@@ -38,6 +38,7 @@ import {
   removeFriendRequest,
 } from './action-creators'
 import { FriendActivityStatusLine, NameBlock, NameLine } from './friend-activity-status'
+import { JoinFriendLobbyIconButton } from './join-friend-lobby-button'
 import { userRelationshipErrorToString } from './relationship-errors'
 
 const FadedFriendsIcon = styledWithAttrs(MaterialIcon, { icon: 'group' })`
@@ -698,12 +699,13 @@ function FriendEntry({
         {user ? (
           <NameBlock>
             <NameLine>{user.name}</NameLine>
-            <FriendActivityStatusLine userId={userId} joinable={true} onJoin={onNavigation} />
+            <FriendActivityStatusLine userId={userId} />
           </NameBlock>
         ) : (
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}
         {isLive ? <EntryLiveLabel /> : null}
+        <JoinFriendLobbyIconButton userId={userId} onJoin={onNavigation} />
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>
     </div>

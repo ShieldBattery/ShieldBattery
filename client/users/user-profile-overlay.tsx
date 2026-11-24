@@ -23,7 +23,6 @@ import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { TextButton } from '../material/button'
 import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useIsNavigationAvailable } from '../navigation/navigation-available'
@@ -31,7 +30,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
-import { useJoinFriendLobby } from '../social/join-friend-lobby'
+import { JoinFriendLobbyTextButton } from '../social/join-friend-lobby-button'
 import {
   bodyLarge,
   BodyMedium,
@@ -241,15 +240,15 @@ const ActivityRowRoot = styled.div`
   align-items: center;
   gap: 8px;
 
+  /* Nothing to show (no status, no lobby): take no space, including the parent's gap. */
+  &:empty {
+    display: none;
+  }
+
   & > :first-child {
     flex: 1 1 0;
     min-width: 0;
   }
-`
-
-const JoinLobbyButton = styled(TextButton)`
-  flex-shrink: 0;
-  min-height: 32px;
 `
 
 /**
@@ -257,34 +256,10 @@ const JoinLobbyButton = styled(TextButton)`
  * the viewer can join.
  */
 function ActivityRow({ userId, onDismiss }: { userId: SbUserId; onDismiss?: () => void }) {
-  const { t } = useTranslation()
-  const joinFriendLobby = useJoinFriendLobby(userId)
-
-  if (!joinFriendLobby) {
-    return <FriendActivityStatusLine userId={userId} />
-  }
-
-  const { lobby, join, isPending } = joinFriendLobby
-
   return (
     <ActivityRowRoot>
       <FriendActivityStatusLine userId={userId} />
-      <Tooltip
-        text={t('users.activityStatus.joinLobby', {
-          defaultValue: 'Join lobby: {{lobbyName}}',
-          lobbyName: lobby.name,
-        })}
-        tabIndex={-1}>
-        <JoinLobbyButton
-          label={t('users.profileOverlay.joinLobby', 'Join lobby')}
-          iconStart='login'
-          disabled={isPending}
-          onClick={() => {
-            onDismiss?.()
-            join()
-          }}
-        />
-      </Tooltip>
+      <JoinFriendLobbyTextButton userId={userId} onJoin={onDismiss} />
     </ActivityRowRoot>
   )
 }

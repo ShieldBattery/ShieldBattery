@@ -17,6 +17,7 @@ import {
 import { bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { getActivityDescriptor, useFriendActivityStatus } from './friend-activity-status'
+import { JoinFriendLobbyIconButton } from './join-friend-lobby-button'
 
 /**
  * Every row is one line tall whatever it holds, so the card's height is exactly its row count times
@@ -77,6 +78,15 @@ const RowActivity = styled.span<{ $color: string }>`
   color: ${props => props.$color};
 `
 
+/** Sized to the card's rows, which are shorter than the button's default. */
+const RowJoinButton = styled(JoinFriendLobbyIconButton)`
+  & button {
+    width: ${ROW_HEIGHT}px;
+    height: ${ROW_HEIGHT}px;
+    min-height: ${ROW_HEIGHT}px;
+  }
+`
+
 function FriendRow({ userId, offline }: { userId: SbUserId; offline: boolean }) {
   const { t } = useTranslation()
   const status = useFriendActivityStatus(userId)
@@ -96,6 +106,7 @@ function FriendRow({ userId, offline }: { userId: SbUserId; offline: boolean }) 
           {activity.label}
         </RowActivity>
       ) : null}
+      <RowJoinButton userId={userId} />
     </Row>
   )
 }

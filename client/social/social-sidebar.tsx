@@ -66,6 +66,8 @@ import { urlForWhisper } from '../whispers/whisper-url'
 import { ChannelReorderList } from './channel-reorder-list'
 import { FriendActivityStatusGlyph } from './friend-activity-status'
 import { FriendsList, useRelationshipsLoader } from './friends-list'
+import { useJoinFriendLobby } from './join-friend-lobby'
+import { JoinFriendLobbyIconButton } from './join-friend-lobby-button'
 
 /** The width the window must be greater than for pinning to be enabled. */
 export const CAN_PIN_WIDTH = 1280
@@ -700,6 +702,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
   const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
   const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
   const { onNavigation } = useNavigationTracker()
+  const joinFriendLobby = useJoinFriendLobby(userId)
 
   const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays({
     userId,
@@ -748,7 +751,13 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
         link={urlForWhisper(userId, username ?? '')}
         button={button}
         icon={<ConnectedAvatar userId={userId} showAvailability={true} showOffline={true} />}
-        trailing={<WhisperActivityGlyph userId={userId} />}
+        trailing={
+          joinFriendLobby ? (
+            <WhisperJoinButton userId={userId} onJoin={onNavigation} />
+          ) : (
+            <WhisperActivityGlyph userId={userId} />
+          )
+        }
         needsAttention={hasUnread}
         urgentAttention={hasUnread}
         isActive={isOverlayOpen}
@@ -771,6 +780,12 @@ const LoadingName = styled.span`
 `
 
 const WhisperActivityGlyph = styled(FriendActivityStatusGlyph)`
+  margin-left: 8px;
+`
+
+// Replaces the status glyph while the friend's lobby can be joined, so the two never sit side by
+// side.
+const WhisperJoinButton = styled(JoinFriendLobbyIconButton)`
   margin-left: 8px;
 `
 

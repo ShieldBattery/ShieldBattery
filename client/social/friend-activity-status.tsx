@@ -1,14 +1,12 @@
 import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { buttonReset } from '../material/button-reset'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, inter, singleLine } from '../styles/typography'
-import { useJoinFriendLobby } from './join-friend-lobby'
 
 /** Reads the current activity status of a friend, or `undefined` if they're not a friend. */
 export function useFriendActivityStatus(userId: SbUserId): FriendActivityStatus | undefined {
@@ -72,7 +70,7 @@ export const NameLine = styled.div`
   line-height: 20px;
 `
 
-const statusLineCss = css<{ $color: string }>`
+const StatusLineRoot = styled.div<{ $color: string }>`
   ${inter};
   ${bodySmall};
 
@@ -84,41 +82,6 @@ const statusLineCss = css<{ $color: string }>`
   overflow: hidden;
 
   color: ${props => props.$color};
-`
-
-const StatusLineRoot = styled.div<{ $color: string }>`
-  ${statusLineCss};
-`
-
-// The tint is painted outside the line's box (negative margin offset by padding) so that making it
-// a button doesn't change the height or alignment of the line it replaces.
-const StatusLineButton = styled.button<{ $color: string }>`
-  ${buttonReset};
-  ${statusLineCss};
-
-  align-self: flex-start;
-  max-width: calc(100% + 8px);
-  margin: 0 -4px;
-  padding: 0 4px;
-  border-radius: 4px;
-  text-align: left;
-
-  &:hover,
-  &:focus-visible {
-    background-color: rgb(from ${props => props.$color} r g b / 0.12);
-    outline: none;
-  }
-
-  &:disabled {
-    opacity: var(--theme-disabled-opacity);
-    cursor: default;
-  }
-`
-
-const JoinTooltip = styled(Tooltip)`
-  align-self: flex-start;
-  min-width: 0;
-  max-width: 100%;
 `
 
 const StatusLineIcon = styled(MaterialIcon)`
@@ -137,30 +100,14 @@ const StatusLabel = styled.span`
  * A single line showing a friend's current activity status (icon + label), for rows with room for
  * a second line below the name. Renders nothing if the user isn't a friend or has no active
  * status.
- *
- * With `joinable`, a friend who's in a lobby the viewer can join gets a line that's a button
- * joining that lobby, whose clicks don't reach the row it's in. `onJoin` runs when it's clicked,
- * for a row to react to the join (e.g. closing a sidebar).
  */
 export function FriendActivityStatusLine({
   userId,
   className,
-  joinable,
-  onJoin,
 }: {
   userId: SbUserId
   className?: string
-  joinable?: boolean
-  onJoin?: () => void
 }) {
-  if (joinable) {
-    return <JoinableStatusLine userId={userId} className={className} onJoin={onJoin} />
-  }
-
-  return <PlainStatusLine userId={userId} className={className} />
-}
-
-function PlainStatusLine({ userId, className }: { userId: SbUserId; className?: string }) {
   const { t } = useTranslation()
   const status = useFriendActivityStatus(userId)
   const descriptor = getActivityDescriptor(status, t)
@@ -174,55 +121,6 @@ function PlainStatusLine({ userId, className }: { userId: SbUserId; className?: 
       <StatusLineIcon icon={descriptor.icon} size={14} />
       <StatusLabel>{descriptor.label}</StatusLabel>
     </StatusLineRoot>
-  )
-}
-
-function JoinableStatusLine({
-  userId,
-  className,
-  onJoin,
-}: {
-  userId: SbUserId
-  className?: string
-  onJoin?: () => void
-}) {
-  const { t } = useTranslation()
-  const status = useFriendActivityStatus(userId)
-  const joinFriendLobby = useJoinFriendLobby(userId)
-  const descriptor = getActivityDescriptor(status, t)
-
-  if (!joinFriendLobby) {
-    return <PlainStatusLine userId={userId} className={className} />
-  }
-  if (!descriptor) {
-    return null
-  }
-
-  const { lobby, join, isPending } = joinFriendLobby
-
-  return (
-    <JoinTooltip
-      text={t('users.activityStatus.joinLobby', {
-        defaultValue: 'Join lobby: {{lobbyName}}',
-        lobbyName: lobby.name,
-      })}
-      position='left'
-      tabIndex={-1}>
-      <StatusLineButton
-        type='button'
-        className={className}
-        $color={descriptor.color}
-        disabled={isPending}
-        onClick={event => {
-          // The row this sits in opens the profile overlay when clicked.
-          event.stopPropagation()
-          onJoin?.()
-          join()
-        }}>
-        <StatusLineIcon icon={descriptor.icon} size={14} />
-        <StatusLabel>{descriptor.label}</StatusLabel>
-      </StatusLineButton>
-    </JoinTooltip>
   )
 }
 

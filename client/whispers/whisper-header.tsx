@@ -11,6 +11,7 @@ import {
   getActivityDescriptor,
   useFriendActivityStatus,
 } from '../social/friend-activity-status'
+import { JoinFriendLobbyTextButton } from '../social/join-friend-lobby-button'
 import { labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { getAvailabilityLabel, useUserAvailability } from '../users/availability'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
@@ -85,6 +86,7 @@ export function WhisperHeader({ userId }: { userId: SbUserId }) {
         <StyledAvatar userId={userId} showAvailability={true} />
         <Username>{username}</Username>
         <UserStatusText userId={userId} />
+        <JoinFriendLobbyTextButton userId={userId} />
       </IdentityContainer>
       <StyledIconButton
         icon={<MaterialIcon icon='more_vert' />}
