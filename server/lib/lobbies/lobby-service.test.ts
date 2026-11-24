@@ -16,6 +16,7 @@ import {
   hasOpposingSides,
   LobbyVisibility,
   MAX_BENCH,
+  MAX_MAP_QUEUE,
   openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
@@ -2218,7 +2219,8 @@ describe('lobbies/lobby-service', () => {
 
       const lobby = lobbyService.lobbies.get(id)!
       expect(lobby.map!.id).toBe(TWO_SLOT_MAP.id)
-      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id])
+      // The queued Big Game Hunters entry stays, and the Big Game Hunters just played joins it
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id, BIG_GAME_HUNTERS.id])
       expect(lobby.teams[0].slots).toHaveLength(2)
       // The finished game is recorded on the map it was actually played on
       expect(lobbyPublishes(id)).toEqual([
@@ -2268,12 +2270,56 @@ describe('lobbies/lobby-service', () => {
       const lobby = lobbyService.lobbies.get(id)!
       expect(lobby.gameType).toBe(GameType.UseMapSettings)
       expect(lobby.map!.id).toBe(UMS_MAP.id)
-      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id])
+      // The skipped map is dropped, and the UMS map just played goes to the back
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id, UMS_MAP.id])
       expect(lobbyPublishes(id).at(-1)).toEqual({
         type: 'mapQueueAdvance',
         skippedMapIds: [BIG_GAME_HUNTERS.id],
         lobby,
       })
+    })
+
+    test('a queue loops back to the first map after every queued map has been played', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+      })
+
+      await runCountdown(host)
+      endGame()
+
+      let lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(TWO_SLOT_MAP.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id])
+
+      await runCountdown(host)
+      endGame()
+
+      lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(BIG_GAME_HUNTERS.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([TWO_SLOT_MAP.id])
+    })
+
+    test('a full queue is still full after the lobby moves on', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: Array.from({ length: MAX_MAP_QUEUE }, () => TWO_SLOT_MAP.id),
+      })
+      await runCountdown(host)
+
+      endGame()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.mapQueue).toHaveLength(MAX_MAP_QUEUE)
+      expect(lobby.mapQueue.at(-1)!.id).toBe(BIG_GAME_HUNTERS.id)
     })
 
     test('a lobby keeps its map when none of the queued maps fit', async () => {

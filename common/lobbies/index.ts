@@ -73,7 +73,8 @@ export interface Lobby {
   /**
    * Maps the host has lined up for the lobby's next games, in the order they'll be played. Each time
    * a game ends and the lobby regroups, the first of these that fits the lobby's settings becomes
-   * its map.
+   * its map, and the map just played goes to the back of the queue, so the queue repeats until the
+   * host changes it.
    */
   readonly mapQueue: ReadonlyArray<MapInfo>
   readonly gameType: GameType

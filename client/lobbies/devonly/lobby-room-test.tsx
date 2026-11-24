@@ -408,13 +408,14 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         })
       }
     }
-    // The last game's regroup moves the lobby on to the first map it had queued.
+    // The last game's regroup moves the lobby on to the first map it had queued, and the map just
+    // played goes to the back of the queue.
     dispatch({
       type: '@lobbies/updateMapQueueAdvance',
       payload: {
         type: 'mapQueueAdvance',
         skippedMapIds: [],
-        lobby: { ...lobby, map: MOCK_QUEUED_MAP, mapQueue: [MOCK_MAP] },
+        lobby: { ...lobby, map: MOCK_QUEUED_MAP, mapQueue: [MOCK_MAP, MOCK_MAP] },
       },
     })
     sendMockChat(dispatch, DRONEBRO, 'gg wp. that recall was criminal')
