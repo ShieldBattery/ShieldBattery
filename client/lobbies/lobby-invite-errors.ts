@@ -17,11 +17,6 @@ export function lobbyInviteErrorCode(err: unknown): InviteToLobbyErrorCode | und
  */
 export function lobbyInviteErrorMessage(err: unknown, t: TFunction): string {
   switch (lobbyInviteErrorCode(err)) {
-    case InviteToLobbyErrorCode.AlreadyInvited:
-      return t(
-        'lobbies.inviteToLobby.errorAlreadyInvited',
-        'That user already has an invite to this lobby.',
-      )
     case InviteToLobbyErrorCode.AlreadyInLobby:
       return t('lobbies.inviteToLobby.errorAlreadyInLobby', 'That user is already in this lobby.')
     case InviteToLobbyErrorCode.BannedFromLobby:

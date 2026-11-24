@@ -2318,7 +2318,6 @@ export class LobbyService {
       const withoutMember = Lobbies.removeFromBench(lobby, client.userId)
       updatedLobby = isLobbyEmpty(withoutMember) ? undefined : withoutMember
     }
-
     const lobbyIsEmpty = !updatedLobby
 
     if (!updatedLobby) {
@@ -2340,7 +2339,7 @@ export class LobbyService {
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._deleteJoinCode(lobby.id)
       this._publishListChange('delete', lobby)
-      // remove pending lobby invites
+      // Invites to a lobby that no longer exists can't be accepted, so clear them away.
       this.notificationService
         .clearAllMatching({ type: NotificationType.LobbyInvite, lobbyId: lobby.id })
         .catch(err => logger.error({ err }, 'error clearing invites for a closed lobby'))

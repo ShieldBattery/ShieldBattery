@@ -202,7 +202,7 @@ function makeInviteApi({
     accountSettingsService as any,
   )
 
-  return { api, notificationService, userRelationshipService }
+  return { api, lobbyService, notificationService, userRelationshipService }
 }
 
 describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
@@ -232,14 +232,12 @@ describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
     expect(notificationService.addNotification).not.toHaveBeenCalled()
   })
 
-  test('rejects a target that already has an outstanding invite', async () => {
+  test('succeeds silently for a target that already has an outstanding invite', async () => {
     const { api, notificationService } = makeInviteApi({ existingInvites: [{ id: 1 }] })
     vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
 
-    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+    await expect(api.inviteToLobby(makeInviteCtx())).resolves.toBeUndefined()
 
-    expect(err).toHaveProperty('status', 409)
-    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.AlreadyInvited })
     expect(notificationService.addNotification).not.toHaveBeenCalled()
   })
 
@@ -269,6 +267,51 @@ describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
 
     await expect(api.inviteToLobby(makeInviteCtx())).resolves.toBeUndefined()
 
+    expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    ['the sender blocked the target', { senderBlockedByTarget: true }],
+    ['the target blocked the sender', { targetBlockedBySender: true }],
+  ])('still rejects an already-seated target when %s', async (_description, blocks) => {
+    const { api, notificationService } = makeInviteApi({
+      ...blocks,
+      lobby: makeLobby({ seatedUserId: TARGET_ID }),
+    })
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
+    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.AlreadyInLobby })
+    expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    ['the sender blocked the target', { senderBlockedByTarget: true }],
+    ['the target blocked the sender', { targetBlockedBySender: true }],
+  ])('still rejects a target that accepts no invites when %s', async (_description, blocks) => {
+    const { api, notificationService } = makeInviteApi({ ...blocks, allowInvitesFrom: 'none' })
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
+    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.NotAcceptingInvites })
+    expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test('still rejects a banned target when a block exists', async () => {
+    const { api, notificationService, lobbyService } = makeInviteApi({
+      senderBlockedByTarget: true,
+    })
+    lobbyService.lobbyBannedUsers.set(LOBBY_ID, new Set([TARGET_ID]))
+    vi.mocked(findUserById).mockResolvedValue({ id: TARGET_ID, name: 'TargetUser' } as any)
+
+    const err = await api.inviteToLobby(makeInviteCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
+    expect(err.payload).toEqual({ code: InviteToLobbyErrorCode.BannedFromLobby })
     expect(notificationService.addNotification).not.toHaveBeenCalled()
   })
 
@@ -314,6 +357,39 @@ describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
     expect(notificationService.addNotification).toHaveBeenCalledWith({
       userId: TARGET_ID,
       data: { type: NotificationType.LobbyInvite, from: SENDER_ID, lobbyId: LOBBY_ID },
+    })
+  })
+})
+
+describe('lobbies/lobby-api/LobbyApi#joinLobby', () => {
+  test('still succeeds when clearing the invite notification fails', async () => {
+    const lobbyService = {
+      getUserById: vi.fn().mockReturnValue({}),
+      joinLobby: vi.fn().mockResolvedValue(undefined),
+    }
+    const notificationService = {
+      clearFirstMatching: vi.fn().mockRejectedValue(new Error('db down')),
+    }
+    const api = new LobbyApi(
+      lobbyService as any,
+      { getById: vi.fn().mockReturnValue({ clientType: 'electron' }) } as any,
+      notificationService as any,
+      {} as any,
+      {} as any,
+    )
+
+    const ctx = {
+      params: { lobbyId: LOBBY_ID },
+      request: { body: { clientId: 'client-1' } },
+      session: { user: { id: SENDER_ID } },
+    } as any
+
+    await expect(api.joinLobby(ctx)).resolves.toBeUndefined()
+
+    expect(lobbyService.joinLobby).toHaveBeenCalled()
+    expect(notificationService.clearFirstMatching).toHaveBeenCalledWith({
+      userId: SENDER_ID,
+      data: { type: NotificationType.LobbyInvite, lobbyId: LOBBY_ID },
     })
   })
 })

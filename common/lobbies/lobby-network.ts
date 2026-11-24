@@ -25,8 +25,6 @@ export enum LobbyJoinErrorCode {
 }
 
 export enum InviteToLobbyErrorCode {
-  /** The target already has an outstanding invite to this lobby that hasn't been acted on. */
-  AlreadyInvited = 'alreadyInvited',
   AlreadyInLobby = 'alreadyInLobby',
   BannedFromLobby = 'bannedFromLobby',
   /**

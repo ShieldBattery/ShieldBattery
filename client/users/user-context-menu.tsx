@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap, mergeMultimaps } from '../../common/data-structures/maps'
+import { getLobbyPlayers } from '../../common/lobbies'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { useCurrentActivity } from '../activity/current-activity'
@@ -30,7 +31,6 @@ import {
 import { userRelationshipErrorToString } from '../social/relationship-errors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
-import { getLobbyPlayers } from '../../common/lobbies'
 
 const LoadingItem = styled(MenuItem)`
   color: var(--theme-on-surface-variant);
@@ -187,9 +187,7 @@ function ConnectedUserContextMenuContents({
   const { onNavigation } = useNavigationTracker()
   const isNavigationAvailable = useIsNavigationAvailable()
   const currentActivity = useCurrentActivity()
-  const currentLobby = useAppSelector(s => s.lobby)
-
-
+  const isInCurrentLobby = useAppSelector(s => getLobbyPlayers(s.lobby.info).includes(userId))
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
       return UserRelationshipKind.Friend
@@ -242,6 +240,7 @@ function ConnectedUserContextMenuContents({
         />,
       )
     }
+
     if (selfPermissions?.debug && variant === 'context') {
       appendToMultimap(
         items,
@@ -260,7 +259,11 @@ function ConnectedUserContextMenuContents({
     }
 
     if (user.id !== selfUser?.id) {
-      if (currentActivity?.kind === 'lobby' && relationshipKind !== UserRelationshipKind.Block && !getLobbyPlayers(currentLobby.info).includes(user.id)) {
+      if (
+        currentActivity?.kind === 'lobby' &&
+        relationshipKind !== UserRelationshipKind.Block &&
+        !isInCurrentLobby
+      ) {
         appendToMultimap(
           items,
           MenuItemCategory.General,
@@ -270,7 +273,13 @@ function ConnectedUserContextMenuContents({
             onClick={() => {
               dispatch(
                 inviteToLobby(user!.id, {
-                  onSuccess: () => {},
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('users.contextMenu.inviteToLobbySuccess', 'Invited {{user}} to lobby.', {
+                        user: user!.name,
+                      }),
+                    )
+                  },
                   onError: err => {
                     logger.error(`Error inviting ${user!.id} to lobby: ${err}`)
                     snackbarController.showSnackbar(lobbyInviteErrorMessage(err, t))
