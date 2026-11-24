@@ -2092,6 +2092,37 @@ export class LobbyService {
     this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, playerToKick)
   }
 
+  transferHost({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    // A running game is fine: the host role only decides who controls the lobby around it.
+    this.ensureLobbyNotStarting(lobby)
+
+    const [, , target] = findSlotById(lobby, slotId)
+    if (!target) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
+    }
+    if (target.type !== SlotType.Human && target.type !== SlotType.Observer) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
+    }
+    if (target.id === lobby.host.id) {
+      return
+    }
+
+    const updated = Lobbies.setHost(lobby, target)
+    this.lobbies.set(lobby.id, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
   _kickPlayerFromLobby(
     lobby: Lobby,
     teamIndex: number,

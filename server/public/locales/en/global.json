@@ -2125,6 +2125,7 @@
       "slotMenu": {
         "ban": "Ban",
         "kick": "Kick",
+        "makeHost": "Make host",
         "makeObserver": "Make an observer",
         "moveIntoPlayerSlot": "Move into a player slot",
         "remove": "Remove"
@@ -2136,6 +2137,7 @@
       "banPlayer": "Ban {{user}}",
       "closeSlot": "Close slot",
       "kickPlayer": "Kick {{user}}",
+      "makeHost": "Make {{user}} host",
       "name": "Closed",
       "open": "Open",
       "openSlot": "Open slot",

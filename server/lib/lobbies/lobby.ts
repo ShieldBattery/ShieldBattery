@@ -578,6 +578,19 @@ export function reassignHost(lobby: Lobby): Lobby {
 }
 
 /**
+ * Returns the lobby with its `host` pointed at the given slot, which must be one of the lobby's
+ * slots. Returns the lobby untouched when that slot already is the host.
+ */
+export function setHost(lobby: Lobby, newHost: Slot): Lobby {
+  if (newHost.id === lobby.host.id) {
+    return lobby
+  }
+  return produce(lobby, draft => {
+    draft.host = newHost
+  })
+}
+
+/**
  * Returns the open slot a UMS player slot becomes once its occupant leaves it. The slot keeps the
  * map data it was built from: its player id, and its race if the map forces one. A race the map
  * leaves up to the player was the occupant's own pick, so it doesn't stay behind for whoever takes

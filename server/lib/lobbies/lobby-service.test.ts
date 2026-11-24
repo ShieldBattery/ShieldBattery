@@ -4232,6 +4232,133 @@ describe('lobbies/lobby-service', () => {
     })
   })
 
+  describe('transferHost', () => {
+    function slotOf(id: SbLobbyId, userId: SbUserId) {
+      return findSlotByUserId(lobbyService.lobbies.get(id)!, userId)[2]!
+    }
+
+    test('only the host can hand over the host role', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      expect(() =>
+        lobbyService.transferHost({
+          client: joiner.client,
+          slotId: slotOf(id, JOINER_USER.id).id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(HOST_USER.id)
+    })
+
+    test('a slot id that names no slot is refused', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      expect(() =>
+        lobbyService.transferHost({ client: host.client, slotId: 'no-such-slot' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }))
+    })
+
+    test('a member waiting on the bench cannot be made host', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+
+      expect(() =>
+        lobbyService.transferHost({ client: host.client, slotId: String(OTHER_HOST_USER.id) }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }))
+    })
+
+    test('a slot that holds nobody is refused', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots.find(s => s.type === 'open')!
+      lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
+      const slots = lobbyService.lobbies.get(id)!.teams[0].slots
+      const computerSlot = slots.find(s => s.type === 'computer')!
+      const stillOpen = slots.find(s => s.type === 'open')!
+      expect(computerSlot).toBeDefined()
+      expect(stillOpen).toBeDefined()
+
+      for (const slot of [stillOpen, computerSlot]) {
+        expect(() => lobbyService.transferHost({ client: host.client, slotId: slot.id })).toThrow(
+          expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }),
+        )
+      }
+    })
+
+    test('the host role stays put while the lobby is counting down', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.startCountdown({ client: host.client, force: true })
+
+      expect(() =>
+        lobbyService.transferHost({
+          client: host.client,
+          slotId: slotOf(id, JOINER_USER.id).id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.CountingDown }))
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(HOST_USER.id)
+    })
+
+    test('hands the role over, keeping the former host seated and clearing their ready mark', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      // A host's own ready mark is only possible to hold through an earlier transfer, so it is
+      // set directly.
+      lobbyService.readyUsers.set(id, new Set([HOST_USER.id]))
+      const joinerSlot = slotOf(id, JOINER_USER.id)
+      fakeNydus.publish.mockClear()
+
+      lobbyService.transferHost({ client: host.client, slotId: joinerSlot.id })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.host.userId).toBe(JOINER_USER.id)
+      expect(slotOf(id, HOST_USER.id).type).toBe('human')
+      expect(lobbyService.readyUsers.get(id)?.has(HOST_USER.id) ?? false).toBe(false)
+      expect(diffEvents(id)).toContainEqual(
+        expect.objectContaining({
+          type: 'hostChange',
+          host: expect.objectContaining({ id: joinerSlot.id, userId: JOINER_USER.id }),
+        }),
+      )
+    })
+
+    test('an observer can be made host', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      lobbyService.makeObserver({ client: host.client, slotId: slotOf(id, JOINER_USER.id).id })
+      const observerSlot = slotOf(id, JOINER_USER.id)
+      expect(observerSlot.type).toBe('observer')
+
+      lobbyService.transferHost({ client: host.client, slotId: observerSlot.id })
+
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(JOINER_USER.id)
+    })
+
+    test("naming the host's own slot changes and publishes nothing", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      lobbyService.transferHost({ client: host.client, slotId: slotOf(id, HOST_USER.id).id })
+
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(HOST_USER.id)
+      expect(fakeNydus.publish).not.toHaveBeenCalled()
+    })
+
+    test('works while a game is running', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      expect(lobbyService.runStates.has(id)).toBe(true)
+
+      lobbyService.transferHost({ client: host.client, slotId: slotOf(id, JOINER_USER.id).id })
+
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(JOINER_USER.id)
+    })
+  })
+
   describe('cancelCountdown', () => {
     test('the host can call off a countdown, leaving the ready marks as they were', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')

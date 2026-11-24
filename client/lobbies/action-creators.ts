@@ -284,6 +284,10 @@ export function kickPlayer(slotId: string, spec: RequestHandlingSpec<void>): Thu
   return currentLobbySlotRequest('kick-player', slotId, spec)
 }
 
+export function transferHost(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('transfer-host', slotId, spec)
+}
+
 export function banPlayer(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
   return currentLobbySlotRequest('ban-player', slotId, spec)
 }

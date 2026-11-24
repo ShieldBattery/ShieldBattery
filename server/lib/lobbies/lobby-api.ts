@@ -621,6 +621,15 @@ export class LobbyApi {
     this.lobbyService.kickPlayer({ client, lobbyId: params.lobbyId, slotId: body.slotId })
   }
 
+  @httpPost('/:lobbyId/transfer-host')
+  @httpBefore(...authedAction)
+  async transferHost(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, { params: lobbyIdParams, body: lobbySlotBody })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.transferHost({ client, lobbyId: params.lobbyId, slotId: body.slotId })
+  }
+
   @httpPost('/:lobbyId/ban-player')
   @httpBefore(...authedAction)
   async banPlayer(ctx: RouterContext): Promise<void> {

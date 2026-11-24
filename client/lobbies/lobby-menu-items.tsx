@@ -3,12 +3,12 @@ import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import { findSlotByUserId } from '../../common/lobbies'
 import logger from '../logging/logger'
-import { DestructiveMenuItem } from '../material/menu/item'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { RequestHandlingSpec } from '../network/abortable-thunk'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
-import { banPlayer, kickPlayer } from './action-creators'
+import { banPlayer, kickPlayer, transferHost } from './action-creators'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { isInLobby } from './lobby-reducer'
 
@@ -35,6 +35,21 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
 
   const menuItems = new Map(items)
   if (inLobby && user && slot && !isSelf && isHost) {
+    appendToMultimap(
+      menuItems,
+      MenuItemCategory.General,
+      <MenuItem
+        key='make-host'
+        text={t('lobbies.slots.makeHost', {
+          defaultValue: 'Make {{user}} host',
+          user: user.name,
+        })}
+        onClick={() => {
+          dispatch(transferHost(slot.id, actionSpec))
+          onMenuClose()
+        }}
+      />,
+    )
     appendToMultimap(
       menuItems,
       MenuItemCategory.Destructive,
