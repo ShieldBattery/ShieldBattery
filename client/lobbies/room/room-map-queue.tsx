@@ -66,7 +66,7 @@ const QueueActionButton = styled(IconButton)`
   min-height: 32px;
 `
 
-const EmptyText = styled.div`
+const HintText = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
 `
@@ -134,7 +134,8 @@ function QueuedMapRow({
 
 /**
  * The section of the room's game setup where the host lines up maps for the games after the next
- * one. Each time a game ends, the lobby moves on to the first of them.
+ * one. Each time a game ends, the lobby moves on to the first of them, and the map it just played
+ * goes to the back of the queue.
  */
 export function MapQueueSection({
   queue,
@@ -172,14 +173,22 @@ export function MapQueueSection({
           ))}
         </QueueList>
       ) : (
-        <EmptyText>
+        <HintText>
           {t(
-            'lobbies.mapQueue.empty',
+            'lobbies.mapQueue.emptyLooping',
             'Queue maps to play after this one. The lobby moves on to the next one whenever a ' +
-              'game ends.',
+              'game ends, and the map it just played goes to the back of the queue.',
           )}
-        </EmptyText>
+        </HintText>
       )}
+      {queue.length ? (
+        <HintText>
+          {t(
+            'lobbies.mapQueue.loopHint',
+            'The queue repeats: each map goes to the back once it has been played.',
+          )}
+        </HintText>
+      ) : null}
       <AddMapButton
         label={t('lobbies.mapQueue.addMap', 'Add map')}
         iconStart='add'

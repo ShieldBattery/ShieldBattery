@@ -397,9 +397,10 @@ async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]>
 }
 
 /**
- * Moves a lobby on to the first map in its queue that its current settings can be played on,
- * dropping that map and any unplayable ones before it from the queue. A map that would have to
- * change the game type to be played is skipped rather than having the lobby's settings bent to fit
+ * Moves a lobby on to the first map in its queue that its current settings can be played on. That
+ * map and any unplayable ones before it leave the queue, and the map just played goes to the back
+ * of it, so a queue repeats until the host changes it. A map that would have to change the game
+ * type to be played is skipped (and dropped) rather than having the lobby's settings bent to fit
  * it; a team sub-type is only carried over to the new map's slot count, the way picking a map by
  * hand carries it over. If no queued map fits, the lobby keeps its map and the queue is emptied.
  */
@@ -425,7 +426,7 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
       })
       const updated = Lobbies.applySettingsChange(lobby, settings)
       return {
-        lobby: { ...updated, mapQueue: lobby.mapQueue.slice(i + 1) },
+        lobby: { ...updated, mapQueue: [...lobby.mapQueue.slice(i + 1), lobby.map!] },
         skippedMapIds,
       }
     } catch (err) {

@@ -691,7 +691,8 @@ export interface LobbyRegroupEvent {
  *
  * Queued maps that didn't fit the lobby's settings when their turn came (e.g. a map with no UMS
  * forces in a UMS lobby) were dropped from the queue without being played, and are named in
- * `skippedMapIds`. If every queued map was skipped, the lobby kept the map it had.
+ * `skippedMapIds`. If every queued map was skipped, the lobby kept the map it had and its queue is
+ * empty. Otherwise the map the lobby moved on from is at the back of the carried lobby's queue.
  */
 export interface LobbyMapQueueAdvanceEvent {
   type: 'mapQueueAdvance'

@@ -1984,8 +1984,9 @@
     },
     "mapQueue": {
       "addMap": "Add map",
-      "empty": "Queue maps to play after this one. The lobby moves on to the next one whenever a game ends.",
+      "emptyLooping": "Queue maps to play after this one. The lobby moves on to the next one whenever a game ends, and the map it just played goes to the back of the queue.",
       "header": "Up next",
+      "loopHint": "The queue repeats: each map goes to the back once it has been played.",
       "moveDown": "Move down",
       "moveUp": "Move up",
       "remove": "Remove from queue"
