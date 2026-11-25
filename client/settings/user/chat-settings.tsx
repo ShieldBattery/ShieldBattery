@@ -49,6 +49,7 @@ export function UserChatSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const chatDisplayMode = useAppSelector(s => s.settings.account.chatDisplayMode)
+  const showChatRankIcons = useAppSelector(s => s.settings.account.showChatRankIcons)
   const hideBlockedMessages = useAppSelector(s => s.settings.account.hideBlockedMessages)
 
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -99,6 +100,21 @@ export function UserChatSettings() {
             <CozyChatPreview />
           </PreviewBox>
         </RadioPreviewGroup>
+      </SectionContainer>
+      <SectionContainer>
+        <CheckBox
+          checked={showChatRankIcons}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { showChatRankIcons: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='showChatRankIcons'
+          label={t('settings.user.chat.showRankIcons', 'Show player rank icons')}
+        />
       </SectionContainer>
       <SectionContainer>
         <SettingsSectionHeader>

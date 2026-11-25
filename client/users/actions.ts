@@ -7,6 +7,7 @@ import {
   AdminGetUserIpsResponse,
   AdminUnbanUserResponse,
   GetBatchUserInfoResponse,
+  GetBatchUserRanksResponse,
   GetMatchHistoryResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
@@ -15,6 +16,7 @@ import {
 export type UserActions =
   | GetUserProfile
   | GetBatchUserInfo
+  | GetBatchUserRanks
   | LoadUsers
   | GetMatchHistory
   | AdminGetUserBanHistory
@@ -56,6 +58,12 @@ export type GetBatchUserInfo =
         userIds: ReadonlyArray<SbUserId>
       }
     }
+
+export interface GetBatchUserRanks {
+  type: '@users/getBatchUserRanks'
+  payload: GetBatchUserRanksResponse
+  meta: { userIds: ReadonlyArray<SbUserId>; time: number }
+}
 
 export interface LoadUsers {
   type: '@users/loadUsers'

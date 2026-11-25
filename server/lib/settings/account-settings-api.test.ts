@@ -56,6 +56,13 @@ describe('settings/account-settings-api', () => {
       ).toBeDefined()
     })
 
+    test('accepts turning off chat rank icons', () => {
+      const { error, value } = updateAccountSettingsSchema.validate({ showChatRankIcons: false })
+
+      expect(error).toBeUndefined()
+      expect(value).toEqual({ showChatRankIcons: false })
+    })
+
     test('accepts a replay name template, including an empty one', () => {
       expect(
         updateAccountSettingsSchema.validate({ replayNameTemplate: '{date} {matchup}' }).error,

@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { matchmakingDivisionToLabel } from '../../common/matchmaking'
 import { RolledOutcome } from '../../common/rolled-outcomes'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
@@ -22,9 +23,11 @@ import {
   lobbyIdFromMessageLink,
   LobbyInviteCard,
 } from '../lobbies/lobby-invite-card'
+import { DivisionIcon } from '../matchmaking/rank-icon'
 import { Tooltip } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useIsNavigationAvailable } from '../navigation/navigation-available'
+import { useAppSelector } from '../redux-hooks'
 import { labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { StaffBadgedAvatar } from '../users/staff-badge'
@@ -514,6 +517,7 @@ export function TextMessage({
         onContextMenu={onContextMenu}
         testId={testId}>
         <div>
+          {!disallowMentionInteraction ? <ChatRankIcon userId={userId} /> : undefined}
           <Username
             userId={userId}
             badge={NameBadge ? <NameBadge userId={userId} /> : undefined}
@@ -551,6 +555,7 @@ export function TextMessage({
         onContextMenu={onContextMenu}
         testId={testId}>
         {isActionLine ? <EmoteGlyph>{'* '}</EmoteGlyph> : undefined}
+        {!disallowMentionInteraction ? <ChatRankIcon userId={userId} /> : undefined}
         <UsernameComponent
           userId={userId}
           badge={NameBadge ? <NameBadge userId={userId} /> : undefined}
@@ -723,3 +728,34 @@ export const UnreadLineMessage = React.memo(() => {
     </UnreadLineRoot>
   )
 })
+
+const CHAT_RANK_ICON_SIZE = 18
+
+const RankBadge = styled(Tooltip)`
+  display: inline-flex;
+  margin-inline-end: 4px;
+  vertical-align: -4px;
+  text-indent: 0;
+
+  && {
+    user-select: none;
+  }
+`
+
+const RankGlyph = styled(DivisionIcon)`
+  width: ${CHAT_RANK_ICON_SIZE}px;
+  height: ${CHAT_RANK_ICON_SIZE}px;
+`
+
+function ChatRankIcon({ userId }: { userId: SbUserId }) {
+  const { t } = useTranslation()
+  const division = useAppSelector(s =>
+    s.settings.account.showChatRankIcons ? s.users.chatRanks.get(userId)?.division : undefined,
+  )
+
+  return division ? (
+    <RankBadge text={matchmakingDivisionToLabel(division, t)} position='top' tabIndex={-1}>
+      <RankGlyph division={division} size={CHAT_RANK_ICON_SIZE} />
+    </RankBadge>
+  ) : null
+}

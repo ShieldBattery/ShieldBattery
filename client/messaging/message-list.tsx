@@ -10,9 +10,10 @@ import { useSelfUser } from '../auth/auth-utils'
 import { observeResize } from '../dom/dimension-hooks'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
+import { getBatchUserRanks } from '../users/action-creators'
 import { captureChatViewAnchor, chatViewAnchorStore } from './chat-view-anchor'
 import {
   BlockedMessage,
@@ -334,10 +335,37 @@ function PureMessageList({
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
+  const dispatch = useAppDispatch()
   const blocks = useAppSelector(s => s.relationships.blocks)
   const accountDisplayMode = useAppSelector(s => s.settings.account.chatDisplayMode)
   const hideBlocked = useAppSelector(s => s.settings.account.hideBlockedMessages)
+  const showRankIcons = useAppSelector(s => s.settings.account.showChatRankIcons)
   const effectiveDisplayMode = displayMode ?? accountDisplayMode
+
+  React.useEffect(() => {
+    if (!showRankIcons || !selfUser) {
+      return undefined
+    }
+
+    const authors = new Set<SbUserId>()
+    for (const message of messages) {
+      if (
+        (message.type === CommonMessageType.TextMessage ||
+          message.type === ServerChatMessageType.TextMessage) &&
+        (!hideBlocked || !blocks.has(message.from))
+      ) {
+        authors.add(message.from)
+      }
+    }
+    if (!authors.size) {
+      return undefined
+    }
+
+    const refresh = () => dispatch(getBatchUserRanks(authors))
+    refresh()
+    const interval = setInterval(refresh, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [blocks, dispatch, hideBlocked, messages, selfUser, showRankIcons])
 
   // Message lists only exist behind a login in the real app, but /dev pages mount outside that
   // gate and can render one with no session — show nothing there rather than crash.
