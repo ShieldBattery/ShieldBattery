@@ -487,6 +487,11 @@ const RankDisplayType = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const RankDisplayRecord = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+`
+
 function RankDisplay({
   matchmakingType,
   ladderPlayer,
@@ -508,6 +513,9 @@ function RankDisplay({
         <DivisionIcon player={ladderPlayer} size={88} divisionContext={divisionContext} />
       </Tooltip>
       <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
+      <RankDisplayRecord>
+        {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
+      </RankDisplayRecord>
     </RankDisplayRoot>
   )
 }
