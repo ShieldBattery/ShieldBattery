@@ -24,6 +24,7 @@ import { ReplayViolationService } from './lib/games/replay-violation-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
+import { EarlyLeavePenaltyService } from './lib/matchmaking/early-leave-penalty-service'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { EvidenceRecoveryService } from './lib/netcode-v2/evidence-recovery-service'
 import { EvidenceRetentionService } from './lib/netcode-v2/evidence-retention-service'
@@ -232,6 +233,8 @@ container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
 container.resolve(LobbyViolationService)
 container.resolve(ReplayViolationService)
 container.resolve(IdentifierReconciliationService)
+// Resolved here so it's listening for reconciled games before any game can reconcile
+container.resolve(EarlyLeavePenaltyService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

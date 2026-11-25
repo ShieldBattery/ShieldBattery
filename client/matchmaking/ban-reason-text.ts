@@ -20,6 +20,11 @@ export function matchmakingWarningText(t: TFunction, reason: MatchmakingBanReaso
         'matchmaking.banReason.warningFailedToLoad',
         "You received a matchmaking warning because your game failed to load into a match. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking.",
       )
+    case 'leftEarly':
+      return t(
+        'matchmaking.banReason.warningLeftEarly',
+        "You received a matchmaking warning for leaving a game shortly after it started. Losing your connection to the game counts as leaving. If you leave another game early soon, you'll be temporarily banned from matchmaking.",
+      )
     default:
       return assertUnreachable(reason)
   }
@@ -42,6 +47,11 @@ export function matchmakingBanText(t: TFunction, reason: MatchmakingBanReason): 
       return t(
         'matchmaking.banReason.banFailedToLoad',
         "You've been temporarily banned from matchmaking because your game failed to load into a match.",
+      )
+    case 'leftEarly':
+      return t(
+        'matchmaking.banReason.banLeftEarly',
+        "You've been temporarily banned from matchmaking for leaving a game shortly after it started. Losing your connection to the game counts as leaving.",
       )
     default:
       return assertUnreachable(reason)

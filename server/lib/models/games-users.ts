@@ -282,6 +282,49 @@ export async function getDepartureTimesForGame(
   }
 }
 
+/** What a game's record holds about how one of its players' participation ended. */
+export interface GameUserDepartureEvidence {
+  userId: SbUserId
+  departureKind: DepartureKind | null
+  departureTime: Date | null
+  relayReportFrame: number | null
+  reportedResults: StoredGameResults | null
+  result: ReconciledResult | null
+}
+
+/** Retrieves how each player's participation in a game ended, for every player in it. */
+export async function getDepartureEvidenceForGame(
+  gameId: string,
+): Promise<GameUserDepartureEvidence[]> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{
+      user_id: SbUserId
+      departure_kind: DepartureKind | null
+      departure_time: Date | null
+      relay_report_frame: number | null
+      reported_results: StoredGameResults | null
+      result: ReconciledResult | null
+    }>(sql`
+      SELECT user_id, departure_kind, departure_time, relay_report_frame, reported_results, result
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      departureKind: row.departure_kind,
+      departureTime: row.departure_time,
+      relayReportFrame: row.relay_report_frame,
+      reportedResults: row.reported_results,
+      result: row.result,
+    }))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Sets the reconciled (and probably final) result for a particular user in a game. This is intended
  * to be executed in a transaction that updates all the users and the full game results at once.

@@ -150,6 +150,7 @@ describe('matchmaking/matchmaking-service', () => {
   }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
   let machineSupport: MachineSupportRegistry
+  let clock: FakeClock
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
     return {
@@ -257,7 +258,7 @@ describe('matchmaking/matchmaking-service', () => {
     register.clear()
     vi.useFakeTimers()
 
-    const clock = new FakeClock()
+    clock = new FakeClock()
     clock.setCurrentTime(1_000_000)
 
     publisher = { publish: vi.fn() }
@@ -2083,6 +2084,160 @@ describe('matchmaking/matchmaking-service', () => {
     expect(gameLoader.cancelLoadingWithoutBlame).toHaveBeenCalledWith('started-game')
     expect(request.signal.aborted).toBe(false)
     expect(banUser).not.toHaveBeenCalled()
+  })
+
+  describe('a ban for an earlier game', () => {
+    const IDENTIFIERS_A = [[1, 'a'.repeat(64)]] as any
+
+    function match1v1(): void {
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [matched(USER_A, 'ticket-a')],
+          teamB: [matched(USER_B, 'ticket-b')],
+          quality: 1,
+          skillVariance: 0,
+          ratingVarianceMultiplier: 1,
+          winProbability: 0.5,
+          teamARating: 1500,
+          teamBRating: 1500,
+          maxLatency: 0,
+          rematchPenalty: 0,
+        },
+      })
+    }
+
+    /** Queues both players, matches them, and has both accept, leaving the game to load. */
+    async function startLoading(): Promise<void> {
+      asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+      asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+      const prefs = makePreferences()
+      await service.find(USER_A, CLIENT_A, IDENTIFIERS_A, [prefs], DEFAULT_PUBKEY)
+      await queuePlayer(USER_B, CLIENT_B)
+      match1v1()
+      await drainMatchmakingTasks()
+      await acceptFoundMatch(USER_A)
+      await acceptFoundMatch(USER_B)
+      await drainMatchmakingTasks()
+    }
+
+    function eventsTo(path: string): any[] {
+      return publisher.publish.mock.calls
+        .filter((call: any[]) => call[0] === path)
+        .map((call: any[]) => call[1])
+    }
+
+    test("remembers a started game's identifiers until they're taken", async () => {
+      gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+      await startLoading()
+
+      expect(service.takeStartedGameIdentifiers(GAME_ID)).toEqual(
+        new Map([
+          [USER_A, IDENTIFIERS_A],
+          [USER_B, []],
+        ]),
+      )
+      expect(service.takeStartedGameIdentifiers(GAME_ID)).toBeUndefined()
+    })
+
+    test('forgets the identifiers of a game that never reconciles', async () => {
+      gameLoader.loadGame.mockResolvedValueOnce(Result.ok({ gameId: 'old-game' }))
+      await startLoading()
+
+      clock.setCurrentTime(clock.now() + 6 * 60 * 60 * 1000)
+      gameLoader.loadGame.mockResolvedValueOnce(Result.ok({ gameId: 'new-game' }))
+      await startLoading()
+
+      expect(service.takeStartedGameIdentifiers('old-game')).toBeUndefined()
+      expect(service.takeStartedGameIdentifiers('new-game')).toBeDefined()
+    })
+
+    test('ends a search and tells the client to put it away', async () => {
+      await queuePlayer(USER_A, CLIENT_A)
+      checkUser.mockResolvedValue({})
+
+      await service.enforceGameBan(USER_A)
+
+      expect(matchmakerClient.cancel).toHaveBeenCalledWith(USER_A, queuedSearchIds(USER_A).at(-1))
+      expect(eventsTo(getMatchmakingUserPath(USER_A))).toEqual([
+        { type: 'queueStatus', matchmaking: undefined },
+        { type: 'removedByBan' },
+      ])
+      await expect(service.cancel(USER_A)).rejects.toThrow('does not have an active')
+    })
+
+    test('ends an accepting match, requeueing the other player', async () => {
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+      match1v1()
+      await drainMatchmakingTasks()
+      checkUser.mockResolvedValue({})
+
+      await service.enforceGameBan(USER_A)
+      await drainMatchmakingTasks()
+
+      expect(banUser).not.toHaveBeenCalled()
+      expect(eventsTo(getMatchmakingUserPath(USER_A))).toEqual([
+        { type: 'queueStatus', matchmaking: undefined },
+        { type: 'removedByBan' },
+      ])
+      expect(eventsTo(getMatchmakingClientPath(clientSockets.get(USER_B)!))).toContainEqual({
+        type: 'requeue',
+      })
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
+      expect(matchmakerClient.requeue).not.toHaveBeenCalledWith('ticket-a')
+    })
+
+    test('cancels a loading game, telling the other player someone left', async () => {
+      let resolveLoad: ((result: Result<any, any>) => void) | undefined
+      gameLoader.loadGame.mockImplementation((request: any) => {
+        request.onGameRegistered('replacement-game')
+        return new Promise(resolve => {
+          resolveLoad = resolve
+        })
+      })
+      await startLoading()
+      checkUser.mockResolvedValue({})
+
+      const enforcing = service.enforceGameBan(USER_A)
+      await drainMatchmakingTasks()
+      expect(gameLoader.cancelLoadingWithoutBlame).toHaveBeenCalledWith('replacement-game')
+      resolveLoad!(Result.error(new BaseGameLoaderError(GameLoadErrorType.Canceled, 'canceled')))
+      await enforcing
+
+      expect(banUser).not.toHaveBeenCalled()
+      expect(eventsTo(getMatchmakingUserPath(USER_A))).toContainEqual({ type: 'removedByBan' })
+      const bystanderEvents = eventsTo(getMatchmakingClientPath(clientSockets.get(USER_B)!))
+      expect(bystanderEvents).toContainEqual({ type: 'cancelLoading', reason: 'playerLeft' })
+      expect(bystanderEvents).toContainEqual({ type: 'requeue' })
+      expect(matchmakerClient.requeue).toHaveBeenCalledWith('ticket-b')
+    })
+
+    test('leaves a game that is already being played alone', async () => {
+      gameLoader.loadGame.mockImplementation((request: any) => {
+        request.onGameRegistered('started-game')
+        return new Promise<never>(() => {})
+      })
+      gameLoader.cancelLoadingWithoutBlame.mockReturnValue(false)
+      await startLoading()
+      checkUser.mockResolvedValue({})
+
+      await service.enforceGameBan(USER_A)
+
+      expect(eventsTo(getMatchmakingUserPath(USER_A))).not.toContainEqual({ type: 'removedByBan' })
+      expect(matchmakerClient.requeue).not.toHaveBeenCalled()
+    })
+
+    test('changes nothing for a player who is no longer banned', async () => {
+      await queuePlayer(USER_A, CLIENT_A)
+
+      await service.enforceGameBan(USER_A)
+
+      expect(matchmakerClient.cancel).not.toHaveBeenCalled()
+      expect(eventsTo(getMatchmakingUserPath(USER_A))).toEqual([])
+      await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+    })
   })
 
   describe('a penalty that removes a search', () => {

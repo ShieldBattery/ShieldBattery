@@ -2327,9 +2327,11 @@
     "banReason": {
       "banFailedToLoad": "You've been temporarily banned from matchmaking because your game failed to load into a match.",
       "banLeft": "You've been temporarily banned from matchmaking for leaving a match before it started. Losing your connection to ShieldBattery counts as leaving.",
+      "banLeftEarly": "You've been temporarily banned from matchmaking for leaving a game shortly after it started. Losing your connection to the game counts as leaving.",
       "banNotReady": "You've been temporarily banned from matchmaking for not readying up for a match in time.",
       "warningFailedToLoad": "You received a matchmaking warning because your game failed to load into a match. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking.",
       "warningLeft": "You received a matchmaking warning for leaving a match before it started. Losing your connection to ShieldBattery counts as leaving. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking.",
+      "warningLeftEarly": "You received a matchmaking warning for leaving a game shortly after it started. Losing your connection to the game counts as leaving. If you leave another game early soon, you'll be temporarily banned from matchmaking.",
       "warningNotReady": "You received a matchmaking warning for not readying up for a match in time. If a match fails to start because of you again soon, you'll be temporarily banned from matchmaking."
     },
     "disabledCard": {

@@ -51,6 +51,7 @@ const BAN_REASONS: ReadonlyArray<MatchmakingBanReason | undefined> = [
   'notReady',
   'left',
   'failedToLoad',
+  'leftEarly',
 ]
 
 export function MatchDialogsTest() {

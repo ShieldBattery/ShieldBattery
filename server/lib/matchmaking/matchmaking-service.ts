@@ -187,7 +187,7 @@ class Match {
   private abortController = new AbortController()
   private phase: MatchmakingMatchFailPhase = 'accepting'
   private loadingGameId?: string
-  private forcedLobbyViolationUser?: SbUserId
+  private bannedOut?: { userId: SbUserId; bystanderReason: MatchCanceledReason }
   private disconnectedDuringLoad = new Set<SbUserId>()
   private completed = createDeferred<void>()
   private draftState?: DraftState
@@ -281,13 +281,21 @@ class Match {
     this.completed.resolve()
   }
 
-  get forcedLobbyViolationPenaltyUser(): SbUserId | undefined {
-    return this.forcedLobbyViolationUser
+  /**
+   * The player a ban for another game forced out of this match, and the reason the other players
+   * are given for it falling apart.
+   */
+  get bannedOutPlayer(): { userId: SbUserId; bystanderReason: MatchCanceledReason } | undefined {
+    return this.bannedOut
   }
 
-  forceLobbyViolationPenalty(userId: SbUserId): boolean {
+  /**
+   * Ends this match because a player in it was banned for another game. Nobody in this match is
+   * blamed for it.
+   */
+  forceOutBannedPlayer(userId: SbUserId, bystanderReason: MatchCanceledReason): boolean {
     if (!this.playerIds.has(userId)) return false
-    this.forcedLobbyViolationUser = userId
+    this.bannedOut = { userId, bystanderReason }
     this.clearAcceptTimeout()
     this.draftState?.handleClientLeave()
     this.abortController.abort()
@@ -536,6 +544,18 @@ const MAX_TOKEN_FETCH_FAILURES = 2
  */
 const RECENT_OPPONENT_LOOKBACK_MS = 6 * 60 * 60 * 1000
 
+/**
+ * How long the identifiers of a started game's players are kept for if the game never reconciles.
+ * The reconcile sweep forces every game's results a few hours after it starts, well within this.
+ */
+const STARTED_GAME_IDENTIFIERS_RETENTION_MS = 6 * 60 * 60 * 1000
+
+interface StartedGameIdentifiers {
+  /** When the game started, from the service's clock. */
+  startedAt: number
+  identifiers: Map<SbUserId, ReadonlyDeep<ClientIdentifierString[]>>
+}
+
 @singleton()
 export class MatchmakingService {
   /** Full player data for players currently in the Rust queue. Keyed by userId. */
@@ -548,6 +568,12 @@ export class MatchmakingService {
   private queueEntries = new Map<SbUserId, QueueEntry>()
   // Maps match ID -> Match
   private matches = new Map<string, Match>()
+  /**
+   * The client identifiers each player of a started game queued with, keyed by game ID and ordered
+   * oldest first. Matchmaking forgets a player once their game starts, but a penalty for how they
+   * played it can only be issued once it has reconciled.
+   */
+  private startedGames = new Map<string, StartedGameIdentifiers>()
 
   private lastKnownProcessToken: string | undefined
   private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
@@ -1049,6 +1075,32 @@ export class MatchmakingService {
   }
 
   /**
+   * Returns the client identifiers each player of a started matchmaking game queued with, and
+   * forgets them. Undefined for a game that isn't remembered: one that didn't come from matchmaking,
+   * was already taken, or started before a server restart.
+   */
+  takeStartedGameIdentifiers(
+    gameId: string,
+  ): ReadonlyMap<SbUserId, ReadonlyDeep<ClientIdentifierString[]>> | undefined {
+    const started = this.startedGames.get(gameId)
+    this.startedGames.delete(gameId)
+    return started?.identifiers
+  }
+
+  private rememberStartedGame(gameId: string, match: Match): void {
+    const now = this.clock.now()
+    for (const [id, started] of this.startedGames) {
+      if (now - started.startedAt < STARTED_GAME_IDENTIFIERS_RETENTION_MS) break
+      this.startedGames.delete(id)
+    }
+
+    this.startedGames.set(gameId, {
+      startedAt: now,
+      identifiers: new Map(Array.from(match.players(), p => [p.id, p.identifiers])),
+    })
+  }
+
+  /**
    * Applies a lobby-violation penalty to the offender's live matchmaking state and tells them about
    * it. This is the only place the offender hears about their penalty: the match their violation
    * cancelled just removes them from it, telling them a penalty is pending.
@@ -1071,33 +1123,58 @@ export class MatchmakingService {
       await match.completion
     }
 
-    const hasActiveBan =
-      penalty === 'lossAndBan' && !!(await this.matchmakingBanService.checkUser(userId))
+    const queueRemoved =
+      penalty === 'lossAndBan' ? await this.removeBannedPlayer(userId, 'gameAnomaly') : false
+    this.publishToUser(userId, { type: 'lobbyViolationPenalty', gameId, penalty, queueRemoved })
+  }
+
+  /**
+   * Applies a matchmaking ban issued for a game the user has already left to their live
+   * matchmaking state, so it takes effect now rather than at their next search. The ban's
+   * notification is what explains it to them; their client is only told to put away the search or
+   * match it ended.
+   */
+  async enforceGameBan(userId: SbUserId): Promise<void> {
+    if (await this.removeBannedPlayer(userId, 'playerLeft')) {
+      this.publishToUser(userId, { type: 'removedByBan' })
+    }
+  }
+
+  /**
+   * Removes a user with an active matchmaking ban from their live search, or from a match of theirs
+   * that hasn't started playing, requeueing that match's other players. A game that is already
+   * being played is left alone.
+   *
+   * @param bystanderReason What the other players in a match this ends are told caused it
+   * @returns whether the user was removed from a search or match
+   */
+  private async removeBannedPlayer(
+    userId: SbUserId,
+    bystanderReason: MatchCanceledReason,
+  ): Promise<boolean> {
+    if (!(await this.matchmakingBanService.checkUser(userId))) {
+      return false
+    }
+
     const entry = this.queueEntries.get(userId)
-    let queueRemoved = false
-    if (hasActiveBan && entry?.matchId) {
+    let removed = false
+    if (entry?.matchId) {
       const match = this.matches.get(entry.matchId)
       if (match) {
         const loadingGameId = match.loadingGame
         if (loadingGameId && !this.gameLoader.cancelLoadingWithoutBlame(loadingGameId)) {
           // That game finished loading in the meantime, so it's being played and stays that way
-          this.publishToUser(userId, {
-            type: 'lobbyViolationPenalty',
-            gameId,
-            penalty,
-            queueRemoved,
-          })
-          return
+          return false
         }
-        if (match.forceLobbyViolationPenalty(userId)) {
-          queueRemoved = true
+        if (match.forceOutBannedPlayer(userId, bystanderReason)) {
+          removed = true
           await match.completion
         }
       }
     }
 
     const queued = this.queueEntries.get(userId)
-    if (hasActiveBan && queued && !queued.matchId) {
+    if (queued && !queued.matchId) {
       const data = this.playerQueueData.get(userId)
       // The player can leave (and start something else) while the search is being removed, so the
       // registration is only released, or the search restored, if it's still the one they searched
@@ -1120,10 +1197,10 @@ export class MatchmakingService {
       if (this.activityRegistry.getClientForUser(userId) === client) {
         this.unregisterActivity(userId)
       }
-      queueRemoved = true
+      removed = true
     }
 
-    this.publishToUser(userId, { type: 'lobbyViolationPenalty', gameId, penalty, queueRemoved })
+    return removed
   }
 
   /**
@@ -1368,14 +1445,14 @@ export class MatchmakingService {
         }
       }
 
-      const forcedUser = match.forcedLobbyViolationPenaltyUser
-      if (forcedUser !== undefined) {
+      const bannedOut = match.bannedOutPlayer
+      if (bannedOut !== undefined) {
         // A penalty for another game makes this participant unavailable. Failure/decline reports
         // racing this cancellation must not turn it into additional penalties for this roster.
         for (const player of match.players()) {
           const entry = this.matchQueueEntry(player.id, match)
           if (!entry) continue
-          if (player.id === forcedUser) {
+          if (player.id === bannedOut.userId) {
             this.queueEntries.delete(player.id)
             this.unregisterActivity(player.id)
             continue
@@ -1384,7 +1461,7 @@ export class MatchmakingService {
           if (phase === 'drafting' || phase === 'loading') {
             this.publishToActiveClient(player.id, {
               type: phase === 'drafting' ? 'draftCancel' : 'cancelLoading',
-              reason: 'gameAnomaly',
+              reason: bannedOut.bystanderReason,
             })
           }
           this.publishToActiveClient(player.id, { type: 'requeue' })
@@ -1736,6 +1813,7 @@ export class MatchmakingService {
       )
     }
 
+    this.rememberStartedGame(loadResult.value.gameId, match)
     for (const player of match.players()) {
       // Someone who has already moved on to another search is left to it
       if (!this.matchQueueEntry(player.id, match)) continue

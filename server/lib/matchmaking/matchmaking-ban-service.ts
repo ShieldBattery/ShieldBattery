@@ -29,13 +29,22 @@ const DAYS = 24 * HOURS
 const GAME_PENALTY_LOCK_TIMEOUT =
   "SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s'"
 
-/** The matchmaking consequence a game-scoped penalty carried, alongside its recorded loss. */
+/**
+ * The matchmaking consequence of a game-scoped penalty: a ban, or a warning for a first offense.
+ * The names come from lobby violations, which also record a loss for the offender; an early leave's
+ * penalty leaves the game's result as it was.
+ */
 export type GamePenalty = 'lossAndBan' | 'lossAndWarning'
 
 export interface GamePenaltyResult {
   penalty: GamePenalty
   /** Whether this caller holds the lease to enforce the penalty against live matchmaking state. */
   needsEnforcement: boolean
+  /**
+   * When the user's matchmaking ban ends, for a ban the caller holds the enforcement lease for and
+   * that is still in effect. Undefined for a warning, when there is no lease, or once the ban is over.
+   */
+  bannedUntil?: number
 }
 
 const BAN_LEVELS: ReadonlyDeep<Array<[banDuration: number, clearDuration: number]>> = [
@@ -129,13 +138,17 @@ export class MatchmakingBanService {
   /**
    * Bans a user for something they did in a particular game, escalating at most once per game
    * however many times it's retried, and leases live-match enforcement of the ban to one caller
-   * (see `GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES`). The returned penalty is for the caller to
-   * announce; no notification is sent from here.
+   * (see `GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES`). The ban escalates from the same history as the
+   * ones `banUser` issues, so offenses of either kind count toward the next. The returned penalty is
+   * for the caller to announce; no notification is sent from here.
+   *
+   * @param reason Why the ban was issued, recorded on it when given
    */
   async applyGamePenalty(
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
     gameId: string,
+    reason?: MatchmakingBanReason,
   ): Promise<GamePenaltyResult> {
     return await transact(async client => {
       await client.query(GAME_PENALTY_LOCK_TIMEOUT)
@@ -150,10 +163,13 @@ export class MatchmakingBanService {
       `)
 
       let penalty: GamePenalty
+      let bannedUntil: number | undefined
+      let escalated = false
       if (existing.rowCount) {
         penalty = existing.rows[0].penalty
       } else {
-        penalty = (await this.escalateBan(userId, identifiers, client)).penalty
+        ;({ penalty, bannedUntil } = await this.escalateBan(userId, identifiers, client, reason))
+        escalated = true
         await client.query(sql`
           INSERT INTO matchmaking_game_bans (game_id, user_id, penalty)
           VALUES (${gameId}, ${userId}, ${penalty})
@@ -173,7 +189,23 @@ export class MatchmakingBanService {
           )
         RETURNING game_id
       `)
-      return { penalty, needsEnforcement: !!claimed.rowCount }
+      const needsEnforcement = !!claimed.rowCount
+      if (!needsEnforcement) {
+        return { penalty, needsEnforcement }
+      }
+      if (!escalated && penalty === 'lossAndBan') {
+        // An earlier attempt escalated and then lost its lease, so the ban it issued is looked up
+        const activeBan = await checkActiveMatchmakingBan(
+          {
+            userId,
+            now: new Date(this.clock.now()),
+            minSameIdentifiers: MIN_IDENTIFIER_MATCHES,
+          },
+          client,
+        )
+        bannedUntil = activeBan ? Number(activeBan.expiresAt) : undefined
+      }
+      return { penalty, needsEnforcement, bannedUntil }
     })
   }
 
