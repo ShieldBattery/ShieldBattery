@@ -1580,6 +1580,20 @@
     "activity": {
       "title": "Ladder"
     },
+    "distribution": {
+      "description": "Players who finished their placement matches, in steps of {{width}} rating. Each bar is colored by the division most of its players are in.",
+      "empty": "No players have finished their placements yet.",
+      "medianRating": "Median rating",
+      "ratedPlayers": "Rated players",
+      "title": "Rating distribution",
+      "tooltipDivision": "Mostly {{division}}",
+      "tooltipPlayers_one": "{{count}} player ({{percent}})",
+      "tooltipPlayers_other": "{{count}} players ({{percent}})",
+      "tooltipRange": "Rating {{start}}–{{end}}",
+      "topPercent": "Top {{percent}}",
+      "you": "You",
+      "yourRating": "Your rating"
+    },
     "division": "Division",
     "divisionGroup": {
       "all": "All",
@@ -1617,6 +1631,11 @@
     "rankHeader": "Rank",
     "season": "Season",
     "updatedText": "Updated: {{timestamp}}",
+    "view": {
+      "distribution": "Distribution",
+      "rankings": "Rankings"
+    },
+    "viewLabel": "View",
     "winLossHeader": "Win/loss"
   },
   "landing": {

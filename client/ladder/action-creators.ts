@@ -197,10 +197,21 @@ export function getInstantaneousSelfRank(spec: RequestHandlingSpec<void>): Thunk
 }
 
 /** Navigates to the ladder rankings page (optionally for a given matchmaking type and a season). */
+/** The ways the ladder page can show a ranking list, stored in its `view` search param. */
+export enum LadderView {
+  Rankings = 'rankings',
+  Distribution = 'distribution',
+}
+
 export function navigateToLadder(
   matchmakingType: MatchmakingType = MatchmakingType.Match1v1,
   seasonId?: SeasonId,
   transitionFn = push,
+  view = LadderView.Rankings,
 ) {
-  transitionFn(urlPath`/ladder/${matchmakingType}` + (seasonId ? urlPath`/${seasonId}` : ''))
+  transitionFn(
+    urlPath`/ladder/${matchmakingType}` +
+      (seasonId ? urlPath`/${seasonId}` : '') +
+      (view !== LadderView.Rankings ? urlPath`?view=${view}` : ''),
+  )
 }
