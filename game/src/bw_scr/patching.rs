@@ -715,7 +715,7 @@ impl BwScr {
                 exe.hook_closure_address(
                     SetFollowUnit,
                     move |unit, toggle, _orig| {
-                        self.follow_unit_for_game(unit, toggle != 0);
+                        self.set_followed_unit(unit, toggle != 0);
                     },
                     address.0 as usize - base,
                 );
