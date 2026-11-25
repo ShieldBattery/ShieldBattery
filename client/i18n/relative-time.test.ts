@@ -31,6 +31,27 @@ describe('RelativeTimeFormatter', () => {
       expect(formatter.format('2000-12-20', '2000-01-01')).toBe('in 11mo')
     })
 
+    test('years count whole calendar years', () => {
+      // 365 days in a leap year is one day short of a calendar year.
+      expect(formatter.format('2000-01-01T12:00:00', '2000-12-31T12:00:00')).toBe('11mo ago')
+      expect(formatter.format('2000-12-31T12:00:00', '2000-01-01T12:00:00')).toBe('in 11mo')
+      expect(formatter.format('2000-02-29T12:00:00', '2001-02-28T12:00:00')).toBe('11mo ago')
+      expect(formatter.format('2000-02-29T12:00:00', '2001-03-01T12:00:00')).toBe('1y ago')
+    })
+
+    test('months count whole calendar months', () => {
+      // 360 days is under a calendar year but more than twelve 30-day months.
+      expect(formatter.format('2001-01-01T12:00:00', '2001-12-27T12:00:00')).toBe('11mo ago')
+      expect(formatter.format('2001-12-27T12:00:00', '2001-01-01T12:00:00')).toBe('in 11mo')
+      // February is a full calendar month despite having fewer than 30 days.
+      expect(formatter.format('2001-02-01T12:00:00', '2001-03-01T12:00:00')).toBe('1mo ago')
+      expect(formatter.format('2001-03-01T12:00:00', '2001-02-01T12:00:00')).toBe('in 1mo')
+      // A month isn't complete until its day of month and time of day are reached again.
+      expect(formatter.format('2000-01-31T12:00:00', '2000-02-29T12:00:00')).toBe('4w ago')
+      expect(formatter.format('2001-01-15T12:00:00', '2001-02-15T11:59:00')).toBe('4w ago')
+      expect(formatter.format('2001-01-15T12:00:00', '2001-02-15T12:00:00')).toBe('1mo ago')
+    })
+
     test('weeks', () => {
       expect(formatter.format('2000-01-01', '2000-01-08')).toBe('1w ago')
       expect(formatter.format('2000-01-01', '2000-01-15')).toBe('2w ago')
