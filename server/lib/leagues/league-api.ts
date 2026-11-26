@@ -161,7 +161,7 @@ export class LeagueApi {
         offset,
         startDate,
         endDate,
-        includeShort,
+        hideShort,
       },
     } = validateRequest(ctx, {
       query: GET_GAMES_QUERY_SCHEMA,
@@ -194,7 +194,7 @@ export class LeagueApi {
       // a fast page and a full index walk for a league that ended long ago.
       startDate: Math.max(startDate ?? 0, Number(league.startAt)),
       endDate: Math.min(endDate ?? Number.MAX_SAFE_INTEGER, Number(league.endAt)),
-      includeShort,
+      hideShort,
     })
 
     const { users, maps, replays } = await getGameListSideData({

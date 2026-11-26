@@ -108,8 +108,8 @@ export interface GameListFilters {
   startDate?: number
   /** Inclusive upper bound (unix ms) on the game's start time. */
   endDate?: number
-  /** When true, includes games shorter than `MIN_GAME_LENGTH_MS` (hidden by default). */
-  includeShort?: boolean
+  /** When true, excludes games shorter than `MIN_GAME_LENGTH_MS`. */
+  hideShort?: boolean
 }
 
 export interface GameListViewProps {
@@ -195,14 +195,14 @@ export function GameListView({
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [startDateParam, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDateParam, setEndDateParam] = useLocationSearchParam('endDate')
-  const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
+  const [hideShortParam, setHideShortParam] = useLocationSearchParam('hideShort')
 
   // Only the params a surface actually shows are remembered for it, which also keeps a hand-edited
   // param that surface ignores from counting as "the URL specifies the filters".
   const rememberedUrlValues: Record<string, string> = {
     sort: sortParam,
     duration: durationParam,
-    includeShort: includeShortParam,
+    hideShort: hideShortParam,
   }
   if (showSourceFilter) {
     rememberedUrlValues.source = sourceParam
@@ -227,7 +227,7 @@ export function GameListView({
   const sort = parseSort(filterValues.sort)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
-  const includeShort = filterValues.includeShort === 'true'
+  const hideShort = filterValues.hideShort === 'true'
 
   const entryKey = useHistoryEntryKey()
   // Read once per mount: a lazy initializer runs at most once, so this never re-reads the store on
@@ -273,7 +273,7 @@ export function GameListView({
         matchup,
         startDate: startMs,
         endDate: endMs,
-        includeShort: includeShort || undefined,
+        hideShort: hideShort || undefined,
       },
       offset,
       signal,
@@ -455,9 +455,9 @@ export function GameListView({
         setMatchupParam(v ?? '')
         reset()
       }}
-      includeShort={includeShort}
-      setIncludeShort={v => {
-        setIncludeShortParam(v ? 'true' : '')
+      hideShort={hideShort}
+      setHideShort={v => {
+        setHideShortParam(v ? 'true' : '')
         saveFilterPrefs()
         reset()
       }}

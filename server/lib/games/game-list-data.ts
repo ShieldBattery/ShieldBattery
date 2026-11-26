@@ -22,11 +22,18 @@ import { ReplayService } from '../replays/replay-service'
 import { findUsersById } from '../users/user-model'
 
 /**
+ * Older client builds send `includeShort` to opt into short games. It is accepted and discarded so
+ * their requests don't fail validation; listing short games is what a request without `hideShort`
+ * gets anyway.
+ */
+export const LEGACY_INCLUDE_SHORT_SCHEMA = Joi.any().strip()
+
+/**
  * Joi validation schema for the query params shared by the public paginated games-list endpoints
  * (the global games list and a league's games). Extracted so their validation — the offset cap and
  * the `.integer()` requirement in particular — can't drift apart.
  */
-export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
+export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams & { includeShort?: unknown }>({
   source: Joi.string().valid(...Object.values(GameSourceFilter)),
   duration: Joi.string().valid(...Object.values(GameDurationFilter)),
   mapName: Joi.string().max(100),
@@ -40,7 +47,8 @@ export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
   offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
   startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
   endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-  includeShort: Joi.boolean().default(false),
+  hideShort: Joi.boolean().default(false),
+  includeShort: LEGACY_INCLUDE_SHORT_SCHEMA,
 })
 
 /**

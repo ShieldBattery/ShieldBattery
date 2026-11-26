@@ -8,11 +8,11 @@ import {
 
 describe('urlHasRememberedFilters', () => {
   test('a URL carrying none of the surface params seeds from the saved set', () => {
-    expect(urlHasRememberedFilters({ sort: '', duration: '', includeShort: '' })).toBe(false)
+    expect(urlHasRememberedFilters({ sort: '', duration: '', hideShort: '' })).toBe(false)
   })
 
   test('a URL carrying any one of them is authoritative for all of them', () => {
-    expect(urlHasRememberedFilters({ sort: '', duration: 'under10', includeShort: '' })).toBe(true)
+    expect(urlHasRememberedFilters({ sort: '', duration: 'under10', hideShort: '' })).toBe(true)
   })
 
   test('no surface params at all seeds from the saved set', () => {
@@ -22,9 +22,9 @@ describe('urlHasRememberedFilters', () => {
 
 describe('readFilterParams', () => {
   test('reads the named params, omitting unset ones', () => {
-    expect(
-      readFilterParams('?sort=oldest&duration=', ['sort', 'duration', 'includeShort']),
-    ).toEqual({ sort: 'oldest' })
+    expect(readFilterParams('?sort=oldest&duration=', ['sort', 'duration', 'hideShort'])).toEqual({
+      sort: 'oldest',
+    })
   })
 
   test('ignores params the surface does not remember', () => {
@@ -58,10 +58,10 @@ describe('mergeSavedFilters', () => {
 
   test('saved entries outside the named params survive a save made without them', () => {
     expect(
-      mergeSavedFilters({ sort: 'oldest', includeShort: 'true' }, ['duration', 'gameType'], {
+      mergeSavedFilters({ sort: 'oldest', hideShort: 'true' }, ['duration', 'gameType'], {
         duration: 'under10',
       }),
-    ).toEqual({ sort: 'oldest', includeShort: 'true', duration: 'under10' })
+    ).toEqual({ sort: 'oldest', hideShort: 'true', duration: 'under10' })
   })
 
   test('nothing left to save reads as unset rather than an empty set', () => {

@@ -21,8 +21,17 @@ describe('app/replay-library/replay-queries/escapeLike', () => {
 })
 
 describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
-  test('no filters (default) applies the minimum-length floor', () => {
+  test('no filters (default) yields a plain newest-first query with no minimum-length floor', () => {
     const { sql, params } = buildReplaySqlQuery({})
+    expect(sql).toBe(
+      'SELECT r.* FROM replays r ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',
+    )
+    expect(sql).not.toContain('WHERE')
+    expect(params).toEqual([])
+  })
+
+  test('hideShort applies the minimum-length floor', () => {
+    const { sql, params } = buildReplaySqlQuery({ hideShort: true })
     expect(sql).toBe(
       'SELECT r.* FROM replays r ' +
         'WHERE (r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?) ' +
@@ -31,20 +40,10 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(params).toEqual([2880])
   })
 
-  test('includeShort skips the minimum-length floor, yielding a plain newest-first query', () => {
-    const { sql, params } = buildReplaySqlQuery({ includeShort: true })
-    expect(sql).toBe(
-      'SELECT r.* FROM replays r ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',
-    )
-    expect(sql).not.toContain('WHERE')
-    expect(params).toEqual([])
-  })
-
   test('map name becomes a case-insensitive substring LIKE check', () => {
     const { sql, params } = buildReplaySqlQuery({
       mapName: 'Fighting Spirit',
       gameType: 2,
-      includeShort: true,
     })
     expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\'")
     expect(sql).toContain('r.game_type = ?')
@@ -56,11 +55,10 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(countSql).toBe(
       "SELECT COUNT(*) AS count FROM replays r WHERE r.map_name LIKE ? ESCAPE '\\' " +
         'AND r.game_type = ? ' +
-        'AND (r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?) ' +
         'AND r.parse_error = 0',
     )
     expect(countSql).not.toContain('ORDER BY')
-    expect(params).toEqual(['%Fighting Spirit%', 2, 2880])
+    expect(params).toEqual(['%Fighting Spirit%', 2])
   })
 
   test('sql has no LIMIT/OFFSET applied', () => {
@@ -70,7 +68,7 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 
   test('gameType "others" becomes a NOT IN check against the featured game types', () => {
-    const { sql, params } = buildReplaySqlQuery({ gameType: 'others', includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ gameType: 'others' })
     const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
     expect(sql).toContain(`r.game_type NOT IN (${placeholders})`)
     expect(params).toEqual([...FEATURED_REPLAY_GAME_TYPES])
@@ -84,19 +82,18 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   test('numeric gameType matches exactly', () => {
     const { sql, params } = buildReplaySqlQuery({
       gameType: SupportedReplayGameType.Melee,
-      includeShort: true,
     })
     expect(sql).toContain('r.game_type = ?')
     expect(params).toEqual([SupportedReplayGameType.Melee])
   })
 
   test('map name escapes LIKE wildcard characters in the substring', () => {
-    const { params } = buildReplaySqlQuery({ mapName: '100%_off\\map', includeShort: true })
+    const { params } = buildReplaySqlQuery({ mapName: '100%_off\\map' })
     expect(params).toEqual(['%100\\%\\_off\\\\map%'])
   })
 
   test('player name becomes an EXISTS subquery over replay_players', () => {
-    const { sql, params } = buildReplaySqlQuery({ playerName: 'flash', includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ playerName: 'flash' })
     expect(sql).toContain(
       "EXISTS (SELECT 1 FROM replay_players p WHERE p.replay_id = r.id AND p.name LIKE ? ESCAPE '\\')",
     )
@@ -104,32 +101,26 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 
   test('player name escapes LIKE wildcard characters in the substring', () => {
-    const { params } = buildReplaySqlQuery({ playerName: '100%_off\\player', includeShort: true })
+    const { params } = buildReplaySqlQuery({ playerName: '100%_off\\player' })
     expect(params).toEqual(['%100\\%\\_off\\\\player%'])
   })
 
   test('duration buckets convert to frame thresholds (24 fps)', () => {
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.Under10, includeShort: true }).params,
-    ).toEqual([14400])
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.From10To20, includeShort: true }).params,
-    ).toEqual([14400, 28800])
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.From20To30, includeShort: true }).params,
-    ).toEqual([28800, 43200])
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.Over30, includeShort: true }).params,
-    ).toEqual([43200])
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.Under10 }).params).toEqual([14400])
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.From10To20 }).params).toEqual([
+      14400, 28800,
+    ])
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.From20To30 }).params).toEqual([
+      28800, 43200,
+    ])
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.Over30 }).params).toEqual([43200])
   })
 
   test('duration "all" is a no-op', () => {
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.All, includeShort: true }).params,
-    ).toEqual([])
-    expect(
-      buildReplaySqlQuery({ duration: GameDurationFilter.All, includeShort: true }).sql,
-    ).not.toContain('duration_frames')
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.All }).params).toEqual([])
+    expect(buildReplaySqlQuery({ duration: GameDurationFilter.All }).sql).not.toContain(
+      'duration_frames',
+    )
   })
 
   test('duration filter excludes parse-error rows (their duration_frames is zeroed)', () => {
@@ -138,13 +129,13 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 
   test('gameTimeFrom becomes a lower bound on game_time', () => {
-    const { sql, params } = buildReplaySqlQuery({ gameTimeFrom: 1000, includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ gameTimeFrom: 1000 })
     expect(sql).toContain('r.game_time >= ?')
     expect(params).toEqual([1000])
   })
 
   test('gameTimeTo becomes an upper bound on game_time', () => {
-    const { sql, params } = buildReplaySqlQuery({ gameTimeTo: 2000, includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ gameTimeTo: 2000 })
     expect(sql).toContain('r.game_time <= ?')
     expect(params).toEqual([2000])
   })
@@ -153,7 +144,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     const { sql, params } = buildReplaySqlQuery({
       gameTimeFrom: 1000,
       gameTimeTo: 2000,
-      includeShort: true,
     })
     expect(sql).toContain('r.game_time >= ?')
     expect(sql).toContain('r.game_time <= ?')
@@ -170,7 +160,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
       gameTimeFrom: 1000,
       gameTimeTo: 2000,
       mapName: 'Fighting Spirit',
-      includeShort: true,
     })
     expect(sql).toContain('r.game_time >= ?')
     expect(sql).toContain('r.game_time <= ?')
@@ -212,49 +201,64 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 })
 
-describe('app/replay-library/replay-queries/buildReplaySqlQuery includeShort filter', () => {
-  test('the minimum-length floor is applied by default', () => {
+describe('app/replay-library/replay-queries/buildReplaySqlQuery hideShort filter', () => {
+  test('the minimum-length floor is not applied by default', () => {
     const { sql, params } = buildReplaySqlQuery({})
+    expect(sql).not.toContain('duration_frames')
+    expect(params).toEqual([])
+  })
+
+  test('hideShort applies the minimum-length floor', () => {
+    const { sql, params } = buildReplaySqlQuery({ hideShort: true })
     expect(sql).toContain(
       '(r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?)',
     )
     expect(params).toEqual([2880])
   })
 
-  test('includeShort skips the minimum-length floor entirely', () => {
-    const { sql, params } = buildReplaySqlQuery({ includeShort: true })
-    expect(sql).not.toContain('duration_frames')
-    expect(params).toEqual([])
-  })
-
   test('parse-error rows are exempt from the floor (their zeroed duration means unknown, not short)', () => {
-    const { sql } = buildReplaySqlQuery({})
+    const { sql } = buildReplaySqlQuery({ hideShort: true })
     expect(sql).toContain('r.parse_error != 0 OR')
-    // The floor is a default, not a user-chosen value filter, so it must not trigger the
-    // parse-error exclusion either — the filterless view keeps showing unreadable replays.
+    // The floor is not a value filter, so it must not trigger the parse-error exclusion either:
+    // hiding short replays keeps showing unreadable ones.
     expect(sql).not.toContain('r.parse_error = 0')
   })
 
   test('the floor combines with a duration bucket as an independent AND', () => {
-    const { sql, params } = buildReplaySqlQuery({ duration: GameDurationFilter.Under10 })
+    const { sql, params } = buildReplaySqlQuery({
+      duration: GameDurationFilter.Under10,
+      hideShort: true,
+    })
     expect(sql).toContain('r.duration_frames < ?')
     expect(sql).toContain(
       '(r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?)',
     )
     expect(params).toEqual([14400, 2880])
   })
+
+  test('bookmarked view ignores hideShort', () => {
+    const { sql, params } = buildReplaySqlQuery({ bookmarked: true, hideShort: true })
+    expect(sql).not.toContain('r.duration_frames >=')
+    expect(params).toEqual([])
+  })
+
+  test('playlist view ignores hideShort', () => {
+    const { sql, params } = buildReplaySqlQuery({ playlistId: 7, hideShort: true })
+    expect(sql).not.toContain('r.duration_frames >=')
+    expect(params).toEqual([7])
+  })
 })
 
 describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup filters', () => {
   test('format alone filters by team size', () => {
-    const { sql, params } = buildReplaySqlQuery({ format: '2v2', includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ format: '2v2' })
     expect(sql).toContain('r.team_size = ?')
     expect(params).toEqual([getTeamSizeForFormat('2v2')])
   })
 
   test('format with a concrete matchup adds an IN clause over the expanded matchup strings', () => {
     const matchup = makeEncodedMatchupString('p-z')
-    const { sql, params } = buildReplaySqlQuery({ format: '1v1', matchup, includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ format: '1v1', matchup })
     const expanded = expandMatchupFilter(decodeMatchup('1v1', matchup)!)
     const placeholders = expanded.map(() => '?').join(', ')
 
@@ -266,7 +270,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup f
     const { sql, params } = buildReplaySqlQuery({
       format: '1v1',
       matchup: makeEncodedMatchupString('_-_'),
-      includeShort: true,
     })
     expect(sql).not.toContain('r.matchup')
     expect(params).toEqual([getTeamSizeForFormat('1v1')])
@@ -275,7 +278,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup f
   test('matchup without format adds no clause', () => {
     const { sql, params } = buildReplaySqlQuery({
       matchup: makeEncodedMatchupString('p-z'),
-      includeShort: true,
     })
     expect(sql).not.toContain('r.team_size')
     expect(sql).not.toContain('r.matchup')
@@ -303,12 +305,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery bookmarked filte
   test('false is treated as "don\'t filter"', () => {
     const { sql } = buildReplaySqlQuery({ bookmarked: false })
     expect(sql).not.toContain('bookmarked_at')
-  })
-
-  test('bookmarked view skips the minimum-length floor by default', () => {
-    const { sql, params } = buildReplaySqlQuery({ bookmarked: true })
-    expect(sql).not.toContain('r.duration_frames >=')
-    expect(params).toEqual([])
   })
 })
 
@@ -345,19 +341,12 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
     expect(sql).toContain('ORDER BY r.parse_error ASC, r.game_time ASC, r.id ASC')
     expect(sql).not.toContain('pe.position')
   })
-
-  test('playlist view skips the minimum-length floor by default', () => {
-    const { sql, params } = buildReplaySqlQuery({ playlistId: 7 })
-    expect(sql).not.toContain('r.duration_frames >=')
-    expect(params).toEqual([7])
-  })
 })
 
 describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', () => {
   test('recursive matches any path beneath the folder, ending the prefix on a separator', () => {
     const { sql, countSql, params } = buildReplaySqlQuery({
       folder: { path: 'C:\\replays\\2024', recursive: true },
-      includeShort: true,
     })
     expect(sql).toContain("WHERE r.path LIKE ? ESCAPE '\\' ORDER BY")
     expect(sql).not.toContain('NOT LIKE')
@@ -369,7 +358,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', 
   test('direct children only additionally excludes paths with a further separator', () => {
     const { sql, params } = buildReplaySqlQuery({
       folder: { path: 'C:\\replays\\2024', recursive: false },
-      includeShort: true,
     })
     expect(sql).toContain("r.path LIKE ? ESCAPE '\\' AND r.path NOT LIKE ? ESCAPE '\\'")
     expect(params).toEqual(['C:\\\\replays\\\\2024\\\\%', 'C:\\\\replays\\\\2024\\\\%\\\\%'])
@@ -378,7 +366,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', 
   test('uses LIKE (case-insensitive) rather than an exact comparison', () => {
     const { sql } = buildReplaySqlQuery({
       folder: { path: 'c:\\REPLAYS', recursive: true },
-      includeShort: true,
     })
     expect(sql).toContain('r.path LIKE ?')
     expect(sql).not.toContain('r.path = ?')
@@ -387,7 +374,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', 
   test('normalizes forward slashes and trailing separators in the folder', () => {
     const { params } = buildReplaySqlQuery({
       folder: { path: 'D:/more replays/', recursive: true },
-      includeShort: true,
     })
     expect(params).toEqual(['D:\\\\more replays\\\\%'])
   })
@@ -395,20 +381,17 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', 
   test('escapes LIKE wildcards in folder names, leaving `[` literal', () => {
     const { params } = buildReplaySqlQuery({
       folder: { path: 'C:\\100%_[pro]', recursive: false },
-      includeShort: true,
     })
     expect(params).toEqual(['C:\\\\100\\%\\_[pro]\\\\%', 'C:\\\\100\\%\\_[pro]\\\\%\\\\%'])
   })
 
   test('each watched folder becomes its own prefix', () => {
-    expect(
-      buildReplaySqlQuery({ folder: { path: 'D:\\B', recursive: true }, includeShort: true })
-        .params,
-    ).toEqual(['D:\\\\B\\\\%'])
-    expect(
-      buildReplaySqlQuery({ folder: { path: 'C:\\A', recursive: true }, includeShort: true })
-        .params,
-    ).toEqual(['C:\\\\A\\\\%'])
+    expect(buildReplaySqlQuery({ folder: { path: 'D:\\B', recursive: true } }).params).toEqual([
+      'D:\\\\B\\\\%',
+    ])
+    expect(buildReplaySqlQuery({ folder: { path: 'C:\\A', recursive: true } }).params).toEqual([
+      'C:\\\\A\\\\%',
+    ])
   })
 
   test('is not a value filter, so unreadable replays still show in a folder', () => {
@@ -423,6 +406,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery folder filter', 
     })
     expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\' AND ")
     expect(sql).toContain(" AND r.path LIKE ? ESCAPE '\\' AND r.parse_error = 0")
-    expect(params).toEqual(['%Fighting Spirit%', 2880, 'C:\\\\replays\\\\%'])
+    expect(params).toEqual(['%Fighting Spirit%', 'C:\\\\replays\\\\%'])
   })
 })

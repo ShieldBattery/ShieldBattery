@@ -1176,7 +1176,7 @@
         "under10": "Under 10min"
       },
       "format": "Format",
-      "includeShort": "Include games shorter than 2 minutes",
+      "hideShort": "Hide games shorter than 2 minutes",
       "label": "Filters",
       "mapName": "Map name",
       "matchup": "Matchup",
@@ -2688,7 +2688,7 @@
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
       "folders": {
-        "onlyShortBody": "The replays in this folder are shorter than 2 minutes. Use the Advanced filters to include them.",
+        "onlyShortBody": "The replays in this folder are shorter than 2 minutes. Use the Advanced filters to show them.",
         "onlyShortTitle": "No replays to show",
         "replayCount_one": "{{count}} replay",
         "replayCount_other": "{{count}} replays",

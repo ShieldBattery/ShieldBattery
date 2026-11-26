@@ -844,8 +844,8 @@ export async function getGames(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
-    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
-    includeShort?: boolean
+    /** When true, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    hideShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -862,7 +862,7 @@ export async function getGames(
     sort,
     startDate,
     endDate,
-    includeShort,
+    hideShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -903,7 +903,7 @@ export async function getGames(
       }
     }
 
-    if (!includeShort) {
+    if (hideShort) {
       // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
       // their length is unknown rather than known-short. Written as a COALESCE rather than
       // `game_length IS NULL OR game_length >= n` because the planner badly underestimates how many
@@ -1034,8 +1034,8 @@ export async function getGamesForUser(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
-    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
-    includeShort?: boolean
+    /** When true, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    hideShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -1054,7 +1054,7 @@ export async function getGamesForUser(
     sort,
     startDate,
     endDate,
-    includeShort,
+    hideShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -1100,7 +1100,7 @@ export async function getGamesForUser(
       }
     }
 
-    if (!includeShort) {
+    if (hideShort) {
       // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
       // their length is unknown rather than known-short.
       whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)

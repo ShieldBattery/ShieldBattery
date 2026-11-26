@@ -3,9 +3,9 @@ import { Tagged } from 'type-fest'
 import { AssignedRaceChar } from '../races'
 
 /**
- * Games shorter than this (in ms) are hidden from every games/replays list by default (instant
- * leaves and failed launches are noise, not games worth browsing); an `includeShort` filter opts
- * back into seeing them.
+ * Games shorter than this (in ms) are listed like any other, but every games/replays list offers a
+ * `hideShort` filter that excludes them (instant leaves and failed launches are noise, not games
+ * worth browsing).
  */
 export const MIN_GAME_LENGTH_MS = 2 * 60 * 1000
 
