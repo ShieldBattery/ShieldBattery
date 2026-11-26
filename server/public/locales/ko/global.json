@@ -1154,7 +1154,7 @@
         "under10": "10분 미만"
       },
       "format": "형식",
-      "includeShort": "2분 미만 게임 포함",
+      "hideShort": "2분 미만 게임 숨기기",
       "label": "필터",
       "mapName": "맵 이름",
       "matchup": "종족전",
@@ -2614,6 +2614,10 @@
       "clearFilters": "필터 지우기",
       "empty": "아직 리플레이가 없습니다",
       "emptyBody": "시청하거나 플레이한 리플레이가 여기에 자동으로 표시됩니다.",
+      "folders": {
+        "onlyShortBody": "이 폴더의 리플레이는 모두 2분 미만입니다. 고급 필터에서 표시하도록 설정하세요.",
+        "onlyShortTitle": "표시할 리플레이가 없습니다"
+      },
       "indexingCountLine": "리플레이 인덱싱 중… {{done}}/{{total}}",
       "inspector": {
         "empty": "리플레이를 선택하면 상세 정보가 표시됩니다",

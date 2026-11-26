@@ -339,26 +339,26 @@ describe('games/game-models/getGames', () => {
     expect(template.values).not.toContain(GameSource.Matchmaking)
   })
 
-  test('applies the minimum-game-length floor by default, keeping games with no recorded length', async () => {
+  test('omits the minimum-game-length floor by default', async () => {
     const query = mockDbClient([])
 
     await getGames({ limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
-    expect(template.text).toContain('COALESCE(g.game_length,')
-    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
+    expect(template.text).not.toContain('g.game_length')
+    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
   })
 
-  test('omits the minimum-game-length floor with includeShort', async () => {
+  test('applies the minimum-game-length floor with hideShort, keeping games with no recorded length', async () => {
     const query = mockDbClient([])
 
-    await getGames({ limit: 10, offset: 0, includeShort: true })
+    await getGames({ limit: 10, offset: 0, hideShort: true })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
-    expect(template.text).not.toContain('g.game_length')
-    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
+    expect(template.text).toContain('COALESCE(g.game_length,')
+    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
   })
 
   test('filters on the IDs of users whose names match playerName', async () => {
@@ -436,7 +436,7 @@ describe('games/game-models/getGamesForUser', () => {
     expect(template.values).toContainEqual(new Date(endDate))
   })
 
-  test('applies the minimum-game-length floor by default, keeping games with no recorded length', async () => {
+  test('omits the minimum-game-length floor by default', async () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
@@ -444,11 +444,11 @@ describe('games/game-models/getGamesForUser', () => {
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
-    expect(template.text).toContain('g.game_length IS NULL OR g.game_length >=')
-    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
+    expect(template.text).not.toContain('g.game_length')
+    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
   })
 
-  test('omits the minimum-game-length floor with includeShort', async () => {
+  test('applies the minimum-game-length floor with hideShort, keeping games with no recorded length', async () => {
     const query = mockDbClient([])
     const userId = makeSbUserId(1)
 
@@ -457,13 +457,13 @@ describe('games/game-models/getGamesForUser', () => {
       viewer: OWNER_VIEWER,
       limit: 10,
       offset: 0,
-      includeShort: true,
+      hideShort: true,
     })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
-    expect(template.text).not.toContain('g.game_length')
-    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
+    expect(template.text).toContain('g.game_length IS NULL OR g.game_length >=')
+    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
   })
 })
 

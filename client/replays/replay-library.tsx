@@ -189,7 +189,7 @@ interface BuildFiltersParams {
   matchup: EncodedMatchupString | undefined
   startDate: string
   endDate: string
-  includeShort: boolean
+  hideShort: boolean
   folder: { path: string; recursive: boolean } | undefined
 }
 
@@ -205,7 +205,7 @@ function buildFilters({
   matchup,
   startDate,
   endDate,
-  includeShort,
+  hideShort,
   folder,
 }: BuildFiltersParams): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
@@ -226,7 +226,7 @@ function buildFilters({
   const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
   if (startMs !== undefined) filters.gameTimeFrom = startMs
   if (endMs !== undefined) filters.gameTimeTo = endMs
-  if (includeShort) filters.includeShort = true
+  if (hideShort) filters.hideShort = true
   if (folder) filters.folder = folder
   return filters
 }
@@ -545,7 +545,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
   const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
-  const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
+  const [hideShortParam, setHideShortParam] = useLocationSearchParam('hideShort')
   // Moving between folders is navigation (Back returns to the previous folder), so it pushes.
   const [folderParam, navigateToFolderParam] = useLocationSearchParam(FOLDER_SEARCH_PARAM, push)
   // The folder the folders view is browsing; `undefined` is its top level, listing the watched
@@ -573,7 +573,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // The folders view browses the whole library, so it offers the same filters as `all`.
   const isWholeLibraryView = view.kind === 'all' || view.kind === 'folders'
   if (isWholeLibraryView) {
-    rememberedUrlValues.includeShort = includeShortParam
+    rememberedUrlValues.hideShort = hideShortParam
   }
   const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters(
     'replays',
@@ -590,10 +590,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(filterValues.gameType)
   // The minimum-length floor never applies to curation views (bookmarked/playlist) — see
-  // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
+  // `buildReplaySqlQuery` — so `hideShort` is meaningless there: it isn't read (a hand-edited
   // URL param must not disable reordering via `hasActiveFilters`), seeded, or saved, and the
   // checkbox isn't offered.
-  const includeShort = isWholeLibraryView && filterValues.includeShort === 'true'
+  const hideShort = isWholeLibraryView && filterValues.hideShort === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -603,8 +603,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // spoiler) from the list rows and the inspector.
   const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
-  // Whether a filter constrains which replays match by their values. Including short replays
-  // widens the list rather than narrowing it, so it doesn't count here.
+  // Whether a filter constrains which replays match by their values. Hiding short replays is left
+  // out on purpose: in the folders view a narrowing filter switches from browsing a folder to
+  // searching everything beneath it, and a floor on replay length is not a reason to leave the
+  // folder being browsed.
   const isNarrowed =
     duration !== GameDurationFilter.All ||
     !!mapName ||
@@ -616,7 +618,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     !!endDate
   // The view is navigation rather than a filter: it isn't included here, and clearing filters
   // leaves it alone.
-  const hasActiveFilters = isNarrowed || includeShort
+  const hasActiveFilters = isNarrowed || hideShort
 
   // In the folders view, a folder shows its subfolders and the replays directly in it, while a
   // narrowing filter searches everything beneath it instead (the whole library at the top level).
@@ -692,7 +694,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           matchup,
           startDate,
           endDate,
-          includeShort,
+          hideShort,
           folder: folderFilter,
         }),
         offset: 0,
@@ -1194,7 +1196,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           matchup,
           startDate,
           endDate,
-          includeShort,
+          hideShort,
           folder: folderFilter,
         }),
         offset: entries?.length ?? 0,
@@ -1229,7 +1231,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     setGameTypeParam('')
     setStartDateParam('')
     setEndDateParam('')
-    setIncludeShortParam('')
+    setHideShortParam('')
     saveFilterPrefs()
     reset()
     // `sort` is a view option (not a filter), so it's intentionally left untouched — including in
@@ -1402,13 +1404,13 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   } else if (entries.length === 0) {
     if (view.kind === 'folders' && !isNarrowed) {
       // A folder may hold nothing but subfolders, which its rows above already show. With no
-      // subfolders, the folder's replays exist (its listing counts them) but the minimum-length
-      // floor hides every one, so the empty pane needs explaining.
+      // subfolders and the minimum-length floor on, the folder's replays exist (its listing counts
+      // them) but the floor hides every one, so the empty pane needs explaining.
       const holdsOnlyHiddenReplays =
         folderListingIsCurrent &&
         folderListing.listing.folder === folder &&
         folderRows.length === 0 &&
-        !includeShort
+        hideShort
       listContent = holdsOnlyHiddenReplays ? (
         <CenteredState>
           <EmptyStateTitle>
@@ -1417,7 +1419,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           <div>
             {t(
               'replays.library.folders.onlyShortBody',
-              'The replays in this folder are shorter than 2 minutes. Use the Advanced filters to include them.',
+              'The replays in this folder are shorter than 2 minutes. Use the Advanced filters to show them.',
             )}
           </div>
         </CenteredState>
@@ -1665,13 +1667,13 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
             setMatchupParam(v ?? '')
             reset()
           }}
-          includeShort={includeShort}
-          setIncludeShort={v => {
-            setIncludeShortParam(v ? 'true' : '')
+          hideShort={hideShort}
+          setHideShort={v => {
+            setHideShortParam(v ? 'true' : '')
             saveFilterPrefs()
             reset()
           }}
-          showIncludeShort={isWholeLibraryView}
+          showHideShort={isWholeLibraryView}
           showGameType={true}
           gameType={gameType}
           setGameType={v => {

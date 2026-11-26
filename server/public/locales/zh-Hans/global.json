@@ -1154,7 +1154,7 @@
         "under10": "10分钟以下"
       },
       "format": "形式",
-      "includeShort": "包含少于 2 分钟的游戏",
+      "hideShort": "隐藏少于 2 分钟的游戏",
       "label": "筛选",
       "mapName": "地图名称",
       "matchup": "对阵",
@@ -2614,6 +2614,10 @@
       "clearFilters": "清除筛选",
       "empty": "暂无录像",
       "emptyBody": "您游玩或观看的录像将自动显示在这里。",
+      "folders": {
+        "onlyShortBody": "此文件夹中的录像都短于 2 分钟。请在高级筛选中将其显示出来。",
+        "onlyShortTitle": "没有可显示的录像"
+      },
       "indexingCountLine": "正在索引录像……{{done}}/{{total}}",
       "inspector": {
         "empty": "选择一个录像以查看详情",

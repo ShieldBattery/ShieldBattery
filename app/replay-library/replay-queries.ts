@@ -90,14 +90,13 @@ function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playli
 /**
  * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
  * type, duration bucket, minimum-length floor, format, matchup, bookmarked, playlist membership,
- * folder) —
- * nothing is filtered in JS afterwards. Format/matchup matching reads the `team_size`/`matchup`
- * columns computed once at parse time (see `mapReplayHeaderToRecord`). Unless `filters.includeShort`
- * is set, replays shorter than `MIN_GAME_LENGTH_MS` are excluded, same as every other games/replays
- * list. `sql` is ordered per `filters.sort` (defaulting to newest-first, or the playlist's manual
- * order when `filters.playlistId` is set with no explicit `sort`) and has no paging applied;
- * `countSql` reuses the same joins/`WHERE` clause and `params` to total the matches, without an
- * `ORDER BY`.
+ * folder) — nothing is filtered in JS afterwards. Format/matchup matching reads the
+ * `team_size`/`matchup` columns computed once at parse time (see `mapReplayHeaderToRecord`). When
+ * `filters.hideShort` is set, replays shorter than `MIN_GAME_LENGTH_MS` are excluded (bookmarked
+ * and playlist views are exempt). `sql` is ordered per `filters.sort` (defaulting to newest-first,
+ * or the playlist's manual order when `filters.playlistId` is set with no explicit `sort`) and has
+ * no paging applied; `countSql` reuses the same joins/`WHERE` clause and `params` to total the
+ * matches, without an `ORDER BY`.
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
@@ -161,18 +160,16 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     hasValueFilter = true
   }
 
-  if (!filters.includeShort && filters.playlistId === undefined && !filters.bookmarked) {
-    // The floor is default noise-hiding rather than a user-chosen filter, so curation views
-    // (bookmarked/playlist) are exempt: a replay the user explicitly curated isn't noise, and
-    // hiding it there would leave no active filter to explain the gap. For playlists the floor
+  if (filters.hideShort && filters.playlistId === undefined && !filters.bookmarked) {
+    // Curated views (bookmarked/playlist) are exempt: a replay the user explicitly curated is not
+    // noise, and hiding it there would leave the list looking incomplete. For playlists the floor
     // would also break reordering, which maps a loaded list index to an absolute playlist
-    // position and is only sound when the default view renders the complete playlist (see
+    // position and is only sound when the view renders the complete playlist (see
     // `buildOrderByClause` above). A replay whose length is unknown rather than known-short must
     // not disappear either: parse-error rows store a zeroed `duration_frames` sentinel, so
-    // without the `parse_error` exemption the default (filterless) view would hide them —
-    // breaking the invariant that only active value filters exclude parse-error rows (see the
-    // `hasValueFilter` clause below). NULL-safety mirrors the server-side floor on
-    // `games.game_length`.
+    // without the `parse_error` exemption the floor would hide them — breaking the invariant that
+    // only active value filters exclude parse-error rows (see the `hasValueFilter` clause below).
+    // NULL-safety mirrors the server-side floor on `games.game_length`.
     whereClauses.push('(r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?)')
     params.push(MIN_GAME_LENGTH_FRAMES)
   }

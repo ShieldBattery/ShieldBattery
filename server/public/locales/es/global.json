@@ -1184,7 +1184,7 @@
         "under10": "Menos de 10 min"
       },
       "format": "Formato",
-      "includeShort": "Incluir partidas de menos de 2 minutos",
+      "hideShort": "Ocultar partidas de menos de 2 minutos",
       "label": "Filtros",
       "mapName": "Nombre del mapa",
       "matchup": "Enfrentamiento",
@@ -2698,6 +2698,10 @@
       "clearFilters": "Borrar filtros",
       "empty": "Aún no hay replays",
       "emptyBody": "Los replays que veas y juegues aparecerán aquí automáticamente.",
+      "folders": {
+        "onlyShortBody": "Los replays de esta carpeta duran menos de 2 minutos. Usa los filtros avanzados para mostrarlos.",
+        "onlyShortTitle": "No hay replays que mostrar"
+      },
       "indexingCountLine": "Indexando replays… {{done}}/{{total}}",
       "inspector": {
         "empty": "Selecciona un replay para ver sus detalles",

@@ -108,7 +108,7 @@ import transact from '../db/transaction'
 import isDev from '../env/is-dev'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
-import { getGameListSideData } from '../games/game-list-data'
+import { getGameListSideData, LEGACY_INCLUDE_SHORT_SCHEMA } from '../games/game-list-data'
 import { getGamesForUser, getRecentGamesForUser, MatchHistoryViewer } from '../games/game-models'
 import { GamePointsRefundService } from '../games/game-points-refund-service'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -835,13 +835,13 @@ export class UserApi {
         offset,
         startDate,
         endDate,
-        includeShort,
+        hideShort,
       },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
       }).required(),
-      query: Joi.object<GetMatchHistoryQueryParams>({
+      query: Joi.object<GetMatchHistoryQueryParams & { includeShort?: unknown }>({
         ranked: Joi.boolean(),
         custom: Joi.boolean(),
         duration: Joi.string().valid(...Object.values(GameDurationFilter)),
@@ -856,7 +856,8 @@ export class UserApi {
         offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
         startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
         endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-        includeShort: Joi.boolean().default(false),
+        hideShort: Joi.boolean().default(false),
+        includeShort: LEGACY_INCLUDE_SHORT_SCHEMA,
       }),
     })
 
@@ -882,7 +883,7 @@ export class UserApi {
       sort,
       startDate,
       endDate,
-      includeShort,
+      hideShort,
     })
 
     const { users, maps, replays } = await getGameListSideData({

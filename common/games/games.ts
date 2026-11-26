@@ -211,8 +211,8 @@ export interface GetGamesQueryParams {
   startDate?: number
   /** Inclusive upper bound (unix ms) on the game's start time. */
   endDate?: number
-  /** When true, includes games shorter than `MIN_GAME_LENGTH_MS` (hidden by default). */
-  includeShort?: boolean
+  /** When true, excludes games shorter than `MIN_GAME_LENGTH_MS`. */
+  hideShort?: boolean
 }
 
 export interface GetGamesResponse {

@@ -37,8 +37,8 @@ function applyPresetOn(today: Date, presetLabel: string) {
       setPlayerName={vi.fn()}
       setFormat={vi.fn()}
       setMatchup={vi.fn()}
-      includeShort={false}
-      setIncludeShort={vi.fn()}
+      hideShort={false}
+      setHideShort={vi.fn()}
       setStartDate={setStartDate}
       setEndDate={setEndDate}
     />,

@@ -273,11 +273,14 @@ export interface GameFilterBarProps {
   setFormat: (v?: GameFormat) => void
   matchup?: EncodedMatchupString
   setMatchup: (v?: EncodedMatchupString) => void
-  /** Whether games shorter than 2 minutes are included (they're hidden by default). */
-  includeShort: boolean
-  setIncludeShort: (v: boolean) => void
-  /** When false, hides the include-short checkbox (for views the minimum-length floor doesn't apply to). */
-  showIncludeShort?: boolean
+  /** Whether games shorter than 2 minutes are hidden. */
+  hideShort: boolean
+  setHideShort: (v: boolean) => void
+  /**
+   * When false, omits the hide-short checkbox (for views the minimum-length floor doesn't apply
+   * to).
+   */
+  showHideShort?: boolean
   /** When true, shows the game mode (game type) filter chip. */
   showGameType?: boolean
   gameType?: SupportedReplayGameType | 'others'
@@ -324,9 +327,9 @@ export function GameFilterBar({
   setFormat,
   matchup,
   setMatchup,
-  includeShort,
-  setIncludeShort,
-  showIncludeShort = true,
+  hideShort,
+  setHideShort,
+  showHideShort = true,
   showGameType = false,
   gameType,
   setGameType,
@@ -350,7 +353,7 @@ export function GameFilterBar({
     refreshAnchorPos: refreshDateAnchorPos,
   })
 
-  const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup || includeShort
+  const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup || hideShort
   const hasDateRange = !!startDate || !!endDate
   const hasActiveFilters =
     (showRankedCustom && (ranked || custom)) ||
@@ -472,7 +475,7 @@ export function GameFilterBar({
               setPlayerName('')
               setFormat(undefined)
               setMatchup(undefined)
-              setIncludeShort(false)
+              setHideShort(false)
               setGameType?.(undefined)
               setStartDate?.('')
               setEndDate?.('')
@@ -518,14 +521,14 @@ export function GameFilterBar({
             playerName={playerName}
             format={format}
             matchup={matchup}
-            includeShort={includeShort}
-            showIncludeShort={showIncludeShort}
+            hideShort={hideShort}
+            showHideShort={showHideShort}
             onApply={advancedValues => {
               setMapName(advancedValues.mapName)
               setPlayerName(advancedValues.playerName)
               setFormat(advancedValues.format)
               setMatchup(advancedValues.matchup)
-              setIncludeShort(advancedValues.includeShort)
+              setHideShort(advancedValues.hideShort)
               closePopover()
             }}
             onClose={closePopover}
@@ -605,14 +608,14 @@ interface AdvancedFiltersPanelProps {
   playerName: string
   format?: GameFormat
   matchup?: EncodedMatchupString
-  includeShort: boolean
-  showIncludeShort: boolean
+  hideShort: boolean
+  showHideShort: boolean
   onApply: (values: {
     mapName: string
     playerName: string
     format?: GameFormat
     matchup?: EncodedMatchupString
-    includeShort: boolean
+    hideShort: boolean
   }) => void
   onClose: () => void
 }
@@ -622,8 +625,8 @@ function AdvancedFiltersPanel({
   playerName,
   format,
   matchup,
-  includeShort,
-  showIncludeShort,
+  hideShort,
+  showHideShort,
   onApply,
   onClose,
 }: AdvancedFiltersPanelProps) {
@@ -633,7 +636,7 @@ function AdvancedFiltersPanel({
   const [draftPlayerName, setDraftPlayerName] = useState(playerName)
   const [draftFormat, setDraftFormat] = useState(format)
   const [draftMatchup, setDraftMatchup] = useState(matchup)
-  const [draftIncludeShort, setDraftIncludeShort] = useState(includeShort)
+  const [draftHideShort, setDraftHideShort] = useState(hideShort)
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -643,7 +646,7 @@ function AdvancedFiltersPanel({
           playerName: draftPlayerName,
           format: draftFormat,
           matchup: draftMatchup,
-          includeShort: draftIncludeShort,
+          hideShort: draftHideShort,
         })
         return true
       }
@@ -710,12 +713,12 @@ function AdvancedFiltersPanel({
           </PanelSection>
         )}
 
-        {showIncludeShort && (
+        {showHideShort && (
           <PanelSection>
             <CheckBox
-              label={t('game.filters.includeShort', 'Include games shorter than 2 minutes')}
-              checked={draftIncludeShort}
-              onChange={e => setDraftIncludeShort(e.target.checked)}
+              label={t('game.filters.hideShort', 'Hide games shorter than 2 minutes')}
+              checked={draftHideShort}
+              onChange={e => setDraftHideShort(e.target.checked)}
             />
           </PanelSection>
         )}
@@ -729,7 +732,7 @@ function AdvancedFiltersPanel({
             setDraftPlayerName('')
             setDraftFormat(undefined)
             setDraftMatchup(undefined)
-            setDraftIncludeShort(false)
+            setDraftHideShort(false)
           }}
         />
         <TextButton
@@ -740,7 +743,7 @@ function AdvancedFiltersPanel({
               playerName: draftPlayerName,
               format: draftFormat,
               matchup: draftMatchup,
-              includeShort: draftIncludeShort,
+              hideShort: draftHideShort,
             })
           }
         />
