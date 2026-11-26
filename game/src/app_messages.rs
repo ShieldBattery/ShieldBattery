@@ -532,6 +532,53 @@ pub struct GameSetupInfo {
     pub game_id: String,
     pub result_code: Option<String>,
     pub is_chat_restricted: Option<bool>,
+    /// Where the series this lobby game is one of stood when it launched, for the observer
+    /// overlay. Absent for a game that is no series' (and for every matchmaking game and replay).
+    #[serde(default)]
+    pub series_overlay: Option<SeriesOverlay>,
+}
+
+/// Where a series stood when one of its games launched: what the observer overlay shows of it,
+/// fixed for the whole game.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesOverlay {
+    /// What a person named the series, if anyone did.
+    #[serde(default)]
+    pub title: Option<String>,
+    pub format: SeriesOverlayFormat,
+    /// Which game of the series this is, counting from one.
+    pub game_number: u32,
+    /// The series' two sides, in the series' own order.
+    pub sides: [SeriesOverlaySide; 2],
+}
+
+/// One side of a series as the observer overlay shows it.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesOverlaySide {
+    /// What a person named the side, if anyone did. Not drawn: the overlay names a side by the
+    /// players it lists.
+    #[serde(default)]
+    pub caption: Option<String>,
+    /// The number shown for the side. For a best-of, the games it has won so far.
+    pub score: u32,
+    /// The side's members who are seated as players in this game.
+    pub players: Vec<SbUserId>,
+}
+
+/// How a series is played, as far as showing it goes: only the facts travel, and the overlay words
+/// them in the watcher's language.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SeriesOverlayFormat {
+    BestOf {
+        length: u32,
+    },
+    /// A format added on the server after this build, which still has to deserialize so the game
+    /// can load. The overlay shows nothing of a series it cannot word.
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -886,6 +933,84 @@ mod tests {
         assert_eq!(ranks[1].division, MatchmakingDivision::Unrated);
         assert_eq!(ranks[1].rating, None);
         assert_eq!(ranks[2].division, MatchmakingDivision::Unknown);
+    }
+
+    /// A lobby game's setup as the app hands it over, with `extra` merged in.
+    fn game_setup(extra: serde_json::Value) -> serde_json::Result<GameSetupInfo> {
+        let mut setup = serde_json::json!({
+            "name": "Grand Final",
+            "map": { "isReplay": false, "path": "C:/maps/fighting-spirit.scx" },
+            "mapPath": "C:/maps/fighting-spirit.scx",
+            "gameType": "melee",
+            "slots": [],
+            "host": {
+                "id": "a",
+                "race": "z",
+                "userId": 10,
+                "teamId": 0,
+                "type": "human",
+                "typeId": 6,
+            },
+            "users": [],
+            "seed": 1234,
+            "gameId": "8f9c3c1e-2d5e-4c3b-9b8a-0f1e2d3c4b5a",
+        });
+        let (Some(setup_fields), Some(extra)) = (setup.as_object_mut(), extra.as_object()) else {
+            panic!("both are objects");
+        };
+        setup_fields.extend(extra.clone());
+        serde_json::from_value(setup)
+    }
+
+    #[test]
+    fn game_setup_without_a_series_loads_with_none() {
+        let setup = game_setup(serde_json::json!({})).expect("valid setup");
+        assert!(setup.series_overlay.is_none());
+    }
+
+    #[test]
+    fn game_setup_carries_its_series_overlay() {
+        let setup = game_setup(serde_json::json!({
+            "seriesOverlay": {
+                "title": "Grand Final",
+                "format": { "kind": "bestOf", "length": 3 },
+                "gameNumber": 2,
+                "sides": [
+                    { "score": 1, "players": [10, 11] },
+                    { "caption": "Team Liquid", "score": 0, "players": [20] },
+                ],
+            },
+        }))
+        .expect("valid setup");
+        let series = setup.series_overlay.expect("the series is carried");
+        assert_eq!(series.title.as_deref(), Some("Grand Final"));
+        assert_eq!(series.format, SeriesOverlayFormat::BestOf { length: 3 });
+        assert_eq!(series.game_number, 2);
+        assert_eq!(series.sides[0].caption, None);
+        assert_eq!(series.sides[0].score, 1);
+        assert_eq!(series.sides[0].players, vec![SbUserId(10), SbUserId(11)]);
+        assert_eq!(series.sides[1].caption.as_deref(), Some("Team Liquid"));
+        assert_eq!(series.sides[1].score, 0);
+        assert_eq!(series.sides[1].players, vec![SbUserId(20)]);
+    }
+
+    #[test]
+    fn game_setup_with_a_series_format_this_build_does_not_know_still_loads() {
+        let setup = game_setup(serde_json::json!({
+            "seriesOverlay": {
+                "format": { "kind": "kingOfTheHill", "crowns": 3, "rules": { "streak": true } },
+                "gameNumber": 5,
+                "sides": [
+                    { "score": 2, "players": [10] },
+                    { "score": 0, "players": [20] },
+                ],
+            },
+        }))
+        .expect("a setup with an unknown series format still loads");
+        let series = setup.series_overlay.expect("the series is carried");
+        assert_eq!(series.format, SeriesOverlayFormat::Unknown);
+        assert_eq!(series.title, None);
+        assert_eq!(series.game_number, 5);
     }
 
     #[test]

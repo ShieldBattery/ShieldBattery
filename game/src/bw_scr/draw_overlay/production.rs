@@ -180,9 +180,16 @@ impl OverlayState {
     /// Players with no units of their own are left out, as are a team game's players who are not the
     /// one commanding the team: in a team game every unit belongs to the commanding player, so the
     /// others would each carry a row of everything or a row of nothing.
-    pub fn build_production_view(&self, bw: &BwVars) -> ProductionView {
+    ///
+    /// `series_teams` are the teams a series game puts its slots on, where the watcher is shown the
+    /// series, so the rows are ruled into the same sides every other panel is.
+    pub fn build_production_view(
+        &self,
+        bw: &BwVars,
+        series_teams: Option<&[u8; 8]>,
+    ) -> ProductionView {
         let is_shared_control = crate::game_thread::is_shared_control();
-        let players = replay_players_by_team(bw)
+        let players = replay_players_by_team(bw, series_teams)
             .filter(|&(_team, player_id)| player_has_units(bw, player_id))
             .filter(|&(_team, player_id)| {
                 !is_shared_control

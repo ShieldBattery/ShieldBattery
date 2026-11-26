@@ -379,6 +379,12 @@ pub fn set_net_player_registrations(registrations: Vec<(u8, String)>) {
     }
 }
 
+/// The player id mapping, or `None` while the game has yet to randomize its slots, for a caller that
+/// asks every frame until it is there.
+pub fn player_id_mapping_if_set() -> Option<&'static [PlayerIdMapping]> {
+    PLAYER_ID_MAPPING.get().map(|x| &**x)
+}
+
 pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
     PLAYER_ID_MAPPING.get().map(|x| &**x).unwrap_or_else(|| {
         warn!("Tried to access player id mapping before it was set");

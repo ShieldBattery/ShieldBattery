@@ -48,6 +48,7 @@ pub(super) fn empty_game() -> ObserverView {
             players: Vec::new(),
             elapsed_secs: 0,
             is_replay: true,
+            series: None,
         },
         team_cards: None,
         economy: EconomyView {

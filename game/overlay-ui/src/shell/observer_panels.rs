@@ -281,6 +281,10 @@ impl ObserverPanels {
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, bar_shown) {
             hit_rects.push(HitRect::new(outcome.rect));
             top_surfaces.push(outcome.rect);
+            if let Some(tab) = outcome.tab {
+                hit_rects.push(HitRect::new(tab));
+                top_surfaces.push(tab);
+            }
             if let Some(player_id) = outcome.toggled_vision {
                 intents.push(Intent::ToggleVision { player_id });
             }
@@ -292,13 +296,13 @@ impl ObserverPanels {
             if prefs.map_control && !observer::map_control::fits(screen) {
                 displaced.push(Panel::MapControl);
             }
-            // Hung under the matchup bar while the bar is up, and from the screen's own top edge
-            // once it is put away or the matchup is the scoreboard in the corner, moving off as the
-            // bar starts to go rather than once it has. A strip put away along with the bar leaves
-            // from where it stands, as the panels put away with it do, rather than sliding up
-            // across the bar on its way out.
+            // Hung under the matchup bar while the bar is up, under the series tab at its middle in
+            // a series game, and from the screen's own top edge once it is put away or the matchup
+            // is the scoreboard in the corner, moving off as the bar starts to go rather than once
+            // it has. A strip put away along with the bar leaves from where it stands, as the
+            // panels put away with it do, rather than sliding up across the bar on its way out.
             let wanted_top = if bar_shown {
-                view.matchup.form().height() + observer::MAP_CONTROL_GAP
+                view.matchup.bar_depth() + observer::MAP_CONTROL_GAP
             } else {
                 margin
             };
@@ -375,7 +379,12 @@ impl ObserverPanels {
             observer::WingTops::under_bar(view.matchup.form().height())
         };
         if let Some(cards) = &view.team_cards {
-            let outcome = observer::render_team_cards_view(cards, ctx, bar_shown);
+            let outcome = observer::render_team_cards_view(
+                cards,
+                ctx,
+                bar_shown,
+                view.matchup.clock_block_width(),
+            );
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
                 top_surfaces.push(rect);

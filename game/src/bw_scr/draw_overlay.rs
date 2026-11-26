@@ -37,6 +37,7 @@ pub use self::alliances::AllianceRules;
 use self::alliances::AlliancesState;
 use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
+use self::series::{SeriesFrame, SeriesState};
 use self::stats::ObserverViewCache;
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
@@ -52,6 +53,7 @@ mod netstat;
 pub mod options;
 mod production;
 mod resource_icons;
+mod series;
 mod stats;
 mod wireframe;
 
@@ -86,6 +88,8 @@ pub struct OverlayState {
     observer_view: Option<ObserverViewCache>,
     /// What the alliances screen keeps between frames.
     alliances: AlliancesState,
+    /// The series a watched game is one of, worked out once for the game.
+    series: SeriesState,
     /// The game's own resource icons, once read.
     resource_icons: Option<resource_icons::LoadedResourceIcons>,
     /// How much of the screen's height the band the minimap stands in takes, from the screen's
@@ -622,6 +626,7 @@ impl OverlayState {
             chat_history: None,
             observer_view: None,
             alliances: AlliancesState::default(),
+            series: SeriesState::default(),
             resource_icons: None,
             bottom_band_share: 0.0,
         }
@@ -889,11 +894,20 @@ impl OverlayState {
         // only while shown (see `ObserverViewCache`). Lives beside the shell for the frame rather
         // than inside `self`, like the chat log.
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
-            let matchup = self.build_matchup_view(bw, apm, setup_info);
-            let production = self.build_production_view(bw);
+            // Only a client watching a game live is shown its series: a player gets no observer
+            // panels at all, and a replay is never shown one.
+            let series = if host_frame.mode == Mode::Observing {
+                self.series.frame(bw, setup_info)
+            } else {
+                None
+            };
+            let teams = series.as_ref().map(|series| &series.teams);
+            let matchup = self.build_matchup_view(bw, apm, setup_info, series.as_ref());
+            let production = self.build_production_view(bw, teams);
             ObserverViewCache::build(
                 self.observer_view.take(),
                 bw,
+                teams,
                 game_stats,
                 self.shell.panel_prefs(),
                 matchup,
@@ -1569,24 +1583,18 @@ impl OverlayState {
         }
     }
 
-    /// Builds the matchup bar's view: every player the replay is worth showing, in team order.
+    /// Builds the matchup bar's view: every player the replay is worth showing, in team order, and
+    /// the series the game is one of where the watcher is shown one.
     fn build_matchup_view(
         &self,
         bw: &BwVars,
         apm: Option<&ApmStats>,
         setup: Option<&GameSetupInfo>,
+        series: Option<&SeriesFrame>,
     ) -> MatchupView {
         let random_picks = stats::random_picks(bw, setup);
-        let players = replay_players_by_team(bw)
-            .filter(|&(_team, player_id)| {
-                // Players with no units are taken for observers on a UMS map, which have no numbers
-                // worth a half of the bar. A team game's players are all shown, since one of them
-                // owns the team's units. And a player whose vision the watcher has taken is shown
-                // whatever they own, so it is clear where the vision on screen is coming from.
-                player_has_units(bw, player_id)
-                    || bw.is_shared_control
-                    || has_player_vision(bw, player_id)
-            })
+        let players = replay_players_by_team(bw, series.map(|series| &series.teams))
+            .filter(|&(_team, player_id)| shown_on_panels(bw, player_id))
             .map(|(team, player_id)| unsafe {
                 let player = bw.players.add(player_id as usize);
                 let random = stats::has_pick(random_picks, player_id);
@@ -1601,6 +1609,9 @@ impl OverlayState {
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
             is_replay: bw.is_replay,
+            // The series' first side is team 1, which the players are listed by, so its score is
+            // the one beside the players listed first.
+            series: series.map(|series| series.view.clone()),
         }
     }
 
@@ -2147,9 +2158,13 @@ fn unit_kind(unit: Unit) -> (bw_dat::UnitId, u8) {
 ///
 /// Every observer surface reads its players from here, which is what keeps a row in one panel
 /// lined up with the row for the same player in the next and lets the ones that group by side do
-/// it by walking a list rather than by grouping it again.
-fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
-    let teams = player_teams(bw);
+/// it by walking a list rather than by grouping it again. `series_teams` are the teams a series
+/// game puts its slots on, which stand in for the game's own (see [`series`]).
+fn replay_players_by_team(
+    bw: &BwVars,
+    series_teams: Option<&[u8; 8]>,
+) -> impl Iterator<Item = (u8, u8)> + use<> {
+    let teams = series_teams.copied().unwrap_or_else(|| player_teams(bw));
     let mut ordered: Vec<(u8, u8)> = (0u8..8)
         .filter(|&player_id| is_active_player(bw, player_id as usize))
         .map(|player_id| (teams[player_id as usize], player_id))
@@ -2248,6 +2263,14 @@ fn mutually_allied(bw: &BwVars, a: usize, b: usize) -> bool {
         let alliances = &(**bw.game).alliances;
         alliances[a][b] != 0 && alliances[b][a] != 0
     }
+}
+
+/// Whether the observer panels show this active slot. Players with no units are taken for observers
+/// on a UMS map, which have no numbers worth a row. A team game's players are all shown, since one
+/// of them owns the team's units. And a player whose vision the watcher has taken is shown whatever
+/// they own, so it is clear where the vision on screen is coming from.
+fn shown_on_panels(bw: &BwVars, player_id: u8) -> bool {
+    player_has_units(bw, player_id) || bw.is_shared_control || has_player_vision(bw, player_id)
 }
 
 fn player_has_units(bw: &BwVars, player_id: u8) -> bool {

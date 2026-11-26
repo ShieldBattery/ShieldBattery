@@ -7,10 +7,16 @@ import { extendableDeadline } from '../../../common/async/extendable-deadline'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
-import { GamePlayerRank, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
+import {
+  GamePlayerRank,
+  GameSetup,
+  PlayerInfo,
+  SeriesOverlay,
+} from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameType } from '../../../common/games/game-type'
 import { BestOfLaunchInfo } from '../../../common/lobbies/lobby-best-of'
+import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -418,12 +424,33 @@ function gameUserPath(gameId: string, userId: SbUserId) {
   return urlPath`/gameLoader/${gameId}/${userId}`
 }
 
+/**
+ * Describes where a best-of series stands for the observer overlay, listing on each side only the
+ * members who are seated as human players in the game.
+ */
+function toSeriesOverlay(bestOf: BestOfLaunchInfo, playerInfos: PlayerInfo[]): SeriesOverlay {
+  const seated = new global.Set(
+    playerInfos.filter(p => p.type === SlotType.Human && p.userId).map(p => p.userId!),
+  )
+  const [side0, side1] = bestOf.sides
+  return {
+    ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
+    format: { kind: 'bestOf', length: bestOf.length },
+    gameNumber: bestOf.gameNumber,
+    sides: [
+      { score: side0.score, players: side0.players.filter(id => seated.has(id)) },
+      { score: side1.score, players: side1.players.filter(id => seated.has(id)) },
+    ],
+  }
+}
+
 /** Returns the `GameSetup` for a game without any user-specific data. */
 function getGeneralGameSetup({
   gameConfig,
   playerInfos,
   users,
   ranks,
+  bestOf,
   map,
   gameId,
   seed,
@@ -434,6 +461,7 @@ function getGeneralGameSetup({
   playerInfos: PlayerInfo[]
   users: SbUser[]
   ranks?: GamePlayerRank[]
+  bestOf?: BestOfLaunchInfo
   map: MapInfo
   gameId: string
   seed: number
@@ -472,6 +500,7 @@ function getGeneralGameSetup({
       slots: playerInfos,
       host,
       ...(host !== lobbyHost && lobbyHost.userId ? { creatorUserId: lobbyHost.userId } : {}),
+      ...(bestOf ? { seriesOverlay: toSeriesOverlay(bestOf, playerInfos) } : {}),
       users,
       seed,
       turnRate,
@@ -583,6 +612,7 @@ export class GameLoader {
     mapId,
     gameConfig,
     ranks,
+    bestOf,
     signal,
     onGameRegistered,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
@@ -617,6 +647,7 @@ export class GameLoader {
           resultCodes,
           playerInfos,
           ranks,
+          bestOf,
         }).onFailure(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
@@ -1244,6 +1275,7 @@ export class GameLoader {
     resultCodes,
     playerInfos,
     ranks,
+    bestOf,
   }: {
     gameId: string
     mapId: SbMapId
@@ -1251,6 +1283,7 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ranks?: GamePlayerRank[]
+    bestOf?: BestOfLaunchInfo
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -1386,6 +1419,7 @@ export class GameLoader {
         map,
         gameId,
         ranks,
+        bestOf,
         seed,
         turnRate: chosenTurnRate,
         userLatency: chosenUserLatency,

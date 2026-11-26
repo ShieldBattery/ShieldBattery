@@ -12,6 +12,7 @@ import {
 } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
+import { BestOfLaunchInfo } from '../../../common/lobbies/lobby-best-of'
 import { SlotType } from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapVisibility } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
@@ -226,6 +227,7 @@ describe('games/game-loader/GameLoader', () => {
     matchmaking = false,
     lobbyExtra?: LobbyExtra,
     developmentUser?: SbUserId,
+    bestOf?: BestOfLaunchInfo,
   ) {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
@@ -271,6 +273,7 @@ describe('games/game-loader/GameLoader', () => {
             }
           : {}),
       } as GameConfig,
+      bestOf,
     })
 
     // Every awaited step of the setup resolves on an already-resolved promise, so draining the
@@ -287,7 +290,12 @@ describe('games/game-loader/GameLoader', () => {
    * `startNetworkedLoad`. Unless `lobbyHost` names someone else, the first playing human hosts, so
    * slots follow roster order with observers after the playing humans.
    */
-  async function startRosterLoad(gameId: string, roster: GameLoadPlayer[], lobbyHost?: SbUserId) {
+  async function startRosterLoad(
+    gameId: string,
+    roster: GameLoadPlayer[],
+    lobbyHost?: SbUserId,
+    bestOf?: BestOfLaunchInfo,
+  ) {
     const entries = roster.map(player => {
       const { playerInfo } = makePlayer(player.userId)
       return {
@@ -319,6 +327,7 @@ describe('games/game-loader/GameLoader', () => {
         ]),
         ...(lobbyHost !== undefined ? { gameSourceExtra: { host: lobbyHost } } : {}),
       } as GameConfig,
+      bestOf,
     })
     for (let i = 0; i < 100; i++) {
       await Promise.resolve()
@@ -1728,6 +1737,111 @@ describe('games/game-loader/GameLoader', () => {
     gameLoader.registerGameAsLoaded('game-lobby-type', p1)
     gameLoader.registerGameAsLoaded('game-lobby-type', p2)
     await load
+  })
+
+  describe('series overlay', () => {
+    const p3 = makeSbUserId(3)
+    const p4 = makeSbUserId(4)
+    const bestOf: BestOfLaunchInfo = {
+      title: 'Grand final',
+      length: 5,
+      gameNumber: 3,
+      sides: [
+        { players: [p1, p3], score: 1 },
+        { players: [p2, p4], score: 1 },
+      ],
+    }
+
+    test('carries the series to every player and observer of a lobby game', async () => {
+      const observer = makeSbUserId(9)
+      const { load } = await startRosterLoad(
+        'game-series',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+          { userId: observer, isObserver: true },
+        ],
+        undefined,
+        {
+          ...bestOf,
+          sides: [
+            { players: [p1], score: 1 },
+            { players: [p2], score: 1 },
+          ],
+        },
+      )
+
+      for (const userId of [p1, p2, observer]) {
+        expect(publishedSetupFor(userId).seriesOverlay).toEqual({
+          title: 'Grand final',
+          format: { kind: 'bestOf', length: 5 },
+          gameNumber: 3,
+          sides: [
+            { score: 1, players: [p1] },
+            { score: 1, players: [p2] },
+          ],
+        })
+      }
+
+      gameLoader.registerGameAsLoaded('game-series', p1)
+      gameLoader.registerGameAsLoaded('game-series', p2)
+      gameLoader.registerGameAsLoaded('game-series', observer)
+      await load
+    })
+
+    test("leaves out side members who aren't seated players", async () => {
+      // p3 observes and p4 isn't in the game at all.
+      const { load } = await startRosterLoad(
+        'game-series-unseated',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+          { userId: p3, isObserver: true },
+        ],
+        undefined,
+        bestOf,
+      )
+
+      expect(publishedSetupFor(p1).seriesOverlay.sides).toEqual([
+        { score: 1, players: [p1] },
+        { score: 1, players: [p2] },
+      ])
+
+      gameLoader.registerGameAsLoaded('game-series-unseated', p1)
+      gameLoader.registerGameAsLoaded('game-series-unseated', p2)
+      gameLoader.registerGameAsLoaded('game-series-unseated', p3)
+      await load
+    })
+
+    test('has no series overlay on a lobby game outside a series', async () => {
+      const { load } = await startNetworkedLoad('game-no-series')
+
+      for (const userId of [p1, p2]) {
+        expect(publishedSetupFor(userId)).not.toHaveProperty('seriesOverlay')
+      }
+
+      gameLoader.registerGameAsLoaded('game-no-series', p1)
+      gameLoader.registerGameAsLoaded('game-no-series', p2)
+      await load
+    })
+
+    test('never puts a series overlay on a matchmaking game', async () => {
+      const { load } = await startNetworkedLoad(
+        'game-mm-series',
+        true,
+        undefined,
+        undefined,
+        bestOf,
+      )
+
+      for (const userId of [p1, p2]) {
+        expect(publishedSetupFor(userId)).not.toHaveProperty('seriesOverlay')
+      }
+
+      gameLoader.registerGameAsLoaded('game-mm-series', p1)
+      gameLoader.registerGameAsLoaded('game-mm-series', p2)
+      await load
+    })
   })
 
   test('reports a networked load as not local-only', async () => {

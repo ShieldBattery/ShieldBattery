@@ -36,6 +36,35 @@ export interface PlayerInfo {
   typeId: number
 }
 
+/**
+ * How a series is played, as far as showing it goes. Only the facts travel; any wording about the
+ * format is composed by whoever displays it.
+ */
+export type SeriesOverlayFormat = { kind: 'bestOf'; length: number }
+
+/** One side of a series, as the observer overlay shows it. */
+export interface SeriesOverlaySide {
+  /** Text a person typed to name the side. Nothing sets it yet. */
+  caption?: string
+  /** The number shown for the side. For a best-of, the games it has won so far. */
+  score: number
+  /** The side's members who are seated as players in this game. */
+  players: SbUserId[]
+}
+
+/**
+ * Where a series stood when one of its games launched, for the observer overlay to show. Only text
+ * a person typed (`title`, `caption`) travels as text.
+ */
+export interface SeriesOverlay {
+  /** Text a person typed to name the series. */
+  title?: string
+  format: SeriesOverlayFormat
+  /** 1-based. */
+  gameNumber: number
+  sides: [SeriesOverlaySide, SeriesOverlaySide]
+}
+
 export interface ReplayMapInfo {
   isReplay: true
   path: string
@@ -113,6 +142,11 @@ export interface GameSetup {
    * turned off in the replay.
    */
   starcraftCompatibleReplays?: boolean
+  /**
+   * Where the series this game is part of stood when the game launched, for the observer overlay to
+   * show. Only set for lobby games launched while a series runs, and fixed at launch.
+   */
+  seriesOverlay?: SeriesOverlay
   seed: number
   /**
    * Whether this game uses netcode v2 (rally-point2). When set, each client must generate a

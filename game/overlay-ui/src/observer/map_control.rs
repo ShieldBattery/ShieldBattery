@@ -93,12 +93,18 @@ pub struct MapControlView {
 /// game. It stays on the screen's middle line, so it keeps the panels' own gap to the wider of the
 /// two wings and more to the other.
 fn width_for(screen: Rect) -> Option<f32> {
+    let width = room_between_wings(screen).min(BAR_WIDTH);
+    (width >= MIN_WIDTH).then_some(width)
+}
+
+/// The room on `screen`'s middle line between the stats wings hung from either edge, keeping the
+/// panels' own gap to the wider of the two wings whether or not either is up: what a surface hung
+/// at the top middle of the screen is kept to so it never runs under a wing.
+pub(crate) fn room_between_wings(screen: Rect) -> f32 {
     let side = layout::screen_margin(screen)
         + super::economy::PANEL_WIDTH.max(super::military::PANEL_WIDTH)
         + WING_GAP;
-    let available = screen.width() - side * 2.0;
-    let width = available.min(BAR_WIDTH);
-    (width >= MIN_WIDTH).then_some(width)
+    screen.width() - side * 2.0
 }
 
 /// Whether the bar has room between the wings on `screen`.

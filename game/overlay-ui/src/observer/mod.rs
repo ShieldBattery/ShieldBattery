@@ -39,7 +39,8 @@ pub use graphs::{
 pub use layout::{Span, StackAnchor, StackSlot, minimap_reserve};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
-    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
+    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, SeriesFormat, SeriesView,
+    render_matchup_view,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
@@ -802,6 +803,19 @@ pub(crate) struct WingFrame<R> {
     pub(crate) inner: R,
 }
 
+/// What a stats wing's title row carries: the panel's name and keycap, and where the panel has one,
+/// something of its own painted after the name (see [`widgets::panel_header_with_aside`]).
+pub(crate) struct WingTitle<'a> {
+    pub(crate) panel: Panel,
+    pub(crate) aside: Option<widgets::HeaderAside<'a>>,
+}
+
+impl From<Panel> for WingTitle<'_> {
+    fn from(panel: Panel) -> Self {
+        WingTitle { panel, aside: None }
+    }
+}
+
 /// The area the stats wing that is `panel` is drawn in.
 pub fn wing_id(panel: Panel) -> Id {
     Id::new(("sb_wing", panel.label()))
@@ -820,15 +834,16 @@ pub fn wing_id(panel: Panel) -> Id {
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;
 /// egui sizes a panel from its contents out, so the width given here is the panel's and the width
 /// its contents get is what is left of it inside the chrome.
-pub(crate) fn wing_panel<R>(
+pub(crate) fn wing_panel<'a, R>(
     ctx: &Context,
-    panel: Panel,
+    title: impl Into<WingTitle<'a>>,
     wing: Wing,
     top: f32,
     width: f32,
     shown: bool,
     add: impl FnOnce(&mut Ui) -> R,
 ) -> Option<WingFrame<R>> {
+    let WingTitle { panel, aside } = title.into();
     let margin = layout::screen_margin(ctx.viewport_rect());
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, margin),
@@ -844,8 +859,11 @@ pub(crate) fn wing_panel<R>(
             // fixed layouts, and egui's own item spacing would add to every one of them.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(tiers::panel_content_width(width));
-            let key_clicked =
-                widgets::panel_header(ui, &panel_name(panel), panel.key_label().as_deref());
+            let (title, key) = (panel_name(panel), panel.key_label());
+            let key_clicked = match aside {
+                Some(aside) => widgets::panel_header_with_aside(ui, &title, key.as_deref(), aside),
+                None => widgets::panel_header(ui, &title, key.as_deref()),
+            };
             (key_clicked, add(ui))
         })
         .inner
@@ -953,17 +971,25 @@ pub(crate) fn paint_stat_identity(
 /// it for a panel to settle into the size it is drawn at.
 #[cfg(test)]
 pub(crate) mod test_support {
-    use egui::{Context, Rect, pos2, vec2};
+    use egui::{Context, Rect, Vec2, pos2, vec2};
 
     /// The rect `draw` reports once a 1920x1080 screen has settled around it: the passes it takes
     /// an area to learn its size and a panel to finish its entrance.
-    pub(crate) fn settled_rect(mut draw: impl FnMut(&Context) -> Option<Rect>) -> Option<Rect> {
+    pub(crate) fn settled_rect(draw: impl FnMut(&Context) -> Option<Rect>) -> Option<Rect> {
+        settled_at(vec2(1920.0, 1080.0), draw)
+    }
+
+    /// What `draw` reports once a screen of `size` has settled around it.
+    pub(crate) fn settled_at<T>(
+        size: Vec2,
+        mut draw: impl FnMut(&Context) -> Option<T>,
+    ) -> Option<T> {
         let ctx = Context::default();
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         let mut rect = None;
         for pass in 0..6 {
             let raw = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)),
                 time: Some(f64::from(pass) * 0.25),
                 ..Default::default()
             };

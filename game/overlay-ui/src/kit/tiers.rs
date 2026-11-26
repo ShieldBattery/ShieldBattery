@@ -237,6 +237,35 @@ pub fn tier0_panel_joined<R>(
     inner
 }
 
+/// Paints the chrome of a [`tier0_panel_joined`] into a rect the caller has already placed, for a
+/// surface too small for a panel's padding: `corner_radius` with the corners on the joined edge
+/// squared off, its shadow stopped at the join, and its edge left off the join where it does not
+/// divide.
+pub fn paint_tier0_joined(
+    painter: &egui::Painter,
+    rect: Rect,
+    corner_radius: CornerRadius,
+    joined: Joined,
+) {
+    let corner_radius = joined.corner_radius(corner_radius);
+    let clip = painter.clip_rect();
+    painter
+        .with_clip_rect(joined.short_of(clip, rect, 0.0))
+        .add(PANEL_SHADOW.as_shape(rect, corner_radius));
+    painter.rect_filled(rect, corner_radius, theme::TIER0_FILL);
+    let edge_clip = if joined.divides {
+        clip
+    } else {
+        joined.short_of(clip, rect, theme::HAIRLINE)
+    };
+    painter.with_clip_rect(edge_clip).add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+        StrokeKind::Inside,
+    ));
+}
+
 /// A hero panel: a vertical gradient, a lit top bevel and a blue edge.
 ///
 /// `corner_radius` is a parameter because these panels hang off screen edges as often as they

@@ -161,6 +161,8 @@
   },
   "observer": {
     "apm": "APM",
+    "bestOfGame_one": "Best of {{count}} · Game {{game}}",
+    "bestOfGame_other": "Best of {{count}} · Game {{game}}",
     "columnArmy": "Army",
     "columnArmyValue": "Army value",
     "columnGas": "Gas",
@@ -233,6 +235,7 @@
     "seriesArmyValue": "Army value",
     "seriesIncome": "Income",
     "seriesKills": "Kills",
+    "seriesLineSeparator": "·",
     "seriesSupply": "Supply",
     "seriesWorkers": "Workers",
     "summoning": "Summoning",

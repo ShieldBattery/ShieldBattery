@@ -23,12 +23,12 @@ use overlay_ui::observer::{
     GraphsView, MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
     MilitaryPlayerView, MilitaryView, ObserverView, OnScreenPlayerView, OnScreenUnitView,
     OnScreenView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, UnitResearchView,
-    UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, SeriesFormat,
+    SeriesView, Significance, StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView,
+    TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView,
+    UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
 };
-use overlay_ui::shell::PanelPrefs;
+use overlay_ui::shell::{MatchupStyle, PanelPrefs};
 use serde::{Deserialize, Serialize};
 
 use crate::host_knobs::PointerTarget;
@@ -39,6 +39,12 @@ const MAX_PLAYERS: usize = 8;
 
 /// The longest name the game lets a player carry, which is what the bar's name slot has to survive.
 const LONG_NAME: &str = "MaximumLengthName_24ch";
+
+/// The longest title a lobby lets its host give a series, which is what the series line's title has
+/// to survive.
+const LONG_SERIES_TITLE: &str = "ShieldBattery Winter Marathon Invitational Grand F";
+
+const _: () = assert!(LONG_SERIES_TITLE.len() == 50);
 
 /// The names the fake game's players are given, in slot order.
 const NAMES: [&str; MAX_PLAYERS] = [
@@ -306,6 +312,18 @@ pub struct Knobs {
     /// Whether the list of players under the minimap's vision button starts open, which is a state
     /// an offline render has no click to reach.
     pub vision_picker: bool,
+    /// Whether the game is one of a series, which the matchup carries each side's score and the
+    /// series line for.
+    pub series: bool,
+    /// What the series is called. Empty for a series nobody named, which leaves the line its
+    /// format and game number alone.
+    pub series_title: String,
+    /// How many games the series is the best of.
+    pub series_length: u32,
+    /// Which game of the series this is, counting from one.
+    pub series_game: u32,
+    /// Each side's score going into this game: the side listed first, then the other.
+    pub series_scores: [u32; 2],
 }
 
 impl Default for Knobs {
@@ -346,6 +364,11 @@ impl Default for Knobs {
             selection_spells: false,
             map_control: true,
             vision_picker: false,
+            series: false,
+            series_title: "Grand Final".to_string(),
+            series_length: 3,
+            series_game: 2,
+            series_scores: [1, 0],
         }
     }
 }
@@ -467,6 +490,14 @@ pub fn build_view(
             .collect(),
         elapsed_secs: game_secs,
         is_replay,
+        series: knobs.series.then(|| SeriesView {
+            title: (!knobs.series_title.is_empty()).then(|| knobs.series_title.clone()),
+            format: SeriesFormat::BestOf {
+                length: knobs.series_length,
+            },
+            game_number: knobs.series_game,
+            scores: knobs.series_scores,
+        }),
     };
     ObserverView {
         show_entire_map: state.show_entire_map,
@@ -1968,6 +1999,30 @@ impl Hover {
     }
 }
 
+/// Which series, if any, a preset's game is one of.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Series {
+    /// None: a game on its own.
+    None,
+    /// A titled best of three going into its second game, one side a game up.
+    Running,
+    /// The longest a series line gets: a best of ninety-nine at twelve games to eleven going into
+    /// its twenty-fourth, under the longest title a lobby allows, with every player carrying the
+    /// longest name the game allows.
+    Stretched,
+}
+
+impl Series {
+    /// What a render of this series is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Series::None => "",
+            Series::Running => "series",
+            Series::Stretched => "series-stress",
+        }
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -1979,6 +2034,10 @@ pub struct Preset {
     pub panels: Screen,
     pub showcase: Showcase,
     pub hover: Hover,
+    pub series: Series,
+    /// Whether the matchup is the bar across the top rather than the compact scoreboard the shell
+    /// starts on.
+    pub bar: bool,
 }
 
 impl Preset {
@@ -1990,6 +2049,8 @@ impl Preset {
             panels,
             showcase: Showcase::Knobs,
             hover: Hover::None,
+            series: Series::None,
+            bar: false,
         }
     }
 
@@ -2001,6 +2062,8 @@ impl Preset {
             panels: Screen::Analyst,
             showcase,
             hover: Hover::None,
+            series: Series::None,
+            bar: false,
         }
     }
 
@@ -2013,6 +2076,8 @@ impl Preset {
             panels: Screen::Analyst,
             showcase: Showcase::Knobs,
             hover,
+            series: Series::None,
+            bar: false,
         }
     }
 
@@ -2024,10 +2089,27 @@ impl Preset {
             panels: Screen::Analyst,
             showcase: Showcase::VisionPicker,
             hover: Hover::None,
+            series: Series::None,
+            bar: false,
         }
     }
 
-    pub const ALL: [Preset; 40] = [
+    /// A game of `players` at `team_size` a side that is one of `series`, watched from an observer
+    /// slot with the analyst's screen up, so the series is seen beside every surface it shares the
+    /// top of the screen with. On the bar where `bar`, and on the compact scoreboard otherwise.
+    pub const fn series(players: usize, team_size: usize, series: Series, bar: bool) -> Preset {
+        Preset {
+            players,
+            team_size,
+            panels: Screen::Live,
+            showcase: Showcase::Knobs,
+            hover: Hover::None,
+            series,
+            bar,
+        }
+    }
+
+    pub const ALL: [Preset; 54] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2079,6 +2161,22 @@ impl Preset {
         Preset::hover_showcase(Hover::JumpChip),
         Preset::hover_showcase(Hover::MinimapVision),
         Preset::hover_showcase(Hover::UpgradeChip),
+        // A series in both of the matchup's forms, for each shape the bar takes: halves of one,
+        // stacked halves, and the clock alone between the corner cards, at three and four a side.
+        Preset::series(2, 1, Series::Running, true),
+        Preset::series(2, 1, Series::Running, false),
+        Preset::series(4, 2, Series::Running, true),
+        Preset::series(4, 2, Series::Running, false),
+        Preset::series(6, 3, Series::Running, true),
+        Preset::series(6, 3, Series::Running, false),
+        Preset::series(8, 4, Series::Running, true),
+        Preset::series(8, 4, Series::Running, false),
+        Preset::series(2, 1, Series::Stretched, true),
+        Preset::series(2, 1, Series::Stretched, false),
+        Preset::series(4, 2, Series::Stretched, true),
+        Preset::series(4, 2, Series::Stretched, false),
+        Preset::series(8, 4, Series::Stretched, true),
+        Preset::series(8, 4, Series::Stretched, false),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -2099,6 +2197,10 @@ impl Preset {
         }
         if self.hover != Hover::None {
             return format!("{}-{}", self.shape(), self.hover.slug());
+        }
+        if self.series != Series::None {
+            let form = if self.bar { "bar" } else { "compact" };
+            return format!("{}-{}-{form}", self.shape(), self.series.slug());
         }
         format!("{}-{}", self.shape(), self.panels.slug())
     }
@@ -2130,6 +2232,11 @@ impl Preset {
             _ => overlay_ui::shell::Mode::Replay,
         };
         self.panels.apply(&mut knobs.host.panels);
+        knobs.host.panels.set_matchup_style(if self.bar {
+            MatchupStyle::Bar
+        } else {
+            MatchupStyle::Compact
+        });
         // The dock's two forms are both worth looking at, and the screen that asks for everything
         // is the one whose watcher wants the table spelled out, on the plate, beside the selection
         // panel and floating alike. A screen about what the pointer is over takes the keycaps instead,
@@ -2166,6 +2273,18 @@ impl Preset {
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
+        match self.series {
+            Series::None => {}
+            Series::Running => knobs.observer.series = true,
+            Series::Stretched => {
+                knobs.observer.series = true;
+                knobs.observer.series_title = LONG_SERIES_TITLE.to_string();
+                knobs.observer.series_length = 99;
+                knobs.observer.series_game = 24;
+                knobs.observer.series_scores = [12, 11];
+                knobs.observer.long_names = true;
+            }
+        }
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
         // them has, so the readings of a building are watched from a Protoss player's side, as is
         // the carrier, which only a Protoss player has.
@@ -2322,6 +2441,33 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
              starts, the state the button's click leaves it in.",
         )
         .changed();
+    changed |= ui
+        .checkbox(&mut k.series, "one of a series")
+        .on_hover_text(
+            "Makes the game one of a best-of series, which the matchup carries each side's score \
+             and the series line for, on the bar and on the compact scoreboard alike.",
+        )
+        .changed();
+    ui.add_enabled_ui(k.series, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("series title:");
+            changed |= ui
+                .text_edit_singleline(&mut k.series_title)
+                .on_hover_text("Empty for a series nobody named.")
+                .changed();
+        });
+        changed |= ui
+            .add(egui::Slider::new(&mut k.series_length, 1..=99).text("best of"))
+            .changed();
+        changed |= ui
+            .add(egui::Slider::new(&mut k.series_game, 1..=99).text("game number"))
+            .changed();
+        for (index, score) in k.series_scores.iter_mut().enumerate() {
+            changed |= ui
+                .add(egui::Slider::new(score, 0..=50).text(format!("side {} score", index + 1)))
+                .changed();
+        }
+    });
     changed |= ui
         .checkbox(&mut k.map_control, "reports map control")
         .on_hover_text(

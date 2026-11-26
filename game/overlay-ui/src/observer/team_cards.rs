@@ -525,16 +525,20 @@ pub struct TeamCardsOutcome {
 /// Returns nothing at all once they are gone, or for a game that has no two sides to draw.
 ///
 /// Both cards are as wide as a corner leaves: two cards of different widths would read as two kinds
-/// of card. A corner ends where the clock the bar has become begins.
+/// of card. A corner ends where the clock the bar has become begins, which is `clock_width` wide
+/// across the middle of the screen.
 pub fn render_team_cards_view(
     view: &TeamCardsView,
     ctx: &Context,
     shown: bool,
+    clock_width: f32,
 ) -> TeamCardsOutcome {
     let screen = ctx.viewport_rect();
     let margin = layout::screen_margin(screen);
-    let corner = (screen.width() - super::matchup::CLOCK_WIDTH) * 0.5 - WING_GAP - margin;
-    let layout = CardLayout::fitted(corner, &CardNeeds::measure(ctx, view));
+    let layout = CardLayout::fitted(
+        corner_width(screen, clock_width),
+        &CardNeeds::measure(ctx, view),
+    );
     let mut outcome = TeamCardsOutcome {
         rects: Vec::new(),
         left_bottom: None,
@@ -573,6 +577,20 @@ pub fn render_team_cards_view(
         }
     }
     outcome
+}
+
+/// How much of `screen`'s width a top corner leaves a card: from the screen's margin to the panels'
+/// gap short of a clock block `clock_width` wide across the middle.
+fn corner_width(screen: Rect, clock_width: f32) -> f32 {
+    (screen.width() - clock_width) * 0.5 - WING_GAP - layout::screen_margin(screen)
+}
+
+/// The room on `screen`'s middle line between the two cards beside a clock block `clock_width`
+/// wide, keeping the panels' gap to each: what a surface hung under the clock is kept to so it
+/// never runs under a card.
+pub(crate) fn room_between_cards(screen: Rect, clock_width: f32) -> f32 {
+    let card = corner_width(screen, clock_width).min(CARD_WIDTH);
+    screen.width() - (layout::screen_margin(screen) + card + WING_GAP) * 2.0
 }
 
 /// Draws one card and returns the player whose row was clicked.

@@ -31,8 +31,8 @@ use crate::bw_scr::unit_health_bars::{is_spellcaster, selection_circle_bottom};
 use crate::game_thread;
 
 use super::{
-    BwVars, FASTEST_GAME_SPEED, has_player_vision, player_has_units, production,
-    replay_players_by_team,
+    BwVars, FASTEST_GAME_SPEED, has_player_vision, production, replay_players_by_team,
+    shown_on_panels,
 };
 
 /// How many points one graph line is drawn from.
@@ -54,19 +54,14 @@ struct StatsPlayer {
     pub race: RaceView,
 }
 
-/// The players the stats wings have rows for, in the order the replay lists them.
+/// The players the stats wings have rows for, in the order the replay lists them, on the teams a
+/// series game puts them on where `series_teams` gives them.
 ///
-/// The same rule the matchup bar uses, so a game's panels all report on the same players: a slot
-/// with no units is taken for an observer on a UMS map, a team game's slots are all kept since one
-/// of them owns the team's units, and a slot whose vision the watcher has taken is kept whatever it
-/// owns, so it is clear where the vision on screen is coming from.
-fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
-    replay_players_by_team(bw)
-        .filter(|&(_team, player_id)| {
-            player_has_units(bw, player_id)
-                || bw.is_shared_control
-                || has_player_vision(bw, player_id)
-        })
+/// The same rule the matchup bar uses (see [`shown_on_panels`]), so a game's panels all report on
+/// the same players.
+fn stats_players(bw: &BwVars, series_teams: Option<&[u8; 8]>) -> Vec<StatsPlayer> {
+    replay_players_by_team(bw, series_teams)
+        .filter(|&(_team, player_id)| shown_on_panels(bw, player_id))
         .map(|(team, player_id)| StatsPlayer {
             player_id,
             team,
@@ -618,16 +613,18 @@ struct TimelineKey {
 impl ObserverViewCache {
     /// The view for this frame, reusing whatever of `previous` nothing has moved under.
     ///
-    /// `matchup` and `production` are this frame's, built by the caller.
+    /// `matchup` and `production` are this frame's, built by the caller, as are `series_teams`, the
+    /// teams a series game puts its slots on where the watcher is shown the series.
     pub(super) fn build(
         previous: Option<ObserverViewCache>,
         bw: &BwVars,
+        series_teams: Option<&[u8; 8]>,
         game_stats: Option<&GameStats>,
         prefs: &PanelPrefs,
         matchup: MatchupView,
         production: ProductionView,
     ) -> ObserverViewCache {
-        let players = stats_players(bw);
+        let players = stats_players(bw, series_teams);
         let stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
         let stats = stats.as_ref();
         // A game with one player per side plots the same lines either way, so it is told there is
