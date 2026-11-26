@@ -153,9 +153,144 @@ pub(crate) fn active_halo(ui: &Ui, rect: Rect, corner_radius: CornerRadius, colo
 
 #[cfg(test)]
 mod tests {
-    use egui::{RawInput, pos2, vec2};
+    use egui::{Event, RawInput, pos2, vec2};
 
     use super::*;
+    use crate::colors::{AMBER60, BLUE99, GREY_BLUE70, GREY_BLUE80};
+    use crate::kit::text;
+
+    /// The color each piece of text `draw` paints comes out in, in the order it is painted, as of
+    /// the last of three frames. With `hover`, the pointer rests from the second frame on at the
+    /// middle of the rect `draw` returned on the first.
+    fn drawn_text(hover: bool, mut draw: impl FnMut(&mut Ui) -> Rect) -> Vec<(String, Color32)> {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut target = None;
+        let mut drawn = Vec::new();
+        for _ in 0..3 {
+            let raw = RawInput {
+                events: target
+                    .filter(|_| hover)
+                    .map(Event::PointerMoved)
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(raw, |ui| target = Some(draw(ui).center()));
+            output.textures_delta.clear();
+            drawn = output
+                .shapes
+                .iter()
+                .filter_map(|clipped| match &clipped.shape {
+                    Shape::Text(shape) => {
+                        let sections = &shape.galley.job.sections;
+                        let laid_out = sections.first()?.format.color;
+                        let text = shape.galley.text().to_string();
+                        assert!(
+                            sections
+                                .iter()
+                                .all(|section| section.format.color == laid_out),
+                            "{text:?} is laid out in more than one color",
+                        );
+                        let color = shape.override_text_color.unwrap_or(laid_out);
+                        Some((text, color))
+                    }
+                    _ => None,
+                })
+                .collect();
+        }
+        drawn
+    }
+
+    fn colors(drawn: &[(String, Color32)]) -> Vec<Color32> {
+        drawn.iter().map(|(_, color)| *color).collect()
+    }
+
+    #[test]
+    fn a_tag_draws_its_label_in_its_style_color() {
+        let hue = Color32::from_rgb(0x3C, 0xD0, 0xAC);
+        for (style, color) in [
+            (TagStyle::Amber, AMBER60),
+            (TagStyle::Neutral, GREY_BLUE80),
+            (TagStyle::Muted, theme::TEXT_LABEL),
+            (
+                TagStyle::Hue {
+                    color: hue,
+                    filled: true,
+                },
+                hue,
+            ),
+        ] {
+            let drawn = drawn_text(false, |ui| {
+                tag(ui, "replay", style);
+                tag_sized(ui, "replay", style, 80.0).rect
+            });
+            assert_eq!(colors(&drawn), [color; 2]);
+        }
+    }
+
+    #[test]
+    fn a_row_of_chips_lights_the_chosen_label_alone() {
+        let drawn = drawn_text(false, |ui| {
+            segmented(ui, &mut 1, &["small", "medium", "large"]).rect
+        });
+        assert_eq!(colors(&drawn), [GREY_BLUE70, BLUE99, GREY_BLUE70]);
+        let drawn = drawn_text(false, |ui| {
+            tab_strip(ui, 2, &["army", "income", "supply"], 400.0);
+            Rect::NOTHING
+        });
+        assert_eq!(colors(&drawn), [GREY_BLUE70, GREY_BLUE70, BLUE99]);
+    }
+
+    #[test]
+    fn a_chip_button_lights_its_label_under_the_pointer() {
+        let spec = text::body(12.0, text::BodyWeight::Semibold).with_color(theme::TEXT_SECONDARY);
+        for (hover, color) in [(false, theme::TEXT_SECONDARY), (true, theme::TEXT_PRIMARY)] {
+            let drawn = drawn_text(hover, |ui| {
+                chip_button(ui, &spec, "+1m", vec2(40.0, 24.0)).rect
+            });
+            assert_eq!(colors(&drawn), [color], "hovered: {hover}");
+        }
+    }
+
+    #[test]
+    fn a_chart_colors_a_fixed_series_name_and_leaves_a_players_to_its_swatch() {
+        let values = [0.0, 50.0, 100.0];
+        let fixed = Color32::from_rgb(0xFC, 0xE0, 0x6C);
+        // With the pointer on the plot, so its hover card names the series as well as its legend.
+        let drawn = drawn_text(true, |ui| {
+            let series = |label, name_in_color| Series {
+                label,
+                color: fixed,
+                values: &values,
+                filled: false,
+                name_in_color,
+            };
+            line_plot(
+                ui,
+                &[series("gas", true), series("player", false)],
+                vec2(400.0, 170.0),
+                600,
+            )
+            .rect
+        });
+        let color_of = |name: &str| {
+            drawn
+                .iter()
+                .find(|(text, _)| text == name)
+                .map(|(_, color)| *color)
+        };
+        // The legend's names, in capitals.
+        assert_eq!(color_of("GAS"), Some(fixed));
+        assert_eq!(color_of("PLAYER"), Some(text::column_label().color));
+        // The hover card's.
+        assert_eq!(color_of("gas"), Some(fixed));
+        let player = color_of("player");
+        assert!(
+            player == Some(theme::TEXT_PRIMARY) || player == Some(theme::TEXT_SECONDARY),
+            "{player:?}",
+        );
+    }
 
     /// The color an opaque white fill comes out as on a `Ui` drawn at `surface_opacity` and then
     /// disabled as many times as `disables`.

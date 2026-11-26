@@ -66,8 +66,7 @@ pub fn button(ui: &mut Ui, label: &str, variant: ButtonVariant) -> Response {
 
 /// A button that is at least `min_width` wide, for rows that want their buttons to line up.
 pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width: f32) -> Response {
-    let spec = text::button_label(variant.label_size()).with_color(Color32::PLACEHOLDER);
-    let galley = spec.galley(ui, label);
+    let galley = text::button_label(variant.label_size()).galley(ui, label);
     let width = (galley.size().x + theme::SPACE_XL * 2.0).max(min_width);
     let (rect, response) = ui.allocate_exact_size(vec2(width, variant.height()), Sense::click());
     if !ui.is_rect_visible(rect) {
@@ -86,7 +85,7 @@ pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width:
     focus_ring(ui, &response, rect, corner_radius);
 
     let text_pos = rect.center() - galley.size() * 0.5;
-    ui.painter().galley(text_pos, galley, label_color);
+    text::paint_tinted(ui.painter(), text_pos, galley, label_color);
     response
 }
 
@@ -137,8 +136,12 @@ pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) 
     } else {
         spec.color
     };
-    ui.painter()
-        .galley(rect.center() - galley.size() * 0.5, galley, color);
+    text::paint_tinted(
+        ui.painter(),
+        rect.center() - galley.size() * 0.5,
+        galley,
+        color,
+    );
     response
 }
 
@@ -335,10 +338,10 @@ pub fn plate_button_aligned(
         Align::Center => rect.center().x - galley.size().x * 0.5,
         Align::RIGHT => rect.right() - inset - galley.size().x,
     };
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(x, rect.center().y - galley.size().y * 0.5),
         galley,
-        plate.label,
     );
     response
 }
@@ -499,7 +502,7 @@ pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bo
         state_wash(ui, &response, rect, corner_radius);
         focus_ring(ui, &response, rect, corner_radius);
         let text_pos = rect.center() - galley.size() * 0.5;
-        ui.painter().galley(text_pos, galley, spec.color);
+        text::paint(ui.painter(), text_pos, galley);
     }
 
     // Neither the sweep nor its unwind has anything else asking for frames, and the unwind's first
@@ -558,7 +561,7 @@ pub fn paint_kbd(ui: &Ui, rect: Rect, key: &str) {
         Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
         StrokeKind::Inside,
     ));
-    painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);
+    text::paint(painter, rect.center() - galley.size() * 0.5, galley);
 }
 
 /// Marks `button` with the keycap of the key that presses it, set in from its right edge clear of a

@@ -68,7 +68,7 @@ fn paragraph(ui: &mut Ui, text: &str, width: f32, color: Color32) {
     let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
     let (rect, _) = ui.allocate_exact_size(vec2(width, galley.size().y), Sense::hover());
     if ui.is_rect_visible(rect) {
-        ui.painter().galley(rect.min, galley, color);
+        text::paint(ui.painter(), rect.min, galley);
     }
 }
 

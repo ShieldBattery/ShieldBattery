@@ -285,18 +285,17 @@ fn draw_header(
 /// narrow to leave the clock room clear of both buttons shows no clock at all: the buttons are what
 /// a watcher acts through, and a clock cut short would read as a different time.
 fn draw_clock(ui: &Ui, room: Rect, elapsed_secs: u64) {
-    let spec = text::numeral(CLOCK_SIZE);
-    let clock = spec.galley(ui, &game_clock(elapsed_secs));
+    let clock = text::numeral(CLOCK_SIZE).galley(ui, &game_clock(elapsed_secs));
     if clock.size().x > room.width() - CLOCK_GAP * 2.0 {
         return;
     }
     // The figures' own ink is centered on the strip rather than the box the face leaves around them,
     // which would set them lower than the labels on the buttons either side.
     let top = room.center().y - text::ink_bounds(&clock).center().y;
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(room.center().x - clock.size().x * 0.5, top),
         clock,
-        spec.color,
     );
 }
 
@@ -352,10 +351,10 @@ fn paint_on_capitals(ui: &Ui, rect: Rect, spec: &text::TextSpec, label: &str) {
     let capital = spec.galley(ui, "H");
     let capital_middle = text::ink_bounds(&capital).center().y - text::baseline(&capital);
     let top = rect.center().y - capital_middle - text::baseline(&galley);
-    ui.painter().galley(
+    text::paint(
+        ui.painter(),
         pos2(rect.center().x - galley.size().x * 0.5, top),
         galley,
-        spec.color,
     );
 }
 

@@ -278,13 +278,13 @@ fn draw_nav_row(ui: &mut Ui, section: OptionsSection, active: bool) -> bool {
         let key_room = widgets::kbd_size(ui, key).x + theme::SPACE_SM;
         let job = spec.job_truncated(&section.label(), size.x - NAV_LABEL_INSET * 2.0 - key_room);
         let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 rect.left() + NAV_LABEL_INSET,
                 rect.center().y - galley.size().y * 0.5,
             ),
             galley,
-            spec.color,
         );
         widgets::paint_button_kbd(ui, rect, key);
     }

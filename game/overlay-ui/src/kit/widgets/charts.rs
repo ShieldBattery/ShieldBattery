@@ -52,6 +52,10 @@ pub struct Series<'a> {
     pub values: &'a [f32],
     /// Whether the area under the line is washed in the series color.
     pub filled: bool,
+    /// Whether the legend sets the series' name in its color as well as its swatch. A fixed color
+    /// the overlay picked reads as text; a player's color can be too dark to, so its name is left
+    /// in the label grey and the swatch alone carries the color.
+    pub name_in_color: bool,
 }
 
 /// A multi-series line chart with a value axis, a time axis and a legend.
@@ -149,13 +153,13 @@ fn draw_line_plot(
             ));
         }
         let galley = label_spec.galley(ui, &short_number(value));
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 plot.left() - theme::SPACE_SM - galley.size().x,
                 y - galley.size().y * 0.5,
             ),
             galley,
-            theme::TEXT_DIM,
         );
     }
 
@@ -192,10 +196,10 @@ fn draw_line_plot(
         let galley = label_spec.galley(ui, &mmss(secs));
         let x = plot.left() + plot.width() * fraction;
         let x = crate::kit::clamp_layout(x, plot.left(), plot.right() - galley.size().x);
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(x, plot.bottom() + theme::SPACE_XS),
             galley,
-            theme::TEXT_DIM,
         );
     }
 
@@ -208,13 +212,13 @@ fn draw_line_plot(
             0,
             color,
         );
-        ui.painter().galley(
+        text::paint(
+            ui.painter(),
             pos2(
                 left + LEGEND_SWATCH_WIDTH + theme::SPACE_XS,
                 middle - galley.size().y * 0.5,
             ),
             galley,
-            color,
         );
         legend_right = left - theme::SPACE_MD;
     }
@@ -367,10 +371,16 @@ fn hover_card(
                     true => theme::TEXT_PRIMARY,
                     false => theme::TEXT_SECONDARY,
                 };
+                // A name the legend sets in its series' color is set in it here too, and its value
+                // carries the emphasis alone.
+                let name_color = match line.name_in_color {
+                    true => line.color,
+                    false => color,
+                };
                 (
                     line.color,
                     text::body(12.0, BodyWeight::Medium)
-                        .with_color(color)
+                        .with_color(name_color)
                         .galley(ui, line.label),
                     text::numeral(12.0)
                         .with_color(color)
@@ -391,8 +401,7 @@ fn hover_card(
 
         ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
         let (rect, _) = ui.allocate_exact_size(vec2(width, header.size().y), Sense::hover());
-        let color = theme::TEXT_DIM;
-        ui.painter().galley(rect.left_top(), header, color);
+        text::paint(ui.painter(), rect.left_top(), header);
         for (swatch, label, value) in laid {
             let height = label.size().y.max(value.size().y);
             let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
@@ -404,15 +413,11 @@ fn hover_card(
             );
             let left = rect.left() + SWATCH.x + theme::SPACE_SM;
             let middle = rect.center().y;
-            painter.galley(
-                pos2(left, middle - label.size().y * 0.5),
-                label,
-                theme::TEXT_SECONDARY,
-            );
-            painter.galley(
+            text::paint(painter, pos2(left, middle - label.size().y * 0.5), label);
+            text::paint(
+                painter,
                 pos2(rect.right() - value.size().x, middle - value.size().y * 0.5),
                 value,
-                theme::TEXT_SECONDARY,
             );
         }
         if let Some(hint) = click_hint {
@@ -446,7 +451,14 @@ fn legend_entries(ui: &Ui, series: &[Series<'_>]) -> Option<Vec<(Arc<Galley>, Co
     (!series.is_empty()).then(|| {
         series
             .iter()
-            .map(|line| (text::column_label().galley(ui, line.label), line.color))
+            .map(|line| {
+                let spec = text::column_label();
+                let spec = match line.name_in_color {
+                    true => spec.with_color(line.color),
+                    false => spec,
+                };
+                (spec.galley(ui, line.label), line.color)
+            })
             .collect()
     })
 }

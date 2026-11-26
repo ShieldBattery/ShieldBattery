@@ -1,0 +1,7 @@
+# egui's `Painter::galley` and `Shape::galley` give their color only to text laid out in
+# `Color32::PLACEHOLDER`, and the kit's styles lay text out in colors of their own, so the color they
+# are handed is usually ignored. Text is painted through `kit::text::paint` and `paint_tinted`.
+disallowed-methods = [
+    { path = "egui::Painter::galley", reason = "the color reaches only placeholder-colored text; paint with `kit::text::paint`, laying the text out in the color it should be drawn in, or `kit::text::paint_tinted` for a color settled after measuring" },
+    { path = "egui::Shape::galley", reason = "the color reaches only placeholder-colored text; paint with `kit::text::paint`, laying the text out in the color it should be drawn in, or `kit::text::paint_tinted` for a color settled after measuring" },
+]

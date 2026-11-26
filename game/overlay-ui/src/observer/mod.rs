@@ -209,8 +209,11 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     // than in the next. From a middle on the grid the half pixel is exact, and egui rounds an exact
     // half the same way every time.
     let middle = rect.center().y.round_to_pixels(ui.ctx().pixels_per_point());
-    ui.painter()
-        .galley(pos2(x, middle - galley.size().y * 0.5), galley, spec.color);
+    text::paint(
+        ui.painter(),
+        pos2(x, middle - galley.size().y * 0.5),
+        galley,
+    );
 }
 
 /// The ways a count can be written, longest first: the whole number, then thousands (or millions)
@@ -407,15 +410,24 @@ pub(crate) fn paint_icon_glow(painter: &egui::Painter, rect: Rect, alpha: f32) {
 /// brightness: what says whose it is at a glance, and a ground the icon's dark parts stand out
 /// from.
 pub(crate) fn paint_owner_wash(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    paint_owner_fill(painter, rect, owner, alpha);
+    paint_owner_edge(painter, rect, owner, alpha);
+}
+
+/// The wash half of [`paint_owner_wash`], for a tile that fades its edge apart from its fill.
+pub(crate) fn paint_owner_fill(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
     painter.rect_filled(
         rect,
-        corner_radius,
+        theme::radius(theme::RADIUS_CHIP),
         owner.gamma_multiply(OWNER_WASH_ALPHA * alpha),
     );
+}
+
+/// The edge half of [`paint_owner_wash`], for a tile that fades its edge apart from its fill.
+pub(crate) fn paint_owner_edge(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
     painter.rect_stroke(
         rect,
-        corner_radius,
+        theme::radius(theme::RADIUS_CHIP),
         Stroke::new(
             theme::HAIRLINE,
             full_brightness(owner).gamma_multiply(OWNER_EDGE_ALPHA * alpha),

@@ -665,28 +665,24 @@ pub fn dialog_title(ui: &mut Ui, title: &str) {
 /// title's is.
 pub fn glowing_text(ui: &mut Ui, spec: &text::TextSpec, label: &str, glow: Color32) {
     let galley = spec.galley(ui, label);
-    let halo = spec
-        .clone()
-        .with_color(Color32::PLACEHOLDER)
-        .galley(ui, label);
     let size = galley.size();
     // Exactly as wide as the letters, so a caller decides where the text sits by the layout it
     // puts this in rather than by a rule of its own.
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let origin = rect.min;
     let painter = ui.painter();
-    for stamp in glow_stamps(origin, &halo, glow, spec.font.size) {
+    for stamp in glow_stamps(origin, &galley, glow, spec.font.size) {
         painter.add(stamp);
     }
-    painter.galley(origin, galley, spec.color);
+    text::paint(painter, origin, galley);
 }
 
 /// The stamps [`glowing_text`] lays behind its letters, for a caller that paints the letters
-/// itself: `halo` is the text laid out in [`Color32::PLACEHOLDER`] at `origin`, set in a face
-/// `size` points tall.
+/// itself: `galley` is the text laid out at `origin`, in any color, set in a face `size` points
+/// tall.
 pub fn glow_stamps(
     origin: Pos2,
-    halo: &Arc<Galley>,
+    galley: &Arc<Galley>,
     glow: Color32,
     size: f32,
 ) -> impl Iterator<Item = Shape> {
@@ -701,7 +697,9 @@ pub fn glow_stamps(
                 (vec2(angle.cos(), angle.sin()) * radius * spread, color)
             })
         })
-        .map(move |(offset, color)| Shape::galley(origin + offset, halo.clone(), color))
+        .map(move |(offset, color)| {
+            Shape::galley_with_override_text_color(origin + offset, galley.clone(), color)
+        })
 }
 
 /// Dims the whole screen, for a caller that owns its modal layer itself.

@@ -502,7 +502,8 @@ fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
         glyph,
         color,
     );
-    ui.painter().galley(
+    text::paint_tinted(
+        ui.painter(),
         pos2(
             rect.left() + pad + glyph_size + theme::SPACE_SM,
             rect.center().y - galley.size().y * 0.5,
@@ -591,7 +592,7 @@ impl Columns {
 }
 
 fn draw_column_labels(ui: &mut Ui) {
-    let spec = text::column_label().with_color(GREY_BLUE60);
+    let spec = text::value_label();
     let height = spec.row_height(ui);
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, height), Sense::hover());
     let columns = Columns::of(row);
@@ -622,7 +623,7 @@ fn draw_column_labels(ui: &mut Ui) {
             Align::Min => rect.left(),
             _ => rect.center().x - galley.size().x * 0.5,
         };
-        ui.painter().galley(pos2(x, rect.top()), galley, spec.color);
+        text::paint(ui.painter(), pos2(x, rect.top()), galley);
     }
     ui.add_space(theme::SPACE_XS + 2.0);
 }
@@ -846,10 +847,10 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
         .with_color(name_color)
         .job_truncated(&player.name, (right - left).max(0.0));
     let name = ui.ctx().fonts_mut(|fonts| fonts.layout_job(name_job));
-    painter.galley(
+    text::paint(
+        painter,
         pos2(left, rect.center().y - name.size().y * 0.5),
         name,
-        name_color,
     );
     for (tag, label, style) in tag_rects {
         ui.scope_builder(UiBuilder::new().max_rect(tag), |ui| {
@@ -879,7 +880,7 @@ fn draw_footer(
     outcome: &mut AlliancesOutcome,
 ) -> Rect {
     let width = ui.available_width();
-    let label_spec = text::column_label().with_color(GREY_BLUE60);
+    let label_spec = text::value_label();
     let dropdown = ui
         .allocate_ui_with_layout(
             vec2(width, theme::HIT_DIALOG),

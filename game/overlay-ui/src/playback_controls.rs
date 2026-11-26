@@ -870,8 +870,7 @@ fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
         x += gap;
         let top = baseline - text::baseline(&galley);
         let advance = galley.size().x;
-        ui.painter()
-            .galley(pos2(x, top), galley, theme::TEXT_PRIMARY);
+        text::paint(ui.painter(), pos2(x, top), galley);
         x += advance;
     }
 }
