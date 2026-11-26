@@ -670,6 +670,7 @@ export class ChatApi {
         hideBanner: Joi.boolean(),
         notificationLevel: Joi.string().valid(...ALL_CHANNEL_NOTIFICATION_LEVELS),
         muted: Joi.boolean(),
+        unreadOnJoinLeave: Joi.boolean(),
       }),
     })
 
