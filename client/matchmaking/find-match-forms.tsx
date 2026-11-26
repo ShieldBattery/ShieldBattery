@@ -1,16 +1,31 @@
 import { Immutable } from 'immer'
 import * as React from 'react'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
-import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
+import { getMatchmakingModeInfo } from '../../common/matchmaking'
+import {
+  MapPoolChangeNotice,
+  MatchmakingMapPoolJson,
+} from '../../common/matchmaking/matchmaking-map-pools'
 import { TransInterpolation } from '../i18n/i18next'
+import { dateTimeFormat, listFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { batchGetMapInfo } from '../maps/action-creators'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
+import { TextButton } from '../material/button'
 import { elevationPlus1, elevationPlus3 } from '../material/shadows'
 import { useValueAsRef } from '../react/state-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
+import {
+  getDroppedSelectionsText,
+  getMapPoolChangeSummaryText,
+  groupDroppedSelections,
+  orderMapsFirst,
+} from './map-pool-change-text'
 import { RaceSelect } from './race-select'
 
 export const SectionTitle = styled.div`
@@ -32,16 +47,6 @@ export const MapSelectionsHeader = styled.div`
 
   display: flex;
   align-items: center;
-`
-
-export const OutdatedIndicator = styled.span`
-  ${titleSmall};
-  margin-left: 16px;
-  padding: 0 4px;
-  color: var(--theme-amber);
-  text-transform: uppercase;
-  border: 1px solid var(--theme-amber);
-  border-radius: 4px;
 `
 
 export const MAP_THUMB_SIZE_PX = 196
@@ -119,6 +124,7 @@ interface ConnectedSelectableMapProps {
   selectedIcon: React.ReactNode
   onClick: (mapId: SbMapId) => void
   disabled?: boolean
+  isNew?: boolean
 }
 
 function SelectableMap({
@@ -127,7 +133,9 @@ function SelectableMap({
   onClick,
   disabled,
   selectedIcon,
+  isNew,
 }: ConnectedSelectableMapProps) {
+  const newMapChip = useNewMapChip(isNew)
   const handleClick = useCallback(() => {
     if (!disabled) {
       onClick(mapId)
@@ -146,6 +154,7 @@ function SelectableMap({
         isSelected={isVetoed}
         onClick={handleClick}
         selectedIcon={selectedIcon}
+        highlightChip={newMapChip}
       />
     </SelectableMapContainer>
   )
@@ -156,6 +165,8 @@ export interface MapVetoesControlProps {
   value: SbMapId[] | null
   mapPool: Immutable<MatchmakingMapPoolJson>
   disabled: boolean
+  /** Maps that are new to the pool. They're marked as such and listed first. */
+  newMapIds?: ReadonlyArray<SbMapId>
   className?: string
   errorText?: string
 }
@@ -165,6 +176,7 @@ export function MapVetoesControl({
   value,
   mapPool,
   disabled,
+  newMapIds,
   className,
 }: MapVetoesControlProps) {
   const { t } = useTranslation()
@@ -195,10 +207,11 @@ export function MapVetoesControl({
     <div className={className}>
       <MapSelections
         style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-negative)' } as any}>
-        {mapPool?.maps.map(id => (
+        {orderMapsFirst(mapPool.maps, newMapIds).map(id => (
           <SelectableMap
             key={id}
             mapId={id}
+            isNew={newMapIds?.includes(id)}
             isSelected={value?.includes(id) ?? false}
             selectedIcon={<MaterialIcon icon='thumb_down' size={48} />}
             onClick={onClick}
@@ -262,6 +275,7 @@ export function MapSelectionControl({
   value,
   mapPool,
   disabled,
+  newMapIds,
   className,
   errorText,
 }: MapVetoesControlProps) {
@@ -289,10 +303,11 @@ export function MapSelectionControl({
     <div className={className}>
       <MapSelections
         style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-positive)' } as any}>
-        {mapPool?.maps.map(id => (
+        {orderMapsFirst(mapPool.maps, newMapIds).map(id => (
           <SelectableMap
             key={id}
             mapId={id}
+            isNew={newMapIds?.includes(id)}
             isSelected={value?.includes(id) ?? false}
             selectedIcon={<MaterialIcon icon='thumb_up' size={48} />}
             onClick={onClick}
@@ -308,26 +323,207 @@ export function MapSelectionControl({
 /** Read-only display of the map(s) a fixed-map mode is always played on. */
 export function FixedMapDisplay({
   mapPool,
+  newMapIds,
   className,
 }: {
   mapPool: Immutable<MatchmakingMapPoolJson>
+  /** Maps that are new to the pool. They're marked as such and listed first. */
+  newMapIds?: ReadonlyArray<SbMapId>
   className?: string
 }) {
   return (
     <MapSelections className={className}>
-      {mapPool.maps.map(id => (
+      {orderMapsFirst(mapPool.maps, newMapIds).map(id => (
         // No `onClick`, so there's no selection/veto behavior here, but the thumbnail's own
         // actions (preview, favorite, map details) should still work, so the container isn't
         // marked as disabled.
         <SelectableMapContainer key={id}>
-          <ReduxMapThumbnail
-            mapId={id}
-            showInfoLayer={true}
-            forceAspectRatio={1}
-            size={MAP_THUMB_SIZE_PX}
-          />
+          <FixedMapThumbnail mapId={id} isNew={newMapIds?.includes(id) ?? false} />
         </SelectableMapContainer>
       ))}
     </MapSelections>
+  )
+}
+
+function FixedMapThumbnail({ mapId, isNew }: { mapId: SbMapId; isNew: boolean }) {
+  const newMapChip = useNewMapChip(isNew)
+  return (
+    <ReduxMapThumbnail
+      mapId={mapId}
+      showInfoLayer={true}
+      forceAspectRatio={1}
+      size={MAP_THUMB_SIZE_PX}
+      highlightChip={newMapChip}
+    />
+  )
+}
+
+function useNewMapChip(isNew: boolean | undefined): { label: string; tooltip: string } | undefined {
+  const { t } = useTranslation()
+  return isNew
+    ? {
+        label: t('matchmaking.findMatch.newMap', 'New'),
+        tooltip: t('matchmaking.findMatch.newMapTooltip', 'Added in the latest map pool update'),
+      }
+    : undefined
+}
+
+const ChangeInfo = styled.div`
+  margin: 4px 0 12px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`
+
+const ChangeSummaryRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 8px;
+`
+
+const ChangeSummaryText = styled.span`
+  ${titleSmall};
+  color: var(--theme-amber);
+`
+
+const DroppedSelectionsText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface);
+`
+
+const ChangeDetails = styled.dl`
+  margin: 4px 0 0;
+  padding: 12px 16px;
+
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 16px;
+  row-gap: 4px;
+
+  border-radius: 8px;
+  background: var(--theme-container-low);
+`
+
+const ChangeDetailLabel = styled.dt`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const ChangeDetailValue = styled.dd`
+  ${bodyMedium};
+  margin: 0;
+  color: var(--theme-on-surface);
+`
+
+const mapNameListFormat = listFormat({ style: 'long', type: 'conjunction' })
+const poolStartDateFormat = dateTimeFormat({ year: 'numeric', month: 'long', day: 'numeric' })
+
+/**
+ * Describes how the map pool changed for the player: a one-line summary, which of their own map
+ * selections were dropped, and a collapsed list of the remaining details.
+ */
+export function MapPoolChangeInfo({
+  notice,
+  mapPool,
+}: {
+  notice: ReadonlyDeep<MapPoolChangeNotice>
+  mapPool: Immutable<MatchmakingMapPoolJson>
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const [expanded, setExpanded] = useState(false)
+  const detailsId = useId()
+  const listFormatter = useFormat(mapNameListFormat)
+  const dateFormatter = useFormat(poolStartDateFormat)
+  const mapsById = useAppSelector(s => s.maps.byId)
+
+  const droppedGroups = groupDroppedSelections(notice)
+  useEffect(() => {
+    for (const mapId of [...notice.removedMaps, ...notice.droppedSelections.map(d => d.mapId)]) {
+      dispatch(batchGetMapInfo(mapId))
+    }
+  }, [dispatch, notice])
+
+  // Names that haven't loaded yet are left out rather than shown as placeholders.
+  const nameMaps = (mapIds: ReadonlyArray<SbMapId>): string[] =>
+    mapIds.flatMap(id => {
+      const name = mapsById.get(id)?.name
+      return name ? [name] : []
+    })
+
+  const selectionStyle = getMatchmakingModeInfo(mapPool.matchmakingType).mapSelectionStyle
+  const droppedTexts =
+    selectionStyle === 'fixed'
+      ? []
+      : droppedGroups.flatMap(({ reason, mapIds }) => {
+          const names = nameMaps(mapIds)
+          return names.length
+            ? [
+                getDroppedSelectionsText(
+                  reason,
+                  selectionStyle,
+                  listFormatter.format(names),
+                  names.length,
+                  t,
+                ),
+              ]
+            : []
+        })
+  const removedNames = nameMaps(notice.removedMaps)
+
+  return (
+    <ChangeInfo>
+      <ChangeSummaryRow>
+        <ChangeSummaryText>{getMapPoolChangeSummaryText(notice, t)}</ChangeSummaryText>
+        <TextButton
+          label={t('matchmaking.findMatch.poolChange.details', 'Details')}
+          iconEnd={expanded ? 'expand_less' : 'expand_more'}
+          ariaExpanded={expanded}
+          ariaControls={detailsId}
+          onClick={() => setExpanded(!expanded)}
+        />
+      </ChangeSummaryRow>
+      {droppedTexts.length ? (
+        <DroppedSelectionsText>{droppedTexts.join(' ')}</DroppedSelectionsText>
+      ) : null}
+      {expanded ? (
+        <ChangeDetails id={detailsId}>
+          {removedNames.length ? (
+            <>
+              <ChangeDetailLabel>
+                {t('matchmaking.findMatch.poolChange.removedMaps', 'Removed maps')}
+              </ChangeDetailLabel>
+              <ChangeDetailValue>{listFormatter.format(removedNames)}</ChangeDetailValue>
+            </>
+          ) : null}
+          {notice.maxVetoCount ? (
+            <>
+              <ChangeDetailLabel>
+                {t('matchmaking.findMatch.poolChange.vetoLimitLabel', 'Veto limit')}
+              </ChangeDetailLabel>
+              <ChangeDetailValue>
+                {notice.maxVetoCount.previous} → {notice.maxVetoCount.current}
+              </ChangeDetailValue>
+            </>
+          ) : null}
+          {notice.mapCount ? (
+            <>
+              <ChangeDetailLabel>
+                {t('matchmaking.findMatch.poolChange.poolSizeLabel', 'Maps in the pool')}
+              </ChangeDetailLabel>
+              <ChangeDetailValue>
+                {notice.mapCount.previous} → {notice.mapCount.current}
+              </ChangeDetailValue>
+            </>
+          ) : null}
+          <ChangeDetailLabel>
+            {t('matchmaking.findMatch.poolChange.startDateLabel', 'In effect since')}
+          </ChangeDetailLabel>
+          <ChangeDetailValue>{dateFormatter.format(mapPool.startDate)}</ChangeDetailValue>
+        </ChangeDetails>
+      ) : null}
+    </ChangeInfo>
   )
 }

@@ -9,6 +9,7 @@ import {
   LobbyViolationPenaltyEvent,
   MatchCanceledReason,
   MatchmakingSeasonJson,
+  MatchmakingType,
   PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
@@ -43,6 +44,7 @@ export enum DialogType {
   ExternalLink = 'externalLink',
   GameVerificationFailed = 'gameVerificationFailed',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  FindMatchSettings = 'findMatchSettings',
   BattleNetSettingsCopy = 'battleNetSettingsCopy',
   GameDefaultsApply = 'gameDefaultsApply',
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
@@ -373,6 +375,15 @@ type MatchCanceledDialogPayload = BaseDialogPayload<
     queueRemoved?: boolean
   }
 >
+export type FindMatchSettingsDialogPayload = BaseDialogPayload<
+  typeof DialogType.FindMatchSettings,
+  {
+    /** The types whose settings the player steps through, in order, before the search starts. */
+    reviewTypes: MatchmakingType[]
+    /** Every type the search is for once the player confirms, including those not reviewed. */
+    queueTypes: MatchmakingType[]
+  }
+>
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
 // Kept as an inline shape (rather than importing from the dialog's own file) so this file stays
 // free of dependencies on dialog implementations, which would otherwise cycle back here through
@@ -526,6 +537,7 @@ export type DialogPayload =
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | FindMatchSettingsDialogPayload
   | BattleNetSettingsCopyDialogPayload
   | GameDefaultsApplyDialogPayload
   | GameDefaultsFirstRunDialogPayload

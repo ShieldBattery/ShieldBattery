@@ -1,19 +1,38 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import createDeferred from '../../common/async/deferred'
+import { makeSbMapId } from '../../common/maps'
 import {
   ClientDraftState,
   defaultPreferences,
   GetPreferencesResponse,
+  MatchmakingPreferencesDraft,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../common/matchmaking'
+import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { DialogType } from '../dialogs/dialog-type'
 import { jotaiStore } from '../jotai-store'
 import { fetchJson } from '../network/fetch'
+import { FetchError } from '../network/fetch-errors'
 import { RootState } from '../root-reducer'
-import { changeDraftRace, lockInDraftRace, updateMatchmakingPreferences } from './action-creators'
+import {
+  changeDraftRace,
+  lockInDraftRace,
+  queueForMatchmaking,
+  QueueForMatchmakingResult,
+  updateMatchmakingPreferences,
+} from './action-creators'
 import { draftStateAtom, resetDraftState, updateCurrentPickerAtom } from './draft-atoms'
+import mapPoolReducer from './map-pool-reducer'
 
-vi.mock('../../common/ipc', () => ({ TypedIpcRenderer: class {} }))
+vi.mock('../../common/ipc', () => ({
+  TypedIpcRenderer: class {
+    invoke() {
+      return undefined
+    }
+  },
+}))
 vi.mock('../game-server-regions/region-resolution', () => ({ resolveDesiredRegion: vi.fn() }))
 vi.mock('../i18n/i18next', () => ({ default: { t: vi.fn() } }))
 vi.mock('../logging/logger', () => ({ default: { error: vi.fn() } }))
@@ -117,6 +136,7 @@ describe('matchmaking preference saves', () => {
         { id: 1, matchmakingType: type, maps: [], maxVetoCount: 0, startDate: 0 },
       ]),
     ),
+    changesByType: new Map(),
     isRequestingByType: new Map(),
     lastErrorByType: new Map(),
   }
@@ -196,5 +216,124 @@ describe('matchmaking preference saves', () => {
     soloSave.resolve(response())
     teamSave.resolve(response(MatchmakingType.Match2v2Bgh))
     await Promise.all(dispatch.mock.calls.map(([action]) => action.payload))
+  })
+})
+
+describe('queueForMatchmaking', () => {
+  const type = MatchmakingType.Match1v1
+  const oldMap = makeSbMapId('old')
+  const newMap = makeSbMapId('new')
+
+  function poolResponse(id: number, maps = [oldMap]): GetMatchmakingMapPoolResponse {
+    return {
+      pool: { id, matchmakingType: type, maps, maxVetoCount: 3, startDate: 0 },
+      mapInfos: [],
+      changes:
+        id === 1
+          ? undefined
+          : { addedMaps: [newMap], removedMaps: [], previousMapCount: 1, previousMaxVetoCount: 3 },
+    }
+  }
+
+  function mapPoolChangedError() {
+    return new FetchError(
+      new Response('', { status: 409 }),
+      JSON.stringify({ code: MatchmakingServiceErrorCode.MapPoolChanged }),
+    )
+  }
+
+  function setup({
+    prefs = defaultPreferences(type, USER_ID, 1),
+    findResults,
+    currentPool,
+  }: {
+    prefs?: MatchmakingPreferencesDraft
+    findResults: Array<() => Promise<void>>
+    currentPool: GetMatchmakingMapPoolResponse
+  }) {
+    let mapPools = mapPoolReducer(undefined, { type: '@init' })
+    mapPools = mapPoolReducer(mapPools, {
+      type: '@matchmaking/getCurrentMapPool',
+      payload: poolResponse(1),
+      meta: { type },
+    } as any)
+    const actions: any[] = []
+    const dispatch = vi.fn((action: any) => {
+      actions.push(action)
+      mapPools = mapPoolReducer(mapPools, action)
+    })
+    const getState = () =>
+      ({
+        matchmakingPreferences: { byType: new Map([[type, { preferences: prefs }]]) },
+        mapPools,
+      }) as unknown as RootState
+
+    vi.mocked(fetchJson).mockImplementation(async (url: string) => {
+      if (url.endsWith('matchmaking/find')) {
+        const next = findResults.shift()
+        if (!next) throw new Error('Unexpected find request')
+        return next()
+      }
+      return currentPool as any
+    })
+
+    const run = () =>
+      new Promise<QueueForMatchmakingResult>((resolve, reject) => {
+        queueForMatchmaking([type], { onSuccess: resolve, onError: reject })(dispatch, getState)
+      })
+    const openedDialogs = () =>
+      actions.filter(a => a.type === '@dialogs/open').map(a => a.payload.type as DialogType)
+    const findRequests = () =>
+      vi.mocked(fetchJson).mock.calls.filter(([url]) => String(url).endsWith('matchmaking/find'))
+
+    return { run, openedDialogs, findRequests }
+  }
+
+  beforeEach(() => {
+    vi.mocked(fetchJson).mockReset()
+  })
+
+  test('searches right away when nothing needs review', async () => {
+    const { run, openedDialogs, findRequests } = setup({
+      findResults: [async () => {}],
+      currentPool: poolResponse(1),
+    })
+    await expect(run()).resolves.toBe('queued')
+    expect(findRequests()).toHaveLength(1)
+    expect(openedDialogs()).toEqual([])
+  })
+
+  test('opens the settings dialog instead of searching when a race is missing', async () => {
+    const { run, openedDialogs, findRequests } = setup({
+      prefs: { ...defaultPreferences(type, USER_ID, 1), race: null },
+      findResults: [],
+      currentPool: poolResponse(1),
+    })
+    await expect(run()).resolves.toBe('reviewing')
+    expect(findRequests()).toHaveLength(0)
+    expect(openedDialogs()).toEqual([DialogType.FindMatchSettings])
+  })
+
+  test('reloads the pools and asks for review when the server reports a pool change', async () => {
+    const { run, openedDialogs, findRequests } = setup({
+      findResults: [() => Promise.reject(mapPoolChangedError())],
+      currentPool: poolResponse(2, [oldMap, newMap]),
+    })
+    await expect(run()).resolves.toBe('reviewing')
+    expect(findRequests()).toHaveLength(1)
+    expect(openedDialogs()).toEqual([DialogType.FindMatchSettings])
+  })
+
+  test('shows the error when the server still reports a pool change after a reload', async () => {
+    const { run, openedDialogs, findRequests } = setup({
+      findResults: [
+        () => Promise.reject(mapPoolChangedError()),
+        () => Promise.reject(mapPoolChangedError()),
+      ],
+      currentPool: poolResponse(1),
+    })
+    await expect(run()).rejects.toBeInstanceOf(FetchError)
+    expect(findRequests()).toHaveLength(2)
+    expect(openedDialogs()).toEqual([DialogType.Simple])
   })
 })

@@ -1,8 +1,9 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
-import React, { useEffect, useId, useRef, useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import { urlForLobby } from '../../common/lobbies/lobby-url'
 import {
@@ -14,11 +15,15 @@ import {
   MATCHMAKING_BONUS_FREEZE_PERIOD_MS,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
-  MatchmakingPreferences,
   MatchmakingType,
   matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
+import {
+  filterMapSelections,
+  getMapPoolChangeNotice,
+  MapPoolChangeNotice,
+} from '../../common/matchmaking/matchmaking-map-pools'
 import { AssignedRaceChar, RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
@@ -51,18 +56,16 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
-import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
+import { cancelFindMatch, getCurrentMapPool, queueForMatchmaking } from './action-creators'
 import { FindMatchContent } from './find-match-content'
+import { getMapPoolChangeBadgeText } from './map-pool-change-text'
 import {
   currentSearchInfoAtom,
   findMatchSelectionAtom,
   foundMatchAtom,
   isMatchmakingAtom,
 } from './matchmaking-atoms'
-import {
-  getMatchmakingPreferencesError,
-  MatchmakingPreferencesError,
-} from './preference-validation'
+import { getMatchmakingPreferencesError } from './preference-validation'
 import { DivisionIcon } from './rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from './season-end-date'
 
@@ -824,7 +827,8 @@ export interface RowSummaryState {
   mapPoolVetoLimit: number
   mapPoolSize: number
   mapSelectionStyle: MapSelectionStyle
-  poolChanged: boolean
+  /** How the map pool changed since the player last saved these settings, if it did. */
+  poolChange?: ReadonlyDeep<MapPoolChangeNotice>
 }
 
 interface ModeSummaryProps {
@@ -894,10 +898,10 @@ export function ModeSummary({ summaryState }: ModeSummaryProps) {
         )
       })()}
 
-      {summaryState.poolChanged ? (
+      {summaryState.poolChange ? (
         <PoolBadge>
           <PoolBadgeDot />
-          {t('matchmaking.findMatch.updated', 'Updated')}
+          {getMapPoolChangeBadgeText(summaryState.poolChange, t)}
         </PoolBadge>
       ) : null}
     </SummaryBlock>
@@ -916,8 +920,8 @@ interface TypeRowProps {
   nextEndDate?: Date
   stats: RowStats
   summaryState: RowSummaryState
-  error?: MatchmakingPreferencesError
-  settingsButtonRef?: React.Ref<HTMLButtonElement>
+  /** Whether to say that this mode's settings are still loading, after a queue attempt needed them. */
+  settingsLoading?: boolean
   t: ReturnType<typeof useTranslation>['t']
   onToggle: () => void
   onOpenSettings: () => void
@@ -933,8 +937,7 @@ export function TypeRow({
   nextEndDate,
   stats,
   summaryState,
-  error,
-  settingsButtonRef,
+  settingsLoading = false,
   t,
   onToggle,
   onOpenSettings,
@@ -944,18 +947,9 @@ export function TypeRow({
   const isDisabled = !isEnabled
   const errorId = useId()
   const settingsLabel = t('matchmaking.findMatch.settingsTitle', 'Settings — {{label}}', { label })
-  let errorText: string | undefined
-  switch (error) {
-    case 'race':
-      errorText = t('matchmaking.findMatch.errors.chooseRace', 'Choose a race to continue')
-      break
-    case 'maps':
-      errorText = t('matchmaking.findMatch.errors.chooseMaps', 'Select at least one map')
-      break
-    case 'loading':
-      errorText = t('matchmaking.findMatch.errors.settingsLoading', 'Settings are still loading')
-      break
-  }
+  const errorText = settingsLoading
+    ? t('matchmaking.findMatch.errors.settingsLoading', 'Settings are still loading')
+    : undefined
 
   const [zoneProps, zoneRippleRef] = useButtonState({
     disabled: isSearching,
@@ -971,7 +965,7 @@ export function TypeRow({
       $faded={faded}
       $searching={isSearching}
       $disabled={isDisabled}
-      $invalid={!!error}
+      $invalid={settingsLoading}
       onClick={isDisabled || isSearching ? undefined : onToggle}>
       {isDisabled ? (
         <DisabledCheckPlaceholder>
@@ -1007,12 +1001,11 @@ export function TypeRow({
             )}
             <Tooltip text={settingsLabel} position='top' tabIndex={-1}>
               <GearButton
-                ref={settingsButtonRef}
                 type='button'
-                $invalid={!!error}
+                $invalid={settingsLoading}
                 aria-label={settingsLabel}
-                aria-invalid={!!error}
-                aria-describedby={error ? errorId : undefined}
+                aria-invalid={settingsLoading}
+                aria-describedby={settingsLoading ? errorId : undefined}
                 disabled={isSearching}
                 onClick={e => {
                   e.stopPropagation()
@@ -1238,7 +1231,6 @@ interface QueueBarProps {
   elapsedSecs: number
   isSubmitting: boolean
   disabled: boolean
-  validationError?: string
   onFindMatch: () => void
   onCancel: () => void
 }
@@ -1250,7 +1242,6 @@ export function QueueBar({
   elapsedSecs,
   isSubmitting,
   disabled,
-  validationError,
   onFindMatch,
   onCancel,
 }: QueueBarProps) {
@@ -1291,14 +1282,7 @@ export function QueueBar({
   } else {
     summaryContent = (
       <>
-        {validationError ? (
-          <SettingsError role='alert'>
-            <MaterialIcon icon='error' size={18} />
-            {validationError}
-          </SettingsError>
-        ) : (
-          <QueueSummaryHead>{idleSummary}</QueueSummaryHead>
-        )}
+        <QueueSummaryHead>{idleSummary}</QueueSummaryHead>
         <QueueChips>
           {selectedChips.map(({ type, label, race }) => (
             <QueueChip key={type}>
@@ -1361,6 +1345,7 @@ export function FindMatch() {
   const matchmakingStatus = useAppSelector(s => s.matchmakingStatus.byType)
   const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences.byType)
   const mapPools = useAppSelector(s => s.mapPools.byType)
+  const mapPoolChanges = useAppSelector(s => s.mapPools.changesByType)
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
@@ -1375,7 +1360,6 @@ export function FindMatch() {
   const [drawerType, setDrawerType] = useState<MatchmakingType | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasAttemptedQueue, setHasAttemptedQueue] = useState(false)
-  const settingsButtons = useRef(new Map<MatchmakingType, HTMLButtonElement>())
   const [elapsedSecs, setElapsedSecs] = useState(0)
 
   // ─── Effects ────────────────────────────────────────────────────────────────
@@ -1471,7 +1455,10 @@ export function FindMatch() {
     const mapPool = mapPools.get(type)
     // Derived from the currently-loaded pool rather than a connect-time flag, so the badge refreshes
     // whenever the page (re)fetches the pool — e.g. each time the user opens the Play screen.
-    const poolChanged = !!prefs && !!mapPool && prefs.mapPoolId !== mapPool.id
+    const poolChange =
+      prefs && mapPool
+        ? getMapPoolChangeNotice(prefs, mapPool, mapPoolChanges.get(type))
+        : undefined
 
     let race: RaceChar | null = null
     let useAlternateRace = false
@@ -1480,12 +1467,11 @@ export function FindMatch() {
 
     if (prefs) {
       race = prefs.race
-      // Only count selections that are still in the current pool, so stale preferences (from a
-      // previous pool) can't produce counts that exceed the limit shown next to them.
-      const mapSelections = prefs.mapSelections ?? []
+      // Only count selections that the current pool keeps, so stale preferences (from a previous
+      // pool) can't produce counts that exceed the limit shown next to them.
       mapSelectionCount = mapPool
-        ? mapSelections.filter(id => mapPool.maps.includes(id)).length
-        : mapSelections.length
+        ? filterMapSelections(mapPool, prefs.mapSelections).length
+        : (prefs.mapSelections ?? []).length
       if (
         (type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
         race &&
@@ -1508,21 +1494,24 @@ export function FindMatch() {
       mapPoolVetoLimit: mapPool?.maxVetoCount ?? 0,
       mapPoolSize: mapPool?.maps.length ?? 0,
       mapSelectionStyle: getMatchmakingModeInfo(type).mapSelectionStyle,
-      poolChanged,
+      poolChange,
     }
   }
 
   const getRaceForType = (type: MatchmakingType): RaceChar | null =>
     matchmakingPreferences.get(type)?.preferences?.race ?? null
 
-  const validationErrors = new Map<MatchmakingType, MatchmakingPreferencesError>()
+  // Any other problem with a selected mode's settings is handled by the settings dialog that a
+  // queue attempt opens. Settings that haven't loaded yet can't be shown there, so those are
+  // pointed out on the mode's row instead.
+  const loadingTypes = new Set<MatchmakingType>()
   if (!isSearching) {
     for (const type of effectiveSelectedTypes) {
       const error = getMatchmakingPreferencesError(
         matchmakingPreferences.get(type)?.preferences,
         mapPools.get(type),
       )
-      if (error) validationErrors.set(type, error)
+      if (error === 'loading') loadingTypes.add(type)
     }
   }
 
@@ -1553,28 +1542,11 @@ export function FindMatch() {
     }
 
     setHasAttemptedQueue(true)
-    if (validationErrors.size) {
-      const firstInvalidType = REAL_MODES.find(mode => validationErrors.has(mode.type))?.type
-      const button = firstInvalidType ? settingsButtons.current.get(firstInvalidType) : undefined
-      button?.focus({ preventScroll: true })
-      button?.scrollIntoView({ block: 'nearest' })
-      return
-    }
-
-    const allPrefs: MatchmakingPreferences[] = []
-    for (const type of effectiveSelectedTypes) {
-      const prefs = matchmakingPreferences.get(type)?.preferences
-      if (!prefs?.race) {
-        return
-      }
-      allPrefs.push(prefs as MatchmakingPreferences)
-    }
-    if (allPrefs.length === 0) return
-
+    const types = Array.from(effectiveSelectedTypes)
     healthChecked(() => {
       setIsSubmitting(true)
       dispatch(
-        findMatch(allPrefs, {
+        queueForMatchmaking(types, {
           onSuccess: () => {
             setIsSubmitting(false)
           },
@@ -1736,11 +1708,7 @@ export function FindMatch() {
                         nextEndDate={status?.nextEndDate}
                         stats={getStatsForType(mode.type)}
                         summaryState={getSummaryStateForType(mode.type)}
-                        error={hasAttemptedQueue ? validationErrors.get(mode.type) : undefined}
-                        settingsButtonRef={button => {
-                          if (button) settingsButtons.current.set(mode.type, button)
-                          else settingsButtons.current.delete(mode.type)
-                        }}
+                        settingsLoading={hasAttemptedQueue && loadingTypes.has(mode.type)}
                         t={t}
                         onToggle={() => handleToggle(mode.type)}
                         onOpenSettings={() => handleOpenSettings(mode.type)}
@@ -1760,14 +1728,6 @@ export function FindMatch() {
           elapsedSecs={elapsedSecs}
           isSubmitting={isSubmitting}
           disabled={findMatchDisabled}
-          validationError={
-            hasAttemptedQueue && validationErrors.size
-              ? t(
-                  'matchmaking.findMatch.errors.completeSettings',
-                  'Complete the highlighted settings to find a match.',
-                )
-              : undefined
-          }
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
         />

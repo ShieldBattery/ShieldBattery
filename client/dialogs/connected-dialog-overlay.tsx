@@ -120,6 +120,9 @@ const AcceptMatchDialog = React.lazy(async () => ({
 const FailedToAcceptMatchDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/accept-match-dialog')).FailedToAcceptMatchDialog,
 }))
+const FindMatchSettingsDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/find-match-settings-dialog')).FindMatchSettingsDialog,
+}))
 const MatchCanceledDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/match-canceled-dialog')).MatchCanceledDialog,
 }))
@@ -275,6 +278,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ExternalLinkDialog }
     case DialogType.FailedToAcceptMatch:
       return { component: FailedToAcceptMatchDialog }
+    case DialogType.FindMatchSettings:
+      return { component: FindMatchSettingsDialog }
     case DialogType.BattleNetSettingsCopy:
       return { component: BattleNetSettingsCopyDialog }
     case DialogType.GameDefaultsApply:

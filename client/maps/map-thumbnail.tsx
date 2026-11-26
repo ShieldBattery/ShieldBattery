@@ -180,16 +180,19 @@ const MapPoolChips = styled.div<{ $aboveInfoLayer?: boolean }>`
   }
 `
 
-const MapPoolChip = styled(Tooltip)`
+const MapPoolChip = styled(Tooltip)<{ $emphasized?: boolean }>`
   ${labelMedium};
   ${singleLine};
-  padding: 2px 8px;
+  /* The emphasized chip's border takes the place of 1px of padding to keep chip heights equal. */
+  padding: ${props => (props.$emphasized ? '1px 7px' : '2px 8px')};
   /* Hoverable so the chip can show its tooltip. */
   pointer-events: auto;
 
+  border: ${props => (props.$emphasized ? '1px solid var(--theme-amber)' : 'none')};
   border-radius: 999px;
   background-color: rgb(from var(--color-blue10) r g b / 0.72);
-  color: var(--theme-on-surface);
+  color: ${props => (props.$emphasized ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+  text-transform: ${props => (props.$emphasized ? 'uppercase' : 'none')};
 `
 
 const MapName = styled.div`
@@ -247,6 +250,8 @@ export interface MapThumbnailProps {
    * the bottom-right corner.
    */
   mapPoolLabels?: ReadonlyArray<string>
+  /** An emphasized chip shown before the map pool chips, e.g. to mark the map as new. */
+  highlightChip?: { label: string; tooltip: string }
   onClick?: (event: React.MouseEvent) => void
   onDownload?: (mapId: SbMapId) => void
   onPreview?: () => void
@@ -269,6 +274,7 @@ export function MapThumbnail({
   isFocused,
   selectedIcon,
   mapPoolLabels,
+  highlightChip,
   onClick,
   onDownload,
   onPreview,
@@ -362,9 +368,18 @@ export function MapThumbnail({
           }
         />
       ) : null}
-      {mapPoolLabels?.length ? (
+      {highlightChip || mapPoolLabels?.length ? (
         <MapPoolChips $aboveInfoLayer={showInfoLayer} onClick={onClick}>
-          {mapPoolLabels.map(label => (
+          {highlightChip ? (
+            <MapPoolChip
+              text={highlightChip.tooltip}
+              position='top'
+              tabIndex={-1}
+              $emphasized={true}>
+              {highlightChip.label}
+            </MapPoolChip>
+          ) : null}
+          {mapPoolLabels?.map(label => (
             <MapPoolChip
               key={label}
               text={t(
