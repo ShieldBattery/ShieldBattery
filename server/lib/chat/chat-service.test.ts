@@ -313,6 +313,7 @@ describe('chat/chat-service', () => {
     hideBanner: false,
     notificationLevel: ChannelNotificationLevel.Mentions,
     muted: false,
+    unreadOnJoinLeave: true,
   }
   const channelPermissions: ChannelPermissions = {
     kick: false,

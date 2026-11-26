@@ -279,12 +279,20 @@ export interface ChannelPreferences {
    * keep arriving and rendering normally.
    */
   muted: boolean
+  /**
+   * Whether a join, leave, kick, ban or owner-change event arriving unseen marks the channel
+   * unread. When off, those events still render in the message list and still update membership,
+   * they just don't raise unread state. Text messages are unaffected. It's read when the event
+   * arrives, so changing it doesn't alter unread state already recorded.
+   */
+  unreadOnJoinLeave: boolean
 }
 
 export const DEFAULT_CHANNEL_PREFERENCES: Readonly<ChannelPreferences> = {
   hideBanner: false,
   notificationLevel: ChannelNotificationLevel.Mentions,
   muted: false,
+  unreadOnJoinLeave: true,
 }
 
 export interface ChannelPermissions {

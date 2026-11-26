@@ -115,6 +115,7 @@ function makeState(
     unreadLineLeftBottom?: boolean
     unreadLineCaughtUp?: boolean
     muted?: boolean
+    unreadOnJoinLeave?: boolean
     hasHistory?: boolean
     loadingHistory?: boolean
     loadingNewer?: boolean
@@ -165,8 +166,18 @@ function makeState(
     ]),
     idToUserProfiles: new Map(),
     idToSelfPreferences: new Map(
-      overrides.muted !== undefined
-        ? [[CHANNEL_ID, { ...DEFAULT_CHANNEL_PREFERENCES, muted: overrides.muted }]]
+      overrides.muted !== undefined || overrides.unreadOnJoinLeave !== undefined
+        ? [
+            [
+              CHANNEL_ID,
+              {
+                ...DEFAULT_CHANNEL_PREFERENCES,
+                muted: overrides.muted ?? DEFAULT_CHANNEL_PREFERENCES.muted,
+                unreadOnJoinLeave:
+                  overrides.unreadOnJoinLeave ?? DEFAULT_CHANNEL_PREFERENCES.unreadOnJoinLeave,
+              },
+            ],
+          ]
         : [],
     ),
     idToSelfPermissions: new Map(),
@@ -231,13 +242,18 @@ function initialChannelData(
     ownerId?: SbUserId
     moderatorIds?: SbUserId[]
     time?: number
+    unreadOnJoinLeave?: boolean
   } = {},
 ): InitialChannelData {
   return {
     channelInfo: CHANNEL_BASIC_INFO,
     detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
     joinedChannelInfo: { id: CHANNEL_ID, ownerId: overrides.ownerId, membersCanInvite: false },
-    selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },
+    selfPreferences: {
+      ...DEFAULT_CHANNEL_PREFERENCES,
+      unreadOnJoinLeave:
+        overrides.unreadOnJoinLeave ?? DEFAULT_CHANNEL_PREFERENCES.unreadOnJoinLeave,
+    },
     selfPermissions: {
       kick: false,
       ban: false,
@@ -1611,6 +1627,157 @@ describe('client/chat/chat-reducer', () => {
 
       expect(result.idToUsers.get(CHANNEL_ID)!.active.has(USER_ID)).toBe(true)
       expect(result.idToDetailedInfo.get(CHANNEL_ID)!.userCount).toBe(2)
+    })
+  })
+
+  describe('membership events and the unreadOnJoinLeave preference', () => {
+    const OTHER_ID = makeSbUserId(20)
+    const NEW_OWNER_ID = makeSbUserId(21)
+
+    function initializedState(unreadOnJoinLeave: boolean): Immutable<ChatState> {
+      return chatReducer(
+        makeState(),
+        getJoinedChannelsAction(
+          initialChannelData({ lastReadTime: 100, time: 50, unreadOnJoinLeave }),
+        ),
+      )
+    }
+
+    const leaveAction = (time: number): ChatActions => ({
+      type: '@chat/updateLeave',
+      payload: { action: 'leave2', userId: OTHER_ID, time },
+      meta: { channelId: CHANNEL_ID, windowFocused: false },
+    })
+
+    const kickAction = (time: number): ChatActions => ({
+      type: '@chat/updateKick',
+      payload: {
+        action: 'kick',
+        targetId: OTHER_ID,
+        channelName: CHANNEL_BASIC_INFO.name,
+        time,
+      },
+      meta: { channelId: CHANNEL_ID, windowFocused: false },
+    })
+
+    const ownerChangedAction = (time: number): ChatActions => ({
+      type: '@chat/ownerChanged',
+      payload: { action: 'ownerChanged', newOwnerId: NEW_OWNER_ID, time },
+      meta: { channelId: CHANNEL_ID, windowFocused: false },
+    })
+
+    test('a join in an unviewed channel moves the read position instead of raising the flag', () => {
+      const state = makeState({ activated: false, lastReadTime: 100, unreadOnJoinLeave: false })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLine.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+      expect(messageIdsOf(result)).toEqual(['user-join-200'])
+      expect(result.idToUsers.get(CHANNEL_ID)!.active.has(USER_ID)).toBe(true)
+      expect(result.idToDetailedInfo.get(CHANNEL_ID)!.userCount).toBe(2)
+    })
+
+    test('a join with the preference on still raises the flag', () => {
+      const state = makeState({ activated: false, lastReadTime: 100, unreadOnJoinLeave: true })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a leave raises the flag when the preference is on', () => {
+      const result = chatReducer(initializedState(true), leaveAction(300))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('a leave leaves the flag and the read position alone and still shows the line', () => {
+      const result = chatReducer(initializedState(false), leaveAction(300))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+      expect(windowOf(result).messages.map(m => m.type)).toContain(
+        ClientChatMessageType.LeaveChannel,
+      )
+    })
+
+    test('a kick leaves the flag alone and still shows the line', () => {
+      const result = chatReducer(initializedState(false), kickAction(300))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(windowOf(result).messages.map(m => m.type)).toContain(ClientChatMessageType.KickUser)
+    })
+
+    test('an owner change leaves the flag alone and still shows the line', () => {
+      const result = chatReducer(initializedState(false), ownerChangedAction(300))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(windowOf(result).messages.map(m => m.type)).toContain(
+        ClientChatMessageType.NewChannelOwner,
+      )
+    })
+
+    test('a join arriving while scrolled up places no divider and raises no flag', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        lastReadTime: 100,
+        unreadOnJoinLeave: false,
+      })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLine.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a text message after a join raises the flag with the divider above the text', () => {
+      let state = makeState({
+        activated: true,
+        atBottom: false,
+        lastReadTime: 100,
+        unreadOnJoinLeave: false,
+      })
+
+      state = chatReducer(state, updateJoinAction(200))
+      state = chatReducer(state, updateMessageAction(300, false))
+
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(state.idToUnreadLine.get(CHANNEL_ID)?.time).toBe(200)
+    })
+
+    test('a join in an already unread channel leaves the read position and flag alone', () => {
+      const state = makeState({
+        activated: false,
+        unread: true,
+        lastReadTime: 100,
+        unreadOnJoinLeave: false,
+      })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a join past a detached window still moves the present without raising the flag', () => {
+      const state = makeState({
+        messages: [textMessage(120)],
+        hasNewer: true,
+        detachedNewestTime: 400,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 120,
+        unreadOnJoinLeave: false,
+      })
+
+      const result = chatReducer(state, updateJoinAction(500))
+
+      expect(windowOf(result).detachedNewestTime).toBe(500)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
     })
   })
 

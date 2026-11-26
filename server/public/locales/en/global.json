@@ -738,7 +738,8 @@
       },
       "muteChannel": "Mute channel",
       "mutedTitle": "Muted",
-      "unban": "Your ban from <1>#{{channelName}}</1> has been lifted."
+      "unban": "Your ban from <1>#{{channelName}}</1> has been lifted.",
+      "unreadOnJoinLeave": "Mark unread on joins and leaves"
     },
     "outcomes": {
       "eightBall": {
