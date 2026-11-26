@@ -375,7 +375,7 @@ fn player_view(
 /// The race a player chose in the lobby, which is Random for one who left it to the game: the
 /// screen is where players check what they are up against, and the race a Random pick resolved to
 /// is not theirs to know from here.
-fn chosen_race(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> RaceView {
+pub(super) fn chosen_race(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> RaceView {
     match stats::picked_random(bw, setup, player_id) {
         true => RaceView::Random,
         false => stats::player_race(bw, player_id).1,

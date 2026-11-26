@@ -23,6 +23,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
 import { blockUser, unblockUser } from '../social/action-creators'
+import { lookUpGameUserStats } from './game-user-stats'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -254,6 +255,15 @@ export default function ({
               .invoke('activeGameBlockRequestFailed', gameId, { userId, blocked, reason })
               ?.catch(swallowNonBuiltins)
           },
+        }),
+      )
+    })
+    .on('activeGameRequestUserStats', (_, gameId, name, purpose, matchmakingType) => {
+      dispatch(
+        lookUpGameUserStats(name, matchmakingType, result => {
+          ipcRenderer
+            .invoke('activeGameUserStats', gameId, purpose, result)
+            ?.catch(swallowNonBuiltins)
         }),
       )
     })

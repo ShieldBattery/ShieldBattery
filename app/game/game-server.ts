@@ -172,6 +172,21 @@ export class GameServer {
           }
         }
         break
+      case '/game/requestUserStats':
+        {
+          const { name, purpose } = payload
+          // Names aren't checked against the username rules here: a name no user could have is
+          // answered as not found, like any other unknown name.
+          if (
+            (name === null || (typeof name === 'string' && name.length > 0)) &&
+            (purpose === 'command' || purpose === 'roster')
+          ) {
+            this.activeGameManager.handleRequestUserStats(gameId, name ?? undefined, purpose)
+          } else {
+            log.error(`Invalid requestUserStats payload from game ${gameId}`)
+          }
+        }
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break
