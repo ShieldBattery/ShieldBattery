@@ -158,6 +158,7 @@ impl BwScr {
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
                     if second_draw == 0 {
                         self.poll_team_color_mode();
+                        self.follow_unit();
                     }
                     // `extra_funcs` holds the game's per-frame HUD update, which must run whether
                     // or not the console is shown: it expires chat lines and cycles palettes
@@ -478,9 +479,9 @@ impl BwScr {
                                 }
                             }
                             self.set_bottom_overpan(overlay_out.bottom_overpan_share);
-                            // After everything else that moves the view this frame, which ends
-                            // a follow rather than being undone by it.
-                            self.follow_unit(overlay_out.follow_unit);
+                            if let Some(unit) = overlay_out.follow_unit {
+                                self.set_followed_unit(*unit, true);
+                            }
                             // Only once the game runs: before then there is no game view to
                             // resize, and the map load ahead resets its height anyway.
                             // Read after the step, which can have closed and spawned dialogs.

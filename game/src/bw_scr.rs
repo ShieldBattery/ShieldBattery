@@ -2400,24 +2400,24 @@ impl BwScr {
         }
     }
 
-    /// Keeps the game's view on the unit a watcher asked it to follow, starting on `start` when
-    /// they have just right-clicked it in the selection panel, or stopping when `start` is the unit
-    /// already followed.
+    /// Keeps the game's view on the unit a watcher asked it to follow.
+    ///
+    /// Has to run before the game queues a frame's draws, as its own follow does. Run any later,
+    /// the first frame drawn after each game step would show the unit where the step took it but
+    /// the view where it was, and the next frame the view caught up: the unit would jump off center
+    /// and back with every step.
     ///
     /// Following ends once the unit is gone or out of sight inside something, and once the view is
     /// anywhere but where following it left the view the frame before: the watcher (or something
     /// they asked for) has moved it, and following on would pull it straight back.
-    unsafe fn follow_unit(&self, start: Option<Unit>) {
+    unsafe fn follow_unit(&self) {
         unsafe {
             let mut followed = self.followed_unit.lock();
-            let Some(units) = self.unit_array() else {
-                *followed = None;
+            let Some(follow) = followed.as_mut() else {
                 return;
             };
-            if let Some(unit) = start {
-                toggle_follow(&mut followed, units.to_unique_id(unit));
-            }
-            let Some(follow) = followed.as_mut() else {
+            let Some(units) = self.unit_array() else {
+                *followed = None;
                 return;
             };
             let screen = (self.screen_x.resolve(), self.screen_y.resolve());
@@ -2435,14 +2435,17 @@ impl BwScr {
         }
     }
 
-    /// Stands in for the game's own unit follow, which a watcher's right click on a unit on the
-    /// map, or on its portrait in the console, starts. The game's follow keeps every other way of
-    /// moving the view from doing anything until the minimap is clicked; this one lets go as soon
-    /// as anything else moves the view, and [`Self::follow_unit`] keeps it from the next frame on.
+    /// Starts following `unit` from the next frame on (see [`Self::follow_unit`]), for a watcher who
+    /// right-clicked it in the overlay's selection panel, on the map or on its portrait in the
+    /// console.
+    ///
+    /// For the latter two this stands in for the game's own unit follow. The game's follow keeps
+    /// every other way of moving the view from doing anything until the minimap is clicked; ours
+    /// lets go as soon as anything else moves the view.
     ///
     /// A null `unit` is a right click on nothing, which stops following, as in the game. With
     /// `toggle` set, `unit` stops being followed if it already is.
-    unsafe fn follow_unit_for_game(&self, unit: *mut bw::Unit, toggle: bool) {
+    unsafe fn set_followed_unit(&self, unit: *mut bw::Unit, toggle: bool) {
         unsafe {
             let mut followed = self.followed_unit.lock();
             let (Some(unit), Some(units)) = (Unit::from_ptr(unit), self.unit_array()) else {
