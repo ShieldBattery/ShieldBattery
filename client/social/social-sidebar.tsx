@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import keycode from 'keycode'
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
@@ -38,6 +39,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { LoadErrorRow } from '../lists/load-error-row'
 import logger from '../logging/logger'
+import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
@@ -194,6 +196,7 @@ export function SocialSidebar({
   const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState(SocialTab.Chat)
   const [windowWidth] = useWindowSize()
+  const inDraft = useAtomValue(isInDraftAtom)
 
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
 
@@ -385,6 +388,11 @@ export function SocialSidebar({
         {content}
       </RootPinned>
     )
+  } else if (inDraft) {
+    // The floating sidebar and its scrim draw above the draft screen, where they'd take the clicks
+    // meant for picking a race. They're dropped without an exit animation because an exiting scrim
+    // would still take clicks, and `visible` is left alone so the sidebar returns after the draft.
+    return null
   } else {
     return (
       <AnimatePresence>
@@ -392,6 +400,7 @@ export function SocialSidebar({
           <>
             <Scrim
               key='scrim'
+              data-testid='social-sidebar-scrim'
               onClick={() => onVisibilityChange(false)}
               variants={{
                 initial: { opacity: 0 },
