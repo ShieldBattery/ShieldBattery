@@ -433,6 +433,8 @@ mod tests {
             format: SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
+            lines: Vec::new(),
+            logo: None,
         }
     }
 
@@ -588,9 +590,9 @@ mod tests {
         };
         assert_eq!(plate.top(), 0.0);
         assert_eq!(tab.top(), plate.bottom());
-        assert_eq!(tab.height(), matchup::TAB_HEIGHT);
+        assert_eq!(tab.height(), matchup::TAB_ROW_HEIGHT);
         assert!((tab.center().x - plate.center().x).abs() < 0.5);
-        assert_eq!(depth, PLATE_HEIGHT + matchup::TAB_HEIGHT);
+        assert_eq!(depth, PLATE_HEIGHT + matchup::TAB_ROW_HEIGHT);
         let room = map_control::room_between_wings(Rect::from_min_size(egui::Pos2::ZERO, size));
         assert!(tab.width() <= room);
 

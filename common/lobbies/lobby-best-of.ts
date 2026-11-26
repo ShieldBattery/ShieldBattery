@@ -11,6 +11,24 @@ export const BEST_OF_TITLE_MAX_LENGTH = 50
 export const BEST_OF_MAX_SIDE_SIZE = 4
 /** The lengths offered as one-click choices; any odd length up to BEST_OF_MAX_LENGTH is valid. */
 export const BEST_OF_PRESET_LENGTHS: ReadonlyArray<number> = [1, 3, 5, 7, 9]
+/** The most characters either text line of a best-of series' caster overlay can have, once trimmed. */
+export const BEST_OF_OVERLAY_LINE_MAX_LENGTH = 60
+/** The largest logo file a host can upload for a best-of series' caster overlay, in bytes. */
+export const BEST_OF_LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024
+/**
+ * The longest side, in pixels, a PNG or WebP logo for a best-of series' caster overlay can have. An
+ * SVG logo is drawn at whatever size the overlay needs, so only its file size is limited.
+ */
+export const BEST_OF_LOGO_MAX_DIMENSION = 1024
+/**
+ * The file types a best-of series' logo can be uploaded as. The server tells them apart by the
+ * file's content, so these are only for file pickers.
+ */
+export const BEST_OF_LOGO_ACCEPTED_TYPES: ReadonlyArray<string> = [
+  'image/png',
+  'image/webp',
+  'image/svg+xml',
+]
 
 /** Which of a best-of series' two sides something refers to, in the order the host gave them. */
 export type BestOfSideIndex = 0 | 1
@@ -35,6 +53,26 @@ export type LobbyBestOfOutcome =
   /** The host ended it before either side had won. */
   | { kind: 'unfinished' }
 
+/** A logo a host uploaded for the caster overlay of their best-of series. */
+export interface LobbyBestOfLogoJson {
+  /** Where the logo is served from, always as a PNG whatever format it was uploaded in. */
+  url: string
+  /** The name of the file the host uploaded it from. */
+  fileName: string
+}
+
+/**
+ * What a best-of series shows observers on the in-game scoreboard beyond the score. Every part is
+ * optional, and a part that isn't set is absent.
+ */
+export interface LobbyBestOfOverlayJson {
+  /** Trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH` characters, never empty. */
+  line1?: string
+  /** Trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH` characters, never empty. */
+  line2?: string
+  logo?: LobbyBestOfLogoJson
+}
+
 /**
  * A best-of series the host of a lobby started: a set number of games between two sides the host
  * picked, which ends as soon as one side has won more than half of them.
@@ -51,6 +89,8 @@ export interface LobbyBestOfJson {
   sides: LobbyBestOfSides
   /** The games launched as part of it, oldest first. */
   games: LobbyBestOfGameJson[]
+  /** Absent when it shows observers nothing beyond the score. */
+  overlay?: LobbyBestOfOverlayJson
   /** Absent while it is running. */
   outcome?: LobbyBestOfOutcome
 }
@@ -63,6 +103,34 @@ export interface BestOfLaunchInfo {
   gameNumber: number
   /** Always two entries, in side order. */
   sides: Array<{ players: SbUserId[]; score: number }>
+  /** The caster overlay's text lines that are set, line 1 first. Absent when neither is. */
+  lines?: string[]
+  /** Where the caster overlay's logo is served from, as a PNG. Absent when it has none. */
+  logoUrl?: string
+}
+
+/**
+ * Returns a best-of series' caster overlay as it is kept: absent when none of its parts is set, and
+ * otherwise holding only the parts that are.
+ */
+export function toBestOfOverlayJson({
+  line1,
+  line2,
+  logo,
+}: LobbyBestOfOverlayJson): LobbyBestOfOverlayJson | undefined {
+  if (!line1 && !line2 && !logo) {
+    return undefined
+  }
+  return {
+    ...(line1 ? { line1 } : {}),
+    ...(line2 ? { line2 } : {}),
+    ...(logo ? { logo } : {}),
+  }
+}
+
+/** Returns the text lines of a caster overlay that are set, line 1 first. */
+export function getBestOfOverlayLines(overlay: LobbyBestOfOverlayJson | undefined): string[] {
+  return [overlay?.line1, overlay?.line2].filter((line): line is string => !!line)
 }
 
 /** Whether `length` is a best-of series length a lobby can play: an odd number of games. */
@@ -187,6 +255,8 @@ export function getRunningBestOf<T extends { outcome?: LobbyBestOfOutcome }>(
 /** Describes where a best-of series stands for its next game, as that game launches. */
 export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson): BestOfLaunchInfo {
   const score = getBestOfScore(bestOf)
+  const lines = getBestOfOverlayLines(bestOf.overlay)
+  const logoUrl = bestOf.overlay?.logo?.url
   return {
     ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
     length: bestOf.length,
@@ -195,6 +265,8 @@ export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson): BestOfLaunchInfo {
       { players: [...bestOf.sides[0]], score: score[0] },
       { players: [...bestOf.sides[1]], score: score[1] },
     ],
+    ...(lines.length ? { lines } : {}),
+    ...(logoUrl !== undefined ? { logoUrl } : {}),
   }
 }
 

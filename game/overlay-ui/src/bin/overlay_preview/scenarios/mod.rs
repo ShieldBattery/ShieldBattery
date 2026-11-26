@@ -182,7 +182,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 16] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 17] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -204,6 +204,18 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 16] = [
         2,
         observer::Series::Stretched,
         observer::Top::Compact,
+    )),
+    // The same line sharing the tab with a wide logo and two rows of the caster's lines, where the
+    // logo gives way before how far into the series the game is does.
+    Preset::Observer(observer::Preset::caster(
+        4,
+        2,
+        observer::Series::Stretched,
+        observer::Caster::Full {
+            logo: observer::SampleLogo::Wide,
+            long: true,
+        },
+        observer::Top::Bar,
     )),
     // A full selection, whose kill label has only the narrow strip beside the grid to fit in.
     Preset::Observer(observer::Preset::selection_showcase(
@@ -234,6 +246,7 @@ pub fn all_presets() -> Vec<Preset> {
                 .map(Preset::PlaybackControls),
         )
         .chain(observer::Preset::ALL.into_iter().map(Preset::Observer))
+        .chain(observer::Preset::caster_presets().map(Preset::Observer))
         .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
         .chain(
             kitchen_sink::Preset::ALL
@@ -355,6 +368,7 @@ pub fn render(
             None => u64::from(knobs.observer.start_secs) + elapsed as u64,
         };
         let prefs = shell.panel_prefs();
+        state.observer.prepare_logo(ctx, knobs.observer.series_logo);
         observer::build_view(
             &knobs.observer,
             &state.observer,

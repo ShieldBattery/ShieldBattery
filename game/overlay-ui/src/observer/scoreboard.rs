@@ -362,6 +362,8 @@ mod tests {
             format: crate::observer::SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
+            lines: Vec::new(),
+            logo: None,
         };
         for teams in [
             &[1, 2][..],

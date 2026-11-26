@@ -6,6 +6,7 @@ import { LobbyBrowserTest } from './lobby-browser-test'
 import { LobbyLandingTest } from './lobby-landing-test'
 import { LobbyRoomTest } from './lobby-room-test'
 import RacePickerTest from './race-picker-test'
+import { SeriesSetupTest } from './series-setup-test'
 
 const BASE_URL = '/dev/lobbies'
 
@@ -18,6 +19,9 @@ class DevLobbiesDashboard extends Component {
         </li>
         <li>
           <Link href={`${BASE_URL}/room`}>Lobby room</Link>
+        </li>
+        <li>
+          <Link href={`${BASE_URL}/series-setup`}>Series setup page</Link>
         </li>
         <li>
           <Link href={`${BASE_URL}/host-game`}>Host a game</Link>
@@ -41,6 +45,7 @@ export default () => {
     <Switch>
       <Route path={`${BASE_URL}/browser`} component={LobbyBrowserTest} />
       <Route path={`${BASE_URL}/room`} component={LobbyRoomTest} />
+      <Route path={`${BASE_URL}/series-setup`} component={SeriesSetupTest} />
       <Route path={`${BASE_URL}/host-game`} component={HostGameTest} />
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
       <Route path={`${BASE_URL}/lobby-landing`} component={LobbyLandingTest} />

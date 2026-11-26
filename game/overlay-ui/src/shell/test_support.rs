@@ -158,6 +158,8 @@ pub(super) fn series_game(teams: &[u8]) -> ObserverView {
         format: SeriesFormat::BestOf { length: 3 },
         game_number: 2,
         scores: [1, 0],
+        lines: Vec::new(),
+        logo: None,
     });
     game
 }

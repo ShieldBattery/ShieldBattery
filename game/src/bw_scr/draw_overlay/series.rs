@@ -12,9 +12,14 @@
 //! they show, which is a few comparisons over eight slots: every shown player has to be on a side,
 //! and both sides have to have someone shown, or the series is left off and the game's own sides
 //! stand.
+//!
+//! The series' lines for the casters travel with the rest of it, and its logo is loaded from its
+//! URL the first frame the series is shown (see [`series_logo`](super::series_logo)): never for a
+//! game whose series is not shown, so a player's client and a replay never fetch it.
 
 use overlay_ui::observer::{SeriesFormat, SeriesView};
 
+use super::series_logo::SeriesLogoLoader;
 use super::{BwVars, is_active_player, shown_on_panels};
 use crate::app_messages::{GameSetupInfo, SbUserId, SeriesOverlayFormat, SeriesOverlaySide};
 use crate::bw::players::BwPlayerId;
@@ -49,29 +54,43 @@ pub(super) struct SeriesState {
 struct ResolvedSeries {
     /// Which side (0 or 1) each slot is on, for the slots one could be found for.
     sides: [Option<u8>; 8],
+    /// Everything the panels show of the series but its logo.
     view: SeriesView,
+    logo: Option<SeriesLogoLoader>,
 }
 
 impl SeriesState {
     /// What the panels show of the series this frame, for a client watching `bw` live. Nothing for a
     /// game that is no series', and nothing while the shown players are not two sides of it.
+    ///
+    /// `ctx` is what the logo is loaded through, once `images_settled`: the loading screen's images
+    /// are let go of on the game's first frame, which would drop a load started before it.
     pub(super) fn frame(
         &mut self,
         bw: &BwVars,
         setup: Option<&GameSetupInfo>,
+        ctx: &egui::Context,
+        images_settled: bool,
     ) -> Option<SeriesFrame> {
         if self.resolved.is_none() {
             // Asked again next frame while the game has yet to say who ended up in which slot.
             self.resolved = Some(resolve(bw, setup?)?);
         }
-        let resolved = self.resolved.as_ref()?.as_ref()?;
+        let resolved = self.resolved.as_mut()?.as_mut()?;
         let shown = (0..8u8)
             .filter(|&player_id| is_active_player(bw, usize::from(player_id)))
             .filter(|&player_id| shown_on_panels(bw, player_id));
         match series_teams(&resolved.sides, shown) {
             Ok(teams) => Some(SeriesFrame {
                 teams,
-                view: resolved.view.clone(),
+                view: SeriesView {
+                    logo: resolved
+                        .logo
+                        .as_mut()
+                        .filter(|_| images_settled)
+                        .and_then(|logo| logo.poll(ctx)),
+                    ..resolved.view.clone()
+                },
             }),
             Err(why) => {
                 if !self.explained {
@@ -114,9 +133,11 @@ fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<ResolvedSeries>>
         })
         .collect();
     let sides = resolve_sides(&series.sides, &slots);
+    let lines = caster_lines(&series.lines);
+    let logo_url = series.logo_url.as_deref().filter(|url| !url.is_empty());
     info!(
         "Series for the observer panels: {:?}, {:?}, game {}, scores {}-{}, captions {:?}/{:?}, \
-         slot sides {:?}",
+         slot sides {:?}, caster lines {:?}, logo {:?}",
         series.title,
         series.format,
         series.game_number,
@@ -125,6 +146,8 @@ fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<ResolvedSeries>>
         series.sides[0].caption,
         series.sides[1].caption,
         sides,
+        lines,
+        logo_url,
     );
     Some(Some(ResolvedSeries {
         sides,
@@ -133,8 +156,22 @@ fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<ResolvedSeries>>
             format,
             game_number: series.game_number,
             scores: series.sides.each_ref().map(|side| side.score),
+            lines,
+            logo: None,
         },
+        logo: logo_url.map(|url| SeriesLogoLoader::new(url.to_string())),
     }))
+}
+
+/// The caster lines of `lines` the panels show: the first two that say anything.
+fn caster_lines(lines: &[String]) -> Vec<String> {
+    lines
+        .iter()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .take(2)
+        .map(str::to_string)
+        .collect()
 }
 
 /// One of the game's active slots, as the series' sides are matched against it.
@@ -324,6 +361,24 @@ mod tests {
         let resolved = resolve_sides(&sides, &split);
         assert_eq!(resolved[2], None);
         assert_eq!(resolved[3], None);
+    }
+
+    #[test]
+    fn the_panels_show_the_first_two_caster_lines_that_say_anything() {
+        let lines = |lines: &[&str]| {
+            caster_lines(
+                &lines
+                    .iter()
+                    .map(|line| line.to_string())
+                    .collect::<Vec<_>>(),
+            )
+        };
+        assert!(lines(&[]).is_empty());
+        assert_eq!(lines(&["Casters  Alice"]), vec!["Casters  Alice"]);
+        assert_eq!(
+            lines(&[" ", " Stage  Final ", "", "Observer  Carol", "Extra"]),
+            vec!["Stage  Final", "Observer  Carol"]
+        );
     }
 
     #[test]

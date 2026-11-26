@@ -441,6 +441,8 @@ function toSeriesOverlay(bestOf: BestOfLaunchInfo, playerInfos: PlayerInfo[]): S
       { score: side0.score, players: side0.players.filter(id => seated.has(id)) },
       { score: side1.score, players: side1.players.filter(id => seated.has(id)) },
     ],
+    ...(bestOf.lines?.length ? { lines: [...bestOf.lines] } : {}),
+    ...(bestOf.logoUrl !== undefined ? { logoUrl: bestOf.logoUrl } : {}),
   }
 }
 

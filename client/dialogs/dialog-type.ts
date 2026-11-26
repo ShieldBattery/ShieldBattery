@@ -2,10 +2,6 @@ import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { TranslationLanguage } from '../../common/i18n'
 import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
-import {
-  StartLobbyBestOfRequest,
-  UpdateLobbyBestOfRequest,
-} from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import {
@@ -57,7 +53,6 @@ export enum DialogType {
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   LeaveLeague = 'leaveLeague',
-  LobbyBestOf = 'lobbyBestOf',
   LobbyEndBestOf = 'lobbyEndBestOf',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
@@ -319,31 +314,6 @@ type LeaveLeagueDialogPayload = BaseDialogPayload<
     onRemoved: () => void
   }
 >
-/**
- * How a request a dialog hands off is reported back to it. Spelled out rather than imported: this
- * file can't depend on the network modules without a dependency cycle through the reducers, and a
- * `RequestHandlingSpec` fits it.
- */
-interface DialogRequestHandlers {
-  onSuccess: () => void
-  onError: (err: Error) => void
-}
-
-type LobbyBestOfDialogPayload = BaseDialogPayload<
-  typeof DialogType.LobbyBestOf,
-  {
-    /** Sends the request to start a best-of series, for a lobby that has none running. */
-    onStart: (
-      request: Omit<StartLobbyBestOfRequest, 'clientId'>,
-      handlers: DialogRequestHandlers,
-    ) => void
-    /** Sends the request to change the lobby's running best-of series. */
-    onUpdate: (
-      request: Omit<UpdateLobbyBestOfRequest, 'clientId'>,
-      handlers: DialogRequestHandlers,
-    ) => void
-  }
->
 type LobbyEndBestOfDialogPayload = BaseDialogPayload<
   typeof DialogType.LobbyEndBestOf,
   {
@@ -584,7 +554,6 @@ export type DialogPayload =
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | LeaveLeagueDialogPayload
-  | LobbyBestOfDialogPayload
   | LobbyEndBestOfDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload

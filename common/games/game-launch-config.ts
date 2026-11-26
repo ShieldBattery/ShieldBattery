@@ -54,7 +54,7 @@ export interface SeriesOverlaySide {
 
 /**
  * Where a series stood when one of its games launched, for the observer overlay to show. Only text
- * a person typed (`title`, `caption`) travels as text.
+ * a person typed (`title`, `caption`, `lines`) travels as text.
  */
 export interface SeriesOverlay {
   /** Text a person typed to name the series. */
@@ -63,6 +63,13 @@ export interface SeriesOverlay {
   /** 1-based. */
   gameNumber: number
   sides: [SeriesOverlaySide, SeriesOverlaySide]
+  /**
+   * Text lines a person typed for the casters' scoreboard, in the order they're shown. At most two,
+   * none of them empty; absent when there are none.
+   */
+  lines?: string[]
+  /** Fully-qualified URL of a PNG logo for the casters' scoreboard. Absent when there is none. */
+  logoUrl?: string
 }
 
 export interface ReplayMapInfo {

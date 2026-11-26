@@ -26,12 +26,16 @@
 //! is. With the series panel put away the bar is the bar of a game with no series. While the bar
 //! itself is not up the series stands on a plate of its own instead (see
 //! [`series_plate`](super::series_plate)), which hangs the same tab.
+//!
+//! Whoever runs the series can give it up to two lines of text for the casters (who is casting, who
+//! is observing, the stage) and a logo. The tab grows a row for each row of lines under the series
+//! line, and with a logo carries it in a cell at its left end with the rows beside it.
 
 use std::sync::Arc;
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Galley, Id, Order, Rect, Sense, Ui, UiBuilder, pos2,
-    vec2,
+    Align, Align2, Area, Color32, Context, Galley, Id, Order, Rect, Sense, TextureId, Ui,
+    UiBuilder, Vec2, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight, TextSpec};
@@ -76,15 +80,52 @@ pub(crate) const SCORES_WIDTH: f32 = SCORE_CELL * 2.0;
 /// Text size of a series score on the bar: the clock's, being read at the same glance.
 const SCORE_SIZE: f32 = 30.0;
 
-/// Height of the tab hung under the bar's middle that names the series.
-pub(crate) const TAB_HEIGHT: f32 = 22.0;
+/// Height of each row of the tab hung under the bar's middle: the series line, which names the
+/// series, and each row of the caster's lines under it.
+pub(crate) const TAB_ROW_HEIGHT: f32 = 22.0;
 
 /// The narrowest the series tab is under the bar: the middle block and its two score cells, which
 /// it hangs from.
 const TAB_MIN_WIDTH: f32 = CENTRE_WIDTH + SCORES_WIDTH;
 
+/// The widest the series tab grows to carry the caster's lines or a logo. A tab with neither keeps
+/// to the room beside it alone, being as wide as its one line asks.
+const TAB_MAX_WIDTH: f32 = 420.0;
+
 /// Padding either side of the series line inside its tab.
 const TAB_PAD: f32 = 12.0;
+
+/// How tall the tab is at least with a logo in it: two rows, which leaves the logo's cell room
+/// either side of the tallest logo.
+const LOGO_TAB_HEIGHT: f32 = TAB_ROW_HEIGHT * 2.0;
+
+/// Padding of the logo's cell at the tab's left end: before the logo, and between it and the
+/// hairline that walls the cell off from the rows.
+const LOGO_PAD_LEFT: f32 = 8.0;
+const LOGO_PAD_RIGHT: f32 = 9.0;
+
+/// What the logo's cell takes of the tab besides the logo itself: its padding and its hairline.
+const LOGO_CELL_EXTRA: f32 = LOGO_PAD_LEFT + LOGO_PAD_RIGHT + theme::HAIRLINE;
+
+/// How far short of the tab's edges the hairline beside the logo stops, top and bottom.
+const LOGO_RULE_INSET: f32 = theme::SPACE_XS;
+
+/// The narrowest a logo is shrunk to in a tab short of room before it is left out of the tab: about
+/// what a wordmark's first letter takes, below which it says nothing.
+const MIN_LOGO_WIDTH: f32 = 24.0;
+
+/// The box a series' logo is fitted into wherever it is drawn: as tall as two rows of running text,
+/// and four times that wide for a wordmark.
+pub const LOGO_MAX_SIZE: Vec2 = vec2(144.0, 36.0);
+
+/// The most caster lines a series shows.
+const MAX_CASTER_LINES: usize = 2;
+
+/// The most characters two caster lines take between them and still share a row of the tab.
+const SHARED_ROW_CHARS: usize = 52;
+
+/// Text size of the caster's lines.
+const CASTER_LINE_SIZE: f32 = 12.0;
 
 /// Gap either side of the dot that separates the parts of a series line.
 const SEPARATOR_GAP: f32 = 6.0;
@@ -518,9 +559,100 @@ pub struct SeriesView {
     /// first, which takes the left of the bar and the top of the scoreboard, then the other. For a
     /// best-of it is the games the side has won so far.
     pub scores: [u32; 2],
+    /// The lines of text whoever runs the series set for the casters, in order. The first two are
+    /// drawn.
+    pub lines: Vec<String>,
+    /// The series' logo, once the host has it to draw: nothing while it is still loading, and
+    /// nothing for one that could not be loaded.
+    pub logo: Option<SeriesLogo>,
+}
+
+/// A series' logo as the host hands it over, decoded and on a texture of its own.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct SeriesLogo {
+    pub texture: TextureId,
+    /// The texture's size in pixels, which is all the overlay reads the logo's shape from.
+    pub size: [u32; 2],
+}
+
+/// The size a logo `size` pixels across is drawn at, in points, with all the room it can have: as
+/// large as fits in [`LOGO_MAX_SIZE`] without distorting it. A host scales the logo ahead of time to
+/// this at its screen's density, since the renderer samples it with no mipmaps.
+pub fn series_logo_size(size: [u32; 2]) -> Vec2 {
+    fit_logo(size, LOGO_MAX_SIZE)
+}
+
+/// The size a logo `size` pixels across is drawn at fitted into `room`, undistorted.
+fn fit_logo([width, height]: [u32; 2], room: Vec2) -> Vec2 {
+    if width == 0 || height == 0 {
+        return Vec2::ZERO;
+    }
+    let (width, height) = (width as f32, height as f32);
+    let scale = (room.x / width).min(room.y / height);
+    vec2(width * scale, height * scale)
+}
+
+/// One row of the caster's lines in the series tab.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum LineRow<'a> {
+    One(&'a str),
+    /// Two lines short enough together to share a row.
+    Shared(&'a str, &'a str),
+}
+
+/// The rows the series tab gives `lines`: two lines share one where they are short enough together
+/// to, and have a row each where they are not.
+fn line_rows(lines: &[String]) -> Vec<LineRow<'_>> {
+    match lines {
+        [] => Vec::new(),
+        [line] => vec![LineRow::One(line)],
+        [first, second, ..]
+            if first.chars().count() + second.chars().count() <= SHARED_ROW_CHARS =>
+        {
+            vec![LineRow::Shared(first, second)]
+        }
+        [first, second, ..] => vec![LineRow::One(first), LineRow::One(second)],
+    }
+}
+
+/// The style the caster's lines are set in, wherever they are drawn: running text, a step quieter
+/// than the series line they follow.
+pub(crate) fn caster_line_spec() -> TextSpec {
+    text::body(CASTER_LINE_SIZE, BodyWeight::Regular).with_color(theme::TEXT_SECONDARY)
+}
+
+/// Lays out `line`, a caster's line, elided at its end to `room`.
+pub(crate) fn lay_out_caster_line(ctx: &Context, line: &str, room: f32) -> Arc<Galley> {
+    let spec = caster_line_spec();
+    spec.layout(ctx, spec.job_truncated(line, room))
+}
+
+/// Lays out one of the tab's rows of lines, elided at its end to `room`. Two lines sharing the row
+/// are joined by the series line's dot, set dimmer than they are.
+fn lay_out_line_row(ctx: &Context, row: LineRow<'_>, room: f32) -> Arc<Galley> {
+    match row {
+        LineRow::One(line) => lay_out_caster_line(ctx, line, room),
+        LineRow::Shared(first, second) => {
+            let spec = caster_line_spec();
+            let separator = tr!("observer.seriesLineSeparator", "·");
+            let mut job = spec.job_truncated(first, room);
+            job.append(
+                &format!("  {separator}  "),
+                0.0,
+                spec.clone().with_color(theme::TEXT_DIM).format(),
+            );
+            job.append(second, 0.0, spec.format());
+            spec.layout(ctx, job)
+        }
+    }
 }
 
 impl SeriesView {
+    /// The caster's lines that are drawn.
+    pub(crate) fn caster_lines(&self) -> &[String] {
+        &self.lines[..self.lines.len().min(MAX_CASTER_LINES)]
+    }
+
     /// What the series line says about how far into the series this game is, which stays whole
     /// wherever it is drawn: the title is what gives way to a narrow line.
     pub(crate) fn progress(&self) -> String {
@@ -631,6 +763,12 @@ impl SeriesLine {
         SeriesLine::lay_out(ctx, series, f32::INFINITY, anchor).width()
     }
 
+    /// How wide the line is with no room for its title, which is the least it takes: how far into
+    /// the series the game is never gives way.
+    fn least_width(ctx: &Context, series: &SeriesView, anchor: TabAnchor) -> f32 {
+        SeriesLine::lay_out(ctx, series, 0.0, anchor).width()
+    }
+
     /// How wide the line is as laid out.
     fn width(&self) -> f32 {
         let dot = self.separator.size().x + SEPARATOR_GAP * 2.0;
@@ -705,7 +843,7 @@ impl MatchupView {
     /// How far down the screen the bar reaches, the series tab hung under its middle included, given
     /// whether the series panel is on: what a surface hung under the middle of the bar clears.
     pub fn bar_depth(&self, series_panel: bool) -> f32 {
-        self.form().height() + self.bar_series(series_panel).map_or(0.0, |_| TAB_HEIGHT)
+        self.form().height() + self.bar_series(series_panel).map_or(0.0, tab_height)
     }
 
     /// The game's players grouped into the sides they are on, in the order the sides are listed.
@@ -828,16 +966,164 @@ fn tab_room(screen: Rect, form: MatchupForm, block: f32) -> f32 {
     }
 }
 
-/// How wide the series tab hung from `anchor` is for `series`, given `room` between the surfaces
-/// beside it: as wide as its line and the padding either side, never narrower than what it hangs
-/// from nor wider than the room. Where the room is narrower than what it hangs from, which no screen
-/// the game runs at comes near, it keeps the width it hangs from.
-fn tab_width(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> f32 {
-    let natural = SeriesLine::natural_width(ctx, series, anchor) + TAB_PAD * 2.0;
-    // An even number of whole points, so a tab centered on the bar lands on whole pixels.
-    let width = (natural * 0.5).ceil() * 2.0;
-    let least = anchor.min_width();
-    width.clamp(least, room.max(least))
+/// How tall the series tab is for `series`: a row for the series line and one for each row of the
+/// caster's lines, and with a logo never shorter than the logo's cell. Settled by what the series
+/// carries rather than by the screen, so what hangs under the tab can be placed before it is drawn.
+fn tab_height(series: &SeriesView) -> f32 {
+    let rows = 1 + line_rows(series.caster_lines()).len();
+    let text = rows as f32 * TAB_ROW_HEIGHT;
+    if series.logo.is_some() {
+        text.max(LOGO_TAB_HEIGHT)
+    } else {
+        text
+    }
+}
+
+/// An even number of whole points at least `width`, so a tab centered on the bar lands on whole
+/// pixels.
+fn even_width(width: f32) -> f32 {
+    (width * 0.5).ceil() * 2.0
+}
+
+/// The series tab laid out for the room it hangs in.
+struct Tab {
+    width: f32,
+    height: f32,
+    /// The logo and the size it is drawn at, where the series has one and the tab has room for it.
+    logo: Option<(SeriesLogo, Vec2)>,
+    series_line: SeriesLine,
+    /// The rows of the caster's lines under the series line.
+    rows: Vec<Arc<Galley>>,
+}
+
+impl Tab {
+    /// Lays the tab hung from `anchor` out for `series` given `room` between the surfaces beside
+    /// it.
+    ///
+    /// A tab with only the series line in it is as wide as the line and the padding either side,
+    /// never narrower than what it hangs from nor wider than the room. One carrying the caster's
+    /// lines is as wide as its widest row, in the same bounds and never wider than
+    /// [`TAB_MAX_WIDTH`]. One with a logo is as wide as its contents, the logo's cell and the rows
+    /// beside it, however narrow that is, and in the same bounds otherwise. Where the room is
+    /// narrower than what the tab hangs from, which no screen the game runs at comes near, the tab
+    /// keeps the width it hangs from. A row that does not fit is elided at its end, each row on its
+    /// own, and how far into the series the game is always stays whole: a logo with too little room
+    /// beside it shrinks, and is left out once it would be too small to read.
+    fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> Tab {
+        let line_rows = line_rows(series.caster_lines());
+        let height = tab_height(series);
+        let least = anchor.min_width();
+        let cap = if line_rows.is_empty() && series.logo.is_none() {
+            room
+        } else {
+            room.min(TAB_MAX_WIDTH)
+        }
+        .max(least);
+        let text_natural = line_rows
+            .iter()
+            .map(|&row| lay_out_line_row(ctx, row, f32::INFINITY).size().x)
+            .fold(SeriesLine::natural_width(ctx, series, anchor), f32::max);
+        let logo = series.logo.and_then(|logo| {
+            let room = cap
+                - LOGO_CELL_EXTRA
+                - TAB_PAD * 2.0
+                - SeriesLine::least_width(ctx, series, anchor);
+            let size = fit_logo(logo.size, vec2(room.min(LOGO_MAX_SIZE.x), LOGO_MAX_SIZE.y));
+            (size.x >= MIN_LOGO_WIDTH.min(series_logo_size(logo.size).x)).then_some((logo, size))
+        });
+        let (width, text_room) = match logo {
+            Some((_, size)) => {
+                let cell = LOGO_CELL_EXTRA + size.x + TAB_PAD * 2.0;
+                let width = even_width(cell + text_natural).min(cap);
+                (width, width - cell)
+            }
+            None => {
+                let width = even_width(text_natural + TAB_PAD * 2.0).clamp(least, cap);
+                (width, width - TAB_PAD * 2.0)
+            }
+        };
+        Tab {
+            width,
+            height,
+            logo,
+            series_line: SeriesLine::lay_out(ctx, series, text_room, anchor),
+            rows: line_rows
+                .into_iter()
+                .map(|row| lay_out_line_row(ctx, row, text_room))
+                .collect(),
+        }
+    }
+
+    /// Draws the tab under the middle of `above`, joined to it, and returns where it went.
+    ///
+    /// An ambient surface rather than a part of the hero surface above it: the lines it carries are
+    /// read once a game rather than at every glance, so it hangs quieter than the scores it
+    /// explains. Its rows are centered on it, and with a logo stand left-aligned beside the logo's
+    /// cell instead.
+    fn draw(&self, ui: &Ui, above: Rect) -> Rect {
+        let tab = Rect::from_min_size(
+            pos2(above.center().x - self.width * 0.5, above.bottom()),
+            vec2(self.width, self.height),
+        );
+        tiers::paint_tier0_joined(
+            ui.painter(),
+            tab,
+            theme::radius(theme::RADIUS_PANEL),
+            tiers::Joined {
+                edge: tiers::Edge::Top,
+                divides: false,
+            },
+        );
+        let text_left = self.logo.map(|(logo, size)| {
+            let logo_rect = Rect::from_min_size(
+                pos2(tab.left() + LOGO_PAD_LEFT, tab.center().y - size.y * 0.5),
+                size,
+            );
+            paint_logo(ui, logo, logo_rect);
+            let x = logo_rect.right() + LOGO_PAD_RIGHT + theme::HAIRLINE * 0.5;
+            ui.painter().add(egui::Shape::line_segment(
+                [
+                    pos2(x, tab.top() + LOGO_RULE_INSET),
+                    pos2(x, tab.bottom() - LOGO_RULE_INSET),
+                ],
+                egui::Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
+            ));
+            x + theme::HAIRLINE * 0.5 + TAB_PAD
+        });
+        // The rows are a block centered down the tab, which a logo taller than them leaves room
+        // around.
+        let rows = 1 + self.rows.len();
+        let top = tab.top() + (tab.height() - rows as f32 * TAB_ROW_HEIGHT) * 0.5;
+        let middle = |row: usize| top + TAB_ROW_HEIGHT * (row as f32 + 0.5);
+        let line = &self.series_line;
+        match text_left {
+            Some(left) => line.paint(ui, left, middle(0)),
+            None => line.paint(ui, tab.center().x - line.width() * 0.5, middle(0)),
+        }
+        let spec = caster_line_spec();
+        let pixels_per_point = ui.ctx().pixels_per_point();
+        for (index, galley) in self.rows.iter().enumerate() {
+            let left = text_left.unwrap_or(tab.center().x - galley.size().x * 0.5);
+            let middle =
+                egui::emath::GuiRounding::round_to_pixels(middle(index + 1), pixels_per_point);
+            ui.painter().galley(
+                pos2(left, middle - galley.size().y * 0.5),
+                galley.clone(),
+                spec.color,
+            );
+        }
+        tab
+    }
+}
+
+/// Paints `logo` filling `rect`.
+pub(crate) fn paint_logo(ui: &Ui, logo: SeriesLogo, rect: Rect) {
+    ui.painter().image(
+        logo.texture,
+        rect,
+        Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+        Color32::WHITE,
+    );
 }
 
 /// How tall the series tab hung from `anchor` is for `series`, or nothing where `anchor` hangs no
@@ -848,7 +1134,7 @@ pub(crate) fn series_tab_height(series: &SeriesView, anchor: TabAnchor) -> Optio
         .title
         .as_deref()
         .is_some_and(|title| !title.is_empty());
-    (anchor.says_progress() || titled).then_some(TAB_HEIGHT)
+    (anchor.says_progress() || titled).then(|| tab_height(series))
 }
 
 /// Draws the series tab for `series` under the middle of `above`, the surface it hangs from as
@@ -860,8 +1146,7 @@ pub(crate) fn draw_series_tab(
     room: f32,
     anchor: TabAnchor,
 ) -> Rect {
-    let width = tab_width(ui.ctx(), series, room, anchor);
-    draw_tab(ui, above, series, width, anchor)
+    Tab::lay_out(ui.ctx(), series, room, anchor).draw(ui, above)
 }
 
 /// Draws the bar across no more than `available` points of `screen` and reports which player was
@@ -968,30 +1253,6 @@ fn paint_block_wall(ui: &Ui, rect: Rect, x: f32) {
         ],
         egui::Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE60, 0.30)),
     ));
-}
-
-/// Draws the series tab `width` wide under the middle of `above`, joined to it, and returns where it
-/// went.
-///
-/// An ambient surface rather than a part of the hero surface above it: the line it carries is read
-/// once a game rather than at every glance, so it hangs quieter than the scores it explains.
-fn draw_tab(ui: &Ui, above: Rect, series: &SeriesView, width: f32, anchor: TabAnchor) -> Rect {
-    let tab = Rect::from_min_size(
-        pos2(above.center().x - width * 0.5, above.bottom()),
-        vec2(width, TAB_HEIGHT),
-    );
-    tiers::paint_tier0_joined(
-        ui.painter(),
-        tab,
-        theme::radius(theme::RADIUS_PANEL),
-        tiers::Joined {
-            edge: tiers::Edge::Top,
-            divides: false,
-        },
-    );
-    let line = SeriesLine::lay_out(ui.ctx(), series, width - TAB_PAD * 2.0, anchor);
-    line.paint(ui, tab.center().x - line.width() * 0.5, tab.center().y);
-    tab
 }
 
 /// Splits a half into `count` slots, stacked and evenly spaced.
@@ -1473,6 +1734,8 @@ mod tests {
             format: SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
+            lines: Vec::new(),
+            logo: None,
         }
     }
 
@@ -1512,7 +1775,7 @@ mod tests {
             );
             let tab = tab.expect("a series game hangs a tab");
             assert_eq!(tab.top(), scored.bottom());
-            assert_eq!(tab.height(), TAB_HEIGHT);
+            assert_eq!(tab.height(), TAB_ROW_HEIGHT);
             assert!((tab.center().x - scored.center().x).abs() < 0.5);
         }
     }
@@ -1693,7 +1956,173 @@ mod tests {
         assert_eq!(unscored.clock_block_width(true), CLOCK_WIDTH);
         assert_eq!(unscored.bar_depth(true), STACKED_HEIGHT);
         let scored = series_view(&[1, 2], longest_series());
-        assert_eq!(scored.bar_depth(true), BAR_HEIGHT + TAB_HEIGHT);
+        assert_eq!(scored.bar_depth(true), BAR_HEIGHT + TAB_ROW_HEIGHT);
+    }
+
+    /// A line `count` characters long.
+    fn line(count: usize) -> String {
+        "a".repeat(count)
+    }
+
+    /// A logo of `width` by `height` pixels, on a texture no test draws from.
+    fn logo(width: u32, height: u32) -> SeriesLogo {
+        SeriesLogo {
+            texture: TextureId::User(1),
+            size: [width, height],
+        }
+    }
+
+    fn with_caster(lines: &[String], logo: Option<SeriesLogo>) -> SeriesView {
+        SeriesView {
+            lines: lines.to_vec(),
+            logo,
+            ..longest_series()
+        }
+    }
+
+    #[test]
+    fn two_caster_lines_share_a_row_while_they_are_52_characters_between_them() {
+        assert_eq!(line_rows(&[]), Vec::new());
+        assert_eq!(line_rows(&[line(60)]), vec![LineRow::One(&line(60))]);
+        assert_eq!(
+            line_rows(&[line(26), line(26)]),
+            vec![LineRow::Shared(&line(26), &line(26))]
+        );
+        assert_eq!(
+            line_rows(&[line(1), line(51)]),
+            vec![LineRow::Shared(&line(1), &line(51))]
+        );
+        assert_eq!(
+            line_rows(&[line(26), line(27)]),
+            vec![LineRow::One(&line(26)), LineRow::One(&line(27))]
+        );
+        // Characters rather than bytes: a line in another script is no longer for its encoding.
+        let cyrillic = "ж".repeat(26);
+        assert_eq!(
+            line_rows(&[cyrillic.clone(), cyrillic.clone()]),
+            vec![LineRow::Shared(&cyrillic, &cyrillic)]
+        );
+        // Only the first two of more lines than are drawn count.
+        let series = with_caster(&[line(10), line(10), line(60)], None);
+        assert_eq!(series.caster_lines().len(), 2);
+        assert_eq!(line_rows(series.caster_lines()).len(), 1);
+    }
+
+    #[test]
+    fn the_tab_grows_a_row_for_each_row_of_lines_and_a_logo_holds_it_at_two_rows() {
+        let one = [line(20)];
+        let shared = [line(20), line(20)];
+        let apart = [line(40), line(40)];
+        for (lines, plain, with_logo) in [
+            (&[][..], 22.0, 44.0),
+            (&one[..], 44.0, 44.0),
+            (&shared[..], 44.0, 44.0),
+            (&apart[..], 66.0, 66.0),
+        ] {
+            for (logo, height) in [(None, plain), (Some(logo(576, 144)), with_logo)] {
+                let series = with_caster(lines, logo);
+                assert_eq!(tab_height(&series), height, "{lines:?} {logo:?}");
+                let view = series_view(&[1, 2], series);
+                assert_eq!(view.bar_depth(true), BAR_HEIGHT + height);
+                let (bar, tab) = settled_bar(&view, vec2(1920.0, 1080.0));
+                let tab = tab.expect("a series game hangs a tab");
+                assert_eq!(tab.height(), height, "{lines:?} {logo:?}");
+                assert_eq!(tab.top(), bar.bottom());
+            }
+        }
+    }
+
+    #[test]
+    fn a_tab_with_lines_or_a_logo_stops_at_420_points_or_the_room_beside_it() {
+        let long = [line(60), "W".repeat(60)];
+        let wide = vec2(1920.0, 1080.0);
+        for teams in [&[1, 2][..], &[1, 1, 2, 2], &[1, 1, 1, 2, 2, 2]] {
+            for logo in [None, Some(logo(576, 144))] {
+                let view = series_view(teams, with_caster(&long, logo));
+                let (_, tab) = settled_bar(&view, wide);
+                assert_eq!(tab.expect("a tab").width(), TAB_MAX_WIDTH, "{teams:?}");
+                // A 1280-wide screen has less room beside the bar than that.
+                let screen = Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN);
+                let room = tab_room(screen, view.form(), view.clock_block_width(true));
+                assert!(room < TAB_MAX_WIDTH);
+                let (_, tab) = settled_bar(&view, SMALL_SCREEN);
+                assert_eq!(tab.expect("a tab").width(), room, "{teams:?}");
+            }
+        }
+        // A tab carrying the series line alone keeps to the room alone.
+        let (_, tab) = settled_bar(&series_view(&[1, 2], longest_series()), wide);
+        assert!(tab.expect("a tab").width() > TAB_MAX_WIDTH);
+    }
+
+    #[test]
+    fn a_tab_with_a_logo_is_as_wide_as_its_contents() {
+        let (narrow, plain) = crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
+            let series = SeriesView {
+                title: None,
+                ..with_caster(&[], Some(logo(64, 64)))
+            };
+            let narrow = Tab::lay_out(ctx, &series, 900.0, TabAnchor::Bar);
+            let plain = Tab::lay_out(
+                ctx,
+                &SeriesView {
+                    logo: None,
+                    ..series
+                },
+                900.0,
+                TabAnchor::Bar,
+            );
+            Some((narrow.width, plain.width))
+        })
+        .expect("the tabs are laid out");
+        assert_eq!(plain, TAB_MIN_WIDTH);
+        assert!(narrow < TAB_MIN_WIDTH, "{narrow}");
+    }
+
+    #[test]
+    fn a_logo_is_fitted_into_its_box_undistorted() {
+        // A wordmark at the size the server rasterizes to, and wider than the box.
+        assert_eq!(series_logo_size([576, 144]), vec2(144.0, 36.0));
+        assert_eq!(series_logo_size([1000, 100]), vec2(144.0, 14.4));
+        // A square emblem, larger and smaller than the box.
+        assert_eq!(series_logo_size([512, 512]), vec2(36.0, 36.0));
+        assert_eq!(series_logo_size([18, 18]), vec2(36.0, 36.0));
+        // A tall one.
+        assert_eq!(series_logo_size([100, 400]), vec2(9.0, 36.0));
+        assert_eq!(series_logo_size([0, 10]), Vec2::ZERO);
+    }
+
+    #[test]
+    fn with_a_logo_how_far_into_the_series_the_game_is_stays_whole_at_1280_wide() {
+        let screen = Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN);
+        let long = [line(60), "W".repeat(60)];
+        for teams in [&[1, 2][..], &[1, 1, 2, 2], &[1, 1, 1, 2, 2, 2]] {
+            for (lines, logo) in [
+                (&[][..], logo(576, 144)),
+                (&long[..], logo(576, 144)),
+                (&long[..], logo(144, 144)),
+            ] {
+                let view = series_view(teams, with_caster(lines, Some(logo)));
+                let room = tab_room(screen, view.form(), view.clock_block_width(true));
+                let tab = crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
+                    Some(Tab::lay_out(
+                        ctx,
+                        view.series.as_ref()?,
+                        room,
+                        TabAnchor::Bar,
+                    ))
+                })
+                .expect("the tab is laid out");
+                assert!(tab.series_line.progress_whole(), "{teams:?} {logo:?}");
+                let (_, size) = tab.logo.expect("there is room for the logo");
+                assert!(size.x <= LOGO_MAX_SIZE.x && size.y <= LOGO_MAX_SIZE.y);
+                let text_room = tab.width - LOGO_CELL_EXTRA - size.x - TAB_PAD * 2.0;
+                assert!(tab.series_line.width() <= text_room + 0.01, "{teams:?}");
+                for row in &tab.rows {
+                    assert!(row.size().x <= text_room + 0.01, "{teams:?}");
+                }
+                assert!(tab.width <= room, "{teams:?}");
+            }
+        }
     }
 
     #[test]

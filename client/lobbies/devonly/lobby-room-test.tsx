@@ -8,6 +8,7 @@ import {
   getRunningBestOf,
   LobbyBestOfJson,
   LobbyBestOfSides,
+  toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
   LobbySeriesGameJson,
@@ -974,6 +975,13 @@ function LobbyRoomTestInner() {
                 length: request.length,
                 sides: request.sides,
                 games: [],
+                overlay: toBestOfOverlayJson({
+                  line1: request.line1,
+                  line2: request.line2,
+                  logo: request.logo
+                    ? { url: URL.createObjectURL(request.logo), fileName: request.logo.name }
+                    : undefined,
+                }),
               }
               dispatch({
                 type: '@lobbies/updateBestOfStarted',
@@ -983,9 +991,21 @@ function LobbyRoomTestInner() {
             }}
             onUpdateBestOf={(request, spec) => {
               if (runningBestOf) {
+                const overlay = runningBestOf.overlay ?? {}
+                let logo = request.deleteLogo ? undefined : overlay.logo
+                if (request.logo) {
+                  logo = { url: URL.createObjectURL(request.logo), fileName: request.logo.name }
+                }
                 const bestOf: LobbyBestOfJson = {
                   ...runningBestOf,
                   ...(request.sides ? { sides: request.sides } : {}),
+                  overlay: toBestOfOverlayJson({
+                    line1:
+                      request.line1 === undefined ? overlay.line1 : (request.line1 ?? undefined),
+                    line2:
+                      request.line2 === undefined ? overlay.line2 : (request.line2 ?? undefined),
+                    logo,
+                  }),
                 }
                 if (request.title !== undefined) {
                   delete bestOf.title
@@ -1016,6 +1036,13 @@ function LobbyRoomTestInner() {
                   },
                 })
               }
+            }}
+            onLoadRememberedBestOfOverlay={spec => {
+              setTimeout(() => {
+                if (!spec.signal?.aborted) {
+                  spec.onSuccess({ line1: 'Casters  Nyoken & Day9', line2: 'Observer  Royo' })
+                }
+              }, 300)
             }}
             onDiscardBestOfGame={gameId => {
               if (runningBestOf) {

@@ -551,6 +551,14 @@ pub struct SeriesOverlay {
     pub game_number: u32,
     /// The series' two sides, in the series' own order.
     pub sides: [SeriesOverlaySide; 2],
+    /// The lines of text whoever runs the series set for the casters, in order. Empty when none is
+    /// set.
+    #[serde(default)]
+    pub lines: Vec<String>,
+    /// Where the series' logo is, as a fully-qualified URL of a PNG. Absent for a series without
+    /// one.
+    #[serde(default)]
+    pub logo_url: Option<String>,
 }
 
 /// One side of a series as the observer overlay shows it.
@@ -992,6 +1000,72 @@ mod tests {
         assert_eq!(series.sides[1].caption.as_deref(), Some("Team Liquid"));
         assert_eq!(series.sides[1].score, 0);
         assert_eq!(series.sides[1].players, vec![SbUserId(20)]);
+        assert!(series.lines.is_empty());
+        assert_eq!(series.logo_url, None);
+    }
+
+    #[test]
+    fn game_setup_carries_its_series_caster_lines_and_logo() {
+        let setup = game_setup(serde_json::json!({
+            "seriesOverlay": {
+                "format": { "kind": "bestOf", "length": 5 },
+                "gameNumber": 1,
+                "sides": [
+                    { "score": 0, "players": [10] },
+                    { "score": 0, "players": [20] },
+                ],
+                "lines": ["Casters  Alice & Bob", "Observer  Carol"],
+                "logoUrl": "https://cdn.example.com/series-logos/ab/cd/logo.png",
+            },
+        }))
+        .expect("valid setup");
+        let series = setup.series_overlay.expect("the series is carried");
+        assert_eq!(
+            series.lines,
+            vec!["Casters  Alice & Bob", "Observer  Carol"]
+        );
+        assert_eq!(
+            series.logo_url.as_deref(),
+            Some("https://cdn.example.com/series-logos/ab/cd/logo.png")
+        );
+    }
+
+    #[test]
+    fn game_setup_carries_series_lines_without_a_logo_and_a_logo_without_lines() {
+        let series = |extra: serde_json::Value| {
+            let mut overlay = serde_json::json!({
+                "format": { "kind": "bestOf", "length": 3 },
+                "gameNumber": 2,
+                "sides": [
+                    { "score": 1, "players": [10] },
+                    { "score": 0, "players": [20] },
+                ],
+            });
+            if let (Some(fields), Some(extra)) = (overlay.as_object_mut(), extra.as_object()) {
+                fields.extend(extra.clone());
+            }
+            game_setup(serde_json::json!({ "seriesOverlay": overlay }))
+                .expect("valid setup")
+                .series_overlay
+                .expect("the series is carried")
+        };
+        let lines_only = series(serde_json::json!({ "lines": ["Stage  Grand Final"] }));
+        assert_eq!(lines_only.lines, vec!["Stage  Grand Final"]);
+        assert_eq!(lines_only.logo_url, None);
+        let logo_only = series(serde_json::json!({ "logoUrl": "https://example.com/logo.png" }));
+        assert!(logo_only.lines.is_empty());
+        assert_eq!(
+            logo_only.logo_url.as_deref(),
+            Some("https://example.com/logo.png")
+        );
+        // An empty list, and more lines than the overlay draws, both load as they are.
+        assert!(series(serde_json::json!({ "lines": [] })).lines.is_empty());
+        assert_eq!(
+            series(serde_json::json!({ "lines": ["a", "b", "c"] }))
+                .lines
+                .len(),
+            3
+        );
     }
 
     #[test]
