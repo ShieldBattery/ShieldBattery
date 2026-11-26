@@ -1319,6 +1319,8 @@ export enum MatchmakingServiceErrorCode {
   InvalidClient = 'invalidClient',
   InvalidMapPool = 'invalidMapPool',
   InvalidMaps = 'invalidMaps',
+  /** The map pool for a requested type changed in a way the player has not reviewed yet. */
+  MapPoolChanged = 'mapPoolChanged',
   MatchAlreadyStarting = 'matchAlreadyStarting',
   MatchmakingDisabled = 'matchmakingDisabled',
   NotInQueue = 'notInQueue',

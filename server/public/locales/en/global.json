@@ -2408,9 +2408,6 @@
       "description": "Select a race to be used whenever your opponent has selected the same primary race.",
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
-        "chooseMaps": "Select at least one map",
-        "chooseRace": "Choose a race to continue",
-        "completeSettings": "Complete the highlighted settings to find a match.",
         "dialogTitle": "Error searching for a match",
         "invalidMaps": "You must select at least one map in the settings for each chosen matchmaking type.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
@@ -2430,7 +2427,28 @@
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
       "matchFound": "Match found!",
+      "newMap": "New",
+      "newMapTooltip": "Added in the latest map pool update",
       "noScheduledWindow": "No scheduled window yet",
+      "poolChange": {
+        "added_one": "{{count}} new map",
+        "added_other": "{{count}} new maps",
+        "details": "Details",
+        "pickRemovedWithMap_one": "Your pick of {{maps}} was removed with the map.",
+        "pickRemovedWithMap_other": "Your picks of {{maps}} were removed with the maps.",
+        "poolSizeLabel": "Maps in the pool",
+        "removed_one": "{{count}} removed",
+        "removed_other": "{{count}} removed",
+        "removedMaps": "Removed maps",
+        "startDateLabel": "In effect since",
+        "updated": "The map pool was updated.",
+        "vetoLimit": "Vetoes {{previous}} → {{current}}",
+        "vetoLimitLabel": "Veto limit",
+        "vetoRemovedByLimit_one": "Your veto on {{maps}} was removed because the veto limit is lower.",
+        "vetoRemovedByLimit_other": "Your vetoes on {{maps}} were removed because the veto limit is lower.",
+        "vetoRemovedWithMap_one": "Your veto on {{maps}} was removed with the map.",
+        "vetoRemovedWithMap_other": "Your vetoes on {{maps}} were removed with the maps."
+      },
       "presetRace": "Preset race",
       "presetRaceDescription": "Your team drafts races before the game starts. This will be your starting pick in the draft.",
       "race": "Race",
@@ -2454,6 +2472,9 @@
       "vetoDescriptionWithOverlap_other": "Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.",
       "vetoedCount": "{{selected}} / {{limit}} vetoed",
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
+    },
+    "findMatchSettings": {
+      "position": "{{position}} of {{total}}"
     },
     "match": {
       "gameFailedToLoad": "The game has failed to load.",

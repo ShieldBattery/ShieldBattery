@@ -2,13 +2,18 @@ import { singleton } from 'tsyringe'
 import { toMapInfoJson } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import {
+  computeMapPoolChanges,
   GetMatchmakingMapPoolResponse,
   toMatchmakingMapPoolJson,
 } from '../../../common/matchmaking/matchmaking-map-pools'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { Clock } from '../time/clock'
-import { getCurrentMapPool, getNextMapPoolStartDate } from './matchmaking-map-pools-models'
+import {
+  getCurrentMapPool,
+  getNextMapPoolStartDate,
+  getPreviousMapPool,
+} from './matchmaking-map-pools-models'
 
 /**
  * How long the signed download URLs for a map pool's maps stay valid. Clients keep a pool for as
@@ -91,6 +96,7 @@ export class CurrentMapPoolCache {
       return { response: undefined, nextStart }
     }
 
+    const previous = await getPreviousMapPool(matchmakingType, pool.startDate)
     const mapInfos = await reparseMapsAsNeeded(
       await getMapInfos(pool.maps, { mapUrlExpiresSec: MAP_POOL_MAP_URL_EXPIRES_SEC }),
     )
@@ -98,6 +104,7 @@ export class CurrentMapPoolCache {
       response: {
         pool: toMatchmakingMapPoolJson(pool),
         mapInfos: mapInfos.map(m => toMapInfoJson(m)),
+        changes: previous ? computeMapPoolChanges(previous, pool) : undefined,
       },
       nextStart,
     }

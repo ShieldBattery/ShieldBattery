@@ -92,6 +92,30 @@ export async function getCurrentMapPool(
 }
 
 /**
+ * Returns the map pool for `matchmakingType` that started most recently before `before`, or `null`
+ * if there is none.
+ */
+export async function getPreviousMapPool(
+  matchmakingType: MatchmakingType,
+  before: Date,
+  withClient?: DbClient,
+): Promise<MatchmakingMapPool | null> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingMapPool>(sql`
+      SELECT *
+      FROM matchmaking_map_pools
+      WHERE matchmaking_type = ${matchmakingType} AND start_date < ${before}
+      ORDER BY start_date DESC
+      LIMIT 1;
+    `)
+    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
+  } finally {
+    done()
+  }
+}
+
+/**
  * Returns the currently active map pool for each of the given matchmaking types in a single query,
  * keyed by matchmaking type. Types with no active pool are absent from the result. Pass `withClient`
  * to run on an existing connection.

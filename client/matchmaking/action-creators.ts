@@ -14,7 +14,7 @@ import {
   GetMatchmakingBanStatusResponse,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
-  MatchmakingPreferences,
+  MatchmakingPreferencesDraft,
   MatchmakingServiceErrorCode,
   MatchmakingType,
   PartialMatchmakingPreferences,
@@ -34,7 +34,7 @@ import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
+import { FetchError, isFetchError } from '../network/fetch-errors'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import {
@@ -44,119 +44,206 @@ import {
   updateProvisionalPickAtom,
 } from './draft-atoms'
 import { clearMatchmakingState, findMatchSelectionAtom, hasAcceptedAtom } from './matchmaking-atoms'
-import { getMatchmakingPreferencesError } from './preference-validation'
+import { orderMatchmakingTypes, planMatchmakingQueue } from './preference-validation'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+type Dispatch = Parameters<ThunkAction>[0]
+type GetState = Parameters<ThunkAction>[1]
 
 // A draft can contain an unset race. Keep saves for each user/mode in edit order so a map-only
 // save cannot clear a race selected while that save is still in flight.
 const pendingPreferenceSaves = new Map<string, Promise<GetPreferencesResponse>>()
 let nextPreferenceRequestId = 0
 
+/** Sends a find-match request for `preferences`, rejecting with the server's error if it fails. */
+async function requestFindMatch(
+  preferences: ReadonlyArray<ReadonlyDeep<MatchmakingPreferencesDraft>>,
+  dispatch: Dispatch,
+  getState: GetState,
+): Promise<void> {
+  const [identifiers, desiredRegion, clientPubkey] = await Promise.all([
+    (async () => (await ipcRenderer.invoke('securityGetClientIds')) ?? [])(),
+    resolveDesiredRegion(),
+    // Generate this session's netcode v2 keypair in the app and submit the public half; the
+    // private half stays in the app until the launched game adopts it. Undefined outside
+    // Electron (like every invoke here), where matchmaking can't be reached anyway.
+    ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys'),
+  ])
+
+  const body: FindMatchRequest = {
+    clientId,
+    preferences: preferences as any,
+    identifiers,
+    region: desiredRegion?.region,
+    // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire format
+    // only distinguishes "present" from "absent", so a null rtt is sent the same as no rtt. The
+    // region itself is still sent: it places the player's relay, which needs no rtt.
+    rttMs: desiredRegion?.rttMs ?? undefined,
+    regionManual: desiredRegion?.manual,
+    clientPubkey,
+  }
+
+  await fetchJson<void>(apiUrl`matchmaking/find`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+  // Load the current map pools in the store so we can download all of the maps in them as soon as
+  // the player queues.
+  for (const pref of preferences) {
+    loadCurrentMapPool(pref.matchmakingType, dispatch, getState).catch(swallowNonBuiltins)
+  }
+}
+
+/** Shows the error UI for a failed find-match request. */
+function showFindMatchError(err: unknown, dispatch: Dispatch) {
+  let message = i18n.t('matchmaking.findMatch.errors.somethingWentWrong', 'Something went wrong :(')
+
+  if (isFetchError(err) && err.code) {
+    switch (err.code) {
+      case MatchmakingServiceErrorCode.UserBanned:
+        dispatch(openDialog({ type: DialogType.MatchmakingBanned }))
+        return
+      case MatchmakingServiceErrorCode.MatchmakingDisabled:
+        message = i18n.t(
+          'matchmaking.findMatch.errors.matchmakingDisabled',
+          'Matchmaking is currently disabled',
+        )
+        break
+      case MatchmakingServiceErrorCode.GameplayConflict:
+        message = i18n.t(
+          'matchmaking.findMatch.errors.alreadyInGame',
+          'You are already in a game, searching for a match, or in a custom lobby',
+        )
+        break
+      case MatchmakingServiceErrorCode.UserOffline:
+        message = i18n.t(
+          'matchmaking.findMatch.errors.userOffline',
+          'Your connection to the server was interrupted, please reconnect and try again.',
+        )
+        break
+      case MatchmakingServiceErrorCode.InvalidMaps:
+        message = i18n.t(
+          'matchmaking.findMatch.errors.invalidMaps',
+          'You must select at least one map in the settings for each chosen matchmaking type.',
+        )
+        break
+      case MatchmakingServiceErrorCode.UnsupportedMachine:
+        message = i18n.t(
+          'matchmaking.findMatch.errors.unsupportedMachine',
+          "Ranked play isn't supported on this computer. Try playing from a different computer.",
+        )
+        break
+      case MatchmakingServiceErrorCode.MapPoolChanged:
+        // Only reaches here once the player has already been shown the changed pool, so there is
+        // nothing more specific to tell them.
+        break
+      default:
+        logger.error(
+          `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,
+        )
+        break
+    }
+  } else {
+    logger.error(`Error while queuing for matchmaking as a solo player: ${getErrorStack(err)}`)
+  }
+  dispatch(
+    openSimpleDialog(
+      i18n.t('matchmaking.findMatch.errors.dialogTitle', 'Error searching for a match'),
+      message,
+      true,
+    ),
+  )
+}
+
+/**
+ * Starts a matchmaking search with exactly `preferences`, showing an error dialog if the server
+ * refuses it. Most callers want `queueForMatchmaking`, which first checks whether the player has to
+ * review any settings.
+ */
 export function findMatch(
-  preferences: Immutable<MatchmakingPreferences[]>,
+  preferences: ReadonlyArray<ReadonlyDeep<MatchmakingPreferencesDraft>>,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const findPromise = Promise.resolve().then(async () => {
-      const [identifiers, desiredRegion, clientPubkey] = await Promise.all([
-        (async () => (await ipcRenderer.invoke('securityGetClientIds')) ?? [])(),
-        resolveDesiredRegion(),
-        // Generate this session's netcode v2 keypair in the app and submit the public half; the
-        // private half stays in the app until the launched game adopts it. Undefined outside
-        // Electron (like every invoke here), where matchmaking can't be reached anyway.
-        ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys'),
-      ])
+  return abortableThunk(spec, async (dispatch, getState) => {
+    try {
+      await requestFindMatch(preferences, dispatch, getState)
+    } catch (err) {
+      showFindMatchError(err, dispatch)
+      throw err
+    }
+  })
+}
 
-      const body: FindMatchRequest = {
-        clientId,
-        preferences: preferences as any,
-        identifiers,
-        region: desiredRegion?.region,
-        // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire format
-        // only distinguishes "present" from "absent", so a null rtt is sent the same as no rtt. The
-        // region itself is still sent: it places the player's relay, which needs no rtt.
-        rttMs: desiredRegion?.rttMs ?? undefined,
-        regionManual: desiredRegion?.manual,
-        clientPubkey,
-      }
+/** How a `queueForMatchmaking` attempt ended. */
+export type QueueForMatchmakingResult =
+  /** The search started. */
+  | 'queued'
+  /** The find-match settings dialog was opened for the settings the player has to review. */
+  | 'reviewing'
+  /** Some requested type's settings haven't loaded yet, so nothing was done. */
+  | 'settingsLoading'
 
-      return fetchJson<void>(apiUrl`matchmaking/find`, {
-        method: 'POST',
-        body: JSON.stringify(body),
+/**
+ * Queues for `types` with the player's stored preferences, unless some of those types need the
+ * player's attention first (settings that can't be searched with, or a map pool that changed since
+ * they last saw it), in which case the find-match settings dialog is opened for them instead and
+ * the search starts from there.
+ */
+export function queueForMatchmaking(
+  types: Iterable<MatchmakingType>,
+  spec: RequestHandlingSpec<QueueForMatchmakingResult>,
+): ThunkAction {
+  const queueTypes = orderMatchmakingTypes(types)
+  return abortableThunk(spec, async (dispatch, getState) => {
+    let reloadedPools = false
+    while (true) {
+      const { matchmakingPreferences, mapPools } = getState()
+      const plan = planMatchmakingQueue(queueTypes, {
+        preferencesByType: matchmakingPreferences.byType,
+        mapPoolsByType: mapPools.byType,
+        mapPoolChangesByType: mapPools.changesByType,
       })
-    })
 
-    findPromise.catch(err => {
-      let message = i18n.t(
-        'matchmaking.findMatch.errors.somethingWentWrong',
-        'Something went wrong :(',
-      )
+      switch (plan.kind) {
+        case 'loading':
+          return 'settingsLoading'
+        case 'review':
+          dispatch(
+            openDialog({
+              type: DialogType.FindMatchSettings,
+              initData: { reviewTypes: plan.reviewTypes, queueTypes },
+            }),
+          )
+          return 'reviewing'
+        case 'queue':
+          try {
+            await requestFindMatch(plan.preferences, dispatch, getState)
+            return 'queued'
+          } catch (err) {
+            // The server knows of a pool change this client hasn't loaded yet (e.g. it stayed open
+            // across a pool rotation). Load the current pools and plan again, which will then ask
+            // the player to review the changes.
+            if (
+              !reloadedPools &&
+              isFetchError(err) &&
+              err.code === MatchmakingServiceErrorCode.MapPoolChanged
+            ) {
+              reloadedPools = true
+              await Promise.all(
+                queueTypes.map(type => loadCurrentMapPool(type, dispatch, getState)),
+              )
+              continue
+            }
 
-      if (isFetchError(err) && err.code) {
-        switch (err.code) {
-          case MatchmakingServiceErrorCode.UserBanned:
-            dispatch(openDialog({ type: DialogType.MatchmakingBanned }))
-            return
-          case MatchmakingServiceErrorCode.MatchmakingDisabled:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.matchmakingDisabled',
-              'Matchmaking is currently disabled',
-            )
-            break
-          case MatchmakingServiceErrorCode.GameplayConflict:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.alreadyInGame',
-              'You are already in a game, searching for a match, or in a custom lobby',
-            )
-            break
-          case MatchmakingServiceErrorCode.UserOffline:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.userOffline',
-              'Your connection to the server was interrupted, please reconnect and try again.',
-            )
-            break
-          case MatchmakingServiceErrorCode.InvalidMaps:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.invalidMaps',
-              'You must select at least one map in the settings for each chosen matchmaking type.',
-            )
-            break
-          case MatchmakingServiceErrorCode.UnsupportedMachine:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.unsupportedMachine',
-              "Ranked play isn't supported on this computer. Try playing from a different computer.",
-            )
-            break
-          default:
-            logger.error(
-              `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,
-            )
-            break
-        }
-      } else {
-        logger.error(`Error while queuing for matchmaking as a solo player: ${err?.stack ?? err}`)
+            showFindMatchError(err, dispatch)
+            throw err
+          }
+        default:
+          return plan satisfies never
       }
-      dispatch(
-        openSimpleDialog(
-          i18n.t('matchmaking.findMatch.errors.dialogTitle', 'Error searching for a match'),
-          message,
-          true,
-        ),
-      )
-    })
-
-    findPromise
-      .then(() => {
-        // Load the current map pools in the store so we can download all of the maps in them as
-        // soon as the player queues.
-        for (const pref of preferences) {
-          dispatch(getCurrentMapPool(pref.matchmakingType))
-        }
-      })
-      .catch(swallowNonBuiltins)
-
-    await findPromise
+    }
   })
 }
 
@@ -174,7 +261,6 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       auth,
       matchmakingPreferences: { byType },
       matchmakingStatus,
-      mapPools,
     } = getState()
 
     // The same derivation the find-match screen uses for its mode checkboxes: the modes toggled
@@ -194,30 +280,22 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       types = [gameConfig.gameSourceExtra.type]
     }
 
-    const allPrefs: Immutable<MatchmakingPreferences>[] = []
-    for (const type of types) {
-      const prefs = byType.get(type)?.preferences
-      if (getMatchmakingPreferencesError(prefs, mapPools.byType.get(type))) {
-        externalShowSnackbar(
-          i18n.t(
-            'matchmaking.findMatch.errors.reviewSettings',
-            'Choose a race and review the maps for each selected mode before searching.',
-          ),
-          DURATION_LONG,
-        )
-        push(urlPath`/play/matchmaking`)
-        return
-      }
-      // TS can't infer the mutable element type through the Immutable store union, so we cast
-      allPrefs.push(prefs as Immutable<MatchmakingPreferences>)
-    }
-
     dispatch(
-      findMatch(allPrefs, {
-        onSuccess: () => {},
+      queueForMatchmaking(types, {
+        onSuccess: result => {
+          if (result === 'settingsLoading') {
+            externalShowSnackbar(
+              i18n.t(
+                'matchmaking.findMatch.errors.reviewSettings',
+                'Choose a race and review the maps for each selected mode before searching.',
+              ),
+              DURATION_LONG,
+            )
+            push(urlPath`/play/matchmaking`)
+          }
+        },
         onError: () => {
-          // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
-          // creator
+          // NOTE(tec27): The error UI is shown inside the action creator
         },
       }),
     )
@@ -265,23 +343,39 @@ export function simulateMatchPop(
   })
 }
 
-export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
-  return (dispatch, getState) => {
-    if (getState().mapPools.isRequestingByType.get(type)) {
-      return
-    }
+/** The in-flight load of each type's current map pool, which settles once the store has its result. */
+const currentMapPoolLoads = new Map<MatchmakingType, Promise<void>>()
 
-    dispatch({
-      type: '@matchmaking/getCurrentMapPoolBegin',
-      payload: { type },
-    })
+/**
+ * Loads the current map pool for `type` into the store, unless a load is already in flight. The
+ * returned promise settles (never rejecting: failures are recorded in the store) once the store
+ * holds the result of the load, including one that was already in flight.
+ */
+function loadCurrentMapPool(
+  type: MatchmakingType,
+  dispatch: Dispatch,
+  getState: GetState,
+): Promise<void> {
+  const inFlight = currentMapPoolLoads.get(type)
+  if (inFlight) {
+    return inFlight
+  }
+  if (getState().mapPools.isRequestingByType.get(type)) {
+    return Promise.resolve()
+  }
 
-    const promise = fetchJson<GetMatchmakingMapPoolResponse>(
-      apiUrl`matchmaking-map-pools/${type}/current`,
-    )
+  dispatch({
+    type: '@matchmaking/getCurrentMapPoolBegin',
+    payload: { type },
+  })
 
-    promise
-      .then(body => {
+  const load = fetchJson<GetMatchmakingMapPoolResponse>(
+    apiUrl`matchmaking-map-pools/${type}/current`,
+  )
+    .then(
+      body => {
+        dispatch({ type: '@matchmaking/getCurrentMapPool', payload: body, meta: { type } })
+
         // As a slight optimization, we download the whole map pool as soon as we get it. This
         // shouldn't be a prohibitively expensive operation, since our map store checks if a map
         // already exists before attempting to download it.
@@ -294,14 +388,27 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
               console.error('Error downloading map: ' + err.stack)
             })
         }
-      })
-      .catch(swallowNonBuiltins)
-
-    dispatch({
-      type: '@matchmaking/getCurrentMapPool',
-      payload: promise,
-      meta: { type },
+      },
+      (err: FetchError) => {
+        dispatch({
+          type: '@matchmaking/getCurrentMapPool',
+          payload: err,
+          error: true,
+          meta: { type },
+        })
+      },
+    )
+    .catch(swallowNonBuiltins)
+    .finally(() => {
+      currentMapPoolLoads.delete(type)
     })
+  currentMapPoolLoads.set(type, load)
+  return load
+}
+
+export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
+  return (dispatch, getState) => {
+    loadCurrentMapPool(type, dispatch, getState).catch(swallowNonBuiltins)
   }
 }
 

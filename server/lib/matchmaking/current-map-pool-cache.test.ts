@@ -11,11 +11,16 @@ import {
   CurrentMapPoolCache,
   MAP_POOL_MAP_URL_EXPIRES_SEC,
 } from './current-map-pool-cache'
-import { getCurrentMapPool, getNextMapPoolStartDate } from './matchmaking-map-pools-models'
+import {
+  getCurrentMapPool,
+  getNextMapPoolStartDate,
+  getPreviousMapPool,
+} from './matchmaking-map-pools-models'
 
 vi.mock('./matchmaking-map-pools-models', () => ({
   getCurrentMapPool: vi.fn(),
   getNextMapPoolStartDate: vi.fn(),
+  getPreviousMapPool: vi.fn(),
 }))
 vi.mock('../maps/map-models', () => ({
   getMapInfos: vi.fn(),
@@ -59,6 +64,7 @@ describe('server/matchmaking/current-map-pool-cache', () => {
 
     asMockedFunction(getNextMapPoolStartDate).mockResolvedValue(undefined)
     asMockedFunction(getCurrentMapPool).mockResolvedValue(makePool(1))
+    asMockedFunction(getPreviousMapPool).mockResolvedValue(null)
     asMockedFunction(getMapInfos).mockResolvedValue([])
     asMockedFunction(reparseMapsAsNeeded).mockImplementation(async maps => maps as MapInfo[])
   })
@@ -114,6 +120,40 @@ describe('server/matchmaking/current-map-pool-cache', () => {
     expect(getMapInfos).toHaveBeenCalledWith(['map-1'], {
       mapUrlExpiresSec: MAP_POOL_MAP_URL_EXPIRES_SEC,
     })
+  })
+
+  test('includes how the pool differs from the previous one', async () => {
+    const previous: MatchmakingMapPool = {
+      ...makePool(0),
+      startDate: new Date(-1000),
+      maps: ['map-0' as SbMapId, 'map-1' as SbMapId],
+      maxVetoCount: 2,
+    }
+    const current: MatchmakingMapPool = {
+      ...makePool(1),
+      startDate: new Date(500),
+      maps: ['map-1' as SbMapId, 'map-2' as SbMapId, 'map-3' as SbMapId],
+    }
+    asMockedFunction(getCurrentMapPool).mockResolvedValue(current)
+    asMockedFunction(getPreviousMapPool).mockResolvedValue(previous)
+
+    const response = await cache.get(MatchmakingType.Match1v1)
+
+    expect(getPreviousMapPool).toHaveBeenCalledWith(MatchmakingType.Match1v1, new Date(500))
+    expect(response?.changes).toEqual({
+      addedMaps: ['map-2', 'map-3'],
+      removedMaps: ['map-0'],
+      previousMapCount: 2,
+      previousMaxVetoCount: 2,
+    })
+    expect(getMapInfos).toHaveBeenCalledWith(current.maps, expect.anything())
+  })
+
+  test('omits changes when there is no previous pool', async () => {
+    const response = await cache.get(MatchmakingType.Match1v1)
+
+    expect(response?.pool.id).toBe(1)
+    expect(response?.changes).toBeUndefined()
   })
 
   test('caches a type having no current pool', async () => {

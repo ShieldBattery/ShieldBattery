@@ -22,9 +22,13 @@ import {
   SimulateMatchPopRequest,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
+import {
+  filterMapSelections,
+  getMapPoolChangeNotice,
+  isMapPoolChangeInterrupting,
+} from '../../../common/matchmaking/matchmaking-map-pools'
 import { ALL_RACE_CHARS } from '../../../common/races'
 import { RestrictionKind } from '../../../common/users/restrictions'
-import { withDbClient } from '../db'
 import transact from '../db/transaction'
 import isDev from '../env/is-dev'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -40,9 +44,8 @@ import { joiClientIdentifiers } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
-import { filterMapSelections } from './map-selections'
+import { CurrentMapPoolCache } from './current-map-pool-cache'
 import { MatchmakingBanService } from './matchmaking-ban-service'
-import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
@@ -100,6 +103,7 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.NoActiveDraft:
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
+    case MatchmakingServiceErrorCode.MapPoolChanged:
     case MatchmakingServiceErrorCode.MatchAlreadyStarting:
       throw asHttpError(409, err)
     case MatchmakingServiceErrorCode.LoadFailed:
@@ -135,6 +139,7 @@ export class MatchmakingApi {
     private matchmakingBanService: MatchmakingBanService,
     private matchmakingPreferencesService: MatchmakingPreferencesService,
     private restrictionService: RestrictionService,
+    private currentMapPoolCache: CurrentMapPoolCache,
   ) {}
 
   @httpPost('/find')
@@ -202,38 +207,44 @@ export class MatchmakingApi {
       )
     }
 
-    // Validate and normalize each type's preferences against its current map pool. We do this on a
-    // single shared connection rather than fanning out one query per type, which could grab more
-    // pool connections than we have and starve other work.
-    const processedPreferences = await withDbClient(async client => {
-      const processed: typeof preferences = []
-      for (const pref of preferences) {
-        const currentMapPool = await getCurrentMapPool(pref.matchmakingType, client)
-        if (!currentMapPool) {
-          throw new MatchmakingServiceError(
-            MatchmakingServiceErrorCode.InvalidMapPool,
-            "Map pool doesn't exist",
-          )
-        }
-
-        const mapSelections = filterMapSelections(currentMapPool, pref.mapSelections)
-        // Only positive-pick modes require an explicit selection. Veto modes default to the whole
-        // pool when nothing is vetoed, and fixed modes ignore player selections entirely (the map is
-        // chosen automatically), so neither should be rejected for an empty selection.
-        if (
-          getMatchmakingModeInfo(pref.matchmakingType).mapSelectionStyle === 'pick' &&
-          !mapSelections.length
-        ) {
-          throw new MatchmakingServiceError(
-            MatchmakingServiceErrorCode.InvalidMaps,
-            'No maps selected',
-          )
-        }
-
-        processed.push({ ...pref, mapSelections })
+    // Validate and normalize each type's preferences against its current map pool.
+    const processedPreferences: typeof preferences = []
+    for (const pref of preferences) {
+      const response = await this.currentMapPoolCache.get(pref.matchmakingType)
+      if (!response) {
+        throw new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.InvalidMapPool,
+          "Map pool doesn't exist",
+        )
       }
-      return processed
-    })
+
+      // A client can keep holding a pool that stopped being current while it stayed open, so it
+      // can't know to show the player what changed. Rejecting the request makes it reload the pool
+      // and show the player the change before they queue.
+      const notice = getMapPoolChangeNotice(pref, response.pool, response.changes)
+      if (notice && isMapPoolChangeInterrupting(notice)) {
+        throw new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.MapPoolChanged,
+          'Map pool changed',
+        )
+      }
+
+      const mapSelections = filterMapSelections(response.pool, pref.mapSelections)
+      // Only positive-pick modes require an explicit selection. Veto modes default to the whole
+      // pool when nothing is vetoed, and fixed modes ignore player selections entirely (the map is
+      // chosen automatically), so neither should be rejected for an empty selection.
+      if (
+        getMatchmakingModeInfo(pref.matchmakingType).mapSelectionStyle === 'pick' &&
+        !mapSelections.length
+      ) {
+        throw new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.InvalidMaps,
+          'No maps selected',
+        )
+      }
+
+      processedPreferences.push({ ...pref, mapSelections })
+    }
 
     await this.matchmakingService.find(
       ctx.session!.user.id,

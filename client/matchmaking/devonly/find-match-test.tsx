@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { makeSbMapId } from '../../../common/maps'
 import { MatchmakingDivision, MatchmakingType } from '../../../common/matchmaking'
+import { MapPoolChangeNotice } from '../../../common/matchmaking/matchmaking-map-pools'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useAppSelector } from '../../redux-hooks'
@@ -316,6 +318,13 @@ interface RowModeState {
   mapSelectionCount: number
 }
 
+const MOCK_POOL_CHANGE: MapPoolChangeNotice = {
+  addedMaps: [makeSbMapId('new-map-1'), makeSbMapId('new-map-2')],
+  removedMaps: [makeSbMapId('old-map')],
+  mapCount: { previous: 7, current: 8 },
+  droppedSelections: [],
+}
+
 // ─── Helpers: convert mock data to real component prop shapes ─────────────────
 
 function toRowStats(mode: MockModeData): RowStats {
@@ -331,7 +340,7 @@ function toRowSummaryState(mode: MockModeData, rowState: RowModeState): RowSumma
     mapPoolVetoLimit: mode.mapPool?.limit ?? 0,
     mapPoolSize: mode.mapPool?.maps.length ?? 0,
     mapSelectionStyle: (mode.mapPool?.vetoes ?? false) ? 'veto' : 'pick',
-    poolChanged: mode.poolChanged,
+    poolChange: mode.poolChanged ? MOCK_POOL_CHANGE : undefined,
   }
 }
 

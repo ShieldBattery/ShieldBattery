@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
@@ -9,7 +9,12 @@ import {
   MatchmakingPreferencesDraft,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
+import {
+  filterMapSelections,
+  getMapPoolChangeNotice,
+  MapPoolChangeNotice,
+  MatchmakingMapPoolJson,
+} from '../../common/matchmaking/matchmaking-map-pools'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -22,10 +27,10 @@ import { updateMatchmakingPreferences } from './action-creators'
 import {
   DescriptionText,
   FixedMapDisplay,
+  MapPoolChangeInfo,
   MapSelectionControl,
   MapSelectionsHeader,
   MapVetoesControl,
-  OutdatedIndicator,
   SectionTitle,
   StyledRaceSelect,
   VetoDescriptionText,
@@ -47,7 +52,8 @@ interface FindMatchFormProps {
   disabled: boolean
   model: FindMatchModel
   mapPool?: ReadonlyDeep<MatchmakingMapPoolJson>
-  mapPoolOutdated: boolean
+  /** How the map pool changed since the player last saw it, if it did. */
+  poolChange?: ReadonlyDeep<MapPoolChangeNotice>
   onValidatedChange: (model: ReadonlyDeep<FindMatchModel>) => void
 }
 
@@ -61,7 +67,7 @@ function FindMatchForm({
   disabled,
   model,
   mapPool,
-  mapPoolOutdated,
+  poolChange,
   onValidatedChange,
 }: FindMatchFormProps) {
   const { t } = useTranslation()
@@ -132,10 +138,8 @@ function FindMatchForm({
         <>
           <MapSelectionsHeader>
             <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
-            {mapPoolOutdated ? (
-              <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
-            ) : null}
           </MapSelectionsHeader>
+          {poolChange ? <MapPoolChangeInfo notice={poolChange} mapPool={mapPool} /> : null}
 
           {(() => {
             switch (mode.mapSelectionStyle) {
@@ -151,6 +155,7 @@ function FindMatchForm({
                       {...bindCustom('mapSelections')}
                       mapPool={mapPool}
                       disabled={disabled}
+                      newMapIds={poolChange?.addedMaps}
                     />
                   </>
                 )
@@ -167,6 +172,7 @@ function FindMatchForm({
                       {...bindCustom('mapSelections')}
                       mapPool={mapPool}
                       disabled={disabled}
+                      newMapIds={poolChange?.addedMaps}
                     />
                   </>
                 )
@@ -179,7 +185,7 @@ function FindMatchForm({
                         'This mode is always played on a fixed map.',
                       )}
                     </DescriptionText>
-                    <FixedMapDisplay mapPool={mapPool} />
+                    <FixedMapDisplay mapPool={mapPool} newMapIds={poolChange?.addedMaps} />
                   </>
                 )
               default:
@@ -237,17 +243,31 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
         | undefined,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(type))
-  const prefsMapSelections = prefs?.mapSelections
-  const mapSelections = useMemo(
-    () => (prefsMapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
-    [prefsMapSelections, mapPool],
-  )
+  const mapPoolChanges = useAppSelector(s => s.mapPools.changesByType.get(type))
+  const mapSelections = mapPool
+    ? filterMapSelections(mapPool, prefs?.mapSelections)
+    : [...(prefs?.mapSelections ?? [])]
+
+  // Opening these settings acknowledges a pool change (see the re-save below), after which the
+  // stored preferences no longer differ from the current pool. The change is captured once per
+  // pool, when the preferences and that pool are first both known, so it stays on screen for as
+  // long as these settings are open and is gone the next time they're opened. Capturing per pool
+  // also covers a newer pool arriving while the settings are open.
+  const [capturedPoolChange, setCapturedPoolChange] = useState<
+    { mapPoolId: number; notice: ReadonlyDeep<MapPoolChangeNotice> | undefined } | undefined
+  >(undefined)
+  if (prefs && mapPool && capturedPoolChange?.mapPoolId !== mapPool.id) {
+    setCapturedPoolChange({
+      mapPoolId: mapPool.id,
+      notice: getMapPoolChangeNotice(prefs, mapPool, mapPoolChanges),
+    })
+  }
 
   const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
 
   // The stored preferences are stamped with the map pool they were last saved against, and the
-  // find-match rows show an "Updated" badge whenever that differs from the current pool. Form
+  // find-match rows show a pool change badge whenever that differs from the current pool. Form
   // callbacks only fire when the user changes a value, so re-save on open with the current pool
   // id: opening the settings (and thereby seeing the current pool) is what acknowledges the
   // update and clears the badge.
@@ -265,21 +285,18 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
             race: prefs.race,
             useAlternateRace: data?.useAlternateRace ?? false,
             alternateRace: data?.alternateRace ?? 'z',
-            mapSelections,
+            mapSelections: filterMapSelections(mapPool, prefs.mapSelections),
           },
           selfUser.id,
           mapPool.id,
         ),
       ),
     )
-  }, [disabled, dispatch, mapPool, mapSelections, prefs, selfUser.id, type])
+  }, [disabled, dispatch, mapPool, prefs, selfUser.id, type])
 
   if (!prefs) {
     return <LoadingDotsArea />
   }
-
-  // Derived from the currently-loaded pool (see find-match.tsx) rather than a connect-time flag.
-  const mapPoolOutdated = !!mapPool && prefs.mapPoolId !== mapPool.id
 
   const data = prefs.data as Immutable<MatchmakingPreferencesData1v1> | undefined
   const race = prefs.race
@@ -295,7 +312,7 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
         mapSelections,
       }}
       mapPool={mapPool}
-      mapPoolOutdated={mapPoolOutdated}
+      poolChange={capturedPoolChange?.notice}
       onValidatedChange={model => {
         if (disabled) {
           return
