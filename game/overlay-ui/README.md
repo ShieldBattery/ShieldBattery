@@ -210,7 +210,7 @@ ten number keys, in the order a keyboard reads them, each slot carrying its digi
 whatever the group is mostly made of and how many units are in it, folded into two rows of five
 on a screen without room for the row. All ten are drawn whether or not
 there is anything on them, because a row that only showed the groups a player happens to have would
-move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
+move its slots every time one was made or lost; an empty slot and a key nobody has used in a
 minute are both drawn dim, which is what the panel is read for. The **selection panel** stands at the
 far end of the bottom edge, and is the game console's own selection with nothing else of the console
 around it. It draws whichever reading the selection is: several units are the console's own twelve
@@ -257,12 +257,14 @@ panel built later cannot be left without a key on it.
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
 once per second of game time and keeps two hours of per-player history, a timeline of what changed
 between two samples, and what each player has on their number keys — read out of the game's own
-table of unique unit ids, so a group's count is what recalling it would actually select, and stamped
-stale from the frame the game last wrote the group on. It lives there rather than in the draw path because a replay seeking
-backwards re-runs every frame at full speed with nothing drawn: a sampler that only saw drawn frames
-would come back to a game it had missed most of. The preview has no game, so its wings come from the
-fake game's own measurements evaluated backwards over the clock, which keeps an offline render of the
-same second the same image every time.
+table of unique unit ids, so a group's count is what recalling it would actually select, and marked
+stale a minute after its key was last used. A key's uses (binding the selection to it, recalling it,
+adding to it) come from each player's commands as the game runs them, kept by frame like the rest of
+the history. It lives there rather than in the draw path because a replay seeking backwards re-runs
+every frame at full speed with nothing drawn: a sampler that only saw drawn frames would come back to
+a game it had missed most of. The preview has no game, so its wings come from the fake game's own
+measurements evaluated backwards over the clock, which keeps an offline render of the same second
+the same image every time.
 
 **The playback controls** (`playback_controls`) are the one screen that acts on the game rather
 than reporting on it. A host builds its view-model for every frame of a replay, whether or not the

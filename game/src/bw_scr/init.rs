@@ -309,8 +309,6 @@ impl BwScr {
         let graphic_layers = analysis.graphic_layers();
         let snet_local_player_list = analysis.snet_local_player_list();
         let units = analysis.units().ok_or("units")?;
-        // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
-        let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
         let map_tile_flags = analysis.map_tile_flags();
         let tileset_indexed_map_tiles = analysis.tileset_indexed_map_tiles();
         let creep_original_tiles = analysis.creep_original_tiles();
@@ -750,8 +748,6 @@ impl BwScr {
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
             units: Value::new(ctx, units),
-            selection_hotkey_last_used_frames: selection_hotkey_last_used_frames
-                .map(|frames| Value::new(ctx, frames)),
             map_tile_flags: map_tile_flags.map(|flags| Value::new(ctx, flags)),
             tileset_indexed_map_tiles: tileset_indexed_map_tiles
                 .map(|tiles| Value::new(ctx, tiles)),

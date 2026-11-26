@@ -175,13 +175,19 @@ impl BwScr {
                     }
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
+                    // A player's own commands: a replay's live commands are the viewer's.
+                    let players_commands = !is_replay || are_recorded_replay_commands != 0;
+                    // Only the observer panels read number-key uses.
+                    let records_number_keys =
+                        players_commands && !is_observer && self.is_replay_or_obs();
+                    let mut number_keys_used = [false; commands::NUMBER_KEY_GROUPS];
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
                     {
                         let mut apm_state = self.apm_state.lock();
                         let apm_player = unique_command_user as u8;
                         let rollback_step = rollback_step().map(|(frame, _)| frame);
-                        let count_apm = (!is_replay || are_recorded_replay_commands != 0)
+                        let count_apm = players_commands
                             && apm_state.as_ref().is_some_and(|apm| {
                                 rollback_step.is_none_or(|step| apm.counts_turn(apm_player, step))
                             });
@@ -195,6 +201,11 @@ impl BwScr {
                             // Live commands of a replay only; see `ReplayPlayback::note_command`.
                             if is_replay && are_recorded_replay_commands == 0 {
                                 self.note_replay_playback_command(command);
+                            }
+                            if records_number_keys
+                                && let Some(key) = commands::number_key_use(command)
+                            {
+                                number_keys_used[key as usize] = true;
                             }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
@@ -234,6 +245,10 @@ impl BwScr {
                         {
                             apm.counted_turn(apm_player, step);
                         }
+                    }
+                    if number_keys_used.contains(&true) {
+                        // By the person who sent it, as the game keeps selections and their groups.
+                        self.note_number_key_uses(unique_command_user as u8, &number_keys_used);
                     }
 
                     if !is_replay

@@ -407,15 +407,24 @@ pub(crate) fn paint_icon_glow(painter: &egui::Painter, rect: Rect, alpha: f32) {
 /// brightness: what says whose it is at a glance, and a ground the icon's dark parts stand out
 /// from.
 pub(crate) fn paint_owner_wash(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    paint_owner_fill(painter, rect, owner, alpha);
+    paint_owner_edge(painter, rect, owner, alpha);
+}
+
+/// The wash half of [`paint_owner_wash`], for a tile that fades its edge apart from its fill.
+pub(crate) fn paint_owner_fill(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
     painter.rect_filled(
         rect,
-        corner_radius,
+        theme::radius(theme::RADIUS_CHIP),
         owner.gamma_multiply(OWNER_WASH_ALPHA * alpha),
     );
+}
+
+/// The edge half of [`paint_owner_wash`], for a tile that fades its edge apart from its fill.
+pub(crate) fn paint_owner_edge(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
     painter.rect_stroke(
         rect,
-        corner_radius,
+        theme::radius(theme::RADIUS_CHIP),
         Stroke::new(
             theme::HAIRLINE,
             full_brightness(owner).gamma_multiply(OWNER_EDGE_ALPHA * alpha),
