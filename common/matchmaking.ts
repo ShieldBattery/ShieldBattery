@@ -1122,6 +1122,15 @@ export interface LobbyViolationPenaltyEvent {
   penalty: 'lossAndBan' | 'lossAndWarning'
 }
 
+/**
+ * A matchmaking ban issued for an earlier game took effect while this player was searching or in a
+ * match that hadn't started, and removed them from it. The ban's own notification explains it, so
+ * this only tells the client to put away whatever matchmaking UI that search or match had up.
+ */
+export interface RemovedByBanEvent {
+  type: 'removedByBan'
+}
+
 export interface GameStartedEvent {
   type: 'gameStarted'
 }
@@ -1209,6 +1218,7 @@ export type MatchmakingEvent =
   | RequeueEvent
   | MatchReadyEvent
   | CancelLoadingEvent
+  | RemovedByBanEvent
   | GameStartedEvent
   | QueueStatusEvent
   | DraftStartedEvent
@@ -1388,8 +1398,9 @@ export interface DraftChatMessageRequest extends MatchScopedRequest {
  * - `notReady`: they didn't ready up for a found match in time
  * - `left`: they left, or their client disconnected, before the match's game started
  * - `failedToLoad`: their game didn't load into the match
+ * - `leftEarly`: they left, or their client disconnected from, a game shortly after it started
  */
-export type MatchmakingBanReason = 'notReady' | 'left' | 'failedToLoad'
+export type MatchmakingBanReason = 'notReady' | 'left' | 'failedToLoad' | 'leftEarly'
 
 export interface GetMatchmakingBanStatusResponse {
   bannedUntil?: number

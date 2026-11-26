@@ -283,6 +283,14 @@ export const eventToAction: EventToActionMap = {
     )
   },
 
+  removedByBan: event => dispatch => {
+    logger.debug(`Removed from matchmaking by a ban for an earlier game`)
+    resetDraftState(jotaiStore)
+    clearMatchmakingState(jotaiStore)
+    dispatch(closeAcceptMatchDialog())
+    dispatch(closeDialog(DialogType.LaunchingGame))
+  },
+
   gameStarted: event => (dispatch, getState) => {
     logger.debug(`Match started successfully`)
     clearMatchmakingState(jotaiStore)

@@ -12,7 +12,7 @@ import { lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { draftMatchmakingTypeAtom } from './draft-atoms'
+import { draftMatchmakingTypeAtom, draftStateAtom } from './draft-atoms'
 import {
   canceledMatchAtom,
   currentSearchInfoAtom,
@@ -20,6 +20,7 @@ import {
   foundMatchAtom,
   handledLobbyViolationPenaltyGamesAtom,
   launchingMatchmakingTypeAtom,
+  matchLaunchingAtom,
 } from './matchmaking-atoms'
 import registerModule, { eventToAction } from './socket-handlers'
 
@@ -549,6 +550,53 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(openedDialogs(dispatched)).toEqual([])
     expect(showSnackbarMock).not.toHaveBeenCalled()
     expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
+  })
+})
+
+describe('client/matchmaking/socket-handlers/removedByBan', () => {
+  beforeEach(() => {
+    showSnackbarMock.mockClear()
+  })
+
+  function runRemovedByBan() {
+    return runHandler(eventToAction.removedByBan({ type: 'removedByBan' }), [])
+  }
+
+  test('ends a search without a notice of its own', () => {
+    jotaiStore.set(currentSearchInfoAtom, makeSearchInfo())
+
+    const dispatched = runRemovedByBan()
+
+    expect(jotaiStore.get(currentSearchInfoAtom)).toBeUndefined()
+    expect(dispatched.filter((a: any) => a.type === '@dialogs/open')).toEqual([])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('puts away an accept dialog, a draft, and a launching game', () => {
+    jotaiStore.set(currentSearchInfoAtom, makeSearchInfo())
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    jotaiStore.set(draftStateAtom, { isCompleted: false } as any)
+    jotaiStore.set(draftMatchmakingTypeAtom, MatchmakingType.Match2v2)
+    jotaiStore.set(matchLaunchingAtom, true)
+    jotaiStore.set(launchingMatchmakingTypeAtom, MatchmakingType.Match2v2)
+
+    const dispatched = runRemovedByBan()
+
+    expect(dispatched).toContainEqual({
+      type: '@dialogs/close',
+      payload: { dialogType: DialogType.AcceptMatch },
+    })
+    expect(dispatched).toContainEqual({
+      type: '@dialogs/close',
+      payload: { dialogType: DialogType.LaunchingGame },
+    })
+    expect(dispatched.filter((a: any) => a.type === '@dialogs/open')).toEqual([])
+    expect(jotaiStore.get(foundMatchAtom)).toBeUndefined()
+    expect(jotaiStore.get(draftStateAtom)).toBeUndefined()
+    expect(jotaiStore.get(draftMatchmakingTypeAtom)).toBeUndefined()
+    expect(jotaiStore.get(matchLaunchingAtom)).toBe(false)
+    expect(jotaiStore.get(launchingMatchmakingTypeAtom)).toBeUndefined()
+    expect(showSnackbarMock).not.toHaveBeenCalled()
   })
 })
 

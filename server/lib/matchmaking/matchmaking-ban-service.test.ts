@@ -1,18 +1,25 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-const { client, transact, checkUnclearedMatchmakingBan, addMatchmakingBan, addNotification } =
-  vi.hoisted(() => {
-    const client = { query: vi.fn() }
-    return {
-      client,
-      transact: vi.fn(
-        async (next: (connection: typeof client) => Promise<unknown>) => await next(client),
-      ),
-      checkUnclearedMatchmakingBan: vi.fn(),
-      addMatchmakingBan: vi.fn(),
-      addNotification: vi.fn(),
-    }
-  })
+const {
+  client,
+  transact,
+  checkActiveMatchmakingBan,
+  checkUnclearedMatchmakingBan,
+  addMatchmakingBan,
+  addNotification,
+} = vi.hoisted(() => {
+  const client = { query: vi.fn() }
+  return {
+    client,
+    transact: vi.fn(
+      async (next: (connection: typeof client) => Promise<unknown>) => await next(client),
+    ),
+    checkActiveMatchmakingBan: vi.fn(),
+    checkUnclearedMatchmakingBan: vi.fn(),
+    addMatchmakingBan: vi.fn(),
+    addNotification: vi.fn(),
+  }
+})
 
 vi.mock('tsyringe', () => ({
   container: { resolve: vi.fn() },
@@ -25,7 +32,7 @@ vi.mock('../db/transaction', () => ({ default: transact }))
 vi.mock('../notifications/notification-service', () => ({ default: class {} }))
 vi.mock('./matchmaking-ban-models', () => ({
   addMatchmakingBan,
-  checkActiveMatchmakingBan: vi.fn(),
+  checkActiveMatchmakingBan,
   checkUnclearedMatchmakingBan,
   GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES: 5,
   markClearedBans: vi.fn(),
@@ -48,6 +55,7 @@ function createService() {
 beforeEach(() => {
   vi.clearAllMocks()
   transact.mockImplementation(async next => await next(client))
+  checkActiveMatchmakingBan.mockResolvedValue(undefined)
   checkUnclearedMatchmakingBan.mockResolvedValue(undefined)
   addMatchmakingBan.mockResolvedValue(undefined)
   addNotification.mockResolvedValue(undefined)
@@ -125,6 +133,127 @@ describe('matchmaking/matchmaking-ban-service game penalties', () => {
 
     expect(transact).not.toHaveBeenCalled()
     expect(addMatchmakingBan).toHaveBeenCalledWith(expect.anything(), undefined)
+  })
+
+  test('stores the reason a game penalty was given', async () => {
+    const service = createService()
+
+    await service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly')
+
+    expect(addMatchmakingBan).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, reason: 'leftEarly' }),
+      client,
+    )
+  })
+
+  test('escalates once per game when a reason is given', async () => {
+    client.query.mockImplementation(async query => {
+      const text = typeof query === 'string' ? query : query.text
+      if (text?.includes('SELECT penalty')) {
+        return { rowCount: 1, rows: [{ penalty: 'lossAndWarning' }] }
+      }
+      if (text?.includes('UPDATE matchmaking_game_bans')) return { rowCount: 0, rows: [] }
+      return { rowCount: 1, rows: [] }
+    })
+    const service = createService()
+
+    await expect(service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly')).resolves.toEqual({
+      penalty: 'lossAndWarning',
+      needsEnforcement: false,
+    })
+    expect(addMatchmakingBan).not.toHaveBeenCalled()
+  })
+
+  test('returns when a newly issued ban ends', async () => {
+    checkUnclearedMatchmakingBan.mockResolvedValue({
+      banLevel: 0,
+      clearsAt: new Date(Date.now() + 4 * HOURS),
+    })
+    const service = createService()
+
+    await expect(service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly')).resolves.toEqual({
+      penalty: 'lossAndBan',
+      needsEnforcement: true,
+      bannedUntil: NOW + 15 * MINUTES,
+    })
+    expect(checkActiveMatchmakingBan).not.toHaveBeenCalled()
+  })
+
+  test('looks up when the ban ends for a reclaimed enforcement lease', async () => {
+    client.query.mockImplementation(async query => {
+      const text = typeof query === 'string' ? query : query.text
+      if (text?.includes('SELECT penalty')) {
+        return { rowCount: 1, rows: [{ penalty: 'lossAndBan' }] }
+      }
+      return { rowCount: 1, rows: [] }
+    })
+    checkActiveMatchmakingBan.mockResolvedValue({ expiresAt: new Date(NOW + 10 * MINUTES) })
+    const service = createService()
+
+    await expect(service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly')).resolves.toEqual({
+      penalty: 'lossAndBan',
+      needsEnforcement: true,
+      bannedUntil: NOW + 10 * MINUTES,
+    })
+    expect(checkActiveMatchmakingBan).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID }),
+      client,
+    )
+    expect(addMatchmakingBan).not.toHaveBeenCalled()
+  })
+
+  describe('shares escalation with bans for failed match starts', () => {
+    beforeEach(() => {
+      // Each recorded ban becomes the uncleared ban the next escalation reads
+      addMatchmakingBan.mockImplementation(
+        async ({
+          banLevel,
+          clearDurationMillis,
+        }: {
+          banLevel: number
+          clearDurationMillis: number
+        }) => {
+          checkUnclearedMatchmakingBan.mockResolvedValue({
+            banLevel,
+            clearsAt: new Date(Date.now() + clearDurationMillis),
+          })
+        },
+      )
+    })
+
+    test('a game penalty escalates past an earlier failed-start warning', async () => {
+      const service = createService()
+
+      await service.banUser(USER_ID, IDS, 'notReady')
+      await expect(
+        service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly'),
+      ).resolves.toMatchObject({ penalty: 'lossAndBan', bannedUntil: NOW + 15 * MINUTES })
+
+      expect(addMatchmakingBan).toHaveBeenLastCalledWith(
+        expect.objectContaining({ banLevel: 1, reason: 'leftEarly' }),
+        client,
+      )
+    })
+
+    test('a failed match start escalates past an earlier game penalty', async () => {
+      const service = createService()
+
+      await service.applyGamePenalty(USER_ID, IDS, GAME_ID, 'leftEarly')
+      await service.banUser(USER_ID, IDS, 'left')
+
+      expect(addMatchmakingBan).toHaveBeenLastCalledWith(
+        expect.objectContaining({ banLevel: 1, reason: 'left' }),
+        undefined,
+      )
+      expect(addNotification).toHaveBeenCalledExactlyOnceWith({
+        userId: USER_ID,
+        data: {
+          type: NotificationType.MatchmakingBan,
+          bannedUntil: NOW + 15 * MINUTES,
+          reason: 'left',
+        },
+      })
+    })
   })
 
   test('acknowledges live-match enforcement without another account penalty', async () => {
