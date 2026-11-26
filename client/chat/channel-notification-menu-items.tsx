@@ -31,8 +31,8 @@ function notificationLevelText(level: ChannelNotificationLevel, t: TFunction): s
 
 /**
  * Builds the menu items that control how a chat channel notifies the current user: a mute toggle,
- * then one item per notification level, then a toggle for whether joins and leaves mark the channel
- * unread.
+ * then one item per notification level, then toggles for whether joins and leaves mark the channel
+ * unread and whether they're shown in its message list at all.
  *
  * These are returned as a flat array rather than wrapped in a component because `MenuList` reads
  * the menu items out of its own children, and anything that hides them inside another component
@@ -90,6 +90,12 @@ export function useChannelNotificationMenuItems(
       checked={preferences.unreadOnJoinLeave}
       text={t('chat.notifications.unreadOnJoinLeave', 'Mark unread on joins and leaves')}
       onClick={() => updatePreferences({ unreadOnJoinLeave: !preferences.unreadOnJoinLeave })}
+    />,
+    <CheckableMenuItem
+      key='hide-join-leave'
+      checked={preferences.hideJoinLeave}
+      text={t('chat.notifications.hideJoinLeave', 'Hide joins and leaves')}
+      onClick={() => updatePreferences({ hideJoinLeave: !preferences.hideJoinLeave })}
     />,
   ]
 }

@@ -730,6 +730,7 @@
       "errors": {
         "updateFailed": "Something went wrong updating the notification settings"
       },
+      "hideJoinLeave": "Hide joins and leaves",
       "kick": "You have been kicked from <1>#{{channelName}}</1>.",
       "level": {
         "all": "Notify for all messages",

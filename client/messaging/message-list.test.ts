@@ -324,11 +324,13 @@ describe('client/messaging/message-list/layoutMessageList', () => {
       unreadLineTime,
       hasMoreHistory = false,
       hideBlocked = true,
+      hideJoinLeave = false,
       cozy = false,
     }: {
       unreadLineTime?: number
       hasMoreHistory?: boolean
       hideBlocked?: boolean
+      hideJoinLeave?: boolean
       cozy?: boolean
     } = {},
   ) {
@@ -337,8 +339,17 @@ describe('client/messaging/message-list/layoutMessageList', () => {
       hasMoreHistory,
       blockedUsers: BLOCKS,
       hideBlocked,
+      hideJoinLeave,
       cozy,
     })
+  }
+
+  function joinOf(id: string, userId: SbUserId, time: number): ChatMessage {
+    return { id, type: ServerChatMessageType.JoinChannel, channelId: CHANNEL_ID, time, userId }
+  }
+
+  function leaveOf(id: string, userId: SbUserId, time: number): ChatMessage {
+    return { id, type: ClientChatMessageType.LeaveChannel, channelId: CHANNEL_ID, time, userId }
   }
 
   test('blocked messages are left out when hidden', () => {
@@ -507,6 +518,164 @@ describe('client/messaging/message-list/layoutMessageList', () => {
     )
 
     expect(entries.map(e => e.layout)).toEqual(['cozyHeader', 'cozyHeader'])
+  })
+
+  describe('with hideJoinLeave on', () => {
+    test('join and leave lines are left out', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+          leaveOf('c', BLOCKED_USER_ID, DAY_ONE + 2000),
+          textFrom('d', USER_ID, DAY_ONE + 3000),
+        ],
+        { hideJoinLeave: true },
+      )
+
+      expect(entries.map(e => e.message.id)).toEqual(['a', 'd'])
+    })
+
+    test('kick, ban, owner-change and self-join lines still render', () => {
+      const entries = layout(
+        [
+          {
+            id: 'a',
+            type: ClientChatMessageType.SelfJoinChannel,
+            channelId: CHANNEL_ID,
+            time: DAY_ONE,
+          },
+          {
+            id: 'b',
+            type: ClientChatMessageType.KickUser,
+            channelId: CHANNEL_ID,
+            time: DAY_ONE + 1000,
+            userId: BLOCKED_USER_ID,
+          },
+          {
+            id: 'c',
+            type: ClientChatMessageType.BanUser,
+            channelId: CHANNEL_ID,
+            time: DAY_ONE + 2000,
+            userId: BLOCKED_USER_ID,
+          },
+          {
+            id: 'd',
+            type: ClientChatMessageType.NewChannelOwner,
+            channelId: CHANNEL_ID,
+            time: DAY_ONE + 3000,
+            newOwnerId: USER_ID,
+          },
+        ],
+        { hideJoinLeave: true },
+      )
+
+      expect(entries.map(e => e.message.id)).toEqual(['a', 'b', 'c', 'd'])
+    })
+
+    test('a day holding only a hidden join gets no divider', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + DAY_MS),
+          textFrom('c', USER_ID, DAY_ONE + DAY_MS * 2),
+        ],
+        { hideJoinLeave: true },
+      )
+
+      expect(entries.map(e => [e.message.id, e.newDayBefore])).toEqual([
+        ['a', false],
+        ['c', true],
+      ])
+    })
+
+    test('the unread divider moves past a hidden join', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+          textFrom('c', USER_ID, DAY_ONE + 2000),
+        ],
+        { unreadLineTime: DAY_ONE, hideJoinLeave: true },
+      )
+
+      expect(entries.map(e => [e.message.id, e.unreadLineBefore])).toEqual([
+        ['a', false],
+        ['c', true],
+      ])
+    })
+
+    test('a hidden join does not break a cozy group', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+          textFrom('c', USER_ID, DAY_ONE + 2000),
+        ],
+        { cozy: true, hideJoinLeave: true },
+      )
+
+      expect(entries.map(e => [e.message.id, e.layout])).toEqual([
+        ['a', 'cozyHeader'],
+        ['c', 'cozyContinuation'],
+      ])
+    })
+  })
+
+  describe('with hideJoinLeave off', () => {
+    test('join and leave lines render', () => {
+      const entries = layout([
+        textFrom('a', USER_ID, DAY_ONE),
+        joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        leaveOf('c', BLOCKED_USER_ID, DAY_ONE + 2000),
+        textFrom('d', USER_ID, DAY_ONE + 3000),
+      ])
+
+      expect(entries.map(e => e.message.id)).toEqual(['a', 'b', 'c', 'd'])
+    })
+
+    test('a day holding only a join gets its divider', () => {
+      const entries = layout([
+        textFrom('a', USER_ID, DAY_ONE),
+        joinOf('b', BLOCKED_USER_ID, DAY_ONE + DAY_MS),
+        textFrom('c', USER_ID, DAY_ONE + DAY_MS * 2),
+      ])
+
+      expect(entries.map(e => [e.message.id, e.newDayBefore])).toEqual([
+        ['a', false],
+        ['b', true],
+        ['c', true],
+      ])
+    })
+
+    test('the unread divider goes in front of the first unread join', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+          textFrom('c', USER_ID, DAY_ONE + 2000),
+        ],
+        { unreadLineTime: DAY_ONE },
+      )
+
+      expect(entries.map(e => [e.message.id, e.unreadLineBefore])).toEqual([
+        ['a', false],
+        ['b', true],
+        ['c', false],
+      ])
+    })
+
+    test('a join breaks a cozy group', () => {
+      const entries = layout(
+        [
+          textFrom('a', USER_ID, DAY_ONE),
+          joinOf('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+          textFrom('c', USER_ID, DAY_ONE + 2000),
+        ],
+        { cozy: true },
+      )
+
+      expect(entries.map(e => e.layout)).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+    })
   })
 
   test('the classic display mode gets no cozy layout', () => {

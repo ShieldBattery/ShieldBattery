@@ -286,6 +286,14 @@ export interface ChannelPreferences {
    * arrives, so changing it doesn't alter unread state already recorded.
    */
   unreadOnJoinLeave: boolean
+  /**
+   * Whether the channel's message list leaves out the lines for users joining and leaving. Kick,
+   * ban and owner-change lines stay visible, as does the user's own "you joined" line. This only
+   * affects what's rendered: the messages are still stored and paged through, and membership, the
+   * user count and read positions update exactly as they otherwise would. While it's on, joins and
+   * leaves never mark the channel unread, whatever `unreadOnJoinLeave` says.
+   */
+  hideJoinLeave: boolean
 }
 
 export const DEFAULT_CHANNEL_PREFERENCES: Readonly<ChannelPreferences> = {
@@ -293,6 +301,7 @@ export const DEFAULT_CHANNEL_PREFERENCES: Readonly<ChannelPreferences> = {
   notificationLevel: ChannelNotificationLevel.Mentions,
   muted: false,
   unreadOnJoinLeave: true,
+  hideJoinLeave: false,
 }
 
 export interface ChannelPermissions {
