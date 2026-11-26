@@ -1933,8 +1933,9 @@
     },
     "landing": {
       "appLaunch": {
+        "automaticFailedTitle": "Couldn't open ShieldBattery automatically.",
         "button": "Open in the ShieldBattery app",
-        "failedSubtitle": "It might not be installed on this computer.",
+        "failedSubtitle": "Your browser may have blocked the launch, or the app may not be installed.",
         "failedTitle": "The app didn't open.",
         "fallbackHint": "Nothing happening? <1>Try again</1> or <4>download the app</4>",
         "opening": "Opening in the ShieldBattery app…",
