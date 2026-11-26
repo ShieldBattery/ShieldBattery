@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { ServerChatMessageType } from '../../common/chat'
+import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { ChatDisplayMode } from '../../common/settings/account-settings'
 import { UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -82,6 +82,17 @@ function isBlockedTextMessage(
 }
 
 /**
+ * Whether a message is the line for a user joining or leaving a channel on their own. The user's
+ * own "you joined" line and the kick, ban and owner-change lines aren't.
+ */
+function isJoinLeaveMessage(message: SbMessage): boolean {
+  return (
+    message.type === ServerChatMessageType.JoinChannel ||
+    message.type === ClientChatMessageType.LeaveChannel
+  )
+}
+
+/**
  * The longest gap between two messages from one author that still lets the later one continue the
  * earlier one's group in the cozy display mode.
  */
@@ -145,7 +156,9 @@ export interface MessageListEntry {
  * Works out what a message list renders: which messages show, which dividers go in front of them
  * and how text messages are laid out.
  *
- * With `hideBlocked`, text messages from blocked users are left out entirely and everything else is
+ * Two kinds of message can be hidden: with `hideBlocked`, text messages from blocked users, and with
+ * `hideJoinLeave`, the lines for users joining and leaving on their own (kick, ban, owner-change and
+ * the user's own join lines stay). Hidden messages are left out entirely and everything else is
  * placed as if they had never been sent: a day holding only hidden messages gets no divider, an
  * unread divider that would go in front of a hidden message goes in front of the next rendered one
  * instead, and a hidden message doesn't break a cozy group. A hidden message has still been read,
@@ -158,16 +171,20 @@ export function layoutMessageList(
     hasMoreHistory,
     blockedUsers,
     hideBlocked,
+    hideJoinLeave,
     cozy,
   }: {
     unreadLineTime: number | undefined
     hasMoreHistory: boolean | undefined
     blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>
     hideBlocked: boolean
+    hideJoinLeave: boolean
     cozy: boolean
   },
 ): MessageListEntry[] {
-  const isHidden = (m: SbMessage) => hideBlocked && isBlockedTextMessage(m, blockedUsers)
+  const isHidden = (m: SbMessage) =>
+    (hideBlocked && isBlockedTextMessage(m, blockedUsers)) ||
+    (hideJoinLeave && isJoinLeaveMessage(m))
 
   const unreadLineIndex = findUnreadLineIndex(messages, unreadLineTime, hasMoreHistory)
   const unreadLineMessage =
@@ -320,6 +337,8 @@ interface PureMessageListProps {
   /** Whether the older edge is showing an error for a history request that failed. */
   hasHistoryError: boolean
   displayMode?: ChatDisplayMode
+  /** Whether join and leave lines are left out, see `MessageListProps.hideJoinLeave`. */
+  hideJoinLeave: boolean
 }
 
 function PureMessageList({
@@ -331,6 +350,7 @@ function PureMessageList({
   loading,
   hasHistoryError,
   displayMode,
+  hideJoinLeave,
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
@@ -351,6 +371,7 @@ function PureMessageList({
     hasMoreHistory,
     blockedUsers: blocks,
     hideBlocked,
+    hideJoinLeave,
     cozy: effectiveDisplayMode === 'cozy',
   })
 
@@ -527,6 +548,12 @@ export interface MessageListProps {
    * chat for inspection rather than conversation (the admin channel viewer, say) pin this.
    */
   displayMode?: ChatDisplayMode
+  /**
+   * Whether to leave out the lines for users joining and leaving on their own, laying out the rest
+   * as if they had never been sent (see `layoutMessageList`). Kick, ban, owner-change and the user's
+   * own join lines still show. Defaults to false, showing every line.
+   */
+  hideJoinLeave?: boolean
 }
 
 interface MessageListSnapshot {
@@ -785,6 +812,7 @@ export class MessageList extends React.Component<MessageListProps> {
       historyStartContent,
       unreadLineTime,
       displayMode,
+      hideJoinLeave = false,
     } = this.props
     const atHistoryStart = !hasMoreHistory && !loading && !historyError && messages.length > 0
 
@@ -815,6 +843,7 @@ export class MessageList extends React.Component<MessageListProps> {
             loading={loading}
             hasHistoryError={!!historyError}
             displayMode={displayMode}
+            hideJoinLeave={hideJoinLeave}
           />
         </InfiniteScrollList>
       </Scrollable>

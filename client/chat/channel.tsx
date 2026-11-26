@@ -591,6 +591,7 @@ export function ConnectedChatChannel({
               onLoadMoreMessages,
               onLoadNewerMessages,
               unreadLineTime,
+              hideJoinLeave: selfPreferences?.hideJoinLeave ?? false,
             }}
             inputProps={{
               onSendChatMessage,

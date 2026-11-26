@@ -266,14 +266,27 @@ export function isChannelMuted(chatState: Immutable<ChatState>, channelId: SbCha
 }
 
 /**
- * Returns whether join, leave, kick, ban and owner-change events should mark `channelId` unread.
- * Channels the user hasn't loaded preferences for use the default preferences.
+ * Returns whether an arrival of the given kind can mark `channelId` unread. Text messages always
+ * can. Join, leave, kick, ban and owner-change events can only while the channel's
+ * `unreadOnJoinLeave` preference is on, and joins and leaves additionally never can while its
+ * `hideJoinLeave` preference is on, since their lines aren't shown then. Kick, ban and owner-change
+ * lines stay visible either way, so `hideJoinLeave` has no say over them. Channels the user hasn't
+ * loaded preferences for use the default preferences.
  */
-function countsMembershipAsUnread(chatState: Immutable<ChatState>, channelId: SbChannelId) {
-  return (
-    chatState.idToSelfPreferences.get(channelId)?.unreadOnJoinLeave ??
-    DEFAULT_CHANNEL_PREFERENCES.unreadOnJoinLeave
-  )
+function arrivalCountsAsUnread(
+  chatState: Immutable<ChatState>,
+  channelId: SbChannelId,
+  kind: LiveArrivalKind,
+): boolean {
+  if (kind === 'message') {
+    return true
+  }
+
+  const preferences = chatState.idToSelfPreferences.get(channelId) ?? DEFAULT_CHANNEL_PREFERENCES
+  if (!preferences.unreadOnJoinLeave) {
+    return false
+  }
+  return kind !== 'joinLeave' || !preferences.hideJoinLeave
 }
 
 /**
@@ -323,7 +336,7 @@ function removeUserFromChannel(
   channelId: SbChannelId,
   userId: SbUserId,
   time: number,
-  arrival: LiveArrival,
+  arrival: Omit<LiveArrival, 'kind'>,
   newOwnerId?: SbUserId,
   reason?: ChannelModerationAction,
 ) {
@@ -341,6 +354,10 @@ function removeUserFromChannel(
   state.idToModeratorIds.get(channelId)?.delete(userId)
   detailedChannelInfo.userCount -= 1
 
+  // Only a plain leave is a join/leave event: a kick or ban line stays visible while joins and leaves
+  // are hidden, so it counts the way an owner change does.
+  const removalArrival: LiveArrival = { ...arrival, kind: reason ? 'otherMembership' : 'joinLeave' }
+
   let messageType:
     | ClientChatMessageType.LeaveChannel
     | ClientChatMessageType.KickUser
@@ -351,7 +368,7 @@ function removeUserFromChannel(
     messageType = ClientChatMessageType.BanUser
   }
 
-  updateMessages(state, channelId, arrival, m => {
+  updateMessages(state, channelId, removalArrival, m => {
     m.push({
       id: nanoid(),
       type: messageType,
@@ -372,7 +389,7 @@ function setChannelOwner(
   channelId: SbChannelId,
   newOwnerId: SbUserId,
   time: number,
-  arrival: LiveArrival,
+  arrival: Omit<LiveArrival, 'kind'>,
 ) {
   const joinedChannelInfo = state.idToJoinedInfo.get(channelId)
   if (!joinedChannelInfo) {
@@ -381,7 +398,7 @@ function setChannelOwner(
 
   joinedChannelInfo.ownerId = newOwnerId
 
-  updateMessages(state, channelId, arrival, m => {
+  updateMessages(state, channelId, { ...arrival, kind: 'otherMembership' }, m => {
     m.push({
       id: nanoid(),
       type: ClientChatMessageType.NewChannelOwner,
@@ -553,7 +570,8 @@ function isAtPresentBottom(state: ChatState, channelId: SbChannelId): boolean {
  * focused, the one combination that puts the message in front of the user's eyes — in which case
  * the read position advances over it here, ahead of the view reporting that same position, so the
  * channel never reads as unread for even a frame; or it went unseen, and the unread flag goes up,
- * unless it is a membership event in a channel whose `unreadOnJoinLeave` preference is off.
+ * unless the channel's preferences say arrivals of its kind don't count (see
+ * `arrivalCountsAsUnread`).
  * A channel being viewed also freezes its unread divider at the read position whenever a new run of
  * unread messages starts, so the divider marks where the user left off instead of chasing the read
  * position as it keeps advancing underneath it.
@@ -583,13 +601,13 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
     return
   }
 
-  // A membership event the user opted out of counting never raises unread state. The unread divider
-  // is drawn above the first stored message past the read position, and a join is stored: left past
-  // the read position, it would get the divider once a later text message does go unread. Moving the
-  // read position over it keeps the divider on the first message that actually counts. That is only
-  // safe when nothing else is unread, since the position would otherwise skip genuinely unread
-  // messages, so an already-unread channel keeps its read position.
-  if (arrival.membership && !countsMembershipAsUnread(state, channelId)) {
+  // An event the channel's preferences say doesn't count never raises unread state. The unread
+  // divider is drawn above the first stored message past the read position, and a join is stored:
+  // left past the read position, it would get the divider once a later text message does go unread.
+  // Moving the read position over it keeps the divider on the first message that actually counts.
+  // That is only safe when nothing else is unread, since the position would otherwise skip genuinely
+  // unread messages, so an already-unread channel keeps its read position.
+  if (!arrivalCountsAsUnread(state, channelId, arrival.kind)) {
     if (arrival.time !== undefined && !state.unreadChannels.has(channelId)) {
       state.idToLastReadTime.set(
         channelId,
@@ -784,6 +802,17 @@ function dropMessageWindow(
 }
 
 /**
+ * What a live arrival is, as far as the channel's unread preferences are concerned:
+ *
+ * - `message`: a text message, which always counts toward unreadness.
+ * - `joinLeave`: a user joining or leaving on their own, subject to both `unreadOnJoinLeave` and
+ *   `hideJoinLeave`.
+ * - `otherMembership`: a kick, ban or owner change, subject to `unreadOnJoinLeave` only, since its
+ *   line is shown even while joins and leaves are hidden.
+ */
+type LiveArrivalKind = 'message' | 'joinLeave' | 'otherMembership'
+
+/**
  * The conditions a message or system event arrived under when it reached the channel live. Pages of
  * history and deletions carry no arrival and do no unread bookkeeping, and neither does the sender's
  * echoed message, whose bookkeeping is `recordSelfMessage`'s instead; other live events can go
@@ -798,11 +827,8 @@ interface LiveArrival {
    * aren't stored, so seeing one says nothing about the stored messages a read position covers.
    */
   time?: number
-  /**
-   * Whether the arrival is a membership event (join, leave, kick, ban or owner change) rather than
-   * a message. Those are subject to the channel's `unreadOnJoinLeave` preference.
-   */
-  membership: boolean
+  /** What kind of message or event arrived, see `LiveArrivalKind`. */
+  kind: LiveArrivalKind
 }
 
 /**
@@ -1106,7 +1132,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     addLiveServerMessage(state, channelId, message, {
       windowFocused,
       time: message.time,
-      membership: true,
+      kind: 'joinLeave',
     })
   },
 
@@ -1114,14 +1140,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { userId, newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
-    removeUserFromChannel(
-      state,
-      channelId,
-      userId,
-      time,
-      { windowFocused, membership: true },
-      newOwnerId,
-    )
+    removeUserFromChannel(state, channelId, userId, time, { windowFocused }, newOwnerId)
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
@@ -1139,7 +1158,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       channelId,
       targetId,
       time,
-      { windowFocused, membership: true },
+      { windowFocused },
       newOwnerId,
       ChannelModerationAction.Kick,
     )
@@ -1160,7 +1179,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       channelId,
       targetId,
       time,
-      { windowFocused, membership: true },
+      { windowFocused },
       newOwnerId,
       ChannelModerationAction.Ban,
     )
@@ -1182,7 +1201,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
-    setChannelOwner(state, channelId, newOwnerId, time, { windowFocused, membership: true })
+    setChannelOwner(state, channelId, newOwnerId, time, { windowFocused })
   },
 
   ['@chat/updateMessage'](state, action) {
@@ -1195,7 +1214,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       state,
       channelId,
       newMessage,
-      isSelfMessage ? undefined : { windowFocused, time: newMessage.time, membership: false },
+      isSelfMessage ? undefined : { windowFocused, time: newMessage.time, kind: 'message' },
     )
     if (isSelfMessage && state.idToMessages.has(channelId)) {
       recordSelfMessage(state, channelId, newMessage.time)

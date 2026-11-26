@@ -314,6 +314,7 @@ describe('chat/chat-service', () => {
     notificationLevel: ChannelNotificationLevel.Mentions,
     muted: false,
     unreadOnJoinLeave: true,
+    hideJoinLeave: false,
   }
   const channelPermissions: ChannelPermissions = {
     kick: false,
