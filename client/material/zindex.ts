@@ -10,7 +10,11 @@ export const zIndexDialog = 100
 // component controls both of them, and their DOM ordering is pretty guaranteed. While also allowing
 // us to display the scrim above the non-top dialogs in case more than one are open.
 export const zIndexDialogScrim = 100
-export const zIndexSettings = 99
+// Above the full-screen overlays below, so a match can still be readied up from the widget while one
+// of them is open.
+export const zIndexGameplayActivity = 99
+export const zIndexDraftScreen = 98
+export const zIndexSettings = 98
 export const zIndexBottomSheet = 80
 export const zIndexScrollMask = 75
 export const zIndexSideNav = 70
