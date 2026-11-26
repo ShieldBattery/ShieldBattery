@@ -823,6 +823,7 @@ mod tests {
             alliances_open: true,
             allied_victory: false,
             chat_target: ChatTargetChoice::All,
+            chat_disabled: false,
             chat_targets: vec![ChatTargetOption {
                 choice: ChatTargetChoice::All,
                 recipient: None,

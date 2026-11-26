@@ -121,6 +121,6 @@ fn build_line(line: &ChatLine, palette: &PlayerPalette, game_speed: u8) -> ChatL
             },
             ChatLineKind::System => ChatLineKindView::System,
         },
-        text: line.text.clone(),
+        text: super::super::zen_text::anonymize(&line.text).into_owned(),
     }
 }

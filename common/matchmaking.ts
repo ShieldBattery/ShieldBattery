@@ -7,6 +7,7 @@ import { GameServerRegionId } from './game-server-regions'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
+import { ZenModeSettings } from './settings/zen-mode'
 import { MatchmakingType } from './typeshare'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
@@ -751,10 +752,12 @@ export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 60000
 /** Time allowed for each draft pick in milliseconds. */
 export const DRAFT_PICK_TIME_MS = 15000
 
-export type DraftPlayer = { userId: SbUserId; provisionalRace: RaceChar } & (
-  | { hasLocked: false }
-  | { hasLocked: true; finalRace: RaceChar }
-)
+export type DraftPlayer = {
+  userId: SbUserId
+  provisionalRace: RaceChar
+  nameIndex?: AnonymizedNameIndex
+  zenMuted?: boolean
+} & ({ hasLocked: false } | { hasLocked: true; finalRace: RaceChar })
 
 export interface DraftTeam {
   players: DraftPlayer[]
@@ -789,14 +792,17 @@ export function getAnonymizedName(nameIndex: AnonymizedNameIndex, t: TFunction):
   }
 }
 
-export type AnonymizedDraftPlayer = { index: number; nameIndex: AnonymizedNameIndex } & (
-  | { hasLocked: false }
-  | { hasLocked: true; finalRace: RaceChar }
-)
+export type AnonymizedDraftPlayer = {
+  index: number
+  nameIndex: AnonymizedNameIndex
+  zenMuted?: boolean
+} & ({ hasLocked: false } | { hasLocked: true; finalRace: RaceChar })
 
 export interface ClientDraftState {
   /** The match being drafted, which the player's draft requests name. */
   matchId: string
+  /** Local preferences captured at the start of this match. */
+  zenMode?: ZenModeSettings
   mapId: SbMapId
   currentPicker?: { team: number; slot: number }
   myTeamIndex: number
@@ -1331,6 +1337,7 @@ export enum MatchmakingServiceErrorCode {
   NoActiveDraft = 'noActiveDraft',
   InvalidDraftPick = 'invalidDraftPick',
   UserChatRestricted = 'userChatRestricted',
+  ZenChatMuted = 'zenChatMuted',
   UnsupportedMachine = 'unsupportedMachine',
 }
 

@@ -98,6 +98,7 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.UserBanned:
     case MatchmakingServiceErrorCode.UserChatRestricted:
     case MatchmakingServiceErrorCode.UnsupportedMachine:
+    case MatchmakingServiceErrorCode.ZenChatMuted:
       throw asHttpError(403, err)
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveDraft:

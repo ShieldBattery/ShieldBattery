@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useEffect } from 'react'
+import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -7,6 +7,7 @@ import { useOverflowingElement } from '../dom/overflowing-element'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getBatchUserInfo } from './action-creators'
+import { AnonymizedUsersContext } from './anonymized-users'
 import { ConnectedUserContextMenu, UserMenuComponent } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
@@ -79,6 +80,8 @@ export function ConnectedUsername({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const alias = useContext(AnonymizedUsersContext).get(userId)
+  interactive = interactive && alias === undefined
   const [nameRef, isNameOverflowing] = useOverflowingElement()
 
   useEffect(() => {
@@ -103,7 +106,7 @@ export function ConnectedUsername({
     }
   }
 
-  const username = user?.name ?? (
+  const username = alias ?? user?.name ?? (
     <LoadingName aria-label={t('common.loading.username', 'Username loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>
@@ -130,7 +133,7 @@ export function ConnectedUsername({
       {interactive && <ConnectedUserContextMenu {...contextMenuProps} />}
       {showTooltipForOverflow ? (
         <Tooltip
-          text={user?.name}
+          text={alias ?? user?.name}
           position={showTooltipForOverflow}
           disabled={!user || !isNameOverflowing}>
           {nameElem}

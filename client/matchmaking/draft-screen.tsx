@@ -42,6 +42,7 @@ import {
   TitleLarge,
   titleMedium,
 } from '../styles/typography'
+import { AnonymizedUsersContext } from '../users/anonymized-users'
 import { ConnectedUsername } from '../users/connected-username'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { changeDraftRace, lockInDraftRace, sendDraftChatMessage } from './action-creators'
@@ -51,6 +52,7 @@ import {
   draftPickTimeStartAtom,
   draftStateAtom,
 } from './draft-atoms'
+import { ZenIndicator } from './zen-indicator'
 
 const DRAFT_PICK_TIME_SECS = DRAFT_PICK_TIME_MS / 1000
 
@@ -132,6 +134,14 @@ export function DraftScreen({
   }
 
   const canStillPick = draftState.ownTeam.players.find(p => p.userId === myId)?.hasLocked === false
+  const aliases = new Map<SbUserId, string>()
+  if (draftState.zenMode?.anonymizePlayers) {
+    for (const player of draftState.ownTeam.players) {
+      if (player.userId !== myId && player.nameIndex !== undefined) {
+        aliases.set(player.userId, getAnonymizedName(player.nameIndex, t))
+      }
+    }
+  }
 
   const onSetRace = (race: RaceChar) => {
     raceAbortRef.current?.abort()
@@ -245,30 +255,32 @@ export function DraftScreen({
   return (
     // The draft screen traps navigation, so nothing inside it offers to navigate.
     <NavigationAvailableContext.Provider value={false}>
-      <Container>
-        <AnimatePresence initial={false}>
-          {canStillPick ? (
-            <DraftRacePicker
-              key='picker'
-              draftState={draftState}
-              onSetRace={onSetRace}
-              onLockInRace={onLockInRace}
-              optimisticRace={optimisticRace}
-              optimisticLocked={optimisticLocked}
-            />
-          ) : undefined}
-        </AnimatePresence>
-        <PickerAndTimer draftState={draftState} />
-        <MyDraftTeam
-          draftState={draftState}
-          optimisticRace={optimisticRace}
-          optimisticLocked={optimisticLocked}
-          myId={myId}
-        />
-        <DraftChat draftState={draftState} onSendChatMessage={onSendChatMessage} />
-        <DraftInfo draftState={draftState} />
-        <OpponentDraftTeam draftState={draftState} />
-      </Container>
+      <AnonymizedUsersContext.Provider value={aliases}>
+        <Container>
+          <AnimatePresence initial={false}>
+            {canStillPick ? (
+              <DraftRacePicker
+                key='picker'
+                draftState={draftState}
+                onSetRace={onSetRace}
+                onLockInRace={onLockInRace}
+                optimisticRace={optimisticRace}
+                optimisticLocked={optimisticLocked}
+              />
+            ) : undefined}
+          </AnimatePresence>
+          <PickerAndTimer draftState={draftState} />
+          <MyDraftTeam
+            draftState={draftState}
+            optimisticRace={optimisticRace}
+            optimisticLocked={optimisticLocked}
+            myId={myId}
+          />
+          <DraftChat draftState={draftState} onSendChatMessage={onSendChatMessage} />
+          <DraftInfo draftState={draftState} />
+          <OpponentDraftTeam draftState={draftState} />
+        </Container>
+      </AnonymizedUsersContext.Provider>
     </NavigationAvailableContext.Provider>
   )
 }
@@ -867,6 +879,7 @@ function AlliedPlayerEntry({
           {isActive ? <ActivePickerIndicator /> : undefined}
           <ConnectedAvatar userId={player.userId} />
           <StyledUsername userId={player.userId} showTooltipForOverflow={'top'} />
+          {player.zenMuted ? <ZenIndicator /> : undefined}
         </PlayerCard>
         {pickNum >= 0 ? (
           <PickSubtext>
@@ -936,6 +949,7 @@ function OpponentPlayerEntry({
           <Tooltip text={name} position='top' disabled={!isNameOverflowing}>
             <AnonymizedName ref={nameRef}>{name}</AnonymizedName>
           </Tooltip>
+          {player.zenMuted ? <ZenIndicator /> : undefined}
         </PlayerCard>
         {pickNum >= 0 ? (
           <PickSubtext>
@@ -1019,6 +1033,20 @@ const StyledChat = styled(Chat)`
   border-radius: 8px 8px 2px 2px;
 `
 
+const MutedChat = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  ${labelMedium};
+  grid-area: chat;
+  align-self: end;
+  padding: 20px;
+  margin-inline: -16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 8px 8px 2px 2px;
+  color: var(--theme-on-surface-variant);
+`
+
 function DraftChat({
   draftState,
   onSendChatMessage,
@@ -1026,14 +1054,24 @@ function DraftChat({
   draftState: ClientDraftState
   onSendChatMessage: (text: string) => void
 }) {
+  const { t } = useTranslation()
   const messages = useAtomValue(draftChatMessagesAtom)
   const teammates = useAppSelector(
     useUserEntriesSelector(draftState.ownTeam.players.map(p => p.userId)),
     areUserEntriesEqual,
   )
-  const mentionable = teammates
+  const mentionable = (draftState.zenMode?.anonymizePlayers ? [] : teammates)
     .filter(([_id, name]) => name !== undefined)
     .map(([id, name]) => ({ id, name: name!, online: true }))
+
+  if (draftState.zenMode?.muteChat) {
+    return (
+      <MutedChat role='status'>
+        <ZenIndicator />
+        {t('matchmaking.zen.mutedDraft', 'Zen mode: sending and receiving match chat is disabled.')}
+      </MutedChat>
+    )
+  }
 
   return (
     <StyledChat

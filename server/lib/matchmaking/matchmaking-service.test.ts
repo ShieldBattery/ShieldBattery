@@ -37,6 +37,10 @@ import {
   getMatchPath,
 } from './matchmaking-socket-paths'
 
+vi.mock('../settings/account-settings-model', () => ({
+  getManyAccountSettings: vi.fn().mockResolvedValue(new Map()),
+}))
+
 vi.mock('./models', () => ({
   getMatchmakingRatings: vi.fn(),
   getManyMatchmakingRatings: vi.fn(),
@@ -944,6 +948,11 @@ describe('matchmaking/matchmaking-service', () => {
 
     expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
     const request = gameLoader.loadGame.mock.calls[0][0]
+    expect(request.zenSnapshot.settings.get(USER_A)).toEqual({
+      anonymizePlayers: false,
+      muteChat: false,
+    })
+    expect(new Set(request.zenSnapshot.players.map((p: any) => p.nameIndex)).size).toBe(2)
     const slotForA = request.players.find((p: any) => p.userId === USER_A)
     const slotForB = request.players.find((p: any) => p.userId === USER_B)
     expect(slotForA.region).toBe(REGION_US_EAST)

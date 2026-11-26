@@ -2298,7 +2298,7 @@ unsafe fn matchup_player_view(
         MatchupPlayerView {
             player_id,
             team,
-            name: name.into_owned(),
+            name: super::zen_text::player_name(player_id, &name),
             color: Color32::from_rgb(color[0], color[1], color[2]),
             race: race.1,
             random,

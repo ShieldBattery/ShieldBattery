@@ -2540,6 +2540,10 @@
       "3v3bgh": "3v3 BGH",
       "3v3fastest": "3v3 Fastest",
       "3v3hunters": "3v3 Hunters"
+    },
+    "zen": {
+      "chatDisabled": "Zen mode: match chat disabled",
+      "mutedDraft": "Zen mode: sending and receiving match chat is disabled."
     }
   },
   "material": {
@@ -3498,7 +3502,16 @@
           "loadFailed": "Couldn't load your blocked users",
           "title": "Blocked users"
         },
-        "title": "Social"
+        "title": "Social",
+        "zen": {
+          "anonymize": "Anonymize other players",
+          "anonymizeDescription": "Uses aliases in the draft, on the loading screen, and during the match, including live chat.",
+          "description": "These account settings apply to ranked matchmaking starting with your next match.",
+          "enableBoth": "Enable both",
+          "indicator": "When match chat is disabled, other players see a Zen icon beside your name.",
+          "mute": "Disable sending and receiving match chat",
+          "title": "Zen mode"
+        }
       },
       "title": "User"
     }

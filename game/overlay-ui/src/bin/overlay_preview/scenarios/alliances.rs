@@ -385,6 +385,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                     .get(&row.user_id)
                     .copied()
                     .unwrap_or(row.index < k.muted_rows as usize),
+                zen_muted: false,
                 blocked: state
                     .blocked
                     .get(&row.user_id)
@@ -408,6 +409,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                     race: RaceView::ALL[slot % RaceView::ALL.len()],
                     standing: PlayerStanding::Fixed,
                     muted: false,
+                    zen_muted: false,
                     blocked: false,
                     report: ReportState::None,
                 }
@@ -453,6 +455,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
         allied_victory: state.allied_victory,
         chat_target,
         chat_targets,
+        chat_disabled: false,
     }
 }
 

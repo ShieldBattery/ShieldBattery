@@ -80,14 +80,14 @@ impl AlliancesState {
         chat: &Mutex<ChatManager>,
         now: Instant,
     ) -> AlliancesView {
-        let (others, reports) = {
+        let (others, reports, chat_disabled) = {
             let chat = chat.lock();
             let others = chat.others();
             let reports = others
                 .iter()
                 .map(|other| chat.report_status(other.user_id, now))
                 .collect::<Vec<_>>();
-            (others, reports)
+            (others, reports, chat.is_zen_muted())
         };
         let local = bw.local_player_id;
         let alliances = self.shown_alliances(bw, now);
@@ -168,6 +168,7 @@ impl AlliancesState {
                 && alliances[usize::from(local)] == ALLIED_VICTORY,
             chat_target,
             chat_targets,
+            chat_disabled,
         }
     }
 
@@ -216,6 +217,9 @@ impl AlliancesState {
                 Some(vision_command(vision).to_vec())
             }
             AlliancesAction::SetChatTarget(choice) => {
+                if chat.lock().is_zen_muted() {
+                    return None;
+                }
                 let recipient = match choice {
                     ChatTargetChoice::All => RECIPIENT_EVERYONE,
                     ChatTargetChoice::Allies => RECIPIENT_ALLIES,
@@ -230,6 +234,9 @@ impl AlliancesState {
             }
             AlliancesAction::SetMuted { user_id, muted } => {
                 let mut chat = chat.lock();
+                if chat.is_zen_muted() {
+                    return None;
+                }
                 match muted {
                     true => chat.add_muted_player(SbUserId(user_id)),
                     false => chat.remove_muted_player(SbUserId(user_id)),
@@ -238,6 +245,9 @@ impl AlliancesState {
             }
             AlliancesAction::SetAllMuted(muted) => {
                 let mut chat = chat.lock();
+                if chat.is_zen_muted() {
+                    return None;
+                }
                 match muted {
                     true => chat.mute_all(),
                     false => chat.unmute_all(),
@@ -362,6 +372,7 @@ fn player_view(
         race: chosen_race(bw, setup, player_id),
         standing,
         muted: person.is_some_and(|(other, _)| other.muted),
+        zen_muted: person.is_some_and(|(other, _)| other.zen_muted),
         blocked: person.is_some_and(|(other, _)| other.blocked),
         report: match person.and_then(|(_, report)| report) {
             None => ReportState::None,

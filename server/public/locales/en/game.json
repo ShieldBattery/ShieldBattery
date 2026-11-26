@@ -421,5 +421,14 @@
     "soundOn": "Sound on",
     "windowed": "Windowed",
     "windowedFullscreen": "Windowed (Fullscreen)"
+  },
+  "zenMode": {
+    "chatDisabled": "Match chat disabled",
+    "name0": "Rusty Rhynadon",
+    "name1": "Bold Bengalaas",
+    "name2": "Sneaky Scantid",
+    "name3": "Keen Kakaru",
+    "name4": "Ruthless Ragnasaur",
+    "name5": "Unstable Ursadon"
   }
 }

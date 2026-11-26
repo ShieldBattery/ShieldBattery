@@ -12,7 +12,7 @@ import { lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { draftMatchmakingTypeAtom, draftStateAtom } from './draft-atoms'
+import { draftChatMessagesAtom, draftMatchmakingTypeAtom, draftStateAtom } from './draft-atoms'
 import {
   canceledMatchAtom,
   currentSearchInfoAtom,
@@ -243,6 +243,30 @@ describe('client/matchmaking/socket-handlers/draftStarted', () => {
     runDraftStarted()
 
     expect(jotaiStore.get(draftMatchmakingTypeAtom)).toBe(MatchmakingType.Match2v2)
+  })
+})
+
+describe('Zen draft chat', () => {
+  test('drops messages before storing them, loading mentions, or notifying the player', () => {
+    ipcSend.mockClear()
+    jotaiStore.set(draftChatMessagesAtom, [])
+    jotaiStore.set(draftStateAtom, {
+      zenMode: { muteChat: true, anonymizePlayers: false },
+    } as any)
+    const dispatch = vi.fn()
+    const getState = vi.fn()
+    const action = eventToAction.draftChatMessage({
+      type: 'draftChatMessage',
+      message: { id: 'hidden-message' },
+      mentions: [],
+      channelMentions: [],
+    } as any)
+    if (typeof action === 'function') action(dispatch, getState)
+
+    expect(jotaiStore.get(draftChatMessagesAtom)).toEqual([])
+    expect(getState).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(ipcSend).not.toHaveBeenCalled()
   })
 })
 

@@ -2522,6 +2522,10 @@
       "3v3bgh": "3x3 BGH",
       "3v3fastest": "3x3 Fastest",
       "3v3hunters": "3x3 Hunters"
+    },
+    "zen": {
+      "chatDisabled": "Modo zen: chat de la partida desactivado",
+      "mutedDraft": "Modo zen: no puedes enviar ni recibir mensajes en el chat de la partida."
     }
   },
   "material": {
@@ -3484,7 +3488,16 @@
           "loadFailed": "No se pudieron cargar tus usuarios bloqueados",
           "title": "Usuarios bloqueados"
         },
-        "title": "Social"
+        "title": "Social",
+        "zen": {
+          "anonymize": "Ocultar los nombres de otros jugadores",
+          "anonymizeDescription": "Usa alias durante la selección de razas, en la pantalla de carga y durante la partida, incluido el chat en vivo.",
+          "description": "Estos ajustes de cuenta se aplican al emparejamiento clasificatorio a partir de tu próxima partida.",
+          "enableBoth": "Activar ambas opciones",
+          "indicator": "Si desactivas el chat de la partida, los demás jugadores verán un icono zen junto a tu nombre.",
+          "mute": "Desactivar el envío y la recepción de mensajes en la partida",
+          "title": "Modo zen"
+        }
       },
       "title": "Usuario"
     }

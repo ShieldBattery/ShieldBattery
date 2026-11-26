@@ -11,10 +11,8 @@ import {
   DRAFT_PICK_TIME_MS,
   DraftMessageType,
   DraftPlayer,
-  DraftTeam,
   MatchmakingEvent,
   MatchmakingServiceErrorCode,
-  NUM_ANONYMIZED_NAMES,
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -25,12 +23,7 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { calcEffectiveRating, MatchmakingPlayer } from './matchmaking-entity'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import { getMatchPath, getMatchTeamPath } from './matchmaking-socket-paths'
-
-function getShuffledAnonymizedNames(numPlayers: number): AnonymizedNameIndex[] {
-  const names = Array.from({ length: NUM_ANONYMIZED_NAMES }, (_, i) => i as AnonymizedNameIndex)
-  names.sort(() => Math.random() - 0.5)
-  return names.slice(0, numPlayers)
-}
+import { ZenMatchSnapshot } from './zen-mode'
 
 /**
  * Creates a snake pick order (A0 B0 B1 A1 A2 B2 ...) for two teams of `teamSize` players. Races
@@ -54,13 +47,14 @@ export function createSnakePickOrder(
   return pickOrder
 }
 
+type DraftRosterPlayer = DraftPlayer & { nameIndex: AnonymizedNameIndex; zenMuted: boolean }
+
 export class DraftState {
-  private teams: DraftTeam[]
+  private teams: Array<{ players: DraftRosterPlayer[] }>
   private pickOrder: Array<{ team: number; slot: number }>
   private isComplete = false
   private currentPickerIndex = -1
   private chatLog: GameDraftMessage[] = []
-  readonly shuffledNames: Array<AnonymizedNameIndex[]>
 
   private pickTimeout?: NodeJS.Timeout
   private completionNotifier = createDeferred<void>()
@@ -73,22 +67,28 @@ export class DraftState {
     private abortController: AbortController,
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
     activeClients: Map<SbUserId, ClientSocketsGroup>,
+    private zenSnapshot: ZenMatchSnapshot,
   ) {
+    const zenPlayers = new Map(zenSnapshot.players.map(player => [player.userId, player]))
     // Initialize teams with players sorted by MMR (lowest first within each team)
     this.teams = matchTeams.map(team => ({
       players: team
         .slice() // Don't mutate original array
         .sort((a, b) => a.rating - b.rating) // Sort by MMR ascending (lowest first)
-        .map(player => ({
-          userId: player.id,
-          provisionalRace: player.race,
-          hasLocked: false,
-        })),
+        .map(player => {
+          const zenPlayer = zenPlayers.get(player.id)
+          if (!zenPlayer) {
+            throw new Error(`Missing draft alias for player ${player.id}`)
+          }
+          return {
+            userId: player.id,
+            provisionalRace: player.race,
+            hasLocked: false,
+            nameIndex: zenPlayer.nameIndex,
+            zenMuted: zenPlayer.muteChat,
+          }
+        }),
     }))
-    this.shuffledNames = [
-      getShuffledAnonymizedNames(this.teams[0].players.length),
-      getShuffledAnonymizedNames(this.teams[1].players.length),
-    ]
 
     const lowerRatedTeam =
       calcEffectiveRating(matchTeams[0]) < calcEffectiveRating(matchTeams[1]) ? 0 : 1
@@ -252,7 +252,7 @@ export class DraftState {
     }
 
     this.teams[currentPicker.team].players[currentPicker.slot] = {
-      userId: player.userId,
+      ...player,
       provisionalRace: race,
       hasLocked: true,
       finalRace: race,
@@ -378,6 +378,13 @@ export class DraftState {
       throw new Error(`Player ${userId} not found in any team`)
     }
 
+    if (this.zenSnapshot.settings.get(userId)?.muteChat) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.ZenChatMuted,
+        'Draft chat is muted',
+      )
+    }
+
     const text = filterChatMessage(message)
     const [processedText, mentions, channelMentions] = await processMessageContents(text)
     const time = Date.now()
@@ -403,14 +410,16 @@ export class DraftState {
         if (player.hasLocked) {
           return {
             index,
-            nameIndex: this.shuffledNames[teamIndex][index],
+            nameIndex: player.nameIndex,
+            zenMuted: player.zenMuted,
             hasLocked: true,
             finalRace: player.finalRace,
           }
         } else {
           return {
             index,
-            nameIndex: this.shuffledNames[teamIndex][index],
+            nameIndex: player.nameIndex,
+            zenMuted: player.zenMuted,
             hasLocked: false,
           }
         }
@@ -430,6 +439,7 @@ export class DraftState {
 
     return {
       matchId: this.matchId,
+      zenMode: this.zenSnapshot.settings.get(userId),
       mapId: this.mapInfo.id,
       currentPicker: currentPicker
         ? { team: currentPicker.team, slot: currentPicker.slot }
@@ -442,7 +452,7 @@ export class DraftState {
     }
   }
 
-  private findPlayer(userId: SbUserId): DraftPlayer | undefined {
+  private findPlayer(userId: SbUserId): DraftRosterPlayer | undefined {
     for (const team of this.teams) {
       const player = team.players.find(p => p.userId === userId)
       if (player) {

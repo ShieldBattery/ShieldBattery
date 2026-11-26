@@ -436,5 +436,14 @@
     "soundOn": "Sonido activado",
     "windowed": "Ventana",
     "windowedFullscreen": "Ventana completa"
+  },
+  "zenMode": {
+    "chatDisabled": "Chat de la partida desactivado",
+    "name0": "Rhynadonte oxidado",
+    "name1": "Bengalaas audaz",
+    "name2": "Escántido sigiloso",
+    "name3": "Kakaru perspicaz",
+    "name4": "Ragnasaurio despiadado",
+    "name5": "Ursadón inestable"
   }
 }

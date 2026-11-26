@@ -2450,6 +2450,10 @@
       "3v3bgh": "3v3 BGH",
       "3v3fastest": "3v3 Fastest",
       "3v3hunters": "3v3 Hunters"
+    },
+    "zen": {
+      "chatDisabled": "禅模式：对局聊天已关闭",
+      "mutedDraft": "禅模式：无法发送或接收对局聊天消息。"
     }
   },
   "material": {
@@ -3382,7 +3386,16 @@
           "loadFailed": "无法加载您屏蔽的用户",
           "title": "已屏蔽的用户"
         },
-        "title": "社交"
+        "title": "社交",
+        "zen": {
+          "anonymize": "隐藏其他玩家的名字",
+          "anonymizeDescription": "选择种族时、在加载界面上以及对局中（包括实时聊天），其他玩家将以别名显示。",
+          "description": "这些账号设置从您的下一场排位匹配开始生效。",
+          "enableBoth": "开启两项设置",
+          "indicator": "关闭对局聊天后，其他玩家会在您的名字旁看到禅模式图标。",
+          "mute": "关闭对局聊天的收发功能",
+          "title": "禅模式"
+        }
       },
       "title": "用户"
     }

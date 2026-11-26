@@ -25,6 +25,8 @@ const accountSettingsThrottle = createThrottle('accountsettings', {
 
 /** Every `AccountSettings` key needs a rule here; unknown keys are rejected. */
 export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsRequest>({
+  zenAnonymizePlayers: Joi.boolean(),
+  zenMuteChat: Joi.boolean(),
   quietChannelsWhileInGame: Joi.boolean(),
   quietWhispersWhileInGame: Joi.boolean(),
   quietLobbyWhileInGame: Joi.boolean(),

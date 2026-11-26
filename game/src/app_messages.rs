@@ -532,6 +532,28 @@ pub struct GameSetupInfo {
     pub game_id: String,
     pub result_code: Option<String>,
     pub is_chat_restricted: Option<bool>,
+    #[serde(default)]
+    pub zen_mode: Option<ZenModeSettings>,
+    #[serde(default)]
+    pub zen_players: Vec<ZenPlayer>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZenModeSettings {
+    #[serde(default)]
+    pub anonymize_players: bool,
+    #[serde(default)]
+    pub mute_chat: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZenPlayer {
+    pub user_id: SbUserId,
+    pub name_index: u8,
+    pub mute_chat: bool,
+    pub localized_alias: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

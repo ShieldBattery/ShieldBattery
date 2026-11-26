@@ -21,6 +21,7 @@ import {
   lockInDraftRace,
   queueForMatchmaking,
   QueueForMatchmakingResult,
+  sendDraftChatMessage,
   updateMatchmakingPreferences,
 } from './action-creators'
 import { draftStateAtom, resetDraftState, updateCurrentPickerAtom } from './draft-atoms'
@@ -336,4 +337,19 @@ describe('queueForMatchmaking', () => {
     expect(findRequests()).toHaveLength(2)
     expect(openedDialogs()).toEqual([DialogType.Simple])
   })
+})
+
+test('Zen chat mute prevents an outgoing draft request independently of anonymity', async () => {
+  vi.mocked(fetchJson).mockReset()
+  startDraft()
+  jotaiStore.set(draftStateAtom, state => {
+    state!.zenMode = { muteChat: true, anonymizePlayers: false }
+  })
+  await new Promise<void>((resolve, reject) => {
+    sendDraftChatMessage({ message: 'hidden' }, { onSuccess: resolve, onError: reject })(
+      vi.fn(),
+      () => ({}) as RootState,
+    )
+  })
+  expect(fetchJson).not.toHaveBeenCalled()
 })
