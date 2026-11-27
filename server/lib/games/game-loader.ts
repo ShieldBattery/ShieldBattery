@@ -425,22 +425,27 @@ function gameUserPath(gameId: string, userId: SbUserId) {
 }
 
 /**
- * Describes where a best-of series stands for the observer overlay, listing on each side only the
- * members who are seated as human players in the game.
+ * Describes where a best-of series stands for the observer overlay, listing on each side, and
+ * giving display names for, only the members who are seated as human players in the game.
  */
 function toSeriesOverlay(bestOf: BestOfLaunchInfo, playerInfos: PlayerInfo[]): SeriesOverlay {
   const seated = new global.Set(
     playerInfos.filter(p => p.type === SlotType.Human && p.userId).map(p => p.userId!),
   )
-  const [side0, side1] = bestOf.sides
+  const toSide = ({ name, score, players }: BestOfLaunchInfo['sides'][number]) => ({
+    ...(name !== undefined ? { caption: name } : {}),
+    score,
+    players: players.filter(id => seated.has(id)),
+  })
+  const displayNames = (bestOf.displayNames ?? [])
+    .filter(({ userId }) => seated.has(userId))
+    .map(({ userId, name }) => ({ userId, name }))
   return {
     ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
     format: { kind: 'bestOf', length: bestOf.length },
     gameNumber: bestOf.gameNumber,
-    sides: [
-      { score: side0.score, players: side0.players.filter(id => seated.has(id)) },
-      { score: side1.score, players: side1.players.filter(id => seated.has(id)) },
-    ],
+    sides: [toSide(bestOf.sides[0]), toSide(bestOf.sides[1])],
+    ...(displayNames.length ? { displayNames } : {}),
     ...(bestOf.lines?.length ? { lines: [...bestOf.lines] } : {}),
     ...(bestOf.logoUrl !== undefined ? { logoUrl: bestOf.logoUrl } : {}),
   }

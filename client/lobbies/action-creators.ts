@@ -9,6 +9,7 @@ import {
   DiscardLobbyBestOfGameRequest,
   EndLobbyBestOfRequest,
   GetLobbyStateResponse,
+  GetRememberedBestOfDisplayNamesResponse,
   GetRememberedBestOfOverlayResponse,
   InviteToLobbyRequest,
   JoinLobbyRequest,
@@ -32,7 +33,7 @@ import { SlotType } from '../../common/lobbies/slot'
 import { SbMapId } from '../../common/maps'
 import { ALL_RACE_CHARS, RaceChar } from '../../common/races'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
-import { apiUrl } from '../../common/urls'
+import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
@@ -421,6 +422,23 @@ export function getRememberedBestOfOverlay(
     return await fetchJson<GetRememberedBestOfOverlayResponse>(apiUrl`lobby-best-of-overlay`, {
       signal: spec.signal,
     })
+  })
+}
+
+/**
+ * Loads the display names the user last gave the given people in a best-of series, for at most as
+ * many people as both sides of one hold.
+ */
+export function getRememberedBestOfDisplayNames(
+  userIds: ReadonlyArray<SbUserId>,
+  spec: RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const params = userIds.map(userId => urlPath`u=${userId}`).join('&')
+    return await fetchJson<GetRememberedBestOfDisplayNamesResponse>(
+      apiUrl`lobby-best-of-overlay/display-names` + '?' + params,
+      { signal: spec.signal },
+    )
   })
 }
 

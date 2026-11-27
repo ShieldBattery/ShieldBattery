@@ -30,19 +30,23 @@
 //! Whoever runs the series can give it up to two lines of text for the casters (who is casting, who
 //! is observing, the stage) and a logo. The tab grows a row for each row of lines under the series
 //! line, and with a logo carries it in a cell at its left end with the rows beside it.
+//!
+//! A side the host named has its name in a cell of its own at its end of the tab under the bar, one
+//! row tall, beside the middle cell that carries the series line: under its own half of the bar,
+//! next to its score. A side with no name has no cell.
 
 use std::sync::Arc;
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Galley, Id, Order, Rect, Sense, TextureId, Ui,
-    UiBuilder, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, CornerRadius, Galley, Id, Order, Rect, Sense, TextureId,
+    Ui, UiBuilder, Vec2, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, RaceView, centred, game_clock, paint_count, paint_picked_race_chip,
+    EdgeCursor, RaceView, TeamNames, centred, game_clock, paint_count, paint_picked_race_chip,
     paint_player_bar, paint_text, vision_alpha,
 };
 use crate::observer::{layout, map_control, team_cards};
@@ -133,6 +137,17 @@ const SEPARATOR_GAP: f32 = 6.0;
 /// The narrowest a series title is elided to before it is left out of the line altogether: room for
 /// a letter and the ellipsis, below which an elided title says nothing.
 const MIN_TITLE_WIDTH: f32 = 24.0;
+
+/// Padding either side of a side's name inside its cell at an end of the tab.
+const SIDE_CELL_PAD: f32 = 10.0;
+
+/// Text size of a side's name in its cell: a label for the score beside it, read at the glance the
+/// series line is.
+const SIDE_NAME_SIZE: f32 = 13.0;
+
+/// The narrowest a side's name is elided to before the tab leaves both sides' cells out: a few
+/// letters and the ellipsis, below which an elided name says nothing.
+const MIN_SIDE_NAME_WIDTH: f32 = 40.0;
 
 /// Width of one player's half.
 const SIDE_WIDTH: f32 = (BAR_WIDTH - CENTRE_WIDTH) / 2.0;
@@ -565,6 +580,8 @@ pub struct SeriesView {
     /// The series' logo, once the host has it to draw: nothing while it is still loading, and
     /// nothing for one that could not be loaded.
     pub logo: Option<SeriesLogo>,
+    /// What the host named each side, in the order of `scores`, for a side they named.
+    pub side_names: [Option<String>; 2],
 }
 
 /// A series' logo as the host hands it over, decoded and on a texture of its own.
@@ -838,6 +855,17 @@ impl MatchupView {
         self.series.as_ref().filter(|_| sides == 2)
     }
 
+    /// What the panels call the game's teams: the sides of the series where it is shown, by the
+    /// names the host gave them, and by their numbers otherwise.
+    pub fn team_names(&self) -> TeamNames {
+        match (self.shown_series(), self.halves().teams) {
+            (Some(series), Some((first, second))) => {
+                TeamNames::of_series([first, second], &series.side_names)
+            }
+            _ => TeamNames::default(),
+        }
+    }
+
     /// The series the bar draws, given whether the watcher has the series panel on: the series that
     /// is shown, while the panel is on.
     pub fn bar_series(&self, series_panel: bool) -> Option<&SeriesView> {
@@ -931,8 +959,9 @@ impl MatchupView {
 pub struct MatchupOutcome {
     /// Where the bar is on screen, for the host's hit testing.
     pub rect: Rect,
-    /// Where the series tab hung under the bar is, in a series game.
-    pub tab: Option<Rect>,
+    /// What the series tab hung under the bar covers in a series game: its middle cell, then the
+    /// cell of each side that has a name in it. Empty in a game with no tab.
+    pub tab: Vec<Rect>,
     /// The player whose vision was asked to change, if one was clicked.
     pub toggled_vision: Option<u8>,
 }
@@ -959,6 +988,7 @@ pub fn render_matchup_view(
         draw_bar(ui, view, available, screen, series_panel)
     })?;
     let (toggled_vision, tab) = inner.inner;
+    let tab = tab.unwrap_or_default();
     Some(MatchupOutcome {
         rect: inner.response.rect,
         tab,
@@ -1000,8 +1030,170 @@ fn even_width(width: f32) -> f32 {
     (width * 0.5).ceil() * 2.0
 }
 
-/// The series tab laid out for the room it hangs in.
+/// An even number of whole points at most `width`.
+fn even_width_within(width: f32) -> f32 {
+    (width * 0.5).floor() * 2.0
+}
+
+/// The style a side's name is set in, in its cell at an end of the tab: running text a step brighter
+/// than the series line beside it, being the label of the side's score rather than a caption.
+fn side_name_spec() -> TextSpec {
+    text::body(SIDE_NAME_SIZE, BodyWeight::Medium).with_color(crate::colors::GREY_BLUE95)
+}
+
+/// The series tab laid out for the room it hangs in: its middle cell, and the cell of each side the
+/// host named.
 struct Tab {
+    centre: TabCentre,
+    /// The cell at the tab's left end, which is the side listed first's, and the one at its right
+    /// end, the other side's, each where the side has a name and the tab has room for it.
+    sides: [Option<SideCell>; 2],
+}
+
+/// The cell carrying a side's name at an end of the tab.
+struct SideCell {
+    width: f32,
+    /// The name, elided to the cell.
+    name: Arc<Galley>,
+}
+
+impl Tab {
+    /// Lays the tab hung from `anchor` out for `series` given `room` between the surfaces beside
+    /// it.
+    ///
+    /// The middle cell stays centered under the bar and the sides' cells hang off its ends, so the
+    /// room is shared as the same room either side of the middle line. A named side's cell is as
+    /// wide as its name; where the room is short of the middle cell's natural width and the wider of
+    /// the two cells either side of it, the middle cell gives way first, down to how far into the
+    /// series the game is with no title (see [`TabCentre::least_width`]). Only then are the names
+    /// elided, each to the room either side of that narrowest middle, which then carries no title
+    /// however much of one would fit in what it hangs from; and where that room is short
+    /// of [`MIN_SIDE_NAME_WIDTH`] of name both sides' cells are left out and the middle cell has all
+    /// the room again, as it does in a series with no named side.
+    fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> Tab {
+        let spec = side_name_spec();
+        let names = series.side_names.each_ref().map(|name| {
+            name.as_deref()
+                .filter(|name| !name.is_empty() && anchor.says_progress())
+        });
+        let natural = names.map(|name| {
+            name.map(|name| spec.layout(ctx, spec.job(name)).size().x + SIDE_CELL_PAD * 2.0)
+        });
+        let widest = natural.iter().flatten().copied().fold(0.0, f32::max).ceil();
+        let centre = TabCentre::lay_out(ctx, series, room, anchor);
+        if widest == 0.0 {
+            return Tab {
+                centre,
+                sides: [None, None],
+            };
+        }
+        let least = TabCentre::least_width(ctx, series, anchor).min(centre.width);
+        let centre_room = even_width_within(room - widest * 2.0);
+        let (centre, side_room) = if centre.width + widest * 2.0 <= room {
+            (centre, widest)
+        } else if centre_room >= least {
+            (TabCentre::lay_out(ctx, series, centre_room, anchor), widest)
+        } else {
+            let side_room = ((room - least) * 0.5).floor();
+            if side_room < MIN_SIDE_NAME_WIDTH + SIDE_CELL_PAD * 2.0 {
+                return Tab {
+                    centre,
+                    sides: [None, None],
+                };
+            }
+            // The names are elided only once the title is gone, even from the room the middle cell
+            // keeps beside how far into the series the game is for what it hangs from.
+            let untitled = SeriesView {
+                title: None,
+                ..series.clone()
+            };
+            (TabCentre::lay_out(ctx, &untitled, least, anchor), side_room)
+        };
+        let sides = [0, 1].map(|index| {
+            let name = names[index]?;
+            let width = natural[index]?.ceil().min(side_room);
+            Some(SideCell {
+                width,
+                name: spec.layout(ctx, spec.job_truncated(name, width - SIDE_CELL_PAD * 2.0)),
+            })
+        });
+        Tab { centre, sides }
+    }
+
+    /// Draws the tab under the middle of `above`, joined to it, and returns the rects it covers: its
+    /// middle cell, then each side's.
+    ///
+    /// A side's cell is a row tall at the top of the tab, against the middle cell's end and joined to
+    /// the surface above as the middle cell is, with only its outer corner rounded: one surface with
+    /// the middle cell, split from it by the middle cell's own edge.
+    fn draw(&self, ui: &Ui, above: Rect) -> Vec<Rect> {
+        let centre = self.centre.draw(ui, above);
+        let mut rects = vec![centre];
+        for (index, cell) in self.sides.iter().enumerate() {
+            let Some(cell) = cell else {
+                continue;
+            };
+            let first = index == 0;
+            let rect = if first {
+                Rect::from_min_size(
+                    pos2(centre.left() - cell.width, centre.top()),
+                    vec2(cell.width, TAB_ROW_HEIGHT),
+                )
+            } else {
+                Rect::from_min_size(centre.right_top(), vec2(cell.width, TAB_ROW_HEIGHT))
+            };
+            // The cell's chrome runs a hairline under the middle cell and is cut off where the
+            // middle cell starts, so the edge between them is the middle cell's own and the two read
+            // as one surface.
+            let (chrome, clip, corner_radius) = if first {
+                (
+                    rect.with_max_x(rect.right() + theme::HAIRLINE),
+                    ui.clip_rect().with_max_x(centre.left()),
+                    CornerRadius {
+                        sw: theme::RADIUS_PANEL,
+                        ..CornerRadius::ZERO
+                    },
+                )
+            } else {
+                (
+                    rect.with_min_x(rect.left() - theme::HAIRLINE),
+                    ui.clip_rect().with_min_x(centre.right()),
+                    CornerRadius {
+                        se: theme::RADIUS_PANEL,
+                        ..CornerRadius::ZERO
+                    },
+                )
+            };
+            tiers::paint_tier0_joined(
+                &ui.painter().with_clip_rect(clip),
+                chrome,
+                corner_radius,
+                tiers::Joined {
+                    edge: tiers::Edge::Top,
+                    divides: false,
+                },
+            );
+            let middle = egui::emath::GuiRounding::round_to_pixels(
+                rect.center().y,
+                ui.ctx().pixels_per_point(),
+            );
+            ui.painter().galley(
+                pos2(
+                    rect.center().x - cell.name.size().x * 0.5,
+                    middle - cell.name.size().y * 0.5,
+                ),
+                cell.name.clone(),
+                side_name_spec().color,
+            );
+            rects.push(rect);
+        }
+        rects
+    }
+}
+
+/// The middle cell of the series tab, laid out for the room it has: the series line, the caster's
+/// lines under it and the logo beside them.
+struct TabCentre {
     width: f32,
     height: f32,
     /// The logo and the size it is drawn at, where the series has one and the tab has room for it.
@@ -1012,21 +1204,36 @@ struct Tab {
     rows: Vec<Arc<Galley>>,
 }
 
-impl Tab {
-    /// Lays the tab hung from `anchor` out for `series` given `room` between the surfaces beside
-    /// it.
+impl TabCentre {
+    /// The cell's series line, for a check of a cell that carries one.
+    #[cfg(test)]
+    fn line(&self) -> &SeriesLine {
+        self.series_line
+            .as_ref()
+            .expect("the cell carries a series line")
+    }
+
+    /// The narrowest the middle cell hung from `anchor` is laid out at with the room it needs: what
+    /// it hangs from, or its series line with no title and the padding either side, whichever is
+    /// wider. Its caster's lines are elided and its logo shrunk to fit it.
+    fn least_width(ctx: &Context, series: &SeriesView, anchor: TabAnchor) -> f32 {
+        even_width(SeriesLine::least_width(ctx, series, anchor) + TAB_PAD * 2.0)
+            .max(anchor.min_width())
+    }
+
+    /// Lays the middle cell hung from `anchor` out for `series` given `room` for it.
     ///
-    /// A tab with only the series line in it is as wide as the line and the padding either side,
+    /// A cell with only the series line in it is as wide as the line and the padding either side,
     /// never narrower than what it hangs from nor wider than the room. One carrying the caster's
     /// lines is as wide as its widest row, in the same bounds and never wider than
     /// [`TAB_MAX_WIDTH`]. One with a logo is as wide as its contents, the logo's cell and the rows
     /// beside it, however narrow that is, and in the same bounds otherwise; one under the plate with
-    /// nothing but a logo in it is the logo, centered, and its padding. Where the room is
-    /// narrower than what the tab hangs from, which no screen the game runs at comes near, the tab
-    /// keeps the width it hangs from. A row that does not fit is elided at its end, each row on its
-    /// own, and how far into the series the game is always stays whole: a logo with too little room
+    /// nothing but a logo in it is the logo, centered, and its padding. Where the room is narrower
+    /// than what the cell hangs from, which no screen the game runs at comes near, the cell keeps
+    /// the width it hangs from. A row that does not fit is elided at its end, each row on its own,
+    /// and how far into the series the game is always stays whole: a logo with too little room
     /// beside it shrinks, and is left out once it would be too small to read.
-    fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> Tab {
+    fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> TabCentre {
         let line_rows = line_rows(series.caster_lines());
         let height = tab_height(series, anchor);
         let has_series_line = anchor.has_series_line(series);
@@ -1071,7 +1278,7 @@ impl Tab {
                 (width, width - TAB_PAD * 2.0)
             }
         };
-        Tab {
+        TabCentre {
             width,
             height,
             logo,
@@ -1084,7 +1291,7 @@ impl Tab {
         }
     }
 
-    /// Draws the tab under the middle of `above`, joined to it, and returns where it went.
+    /// Draws the middle cell under the middle of `above`, joined to it, and returns where it went.
     ///
     /// An ambient surface rather than a part of the hero surface above it: the lines it carries are
     /// read once a game rather than at every glance, so it hangs quieter than the scores it
@@ -1174,26 +1381,26 @@ pub(crate) fn series_tab_height(series: &SeriesView, anchor: TabAnchor) -> Optio
 }
 
 /// Draws the series tab for `series` under the middle of `above`, the surface it hangs from as
-/// `anchor` says, with `room` between the surfaces beside it, and returns where it went.
+/// `anchor` says, with `room` between the surfaces beside it, and returns the rects it covers.
 pub(crate) fn draw_series_tab(
     ui: &Ui,
     above: Rect,
     series: &SeriesView,
     room: f32,
     anchor: TabAnchor,
-) -> Rect {
+) -> Vec<Rect> {
     Tab::lay_out(ui.ctx(), series, room, anchor).draw(ui, above)
 }
 
 /// Draws the bar across no more than `available` points of `screen` and reports which player was
-/// clicked, and where the series tab went in a series game with `series_panel` on.
+/// clicked, and what the series tab covers in a series game with `series_panel` on.
 fn draw_bar(
     ui: &mut Ui,
     view: &MatchupView,
     available: f32,
     screen: Rect,
     series_panel: bool,
-) -> (Option<u8>, Option<Rect>) {
+) -> (Option<u8>, Option<Vec<Rect>>) {
     let form = view.form();
     let series = view.bar_series(series_panel);
     let (width, metrics) = form.layout(available, series.is_some());
@@ -1772,6 +1979,7 @@ mod tests {
             scores: [12, 11],
             lines: Vec::new(),
             logo: None,
+            side_names: [None, None],
         }
     }
 
@@ -1787,7 +1995,10 @@ mod tests {
     /// The bar's rect and its tab's once a screen of `size` has settled around them.
     fn settled_bar(view: &MatchupView, size: egui::Vec2) -> (Rect, Option<Rect>) {
         crate::observer::test_support::settled_at(size, |ctx| {
-            render_matchup_view(view, ctx, true, true).map(|outcome| (outcome.rect, outcome.tab))
+            render_matchup_view(view, ctx, true, true).map(|outcome| {
+                let tab = outcome.tab.iter().copied().reduce(Rect::union);
+                (outcome.rect, tab)
+            })
         })
         .expect("the bar is drawn")
     }
@@ -1932,11 +2143,12 @@ mod tests {
                 let bar = render_matchup_view(&view, ctx, true, true)?;
                 let cards = crate::observer::render_team_cards_view(
                     &cards,
+                    &view.team_names(),
                     ctx,
                     true,
                     view.clock_block_width(true),
                 );
-                Some((bar.rect, bar.tab?, cards.rects))
+                Some((bar.rect, bar.tab.first().copied()?, cards.rects))
             })
             .expect("the bar and the cards are drawn");
         assert_eq!(bar.width(), CLOCK_WIDTH + SCORES_WIDTH);
@@ -2101,8 +2313,8 @@ mod tests {
                 title: None,
                 ..with_caster(&[], Some(logo(64, 64)))
             };
-            let narrow = Tab::lay_out(ctx, &series, 900.0, TabAnchor::Bar);
-            let plain = Tab::lay_out(
+            let narrow = TabCentre::lay_out(ctx, &series, 900.0, TabAnchor::Bar);
+            let plain = TabCentre::lay_out(
                 ctx,
                 &SeriesView {
                     logo: None,
@@ -2144,7 +2356,7 @@ mod tests {
                 let view = series_view(teams, with_caster(lines, Some(logo)));
                 let room = tab_room(screen, view.form(), view.clock_block_width(true));
                 let tab = crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
-                    Some(Tab::lay_out(
+                    Some(TabCentre::lay_out(
                         ctx,
                         view.series.as_ref()?,
                         room,
@@ -2184,7 +2396,259 @@ mod tests {
             })
             .expect("the bar is drawn");
             assert_eq!(hidden, plain, "{teams:?}");
-            assert!(tab.is_none(), "{teams:?}");
+            assert!(tab.is_empty(), "{teams:?}");
         }
+    }
+
+    /// `series` with its sides named `first` and `second`, where each is given.
+    fn named(series: SeriesView, first: Option<&str>, second: Option<&str>) -> SeriesView {
+        SeriesView {
+            side_names: [first.map(str::to_string), second.map(str::to_string)],
+            ..series
+        }
+    }
+
+    /// The longest names a lobby lets a host give a series' sides.
+    const LONG_SIDES: [&str; 2] = ["Nexus Esports Academy II", "Ironclad Gaming Division"];
+
+    /// A best of seven going into its fourth game, which is how most series lines read.
+    fn running_series() -> SeriesView {
+        SeriesView {
+            title: Some("Grand Final".to_string()),
+            format: SeriesFormat::BestOf { length: 7 },
+            game_number: 4,
+            scores: [2, 1],
+            ..longest_series()
+        }
+    }
+
+    /// Whether every rect the tab covers stays within `room` centered on `screen`'s middle line.
+    fn within_room(tab: &[Rect], screen: Rect, room: f32) -> bool {
+        tab.iter().all(|rect| {
+            rect.left() >= screen.center().x - room * 0.5 - 0.01
+                && rect.right() <= screen.center().x + room * 0.5 + 0.01
+        })
+    }
+
+    /// The rects the tab covers once a screen of `size` has settled around `view`'s bar.
+    fn settled_tab(view: &MatchupView, size: egui::Vec2) -> (Rect, Vec<Rect>) {
+        crate::observer::test_support::settled_at(size, |ctx| {
+            render_matchup_view(view, ctx, true, true).map(|outcome| (outcome.rect, outcome.tab))
+        })
+        .expect("the bar is drawn")
+    }
+
+    #[test]
+    fn a_named_side_has_a_cell_at_its_own_end_of_the_tab_beside_its_score() {
+        let wide = vec2(1920.0, 1080.0);
+        for teams in [&[1, 2][..], &[1, 1, 2, 2], &[1, 1, 1, 2, 2, 2]] {
+            let plain = settled_tab(&series_view(teams, running_series()), wide).1;
+            assert_eq!(plain.len(), 1, "{teams:?}");
+            let series = named(running_series(), Some("Nexus Esports"), Some("Ironclad"));
+            let (bar, tab) = settled_tab(&series_view(teams, series), wide);
+            let [centre, left, right] = tab[..] else {
+                panic!("{teams:?}: {tab:?}");
+            };
+            // The middle cell is the tab a series with no named side has, and the sides' cells hang
+            // off its two ends, one row tall, the first side's on the left where its score is.
+            assert_eq!(centre, plain[0], "{teams:?}");
+            assert_eq!(left.right(), centre.left());
+            assert_eq!(right.left(), centre.right());
+            for cell in [left, right] {
+                assert_eq!(cell.top(), bar.bottom());
+                assert_eq!(cell.height(), TAB_ROW_HEIGHT);
+            }
+            assert!(left.right() <= bar.center().x && right.left() >= bar.center().x);
+        }
+    }
+
+    #[test]
+    fn with_one_side_named_the_middle_cell_stays_centered_and_the_tab_grows_on_that_side() {
+        let wide = vec2(1920.0, 1080.0);
+        for (first, second) in [(Some("Nexus Esports"), None), (None, Some("Ironclad"))] {
+            let series = named(running_series(), first, second);
+            let (bar, tab) = settled_tab(&series_view(&[1, 2], series), wide);
+            let [centre, cell] = tab[..] else {
+                panic!("{tab:?}");
+            };
+            assert!((centre.center().x - bar.center().x).abs() < 0.5);
+            if first.is_some() {
+                assert_eq!(cell.right(), centre.left());
+            } else {
+                assert_eq!(cell.left(), centre.right());
+            }
+        }
+    }
+
+    #[test]
+    fn a_tab_with_named_sides_keeps_to_the_room_beside_it() {
+        let long_lines = [line(60), "W".repeat(60)];
+        for size in [vec2(1920.0, 1080.0), SMALL_SCREEN, vec2(1280.0, 960.0)] {
+            let screen = Rect::from_min_size(egui::Pos2::ZERO, size);
+            for teams in [
+                &[1, 2][..],
+                &[1, 1, 2, 2],
+                &[1, 1, 1, 2, 2, 2],
+                &[1, 1, 1, 1, 2, 2, 2, 2],
+            ] {
+                for (first, second) in [
+                    (Some(LONG_SIDES[0]), Some(LONG_SIDES[1])),
+                    (Some(LONG_SIDES[0]), None),
+                    (None, Some(LONG_SIDES[1])),
+                ] {
+                    for caster in [Vec::new(), long_lines.to_vec()] {
+                        let series = SeriesView {
+                            lines: caster.clone(),
+                            ..named(longest_series(), first, second)
+                        };
+                        let view = series_view(teams, series);
+                        let room = tab_room(screen, view.form(), view.clock_block_width(true));
+                        let (_, tab) = settled_tab(&view, size);
+                        assert!(
+                            within_room(&tab, screen, room),
+                            "{size:?} {teams:?} {first:?} {second:?}: {tab:?} in {room}"
+                        );
+                        let centre = tab[0];
+                        if !caster.is_empty() {
+                            assert!(centre.width() <= TAB_MAX_WIDTH, "{size:?} {teams:?}");
+                        }
+                        let (whole, line_fits) =
+                            crate::observer::test_support::settled_at(size, |ctx| {
+                                let tab =
+                                    Tab::lay_out(ctx, view.series.as_ref()?, room, TabAnchor::Bar);
+                                let line = tab.centre.line();
+                                Some((
+                                    line.progress_whole(),
+                                    line.width() <= tab.centre.width - TAB_PAD * 2.0 + 0.01,
+                                ))
+                            })
+                            .expect("the tab is laid out");
+                        assert!(whole, "{size:?} {teams:?} {first:?} {second:?}");
+                        assert!(line_fits, "{size:?} {teams:?} {first:?} {second:?}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_series_title_gives_way_before_a_side_name_does() {
+        let series = named(longest_series(), Some(LONG_SIDES[0]), Some(LONG_SIDES[1]));
+        let unnamed = SeriesView {
+            side_names: [None, None],
+            ..series.clone()
+        };
+        crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
+            let natural = TabCentre::lay_out(ctx, &series, f32::INFINITY, TabAnchor::Bar).width;
+            let least = TabCentre::least_width(ctx, &series, TabAnchor::Bar);
+            let roomy = Tab::lay_out(ctx, &series, f32::INFINITY, TabAnchor::Bar);
+            let widest = roomy
+                .sides
+                .iter()
+                .flatten()
+                .map(|cell| cell.width)
+                .fold(0.0, f32::max);
+            let names_whole = |tab: &Tab| {
+                tab.sides
+                    .iter()
+                    .all(|cell| cell.as_ref().is_some_and(|cell| !cell.name.elided))
+            };
+            let title_elided = |tab: &Tab| {
+                tab.centre
+                    .line()
+                    .title
+                    .as_ref()
+                    .is_none_or(|title| title.elided)
+            };
+            assert!(names_whole(&roomy));
+            assert!(!title_elided(&roomy));
+            assert_eq!(roomy.centre.width, natural);
+            // From all the room the tab wants down to none, the middle cell gives way first, its
+            // title elided and then dropped, and a name is elided only once the middle cell is as
+            // narrow as it goes. Too little room for a name to read leaves both cells out, and the
+            // middle cell is then the tab of a series with no named sides.
+            let mut room = natural + widest * 2.0 + 10.0;
+            let (mut saw_title_elided, mut saw_names_elided, mut saw_names_gone) =
+                (false, false, false);
+            while room > TAB_MIN_WIDTH {
+                let tab = Tab::lay_out(ctx, &series, room, TabAnchor::Bar);
+                assert!(tab.centre.line().progress_whole(), "{room}");
+                if tab.sides.iter().all(Option::is_none) {
+                    saw_names_gone = true;
+                    let plain = TabCentre::lay_out(ctx, &unnamed, room, TabAnchor::Bar);
+                    assert_eq!(tab.centre.width, plain.width, "{room}");
+                } else {
+                    let half = tab.centre.width * 0.5
+                        + tab
+                            .sides
+                            .iter()
+                            .flatten()
+                            .map(|cell| cell.width)
+                            .fold(0.0, f32::max);
+                    assert!(half <= room * 0.5 + 0.01, "{room}: {half}");
+                    if names_whole(&tab) {
+                        saw_title_elided |= title_elided(&tab);
+                    } else {
+                        saw_names_elided = true;
+                        assert_eq!(tab.centre.width, least, "{room}");
+                        assert!(tab.centre.line().title.is_none(), "{room}");
+                        assert!(
+                            tab.sides.iter().flatten().all(|cell| {
+                                cell.width - SIDE_CELL_PAD * 2.0 >= MIN_SIDE_NAME_WIDTH
+                            }),
+                            "{room}"
+                        );
+                    }
+                }
+                room -= 3.0;
+            }
+            assert!(saw_title_elided && saw_names_elided && saw_names_gone);
+            Some(())
+        })
+        .expect("the tabs are laid out");
+    }
+
+    #[test]
+    fn a_screen_1280_points_wide_has_no_room_for_the_sides_cells_and_one_1600_wide_does() {
+        let series = named(running_series(), Some("Nexus Esports"), Some("Ironclad"));
+        for teams in [
+            &[1, 2][..],
+            &[1, 1, 2, 2],
+            &[1, 1, 1, 2, 2, 2],
+            &[1, 1, 1, 1, 2, 2, 2, 2],
+        ] {
+            let view = series_view(teams, series.clone());
+            // Between the stats wings, or the corner cards, of a screen 1280 points wide the room
+            // is about what the middle cell hangs from, and nothing is left beside it for a name.
+            let screen = Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN);
+            let room = tab_room(screen, view.form(), view.clock_block_width(true));
+            assert!(room < TAB_MIN_WIDTH + 30.0, "{teams:?}: {room}");
+            let (_, tab) = settled_tab(&view, SMALL_SCREEN);
+            assert_eq!(tab.len(), 1, "{teams:?}: {tab:?}");
+            // A 1600 wide one, which a 4:3 screen 1280 pixels wide is laid out at, has room for
+            // both.
+            let (_, tab) = settled_tab(&view, vec2(1600.0, 900.0));
+            assert_eq!(tab.len(), 3, "{teams:?}: {tab:?}");
+        }
+    }
+
+    #[test]
+    fn the_panels_call_a_series_side_by_its_name_while_the_series_is_shown() {
+        let series = named(running_series(), Some("Nexus Esports"), None);
+        let view = series_view(&[1, 1, 1, 2, 2, 2], series.clone());
+        let names = view.team_names();
+        // The corner cards are the halves the bar would have had, titled with what the panels call
+        // their sides.
+        let titles: Vec<String> = view
+            .halves()
+            .each()
+            .into_iter()
+            .filter_map(|(team, _)| team)
+            .map(|team| crate::observer::team_name(&names, team))
+            .collect();
+        assert_eq!(titles, ["Nexus Esports", "Team 2"]);
+        // A game whose series is not shown calls its teams by their numbers.
+        let unshown = series_view(&[1, 2, 3], series);
+        assert_eq!(unshown.team_names(), TeamNames::default());
     }
 }

@@ -9,7 +9,14 @@ import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
-import { LobbyBestOfJson, LobbyBestOfOverlayJson, LobbyBestOfSides } from './lobby-best-of'
+import {
+  BestOfDisplayName,
+  BestOfDisplayNameChange,
+  LobbyBestOfJson,
+  LobbyBestOfOverlayJson,
+  LobbyBestOfSideNames,
+  LobbyBestOfSides,
+} from './lobby-best-of'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson, SlotType } from './slot'
 
@@ -78,7 +85,11 @@ export enum LobbyServiceErrorCode {
    * has been discarded by the host).
    */
   BestOfGamePending = 'BestOfGamePending',
-  /** A game was started while the seats don't hold the running best-of series' two sides. */
+  /**
+   * A game was started while the seats aren't arranged for a game between the running best-of
+   * series' two sides: a side has nobody in a player seat, someone in a player seat is on neither
+   * side, or a team holds players of both sides (see `checkBestOfRoster`).
+   */
   BestOfRosterMismatch = 'BestOfRosterMismatch',
   ChatRestricted = 'ChatRestricted',
   ComputerInObserverSlot = 'ComputerInObserverSlot',
@@ -86,8 +97,9 @@ export enum LobbyServiceErrorCode {
   ForcedRace = 'ForcedRace',
   GameInProgress = 'GameInProgress',
   /**
-   * A best-of series' length, title, sides or caster overlay lines aren't ones it can be played
-   * with, or a change to it changes nothing.
+   * A best-of series' length, title, sides, side names, display names or caster overlay lines
+   * aren't ones it can be played with (its text is checked by `getBestOfTextProblem`), or a change
+   * to it changes nothing.
    */
   InvalidBestOf = 'InvalidBestOf',
   InvalidGameSubType = 'InvalidGameSubType',
@@ -288,10 +300,25 @@ export interface StartLobbyCountdownRequest extends LobbyClientRequest {
 export interface StartLobbyBestOfRequest extends LobbyClientRequest {
   /** An odd number of games, at most `BEST_OF_MAX_LENGTH`. */
   length: number
-  /** Trimmed, at most `BEST_OF_TITLE_MAX_LENGTH` characters. An empty title is no title. */
+  /**
+   * Trimmed, at most `BEST_OF_TITLE_MAX_LENGTH` characters. An empty title is no title. Like every
+   * text field of a series, refused for what `getBestOfTextProblem` refuses.
+   */
   title?: string
   /** Two sides of 1 to `BEST_OF_MAX_SIDE_SIZE` people each, nobody on both. */
   sides: LobbyBestOfSides
+  /**
+   * The sides' names, in side order. Each is trimmed and at most `BEST_OF_SIDE_NAME_MAX_LENGTH`
+   * characters; `null` or empty means the side has no name. Absent means neither has one.
+   */
+  sideNames?: LobbyBestOfSideNames
+  /**
+   * Display names for people on the sides, each trimmed and at most
+   * `BEST_OF_DISPLAY_NAME_MAX_LENGTH` characters, and given only for someone on a side, once each.
+   * Someone not listed has no display name. Every name given becomes the one the host is remembered
+   * to give that person, and an entry with a `null` or empty name forgets the remembered one.
+   */
+  displayNames?: BestOfDisplayNameChange[]
   /**
    * The caster overlay's first text line. Trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH`
    * characters; absent or empty means no first line.
@@ -317,8 +344,21 @@ export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
   /**
    * The new sides, validated the same way as when starting one, except that people already on
    * either side don't have to still be in the lobby. Games already won stay with the side index.
+   * Someone taken off both sides loses their display name.
    */
   sides?: LobbyBestOfSides
+  /**
+   * The sides' new names, in side order, with the same rules as when starting one: `null` or empty
+   * clears a side's name. Both are given whenever either changes.
+   */
+  sideNames?: LobbyBestOfSideNames
+  /**
+   * Changes to display names, with the same rules as when starting one, checked against the sides
+   * as they are after this change. An entry with a name sets or replaces that person's display name
+   * and an entry with a `null` or empty name clears it; people not listed keep theirs. Each entry is
+   * remembered or forgotten as when starting one.
+   */
+  displayNames?: BestOfDisplayNameChange[]
   /**
    * The caster overlay's new first text line, trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH`
    * characters; `null` or an empty line clears it.
@@ -335,6 +375,15 @@ export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
  * was started or saved with. Empty for someone who has never started one.
  */
 export type GetRememberedBestOfOverlayResponse = LobbyBestOfOverlayJson
+
+/**
+ * The display names the requesting host last gave each of the asked-for people in a best-of series
+ * they started or changed, for prefilling the series page. People the host has given none to, or
+ * whose display name the host cleared, are left out.
+ */
+export interface GetRememberedBestOfDisplayNamesResponse {
+  displayNames: BestOfDisplayName[]
+}
 
 /**
  * The body of a request by the host to end the running best-of series before either side has won

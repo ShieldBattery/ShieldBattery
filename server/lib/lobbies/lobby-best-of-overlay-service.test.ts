@@ -10,7 +10,12 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { deleteFile, writeFile } from '../files'
 import { ImageService } from '../images/image-service'
+import logger from '../logging/logger'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
+import {
+  getRememberedBestOfDisplayNames,
+  rememberBestOfDisplayNames,
+} from './lobby-best-of-display-names-models'
 import { RememberedBestOfOverlay } from './lobby-best-of-overlay-models'
 import {
   BestOfLogoChange,
@@ -26,6 +31,11 @@ vi.mock('./lobby-best-of-overlay-models', () => ({
   setRememberedBestOfOverlay: vi.fn(async (userId: SbUserId, values: RememberedBestOfOverlay) => {
     remembered.set(userId, structuredClone(values))
   }),
+}))
+
+vi.mock('./lobby-best-of-display-names-models', () => ({
+  getRememberedBestOfDisplayNames: vi.fn(async () => []),
+  rememberBestOfDisplayNames: vi.fn(async () => {}),
 }))
 
 vi.mock('../files', () => ({
@@ -92,6 +102,8 @@ describe('lobbies/lobby-best-of-overlay-service', () => {
     remembered.clear()
     asMockedFunction(writeFile).mockClear()
     asMockedFunction(deleteFile).mockClear()
+    asMockedFunction(rememberBestOfDisplayNames).mockReset()
+    asMockedFunction(rememberBestOfDisplayNames).mockResolvedValue(undefined)
     lobbyService = makeLobbyService()
     isImageSafe = vi.fn().mockResolvedValue(true)
     service = new LobbyBestOfOverlayService(
@@ -435,6 +447,79 @@ describe('lobbies/lobby-best-of-overlay-service', () => {
     expect(deleteFile).not.toHaveBeenCalledWith(previous.path)
     expect(remembered.get(HOST)).toEqual({ line1: 'Before', logo: previous })
     expect(lobbyService.replaceBestOfLogo).not.toHaveBeenCalled()
+  })
+
+  test('reads the remembered display names of the host asking', async () => {
+    asMockedFunction(getRememberedBestOfDisplayNames).mockResolvedValueOnce([
+      { userId: OTHER, name: 'Flash' },
+    ])
+
+    expect(await service.getRememberedDisplayNames(HOST, [OTHER, makeSbUserId(3)])).toEqual([
+      { userId: OTHER, name: 'Flash' },
+    ])
+    expect(getRememberedBestOfDisplayNames).toHaveBeenCalledWith(HOST, [OTHER, makeSbUserId(3)])
+  })
+
+  test('starting one remembers the display names given and forgets the ones cleared', async () => {
+    await start(
+      { kind: 'keep' },
+      {
+        displayNames: [
+          { userId: OTHER, name: '  이영호 ' },
+          { userId: HOST, name: '' },
+          { userId: makeSbUserId(3), name: null },
+        ],
+      },
+    )
+
+    expect(rememberBestOfDisplayNames).toHaveBeenCalledExactlyOnceWith(HOST, [
+      { userId: OTHER, name: '이영호' },
+      { userId: HOST, name: undefined },
+      { userId: makeSbUserId(3), name: undefined },
+    ])
+  })
+
+  test('saving one remembers only the display names it changes', async () => {
+    await start()
+    asMockedFunction(rememberBestOfDisplayNames).mockClear()
+
+    await update({ kind: 'keep' }, { title: 'Final' })
+    await update({ kind: 'keep' }, { displayNames: [{ userId: OTHER, name: 'Jaedong' }] })
+
+    expect(asMockedFunction(rememberBestOfDisplayNames).mock.calls).toEqual([
+      [HOST, []],
+      [HOST, [{ userId: OTHER, name: 'Jaedong' }]],
+    ])
+  })
+
+  test("a refused start or save doesn't remember its display names", async () => {
+    lobbyService.startBestOf.mockImplementation(() => {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'bad display name')
+    })
+
+    await expect(
+      start({ kind: 'keep' }, { displayNames: [{ userId: OTHER, name: 'Flash' }] }),
+    ).rejects.toEqual(codeError(LobbyServiceErrorCode.InvalidBestOf))
+
+    expect(rememberBestOfDisplayNames).not.toHaveBeenCalled()
+  })
+
+  test('failing to remember the display names still starts the series', async () => {
+    asMockedFunction(rememberBestOfDisplayNames).mockRejectedValue(new Error('db down'))
+    const logError = vi.spyOn(logger, 'error').mockImplementation(() => {})
+
+    const bestOf = await start(
+      { kind: 'keep' },
+      { displayNames: [{ userId: OTHER, name: 'Flash' }] },
+    )
+
+    expect(bestOf.sides).toEqual([[HOST], [OTHER]])
+    expect(lobbyService.startBestOf).toHaveBeenCalled()
+    expect(logError).toHaveBeenCalledWith(
+      expect.anything(),
+      'error remembering the display names of a best-of series',
+    )
+    logError.mockRestore()
   })
 
   test("a host's starts and saves run one after another", async () => {

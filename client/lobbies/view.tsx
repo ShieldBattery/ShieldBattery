@@ -36,6 +36,7 @@ import {
   discardBestOfGame,
   endBestOf,
   getLobbyState,
+  getRememberedBestOfDisplayNames,
   getRememberedBestOfOverlay,
   kickPlayer,
   leaveLobby,
@@ -335,6 +336,9 @@ function ConnectedLobby() {
       }}
       onLoadRememberedBestOfOverlay={spec => {
         dispatch(getRememberedBestOfOverlay(spec))
+      }}
+      onLoadRememberedBestOfDisplayNames={(userIds, spec) => {
+        dispatch(getRememberedBestOfDisplayNames(userIds, spec))
       }}
       onDiscardBestOfGame={gameId => {
         dispatch(discardBestOfGame(gameId, actionSpec))

@@ -1860,6 +1860,75 @@ describe('games/game-loader/GameLoader', () => {
       await load
     })
 
+    test("carries each side's name as its caption and the seated players' display names", async () => {
+      // p3 observes; the display names given to p3 and p4 stay behind
+      const { load } = await startRosterLoad(
+        'game-series-names',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+          { userId: p3, isObserver: true },
+        ],
+        undefined,
+        {
+          ...bestOf,
+          sides: [
+            { players: [p1], score: 1, name: 'Ironclad' },
+            { players: [p2], score: 1 },
+          ],
+          displayNames: [
+            { userId: p1, name: '이영호' },
+            { userId: p3, name: 'Watcher' },
+            { userId: p4, name: 'Bench' },
+            { userId: p2, name: 'Jaedong 🐙' },
+          ],
+        },
+      )
+
+      for (const userId of [p1, p2, p3]) {
+        expect(publishedSetupFor(userId).seriesOverlay).toEqual({
+          title: 'Grand final',
+          format: { kind: 'bestOf', length: 5 },
+          gameNumber: 3,
+          sides: [
+            { caption: 'Ironclad', score: 1, players: [p1] },
+            { score: 1, players: [p2] },
+          ],
+          displayNames: [
+            { userId: p1, name: '이영호' },
+            { userId: p2, name: 'Jaedong 🐙' },
+          ],
+        })
+      }
+
+      gameLoader.registerGameAsLoaded('game-series-names', p1)
+      gameLoader.registerGameAsLoaded('game-series-names', p2)
+      gameLoader.registerGameAsLoaded('game-series-names', p3)
+      await load
+    })
+
+    test('leaves the captions and display names out when there are none', async () => {
+      const { load } = await startRosterLoad(
+        'game-series-unnamed',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+        ],
+        undefined,
+        { ...bestOf, displayNames: [{ userId: p3, name: 'Bench' }] },
+      )
+
+      const overlay = publishedSetupFor(p1).seriesOverlay
+      expect(overlay).not.toHaveProperty('displayNames')
+      for (const side of overlay.sides) {
+        expect(side).not.toHaveProperty('caption')
+      }
+
+      gameLoader.registerGameAsLoaded('game-series-unnamed', p1)
+      gameLoader.registerGameAsLoaded('game-series-unnamed', p2)
+      await load
+    })
+
     test('has no series overlay on a lobby game outside a series', async () => {
       const { load } = await startNetworkedLoad('game-no-series')
 

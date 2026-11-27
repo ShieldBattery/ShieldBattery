@@ -44,7 +44,7 @@ export type SeriesOverlayFormat = { kind: 'bestOf'; length: number }
 
 /** One side of a series, as the observer overlay shows it. */
 export interface SeriesOverlaySide {
-  /** Text a person typed to name the side. Nothing sets it yet. */
+  /** Text a person typed to name the side. Absent when the side has no name. */
   caption?: string
   /** The number shown for the side. For a best-of, the games it has won so far. */
   score: number
@@ -52,9 +52,15 @@ export interface SeriesOverlaySide {
   players: SbUserId[]
 }
 
+/** A name a person typed for a player, which the observer overlay shows in place of theirs. */
+export interface SeriesOverlayDisplayName {
+  userId: SbUserId
+  name: string
+}
+
 /**
  * Where a series stood when one of its games launched, for the observer overlay to show. Only text
- * a person typed (`title`, `caption`, `lines`) travels as text.
+ * a person typed (`title`, `caption`, `displayNames`, `lines`) travels as text.
  */
 export interface SeriesOverlay {
   /** Text a person typed to name the series. */
@@ -63,6 +69,11 @@ export interface SeriesOverlay {
   /** 1-based. */
   gameNumber: number
   sides: [SeriesOverlaySide, SeriesOverlaySide]
+  /**
+   * The names the observer overlay shows in place of account names: one entry per player seated in
+   * this game (on either side) who has one. Absent when none does.
+   */
+  displayNames?: SeriesOverlayDisplayName[]
   /**
    * Text lines a person typed for the casters' scoreboard, in the order they're shown. At most two,
    * none of them empty; absent when there are none.

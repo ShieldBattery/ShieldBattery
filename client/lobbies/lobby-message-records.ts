@@ -139,22 +139,28 @@ export interface PriorShufflesMessage extends BaseMessage {
 }
 
 /**
- * The host started a best-of series. Its sides are captured when it starts, since the host can
- * change them while it runs.
+ * The host started a best-of series. Its members are captured when it starts, since the host can
+ * change them while it runs. Its sides' names are not: the line reads them from the series by
+ * `bestOfId` when it is shown, so it follows a rename.
  */
 export interface BestOfStartedMessage extends BaseMessage {
   readonly type: LobbyMessageType.LobbyBestOfStarted
+  /** The series' id, unique within the lobby. */
+  readonly bestOfId: string
   readonly title?: string
   readonly length: number
   readonly sides: Readonly<LobbyBestOfSides>
 }
 
 /**
- * A best-of series ended, either won by one side or ended early by the host. Its sides and score
- * are captured as they stood when it ended.
+ * A best-of series ended, either won by one side or ended early by the host. Its members and score
+ * are captured as they stood when it ended; its sides' names are read from the series by `bestOfId`
+ * when the line is shown.
  */
 export interface BestOfEndedMessage extends BaseMessage {
   readonly type: LobbyMessageType.LobbyBestOfEnded
+  /** The series' id, unique within the lobby. */
+  readonly bestOfId: string
   readonly sides: Readonly<LobbyBestOfSides>
   readonly score: readonly [number, number]
   readonly outcome: LobbyBestOfOutcome

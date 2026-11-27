@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { GameType } from '../../../common/games/game-type'
 import { Lobby, Team } from '../../../common/lobbies'
 import {
+  BestOfDisplayName,
   getRunningBestOf,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
@@ -31,6 +32,7 @@ import { BestOfLogoSlot } from '../room/best-of-logo-slot'
 import { RoomSeriesSetup } from '../room/room-series-setup'
 import { logoFileProblemMessage, LogoSlotValue } from '../room/series-setup'
 import { IsolatedReduxProvider } from './isolated-redux'
+import { applyMockBestOfNames } from './mock-best-of-names'
 import { ScenarioPicker } from './scenario-picker'
 import { SQUARE_LOGO, WIDE_LOGO } from './series-setup-samples'
 
@@ -42,6 +44,23 @@ const RIVAL_1 = makeSbUserId(90103)
 const RIVAL_2 = makeSbUserId(90104)
 const OBSERVER = makeSbUserId(90105)
 const BENCHED = makeSbUserId(90106)
+// The roster of a team league side, most of them waiting on the bench or observing.
+const ROSTER = [
+  makeSbUserId(90107),
+  makeSbUserId(90108),
+  makeSbUserId(90109),
+  makeSbUserId(90110),
+  makeSbUserId(90111),
+  makeSbUserId(90112),
+] as const
+const ROSTER_NAMES = [
+  'OverlordOfTheCre',
+  'Spawning_Pool_99',
+  'HydraliskDen',
+  'zergling.rush',
+  'NydusWorm',
+  'DefilerMound',
+]
 
 const MOCK_USERS: SbUser[] = [
   { id: HOST, name: 'claude-2', created: 0 },
@@ -50,6 +69,15 @@ const MOCK_USERS: SbUser[] = [
   { id: RIVAL_2, name: 'claude-5', created: 0 },
   { id: OBSERVER, name: 'NerdRage', created: 0 },
   { id: BENCHED, name: 'blueSky', created: 0 },
+  ...ROSTER.map((id, i) => ({ id, name: ROSTER_NAMES[i], created: 0 })),
+]
+
+/** The display names the mock host is remembered to have given people in an earlier series. */
+const REMEMBERED_NAMES: ReadonlyArray<BestOfDisplayName> = [
+  { userId: HOST, name: 'Rhynso' },
+  { userId: RIVAL_2, name: 'Artosis' },
+  { userId: BENCHED, name: 'Bisu' },
+  { userId: ROSTER[1], name: '이영호' },
 ]
 
 const MOCK_MAP: MapInfo = { ...BigGameHunters, uploadDate: new Date(BigGameHunters.uploadDate) }
@@ -60,6 +88,10 @@ type ScenarioId =
   | 'running'
   | 'rememberedLoading'
   | 'rememberedFailed'
+  | 'rememberedNames'
+  | 'runningNamed'
+  | 'eightOnASide'
+  | 'namesFailed'
   | 'logoSlots'
 type ServerAnswerId = 'accept' | 'refuseRoster' | 'refuseLogo' | 'refuseTooBig' | 'throttled'
 
@@ -69,6 +101,10 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'running', label: 'Running series · Bo7 at 2–1' },
   { id: 'rememberedLoading', label: 'Remembered · loading' },
   { id: 'rememberedFailed', label: 'Remembered · failed to load' },
+  { id: 'rememberedNames', label: 'New series · remembered display names' },
+  { id: 'runningNamed', label: 'Running · named sides + display names' },
+  { id: 'eightOnASide', label: 'Running · eight on a side, long names' },
+  { id: 'namesFailed', label: 'Remembered display names · failed to load' },
   { id: 'logoSlots', label: 'Logo slot states' },
 ]
 
@@ -84,8 +120,11 @@ function makeTeam(name: string, teamId: number, slots: Slot[], isObserver = fals
   return { name, teamId, isObserver, slots, hiddenSlots: [] }
 }
 
-/** A 2v2 with its seats already forming the two sides, an observer and someone on the bench. */
-function makeLobby(): Lobby {
+/**
+ * A 2v2 with its seats already forming the two sides, an observer and someone on the bench. A
+ * crowded lobby also has a team league roster spread over the observer seats and the bench.
+ */
+function makeLobby(crowded = false): Lobby {
   const hostSlot = createHuman(HOST, 't')
   return {
     id: makeSbLobbyId('mock-series-lobby'),
@@ -98,9 +137,20 @@ function makeLobby(): Lobby {
     teams: [
       makeTeam('Top', 1, [hostSlot, createHuman(ALLY, 'z')]),
       makeTeam('Bottom', 2, [createHuman(RIVAL_1, 'p'), createHuman(RIVAL_2, 'r')]),
-      makeTeam('Observers', 0, [createObserver(OBSERVER), createOpen()], true),
+      makeTeam(
+        'Observers',
+        0,
+        crowded
+          ? [createObserver(OBSERVER), createObserver(ROSTER[0]), createObserver(ROSTER[1])]
+          : [createObserver(OBSERVER), createOpen()],
+        true,
+      ),
     ],
-    bench: [{ userId: BENCHED, race: 'z', joinedAt: Date.now() - 60 * 1000 }],
+    bench: [BENCHED, ...(crowded ? ROSTER.slice(2) : [])].map(userId => ({
+      userId,
+      race: 'z' as const,
+      joinedAt: Date.now() - 60 * 1000,
+    })),
     host: hostSlot,
     useLegacyLimits: false,
     starcraftCompatibleReplays: true,
@@ -127,6 +177,50 @@ const RUNNING_BEST_OF: LobbyBestOfJson = {
     line2: 'Observer  Royo',
     logo: WIDE_LOGO,
   },
+}
+
+const RUNNING_NAMED_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_BEST_OF,
+  id: 'mock-running-named-best-of',
+  sides: [
+    [HOST, ALLY],
+    [RIVAL_1, RIVAL_2, BENCHED],
+  ],
+  sideNames: ['Nexus Esports', 'Ironclad'],
+  displayNames: [
+    { userId: ALLY, name: 'Flash' },
+    { userId: RIVAL_1, name: 'tec27' },
+  ],
+}
+
+/** A full side of eight, with names as long as they can be. */
+const EIGHT_ON_A_SIDE_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_BEST_OF,
+  id: 'mock-eight-on-a-side-best-of',
+  title: 'Team League Season Finale: Upper Bracket',
+  sides: [
+    [HOST, ALLY, ...ROSTER],
+    [RIVAL_1, RIVAL_2, OBSERVER],
+  ],
+  sideNames: ['Overlords of the Creep 9', 'Ironclad'],
+  displayNames: [
+    { userId: ALLY, name: 'Sixteen_Chars_Ok' },
+    { userId: ROSTER[0], name: '최고의저그플레이어' },
+    { userId: RIVAL_1, name: 'tec27' },
+  ],
+}
+
+function scenarioBestOfs(scenario: ScenarioId): LobbyBestOfJson[] {
+  switch (scenario) {
+    case 'running':
+      return [RUNNING_BEST_OF]
+    case 'runningNamed':
+      return [RUNNING_NAMED_BEST_OF]
+    case 'eightOnASide':
+      return [EIGHT_ON_A_SIDE_BEST_OF]
+    default:
+      return []
+  }
 }
 
 const REMEMBERED: GetRememberedBestOfOverlayResponse = {
@@ -167,13 +261,13 @@ function seedScenario(dispatch: ReturnType<typeof useAppDispatch>, scenario: Sce
     type: '@lobbies/init',
     payload: {
       type: 'init',
-      lobby: makeLobby(),
+      lobby: makeLobby(scenario === 'eightOnASide' || scenario === 'rememberedNames'),
       userInfos: MOCK_USERS,
       readyUsers: [],
       shuffleCount: 0,
       mapStatuses: [],
       series: [],
-      bestOfs: scenario === 'running' ? [RUNNING_BEST_OF] : [],
+      bestOfs: scenarioBestOfs(scenario),
     },
   })
 }
@@ -345,14 +439,33 @@ function SeriesSetupTestInner() {
             if (scenario === 'rememberedFailed') {
               spec.onError(new Error('mock remembered overlay failure'))
             } else {
-              spec.onSuccess(scenario === 'remembered' ? REMEMBERED : {})
+              spec.onSuccess(
+                scenario === 'remembered' || scenario === 'rememberedNames' ? REMEMBERED : {},
+              )
+            }
+          }, 400)
+        }}
+        onLoadRememberedDisplayNames={(userIds, spec) => {
+          if (scenario === 'rememberedLoading') {
+            return
+          }
+          setTimeout(() => {
+            if (spec.signal?.aborted) {
+              return
+            }
+            if (scenario === 'namesFailed') {
+              spec.onError(new Error('mock remembered display names failure'))
+            } else {
+              spec.onSuccess({
+                displayNames: REMEMBERED_NAMES.filter(entry => userIds.includes(entry.userId)),
+              })
             }
           }, 400)
         }}
         onStartBestOf={(request, spec) => {
           setLastRequest(describeRequest('start', request))
           answer(spec, () => {
-            const bestOf: LobbyBestOfJson = {
+            const started: LobbyBestOfJson = {
               id: `mock-started-best-of-${openCount}`,
               ...(request.title ? { title: request.title } : {}),
               length: request.length,
@@ -364,6 +477,7 @@ function SeriesSetupTestInner() {
                 logo: applyLogo(scenario === 'remembered' ? REMEMBERED.logo : undefined, request),
               }),
             }
+            const bestOf = applyMockBestOfNames(started, request, 'start')
             dispatch({
               type: '@lobbies/updateBestOfStarted',
               payload: { type: 'bestOfStarted', bestOf },
@@ -377,7 +491,7 @@ function SeriesSetupTestInner() {
               return
             }
             const overlay = runningBestOf.overlay ?? {}
-            const bestOf: LobbyBestOfJson = {
+            const updated: LobbyBestOfJson = {
               ...runningBestOf,
               ...(request.sides ? { sides: request.sides } : {}),
               overlay: toBestOfOverlayJson({
@@ -387,11 +501,12 @@ function SeriesSetupTestInner() {
               }),
             }
             if (request.title !== undefined) {
-              delete bestOf.title
+              delete updated.title
               if (request.title) {
-                bestOf.title = request.title
+                updated.title = request.title
               }
             }
+            const bestOf = applyMockBestOfNames(updated, request, 'update')
             dispatch({
               type: '@lobbies/updateBestOfUpdated',
               payload: { type: 'bestOfUpdated', bestOf },

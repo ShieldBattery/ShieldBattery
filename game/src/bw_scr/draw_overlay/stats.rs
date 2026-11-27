@@ -17,7 +17,7 @@ use overlay_ui::observer::{
     MilitaryView, ObserverView, OnScreenBaseView, OnScreenPlayerView, OnScreenUnitView,
     OnScreenView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView, SelectedUnitView,
     SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventView, TimelineView, UnitStatusView, WorkerJob,
+    TeamCardsView, TeamNames, TimelineEventView, TimelineView, UnitStatusView, WorkerJob,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
@@ -30,6 +30,7 @@ use crate::bw_scr::stat_txt::{StatTxt, UnitStatus};
 use crate::bw_scr::unit_health_bars::{is_spellcaster, selection_circle_bottom};
 use crate::game_thread;
 
+use super::series::{DisplayNames, panel_name};
 use super::{
     BwVars, FASTEST_GAME_SPEED, has_player_vision, production, replay_players_by_team,
     shown_on_panels,
@@ -54,18 +55,34 @@ struct StatsPlayer {
     pub race: RaceView,
 }
 
-/// The players the stats wings have rows for, in the order the replay lists them, on the teams a
-/// series game puts them on where `series_teams` gives them.
+/// What a series game changes about the players every observer panel reports on, each where the
+/// watcher is shown it: the teams its slots are on, which stand in for the game's own (see
+/// [`series`](super::series)), and the names its players are shown under.
+#[derive(Copy, Clone, Default)]
+pub(super) struct SeriesPanels<'a> {
+    pub(super) teams: Option<&'a [u8; 8]>,
+    pub(super) display_names: Option<&'a DisplayNames>,
+}
+
+impl SeriesPanels<'_> {
+    /// What every observer panel calls the player in `player_id`'s slot.
+    pub(super) fn player_name(&self, bw: &BwVars, player_id: u8) -> String {
+        panel_name(self.display_names, player_id, player_name(bw, player_id))
+    }
+}
+
+/// The players the stats wings have rows for, in the order the replay lists them, on the teams and
+/// under the names a series game gives them where `series` has them.
 ///
 /// The same rule the matchup bar uses (see [`shown_on_panels`]), so a game's panels all report on
-/// the same players.
-fn stats_players(bw: &BwVars, series_teams: Option<&[u8; 8]>) -> Vec<StatsPlayer> {
-    replay_players_by_team(bw, series_teams)
+/// the same players by the same names.
+fn stats_players(bw: &BwVars, series: SeriesPanels<'_>) -> Vec<StatsPlayer> {
+    replay_players_by_team(bw, series.teams)
         .filter(|&(_team, player_id)| shown_on_panels(bw, player_id))
         .map(|(team, player_id)| StatsPlayer {
             player_id,
             team,
-            name: player_name(bw, player_id),
+            name: series.player_name(bw, player_id),
             color: player_color(bw, player_id),
             vision: has_player_vision(bw, player_id),
             race: player_race(bw, player_id).1,
@@ -593,11 +610,13 @@ pub(super) struct ObserverViewCache {
 }
 
 /// What a graphs view was built from.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 struct GraphsKey {
     samples: Option<HistoryStamp>,
     series: GraphSeries,
     grouping: Option<GraphGrouping>,
+    /// What a side's line is labelled with.
+    team_names: TeamNames,
 }
 
 /// What a timeline view was built from.
@@ -613,18 +632,18 @@ struct TimelineKey {
 impl ObserverViewCache {
     /// The view for this frame, reusing whatever of `previous` nothing has moved under.
     ///
-    /// `matchup` and `production` are this frame's, built by the caller, as are `series_teams`, the
-    /// teams a series game puts its slots on where the watcher is shown the series.
+    /// `matchup` and `production` are this frame's, built by the caller, as is `series`, what a
+    /// series game changes about its players where the watcher is shown it.
     pub(super) fn build(
         previous: Option<ObserverViewCache>,
         bw: &BwVars,
-        series_teams: Option<&[u8; 8]>,
+        series: SeriesPanels<'_>,
         game_stats: Option<&GameStats>,
         prefs: &PanelPrefs,
         matchup: MatchupView,
         production: ProductionView,
     ) -> ObserverViewCache {
-        let players = stats_players(bw, series_teams);
+        let players = stats_players(bw, series);
         let stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
         let stats = stats.as_ref();
         // A game with one player per side plots the same lines either way, so it is told there is
@@ -708,9 +727,16 @@ impl ObserverViewCache {
             samples,
             series: prefs.graph_series,
             grouping,
+            team_names: cache.view.matchup.team_names(),
         };
         if stale(&cache.graphs, &graphs, prefs.graphs) {
-            cache.view.graphs = build_graphs_view(&cache.players, stats, graphs.series, grouping);
+            cache.view.graphs = build_graphs_view(
+                &cache.players,
+                stats,
+                graphs.series,
+                grouping,
+                &graphs.team_names,
+            );
             cache.graphs = Some(graphs);
         }
         // The axis runs to the frame on screen rather than to the last sample.
@@ -882,7 +908,8 @@ fn build_military_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -
 }
 
 /// Builds the graphs panel's view for whichever series the watcher is on, plotted for whichever of
-/// the game's sides or players they asked for.
+/// the game's sides or players they asked for, a side's line labelled with what `team_names` calls
+/// the side.
 ///
 /// Only that one series is thinned out of the history. The panel plots one at a time, and the other
 /// four would be four times the work for lines nobody is looking at. The time axis is left to the
@@ -892,6 +919,7 @@ fn build_graphs_view(
     stats: Option<&StatsAsOf<'_>>,
     series: GraphSeries,
     grouping: Option<GraphGrouping>,
+    team_names: &TeamNames,
 ) -> GraphsView {
     let of_player = |player: &StatsPlayer| {
         stats
@@ -902,7 +930,7 @@ fn build_graphs_view(
         sides(players)
             .into_iter()
             .map(|(team, members)| GraphLineView {
-                label: overlay_ui::observer::team_name(team),
+                label: overlay_ui::observer::team_name(team_names, team),
                 // A side's line takes the color of the player at the top of its block in every
                 // other panel, which is the only color on screen that already stands for it.
                 color: members

@@ -182,7 +182,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 17] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 19] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -217,6 +217,28 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 17] = [
         },
         observer::Top::Bar,
     )),
+    // Sides and players under names as long as a lobby allows beside the longest series line: the
+    // sides' cells at the ends of the bar's tab, which give way to a stretched line, and the
+    // scoreboard's rows labelled with the sides' names.
+    Preset::Observer(observer::Preset::named(
+        2,
+        1,
+        observer::Series::Stretched,
+        observer::Names::Long,
+        observer::Caster::Full {
+            logo: observer::SampleLogo::Wide,
+            long: true,
+        },
+        observer::Top::Bar,
+    )),
+    Preset::Observer(observer::Preset::named(
+        4,
+        2,
+        observer::Series::Stretched,
+        observer::Names::Long,
+        observer::Caster::None,
+        observer::Top::Compact,
+    )),
     // A full selection, whose kill label has only the narrow strip beside the grid to fit in.
     Preset::Observer(observer::Preset::selection_showcase(
         observer::Showcase::Spells,
@@ -247,6 +269,7 @@ pub fn all_presets() -> Vec<Preset> {
         )
         .chain(observer::Preset::ALL.into_iter().map(Preset::Observer))
         .chain(observer::Preset::caster_presets().map(Preset::Observer))
+        .chain(observer::Preset::named_presets().map(Preset::Observer))
         .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
         .chain(
             kitchen_sink::Preset::ALL

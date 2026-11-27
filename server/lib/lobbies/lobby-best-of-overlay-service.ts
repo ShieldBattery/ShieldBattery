@@ -1,6 +1,8 @@
 import { singleton } from 'tsyringe'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
+  BestOfDisplayName,
+  BestOfDisplayNameChange,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
   LobbyBestOfOverlayJson,
@@ -12,6 +14,10 @@ import { createImagePath } from '../files/images'
 import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
 import { rasterizeBestOfLogo } from './best-of-logo'
+import {
+  getRememberedBestOfDisplayNames,
+  rememberBestOfDisplayNames,
+} from './lobby-best-of-display-names-models'
 import {
   getRememberedBestOfOverlay,
   RememberedBestOfOverlay,
@@ -59,8 +65,8 @@ function toFileName(file: UploadedBestOfLogo): string {
 }
 
 /**
- * Starts and saves best-of series together with their caster overlay's logo and the overlay a host
- * is remembered by.
+ * Starts and saves best-of series together with their caster overlay's logo, the overlay a host is
+ * remembered by, and the display names a host is remembered to give players.
  *
  * Every host has at most one stored logo, which belongs to their row of remembered values: it is
  * written before that row points at it, and deleted once the row no longer does. Every series that
@@ -85,9 +91,18 @@ export class LobbyBestOfOverlayService {
     return toOverlayResponse(await getRememberedBestOfOverlay(userId))
   }
 
+  /** Returns the display names a host is remembered to have last given any of `playerIds`. */
+  getRememberedDisplayNames(
+    hostId: SbUserId,
+    playerIds: ReadonlyArray<SbUserId>,
+  ): Promise<BestOfDisplayName[]> {
+    return getRememberedBestOfDisplayNames(hostId, playerIds)
+  }
+
   /**
    * Starts a best-of series with a caster overlay, and remembers its lines and logo as the ones
-   * the host's next series starts with.
+   * the host's next series starts with, and the display names it was given (or cleared) as the ones
+   * the host gives those players next.
    */
   startBestOf(
     params: Omit<StartBestOfParams, 'logo'>,
@@ -97,6 +112,7 @@ export class LobbyBestOfOverlayService {
       this.apply({
         userId: params.client.userId,
         logoChange,
+        displayNames: params.displayNames,
         check: () => this.lobbyService.checkStartBestOf(params),
         commit: rememberedLogo =>
           this.lobbyService.startBestOf({ ...params, logo: rememberedLogo }),
@@ -106,7 +122,8 @@ export class LobbyBestOfOverlayService {
 
   /**
    * Changes a running best-of series, and remembers the lines and logo it has afterwards as the ones
-   * the host's next series starts with.
+   * the host's next series starts with, and the display names the change set (or cleared) as the
+   * ones the host gives those players next.
    */
   updateBestOf(
     params: Omit<UpdateBestOfParams, 'logo'>,
@@ -116,6 +133,7 @@ export class LobbyBestOfOverlayService {
       this.apply({
         userId: params.client.userId,
         logoChange,
+        displayNames: params.displayNames,
         // Whether the logo is replaced or removed makes no difference to whether the change is
         // valid, only to what it changes
         check: () =>
@@ -141,6 +159,8 @@ export class LobbyBestOfOverlayService {
    * 4. `commit` applies the change to the lobby, which checks everything again, since the lobby may
    *    have changed while 2 and 3 waited. If it refuses now, 3 is undone and the new file deleted.
    * 5. A remembered logo the host moved off of is taken off every series and its file deleted.
+   * 6. The lines the series now has, and the display names the change set or cleared, are
+   *    remembered.
    *
    * A refusal at any step leaves the series and the remembered values as they were, and nothing
    * stored.
@@ -148,11 +168,14 @@ export class LobbyBestOfOverlayService {
   private async apply({
     userId,
     logoChange,
+    displayNames,
     check,
     commit,
   }: {
     userId: SbUserId
     logoChange: BestOfLogoChange
+    /** The display names the start or save sets or clears, which the lobby checks in `commit`. */
+    displayNames: ReadonlyArray<BestOfDisplayNameChange> | undefined
     check: () => void
     /** Applies the change to the lobby, given the logo the host's remembered values now hold. */
     commit: (rememberedLogo: LobbyBestOfLogoJson | undefined) => LobbyBestOfJson
@@ -198,8 +221,28 @@ export class LobbyBestOfOverlayService {
     }
 
     await this.rememberLines(userId, bestOf, remembered)
+    await this.rememberDisplayNames(userId, displayNames ?? [])
 
     return bestOf
+  }
+
+  /**
+   * Remembers the display names a start or save set, and forgets the ones it cleared, as the lobby
+   * kept them. Like the lines, a failure here is logged rather than refusing a change that took
+   * effect; the host's next series then starts with the display names remembered before.
+   */
+  private async rememberDisplayNames(
+    userId: SbUserId,
+    changes: ReadonlyArray<BestOfDisplayNameChange>,
+  ) {
+    try {
+      await rememberBestOfDisplayNames(
+        userId,
+        changes.map(change => ({ userId: change.userId, name: change.name?.trim() || undefined })),
+      )
+    } catch (err) {
+      logger.error({ err }, 'error remembering the display names of a best-of series')
+    }
   }
 
   /**

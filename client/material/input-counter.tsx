@@ -66,6 +66,11 @@ export interface InputCounterProps {
    * going negative (and switching to the error color) once the value exceeds this.
    */
   maxLength: number
+  /**
+   * Counts the characters of the value the way its limit does. Defaults to UTF-16 code units
+   * (`String.length`).
+   */
+  countCharacters?: (value: string) => number
   className?: string
 }
 
@@ -75,12 +80,13 @@ export interface InputCounterProps {
  * Note that this is purely informational and doesn't prevent input past the limit, so that
  * validation can surface an error instead of input silently getting cut off.
  *
- * "Characters" here means UTF-16 code units (`String.length`), so e.g. an emoji counts as 2 or
- * more. That matches how the server measures messages when trimming, which is what matters for
- * the count being truthful.
+ * "Characters" here means UTF-16 code units (`String.length`) unless `countCharacters` says
+ * otherwise, so e.g. an emoji counts as 2 or more. That matches how the server measures messages
+ * when trimming, which is what matters for the count being truthful; a limit the server counts
+ * differently passes its own way of counting.
  */
-export function InputCounter({ value, maxLength, className }: InputCounterProps) {
-  const remaining = maxLength - value.length
+export function InputCounter({ value, maxLength, countCharacters, className }: InputCounterProps) {
+  const remaining = maxLength - (countCharacters ? countCharacters(value) : value.length)
   const showAt = counterVisibleAt(maxLength)
 
   return (

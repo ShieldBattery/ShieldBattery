@@ -11,6 +11,9 @@
 //!
 //! A click on a row takes that player's vision, as it does everywhere a player is named, and a
 //! player whose vision is off is dimmed rather than dropped.
+//!
+//! A side of a series its host named is labelled with its name where the panel labels a team: on
+//! the headings row over the names for the side listed first, and on the divider over the other.
 
 use egui::{Align, Context, Rect, Sense, Ui, Vec2, pos2, vec2};
 
@@ -23,7 +26,7 @@ use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
     Wing, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider, paint_text,
-    teams_worth_dividing, vision_alpha, wing_panel,
+    team_name, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -135,6 +138,7 @@ pub fn render_scoreboard_view(
 
 /// Draws the panel's contents under its title row, and reports which player was clicked.
 fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
+    let names = view.team_names();
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
     draw_headings(
@@ -142,8 +146,8 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
         headings,
         view.players
             .first()
-            .map(|player| player.team)
-            .filter(|_| divided),
+            .filter(|_| divided)
+            .map(|player| team_name(&names, player.team)),
     );
     let mut side = view.players.first().map(|player| player.team);
     let mut clicked = None;
@@ -153,7 +157,7 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
             ui.add_space(STAT_ROW_GAP);
             let (row, _) =
                 ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
-            paint_team_divider(ui, row, player.team);
+            paint_team_divider(ui, row, &team_name(&names, player.team));
         }
         ui.add_space(STAT_ROW_GAP);
         let (row, response) =
@@ -167,13 +171,13 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
     clicked
 }
 
-/// Draws the row of column headings: the icon heading each number column, and over the names the
-/// team a divided table opens with, `first_team`, as a wing's headings row names it.
-fn draw_headings(ui: &Ui, rect: Rect, first_team: Option<u8>) {
+/// Draws the row of column headings: the icon heading each number column, and over the names what
+/// the team a divided table opens with is called, `first_team`, as a wing's headings row names it.
+fn draw_headings(ui: &Ui, rect: Rect, first_team: Option<String>) {
     let mut cursor = EdgeCursor::from_left(rect);
     let names = cursor.take(IDENTITY_WIDTH);
     if let Some(team) = first_team {
-        paint_first_team_name(ui, names, team);
+        paint_first_team_name(ui, names, &team);
     }
     for column in Column::ALL {
         let cell = cursor.take(column.width());
@@ -355,7 +359,8 @@ mod tests {
 
     /// The series is a panel of its own, so a series game's Matchup panel is the panel of a game
     /// with no series: the same height, the same name slots, the same everything, whatever lines
-    /// and logo the series carries for the casters.
+    /// and logo the series carries for the casters. Only a table divided into its sides has labels
+    /// for a side's name to take, so a duel is the same pixels with its sides named as without.
     #[test]
     fn a_series_leaves_the_panel_exactly_as_it_is_without_one() {
         let series = crate::observer::SeriesView {
@@ -368,6 +373,10 @@ mod tests {
                 texture: egui::TextureId::User(1),
                 size: [576, 144],
             }),
+            side_names: [
+                Some("Nexus Esports Academy II".to_string()),
+                Some("Ironclad Gaming Division".to_string()),
+            ],
         };
         for teams in [
             &[1, 2][..],
@@ -386,7 +395,24 @@ mod tests {
             };
             let scored = game(Some(series.clone()));
             assert!(scored.shown_series().is_some(), "{teams:?}");
-            assert!(painted(&game(None)) == painted(&scored), "{teams:?}");
+            if teams.len() == 2 {
+                assert!(painted(&game(None)) == painted(&scored), "{teams:?}");
+            } else {
+                // The sides' names take the labels the table already has.
+                let height = |view: &MatchupView| {
+                    settled_rect(|ctx| {
+                        render_scoreboard_view(view, ctx, true).map(|outcome| outcome.rect)
+                    })
+                    .expect("the scoreboard is drawn")
+                    .height()
+                };
+                assert_eq!(height(&game(None)), height(&scored), "{teams:?}");
+                let unnamed = game(Some(crate::observer::SeriesView {
+                    side_names: [None, None],
+                    ..series.clone()
+                }));
+                assert!(painted(&game(None)) == painted(&unnamed), "{teams:?}");
+            }
         }
     }
 

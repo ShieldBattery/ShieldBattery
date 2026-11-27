@@ -12,11 +12,14 @@ import {
   MAX_MAP_QUEUE,
 } from '../../../common/lobbies'
 import {
+  BEST_OF_DISPLAY_NAME_MAX_LENGTH,
   BEST_OF_LOGO_MAX_SIZE_BYTES,
   BEST_OF_MAX_LENGTH,
   BEST_OF_MAX_SIDE_SIZE,
   BEST_OF_OVERLAY_LINE_MAX_LENGTH,
+  BEST_OF_SIDE_NAME_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
+  BestOfDisplayNameChange,
 } from '../../../common/lobbies/lobby-best-of'
 import {
   ALL_LOBBY_MAP_STATUSES,
@@ -254,10 +257,20 @@ const moveSlotBody = Joi.object<MoveSlotRequest>({
 })
 
 /**
- * A best-of series title, trimmed. Empty is accepted and means no title; the service has the final
- * say on what a title can be.
+ * Text typed for a best-of series whose limit is `maxLength` characters, trimmed. Empty is accepted
+ * and means none. The limit counts code points, of which a JavaScript string can hold two units
+ * each, so only twice the limit is refused here; the service has the final say on what the text
+ * can be.
  */
-const bestOfTitleSchema = Joi.string().allow('').trim().max(BEST_OF_TITLE_MAX_LENGTH)
+function bestOfTextSchema(maxLength: number) {
+  return Joi.string()
+    .allow('')
+    .trim()
+    .max(maxLength * 2)
+}
+
+/** A best-of series title. */
+const bestOfTitleSchema = bestOfTextSchema(BEST_OF_TITLE_MAX_LENGTH)
 
 /** One side of a best-of series: the user ids of the people playing for it. */
 const bestOfSideSchema = Joi.array()
@@ -272,11 +285,34 @@ const bestOfSideSchema = Joi.array()
  */
 const bestOfSidesSchema = Joi.array().ordered(bestOfSideSchema, bestOfSideSchema).length(2)
 
+/** A side name or display name, where `null` means no name just as empty does. */
+function bestOfNameSchema(maxLength: number) {
+  return bestOfTextSchema(maxLength).allow(null)
+}
+
+/** The names of a best-of series' two sides, in side order. */
+const bestOfSideNamesSchema = Joi.array()
+  .ordered(
+    bestOfNameSchema(BEST_OF_SIDE_NAME_MAX_LENGTH).required(),
+    bestOfNameSchema(BEST_OF_SIDE_NAME_MAX_LENGTH).required(),
+  )
+  .length(2)
+
 /**
- * A text line of a best-of series' caster overlay, trimmed. Empty is accepted and means no line; the
- * service has the final say on what a line can be.
+ * Display names set or cleared for people on a best-of series' sides. Whether each person is on a
+ * side is the service's to check.
  */
-const bestOfOverlayLineSchema = Joi.string().allow('').trim().max(BEST_OF_OVERLAY_LINE_MAX_LENGTH)
+const bestOfDisplayNamesSchema = Joi.array()
+  .items(
+    Joi.object<BestOfDisplayNameChange>({
+      userId: Joi.number().integer().min(1).required(),
+      name: bestOfNameSchema(BEST_OF_DISPLAY_NAME_MAX_LENGTH).required(),
+    }),
+  )
+  .max(BEST_OF_MAX_SIDE_SIZE * 2)
+
+/** A text line of a best-of series' caster overlay. */
+const bestOfOverlayLineSchema = bestOfTextSchema(BEST_OF_OVERLAY_LINE_MAX_LENGTH)
 
 /** The multipart body of a best-of start: the request as JSON in its `series` field. */
 const startBestOfBody = Joi.object<{ series: StartLobbyBestOfRequest }>({
@@ -286,6 +322,8 @@ const startBestOfBody = Joi.object<{ series: StartLobbyBestOfRequest }>({
       length: Joi.number().integer().min(1).max(BEST_OF_MAX_LENGTH).required(),
       title: bestOfTitleSchema,
       sides: bestOfSidesSchema.required(),
+      sideNames: bestOfSideNamesSchema,
+      displayNames: bestOfDisplayNamesSchema,
       line1: bestOfOverlayLineSchema,
       line2: bestOfOverlayLineSchema,
       deleteLogo: Joi.boolean(),
@@ -303,6 +341,8 @@ const updateBestOfBody = Joi.object<{ changes: UpdateLobbyBestOfRequest }>({
       clientId: clientIdSchema,
       title: bestOfTitleSchema.allow(null),
       sides: bestOfSidesSchema,
+      sideNames: bestOfSideNamesSchema,
+      displayNames: bestOfDisplayNamesSchema,
       line1: bestOfOverlayLineSchema.allow(null),
       line2: bestOfOverlayLineSchema.allow(null),
       deleteLogo: Joi.boolean(),
@@ -899,6 +939,8 @@ export class LobbyApi {
         length: series.length,
         title: series.title,
         sides: series.sides,
+        sideNames: series.sideNames,
+        displayNames: series.displayNames,
         line1: series.line1,
         line2: series.line2,
       },
@@ -920,6 +962,8 @@ export class LobbyApi {
     if (
       changes.title === undefined &&
       changes.sides === undefined &&
+      changes.sideNames === undefined &&
+      changes.displayNames === undefined &&
       changes.line1 === undefined &&
       changes.line2 === undefined &&
       logoChange.kind === 'keep'
@@ -934,6 +978,8 @@ export class LobbyApi {
         lobbyId: params.lobbyId,
         title: changes.title,
         sides: changes.sides,
+        sideNames: changes.sideNames,
+        displayNames: changes.displayNames,
         line1: changes.line1,
         line2: changes.line2,
       },

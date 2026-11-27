@@ -5231,10 +5231,7 @@ describe('lobbies/lobby-service', () => {
       expect(() => start(3, 'x'.repeat(51), [[H], [J]])).toThrow(invalid)
       expect(() => start(3, undefined, [[], [J]])).toThrow(invalid)
       expect(() =>
-        start(3, undefined, [
-          [H, makeSbUserId(10), makeSbUserId(11), makeSbUserId(12), makeSbUserId(13)],
-          [J],
-        ]),
+        start(3, undefined, [[H, ...[10, 11, 12, 13, 14, 15, 16, 17].map(makeSbUserId)], [J]]),
       ).toThrow(invalid)
       expect(() => start(3, undefined, [[H, H], [J]])).toThrow(invalid)
       expect(() => start(3, undefined, [[H], [J, H]])).toThrow(invalid)
@@ -5349,6 +5346,47 @@ describe('lobbies/lobby-service', () => {
         invalid,
       )
       expect(runningBestOf(id).overlay).toEqual({ line1: 'x'.repeat(60) })
+    })
+
+    test("starting or changing one refuses a title or line with characters it can't have", async () => {
+      const id = await createTeamLobby()
+      const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
+      const cp = (codePoint: number) => String.fromCodePoint(codePoint)
+      const refused = [
+        ['a lone surrogate', `Grand${cp(0xd83c)} final`],
+        ['a control character', `Grand${cp(0x07)} final`],
+        ['a line break', `Grand${cp(0x0a)}final`],
+        ['a bidi override', `Grand${cp(0x202e)} final`],
+      ]
+      const start = (params: { title?: string; line1?: string; line2?: string }) =>
+        lobbyService.startBestOf({ client: host.client, length: 3, sides: [[H], [J]], ...params })
+
+      for (const [what, text] of refused) {
+        expect(() => start({ title: text }), `title with ${what}`).toThrow(invalid)
+        expect(() => start({ line1: text }), `line 1 with ${what}`).toThrow(invalid)
+        expect(() => start({ line2: text }), `line 2 with ${what}`).toThrow(invalid)
+      }
+      expect(lobbyService.bestOfs.get(id) ?? []).toEqual([])
+
+      // A title and lines of emoji are counted in code points, up to their limits
+      expect(() => start({ title: '🏆'.repeat(51) })).toThrow(invalid)
+      expect(() => start({ line1: '🎙'.repeat(61) })).toThrow(invalid)
+      start({ title: '🏆'.repeat(50), line1: '🎙'.repeat(60) })
+      expect(runningBestOf(id).title).toBe('🏆'.repeat(50))
+      expect(runningBestOf(id).overlay).toEqual({ line1: '🎙'.repeat(60) })
+
+      for (const [what, text] of refused) {
+        expect(
+          () => lobbyService.updateBestOf({ client: host.client, title: text }),
+          `new title with ${what}`,
+        ).toThrow(invalid)
+        expect(
+          () => lobbyService.updateBestOf({ client: host.client, line2: text }),
+          `new line 2 with ${what}`,
+        ).toThrow(invalid)
+      }
+      expect(runningBestOf(id).title).toBe('🏆'.repeat(50))
+      expect(runningBestOf(id).overlay).toEqual({ line1: '🎙'.repeat(60) })
     })
 
     test("the host can change the caster overlay's lines and logo, leaving the rest", async () => {
@@ -5493,13 +5531,13 @@ describe('lobbies/lobby-service', () => {
       expect(forceStart).toThrow(mismatch)
       lobbyService.leaveLobby({ client: otherHost.client })
 
-      // A side member observing instead of playing
+      // A side's only member observing instead of playing, which a computer doesn't stand in for
       const seated = lobbyService.lobbies.get(id)!
       const [joinerTeamIndex, , joinerSlot] = findSlotByUserId(seated, J)
       const computerSeat = seated.teams[joinerTeamIndex!].slots.find(slot => slot.type === 'open')!
       lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
       lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
-      expect(forceStart).toThrow(mismatch)
+      expect(forceStart).toThrow(rosterError('Team 2 has nobody seated'))
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(false)
 
       // With every person on one team, any split of them between the sides is a game between them
@@ -5767,6 +5805,368 @@ describe('lobbies/lobby-service', () => {
       ])
 
       expect(runningBestOf(id).games).toEqual([{ gameId: first, status: 'won', winner: 0 }])
+    })
+
+    /** Moves a member seated as a player to an observer seat. */
+    function moveToObservers(id: SbLobbyId, userId: SbUserId) {
+      const [, , slot] = findSlotByUserId(lobbyService.lobbies.get(id)!, userId)
+      lobbyService.makeObserver({ client: host.client, slotId: slot!.id })
+    }
+
+    /** Moves an observing member into an open player seat of the team at `teamIndex`. */
+    function moveToTeam(id: SbLobbyId, userId: SbUserId, teamIndex: number) {
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , slot] = findSlotByUserId(lobby, userId)
+      const seat = lobby.teams[teamIndex].slots.find(s => s.type === 'open')!
+      lobbyService.moveSlot({ client: host.client, fromSlotId: slot!.id, toSlotId: seat.id })
+    }
+
+    function rosterError(message: string) {
+      return expect.objectContaining({ code: LobbyServiceErrorCode.BestOfRosterMismatch, message })
+    }
+
+    test('a side holds up to 8 people, seated or not', async () => {
+      const id = await createTeamLobby()
+      const extras: SbUserId[] = []
+      for (let i = 0; i < 8; i++) {
+        const extra = connectExtra(100 + i)
+        await joinLobby(extra, id)
+        extras.push(extra.user.userId)
+      }
+      // 10 members for 8 seats, so 2 wait on the bench
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(2)
+
+      expect(() => startBestOf([[H, ...extras], [J]])).toThrow(
+        expect.objectContaining({
+          code: LobbyServiceErrorCode.InvalidBestOf,
+          message: 'each side of a best-of needs 1 to 8 players',
+        }),
+      )
+
+      startBestOf([
+        [H, ...extras.slice(0, 7)],
+        [J, extras[7]],
+      ])
+      expect(runningBestOf(id).sides).toEqual([
+        [H, ...extras.slice(0, 7)],
+        [J, extras[7]],
+      ])
+    })
+
+    test('starting one keeps its side names and display names, trimmed', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      fakeNydus.publish.mockClear()
+
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        sides: [[H, L], [J]],
+        sideNames: ['  Ironclad  ', '   '],
+        displayNames: [
+          { userId: J, name: ' 이영호 ' },
+          { userId: L, name: '' },
+          { userId: H, name: 'Host 🐙' },
+        ],
+      })
+
+      const expected = {
+        id: expect.any(String),
+        length: 3,
+        sides: [[H, L], [J]],
+        sideNames: ['Ironclad', null],
+        // In side order, with the cleared one left out
+        displayNames: [
+          { userId: H, name: 'Host 🐙' },
+          { userId: J, name: '이영호' },
+        ],
+        games: [],
+      }
+      expect(runningBestOf(id)).toEqual(expected)
+      expect(bestOfEvents(id)).toEqual([{ type: 'bestOfStarted', bestOf: expected }])
+    })
+
+    test('a series with no side names or display names has neither', async () => {
+      const id = await createTeamLobby()
+
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        sides: [[H], [J]],
+        sideNames: ['', null],
+        displayNames: [{ userId: J, name: '  ' }],
+      })
+
+      expect(runningBestOf(id)).toEqual({
+        id: expect.any(String),
+        length: 3,
+        sides: [[H], [J]],
+        games: [],
+      })
+    })
+
+    test("starting or changing one refuses names it can't use", async () => {
+      const id = await createTeamLobby()
+      const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
+      const start = (
+        sideNames?: [string | null, string | null],
+        displayNames?: Array<{ userId: SbUserId; name: string | null }>,
+      ) =>
+        lobbyService.startBestOf({
+          client: host.client,
+          length: 3,
+          sides: [[H], [J]],
+          sideNames,
+          displayNames,
+        })
+
+      expect(() => start(['x'.repeat(25), null])).toThrow(invalid)
+      expect(() => start([null, '팀'.repeat(25)])).toThrow(invalid)
+      expect(() => start(['Two\nlines', null])).toThrow(invalid)
+      // A right-to-left override
+      expect(() => start([`Evil${String.fromCodePoint(0x202e)}x`, null])).toThrow(invalid)
+      expect(() => start(undefined, [{ userId: J, name: 'x'.repeat(17) }])).toThrow(invalid)
+      expect(() => start(undefined, [{ userId: J, name: '🐙'.repeat(17) }])).toThrow(invalid)
+      expect(() => start(undefined, [{ userId: J, name: 'Tab\tname' }])).toThrow(invalid)
+      // Only for someone on a side, and once each
+      expect(() => start(undefined, [{ userId: OH, name: 'Nobody' }])).toThrow(invalid)
+      expect(() =>
+        start(undefined, [
+          { userId: J, name: 'One' },
+          { userId: J, name: 'Two' },
+        ]),
+      ).toThrow(invalid)
+      expect(lobbyService.bestOfs.get(id) ?? []).toEqual([])
+
+      // The limits count code points, after trimming
+      start(
+        [` ${'팀'.repeat(24)} `, '🐙'.repeat(24)],
+        [
+          { userId: H, name: '이영호'.repeat(5) + '이' },
+          { userId: J, name: '🐙'.repeat(16) },
+        ],
+      )
+      expect(runningBestOf(id).sideNames).toEqual(['팀'.repeat(24), '🐙'.repeat(24)])
+      expect(runningBestOf(id).displayNames).toEqual([
+        { userId: H, name: '이영호'.repeat(5) + '이' },
+        { userId: J, name: '🐙'.repeat(16) },
+      ])
+
+      expect(() =>
+        lobbyService.updateBestOf({ client: host.client, sideNames: ['x'.repeat(25), null] }),
+      ).toThrow(invalid)
+      expect(() =>
+        lobbyService.updateBestOf({
+          client: host.client,
+          displayNames: [{ userId: OH, name: 'Nobody' }],
+        }),
+      ).toThrow(invalid)
+      expect(runningBestOf(id).sideNames).toEqual(['팀'.repeat(24), '🐙'.repeat(24)])
+    })
+
+    test('the host can rename the sides and change display names, leaving the rest', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        title: 'Final',
+        sides: [[H, L], [J]],
+        sideNames: ['Ironclad', 'Zerg Rush'],
+        displayNames: [
+          { userId: H, name: 'Host' },
+          { userId: L, name: 'Lister' },
+        ],
+      })
+      fakeNydus.publish.mockClear()
+
+      // Renaming one side and clearing the other
+      lobbyService.updateBestOf({ client: host.client, sideNames: [' Iron ', ''] })
+      expect(runningBestOf(id)).toEqual(
+        expect.objectContaining({
+          title: 'Final',
+          sideNames: ['Iron', null],
+          displayNames: [
+            { userId: H, name: 'Host' },
+            { userId: L, name: 'Lister' },
+          ],
+        }),
+      )
+      expect(bestOfEvents(id)).toEqual([
+        {
+          type: 'bestOfUpdated',
+          bestOf: expect.objectContaining({ sideNames: ['Iron', null] }),
+        },
+      ])
+
+      // Display names change only for the people listed
+      lobbyService.updateBestOf({
+        client: host.client,
+        displayNames: [
+          { userId: J, name: 'Joiner' },
+          { userId: H, name: null },
+        ],
+      })
+      expect(runningBestOf(id).displayNames).toEqual([
+        { userId: L, name: 'Lister' },
+        { userId: J, name: 'Joiner' },
+      ])
+      expect(runningBestOf(id).sideNames).toEqual(['Iron', null])
+
+      // Someone taken off the sides loses theirs; a change about them in the same request is refused
+      expect(() =>
+        lobbyService.updateBestOf({
+          client: host.client,
+          sides: [[H], [J]],
+          displayNames: [{ userId: L, name: 'Lister' }],
+        }),
+      ).toThrow(codeError(LobbyServiceErrorCode.InvalidBestOf))
+      lobbyService.updateBestOf({ client: host.client, sides: [[H], [J]] })
+      expect(runningBestOf(id).displayNames).toEqual([{ userId: J, name: 'Joiner' }])
+      // Putting them back doesn't bring it back
+      lobbyService.updateBestOf({ client: host.client, sides: [[H, L], [J]] })
+      expect(runningBestOf(id).displayNames).toEqual([{ userId: J, name: 'Joiner' }])
+
+      // Clearing everything leaves neither
+      lobbyService.updateBestOf({
+        client: host.client,
+        sideNames: [null, null],
+        displayNames: [{ userId: J, name: '' }],
+      })
+      expect(runningBestOf(id)).not.toHaveProperty('sideNames')
+      expect(runningBestOf(id)).not.toHaveProperty('displayNames')
+      expect(runningBestOf(id).title).toBe('Final')
+    })
+
+    test('a game starts with side members observing or on the bench', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      moveToObservers(id, L)
+      for (let i = 0; i < 6; i++) {
+        await joinLobby(connectExtra(200 + i), id)
+      }
+      // Every player seat is taken, so the next to join waits on the bench
+      const benched = connectExtra(100)
+      await joinLobby(benched, id)
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.bench.map(b => b.userId)).toEqual([benched.user.userId])
+      const [top, bottom] = lobby.teams
+        .filter(team => !team.isObserver)
+        .map(team => team.slots.filter(slot => slot.type === 'human').map(slot => slot.userId!))
+
+      startBestOf([
+        [...top, benched.user.userId],
+        [L, ...bottom],
+      ])
+      forceStart()
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('a game is refused while a side has nobody seated, naming the side', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      moveToObservers(id, L)
+      const [joinerTeam] = findSlotByUserId(lobbyService.lobbies.get(id)!, J)
+      moveToObservers(id, J)
+      // A computer keeps the game between opposing sides, but plays for neither
+      const computerSeat = lobbyService.lobbies
+        .get(id)!
+        .teams[joinerTeam!].slots.find(slot => slot.type === 'open')!
+      lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
+
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        sides: [[H], [J, L]],
+        sideNames: [null, 'Ironclad'],
+      })
+      expect(forceStart).toThrow(rosterError('Ironclad has nobody seated'))
+
+      lobbyService.updateBestOf({ client: host.client, sideNames: [null, null] })
+      expect(forceStart).toThrow(rosterError('Team 2 has nobody seated'))
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(false)
+
+      moveToTeam(id, L, joinerTeam!)
+      forceStart()
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('a game is refused while someone seated is on neither side', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      startBestOf([[H], [J]])
+
+      expect(forceStart).toThrow(
+        rosterError("someone seated as a player isn't on either side of the best-of"),
+      )
+    })
+
+    test("a game's load lists the seated members, the side names and their display names", async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      moveToObservers(id, L)
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        title: 'Final',
+        sides: [[L, H], [J]],
+        sideNames: ['Ironclad', null],
+        displayNames: [
+          { userId: L, name: 'Observing' },
+          { userId: J, name: '이영호' },
+        ],
+      })
+
+      await launchGame(id)
+
+      expect(lastLoadRequest().bestOf).toEqual({
+        title: 'Final',
+        length: 3,
+        gameNumber: 1,
+        sides: [
+          { players: [H], score: 0, name: 'Ironclad' },
+          { players: [J], score: 0 },
+        ],
+        displayNames: [{ userId: J, name: '이영호' }],
+      })
+    })
+
+    test('a win counts for the side whichever of its members played it', async () => {
+      const id = await createTeamLobby()
+      await joinLobby(lister, id)
+      const L = LISTER_USER.id
+      moveToObservers(id, L)
+      startBestOf([[J, L], [H]], { length: 3 })
+
+      const first = await launchGame(id)
+      await endGame(first, [host, joiner, lister])
+      await settle(first, [
+        [H, 'loss'],
+        [J, 'win'],
+      ])
+
+      // The substitute takes the seat of the side's first player
+      const [joinerTeam] = findSlotByUserId(lobbyService.lobbies.get(id)!, J)
+      moveToObservers(id, J)
+      moveToTeam(id, L, joinerTeam!)
+      const second = await launchGame(id)
+      expect(lastLoadRequest().bestOf?.sides.map(side => side.players)).toEqual([[L], [H]])
+      await endGame(second, [host, joiner, lister])
+      await settle(second, [
+        [H, 'loss'],
+        [L, 'win'],
+      ])
+
+      expect(runningBestOf(id).games).toEqual([
+        { gameId: first, status: 'won', winner: 0 },
+        { gameId: second, status: 'won', winner: 0 },
+      ])
+      expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
     })
 
     test('another one started after the first ended starts from nothing', async () => {

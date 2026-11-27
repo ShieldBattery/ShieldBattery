@@ -160,6 +160,7 @@ pub(super) fn series_game(teams: &[u8]) -> ObserverView {
         scores: [1, 0],
         lines: Vec::new(),
         logo: None,
+        side_names: [None, None],
     });
     game
 }

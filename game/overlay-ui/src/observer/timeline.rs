@@ -18,8 +18,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::{tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, STAT_ROW_GAP, Wing, centred, game_clock, paint_player_dot,
-    paint_text, paint_tile_chrome, wing_panel,
+    EdgeCursor, ProductionIcon, STAT_ROW_GAP, TeamNames, Wing, centred, game_clock,
+    paint_player_dot, paint_text, paint_tile_chrome, team_name, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -161,10 +161,11 @@ impl TimelineEventKind {
         }
     }
 
-    /// What the row says happened, where the player shares a side with others as `team`: a fight is
-    /// won by a side, whichever of its players did the most killing in it.
-    fn team_label(self, team: u8) -> String {
-        let team = super::team_name(team);
+    /// What the row says happened, where the player shares a side with others as `team`, which
+    /// `names` says what to call: a fight is won by a side, whichever of its players did the most
+    /// killing in it.
+    fn team_label(self, team: u8, names: &TeamNames) -> String {
+        let team = team_name(names, team);
         match self {
             TimelineEventKind::FightWon { degree, .. } => match degree {
                 FightDegree::Close => tr!(
@@ -259,10 +260,10 @@ pub struct TimelineEventView {
 }
 
 impl TimelineEventView {
-    /// What the row says happened.
-    pub(crate) fn label(&self) -> String {
+    /// What the row says happened, calling a side what `names` calls it.
+    pub(crate) fn label(&self, names: &TeamNames) -> String {
         match self.team {
-            Some(team) => self.kind.team_label(team),
+            Some(team) => self.kind.team_label(team, names),
             None => self.kind.label(),
         }
     }
@@ -339,9 +340,11 @@ pub struct TimelineOutcome {
 /// short a few rows is still the feed; a feed drawn over the minimap is neither.
 ///
 /// `seekable` is whether the game being watched can be moved to a time, which only a replay can: a
-/// row then answers the pointer, says what a click on it does, and reports the click.
+/// row then answers the pointer, says what a click on it does, and reports the click. `names` is
+/// what a row about a side's fight calls the side.
 pub fn render_timeline_view(
     view: &TimelineView,
+    names: &TeamNames,
     ctx: &Context,
     shown: bool,
     top: f32,
@@ -356,7 +359,7 @@ pub fn render_timeline_view(
         top,
         PANEL_WIDTH,
         shown && rows > 0,
-        |ui| draw_panel(ui, view, rows, seekable),
+        |ui| draw_panel(ui, view, names, rows, seekable),
     )?;
     Some(TimelineOutcome {
         rect: wing.rect,
@@ -369,6 +372,7 @@ pub fn render_timeline_view(
 fn draw_panel(
     ui: &mut Ui,
     view: &TimelineView,
+    names: &TeamNames,
     rows: usize,
     seekable: bool,
 ) -> Option<ClickedEvent> {
@@ -414,14 +418,14 @@ fn draw_panel(
                         });
                     }
                 }
-                draw_row(ui, row, event);
+                draw_row(ui, row, event, names);
             }
         });
     clicked
 }
 
 /// Draws one row: when it happened, whose it was, what it was about, and what happened to it.
-fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
+fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView, names: &TeamNames) {
     let mut cursor = EdgeCursor::from_left(row);
     paint_text(
         ui,
@@ -444,9 +448,9 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
         (Some(name), _) => (
             name.clone(),
             text::body(TEXT_SIZE, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY),
-            Some(event.label()),
+            Some(event.label(names)),
         ),
-        (None, detail) => (event.label(), label.clone(), detail),
+        (None, detail) => (event.label(names), label.clone(), detail),
     };
     match rest {
         Some(rest) => {
@@ -529,8 +533,9 @@ mod tests {
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            height = render_timeline_view(view, &ctx, true, top, floor, false)
-                .map(|outcome| outcome.rect.height());
+            height =
+                render_timeline_view(view, &TeamNames::default(), &ctx, true, top, floor, false)
+                    .map(|outcome| outcome.rect.height());
             let mut out = ctx.end_pass();
             let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
             out.textures_delta.clear();

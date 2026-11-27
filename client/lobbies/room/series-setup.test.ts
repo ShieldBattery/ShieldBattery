@@ -1,8 +1,11 @@
 import { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 import {
+  BEST_OF_DISPLAY_NAME_MAX_LENGTH,
   BEST_OF_LOGO_MAX_DIMENSION,
   BEST_OF_LOGO_MAX_SIZE_BYTES,
+  BEST_OF_SIDE_NAME_MAX_LENGTH,
+  getBestOfTextProblem,
   LobbyBestOfJson,
   LobbyBestOfSides,
 } from '../../../common/lobbies/lobby-best-of'
@@ -10,13 +13,20 @@ import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { FetchError } from '../../network/fetch-errors'
 import {
+  batchDisplayNameLookups,
   bestOfLogoErrorMessage,
+  bestOfTextProblemMessage,
   buildStartBestOfParams,
   buildUpdateBestOfParams,
   checkLogoFile,
+  DisplayNameFields,
+  fillRememberedDisplayNames,
   formatSeriesSetupSummary,
+  getDisplayNamesToLoad,
+  initialDisplayNameFields,
   LogoSlotValue,
   SeriesSetupValues,
+  typeDisplayName,
 } from './series-setup'
 
 /** Fills a default value's `{{placeholders}}` from its options, the way i18next does. */
@@ -40,8 +50,32 @@ const STORED: LogoSlotValue = { kind: 'stored', logo: STORED_LOGO }
 const PICKED: LogoSlotValue = { kind: 'picked', file: PICKED_FILE }
 const UNKNOWN: LogoSlotValue = { kind: 'unknown' }
 
+const NO_FIELDS: DisplayNameFields = new Map()
+
 function values(overrides: Partial<SeriesSetupValues> = {}): SeriesSetupValues {
-  return { title: '', sides: SIDES, line1: '', line2: '', logo: NONE, ...overrides }
+  return {
+    title: '',
+    sides: SIDES,
+    sideNames: ['', ''],
+    displayNames: NO_FIELDS,
+    line1: '',
+    line2: '',
+    logo: NONE,
+    ...overrides,
+  }
+}
+
+/** The fields as the page would hold them after a remembered load answered and the host typed. */
+function fields(
+  remembered: ReadonlyArray<{ userId: typeof A; name: string }>,
+  typed: ReadonlyArray<[typeof A, string]> = [],
+  start: DisplayNameFields = NO_FIELDS,
+): DisplayNameFields {
+  let result = fillRememberedDisplayNames(start, remembered)
+  for (const [userId, value] of typed) {
+    result = typeDisplayName(result, userId, value)
+  }
+  return result
 }
 
 describe('formatSeriesSetupSummary', () => {
@@ -135,7 +169,10 @@ describe('buildStartBestOfParams', () => {
 })
 
 describe('buildUpdateBestOfParams', () => {
-  const editing: Pick<LobbyBestOfJson, 'title' | 'sides' | 'overlay'> = {
+  const editing: Pick<
+    LobbyBestOfJson,
+    'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'
+  > = {
     title: 'Grand Final',
     sides: SIDES,
     overlay: { line1: 'Casters  Alice & Bob', line2: 'Observer  Carol', logo: STORED_LOGO },
@@ -299,5 +336,214 @@ describe('bestOfLogoErrorMessage', () => {
     )
     expect(bestOfLogoErrorMessage(refusal(429), t)).toBe(undefined)
     expect(bestOfLogoErrorMessage(new Error('offline'), t)).toBe(undefined)
+  })
+})
+
+describe('side names', () => {
+  test('a start sends both side names, trimmed, when either is set', () => {
+    expect(buildStartBestOfParams(3, values({ sideNames: ['  Ironclad ', ''] }), NONE)).toEqual({
+      length: 3,
+      sides: SIDES,
+      sideNames: ['Ironclad', null],
+    })
+    expect(buildStartBestOfParams(3, values({ sideNames: [' ', '   '] }), NONE)).toEqual({
+      length: 3,
+      sides: SIDES,
+    })
+  })
+
+  test('a save sends both names when either changed, and nothing about them otherwise', () => {
+    const editing: Pick<LobbyBestOfJson, 'sides' | 'sideNames'> = {
+      sides: SIDES,
+      sideNames: ['Ironclad', null],
+    }
+    expect(buildUpdateBestOfParams(editing, values({ sideNames: ['Ironclad ', ''] }))).toBe(
+      undefined,
+    )
+    expect(
+      buildUpdateBestOfParams(editing, values({ sideNames: ['Ironclad', ' Nexus '] })),
+    ).toEqual({ sideNames: ['Ironclad', 'Nexus'] })
+    expect(buildUpdateBestOfParams(editing, values({ sideNames: ['', ''] }))).toEqual({
+      sideNames: [null, null],
+    })
+    expect(buildUpdateBestOfParams({ sides: SIDES }, values({ sideNames: ['', 'X'] }))).toEqual({
+      sideNames: [null, 'X'],
+    })
+  })
+})
+
+describe('display names', () => {
+  test('a start sends the names in the fields, in side order, trimmed', () => {
+    const displayNames = fields(
+      [],
+      [
+        [B, ' tec27 '],
+        [A, 'Rhynso'],
+      ],
+    )
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).toEqual({
+      length: 1,
+      sides: SIDES,
+      displayNames: [
+        { userId: A, name: 'Rhynso' },
+        { userId: B, name: 'tec27' },
+      ],
+    })
+  })
+
+  test('a start sends a remembered name left in place, so it stays remembered', () => {
+    const displayNames = fields([{ userId: A, name: 'Rhynso' }])
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+      { userId: A, name: 'Rhynso' },
+    ])
+  })
+
+  test('a start clears a remembered name the host emptied, which forgets it', () => {
+    const displayNames = fields([{ userId: A, name: 'Rhynso' }], [[A, '  ']])
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+      { userId: A, name: null },
+    ])
+  })
+
+  test('a field that was simply left blank sends nothing, even after the host typed in it', () => {
+    const displayNames = fields(
+      [],
+      [
+        [A, 'x'],
+        [A, ''],
+      ],
+    )
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).not.toHaveProperty(
+      'displayNames',
+    )
+  })
+
+  test('with the remembered names unloaded, only what the host typed is sent', () => {
+    const displayNames = fields([], [[B, 'tec27']])
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+      { userId: B, name: 'tec27' },
+    ])
+  })
+
+  test('names for people no longer on a side are not sent', () => {
+    const displayNames = fields([], [[C, 'Artosis']])
+    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).not.toHaveProperty(
+      'displayNames',
+    )
+  })
+
+  describe('saving a running series', () => {
+    const sides: LobbyBestOfSides = [[A, C], [B]]
+    const editing: Pick<LobbyBestOfJson, 'sides' | 'displayNames'> = {
+      sides,
+      displayNames: [
+        { userId: A, name: 'Rhynso' },
+        { userId: B, name: 'tec27' },
+      ],
+    }
+    const opened = initialDisplayNameFields(editing)
+
+    test('untouched fields send nothing', () => {
+      expect(buildUpdateBestOfParams(editing, values({ sides, displayNames: opened }))).toBe(
+        undefined,
+      )
+    })
+
+    test('sends a changed name and a cleared one, and leaves the rest out', () => {
+      const displayNames = fields(
+        [],
+        [
+          [A, 'Rhynso '],
+          [B, ''],
+          [C, 'Artosis'],
+        ],
+        opened,
+      )
+      expect(buildUpdateBestOfParams(editing, values({ sides, displayNames }))).toEqual({
+        displayNames: [
+          { userId: C, name: 'Artosis' },
+          { userId: B, name: null },
+        ],
+      })
+    })
+
+    test('the series name wins over a remembered one, which fills only empty fields', () => {
+      const displayNames = fields(
+        [
+          { userId: A, name: 'OldHandle' },
+          { userId: C, name: 'Artosis' },
+        ],
+        [],
+        opened,
+      )
+      expect(displayNames.get(A)?.value).toBe('Rhynso')
+      expect(buildUpdateBestOfParams(editing, values({ sides, displayNames }))).toEqual({
+        displayNames: [{ userId: C, name: 'Artosis' }],
+      })
+    })
+  })
+})
+
+describe('remembered display names', () => {
+  test('fill only fields the host has not typed in and that are empty', () => {
+    const typed = fields(
+      [],
+      [
+        [A, 'mine'],
+        [B, 'x'],
+        [B, ''],
+      ],
+    )
+    const filled = fillRememberedDisplayNames(typed, [
+      { userId: A, name: 'Rhynso' },
+      { userId: B, name: 'tec27' },
+      { userId: C, name: 'Artosis' },
+    ])
+    expect(filled.get(A)?.value).toBe('mine')
+    expect(filled.get(B)?.value).toBe('')
+    expect(filled.get(C)).toEqual({ value: 'Artosis', filled: 'Artosis', touched: false })
+  })
+
+  test('are asked for only for people whose field could still be filled', () => {
+    const current = fields([{ userId: A, name: 'Rhynso' }], [[B, 'x']])
+    expect(getDisplayNamesToLoad([[A, B], [C]], current)).toEqual([C])
+  })
+
+  test('are asked for in batches of at most both sides full', () => {
+    const ids = Array.from({ length: 17 }, (_, i) => makeSbUserId(i + 1))
+    expect(batchDisplayNameLookups(ids.slice(0, 16))).toEqual([ids.slice(0, 16)])
+    expect(batchDisplayNameLookups(ids)).toEqual([ids.slice(0, 16), [ids[16]]])
+    expect(batchDisplayNameLookups([])).toEqual([])
+  })
+})
+
+describe('text checks', () => {
+  test('an emoji cut in half the way a UTF-16 maxLength cuts it is refused', () => {
+    const cut = 'Team 🛡'.slice(0, -1)
+    expect(getBestOfTextProblem(cut, BEST_OF_SIDE_NAME_MAX_LENGTH)).toBe('invalidCharacters')
+    expect(getBestOfTextProblem('Team 🛡', BEST_OF_SIDE_NAME_MAX_LENGTH)).toBeUndefined()
+  })
+
+  test('a Korean name fits by characters', () => {
+    expect(getBestOfTextProblem('이영호최고의선수', BEST_OF_DISPLAY_NAME_MAX_LENGTH)).toBe(
+      undefined,
+    )
+  })
+
+  test('a name of exactly 24 code points fits even where UTF-16 counts more', () => {
+    const emoji24 = '🛡'.repeat(24)
+    expect(emoji24.length).toBe(48)
+    expect(getBestOfTextProblem(emoji24, BEST_OF_SIDE_NAME_MAX_LENGTH)).toBeUndefined()
+    expect(getBestOfTextProblem(emoji24 + 'x', BEST_OF_SIDE_NAME_MAX_LENGTH)).toBe('tooLong')
+    expect(getBestOfTextProblem(` ${'a'.repeat(24)} `, BEST_OF_SIDE_NAME_MAX_LENGTH)).toBe(
+      undefined,
+    )
+  })
+
+  test('each problem has a message', () => {
+    expect(bestOfTextProblemMessage('tooLong', 16, t)).toBe('At most 16 characters')
+    expect(bestOfTextProblemMessage('invalidCharacters', 16, t)).toBe(
+      "Contains characters that can't be used",
+    )
   })
 })

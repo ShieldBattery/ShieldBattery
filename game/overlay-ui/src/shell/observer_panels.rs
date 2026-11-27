@@ -287,12 +287,15 @@ impl ObserverPanels {
         // in rather than cutting between them.
         let style = prefs.matchup_style();
         let bar_shown = style == MatchupStyle::Bar;
+        // What every panel that names a team calls it, so the bar's tab, the cards, the tables and
+        // the timeline all call a side the same thing.
+        let team_names = view.matchup.team_names();
         if let Some(outcome) =
             observer::render_matchup_view(&view.matchup, ctx, bar_shown, prefs.series)
         {
             hit_rects.push(HitRect::new(outcome.rect));
             top_surfaces.push(outcome.rect);
-            if let Some(tab) = outcome.tab {
+            for tab in outcome.tab {
                 hit_rects.push(HitRect::new(tab));
                 top_surfaces.push(tab);
             }
@@ -411,6 +414,7 @@ impl ObserverPanels {
         if let Some(cards) = &view.team_cards {
             let outcome = observer::render_team_cards_view(
                 cards,
+                &team_names,
                 ctx,
                 bar_shown,
                 view.matchup.clock_block_width(prefs.series),
@@ -692,7 +696,13 @@ impl ObserverPanels {
 
         let spot = Spot::new(ctx, spot_id("economy"), economy_shown, [tops.left]);
         let [economy_top] = spot.at();
-        let economy = observer::render_economy_view(&view.economy, ctx, economy_shown, economy_top);
+        let economy = observer::render_economy_view(
+            &view.economy,
+            &team_names,
+            ctx,
+            economy_shown,
+            economy_top,
+        );
         spot.drawn(economy.is_some());
         if let Some(outcome) = &economy {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -703,8 +713,13 @@ impl ObserverPanels {
         let economy = economy.map(|outcome| outcome.rect);
         let spot = Spot::new(ctx, spot_id("military"), military_shown, [tops.right]);
         let [military_top] = spot.at();
-        let military =
-            observer::render_military_view(&view.military, ctx, military_shown, military_top);
+        let military = observer::render_military_view(
+            &view.military,
+            &team_names,
+            ctx,
+            military_shown,
+            military_top,
+        );
         spot.drawn(military.is_some());
         if let Some(outcome) = &military {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -748,6 +763,7 @@ impl ObserverPanels {
         let [eased_timeline_top] = spot.at();
         let timeline = observer::render_timeline_view(
             &view.timeline,
+            &team_names,
             ctx,
             timeline_shown,
             eased_timeline_top,

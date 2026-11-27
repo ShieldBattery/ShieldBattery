@@ -19,9 +19,10 @@ use crate::kit::theme;
 use crate::kit::widgets::ResourceGlyph;
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, WingOutcome, paint_column_heading, paint_count,
-    paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
-    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, TeamNames, Wing, WingOutcome, paint_column_heading,
+    paint_count, paint_first_team_name, paint_resource_value, paint_stat_identity,
+    paint_team_divider, paint_text, stat_table_height, team_name, teams_worth_dividing,
+    vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -118,8 +119,11 @@ pub(crate) fn panel_height(view: &MilitaryView) -> f32 {
 
 /// Draws the military panel against the right edge of the screen at `top`, fading and sliding it in
 /// and out. Returns nothing at all once it is gone, or while there is nobody to report on.
+///
+/// `names` is what its team dividers call the teams.
 pub fn render_military_view(
     view: &MilitaryView,
+    names: &TeamNames,
     ctx: &Context,
     shown: bool,
     top: f32,
@@ -131,7 +135,7 @@ pub fn render_military_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        |ui| draw_panel(ui, view, names),
     )?;
     Some(WingOutcome {
         rect: wing.rect,
@@ -139,14 +143,14 @@ pub fn render_military_view(
     })
 }
 
-fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
+fn draw_panel(ui: &mut Ui, view: &MilitaryView, names: &TeamNames) {
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     draw_headings(
         ui,
         view.players
             .first()
-            .map(|player| player.team)
-            .filter(|_| divided),
+            .filter(|_| divided)
+            .map(|player| team_name(names, player.team)),
     );
     let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
@@ -155,7 +159,7 @@ fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
             ui.add_space(STAT_ROW_GAP);
             let (row, _) =
                 ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
-            paint_team_divider(ui, row, player.team);
+            paint_team_divider(ui, row, &team_name(names, player.team));
         }
         ui.add_space(STAT_ROW_GAP);
         draw_row(ui, player);
@@ -163,13 +167,13 @@ fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
 }
 
 /// Draws the row of column headings, each aligned the way its column's values are. `first_team` is
-/// the team a divided table opens with, named over the names.
-fn draw_headings(ui: &mut Ui, first_team: Option<u8>) {
+/// what the team a divided table opens with is called, named over the names.
+fn draw_headings(ui: &mut Ui, first_team: Option<String>) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
     let names = cursor.take(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH);
     if let Some(team) = first_team {
-        paint_first_team_name(ui, names, team);
+        paint_first_team_name(ui, names, &team);
     }
     cursor.skip(COLUMN_GAP);
     paint_column_heading(

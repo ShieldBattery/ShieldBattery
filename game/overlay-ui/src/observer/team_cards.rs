@@ -27,7 +27,7 @@ use crate::kit::{motion, theme, tiers};
 use crate::observer::layout;
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, WING_GAP, Wing, centred, paint_column_heading, paint_count,
+    STAT_ROW_HEIGHT, TeamNames, WING_GAP, Wing, centred, paint_column_heading, paint_count,
     paint_picked_race_chip, paint_player_swatch, paint_player_swatch_in, paint_text, team_name,
     vision_alpha,
 };
@@ -526,9 +526,10 @@ pub struct TeamCardsOutcome {
 ///
 /// Both cards are as wide as a corner leaves: two cards of different widths would read as two kinds
 /// of card. A corner ends where the clock the bar has become begins, which is `clock_width` wide
-/// across the middle of the screen.
+/// across the middle of the screen. A card standing for a side is titled with what `names` calls it.
 pub fn render_team_cards_view(
     view: &TeamCardsView,
+    names: &TeamNames,
     ctx: &Context,
     shown: bool,
     clock_width: f32,
@@ -563,7 +564,7 @@ pub fn render_team_cards_view(
             id.with("presence"),
             shown && team.is_some(),
             area,
-            |ui| team.and_then(|team| draw_card(ui, team, layout)),
+            |ui| team.and_then(|team| draw_card(ui, team, names, layout)),
         ) else {
             continue;
         };
@@ -593,8 +594,14 @@ pub(crate) fn room_between_cards(screen: Rect, clock_width: f32) -> f32 {
     screen.width() - (layout::screen_margin(screen) + card + WING_GAP) * 2.0
 }
 
-/// Draws one card and returns the player whose row was clicked.
-fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) -> Option<u8> {
+/// Draws one card, titled with what `names` calls its side, and returns the player whose row was
+/// clicked.
+fn draw_card(
+    ui: &mut Ui,
+    team: &TeamCardView,
+    names: &TeamNames,
+    layout: CardLayout,
+) -> Option<u8> {
     tiers::tier1_panel(ui, theme::radius(CARD_RADIUS), |ui| {
         // The rows are stacked by the gaps written here and by nothing else: this is a fixed
         // layout, and egui's own item spacing would add to every one of them.
@@ -603,7 +610,7 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) -> Option<u8>
         // A half of the game rather than a side of it gets neither a title nor totals, since both
         // speak for a side. The rows take the room the title would have had.
         if let Some(number) = team.team {
-            draw_header(ui, team, number, layout);
+            draw_header(ui, team, &team_name(names, number), layout);
         }
         draw_headings(ui, layout);
         let mut clicked = None;
@@ -624,8 +631,9 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) -> Option<u8>
     .inner
 }
 
-/// Draws the card's title row: whose side it is, and what the side is sitting on between them.
-fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout) {
+/// Draws the card's title row: whose side it is, `title`, and what the side is sitting on between
+/// them.
+fn draw_header(ui: &mut Ui, team: &TeamCardView, title: &str, layout: CardLayout) {
     let (rect, _) =
         ui.allocate_exact_size(vec2(layout.content_width, HEADER_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(rect);
@@ -640,11 +648,13 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
         cursor.skip(HEADER_BAR);
     }
     cursor.skip(BAR_GAP);
+    // A title as long as a host can name a side is elided short of the supply at the row's end.
+    let title_width = layout.content_width - HEADER_BAR - BAR_GAP - SUPPLY_WIDTH - COLUMN_GAP;
     paint_text(
         ui,
-        cursor.take(layout.content_width),
+        cursor.take(title_width),
         &text::hero_title(),
-        &team_name(number),
+        title,
         Align::LEFT,
     );
     let (used, max) = team.supply();

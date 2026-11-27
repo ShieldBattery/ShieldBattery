@@ -24,8 +24,8 @@ use crate::observer::matchup::{
     PAD_OUTER, SCORE_CELL, STACKED_CHIP, STACKED_NAME_SIZE, SeriesFormat, SeriesView, TabAnchor,
 };
 use crate::observer::{
-    EdgeCursor, MatchupPlayerView, MatchupView, centred, map_control, paint_picked_race_chip,
-    paint_player_bar, paint_text, team_name,
+    EdgeCursor, MatchupPlayerView, MatchupView, TeamNames, centred, map_control,
+    paint_picked_race_chip, paint_player_bar, paint_text, team_name,
 };
 use crate::{tr, tr_plural};
 
@@ -87,7 +87,7 @@ pub fn render_series_plate(
         plate.draw(ui, series, room)
     })?;
     let mut rects = vec![inner.response.rect];
-    rects.extend(inner.inner);
+    rects.extend(inner.inner.into_iter().flatten());
     Some(SeriesPlateOutcome { rects, depth })
 }
 
@@ -219,7 +219,7 @@ impl<'a> Plate<'a> {
                 PlateSide::Players(players)
             } else {
                 PlateSide::Team {
-                    label: team_name(team.unwrap_or(position)),
+                    label: team_name(&TeamNames::default(), team.unwrap_or(position)),
                     color: players
                         .first()
                         .map_or(Color32::WHITE, |player| player.color),
@@ -276,8 +276,8 @@ impl<'a> Plate<'a> {
     }
 
     /// Draws the plate and the tab under it, `room` being what the tab may take of the screen's
-    /// width, and returns where the tab went where it hangs one.
-    fn draw(&self, ui: &mut Ui, series: &SeriesView, room: f32) -> Option<Rect> {
+    /// width, and returns the rects the tab covers where it hangs one.
+    fn draw(&self, ui: &mut Ui, series: &SeriesView, room: f32) -> Option<Vec<Rect>> {
         let (rect, _) = ui.allocate_exact_size(vec2(self.width, self.height), Sense::hover());
         ui.painter()
             .add(tiers::tier1_chrome(rect, theme::radius_bottom(BAR_RADIUS)));
@@ -435,6 +435,7 @@ mod tests {
             scores: [12, 11],
             lines: Vec::new(),
             logo: None,
+            side_names: [None, None],
         }
     }
 

@@ -1,3 +1,4 @@
+import { USERNAME_MAXLENGTH } from '../constants'
 import { ReconciledResult } from '../games/results'
 import { SbUserId } from '../users/sb-user-id'
 import { Lobby, Team } from './index'
@@ -5,13 +6,32 @@ import { SlotType } from './slot'
 
 /** The longest best-of series a lobby can play. */
 export const BEST_OF_MAX_LENGTH = 99
-/** The most characters a best-of series' title can have, once trimmed. */
+/**
+ * The most characters a best-of series' title can have, once trimmed, counted in code points (see
+ * `countBestOfTextCharacters`).
+ */
 export const BEST_OF_TITLE_MAX_LENGTH = 50
-/** The most people either side of a best-of series can hold. */
-export const BEST_OF_MAX_SIDE_SIZE = 4
+/**
+ * The most people either side of a best-of series can hold. A side can hold more people than a game
+ * seats, since only the ones seated as players play its next game.
+ */
+export const BEST_OF_MAX_SIDE_SIZE = 8
+/**
+ * The most characters a best-of series side's name can have, once trimmed, counted in code points
+ * (see `countBestOfTextCharacters`).
+ */
+export const BEST_OF_SIDE_NAME_MAX_LENGTH = 24
+/**
+ * The most characters a display name given to someone on a best-of series' side can have, once
+ * trimmed, counted in code points (see `countBestOfTextCharacters`). The same as an account name's.
+ */
+export const BEST_OF_DISPLAY_NAME_MAX_LENGTH = USERNAME_MAXLENGTH
 /** The lengths offered as one-click choices; any odd length up to BEST_OF_MAX_LENGTH is valid. */
 export const BEST_OF_PRESET_LENGTHS: ReadonlyArray<number> = [1, 3, 5, 7, 9]
-/** The most characters either text line of a best-of series' caster overlay can have, once trimmed. */
+/**
+ * The most characters either text line of a best-of series' caster overlay can have, once trimmed,
+ * counted in code points (see `countBestOfTextCharacters`).
+ */
 export const BEST_OF_OVERLAY_LINE_MAX_LENGTH = 60
 /** The largest logo file a host can upload for a best-of series' caster overlay, in bytes. */
 export const BEST_OF_LOGO_MAX_SIZE_BYTES = 2 * 1024 * 1024
@@ -35,6 +55,27 @@ export type BestOfSideIndex = 0 | 1
 
 /** The people playing a best-of series, as two sides of user ids. */
 export type LobbyBestOfSides = [side0: SbUserId[], side1: SbUserId[]]
+
+/** The names of a best-of series' two sides, in side order, with `null` for a side that has none. */
+export type LobbyBestOfSideNames = [side0: string | null, side1: string | null]
+
+/**
+ * A name the host gave someone on a side of a best-of series, which the in-game observer overlay
+ * shows in place of their account name. Nothing else shows it.
+ */
+export interface BestOfDisplayName {
+  userId: SbUserId
+  name: string
+}
+
+/**
+ * A display name a host sets or clears for someone on a side of a best-of series. `null` or a name
+ * that is empty once trimmed clears it.
+ */
+export interface BestOfDisplayNameChange {
+  userId: SbUserId
+  name: string | null
+}
 
 /** One game launched as part of a best-of series, and how it counts towards it. */
 export type LobbyBestOfGameJson =
@@ -84,9 +125,21 @@ export interface LobbyBestOfJson {
   length: number
   /**
    * The people currently playing for each side. The host can change these while the series runs,
-   * and the games already won stay with the side, not with the people who won them.
+   * and the games already won stay with the side, not with the people who won them. A side can hold
+   * more people than play any one game: its next game is played by those of them seated as players.
    */
   sides: LobbyBestOfSides
+  /**
+   * The sides' names: trimmed, never empty, at most `BEST_OF_SIDE_NAME_MAX_LENGTH` characters, with
+   * `null` for a side that has none. Absent when neither side has a name.
+   */
+  sideNames?: LobbyBestOfSideNames
+  /**
+   * The display names the host gave people on either side, for the in-game observer overlay only:
+   * trimmed, never empty, at most `BEST_OF_DISPLAY_NAME_MAX_LENGTH` characters. Ordered as the
+   * people are on `sides`, and only ever for someone on a side. Absent when nobody has one.
+   */
+  displayNames?: BestOfDisplayName[]
   /** The games launched as part of it, oldest first. */
   games: LobbyBestOfGameJson[]
   /** Absent when it shows observers nothing beyond the score. */
@@ -101,8 +154,16 @@ export interface BestOfLaunchInfo {
   length: number
   /** 1-based: games won so far (by either side) + 1. */
   gameNumber: number
-  /** Always two entries, in side order. */
-  sides: Array<{ players: SbUserId[]; score: number }>
+  /**
+   * Always two entries, in side order. `players` holds only the side's members seated as players
+   * in the game, in side order; `name` is absent when the side has none.
+   */
+  sides: Array<{ players: SbUserId[]; score: number; name?: string }>
+  /**
+   * The display names of the people seated as players in the game who have one, in side order.
+   * Absent when none of them does.
+   */
+  displayNames?: BestOfDisplayName[]
   /** The caster overlay's text lines that are set, line 1 first. Absent when neither is. */
   lines?: string[]
   /** Where the caster overlay's logo is served from, as a PNG. Absent when it has none. */
@@ -131,6 +192,73 @@ export function toBestOfOverlayJson({
 /** Returns the text lines of a caster overlay that are set, line 1 first. */
 export function getBestOfOverlayLines(overlay: LobbyBestOfOverlayJson | undefined): string[] {
   return [overlay?.line1, overlay?.line2].filter((line): line is string => !!line)
+}
+
+/**
+ * Characters no text a host types for a best-of series (its title, caster overlay lines, side names
+ * and display names) can contain. The lobby and the in-game overlay draw each of these as a single
+ * line of text that has to look the way it reads, and the game has to be able to decode it:
+ *
+ * - control characters (line breaks and tabs among them), and the line and paragraph separators
+ * - lone surrogates, which are no character at all and which the game can't decode, so its whole
+ *   setup would fail to load
+ * - invisible formatting characters, among them the bidirectional overrides, embeddings, isolates
+ *   and marks that reorder the text around them, zero-width spaces, word joiners, soft hyphens and
+ *   tag characters. Zero-width joiners and non-joiners are kept, since emoji sequences and the
+ *   writing of several scripts depend on them.
+ */
+const REFUSED_TEXT_CHARACTERS = /[\p{Cc}\p{Cs}\p{Zl}\p{Zp}]|(?!\p{Join_Control})\p{Cf}/u
+
+/** Why text a host typed for a best-of series can't be used. */
+export type BestOfTextProblem =
+  /** It has more characters than the limit once trimmed. */
+  | 'tooLong'
+  /** It contains a character `getBestOfTextProblem` refuses. */
+  | 'invalidCharacters'
+
+/**
+ * Returns how many characters text typed for a best-of series has, the way its limits count them:
+ * in code points, so a character outside the Basic Multilingual Plane (most emoji, for one) counts
+ * once.
+ */
+export function countBestOfTextCharacters(text: string): number {
+  return Array.from(text).length
+}
+
+/**
+ * Returns what keeps text a host typed for a best-of series from being used, once trimmed, or
+ * `undefined` when nothing does. Any text works apart from line breaks, other control characters,
+ * lone surrogates and invisible formatting characters, up to `maxLength` characters counted by
+ * `countBestOfTextCharacters`: `BEST_OF_TITLE_MAX_LENGTH` for the title,
+ * `BEST_OF_OVERLAY_LINE_MAX_LENGTH` for a caster overlay line, `BEST_OF_SIDE_NAME_MAX_LENGTH` for a
+ * side's name and `BEST_OF_DISPLAY_NAME_MAX_LENGTH` for a display name. Empty text is fine: it is
+ * none.
+ */
+export function getBestOfTextProblem(
+  text: string,
+  maxLength: number,
+): BestOfTextProblem | undefined {
+  const trimmed = text.trim()
+  if (REFUSED_TEXT_CHARACTERS.test(trimmed)) {
+    return 'invalidCharacters'
+  }
+  return countBestOfTextCharacters(trimmed) > maxLength ? 'tooLong' : undefined
+}
+
+/** Returns the name a side of a best-of series has, if it has one. */
+export function getBestOfSideName(
+  bestOf: Pick<LobbyBestOfJson, 'sideNames'>,
+  side: BestOfSideIndex,
+): string | undefined {
+  return bestOf.sideNames?.[side] ?? undefined
+}
+
+/** Returns the display name the host gave someone on a side of a best-of series, if any. */
+export function getBestOfDisplayName(
+  bestOf: Pick<LobbyBestOfJson, 'displayNames'>,
+  userId: SbUserId,
+): string | undefined {
+  return bestOf.displayNames?.find(entry => entry.userId === userId)?.name
 }
 
 /** Whether `length` is a best-of series length a lobby can play: an odd number of games. */
@@ -170,9 +298,9 @@ export function getBestOfGameNumber(bestOf: Pick<LobbyBestOfJson, 'games'>, inde
 }
 
 /**
- * Returns which side won a game of a best-of series, given who played for each side and how each
- * player fared. A side has a win when any of its players won; the game has a winner only when
- * exactly one side does.
+ * Returns which side won a game of a best-of series, given who was on each side when it launched
+ * and how each player fared. A side has a win when any of its members won, whichever of them played;
+ * the game has a winner only when exactly one side does.
  */
 export function findBestOfGameWinner(
   sides: Readonly<LobbyBestOfSides>,
@@ -189,7 +317,15 @@ export function findBestOfGameWinner(
 
 export type BestOfRosterCheck =
   | { ok: true }
-  | { ok: false; missing: SbUserId[]; extra: SbUserId[]; mixedTeams: boolean }
+  | {
+      ok: false
+      /** The sides none of whose members sit in a player seat, in side order. */
+      unseatedSides: BestOfSideIndex[]
+      /** The people seated as players who are on neither side, in seat order. */
+      extra: SbUserId[]
+      /** Whether a team of several holds players of both sides. */
+      mixedTeams: boolean
+    }
 
 /** The user ids of the people seated in a team's player seats, in seat order. */
 function getTeamHumans(team: Team): SbUserId[] {
@@ -205,16 +341,30 @@ function getHumanPlayerTeams(lobby: Lobby): SbUserId[][] {
 }
 
 /**
- * Checks whether a lobby's seats hold exactly the people of a best-of series, arranged so its next
- * game is played between its two sides.
+ * Returns the members of each side of a best-of series who sit in a player seat of the lobby, so
+ * who would play for each side if its next game started now. Each side's members are in side order;
+ * members observing or on the bench are left out.
+ */
+export function getBestOfSeatedSides(
+  lobby: Lobby,
+  sides: Readonly<LobbyBestOfSides>,
+): LobbyBestOfSides {
+  const seated = new Set(getHumanPlayerTeams(lobby).flat())
+  return [
+    sides[0].filter(userId => seated.has(userId)),
+    sides[1].filter(userId => seated.has(userId)),
+  ]
+}
+
+/**
+ * Checks whether a lobby's seats are arranged so its next game is played between the two sides of
+ * a best-of series.
  *
- * Every member of either side has to sit in a player seat, and nobody else may. When the people sit
- * in more than one team, no team may mix people of both sides; in a game type with a single team
- * (melee, free for all) any arrangement works. Computers and observers make no difference either
- * way.
- *
- * missing = side members not in a human player seat; extra = seated human players on neither side;
- * mixedTeams per the rule above.
+ * Every person in a player seat has to be on one of the sides, and each side needs at least one of
+ * its members in a player seat; side members who observe or wait on the bench don't hold the game
+ * up. When the players sit in more than one team, no team may mix people of both sides; in a game
+ * type with a single team (melee, free for all) any arrangement works. Computers make no difference
+ * either way.
  */
 export function checkBestOfRoster(
   lobby: Lobby,
@@ -229,9 +379,9 @@ export function checkBestOfRoster(
   }
 
   const teams = getHumanPlayerTeams(lobby)
-  const seated = new Set(teams.flat())
-  const missing = [...sides[0], ...sides[1]].filter(userId => !seated.has(userId))
-  const extra = [...seated].filter(userId => !sideByUser.has(userId))
+  const seatedSides = getBestOfSeatedSides(lobby, sides)
+  const unseatedSides = ([0, 1] as const).filter(side => seatedSides[side].length === 0)
+  const extra = teams.flat().filter(userId => !sideByUser.has(userId))
   const mixedTeams =
     teams.length > 1 &&
     teams.some(humans => {
@@ -239,8 +389,8 @@ export function checkBestOfRoster(
       return teamSides.has(0) && teamSides.has(1)
     })
 
-  return missing.length || extra.length || mixedTeams
-    ? { ok: false, missing, extra, mixedTeams }
+  return unseatedSides.length || extra.length || mixedTeams
+    ? { ok: false, unseatedSides, extra, mixedTeams }
     : { ok: true }
 }
 
@@ -252,19 +402,34 @@ export function getRunningBestOf<T extends { outcome?: LobbyBestOfOutcome }>(
   return last && !last.outcome ? last : undefined
 }
 
-/** Describes where a best-of series stands for its next game, as that game launches. */
-export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson): BestOfLaunchInfo {
+/**
+ * Describes where a best-of series stands for its next game, as that game launches from `lobby`:
+ * each side lists only its members seated as players, and only their display names are carried.
+ */
+export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson, lobby: Lobby): BestOfLaunchInfo {
   const score = getBestOfScore(bestOf)
   const lines = getBestOfOverlayLines(bestOf.overlay)
   const logoUrl = bestOf.overlay?.logo?.url
+  const seatedSides = getBestOfSeatedSides(lobby, bestOf.sides)
+  const toSide = (side: BestOfSideIndex) => {
+    const name = getBestOfSideName(bestOf, side)
+    return {
+      players: seatedSides[side],
+      score: score[side],
+      ...(name !== undefined ? { name } : {}),
+    }
+  }
+  const displayNames = seatedSides.flat().flatMap(userId => {
+    const name = getBestOfDisplayName(bestOf, userId)
+    return name !== undefined ? [{ userId, name }] : []
+  })
+
   return {
     ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
     length: bestOf.length,
     gameNumber: getBestOfGameNumber(bestOf, bestOf.games.length),
-    sides: [
-      { players: [...bestOf.sides[0]], score: score[0] },
-      { players: [...bestOf.sides[1]], score: score[1] },
-    ],
+    sides: [toSide(0), toSide(1)],
+    ...(displayNames.length ? { displayNames } : {}),
     ...(lines.length ? { lines } : {}),
     ...(logoUrl !== undefined ? { logoUrl } : {}),
   }
@@ -273,19 +438,15 @@ export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson): BestOfLaunchInfo {
 /**
  * The sides the current seats suggest, for prefilling a start form: when exactly two non-observer
  * teams hold humans, those two teams' humans; when a single non-observer team holds exactly two
- * humans, one each; otherwise undefined.
- *
- * A team holding more people than a side can is no suggestion either, since it couldn't be
- * submitted as one.
+ * humans, one each; otherwise undefined. A side holds as many people as a game seats, so any team
+ * fits on one.
  */
 export function suggestBestOfSides(lobby: Lobby): LobbyBestOfSides | undefined {
   const teams = getHumanPlayerTeams(lobby)
-  let sides: LobbyBestOfSides | undefined
   if (teams.length === 2) {
-    sides = [teams[0], teams[1]]
+    return [teams[0], teams[1]]
   } else if (teams.length === 1 && teams[0].length === 2) {
-    sides = [[teams[0][0]], [teams[0][1]]]
+    return [[teams[0][0]], [teams[0][1]]]
   }
-
-  return sides && sides.every(side => side.length <= BEST_OF_MAX_SIDE_SIZE) ? sides : undefined
+  return undefined
 }

@@ -8,6 +8,7 @@ import { GameType } from '../../../common/games/game-type'
 import { Lobby, Team } from '../../../common/lobbies'
 import { LobbyBestOfJson } from '../../../common/lobbies/lobby-best-of'
 import {
+  GetRememberedBestOfDisplayNamesResponse,
   GetRememberedBestOfOverlayResponse,
   LobbyServiceErrorCode,
 } from '../../../common/lobbies/lobby-network'
@@ -15,7 +16,7 @@ import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { createHuman, createObserver, Slot } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import { SbUser } from '../../../common/users/sb-user'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import createStore from '../../create-store'
 import { domMax } from '../../motion-features'
 import { RequestHandlingSpec } from '../../network/abortable-thunk'
@@ -90,7 +91,16 @@ const RUNNING: LobbyBestOfJson = {
   overlay: { line1: 'Casters  Alice', line2: 'Observer  Bob', logo: REMEMBERED_LOGO },
 }
 
-function renderPage({ bestOfs = [] }: { bestOfs?: LobbyBestOfJson[] } = {}) {
+type NamesSpec = RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>
+
+function renderPage({
+  bestOfs = [],
+  answerNamesAtOnce = true,
+}: {
+  bestOfs?: LobbyBestOfJson[]
+  /** Answers every remembered display names lookup as soon as it is made, with none remembered. */
+  answerNamesAtOnce?: boolean
+} = {}) {
   const store = createStore()
   store.dispatch({ type: '@users/loadUsers', payload: USERS })
   store.dispatch({
@@ -113,6 +123,16 @@ function renderPage({ bestOfs = [] }: { bestOfs?: LobbyBestOfJson[] } = {}) {
       rememberedSpec = spec
     },
   )
+  const pendingNameLookups: NamesSpec[] = []
+  const onLoadRememberedDisplayNames = vi.fn(
+    (_userIds: ReadonlyArray<SbUserId>, spec: NamesSpec) => {
+      if (answerNamesAtOnce) {
+        spec.onSuccess({ displayNames: [] })
+      } else {
+        pendingNameLookups.push(spec)
+      }
+    },
+  )
   const onStartBestOf = vi.fn<(r: StartBestOfParams, s: RequestHandlingSpec<void>) => void>()
   const onUpdateBestOf = vi.fn<(r: UpdateBestOfParams, s: RequestHandlingSpec<void>) => void>()
   const onClose = vi.fn()
@@ -126,6 +146,7 @@ function renderPage({ bestOfs = [] }: { bestOfs?: LobbyBestOfJson[] } = {}) {
           onUpdateBestOf={onUpdateBestOf}
           onEndBestOf={vi.fn()}
           onLoadRememberedOverlay={onLoadRememberedOverlay}
+          onLoadRememberedDisplayNames={onLoadRememberedDisplayNames}
         />
       </LazyMotion>
     </ReduxProvider>,
@@ -134,12 +155,16 @@ function renderPage({ bestOfs = [] }: { bestOfs?: LobbyBestOfJson[] } = {}) {
   return {
     store,
     onLoadRememberedOverlay,
+    onLoadRememberedDisplayNames,
     onStartBestOf,
     onUpdateBestOf,
     onClose,
     answerRemembered: (remembered: GetRememberedBestOfOverlayResponse) =>
       act(() => rememberedSpec!.onSuccess(remembered)),
     failRemembered: () => act(() => rememberedSpec!.onError(new Error('offline'))),
+    answerNames: (displayNames: GetRememberedBestOfDisplayNamesResponse['displayNames']) =>
+      act(() => pendingNameLookups.shift()!.onSuccess({ displayNames })),
+    failNames: () => act(() => pendingNameLookups.shift()!.onError(new Error('offline'))),
   }
 }
 
@@ -308,6 +333,142 @@ describe('RoomSeriesSetup', () => {
 
       expect(page.onUpdateBestOf).not.toHaveBeenCalled()
       expect(page.onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('shows its names, which win over remembered ones, and saves a rename', () => {
+      const page = renderPage({
+        bestOfs: [
+          {
+            ...RUNNING,
+            sideNames: ['Nexus', null],
+            displayNames: [{ userId: HOST, name: 'Rhynso' }],
+          },
+        ],
+        answerNamesAtOnce: false,
+      })
+
+      expect(page.onLoadRememberedDisplayNames).toHaveBeenCalledWith(
+        [ALLY, RIVAL, RIVAL_2],
+        expect.anything(),
+      )
+      page.answerNames([
+        { userId: HOST, name: 'OldHandle' },
+        { userId: RIVAL, name: 'tec27' },
+      ])
+      expect(input('series-setup-side-name-1').value).toBe('Nexus')
+      expect(input(`series-setup-shown-as-${HOST}`).value).toBe('Rhynso')
+      expect(input(`series-setup-shown-as-${RIVAL}`).value).toBe('tec27')
+
+      fireEvent.change(input('series-setup-side-name-2'), { target: { value: 'Ironclad' } })
+      click('series-setup-save-button')
+      expect(page.onUpdateBestOf).toHaveBeenCalledWith(
+        {
+          sideNames: ['Nexus', 'Ironclad'],
+          displayNames: [{ userId: RIVAL, name: 'tec27' }],
+        },
+        expect.anything(),
+      )
+    })
+  })
+
+  describe('names', () => {
+    test('fills remembered names into untouched fields and starts with names and side names', () => {
+      const page = renderPage({ answerNamesAtOnce: false })
+      page.answerRemembered({})
+      expect(page.onLoadRememberedDisplayNames).toHaveBeenCalledWith(
+        [HOST, ALLY, RIVAL, RIVAL_2],
+        expect.anything(),
+      )
+      expect(input(`series-setup-shown-as-${HOST}`).placeholder).toBe('host')
+      expect((screen.getByTestId('series-setup-start-button') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+
+      // Typed before the remembered names land, so the remembered one doesn't replace it.
+      fireEvent.change(input(`series-setup-shown-as-${ALLY}`), { target: { value: 'Mine' } })
+      page.answerNames([
+        { userId: HOST, name: 'Rhynso' },
+        { userId: ALLY, name: 'Theirs' },
+        { userId: RIVAL, name: 'tec27' },
+      ])
+      expect(input(`series-setup-shown-as-${HOST}`).value).toBe('Rhynso')
+      expect(input(`series-setup-shown-as-${ALLY}`).value).toBe('Mine')
+
+      fireEvent.change(input(`series-setup-shown-as-${RIVAL}`), { target: { value: '' } })
+      fireEvent.change(input('series-setup-side-name-1'), { target: { value: ' Nexus ' } })
+      click('series-setup-start-button')
+
+      expect(page.onStartBestOf.mock.calls[0][0]).toEqual({
+        length: 3,
+        sides: [
+          [HOST, ALLY],
+          [RIVAL, RIVAL_2],
+        ],
+        sideNames: ['Nexus', null],
+        displayNames: [
+          { userId: HOST, name: 'Rhynso' },
+          { userId: ALLY, name: 'Mine' },
+          { userId: RIVAL, name: null },
+        ],
+      })
+      expect(screen.getByText('Best of 3 · Nexus vs rival, rival2')).toBeTruthy()
+    })
+
+    test('a failed load leaves the fields empty and usable and sends only what was typed', () => {
+      const page = renderPage({ answerNamesAtOnce: false })
+      page.answerRemembered({})
+      page.failNames()
+
+      expect(screen.getByText("Your remembered “Shown as” names couldn't be loaded.")).toBeTruthy()
+      expect(input(`series-setup-shown-as-${HOST}`).value).toBe('')
+      fireEvent.change(input(`series-setup-shown-as-${RIVAL}`), { target: { value: 'tec27' } })
+      click('series-setup-start-button')
+
+      expect(page.onStartBestOf.mock.calls[0][0].displayNames).toEqual([
+        { userId: RIVAL, name: 'tec27' },
+      ])
+    })
+
+    test('adding someone looks up their remembered name', () => {
+      const page = renderPage({ answerNamesAtOnce: false })
+      page.answerRemembered({})
+      page.answerNames([])
+
+      click('series-setup-add-player-1')
+      click(`series-setup-add-player-option-${OBSERVER}`)
+      expect(page.onLoadRememberedDisplayNames).toHaveBeenLastCalledWith(
+        [OBSERVER],
+        expect.anything(),
+      )
+      page.answerNames([{ userId: OBSERVER, name: 'Artosis' }])
+      expect(input(`series-setup-shown-as-${OBSERVER}`).value).toBe('Artosis')
+    })
+
+    test('text that the server would refuse is explained on its field and blocks the start', () => {
+      const page = renderPage()
+      page.answerRemembered({})
+
+      fireEvent.change(input('series-setup-side-name-2'), { target: { value: 'x'.repeat(25) } })
+      expect(screen.getByText('At most 24 characters')).toBeTruthy()
+      expect((screen.getByTestId('series-setup-start-button') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+
+      fireEvent.change(input('series-setup-side-name-2'), { target: { value: 'x'.repeat(24) } })
+      fireEvent.change(input(`series-setup-shown-as-${HOST}`), {
+        target: { value: 'Rhyn​so' },
+      })
+      expect(screen.getByText("Contains characters that can't be used")).toBeTruthy()
+      expect((screen.getByTestId('series-setup-start-button') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+
+      fireEvent.change(input(`series-setup-shown-as-${HOST}`), {
+        target: { value: '🛡'.repeat(16) },
+      })
+      expect((screen.getByTestId('series-setup-start-button') as HTMLButtonElement).disabled).toBe(
+        false,
+      )
     })
   })
 })
