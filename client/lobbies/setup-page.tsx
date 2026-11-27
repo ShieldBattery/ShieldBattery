@@ -84,14 +84,17 @@ export interface SetupPageProps {
   /** When set, a back arrow is shown next to the title. */
   onBack?: () => void
   /** One-line description of the current setup, shown in the footer bar. */
-  summary: string
+  summary?: string
   /**
    * Shown in the footer bar in place of the summary while set, e.g. why the server refused the
    * setup.
    */
   footerNotice?: React.ReactNode
-  /** Action button(s) for the footer bar. */
-  footerActions: React.ReactNode
+  /**
+   * Action button(s) for the footer bar. A page with no actions, summary or notice has no footer
+   * bar at all.
+   */
+  footerActions?: React.ReactNode
   /**
    * Shown instead of the form and footer bar while set. The form stays mounted (but hidden)
    * underneath, so in-progress edits survive the round trip.
@@ -103,7 +106,8 @@ export interface SetupPageProps {
 /**
  * The scaffolding of a lobby's full-page setup forms: a title header (with an optional back arrow)
  * above a 960px column of sections, and a footer bar with a one-line summary of the setup and the
- * caller's action buttons.
+ * caller's action buttons. A page that only shows something, with nothing to sum up or act on,
+ * leaves the footer bar out.
  */
 export function SetupPage({
   title,
@@ -116,6 +120,8 @@ export function SetupPage({
 }: SetupPageProps) {
   const { t } = useTranslation()
   const covered = !!cover
+  const hasFooter =
+    footerActions !== undefined || footerNotice !== undefined || summary !== undefined
 
   return (
     <Root>
@@ -142,12 +148,16 @@ export function SetupPage({
         </Content>
       </FormScroller>
 
-      <FooterBar $hidden={covered}>
-        <FooterContent>
-          <FooterStart>{footerNotice ?? <SummaryText text={summary} />}</FooterStart>
-          {footerActions}
-        </FooterContent>
-      </FooterBar>
+      {hasFooter ? (
+        <FooterBar $hidden={covered}>
+          <FooterContent>
+            <FooterStart>
+              {footerNotice ?? (summary !== undefined ? <SummaryText text={summary} /> : null)}
+            </FooterStart>
+            {footerActions}
+          </FooterContent>
+        </FooterBar>
+      ) : null}
     </Root>
   )
 }

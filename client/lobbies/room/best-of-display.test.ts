@@ -6,12 +6,13 @@ import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { createHuman, createObserver, createOpen, Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import {
   getBestOfCandidates,
   getBestOfSeriesGames,
   getBestOfStartBlocker,
   getDisplayedBestOf,
+  getOneAgainstOneResult,
   getRecentGameLimit,
   groupSessionGames,
   SessionGamesEntry,
@@ -380,5 +381,141 @@ describe('getRecentGameLimit', () => {
     expect(getRecentGameLimit({ ...over, stripWidth: 512 })).toBe(2)
     expect(getRecentGameLimit({ ...over, stripWidth: 400 })).toBe(1)
     expect(getRecentGameLimit({ ...over, stripWidth: 383 })).toBe(0)
+  })
+})
+
+describe('getOneAgainstOneResult', () => {
+  /** A finished game with the given rosters (one array of user ids per team) and winners. */
+  function played(
+    teams: Array<Array<SbUserId | 'computer'>>,
+    winners: SbUserId[],
+  ): LobbySeriesGameJson {
+    return {
+      gameId: 'g',
+      mapId: 'map' as SbMapId,
+      teams: teams.map((players, index) => ({
+        teamId: index + 1,
+        players: players.map(player =>
+          player === 'computer'
+            ? { type: 'computer' as const, race: 'z' as const }
+            : { type: 'human' as const, userId: player, race: 'z' as const },
+        ),
+      })),
+      result: {
+        durationMs: 60000,
+        outcomes: [ALICE, BOB, CAROL, DAVE]
+          .filter(userId => teams.some(team => team.includes(userId)))
+          .map(userId => ({
+            userId,
+            result: winners.includes(userId) ? ('win' as const) : ('loss' as const),
+          })),
+      },
+    }
+  }
+
+  test('names the winner and loser of a one against one game of a series by the series', () => {
+    const game = played([[ALICE], [BOB]], [ALICE])
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [[ALICE], [BOB]],
+        status: 'won',
+        winner: 0,
+      }),
+    ).toEqual({ winner: ALICE, loser: BOB })
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [[ALICE], [BOB]],
+        status: 'won',
+        winner: 1,
+      }),
+    ).toEqual({ winner: BOB, loser: ALICE })
+  })
+
+  test('goes by the series when the host set a win against the results', () => {
+    const game = played([[ALICE], [BOB]], [ALICE])
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [[ALICE], [BOB]],
+        status: 'won',
+        winner: 1,
+        setByHost: true,
+      }),
+    ).toEqual({ winner: BOB, loser: ALICE })
+  })
+
+  test('is not one against one for a team game of a series', () => {
+    const game = played(
+      [
+        [ALICE, CAROL],
+        [BOB, DAVE],
+      ],
+      [ALICE, CAROL],
+    )
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [
+          [ALICE, CAROL],
+          [BOB, DAVE],
+        ],
+        status: 'won',
+        winner: 0,
+      }),
+    ).toBeUndefined()
+  })
+
+  test('is not one against one when a side seated more or fewer than one player', () => {
+    const game = played([[ALICE], [BOB]], [ALICE])
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [[ALICE], []],
+        status: 'won',
+        winner: 0,
+      }),
+    ).toBeUndefined()
+  })
+
+  test('names nobody for a game of a series that did not count or is waiting', () => {
+    const game = played([[ALICE], [BOB]], [ALICE])
+    expect(
+      getOneAgainstOneResult(game, {
+        gameId: 'g',
+        players: [[ALICE], [BOB]],
+        status: 'notCounted',
+      }),
+    ).toBeUndefined()
+    expect(
+      getOneAgainstOneResult(game, { gameId: 'g', players: [[ALICE], [BOB]], status: 'noWinner' }),
+    ).toBeUndefined()
+    expect(
+      getOneAgainstOneResult(game, { gameId: 'g', players: [[ALICE], [BOB]], status: 'pending' }),
+    ).toBeUndefined()
+  })
+
+  test('names the winner of a plain one against one game by its results', () => {
+    expect(getOneAgainstOneResult(played([[ALICE], [BOB]], [BOB]))).toEqual({
+      winner: BOB,
+      loser: ALICE,
+    })
+    // Everyone on one side, as in melee.
+    expect(getOneAgainstOneResult(played([[ALICE, BOB]], [ALICE]))).toEqual({
+      winner: ALICE,
+      loser: BOB,
+    })
+  })
+
+  test('is not one against one for a plain game with a computer', () => {
+    expect(getOneAgainstOneResult(played([[ALICE], ['computer']], [ALICE]))).toBeUndefined()
+  })
+
+  test('names nobody for a plain game without a winner or results', () => {
+    expect(getOneAgainstOneResult(played([[ALICE], [BOB]], []))).toBeUndefined()
+    expect(
+      getOneAgainstOneResult({ ...played([[ALICE], [BOB]], [ALICE]), result: undefined }),
+    ).toBeUndefined()
   })
 })

@@ -152,7 +152,7 @@ describe('BestOfScoreTile', () => {
     expect(screen.getByTestId('best-of-score-seated-2').textContent).toBe('bob')
   })
 
-  test('marks nobody as the winner of a drawn series', () => {
+  test('marks both sides of a drawn series with a draw chip', () => {
     const bestOf: LobbyBestOfJson = {
       ...SERIES,
       length: 2,
@@ -164,9 +164,13 @@ describe('BestOfScoreTile', () => {
     }
     renderWithStore(makeStore(makeLobby(), [bestOf]), <BestOfScoreTile bestOf={bestOf} />)
 
-    // A winner's row would lead with the trophy icon, whose name is its text.
-    expect(screen.getByTestId('best-of-score-row-1').textContent).toBe('carol+21')
-    expect(screen.getByTestId('best-of-score-row-2').textContent).toBe('bob+11')
+    for (const testId of ['best-of-score-row-1', 'best-of-score-row-2']) {
+      expect(
+        screen.getByTestId(testId).querySelector('[role=img]')?.getAttribute('aria-label'),
+      ).toBe('Draw')
+    }
+    expect(screen.getByTestId('best-of-score-row-1').textContent).toContain('carol+21')
+    expect(screen.getByTestId('best-of-score-row-2').textContent).toContain('bob+11')
   })
 
   test('drops the line once the series is over', () => {

@@ -1,3 +1,5 @@
+import { assertUnreachable } from '../../../common/assert-unreachable'
+import { ReconciledResult } from '../../../common/games/results'
 import { Lobby } from '../../../common/lobbies'
 import {
   BestOfSideIndex,
@@ -11,6 +13,7 @@ import {
   LobbyBestOfLaunchedGameJson,
 } from '../../../common/lobbies/lobby-best-of'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
+import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { SbUserId } from '../../../common/users/sb-user-id'
 
@@ -75,6 +78,84 @@ export function getDisplayedBestOf(
   return last.games.some(game => !isBestOfAddedResult(game) && game.gameId === lastGameId)
     ? last
     : undefined
+}
+
+/**
+ * How a finished best-of series ended for one of its sides, for marking the side with a result:
+ * a win or loss for a series that one side won, a draw for each side of a drawn one, and nothing
+ * for a series that is still running or that the host ended before it was decided.
+ */
+export function getBestOfSideResult(
+  bestOf: Pick<LobbyBestOfJson, 'outcome'>,
+  sideIndex: BestOfSideIndex,
+): ReconciledResult | undefined {
+  switch (bestOf.outcome?.kind) {
+    case 'won':
+      return bestOf.outcome.winner === sideIndex ? 'win' : 'loss'
+    case 'drawn':
+      return 'draw'
+    case undefined:
+    case 'unfinished':
+      return undefined
+    default:
+      return assertUnreachable(bestOf.outcome)
+  }
+}
+
+/** The two players of a game played one against one, and who won it. */
+export interface OneAgainstOneResult {
+  winner: SbUserId
+  loser: SbUserId
+}
+
+/**
+ * Returns who won a finished game that was played one against one, or `undefined` when it wasn't
+ * played that way or has no winner to name.
+ *
+ * A game of a best-of series is one against one when exactly one player was seated for each side,
+ * and its winner is the one its series counts (which a host can set against the game's own
+ * results). Any other game is one against one when its roster is exactly two humans and no
+ * computers, and its winner is the one `findSeriesGameWinner` finds.
+ */
+export function getOneAgainstOneResult(
+  game: LobbySeriesGameJson,
+  bestOfGame?: LobbyBestOfLaunchedGameJson,
+): OneAgainstOneResult | undefined {
+  if (bestOfGame) {
+    const [side0, side1] = bestOfGame.players
+    if (bestOfGame.status !== 'won' || side0.length !== 1 || side1.length !== 1) {
+      return undefined
+    }
+    return bestOfGame.winner === 0
+      ? { winner: side0[0], loser: side1[0] }
+      : { winner: side1[0], loser: side0[0] }
+  }
+
+  const roster = game.teams.flatMap(team => team.players)
+  if (roster.length !== 2) {
+    return undefined
+  }
+  const [first, second] = roster
+  if (first.type !== 'human' || second.type !== 'human') {
+    return undefined
+  }
+
+  const winner = findSeriesGameWinner(game)
+  if (!winner) {
+    return undefined
+  }
+  const winnerId =
+    winner.kind === 'player'
+      ? winner.userId
+      : game.teams
+          .find(team => team.teamId === winner.teamId)
+          ?.players.find(p => p.type === 'human')?.userId
+  if (winnerId === first.userId) {
+    return { winner: first.userId, loser: second.userId }
+  } else if (winnerId === second.userId) {
+    return { winner: second.userId, loser: first.userId }
+  }
+  return undefined
 }
 
 /** One row of the lobby's full list of games, with a key unique within the list. */

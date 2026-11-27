@@ -31,6 +31,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
+import { PlayerResultMarker } from '../../games/result-chip'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { batchGetMapInfo } from '../../maps/action-creators'
 import { MapInfoImage } from '../../maps/map-image'
@@ -56,11 +57,12 @@ import { WarpFieldDescriptionInfo } from '../warp-field'
 import {
   getBestOfSeriesGames,
   getDisplayedBestOf,
+  getOneAgainstOneResult,
   getRecentGameLimit,
   groupSessionGames,
   NumberedSeriesGame,
 } from './best-of-display'
-import { bestOfLabel, useBestOfSideLabel } from './best-of-parts'
+import { bestOfLabel, useBestOfSideLabel, useUserNames } from './best-of-parts'
 import { BestOfScoreTile } from './best-of-score-tile'
 import { BestOfStandings, LobbyScoreboard } from './lobby-scoreboard'
 import {
@@ -349,20 +351,16 @@ const GameTileDuration = styled.span`
 `
 
 const GameTileBottomRow = styled.div`
+  min-width: 0;
+
   display: flex;
   align-items: center;
-  gap: 4px;
-`
-
-const GameTileTrophy = styled.span`
-  display: flex;
-  flex-shrink: 0;
-  color: var(--theme-amber);
 `
 
 const GameTileWinner = styled.span`
   ${bodyMedium};
   ${singleLine};
+  min-width: 0;
 `
 
 const GameTileUnresolved = styled(GameTileWinner)`
@@ -457,7 +455,8 @@ const QueuedMapsName = styled.div`
 `
 
 const SeriesList = styled.div`
-  min-width: 360px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
   /**
    * The popover sizes its frame to the space between the anchor and the screen edge but leaves
    * scrolling to its content, so the list caps itself to that space (inherited from the popover
@@ -542,9 +541,37 @@ const SeriesFactRow = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const SeriesTrophyIcon = styled(MaterialIcon)`
-  flex-shrink: 0;
-  color: var(--theme-amber);
+/** A game row's first line: its map, then its length at the row's far end. */
+const SeriesGameTopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const SeriesGameMapName = styled(EllipsizedText)`
+  ${bodyMedium};
+  flex: 1 1 auto;
+  min-width: 0;
+`
+
+/** A name beside its result chip. It ellipsizes before the chip or its neighbours do. */
+const SeriesResultName = styled(EllipsizedText)`
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--theme-on-surface);
+`
+
+/** One player or side of a game: its result chip, then its name. */
+const SeriesResultGroup = styled.span`
+  min-width: 0;
+  flex: 0 1 auto;
+
+  display: inline-flex;
+  align-items: center;
+
+  &:not(:first-child) {
+    margin-left: 8px;
+  }
 `
 
 const SeriesWinner = styled.span`
@@ -557,8 +584,10 @@ const SeriesFactDivider = styled.span`
 `
 
 const SeriesDuration = styled.span`
+  ${labelSmall};
   ${singleLine};
   flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
 `
 
 const SeriesHostNote = styled.span`
@@ -578,9 +607,8 @@ const SeriesAddedNote = styled.span`
   color: var(--theme-on-surface-variant);
 `
 
-const SeriesAddedWinner = styled.span`
+const SeriesAddedWinner = styled(EllipsizedText)`
   ${bodyMedium};
-  ${singleLine};
   min-width: 0;
 `
 
@@ -618,6 +646,25 @@ const SeriesBestOfNote = styled.span`
 
 const SeriesBestOfScore = styled.span`
   flex-shrink: 0;
+`
+
+/** Opens the full results of the series it heads, styled as this app styles a text action. */
+const SeriesResultsLink = styled.button`
+  ${buttonReset};
+  ${labelMedium};
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--theme-amber);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-grey-blue);
+    outline-offset: 2px;
+  }
 `
 
 /**
@@ -751,35 +798,54 @@ function SeriesGameRow({
     outcomeNote = t('lobbies.room.series.waitingForResults', 'Waiting for results')
   }
   const isSetByHost = bestOfGame?.status === 'won' && !!bestOfGame.setByHost
+  const oneAgainstOne = getOneAgainstOneResult(game, bestOfGame)
+  const [winnerName, loserName] = useUserNames(
+    oneAgainstOne ? [oneAgainstOne.winner, oneAgainstOne.loser] : NO_PLAYERS,
+  )
+
+  let resultLine: React.ReactNode
+  if (oneAgainstOne) {
+    resultLine = (
+      <>
+        <SeriesResultGroup>
+          <PlayerResultMarker result='win' />
+          <SeriesResultName text={winnerName} />
+        </SeriesResultGroup>
+        <SeriesResultGroup>
+          <PlayerResultMarker result='loss' />
+          <SeriesResultName text={loserName} />
+        </SeriesResultGroup>
+      </>
+    )
+  } else if (outcome.kind === 'won') {
+    resultLine = (
+      <SeriesResultGroup>
+        <PlayerResultMarker result='win' />
+        <SeriesResultName text={outcome.winnerLabel} />
+      </SeriesResultGroup>
+    )
+  } else {
+    resultLine = <SeriesWinner>{outcomeNote}</SeriesWinner>
+  }
 
   return (
-    <SeriesRow>
+    <SeriesRow data-testid='series-game-row'>
       <SeriesGameNumber>
         {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
       </SeriesGameNumber>
       <SeriesMain>
-        <SeriesMapName title={mapName}>
-          {mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')}
-        </SeriesMapName>
-        <SeriesFactRow>
-          {outcome.kind === 'won' ? (
-            <>
-              <SeriesTrophyIcon icon='trophy' size={14} filled />
-              <SeriesWinner>{outcome.winnerLabel}</SeriesWinner>
-            </>
-          ) : (
-            <SeriesWinner>{outcomeNote}</SeriesWinner>
-          )}
+        <SeriesGameTopRow>
+          <SeriesGameMapName text={mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')} />
+          {game.result ? (
+            <SeriesDuration>{getGameDurationString(game.result.durationMs)}</SeriesDuration>
+          ) : null}
+        </SeriesGameTopRow>
+        <SeriesFactRow data-testid='series-game-result'>
+          {resultLine}
           {isSetByHost ? (
             <>
               <SeriesFactDivider>·</SeriesFactDivider>
               <SeriesHostNote>{t('lobbies.room.bestOf.setByHost', 'Set by host')}</SeriesHostNote>
-            </>
-          ) : null}
-          {game.result ? (
-            <>
-              <SeriesFactDivider>·</SeriesFactDivider>
-              <SeriesDuration>{getGameDurationString(game.result.durationMs)}</SeriesDuration>
             </>
           ) : null}
         </SeriesFactRow>
@@ -830,8 +896,10 @@ function SeriesAddedResultRow({
       </SeriesGameNumber>
       <SeriesAddedNote>{t('lobbies.room.bestOf.addedByHost', 'Added by host')}</SeriesAddedNote>
       <SeriesFactDivider>·</SeriesFactDivider>
-      <SeriesTrophyIcon icon='trophy' size={14} filled />
-      <SeriesAddedWinner>{winnerLabel}</SeriesAddedWinner>
+      <SeriesResultGroup>
+        <PlayerResultMarker result='win' />
+        <SeriesAddedWinner text={winnerLabel} />
+      </SeriesResultGroup>
     </SeriesAddedRow>
   )
 }
@@ -892,9 +960,7 @@ function GameTile({
         <GameTileBottomRow>
           {outcome.kind === 'won' ? (
             <>
-              <GameTileTrophy>
-                <MaterialIcon icon='trophy' size={14} filled />
-              </GameTileTrophy>
+              <PlayerResultMarker result='win' />
               <GameTileWinner>{outcome.winnerLabel}</GameTileWinner>
             </>
           ) : (
@@ -1035,7 +1101,13 @@ function timelineBestOfLabel(bestOf: LobbyBestOfJson, t: TFunction): string {
 }
 
 /** Heads the run of a best-of series' games in the full list of the lobby's games. */
-function SeriesBestOfHeaderRow({ bestOf }: { bestOf: LobbyBestOfJson }) {
+function SeriesBestOfHeaderRow({
+  bestOf,
+  onOpenResults,
+}: {
+  bestOf: LobbyBestOfJson
+  onOpenResults: (bestOfId: string) => void
+}) {
   const { t } = useTranslation()
   const [score1, score2] = getBestOfScore(bestOf)
 
@@ -1048,6 +1120,9 @@ function SeriesBestOfHeaderRow({ bestOf }: { bestOf: LobbyBestOfJson }) {
       {bestOf.outcome?.kind === 'drawn' ? (
         <SeriesBestOfNote>{t('lobbies.room.bestOf.drawn', 'Drawn')}</SeriesBestOfNote>
       ) : null}
+      <SeriesResultsLink type='button' onClick={() => onOpenResults(bestOf.id)}>
+        {t('lobbies.room.bestOf.fullResults', 'Full results')}
+      </SeriesResultsLink>
       <SeriesBestOfScore>
         {t('lobbies.room.bestOf.score', {
           defaultValue: '{{score1}} – {{score2}}',
@@ -1088,6 +1163,7 @@ export function RoomMapBanner({
   viewerId,
   onArrangeTeams,
   onOpenSeriesSetup,
+  onOpenSeriesResults,
   focusSeriesTool = false,
   onEndBestOf,
   onDiscardBestOfGame,
@@ -1098,6 +1174,8 @@ export function RoomMapBanner({
   onArrangeTeams: (arrangement: TeamArrangement) => void
   /** Opens the page that starts a series, or edits the running one. */
   onOpenSeriesSetup: () => void
+  /** Opens the page with the full results of the series with the given id. */
+  onOpenSeriesResults: (bestOfId: string) => void
   /**
    * Whether the button that opens the series page takes focus as the banner mounts, for when the
    * host comes back to the room from that page.
@@ -1418,7 +1496,16 @@ export function RoomMapBanner({
                       {sessionEntries.map(entry => {
                         switch (entry.kind) {
                           case 'bestOf':
-                            return <SeriesBestOfHeaderRow key={entry.key} bestOf={entry.bestOf} />
+                            return (
+                              <SeriesBestOfHeaderRow
+                                key={entry.key}
+                                bestOf={entry.bestOf}
+                                onOpenResults={bestOfId => {
+                                  closeAllGames()
+                                  onOpenSeriesResults(bestOfId)
+                                }}
+                              />
+                            )
                           case 'addedResult':
                             return (
                               <SeriesAddedResultRow

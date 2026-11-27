@@ -5,6 +5,11 @@ import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { getGameDurationString } from '../../../common/games/games'
 import {
+  getBestOfSideName,
+  isBestOfAddedResult,
+  LobbyBestOfLaunchedGameJson,
+} from '../../../common/lobbies/lobby-best-of'
+import {
   changesGameSettings,
   LobbyChangedSetting,
   LobbySeriesPlayerJson,
@@ -41,6 +46,7 @@ import {
   BestOfReopenedLine,
   BestOfStartedLine,
 } from './best-of-chat-lines'
+import { useBestOfSideLabel } from './best-of-parts'
 import { getReadyEligibleUsers, lobbyTeamLabel, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
@@ -565,12 +571,15 @@ function ResultPlayerRow({
   )
 }
 
+/** No members, shared so a side-less lookup reads the same on every render. */
+const NO_SIDE_MEMBERS: ReadonlyArray<SbUserId> = Object.freeze([])
+
 /**
  * The result of a finished game, dropped into the conversation it happened in the middle of. The
  * newest one opens itself while the lobby is between games, since that's when its contents are what
  * the room is actually doing; anything the reader opens or closes by hand stays that way.
  */
-function GameSummaryCard({ gameId }: { gameId: string }) {
+export function GameSummaryCard({ gameId }: { gameId: string }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const { isRegrouping, onWatchReplay, onViewGameSummary } = React.useContext(GameSummaryContext)
@@ -594,6 +603,22 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
     }
   }, [dispatch, winnerUserId])
 
+  // The series the game was played in, if any, which names a game's winner by the side that won it.
+  const bestOf = useAppSelector(s =>
+    s.lobby.bestOfs.find(candidate =>
+      candidate.games.some(entry => !isBestOfAddedResult(entry) && entry.gameId === gameId),
+    ),
+  )
+  const bestOfGame = bestOf?.games.find(
+    (entry): entry is LobbyBestOfLaunchedGameJson =>
+      !isBestOfAddedResult(entry) && entry.gameId === gameId,
+  )
+  const winningSide = bestOf && bestOfGame?.status === 'won' ? bestOfGame.winner : undefined
+  const winningSideLabel = useBestOfSideLabel(
+    winningSide !== undefined ? bestOf!.sides[winningSide] : NO_SIDE_MEMBERS,
+    winningSide !== undefined ? getBestOfSideName(bestOf!, winningSide) : undefined,
+  )
+
   const [override, setOverride] = React.useState<boolean | null>(null)
   const expanded = override ?? (isLatest && isRegrouping)
 
@@ -611,6 +636,12 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
     headline = t('lobbies.room.series.headlineWaiting', 'Game {{number}}, waiting for results', {
       number: gameNumber,
     })
+  } else if (winningSide !== undefined) {
+    headline = t(
+      'lobbies.room.series.headlineTeamWon',
+      'Game {{number}}: {{team}} won ({{duration}})',
+      { number: gameNumber, team: winningSideLabel, duration },
+    )
   } else if (winner?.kind === 'team') {
     headline = t(
       'lobbies.room.series.headlineTeamWon',

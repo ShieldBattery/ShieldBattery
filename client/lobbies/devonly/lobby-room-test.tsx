@@ -401,24 +401,6 @@ const REGROUP_SERIES: LobbySeriesGameJson[] = [
 ]
 
 /** The 2v2 the best-of scenarios play, seated the way `makeRegroupLobby` seats them. */
-const TWO_V_TWO_TEAMS: LobbySeriesTeamJson[] = [
-  {
-    teamId: TOP_TEAM_ID,
-    name: 'Top',
-    players: [
-      { type: 'human', userId: TEC27, race: 't' },
-      { type: 'human', userId: PACHI, race: 'z' },
-    ],
-  },
-  {
-    teamId: BOTTOM_TEAM_ID,
-    name: 'Bottom',
-    players: [
-      { type: 'human', userId: DRONEBRO, race: 'p' },
-      { type: 'human', userId: HEARTCUTTER, race: 'r' },
-    ],
-  },
-]
 const TWO_V_TWO_SIDES: LobbyBestOfSides = [
   [TEC27, PACHI],
   [DRONEBRO, HEARTCUTTER],
@@ -473,6 +455,43 @@ const LONG_NAMES_TEAMS: LobbySeriesTeamJson[] = LONG_NAMES_SIDES.map((side, i) =
   players: side.map(userId => ({ type: 'human' as const, userId, race: 'r' as const })),
 }))
 
+/** The race each person in the best-of scenarios plays as. */
+const BEST_OF_RACES: ReadonlyMap<SbUserId, RaceChar> = new Map([
+  [TEC27, 't'],
+  [PACHI, 'z'],
+  [DRONEBRO, 'p'],
+  [HEARTCUTTER, 'r'],
+  [BLUESKY, 'z'],
+  [NERDRAGE, 't'],
+  [SUNN0, 'r'],
+])
+
+/** The teams a game of a best-of series was played in, with each side's players as one team. */
+function lineupTeams(lineup: LobbyBestOfSides): LobbySeriesTeamJson[] {
+  return lineup.map((players, i) => ({
+    teamId: i === 0 ? TOP_TEAM_ID : BOTTOM_TEAM_ID,
+    name: i === 0 ? 'Top' : 'Bottom',
+    players: players.map(userId => ({
+      type: 'human' as const,
+      userId,
+      race: BEST_OF_RACES.get(userId) ?? 'r',
+    })),
+  }))
+}
+
+/**
+ * The rosters' games with a different pair seated for each side in the second one: blueSky comes
+ * off the bench for Pachi, and NerdRage stops observing to stand in for HeartcutterXVIII.
+ */
+const NAMED_ROSTER_LINEUPS: ReadonlyArray<LobbyBestOfSides> = [
+  TWO_V_TWO_SIDES,
+  [
+    [TEC27, BLUESKY],
+    [DRONEBRO, NERDRAGE],
+  ],
+  TWO_V_TWO_SIDES,
+]
+
 /**
  * How one game of a scripted best-of series goes: won by a side, settled with no winner, still
  * waiting for its result, or stopped from counting by the host.
@@ -491,6 +510,7 @@ function playBestOf(
     playAll,
     sides = TWO_V_TWO_SIDES,
     sideNames,
+    lineups,
     games,
     end,
   }: {
@@ -499,6 +519,11 @@ function playBestOf(
     playAll?: boolean
     sides?: LobbyBestOfSides
     sideNames?: LobbyBestOfSideNames
+    /**
+     * Who of each side is seated as a player for each game, by the game's place in `games`. Without
+     * one, a game is played by the first two of each side.
+     */
+    lineups?: ReadonlyArray<LobbyBestOfSides>
     games: ReadonlyArray<BestOfGamePlan>
     /** How the last game ends the series, if it does: won by its winner, or drawn. */
     end?: 'won' | 'drawn' | 'unfinished'
@@ -517,11 +542,16 @@ function playBestOf(
 
   games.forEach((plan, index) => {
     const gameId = `mock-best-of-game-${index + 1}`
+    const players: LobbyBestOfSides = lineups?.[index] ?? [
+      sides[0].slice(0, 2),
+      sides[1].slice(0, 2),
+    ]
+    const teams = lineupTeams(players)
     dispatch({
       type: '@lobbies/updateGameStarted',
       payload: { runState: { gameId, inGameUsers: [], elapsedMs: 0 } },
     })
-    bestOf = { ...bestOf, games: [...bestOf.games, { gameId, players: sides, status: 'pending' }] }
+    bestOf = { ...bestOf, games: [...bestOf.games, { gameId, players, status: 'pending' }] }
     dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
     dispatch({
       type: '@lobbies/updateRegroup',
@@ -530,7 +560,7 @@ function playBestOf(
         game: {
           gameId,
           mapId: index % 2 ? FightingSpirit.id : BigGameHunters.id,
-          teams: TWO_V_TWO_TEAMS,
+          teams,
         },
       },
     })
@@ -560,7 +590,7 @@ function playBestOf(
         type: 'seriesGameUpdated',
         gameId,
         result: {
-          outcomes: makeOutcomes(TWO_V_TWO_TEAMS, winningTeamId),
+          outcomes: makeOutcomes(teams, winningTeamId),
           durationMs: (12 + index * 3) * 60 * 1000 + 17 * 1000,
         },
       },
@@ -742,6 +772,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         length: 7,
         sides: NAMED_ROSTER_SIDES,
         sideNames: NAMED_SIDES,
+        lineups: NAMED_ROSTER_LINEUPS,
         games: [0, 1, 0],
       })
     } else if (scenario === 'bestOfNamedNobodySeated') {
