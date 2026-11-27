@@ -2618,16 +2618,17 @@ impl Preset {
         }
     }
 
-    /// The series games rendered with named sides and players: each setup in [`Names::RENDERED`] in
-    /// both of the matchup's forms for one, two and four a side, and on the bar alone between the
-    /// corner cards at three a side.
+    /// The series games rendered with named sides and players: each setup in [`Names::RENDERED`] on
+    /// the bar and on the plate the compact scoreboard leaves the series, for one, two, three and
+    /// four a side.
     pub fn named_presets() -> impl Iterator<Item = Preset> {
-        const SHAPES: [(usize, usize, Top); 7] = [
+        const SHAPES: [(usize, usize, Top); 8] = [
             (2, 1, Top::Bar),
             (2, 1, Top::Compact),
             (4, 2, Top::Bar),
             (4, 2, Top::Compact),
             (6, 3, Top::Bar),
+            (6, 3, Top::Compact),
             (8, 4, Top::Bar),
             (8, 4, Top::Compact),
         ];

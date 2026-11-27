@@ -157,9 +157,11 @@ plate** of its own (`observer::series_plate`) hung from the middle of the top ed
 at its end (one player, two stacked, or the side's label from three up), its score in a cell, and
 the format over the game number between them, with the bar's tab under it carrying the title and
 whatever lines and logo the series was given for the casters, and no tab at all where it has none of
-those. The plate keeps to the room between the wings, giving up its names to a narrow screen before
-anything else, and the map-control strip hangs under it as it hangs under the bar. The Matchup panel
-itself never carries the series.
+those. A side the series' host named has its name in a cell at its end of either tab, except under
+the plate for a side of three or more, whose label on the plate is its name instead. The plate keeps
+to the room between the wings, giving up its names to a narrow screen before anything else, and the
+map-control strip hangs under it as it hangs under the bar. The Matchup panel itself never carries
+the series, though it calls a named side by its name wherever it labels a team, as every panel does.
 
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell

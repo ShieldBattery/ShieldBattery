@@ -31,9 +31,10 @@
 //! is observing, the stage) and a logo. The tab grows a row for each row of lines under the series
 //! line, and with a logo carries it in a cell at its left end with the rows beside it.
 //!
-//! A side the host named has its name in a cell of its own at its end of the tab under the bar, one
-//! row tall, beside the middle cell that carries the series line: under its own half of the bar,
-//! next to its score. A side with no name has no cell.
+//! A side the host named has its name in a cell of its own at its end of the tab, one row tall,
+//! beside the middle cell that carries the series line: under its own half of the bar, next to its
+//! score. A side with no name has no cell. Under the plate a side it labels rather than names by its
+//! players carries its name on the plate itself, and has no cell.
 
 use std::sync::Arc;
 
@@ -713,8 +714,9 @@ pub(crate) enum TabAnchor {
     Bar,
     /// The series plate, whose own middle block says how far into the series the game is: the line
     /// is the series' title alone, and the tab is never narrower than the plate's scores and middle
-    /// block, `width` across.
-    Plate { width: f32 },
+    /// block, `width` across. `cells` says which of the two sides' names the tab carries at its
+    /// ends: those the plate names by their players, a side it labels carrying its name itself.
+    Plate { width: f32, cells: [bool; 2] },
 }
 
 impl TabAnchor {
@@ -722,7 +724,15 @@ impl TabAnchor {
     fn min_width(self) -> f32 {
         match self {
             TabAnchor::Bar => TAB_MIN_WIDTH,
-            TabAnchor::Plate { width } => width,
+            TabAnchor::Plate { width, .. } => width,
+        }
+    }
+
+    /// Which of the two sides' names a tab hung from this carries in cells at its ends.
+    fn cells(self) -> [bool; 2] {
+        match self {
+            TabAnchor::Bar => [true, true],
+            TabAnchor::Plate { cells, .. } => cells,
         }
     }
 
@@ -1072,9 +1082,11 @@ impl Tab {
     /// the room again, as it does in a series with no named side.
     fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> Tab {
         let spec = side_name_spec();
-        let names = series.side_names.each_ref().map(|name| {
-            name.as_deref()
-                .filter(|name| !name.is_empty() && anchor.says_progress())
+        let cells = anchor.cells();
+        let names = [0, 1].map(|index| {
+            series.side_names[index]
+                .as_deref()
+                .filter(|name| !name.is_empty() && cells[index])
         });
         let natural = names.map(|name| {
             name.map(|name| spec.layout(ctx, spec.job(name)).size().x + SIDE_CELL_PAD * 2.0)
@@ -1117,7 +1129,22 @@ impl Tab {
                 name: spec.layout(ctx, spec.job_truncated(name, width - SIDE_CELL_PAD * 2.0)),
             })
         });
+        // A middle cell with nothing of its own between two sides' cells is a row tall, the cells'
+        // own height, so the three read as one strip.
+        let mut centre = centre;
+        if sides.iter().any(Option::is_some) {
+            centre.height = centre.height.max(TAB_ROW_HEIGHT);
+        }
         Tab { centre, sides }
+    }
+
+    /// Whether the tab has nothing in it at all: no series line, no lines for the casters, no logo
+    /// and no side's name, which a tab under the plate can come to.
+    fn is_empty(&self) -> bool {
+        self.centre.series_line.is_none()
+            && self.centre.rows.is_empty()
+            && self.centre.logo.is_none()
+            && self.sides.iter().all(Option::is_none)
     }
 
     /// Draws the tab under the middle of `above`, joined to it, and returns the rects it covers: its
@@ -1372,24 +1399,33 @@ fn paint_logo(ui: &Ui, logo: SeriesLogo, rect: Rect) {
     );
 }
 
-/// How tall the series tab hung from `anchor` is for `series`, or nothing where `anchor` hangs no
-/// tab for it: under the plate the tab's line is the series' title alone, so a series with no title,
-/// no lines for the casters and no logo has nothing to put there.
-pub(crate) fn series_tab_height(series: &SeriesView, anchor: TabAnchor) -> Option<f32> {
-    let height = tab_height(series, anchor);
-    (height > 0.0).then_some(height)
+/// The series tab laid out for a surface other than the bar to hang, ready to be drawn.
+pub(crate) struct SeriesTab(Tab);
+
+impl SeriesTab {
+    /// How tall the tab is.
+    pub(crate) fn height(&self) -> f32 {
+        self.0.centre.height
+    }
+
+    /// Draws the tab under the middle of `above` and returns the rects it covers.
+    pub(crate) fn draw(&self, ui: &Ui, above: Rect) -> Vec<Rect> {
+        self.0.draw(ui, above)
+    }
 }
 
-/// Draws the series tab for `series` under the middle of `above`, the surface it hangs from as
-/// `anchor` says, with `room` between the surfaces beside it, and returns the rects it covers.
-pub(crate) fn draw_series_tab(
-    ui: &Ui,
-    above: Rect,
+/// Lays the series tab for `series` out to hang from `anchor` with `room` between the surfaces
+/// beside it, or nothing where the tab would have nothing in it: under the plate the tab's line is
+/// the series' title alone, so a series with no title, no lines for the casters, no logo and no
+/// side's name the tab has room for has nothing to put there.
+pub(crate) fn lay_out_series_tab(
+    ctx: &Context,
     series: &SeriesView,
     room: f32,
     anchor: TabAnchor,
-) -> Vec<Rect> {
-    Tab::lay_out(ui.ctx(), series, room, anchor).draw(ui, above)
+) -> Option<SeriesTab> {
+    let tab = Tab::lay_out(ctx, series, room, anchor);
+    (!tab.is_empty()).then_some(SeriesTab(tab))
 }
 
 /// Draws the bar across no more than `available` points of `screen` and reports which player was
@@ -1455,7 +1491,7 @@ fn draw_bar(
         draw_score_cell(ui, left, left.left(), series.scores[0], colors[0]);
         draw_score_cell(ui, right, right.right(), series.scores[1], colors[1]);
         let room = tab_room(screen, form, view.clock_block_width(series_panel));
-        draw_series_tab(ui, rect, series, room, TabAnchor::Bar)
+        Tab::lay_out(ui.ctx(), series, room, TabAnchor::Bar).draw(ui, rect)
     });
     (clicked, tab)
 }

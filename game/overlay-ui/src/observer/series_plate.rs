@@ -24,8 +24,8 @@ use crate::observer::matchup::{
     PAD_OUTER, SCORE_CELL, STACKED_CHIP, STACKED_NAME_SIZE, SeriesFormat, SeriesView, TabAnchor,
 };
 use crate::observer::{
-    EdgeCursor, MatchupPlayerView, MatchupView, TeamNames, centred, map_control,
-    paint_picked_race_chip, paint_player_bar, paint_text, team_name,
+    EdgeCursor, MatchupPlayerView, MatchupView, centred, map_control, paint_picked_race_chip,
+    paint_player_bar, paint_text, team_name,
 };
 use crate::{tr, tr_plural};
 
@@ -78,13 +78,13 @@ pub fn render_series_plate(
     motion::enter_exit(ctx, presence, shown)?;
     let room = map_control::room_between_wings(ctx.viewport_rect());
     let plate = Plate::lay_out(ctx, view, series, room);
-    let anchor = plate.tab_anchor();
-    let depth = plate.height + matchup::series_tab_height(series, anchor).unwrap_or(0.0);
+    let tab = matchup::lay_out_series_tab(ctx, series, room, plate.tab_anchor());
+    let depth = plate.height + tab.as_ref().map_or(0.0, matchup::SeriesTab::height);
     let area = Area::new(id)
         .anchor(Align2::CENTER_TOP, vec2(0.0, 0.0))
         .order(Order::Foreground);
     let inner = motion::presence_area_from_top(ctx, presence, shown, area, |ui| {
-        plate.draw(ui, series, room)
+        plate.draw(ui, series, tab.as_ref())
     })?;
     let mut rects = vec![inner.response.rect];
     rects.extend(inner.inner.into_iter().flatten());
@@ -212,14 +212,16 @@ impl<'a> Plate<'a> {
     /// so a room narrower than those three, which no screen the game runs at comes near, is left
     /// with the plate overrunning it rather than with a format nobody can read.
     fn lay_out(ctx: &Context, view: &'a MatchupView, series: &SeriesView, room: f32) -> Plate<'a> {
-        // A side is labelled by the number the game gives its team, which in a series game is its
-        // place in the series, the side listed first being the first.
+        // A side is labelled by the name its host gave it, and otherwise by the number the game
+        // gives its team, which in a series game is its place in the series, the side listed first
+        // being the first.
+        let names = view.team_names();
         let side = |team: Option<u8>, position: u8, players: Vec<&'a MatchupPlayerView>| {
             if players.len() <= 2 {
                 PlateSide::Players(players)
             } else {
                 PlateSide::Team {
-                    label: team_name(&TeamNames::default(), team.unwrap_or(position)),
+                    label: team_name(&names, team.unwrap_or(position)),
                     color: players
                         .first()
                         .map_or(Color32::WHITE, |player| player.color),
@@ -268,16 +270,25 @@ impl<'a> Plate<'a> {
         }
     }
 
-    /// What the tab under the plate hangs from: the two scores and the block between them.
+    /// What the tab under the plate hangs from: the two scores and the block between them, with a
+    /// cell at its end for the name of each side the plate names by its players.
     fn tab_anchor(&self) -> TabAnchor {
         TabAnchor::Plate {
             width: self.middle.width + SCORE_CELL * 2.0,
+            cells: self
+                .sides
+                .each_ref()
+                .map(|side| matches!(side, PlateSide::Players(_))),
         }
     }
 
-    /// Draws the plate and the tab under it, `room` being what the tab may take of the screen's
-    /// width, and returns the rects the tab covers where it hangs one.
-    fn draw(&self, ui: &mut Ui, series: &SeriesView, room: f32) -> Option<Vec<Rect>> {
+    /// Draws the plate and `tab` under it where it hangs one, and returns the rects the tab covers.
+    fn draw(
+        &self,
+        ui: &mut Ui,
+        series: &SeriesView,
+        tab: Option<&matchup::SeriesTab>,
+    ) -> Option<Vec<Rect>> {
         let (rect, _) = ui.allocate_exact_size(vec2(self.width, self.height), Sense::hover());
         ui.painter()
             .add(tiers::tier1_chrome(rect, theme::radius_bottom(BAR_RADIUS)));
@@ -312,9 +323,7 @@ impl<'a> Plate<'a> {
             matchup::draw_score_cell(ui, cell, wall, series.scores[index], colors[index]);
             self.draw_side(ui, end, side, mirrored);
         }
-        let anchor = self.tab_anchor();
-        matchup::series_tab_height(series, anchor)
-            .map(|_| matchup::draw_series_tab(ui, rect, series, room, anchor))
+        tab.map(|tab| tab.draw(ui, rect))
     }
 
     /// Draws `side` into `end`, its end of the plate, from the plate's outer edge inwards, mirrored
@@ -613,6 +622,8 @@ mod tests {
         }
     }
 
+    const SIZE: egui::Vec2 = egui::vec2(1920.0, 1080.0);
+
     /// The plate's rects and its depth once a 1920x1080 screen has settled around `view`.
     fn settled_plate(view: &MatchupView) -> (Vec<Rect>, f32) {
         crate::observer::test_support::settled_at(egui::vec2(1920.0, 1080.0), |ctx| {
@@ -641,8 +652,11 @@ mod tests {
                 };
                 // The plate's tab has the rows the bar's has, short only of the series line where
                 // there is no title to be one.
-                let bar = matchup::series_tab_height(&series, TabAnchor::Bar)
-                    .expect("the bar always hangs a tab");
+                let bar = crate::observer::test_support::settled_at(SIZE, |ctx| {
+                    matchup::lay_out_series_tab(ctx, &series, f32::INFINITY, TabAnchor::Bar)
+                        .map(|tab| tab.height())
+                })
+                .expect("the bar always hangs a tab");
                 let expected = if title.is_some() || logo.is_some() && lines.len() < 2 {
                     bar
                 } else {
@@ -685,5 +699,100 @@ mod tests {
         // The square logo's 36 points and 8 either side of it, centered under the plate.
         assert_eq!(tab.width(), 52.0);
         assert!((tab.center().x - plate.center().x).abs() < 0.5);
+    }
+
+    /// `series` with its sides named `first` and `second`, where each is given.
+    fn named(series: SeriesView, first: Option<&str>, second: Option<&str>) -> SeriesView {
+        SeriesView {
+            side_names: [first.map(str::to_string), second.map(str::to_string)],
+            ..series
+        }
+    }
+
+    /// A best of seven going into its fourth game under a short title.
+    fn running_series() -> SeriesView {
+        SeriesView {
+            title: Some("Grand Final".to_string()),
+            format: SeriesFormat::BestOf { length: 7 },
+            game_number: 4,
+            scores: [2, 1],
+            ..longest_series()
+        }
+    }
+
+    #[test]
+    fn a_named_side_drawn_by_its_players_has_a_cell_beside_the_plates_tab() {
+        for teams in [&[1, 2][..], &[1, 1, 2, 2]] {
+            let series = named(running_series(), Some("Nexus Esports"), Some("Ironclad"));
+            let (rects, depth) = settled_plate(&series_game(teams, series));
+            let [plate, centre, left, right] = rects[..] else {
+                panic!("{teams:?}: {rects:?}");
+            };
+            assert_eq!(left.right(), centre.left(), "{teams:?}");
+            assert_eq!(right.left(), centre.right(), "{teams:?}");
+            for cell in [left, right] {
+                assert_eq!(cell.top(), plate.bottom(), "{teams:?}");
+                assert_eq!(cell.height(), matchup::TAB_ROW_HEIGHT, "{teams:?}");
+            }
+            assert_eq!(depth, plate.height() + centre.height());
+
+            // One side named has its cell alone, on its own end.
+            let series = named(running_series(), None, Some("Ironclad"));
+            let (rects, _) = settled_plate(&series_game(teams, series));
+            let [_, centre, cell] = rects[..] else {
+                panic!("{teams:?}: {rects:?}");
+            };
+            assert_eq!(cell.left(), centre.right(), "{teams:?}");
+        }
+    }
+
+    #[test]
+    fn from_three_a_side_the_plate_carries_the_sides_names_itself() {
+        let series = named(running_series(), Some("Nexus Esports"), None);
+        for teams in [&[1, 1, 1, 2, 2, 2][..], &[1, 1, 1, 1, 2, 2, 2, 2]] {
+            let view = series_game(teams, series.clone());
+            let labels = crate::observer::test_support::settled_at(SIZE, |ctx| {
+                let plate = Plate::lay_out(ctx, &view, view.shown_series()?, f32::INFINITY);
+                Some(plate.sides.map(|side| match side {
+                    PlateSide::Team { label, .. } => label,
+                    PlateSide::Players(_) => String::new(),
+                }))
+            })
+            .expect("the plate is laid out");
+            assert_eq!(labels, ["Nexus Esports".to_string(), "Team 2".to_string()]);
+            // The tab under it carries the title and no cells.
+            let (rects, _) = settled_plate(&view);
+            assert_eq!(rects.len(), 2, "{teams:?}: {rects:?}");
+        }
+    }
+
+    #[test]
+    fn a_tab_with_only_the_sides_names_to_carry_hangs_only_where_they_fit() {
+        let series = SeriesView {
+            title: None,
+            ..named(
+                running_series(),
+                Some("Nexus Esports Academy II"),
+                Some("Ironclad Gaming Division"),
+            )
+        };
+        let view = series_game(&[1, 2], series);
+        let (rects, depth) = settled_plate(&view);
+        let [plate, centre, _, _] = rects[..] else {
+            panic!("{rects:?}");
+        };
+        // A middle cell with nothing of its own is a row tall between the two names.
+        assert_eq!(centre.height(), matchup::TAB_ROW_HEIGHT);
+        assert_eq!(depth, plate.height() + matchup::TAB_ROW_HEIGHT);
+
+        // Between the wings of a 720p screen there is no room for a name beside the plate's
+        // middle, and no tab is hung for nothing.
+        let (rects, depth) =
+            crate::observer::test_support::settled_at(egui::vec2(1280.0, 720.0), |ctx| {
+                render_series_plate(&view, ctx, true).map(|outcome| (outcome.rects, outcome.depth))
+            })
+            .expect("the plate is drawn");
+        assert_eq!(rects.len(), 1, "{rects:?}");
+        assert_eq!(depth, PLATE_HEIGHT);
     }
 }
