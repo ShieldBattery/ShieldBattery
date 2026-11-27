@@ -18,12 +18,12 @@ use crate::kit::text::{self, TextSpec};
 use crate::kit::widgets::{self, ColumnGlyph};
 use crate::kit::{theme, tiers};
 use crate::observer::layout;
-use crate::observer::matchup::{SeriesLine, SeriesView, supply_blocked};
+use crate::observer::matchup::supply_blocked;
 use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
-    Wing, WingTitle, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider,
-    paint_text, teams_worth_dividing, vision_alpha, wing_panel,
+    Wing, paint_count, paint_first_team_name, paint_stat_identity, paint_team_divider, paint_text,
+    teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -55,28 +55,6 @@ const IDENTITY_WIDTH: f32 = {
 /// of its column.
 const NAME_WIDTH: f32 =
     IDENTITY_WIDTH - STAT_COLOR_BAR - STAT_BAR_GAP - STAT_RACE_ICON - STAT_RACE_ICON_GAP - NAME_GAP;
-
-/// Width of the column a side's series score stands in, leading its rows in a series game.
-const SCORE_COLUMN: f32 = 26.0;
-
-/// Gap between the score column and the hairline that walls it off from the rows' identities, and
-/// between the hairline and the square of color that leads each row.
-const SCORE_RULE_GAP: f32 = 6.0;
-const SCORE_SWATCH_GAP: f32 = 7.0;
-
-/// How far short of its side's rows the hairline beside the score column stops, top and bottom.
-const SCORE_RULE_INSET: f32 = 3.0;
-
-/// How much of a row's identity the series scores take in a series game: the room every row's
-/// identity moves right by, and the name gives up, since the number columns keep their widths and
-/// the panel its own.
-const SCORE_LEAD: f32 = SCORE_COLUMN + SCORE_RULE_GAP + theme::HAIRLINE + SCORE_SWATCH_GAP;
-
-/// Text size of a series score.
-const SCORE_SIZE: f32 = 26.0;
-
-// The name gives up the room and still holds a name a watcher recognizes.
-const _: () = assert!(NAME_WIDTH - SCORE_LEAD >= 96.0);
 
 /// A number column, in the order a row reads them: the bank and supply in the order StarCraft's own
 /// resource readout gives them, with workers ahead of supply and the rate last.
@@ -139,18 +117,9 @@ pub fn render_scoreboard_view(
     ctx: &Context,
     shown: bool,
 ) -> Option<ScoreboardOutcome> {
-    let series_line = view
-        .shown_series()
-        .map(|series| move |ui: &Ui, room: Rect| paint_series_line(ui, room, series));
-    let title = WingTitle {
-        panel: Panel::Matchup,
-        aside: series_line
-            .as_ref()
-            .map(|paint| paint as widgets::HeaderAside<'_>),
-    };
     let wing = wing_panel(
         ctx,
-        title,
+        Panel::Matchup,
         Wing::Right,
         layout::screen_margin(ctx.viewport_rect()),
         PANEL_WIDTH,
@@ -164,31 +133,8 @@ pub fn render_scoreboard_view(
     })
 }
 
-/// Paints the series line into `room`, the title row's room after the panel's title: a dot, then
-/// the series' title where it has one and there is room for it, then how far into the series this
-/// game is, which always stays whole.
-fn paint_series_line(ui: &Ui, room: Rect, series: &SeriesView) {
-    let line = SeriesLine::lay_out(ui.ctx(), series, series_line_room(room.width()), true);
-    line.paint(ui, room.left(), room.center().y);
-}
-
-/// Gap kept between the series line and the keycap at the end of the title row, so the line stops
-/// short of the keycap rather than running into it.
-const KEYCAP_GAP: f32 = theme::SPACE_SM;
-
-/// How much of the `room` after the panel's title the series line is laid out in.
-fn series_line_room(room: f32) -> f32 {
-    (room - KEYCAP_GAP).max(0.0)
-}
-
 /// Draws the panel's contents under its title row, and reports which player was clicked.
-///
-/// In a series game each side's score leads its rows, as tall as the side's rows together, and
-/// every row's identity moves right to make the room. Nothing is added under or over the rows, so
-/// the panel is exactly as tall as it is in a game with no series, and the wings stacked under it
-/// stay where they are.
 fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
-    let series = view.shown_series();
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
     draw_headings(
@@ -200,15 +146,10 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
             .filter(|_| divided),
     );
     let mut side = view.players.first().map(|player| player.team);
-    // The rows each side's players take, in the order the sides are listed.
-    let mut sides: Vec<Rect> = Vec::new();
     let mut clicked = None;
     for player in &view.players {
-        let new_side = side != Some(player.team);
-        if new_side {
+        if divided && side != Some(player.team) {
             side = Some(player.team);
-        }
-        if divided && new_side {
             ui.add_space(STAT_ROW_GAP);
             let (row, _) =
                 ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
@@ -217,48 +158,13 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
         ui.add_space(STAT_ROW_GAP);
         let (row, response) =
             ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_ROW_HEIGHT), Sense::click());
-        draw_row(ui, row, player, series.is_some());
+        draw_row(ui, row, player);
         widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
         if response.clicked() {
             clicked = Some(player.player_id);
         }
-        match sides.last_mut() {
-            Some(rows) if !new_side => *rows = rows.union(row),
-            _ => sides.push(row),
-        }
-    }
-    if let Some(series) = series {
-        let colors = series.score_colors();
-        for ((rows, score), color) in sides.into_iter().zip(series.scores).zip(colors) {
-            paint_side_score(ui, rows, score, color);
-        }
     }
     clicked
-}
-
-/// Paints a side's series score at the head of `rows`, the rows its players take: centered down
-/// them in the score column, and walled off from the rows' identities by a hairline that runs down
-/// them.
-fn paint_side_score(ui: &Ui, rows: Rect, score: u32, color: egui::Color32) {
-    let column = Rect::from_min_max(
-        rows.left_top(),
-        pos2(rows.left() + SCORE_COLUMN, rows.bottom()),
-    );
-    paint_text(
-        ui,
-        column,
-        &text::numeral_strong(SCORE_SIZE).with_color(color),
-        &score.to_string(),
-        Align::Center,
-    );
-    let x = column.right() + SCORE_RULE_GAP + theme::HAIRLINE * 0.5;
-    ui.painter().add(egui::Shape::line_segment(
-        [
-            pos2(x, rows.top() + SCORE_RULE_INSET),
-            pos2(x, rows.bottom() - SCORE_RULE_INSET),
-        ],
-        egui::Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
-    ));
 }
 
 /// Draws the row of column headings: the icon heading each number column, and over the names the
@@ -302,13 +208,10 @@ fn paint_heading_label(ui: &Ui, cell: Rect, label: &str) {
 }
 
 /// Draws one player's row: the identity every stats wing leads a row with, here with the player's
-/// race icon, then their numbers in the columns the headings name. Where `scored`, the identity
-/// stands after the room the series scores take, and the name gives that room up.
-fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView, scored: bool) {
+/// race icon, then their numbers in the columns the headings name.
+fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
     let alpha = vision_alpha(player.vision);
     let mut cursor = EdgeCursor::from_left(rect);
-    let lead = if scored { SCORE_LEAD } else { 0.0 };
-    cursor.skip(lead);
     paint_stat_identity(
         ui,
         &mut cursor,
@@ -316,7 +219,7 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView, scored: bool) {
             race: player.race,
             random: player.random,
         }),
-        NAME_WIDTH - lead,
+        NAME_WIDTH,
         &player.name,
         player.color,
         alpha,
@@ -425,89 +328,60 @@ mod tests {
 
     /// How tall the panel settles for a game whose players are on `teams`.
     fn height(teams: &[u8]) -> f32 {
-        height_of(&view(teams))
-    }
-
-    fn height_of(view: &MatchupView) -> f32 {
-        settled_rect(|ctx| render_scoreboard_view(view, ctx, true).map(|outcome| outcome.rect))
+        let view = view(teams);
+        settled_rect(|ctx| render_scoreboard_view(&view, ctx, true).map(|outcome| outcome.rect))
             .expect("the scoreboard is drawn")
             .height()
     }
 
-    /// A series as long as a series line gets: a best of ninety-nine at twelve to eleven going
-    /// into its twenty-fourth game, under fifty of the widest letter as its title.
-    fn longest_series() -> SeriesView {
-        SeriesView {
+    /// Everything the panel paints for `view` on a 1920x1080 screen once it has settled.
+    fn painted(view: &MatchupView) -> Vec<egui::epaint::ClippedShape> {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut shapes = Vec::new();
+        for pass in 0..6 {
+            ctx.begin_pass(egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1920.0, 1080.0))),
+                time: Some(f64::from(pass) * 0.25),
+                ..Default::default()
+            });
+            render_scoreboard_view(view, &ctx, true);
+            let mut output = ctx.end_pass();
+            output.textures_delta.clear();
+            shapes = output.shapes;
+        }
+        shapes
+    }
+
+    /// The series is a panel of its own, so a series game's Matchup panel is the panel of a game
+    /// with no series: the same height, the same name slots, the same everything.
+    #[test]
+    fn a_series_leaves_the_panel_exactly_as_it_is_without_one() {
+        let series = crate::observer::SeriesView {
             title: Some("W".repeat(50)),
             format: crate::observer::SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
-        }
-    }
-
-    #[test]
-    fn a_series_leaves_the_panel_exactly_as_tall_as_it_was() {
+        };
         for teams in [
             &[1, 2][..],
             &[1, 1, 2, 2],
             &[1, 1, 1, 2, 2, 2],
             &[1, 1, 1, 1, 2, 2, 2, 2],
         ] {
-            let scored = MatchupView {
-                series: Some(longest_series()),
-                ..view(teams)
+            // Every player carrying the longest name the game allows, which is what fills a name
+            // slot to its end.
+            let game = |series: Option<crate::observer::SeriesView>| {
+                let mut game = view(teams);
+                for player in &mut game.players {
+                    player.name = "W".repeat(24);
+                }
+                MatchupView { series, ..game }
             };
-            assert!(scored.shown_series().is_some());
-            assert_eq!(height_of(&scored), height(teams), "{teams:?}");
+            let scored = game(Some(series.clone()));
+            assert!(scored.shown_series().is_some(), "{teams:?}");
+            assert!(painted(&game(None)) == painted(&scored), "{teams:?}");
         }
-    }
-
-    #[test]
-    fn a_series_takes_its_room_from_the_names_alone() {
-        assert_eq!(NAME_WIDTH, 138.0);
-        assert_eq!(SCORE_LEAD, 40.0);
-        assert_eq!(NAME_WIDTH - SCORE_LEAD, 98.0);
-    }
-
-    #[test]
-    fn the_series_line_stays_whole_in_the_title_row_and_short_of_the_keycap() {
-        use std::cell::Cell;
-
-        let room = Cell::new(None);
-        settled_rect(|ctx| {
-            let aside = |_: &Ui, rect: Rect| room.set(Some(rect));
-            wing_panel(
-                ctx,
-                WingTitle {
-                    panel: Panel::Matchup,
-                    aside: Some(&aside),
-                },
-                Wing::Right,
-                0.0,
-                PANEL_WIDTH,
-                true,
-                |_| (),
-            )
-            .map(|wing| wing.rect)
-        })
-        .expect("the panel is drawn");
-        let room = room.get().expect("the title row hands over its room");
-        let (whole, width) =
-            crate::observer::test_support::settled_at(egui::vec2(1280.0, 720.0), |ctx| {
-                let line = SeriesLine::lay_out(
-                    ctx,
-                    &longest_series(),
-                    series_line_room(room.width()),
-                    true,
-                );
-                Some((line.progress_whole(), line.width()))
-            })
-            .expect("the line is laid out");
-        assert!(whole);
-        assert!(
-            width <= room.width() - KEYCAP_GAP + 0.01,
-            "{width} in {room:?}"
-        );
     }
 
     #[test]

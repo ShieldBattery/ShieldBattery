@@ -14,6 +14,10 @@ pub enum Panel {
     Matchup,
     /// The map-control bar.
     MapControl,
+    /// The series a live game is one of, for the casters: each side's score, the format and how far
+    /// into the series the game is. Drawn into the matchup bar while the bar is up, and as a plate of
+    /// its own at the top of the screen while it is not.
+    Series,
     /// The economy panel.
     Economy,
     /// The military panel.
@@ -39,9 +43,10 @@ pub enum Panel {
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
     /// the top of the screen down, then the game's own minimap, then the controls.
-    pub const ALL: [Panel; 12] = [
+    pub const ALL: [Panel; 13] = [
         Panel::Matchup,
         Panel::MapControl,
+        Panel::Series,
         Panel::Economy,
         Panel::Military,
         Panel::Graphs,
@@ -66,6 +71,7 @@ impl Panel {
         match self {
             Panel::Matchup => Action::ToggleMatchup,
             Panel::MapControl => Action::ToggleMapControl,
+            Panel::Series => Action::ToggleSeries,
             Panel::Economy => Action::ToggleEconomy,
             Panel::Military => Action::ToggleMilitary,
             Panel::Graphs => Action::ToggleGraphs,
@@ -90,6 +96,7 @@ impl Panel {
         match self {
             Panel::Matchup => "matchup",
             Panel::MapControl => "map control",
+            Panel::Series => "series",
             Panel::Economy => "economy",
             Panel::Military => "military",
             Panel::Graphs => "graphs",
@@ -120,6 +127,9 @@ pub struct PanelPrefs {
     /// a panel: it is which form the one matchup surface takes.
     pub compact_scoreboard: bool,
     pub map_control: bool,
+    /// Whether a series game's series is on screen. Only a game that is one of a series has anything
+    /// for it to show, so a watcher who left it on gets it back at the next series game they watch.
+    pub series: bool,
     pub economy: bool,
     pub military: bool,
     pub graphs: bool,
@@ -208,6 +218,7 @@ impl Default for PanelPrefs {
             matchup: true,
             compact_scoreboard: true,
             map_control: false,
+            series: true,
             economy: false,
             military: false,
             graphs: false,
@@ -232,6 +243,7 @@ impl PanelPrefs {
         match panel {
             Panel::Matchup => self.matchup,
             Panel::MapControl => self.map_control,
+            Panel::Series => self.series,
             Panel::Economy => self.economy,
             Panel::Military => self.military,
             Panel::Graphs => self.graphs,
@@ -249,6 +261,7 @@ impl PanelPrefs {
         match panel {
             Panel::Matchup => self.matchup = shown,
             Panel::MapControl => self.map_control = shown,
+            Panel::Series => self.series = shown,
             Panel::Economy => self.economy = shown,
             Panel::Military => self.military = shown,
             Panel::Graphs => self.graphs = shown,
@@ -711,5 +724,20 @@ mod tests {
     fn playback_controls_hidden_under_their_old_name_stay_hidden() {
         let saved: PanelPrefs = serde_json::from_str(r#"{"transport":false}"#).unwrap();
         assert!(!saved.playback_controls);
+    }
+
+    #[test]
+    fn the_series_panel_starts_on_and_is_remembered_like_the_others() {
+        assert!(PanelPrefs::default().series);
+        // Saved settings with no entry for the series panel bring it up on.
+        let saved: PanelPrefs = serde_json::from_str(r#"{"economy":true}"#).unwrap();
+        assert!(saved.series);
+        let hidden = PanelPrefs {
+            series: false,
+            ..PanelPrefs::default()
+        };
+        let restored: PanelPrefs =
+            serde_json::from_str(&serde_json::to_string(&hidden).unwrap()).unwrap();
+        assert!(!restored.series);
     }
 }

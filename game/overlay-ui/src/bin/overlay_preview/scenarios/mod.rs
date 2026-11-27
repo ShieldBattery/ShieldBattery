@@ -192,18 +192,18 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 16] = [
     Preset::Observer(observer::Preset::hover_showcase(observer::Hover::JumpChip)),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Observer(observer::Preset::vision_picker()),
-    // The longest series line, on the bar's tab and in the compact scoreboard's title row.
+    // The longest series line on the bar's tab, and the longest series on its plate.
     Preset::Observer(observer::Preset::series(
         4,
         2,
         observer::Series::Stretched,
-        true,
+        observer::Top::Bar,
     )),
     Preset::Observer(observer::Preset::series(
         4,
         2,
         observer::Series::Stretched,
-        false,
+        observer::Top::Compact,
     )),
     // A full selection, whose kill label has only the narrow strip beside the grid to fit in.
     Preset::Observer(observer::Preset::selection_showcase(

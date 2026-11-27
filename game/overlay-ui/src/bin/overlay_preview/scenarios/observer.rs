@@ -312,8 +312,8 @@ pub struct Knobs {
     /// Whether the list of players under the minimap's vision button starts open, which is a state
     /// an offline render has no click to reach.
     pub vision_picker: bool,
-    /// Whether the game is one of a series, which the matchup carries each side's score and the
-    /// series line for.
+    /// Whether the game is one of a series, whose scores and series line the bar carries, and its
+    /// plate while the bar is not up.
     pub series: bool,
     /// What the series is called. Empty for a series nobody named, which leaves the line its
     /// format and game number alone.
@@ -2023,6 +2023,60 @@ impl Series {
     }
 }
 
+/// How a preset's watcher has the top of the screen: the matchup's style, and whether the series
+/// panel is on.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Top {
+    /// The bar across the top, carrying the series.
+    Bar,
+    /// The compact scoreboard in the corner the shell starts on, with the series on its plate.
+    Compact,
+    /// The matchup turned off from the compact scoreboard, leaving the series its plate.
+    Off,
+    /// The bar put away with its key, leaving the series its plate.
+    BarPutAway,
+    /// The bar with the series panel put away, which leaves it the bar of a game with no series.
+    BarWithoutSeries,
+    /// The compact scoreboard with the series panel put away, which leaves nothing at the top
+    /// middle.
+    CompactWithoutSeries,
+}
+
+impl Top {
+    /// What a render of a series under this is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Top::Bar => "bar",
+            Top::Compact => "compact",
+            Top::Off => "off",
+            Top::BarPutAway => "bar-put-away",
+            Top::BarWithoutSeries => "bar-no-series",
+            Top::CompactWithoutSeries => "compact-no-series",
+        }
+    }
+
+    /// Puts the matchup and the series panel where this has them.
+    fn apply(self, prefs: &mut PanelPrefs) {
+        let (bar, matchup, series) = match self {
+            Top::Bar => (true, true, true),
+            Top::Compact => (false, true, true),
+            Top::Off => (false, false, true),
+            Top::BarPutAway => (true, false, true),
+            Top::BarWithoutSeries => (true, true, false),
+            Top::CompactWithoutSeries => (false, true, false),
+        };
+        prefs.set_matchup_style(if bar {
+            MatchupStyle::Bar
+        } else {
+            MatchupStyle::Compact
+        });
+        if !matchup {
+            prefs.set_matchup_style(MatchupStyle::Off);
+        }
+        prefs.series = series;
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -2035,9 +2089,8 @@ pub struct Preset {
     pub showcase: Showcase,
     pub hover: Hover,
     pub series: Series,
-    /// Whether the matchup is the bar across the top rather than the compact scoreboard the shell
-    /// starts on.
-    pub bar: bool,
+    /// How the watcher has the top of the screen.
+    pub top: Top,
 }
 
 impl Preset {
@@ -2050,7 +2103,7 @@ impl Preset {
             showcase: Showcase::Knobs,
             hover: Hover::None,
             series: Series::None,
-            bar: false,
+            top: Top::Compact,
         }
     }
 
@@ -2063,7 +2116,7 @@ impl Preset {
             showcase,
             hover: Hover::None,
             series: Series::None,
-            bar: false,
+            top: Top::Compact,
         }
     }
 
@@ -2077,7 +2130,7 @@ impl Preset {
             showcase: Showcase::Knobs,
             hover,
             series: Series::None,
-            bar: false,
+            top: Top::Compact,
         }
     }
 
@@ -2090,14 +2143,14 @@ impl Preset {
             showcase: Showcase::VisionPicker,
             hover: Hover::None,
             series: Series::None,
-            bar: false,
+            top: Top::Compact,
         }
     }
 
     /// A game of `players` at `team_size` a side that is one of `series`, watched from an observer
     /// slot with the analyst's screen up, so the series is seen beside every surface it shares the
-    /// top of the screen with. On the bar where `bar`, and on the compact scoreboard otherwise.
-    pub const fn series(players: usize, team_size: usize, series: Series, bar: bool) -> Preset {
+    /// top of the screen with, under `top`.
+    pub const fn series(players: usize, team_size: usize, series: Series, top: Top) -> Preset {
         Preset {
             players,
             team_size,
@@ -2105,11 +2158,11 @@ impl Preset {
             showcase: Showcase::Knobs,
             hover: Hover::None,
             series,
-            bar,
+            top,
         }
     }
 
-    pub const ALL: [Preset; 54] = [
+    pub const ALL: [Preset; 61] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2161,22 +2214,32 @@ impl Preset {
         Preset::hover_showcase(Hover::JumpChip),
         Preset::hover_showcase(Hover::MinimapVision),
         Preset::hover_showcase(Hover::UpgradeChip),
-        // A series in both of the matchup's forms, for each shape the bar takes: halves of one,
-        // stacked halves, and the clock alone between the corner cards, at three and four a side.
-        Preset::series(2, 1, Series::Running, true),
-        Preset::series(2, 1, Series::Running, false),
-        Preset::series(4, 2, Series::Running, true),
-        Preset::series(4, 2, Series::Running, false),
-        Preset::series(6, 3, Series::Running, true),
-        Preset::series(6, 3, Series::Running, false),
-        Preset::series(8, 4, Series::Running, true),
-        Preset::series(8, 4, Series::Running, false),
-        Preset::series(2, 1, Series::Stretched, true),
-        Preset::series(2, 1, Series::Stretched, false),
-        Preset::series(4, 2, Series::Stretched, true),
-        Preset::series(4, 2, Series::Stretched, false),
-        Preset::series(8, 4, Series::Stretched, true),
-        Preset::series(8, 4, Series::Stretched, false),
+        // A series on the bar and on its plate beside the compact scoreboard, for each shape the
+        // bar takes: halves of one, stacked halves, and the clock alone between the corner cards,
+        // at three and four a side.
+        Preset::series(2, 1, Series::Running, Top::Bar),
+        Preset::series(2, 1, Series::Running, Top::Compact),
+        Preset::series(4, 2, Series::Running, Top::Bar),
+        Preset::series(4, 2, Series::Running, Top::Compact),
+        Preset::series(6, 3, Series::Running, Top::Bar),
+        Preset::series(6, 3, Series::Running, Top::Compact),
+        Preset::series(8, 4, Series::Running, Top::Bar),
+        Preset::series(8, 4, Series::Running, Top::Compact),
+        Preset::series(2, 1, Series::Stretched, Top::Bar),
+        Preset::series(2, 1, Series::Stretched, Top::Compact),
+        Preset::series(4, 2, Series::Stretched, Top::Bar),
+        Preset::series(4, 2, Series::Stretched, Top::Compact),
+        Preset::series(6, 3, Series::Stretched, Top::Compact),
+        Preset::series(8, 4, Series::Stretched, Top::Bar),
+        Preset::series(8, 4, Series::Stretched, Top::Compact),
+        // The plate wherever the bar is not up, and the top of the screen with the series panel
+        // put away under either form.
+        Preset::series(2, 1, Series::Running, Top::Off),
+        Preset::series(4, 2, Series::Running, Top::Off),
+        Preset::series(2, 1, Series::Running, Top::BarPutAway),
+        Preset::series(2, 1, Series::Running, Top::BarWithoutSeries),
+        Preset::series(6, 3, Series::Running, Top::BarWithoutSeries),
+        Preset::series(2, 1, Series::Running, Top::CompactWithoutSeries),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -2199,8 +2262,12 @@ impl Preset {
             return format!("{}-{}", self.shape(), self.hover.slug());
         }
         if self.series != Series::None {
-            let form = if self.bar { "bar" } else { "compact" };
-            return format!("{}-{}-{form}", self.shape(), self.series.slug());
+            return format!(
+                "{}-{}-{}",
+                self.shape(),
+                self.series.slug(),
+                self.top.slug()
+            );
         }
         format!("{}-{}", self.shape(), self.panels.slug())
     }
@@ -2232,11 +2299,7 @@ impl Preset {
             _ => overlay_ui::shell::Mode::Replay,
         };
         self.panels.apply(&mut knobs.host.panels);
-        knobs.host.panels.set_matchup_style(if self.bar {
-            MatchupStyle::Bar
-        } else {
-            MatchupStyle::Compact
-        });
+        self.top.apply(&mut knobs.host.panels);
         // The dock's two forms are both worth looking at, and the screen that asks for everything
         // is the one whose watcher wants the table spelled out, on the plate, beside the selection
         // panel and floating alike. A screen about what the pointer is over takes the keycaps instead,
@@ -2444,8 +2507,9 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.series, "one of a series")
         .on_hover_text(
-            "Makes the game one of a best-of series, which the matchup carries each side's score \
-             and the series line for, on the bar and on the compact scoreboard alike.",
+            "Makes the game one of a best-of series, whose scores and series line the bar carries, \
+             and a plate at the top of the screen while the bar is not up. The series panel's \
+             own switch is among the host's panels.",
         )
         .changed();
     ui.add_enabled_ui(k.series, |ui| {

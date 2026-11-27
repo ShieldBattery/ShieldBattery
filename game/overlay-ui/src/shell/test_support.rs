@@ -114,6 +114,81 @@ pub(super) fn game_with_right_wings() -> ObserverView {
     game
 }
 
+/// A live game of players on `teams` that is one of a titled best of three, one side a game up,
+/// with the right wings and the map-control reading of [`game_with_right_wings`] and an economy
+/// wing on the left.
+pub(super) fn series_game(teams: &[u8]) -> ObserverView {
+    use crate::observer::{EconomyPlayerView, MatchupPlayerView, SeriesFormat, SeriesView};
+
+    let mut game = game_with_right_wings();
+    for (index, &team) in teams.iter().enumerate() {
+        let color = crate::kit::theme::player_color(index);
+        let name = format!("Player {index}");
+        game.matchup.players.push(MatchupPlayerView {
+            player_id: index as u8,
+            team,
+            name: name.clone(),
+            color,
+            race: RaceView::Zerg,
+            random: false,
+            vision: true,
+            minerals: 0,
+            gas: 0,
+            supply_used: 0,
+            supply_max: 0,
+            workers: 0,
+            apm: 0,
+        });
+        game.economy.players.push(EconomyPlayerView {
+            name,
+            team,
+            color,
+            vision: true,
+            race: RaceView::Zerg,
+            minerals_per_minute: 0,
+            gas_per_minute: 0,
+            workers: 0,
+            idle_workers: 0,
+            income_trend: None,
+        });
+    }
+    game.matchup.is_replay = false;
+    game.matchup.series = Some(SeriesView {
+        title: Some("Grand Final".to_string()),
+        format: SeriesFormat::BestOf { length: 3 },
+        game_number: 2,
+        scores: [1, 0],
+    });
+    game
+}
+
+/// A shell watching a live game from an observer slot.
+pub(super) fn observing_shell() -> Shell {
+    let mut shell = Shell::new();
+    shell.set_host(&HostFrame {
+        mode: Mode::Observing,
+        game_started: true,
+        ..HostFrame::default()
+    });
+    shell
+}
+
+/// Runs one shell frame of a live game being watched with the observer panels, at `time`, on a
+/// screen `screen` points across.
+pub(super) fn run_observed_frame_at(
+    shell: &mut Shell,
+    ctx: &Context,
+    observer: &ObserverView,
+    screen: egui::Vec2,
+    time: f64,
+) -> FrameOutput {
+    let views = Views {
+        observer: Some(observer),
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, screen, None, time, Vec::new())
+}
+
 /// `game` with one of the first player's units selected, which puts the selection panel up.
 pub(super) fn with_a_selection(mut game: ObserverView) -> ObserverView {
     game.selection.units.push(SelectedUnitView {

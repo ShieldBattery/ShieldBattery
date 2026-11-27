@@ -19,11 +19,13 @@
 //! middle block alone, so a watcher is never shown two of six players as though they were the
 //! whole game.
 //!
-//! A game that is one of a series carries the series with it. Each side's score stands in a cell of
-//! its own against the clock, on the side of it that side's players are on, and a tab hung under
-//! the middle of the bar names the series and how far into it this game is. The series is part of
-//! the matchup rather than a surface of its own: it comes and goes with the bar, and in the compact
-//! scoreboard it leads the rows and follows the title instead.
+//! A game that is one of a series carries the series with it, which is a panel of its own
+//! ([`Panel::Series`](crate::shell::Panel::Series)) drawn into the bar while the bar is up. Each
+//! side's score stands in a cell of its own against the clock, on the side of it that side's players
+//! are on, and a tab hung under the middle of the bar names the series and how far into it this game
+//! is. With the series panel put away the bar is the bar of a game with no series. While the bar
+//! itself is not up the series stands on a plate of its own instead (see
+//! [`series_plate`](super::series_plate)), which hangs the same tab.
 
 use std::sync::Arc;
 
@@ -59,17 +61,17 @@ pub const BAR_HEIGHT: f32 = 64.0;
 pub const STACKED_HEIGHT: f32 = 86.0;
 
 /// The radius of the two corners that are not against the screen's edge.
-const BAR_RADIUS: u8 = 6;
+pub(crate) const BAR_RADIUS: u8 = 6;
 
 /// Width of the middle block, which holds the clock and the tag saying what is being watched.
 const CENTRE_WIDTH: f32 = 150.0;
 
 /// Width of the cell a side's series score stands in, against the middle block.
-const SCORE_CELL: f32 = 50.0;
+pub(crate) const SCORE_CELL: f32 = 50.0;
 
 /// What the two score cells add to the bar's width. The halves keep theirs, so the bar grows by
 /// exactly this, and a screen too narrow for it squeezes the halves and never the cells.
-const SCORES_WIDTH: f32 = SCORE_CELL * 2.0;
+pub(crate) const SCORES_WIDTH: f32 = SCORE_CELL * 2.0;
 
 /// Text size of a series score on the bar: the clock's, being read at the same glance.
 const SCORE_SIZE: f32 = 30.0;
@@ -77,7 +79,8 @@ const SCORE_SIZE: f32 = 30.0;
 /// Height of the tab hung under the bar's middle that names the series.
 pub(crate) const TAB_HEIGHT: f32 = 22.0;
 
-/// The narrowest the series tab is: the middle block and its two score cells, which it hangs from.
+/// The narrowest the series tab is under the bar: the middle block and its two score cells, which
+/// it hangs from.
 const TAB_MIN_WIDTH: f32 = CENTRE_WIDTH + SCORES_WIDTH;
 
 /// Padding either side of the series line inside its tab.
@@ -97,20 +100,20 @@ const SIDE_WIDTH: f32 = (BAR_WIDTH - CENTRE_WIDTH) / 2.0;
 const STACKED_SIDE_WIDTH: f32 = (STACKED_WIDTH - CENTRE_WIDTH) / 2.0;
 
 /// Width of the bar of the player's own color along the half's outer edge.
-const COLOR_BAR: f32 = 6.0;
+pub(crate) const COLOR_BAR: f32 = 6.0;
 
 /// Gap between the color bar and the player's chip.
-const PAD_OUTER: f32 = 12.0;
+pub(crate) const PAD_OUTER: f32 = 12.0;
 
 /// Diameter of the race chip.
-const CHIP: f32 = 26.0;
+pub(crate) const CHIP: f32 = 26.0;
 
 /// Gap between the chip and the name.
-const CHIP_GAP: f32 = 8.0;
+pub(crate) const CHIP_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out against. Fixed, because a name is player-chosen: one longer
 /// than its slot would otherwise push every number beside it out of the design's grid.
-const NAME_WIDTH: f32 = 113.0;
+pub(crate) const NAME_WIDTH: f32 = 113.0;
 
 /// Gap between the name and the first number.
 const NAME_GAP: f32 = 12.0;
@@ -171,10 +174,10 @@ const SUPPLY_STAT: StatCell = StatCell {
 };
 
 /// Gap between the last number and the middle block.
-const PAD_INNER: f32 = 12.0;
+pub(crate) const PAD_INNER: f32 = 12.0;
 
 /// Text size of a player's name.
-const NAME_SIZE: f32 = 19.0;
+pub(crate) const NAME_SIZE: f32 = 19.0;
 
 /// Text size of every number on the bar.
 const VALUE_SIZE: f32 = 24.0;
@@ -184,11 +187,11 @@ const SUPPLY_CAP_RATIO: f32 = 0.71;
 
 /// Type sizes on a stacked row, which has to fit two of itself in not much more than one row's
 /// height.
-const STACKED_NAME_SIZE: f32 = 16.0;
+pub(crate) const STACKED_NAME_SIZE: f32 = 16.0;
 const STACKED_VALUE_SIZE: f32 = 19.0;
 
 /// Diameter of the race chip on a stacked row, which has half the height to fit it in.
-const STACKED_CHIP: f32 = 22.0;
+pub(crate) const STACKED_CHIP: f32 = 22.0;
 
 /// How much wider each of the stacked row's cells is than the duel row's.
 ///
@@ -322,7 +325,7 @@ impl RowMetrics {
 
 /// The narrowest a name slot is squeezed to before the row gives up its rate instead: about the
 /// width of six letters, which is a name a watcher still recognizes with its end elided.
-const MIN_NAME_WIDTH: f32 = 64.0;
+pub(crate) const MIN_NAME_WIDTH: f32 = 64.0;
 
 /// The row of a bar carrying one player a side.
 const DUEL_ROW: RowMetrics = RowMetrics {
@@ -551,16 +554,44 @@ impl SeriesView {
     }
 }
 
-/// A series line laid out for the room it is drawn in: the title where there is room for it, the
-/// dots between the parts, and how far into the series the game is.
-pub(crate) struct SeriesLine {
-    /// Whether a dot leads the line, for a line that follows something of its own.
-    lead: bool,
+/// What a series tab hangs from, which decides what the series line in it says and how narrow the
+/// tab goes.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub(crate) enum TabAnchor {
+    /// The matchup bar, whose middle block holds the clock: the line names the series and says how
+    /// far into it the game is, and the tab is never narrower than the middle block and the score
+    /// cells beside it.
+    Bar,
+    /// The series plate, whose own middle block says how far into the series the game is: the line
+    /// is the series' title alone, and the tab is never narrower than the plate's scores and middle
+    /// block, `width` across.
+    Plate { width: f32 },
+}
+
+impl TabAnchor {
+    /// The narrowest a tab hung from this is: as wide as what it hangs from.
+    fn min_width(self) -> f32 {
+        match self {
+            TabAnchor::Bar => TAB_MIN_WIDTH,
+            TabAnchor::Plate { width } => width,
+        }
+    }
+
+    /// Whether the series line in the tab says how far into the series the game is.
+    fn says_progress(self) -> bool {
+        self == TabAnchor::Bar
+    }
+}
+
+/// A series line laid out for the room it is drawn in: the title where there is room for it, then,
+/// in a tab under the bar, the dot and how far into the series the game is.
+struct SeriesLine {
     /// The title, elided to the room the rest of the line leaves it.
     title: Option<Arc<Galley>>,
     /// The dot between the title and the rest, laid out once and painted wherever a dot goes.
     separator: Arc<Galley>,
-    progress: Arc<Galley>,
+    /// How far into the series the game is, in a line that says it.
+    progress: Option<Arc<Galley>>,
 }
 
 impl SeriesLine {
@@ -569,24 +600,26 @@ impl SeriesLine {
         text::column_label()
     }
 
-    /// Lays `series` out in `room` points, with a dot ahead of it where `lead` asks for one.
+    /// Lays `series` out in `room` points for a tab hung from `anchor`.
     ///
     /// How far into the series the game is never gives way: the title is elided first, and left out
     /// once there is too little room for any of it to read.
-    pub(crate) fn lay_out(ctx: &Context, series: &SeriesView, room: f32, lead: bool) -> SeriesLine {
+    fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> SeriesLine {
         let spec = SeriesLine::spec();
         let separator = spec.layout(ctx, spec.job(&tr!("observer.seriesLineSeparator", "·")));
-        let progress = spec.layout(ctx, spec.job(&series.progress()));
-        let dot = separator.size().x + SEPARATOR_GAP * 2.0;
-        let lead_width = if lead { dot } else { 0.0 };
-        let title_room = room - lead_width - dot - progress.size().x;
+        let progress = anchor
+            .says_progress()
+            .then(|| spec.layout(ctx, spec.job(&series.progress())));
+        let rest = progress.as_ref().map_or(0.0, |progress| {
+            separator.size().x + SEPARATOR_GAP * 2.0 + progress.size().x
+        });
+        let title_room = room - rest;
         let title = series
             .title
             .as_deref()
             .filter(|title| !title.is_empty() && title_room >= MIN_TITLE_WIDTH)
             .map(|title| spec.layout(ctx, spec.job_truncated(title, title_room)));
         SeriesLine {
-            lead,
             title,
             separator,
             progress,
@@ -594,37 +627,34 @@ impl SeriesLine {
     }
 
     /// How wide the line is with the whole of `series`' title in it.
-    pub(crate) fn natural_width(ctx: &Context, series: &SeriesView, lead: bool) -> f32 {
-        SeriesLine::lay_out(ctx, series, f32::INFINITY, lead).width()
+    fn natural_width(ctx: &Context, series: &SeriesView, anchor: TabAnchor) -> f32 {
+        SeriesLine::lay_out(ctx, series, f32::INFINITY, anchor).width()
     }
 
     /// How wide the line is as laid out.
-    pub(crate) fn width(&self) -> f32 {
+    fn width(&self) -> f32 {
         let dot = self.separator.size().x + SEPARATOR_GAP * 2.0;
-        let lead = if self.lead { dot } else { 0.0 };
-        let title = self
-            .title
-            .as_ref()
-            .map_or(0.0, |title| title.size().x + dot);
-        lead + title + self.progress.size().x
+        let title = self.title.as_ref().map_or(0.0, |title| title.size().x);
+        let progress = self.progress.as_ref().map_or(0.0, |progress| {
+            progress.size().x + if self.title.is_some() { dot } else { 0.0 }
+        });
+        title + progress
     }
 
     /// Whether how far into the series the game is came out whole, for the checks that it always
     /// does.
     #[cfg(test)]
-    pub(crate) fn progress_whole(&self) -> bool {
-        !self.progress.elided
+    fn progress_whole(&self) -> bool {
+        self.progress
+            .as_ref()
+            .is_none_or(|progress| !progress.elided)
     }
 
     /// Paints the line from `left`, its parts centered on `middle` down the screen.
-    pub(crate) fn paint(&self, ui: &Ui, left: f32, middle: f32) {
+    fn paint(&self, ui: &Ui, left: f32, middle: f32) {
         let spec = SeriesLine::spec();
         let middle = egui::emath::GuiRounding::round_to_pixels(middle, ui.ctx().pixels_per_point());
-        let mut x = if self.lead {
-            left + SEPARATOR_GAP
-        } else {
-            left
-        };
+        let mut x = left;
         let mut put = |galley: &Arc<Galley>, gap: f32| {
             ui.painter().galley(
                 pos2(x, middle - galley.size().y * 0.5),
@@ -633,14 +663,15 @@ impl SeriesLine {
             );
             x += galley.size().x + gap;
         };
-        if self.lead {
-            put(&self.separator, SEPARATOR_GAP);
-        }
         if let Some(title) = &self.title {
             put(title, SEPARATOR_GAP);
-            put(&self.separator, SEPARATOR_GAP);
+            if self.progress.is_some() {
+                put(&self.separator, SEPARATOR_GAP);
+            }
         }
-        put(&self.progress, 0.0);
+        if let Some(progress) = &self.progress {
+            put(progress, 0.0);
+        }
     }
 }
 
@@ -659,22 +690,24 @@ impl MatchupView {
         self.series.as_ref().filter(|_| sides == 2)
     }
 
-    /// How wide the bar is when it is its middle block alone, which is what the corner cards keep
-    /// clear of: wider in a series game, by the scores beside the clock.
-    pub fn clock_block_width(&self) -> f32 {
-        MatchupForm::ClockOnly.natural_width(self.shown_series().is_some())
+    /// The series the bar draws, given whether the watcher has the series panel on: the series that
+    /// is shown, while the panel is on.
+    pub fn bar_series(&self, series_panel: bool) -> Option<&SeriesView> {
+        self.shown_series().filter(|_| series_panel)
     }
 
-    /// How far down the screen the bar reaches, the series tab hung under its middle included:
-    /// what a surface hung under the middle of the bar clears.
-    pub fn bar_depth(&self) -> f32 {
-        let tab = if self.shown_series().is_some() {
-            TAB_HEIGHT
-        } else {
-            0.0
-        };
-        self.form().height() + tab
+    /// How wide the bar is when it is its middle block alone, which is what the corner cards keep
+    /// clear of: wider in a series game with the series panel on, by the scores beside the clock.
+    pub fn clock_block_width(&self, series_panel: bool) -> f32 {
+        MatchupForm::ClockOnly.natural_width(self.bar_series(series_panel).is_some())
     }
+
+    /// How far down the screen the bar reaches, the series tab hung under its middle included, given
+    /// whether the series panel is on: what a surface hung under the middle of the bar clears.
+    pub fn bar_depth(&self, series_panel: bool) -> f32 {
+        self.form().height() + self.bar_series(series_panel).map_or(0.0, |_| TAB_HEIGHT)
+    }
+
     /// The game's players grouped into the sides they are on, in the order the sides are listed.
     ///
     /// Grouped here rather than handed over grouped, because every other surface reads the players
@@ -757,11 +790,13 @@ pub struct MatchupOutcome {
 /// Returns nothing at all once it is gone.
 ///
 /// The bar takes no more of the screen's width than leaves the margin every edge surface keeps at
-/// both ends.
+/// both ends. In a series game it carries the series while `series_panel`, the watcher's series
+/// panel, is on, and is the bar of a game with no series while it is not.
 pub fn render_matchup_view(
     view: &MatchupView,
     ctx: &Context,
     shown: bool,
+    series_panel: bool,
 ) -> Option<MatchupOutcome> {
     let id = Id::new("sb_matchup_bar");
     let area = Area::new(id)
@@ -770,7 +805,7 @@ pub fn render_matchup_view(
     let screen = ctx.viewport_rect();
     let available = screen.width() - layout::screen_margin(screen) * 2.0;
     let inner = motion::presence_area_from_top(ctx, id.with("presence"), shown, area, |ui| {
-        draw_bar(ui, view, available, screen)
+        draw_bar(ui, view, available, screen, series_panel)
     })?;
     let (toggled_vision, tab) = inner.inner;
     Some(MatchupOutcome {
@@ -793,27 +828,53 @@ fn tab_room(screen: Rect, form: MatchupForm, block: f32) -> f32 {
     }
 }
 
-/// How wide the series tab is for `series`, given `room` between the surfaces beside it: as wide as
-/// its line and the padding either side, never narrower than what it hangs from nor wider than the
-/// room. Where the room is narrower than what it hangs from, which no screen the game runs at comes
-/// near, it keeps the width it hangs from.
-fn tab_width(ctx: &Context, series: &SeriesView, room: f32) -> f32 {
-    let natural = SeriesLine::natural_width(ctx, series, false) + TAB_PAD * 2.0;
+/// How wide the series tab hung from `anchor` is for `series`, given `room` between the surfaces
+/// beside it: as wide as its line and the padding either side, never narrower than what it hangs
+/// from nor wider than the room. Where the room is narrower than what it hangs from, which no screen
+/// the game runs at comes near, it keeps the width it hangs from.
+fn tab_width(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> f32 {
+    let natural = SeriesLine::natural_width(ctx, series, anchor) + TAB_PAD * 2.0;
     // An even number of whole points, so a tab centered on the bar lands on whole pixels.
     let width = (natural * 0.5).ceil() * 2.0;
-    width.clamp(TAB_MIN_WIDTH, room.max(TAB_MIN_WIDTH))
+    let least = anchor.min_width();
+    width.clamp(least, room.max(least))
+}
+
+/// How tall the series tab hung from `anchor` is for `series`, or nothing where `anchor` hangs no
+/// tab for it: under the plate the tab's line is the series' title alone, so a series nobody named
+/// has nothing to put there.
+pub(crate) fn series_tab_height(series: &SeriesView, anchor: TabAnchor) -> Option<f32> {
+    let titled = series
+        .title
+        .as_deref()
+        .is_some_and(|title| !title.is_empty());
+    (anchor.says_progress() || titled).then_some(TAB_HEIGHT)
+}
+
+/// Draws the series tab for `series` under the middle of `above`, the surface it hangs from as
+/// `anchor` says, with `room` between the surfaces beside it, and returns where it went.
+pub(crate) fn draw_series_tab(
+    ui: &Ui,
+    above: Rect,
+    series: &SeriesView,
+    room: f32,
+    anchor: TabAnchor,
+) -> Rect {
+    let width = tab_width(ui.ctx(), series, room, anchor);
+    draw_tab(ui, above, series, width, anchor)
 }
 
 /// Draws the bar across no more than `available` points of `screen` and reports which player was
-/// clicked, and where the series tab went in a series game.
+/// clicked, and where the series tab went in a series game with `series_panel` on.
 fn draw_bar(
     ui: &mut Ui,
     view: &MatchupView,
     available: f32,
     screen: Rect,
+    series_panel: bool,
 ) -> (Option<u8>, Option<Rect>) {
     let form = view.form();
-    let series = view.shown_series();
+    let series = view.bar_series(series_panel);
     let (width, metrics) = form.layout(available, series.is_some());
     let height = form.height();
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
@@ -865,15 +926,15 @@ fn draw_bar(
         let right = Rect::from_min_max(centre.right_top(), pos2(middle.right(), rect.bottom()));
         draw_score_cell(ui, left, left.left(), series.scores[0], colors[0]);
         draw_score_cell(ui, right, right.right(), series.scores[1], colors[1]);
-        let room = tab_room(screen, form, view.clock_block_width());
-        draw_tab(ui, rect, series, tab_width(ui.ctx(), series, room))
+        let room = tab_room(screen, form, view.clock_block_width(series_panel));
+        draw_series_tab(ui, rect, series, room, TabAnchor::Bar)
     });
     (clicked, tab)
 }
 
 /// Draws one side's series score in its cell against the middle block, shaded as the block is and
 /// walled off at `wall`, its edge against the half beside it, by the hairline the block is.
-fn draw_score_cell(ui: &Ui, rect: Rect, wall: f32, score: u32, color: Color32) {
+pub(crate) fn draw_score_cell(ui: &Ui, rect: Rect, wall: f32, score: u32, color: Color32) {
     ui.painter()
         .rect_filled(rect, 0, theme::alpha(crate::colors::BLUE10, 0.50));
     paint_block_wall(ui, rect, wall);
@@ -884,6 +945,16 @@ fn draw_score_cell(ui: &Ui, rect: Rect, wall: f32, score: u32, color: Color32) {
         &score.to_string(),
         Align::Center,
     );
+}
+
+/// Paints a block of the bar's middle into `rect`: a shade darker than what is beside it, and walled
+/// off from it at both ends.
+pub(crate) fn paint_middle_block(ui: &Ui, rect: Rect) {
+    ui.painter()
+        .rect_filled(rect, 0, theme::alpha(crate::colors::BLUE10, 0.50));
+    for x in [rect.left(), rect.right()] {
+        paint_block_wall(ui, rect, x);
+    }
 }
 
 /// Paints the hairline that walls the bar's middle off from what is beside it, at `x` down `rect`.
@@ -899,14 +970,14 @@ fn paint_block_wall(ui: &Ui, rect: Rect, x: f32) {
     ));
 }
 
-/// Draws the series tab `width` wide under the middle of `bar`, joined to it, and returns where it
+/// Draws the series tab `width` wide under the middle of `above`, joined to it, and returns where it
 /// went.
 ///
-/// An ambient surface rather than a part of the hero bar above it: the line it carries is read once
-/// a game rather than at every glance, so it hangs quieter than the scores it explains.
-fn draw_tab(ui: &Ui, bar: Rect, series: &SeriesView, width: f32) -> Rect {
+/// An ambient surface rather than a part of the hero surface above it: the line it carries is read
+/// once a game rather than at every glance, so it hangs quieter than the scores it explains.
+fn draw_tab(ui: &Ui, above: Rect, series: &SeriesView, width: f32, anchor: TabAnchor) -> Rect {
     let tab = Rect::from_min_size(
-        pos2(bar.center().x - width * 0.5, bar.bottom()),
+        pos2(above.center().x - width * 0.5, above.bottom()),
         vec2(width, TAB_HEIGHT),
     );
     tiers::paint_tier0_joined(
@@ -918,7 +989,7 @@ fn draw_tab(ui: &Ui, bar: Rect, series: &SeriesView, width: f32) -> Rect {
             divides: false,
         },
     );
-    let line = SeriesLine::lay_out(ui.ctx(), series, width - TAB_PAD * 2.0, false);
+    let line = SeriesLine::lay_out(ui.ctx(), series, width - TAB_PAD * 2.0, anchor);
     line.paint(ui, tab.center().x - line.width() * 0.5, tab.center().y);
     tab
 }
@@ -927,7 +998,7 @@ fn draw_tab(ui: &Ui, bar: Rect, series: &SeriesView, width: f32) -> Rect {
 ///
 /// A half of one slot is the whole half, so a duel's is exactly the rect it always was rather than
 /// a special case of a stack.
-fn rows_of(half: Rect, count: usize) -> Vec<Rect> {
+pub(crate) fn rows_of(half: Rect, count: usize) -> Vec<Rect> {
     if count <= 1 {
         return vec![half];
     }
@@ -949,11 +1020,7 @@ fn rows_of(half: Rect, count: usize) -> Vec<Rect> {
 /// The block is walled off from the halves on either side of it and sits a shade darker than they
 /// do, so the one number that belongs to the game rather than to a player reads as its own thing.
 fn draw_centre(ui: &mut Ui, rect: Rect, view: &MatchupView) {
-    ui.painter()
-        .rect_filled(rect, 0, theme::alpha(crate::colors::BLUE10, 0.50));
-    for x in [rect.left(), rect.right()] {
-        paint_block_wall(ui, rect, x);
-    }
+    paint_middle_block(ui, rect);
     let tag = if view.is_replay {
         tr!("observer.replayTag", "Replay")
     } else {
@@ -1421,7 +1488,7 @@ mod tests {
     /// The bar's rect and its tab's once a screen of `size` has settled around them.
     fn settled_bar(view: &MatchupView, size: egui::Vec2) -> (Rect, Option<Rect>) {
         crate::observer::test_support::settled_at(size, |ctx| {
-            render_matchup_view(view, ctx, true).map(|outcome| (outcome.rect, outcome.tab))
+            render_matchup_view(view, ctx, true, true).map(|outcome| (outcome.rect, outcome.tab))
         })
         .expect("the bar is drawn")
     }
@@ -1472,7 +1539,7 @@ mod tests {
             let view = series_view(teams, longest_series());
             let (bar, tab) = settled_bar(&view, SMALL_SCREEN);
             let tab = tab.expect("a series game hangs a tab");
-            let room = tab_room(screen, view.form(), view.clock_block_width());
+            let room = tab_room(screen, view.form(), view.clock_block_width(true));
             assert!(tab.width() <= room + 0.01, "{teams:?}: {tab:?} in {room}");
             assert!(tab.width() >= TAB_MIN_WIDTH, "{teams:?}: {tab:?}");
             // Centered on the screen's middle line, so the room is the same either side of it.
@@ -1484,7 +1551,7 @@ mod tests {
                     ctx,
                     &view.series.clone()?,
                     tab.width() - TAB_PAD * 2.0,
-                    false,
+                    TabAnchor::Bar,
                 );
                 Some((line.progress_whole(), line.width()))
             })
@@ -1502,19 +1569,24 @@ mod tests {
         let series = longest_series();
         let (with_room, squeezed, without_room) =
             crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
-                let natural = SeriesLine::natural_width(ctx, &series, false);
+                let natural = SeriesLine::natural_width(ctx, &series, TabAnchor::Bar);
                 let progress_only = SeriesLine::natural_width(
                     ctx,
                     &SeriesView {
                         title: None,
                         ..series.clone()
                     },
-                    false,
+                    TabAnchor::Bar,
                 );
                 Some((
-                    SeriesLine::lay_out(ctx, &series, natural, false),
-                    SeriesLine::lay_out(ctx, &series, (natural + progress_only) * 0.5, false),
-                    SeriesLine::lay_out(ctx, &series, progress_only, false),
+                    SeriesLine::lay_out(ctx, &series, natural, TabAnchor::Bar),
+                    SeriesLine::lay_out(
+                        ctx,
+                        &series,
+                        (natural + progress_only) * 0.5,
+                        TabAnchor::Bar,
+                    ),
+                    SeriesLine::lay_out(ctx, &series, progress_only, TabAnchor::Bar),
                 ))
             })
             .expect("the lines are laid out");
@@ -1558,12 +1630,12 @@ mod tests {
         };
         let (bar, tab, card_rects) =
             crate::observer::test_support::settled_at(SMALL_SCREEN, |ctx| {
-                let bar = render_matchup_view(&view, ctx, true)?;
+                let bar = render_matchup_view(&view, ctx, true, true)?;
                 let cards = crate::observer::render_team_cards_view(
                     &cards,
                     ctx,
                     true,
-                    view.clock_block_width(),
+                    view.clock_block_width(true),
                 );
                 Some((bar.rect, bar.tab?, cards.rects))
             })
@@ -1618,9 +1690,28 @@ mod tests {
                 .is_none()
         );
         let unscored = series_view(&[1, 2, 3], longest_series());
-        assert_eq!(unscored.clock_block_width(), CLOCK_WIDTH);
-        assert_eq!(unscored.bar_depth(), STACKED_HEIGHT);
+        assert_eq!(unscored.clock_block_width(true), CLOCK_WIDTH);
+        assert_eq!(unscored.bar_depth(true), STACKED_HEIGHT);
         let scored = series_view(&[1, 2], longest_series());
-        assert_eq!(scored.bar_depth(), BAR_HEIGHT + TAB_HEIGHT);
+        assert_eq!(scored.bar_depth(true), BAR_HEIGHT + TAB_HEIGHT);
+    }
+
+    #[test]
+    fn with_the_series_panel_put_away_the_bar_is_the_bar_of_a_game_with_no_series() {
+        let wide = vec2(1920.0, 1080.0);
+        for teams in [&[1, 2][..], &[1, 1, 2, 2], &[1, 1, 1, 2, 2, 2]] {
+            let scored = series_view(teams, longest_series());
+            assert!(scored.bar_series(false).is_none());
+            assert_eq!(scored.clock_block_width(false), CLOCK_WIDTH);
+            assert_eq!(scored.bar_depth(false), scored.form().height());
+            let (plain, _) = settled_bar(&view(teams), wide);
+            let (hidden, tab) = crate::observer::test_support::settled_at(wide, |ctx| {
+                render_matchup_view(&scored, ctx, true, false)
+                    .map(|outcome| (outcome.rect, outcome.tab))
+            })
+            .expect("the bar is drawn");
+            assert_eq!(hidden, plain, "{teams:?}");
+            assert!(tab.is_none(), "{teams:?}");
+        }
     }
 }

@@ -18,6 +18,9 @@ pub(super) struct ObserverPanels {
     /// shell's while there is something behind it, and a keypress arrives between frames, so what
     /// the last frame was told has to be kept here.
     map_control_available: bool,
+    /// Whether the last observer frame was of a game with a series to show, which the series key
+    /// is the shell's in alone, for the same reason.
+    series_available: bool,
     /// The player whose control groups are shown: the owner of the last unit the watcher selected.
     /// Kept across frames because it outlives the selection that set it.
     focused_player: Option<u8>,
@@ -234,6 +237,11 @@ impl ObserverPanels {
         self.map_control_available
     }
 
+    /// Whether the last observer frame was of a game with a series to show.
+    pub(super) fn series_available(&self) -> bool {
+        self.series_available
+    }
+
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
     /// into intents for the host and into preferences of its own.
     ///
@@ -264,6 +272,7 @@ impl ObserverPanels {
         } = shell;
 
         self.map_control_available = view.map_control.is_some();
+        self.series_available = view.matchup.shown_series().is_some();
         let screen = ctx.viewport_rect();
         let gap = observer::WING_GAP;
         let margin = layout::screen_margin(screen);
@@ -278,7 +287,9 @@ impl ObserverPanels {
         // in rather than cutting between them.
         let style = prefs.matchup_style();
         let bar_shown = style == MatchupStyle::Bar;
-        if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, bar_shown) {
+        if let Some(outcome) =
+            observer::render_matchup_view(&view.matchup, ctx, bar_shown, prefs.series)
+        {
             hit_rects.push(HitRect::new(outcome.rect));
             top_surfaces.push(outcome.rect);
             if let Some(tab) = outcome.tab {
@@ -289,6 +300,18 @@ impl ObserverPanels {
                 intents.push(Intent::ToggleVision { player_id });
             }
         }
+        // The series panel is drawn into the bar while the bar is up, and on its plate at the top
+        // middle while it is not: with the matchup as the scoreboard in the corner, off, or put away.
+        // Like the matchup's two forms, the plate is drawn every frame and shown only while it is
+        // the series' form, so the series fades from one into the other as the bar comes and goes.
+        let plate_shown = prefs.series && !bar_shown;
+        let plate = observer::render_series_plate(&view.matchup, ctx, plate_shown);
+        if let Some(outcome) = &plate {
+            for &rect in &outcome.rects {
+                hit_rects.push(HitRect::new(rect));
+                top_surfaces.push(rect);
+            }
+        }
         // The reporting panels take no clicks of their own, but every one of them is an opaque
         // surface: a click that landed on a number and went on to select whatever unit was behind
         // it would make the panels unusable exactly where they are most worth reading.
@@ -297,12 +320,19 @@ impl ObserverPanels {
                 displaced.push(Panel::MapControl);
             }
             // Hung under the matchup bar while the bar is up, under the series tab at its middle in
-            // a series game, and from the screen's own top edge once it is put away or the matchup
-            // is the scoreboard in the corner, moving off as the bar starts to go rather than once
-            // it has. A strip put away along with the bar leaves from where it stands, as the
-            // panels put away with it do, rather than sliding up across the bar on its way out.
+            // a series game, under the series plate and its tab while the plate is up, and from the
+            // screen's own top edge with neither, moving off as the surface over it starts to go
+            // rather than once it has. A strip put away along with the bar leaves from where it
+            // stands, as the panels put away with it do, rather than sliding up across the bar on
+            // its way out.
+            let plate_depth = plate
+                .as_ref()
+                .filter(|_| plate_shown)
+                .map(|plate| plate.depth);
             let wanted_top = if bar_shown {
-                view.matchup.bar_depth() + observer::MAP_CONTROL_GAP
+                view.matchup.bar_depth(prefs.series) + observer::MAP_CONTROL_GAP
+            } else if let Some(depth) = plate_depth {
+                depth + observer::MAP_CONTROL_GAP
             } else {
                 margin
             };
@@ -383,7 +413,7 @@ impl ObserverPanels {
                 cards,
                 ctx,
                 bar_shown,
-                view.matchup.clock_block_width(),
+                view.matchup.clock_block_width(prefs.series),
             );
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
@@ -770,6 +800,7 @@ impl ObserverPanels {
                 hotkeys,
                 mode,
                 map_control_available: self.map_control_available,
+                series_available: self.series_available,
                 placement,
                 displaced: &displaced,
             },
@@ -906,8 +937,9 @@ pub(super) fn number_key_digit(key: Key) -> Option<u8> {
 mod tests {
     use egui::{Key, Modifiers, Rect};
 
+    use crate::observer::matchup::{BAR_HEIGHT, BAR_WIDTH, SCORES_WIDTH, TAB_HEIGHT};
     use crate::shell::test_support::*;
-    use crate::shell::{Intent, PanelPrefs};
+    use crate::shell::{Intent, MatchupStyle, PanelPrefs};
 
     const SMALL_SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
 
@@ -1811,5 +1843,218 @@ mod tests {
         );
         let ctrl = click_watched(&mut shell, &ctx, &game, pos, Modifiers::CTRL, &mut time);
         assert!(ctrl.contains(&Intent::PickSelectedKind(index)), "{ctrl:?}");
+    }
+
+    /// The surfaces hung from the middle of the top edge in `output` on a screen `size` across: the
+    /// matchup bar or the series plate, the tab hung under either and the map-control strip where it
+    /// is up, in the order they were drawn.
+    fn top_middle(output: &crate::shell::FrameOutput, size: egui::Vec2) -> Vec<Rect> {
+        output
+            .hit_rects
+            .iter()
+            .map(|hit| hit.rect)
+            .filter(|rect| (rect.center().x - size.x * 0.5).abs() < 0.5 && rect.top() < 200.0)
+            .collect()
+    }
+
+    /// The frame a live game settles into on a screen `size` across with `prefs`.
+    fn settled_series_frame(
+        shell: &mut crate::shell::Shell,
+        game: &crate::observer::ObserverView,
+        prefs: PanelPrefs,
+        size: egui::Vec2,
+    ) -> crate::shell::FrameOutput {
+        let ctx = fresh_ctx();
+        shell.set_panel_prefs(prefs);
+        let mut output = None;
+        for frame in 0..8 {
+            output = Some(run_observed_frame_at(
+                shell,
+                &ctx,
+                game,
+                size,
+                f64::from(frame) * 0.5,
+            ));
+        }
+        output.unwrap()
+    }
+
+    /// The panel preferences a watcher has with the matchup in `style`, put away where `put_away`,
+    /// and the series panel on where `series`.
+    fn top_prefs(style: MatchupStyle, put_away: bool, series: bool) -> PanelPrefs {
+        let mut prefs = PanelPrefs {
+            series,
+            ..PanelPrefs::default()
+        };
+        prefs.set_matchup_style(style);
+        if put_away {
+            prefs.set_matchup_style(MatchupStyle::Off);
+        }
+        prefs
+    }
+
+    const WIDE: egui::Vec2 = egui::vec2(1920.0, 1080.0);
+
+    /// How tall the series plate is with one player at each end.
+    const PLATE_HEIGHT: f32 = 56.0;
+
+    #[test]
+    fn the_series_stands_on_its_plate_wherever_the_bar_is_not_up() {
+        let game = series_game(&[1, 2]);
+        for (style, put_away, plate) in [
+            (MatchupStyle::Compact, false, true),
+            // Turned off from the compact scoreboard, and the bar put away with its key.
+            (MatchupStyle::Compact, true, true),
+            (MatchupStyle::Bar, true, true),
+            (MatchupStyle::Bar, false, false),
+        ] {
+            let mut shell = observing_shell();
+            let prefs = top_prefs(style, put_away, true);
+            let output = settled_series_frame(&mut shell, &game, prefs, WIDE);
+            let top = top_middle(&output, WIDE);
+            let label = format!("{style:?} put away: {put_away}");
+            let [surface, tab] = top[..] else {
+                panic!("{label}: {top:?}");
+            };
+            assert_eq!(surface.top(), 0.0, "{label}");
+            assert_eq!(tab.top(), surface.bottom(), "{label}");
+            assert_eq!(tab.height(), TAB_HEIGHT, "{label}");
+            if plate {
+                assert_eq!(surface.height(), PLATE_HEIGHT, "{label}");
+            } else {
+                // The bar carries the series itself, in its score cells and the tab under it.
+                assert_eq!(
+                    surface.size(),
+                    egui::vec2(BAR_WIDTH + SCORES_WIDTH, BAR_HEIGHT),
+                    "{label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn with_the_series_panel_put_away_the_bar_is_plain_and_the_top_middle_is_clear() {
+        let game = series_game(&[1, 2]);
+        let mut shell = observing_shell();
+        let prefs = top_prefs(MatchupStyle::Bar, false, false);
+        let output = settled_series_frame(&mut shell, &game, prefs, WIDE);
+        let top = top_middle(&output, WIDE);
+        let [bar] = top[..] else {
+            panic!("{top:?}");
+        };
+        assert_eq!(bar.size(), egui::vec2(BAR_WIDTH, BAR_HEIGHT));
+
+        for put_away in [false, true] {
+            let mut shell = observing_shell();
+            let prefs = top_prefs(MatchupStyle::Compact, put_away, false);
+            let output = settled_series_frame(&mut shell, &game, prefs, WIDE);
+            assert_eq!(top_middle(&output, WIDE), Vec::new(), "{put_away}");
+        }
+    }
+
+    #[test]
+    fn all_panels_puts_the_plate_away_and_brings_it_back() {
+        let game = series_game(&[1, 2]);
+        let mut shell = observing_shell();
+        let prefs = top_prefs(MatchupStyle::Compact, false, true);
+        let output = settled_series_frame(&mut shell, &game, prefs, WIDE);
+        assert_eq!(top_middle(&output, WIDE).len(), 2);
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(!shell.panel_prefs().series);
+        let hidden = *shell.panel_prefs();
+        let output = settled_series_frame(&mut shell, &game, hidden, WIDE);
+        assert_eq!(top_middle(&output, WIDE), Vec::new());
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.panel_prefs().series);
+        let restored = *shell.panel_prefs();
+        let output = settled_series_frame(&mut shell, &game, restored, WIDE);
+        assert_eq!(top_middle(&output, WIDE).len(), 2);
+    }
+
+    #[test]
+    fn the_series_key_moves_its_panel_only_in_a_game_with_a_series_to_show() {
+        let ctx = fresh_ctx();
+        let mut shell = observing_shell();
+        run_observed_frame_at(&mut shell, &ctx, &series_game(&[1, 2]), WIDE, 0.0);
+        assert!(shell.panel_prefs().series);
+        assert!(shell.key_pressed(Key::S, Modifiers::NONE));
+        assert!(!shell.panel_prefs().series);
+        assert!(shell.key_pressed(Key::S, Modifiers::NONE));
+        assert!(shell.panel_prefs().series);
+
+        // A game that is no series, or one whose players are not two sides, leaves the key alone.
+        for game in [game_with_right_wings(), series_game(&[1, 2, 3])] {
+            let mut shell = observing_shell();
+            run_observed_frame_at(&mut shell, &ctx, &game, WIDE, 1.0);
+            assert!(!shell.key_pressed(Key::S, Modifiers::NONE));
+            assert!(shell.panel_prefs().series);
+        }
+    }
+
+    #[test]
+    fn the_map_control_strip_hangs_under_the_plate_and_its_tab() {
+        use crate::observer::{MAP_CONTROL_GAP, map_control};
+
+        for (teams, plate_height) in [(&[1, 2][..], PLATE_HEIGHT), (&[1, 1, 2, 2], 72.0)] {
+            let game = series_game(teams);
+            let mut shell = observing_shell();
+            let prefs = PanelPrefs {
+                map_control: true,
+                ..top_prefs(MatchupStyle::Compact, false, true)
+            };
+            let top = top_middle(&settled_series_frame(&mut shell, &game, prefs, WIDE), WIDE);
+            let [plate, tab, strip] = top[..] else {
+                panic!("{teams:?}: {top:?}");
+            };
+            assert_eq!(plate.height(), plate_height, "{teams:?}");
+            assert_eq!(strip.height(), map_control::BAR_HEIGHT, "{teams:?}");
+            assert_eq!(strip.top(), tab.bottom() + MAP_CONTROL_GAP, "{teams:?}");
+        }
+    }
+
+    #[test]
+    fn the_plate_keeps_clear_of_every_panel_beside_and_under_it() {
+        for size in [
+            WIDE,
+            egui::vec2(1600.0, 900.0),
+            SMALL_SCREEN,
+            egui::vec2(1280.0, 960.0),
+        ] {
+            for teams in [
+                &[1, 2][..],
+                &[1, 1, 2, 2],
+                &[1, 1, 1, 2, 2, 2],
+                &[1, 1, 1, 1, 2, 2, 2, 2],
+            ] {
+                for put_away in [false, true] {
+                    let game = series_game(teams);
+                    let mut shell = observing_shell();
+                    let prefs = PanelPrefs {
+                        map_control: true,
+                        economy: true,
+                        military: true,
+                        timeline: true,
+                        graphs: true,
+                        ..top_prefs(MatchupStyle::Compact, put_away, true)
+                    };
+                    let output = settled_series_frame(&mut shell, &game, prefs, size);
+                    let top = top_middle(&output, size);
+                    let label = format!("{size:?} {teams:?} put away: {put_away}");
+                    let (plate, tab) = (top[0], top[1]);
+                    assert_eq!(plate.top(), 0.0, "{label}");
+                    for other in output.hit_rects.iter().map(|hit| hit.rect) {
+                        if other == plate || other == tab {
+                            continue;
+                        }
+                        for surface in [plate, tab] {
+                            assert!(
+                                !surface.intersects(other.shrink(0.5)),
+                                "{label}: {surface:?} runs into {other:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

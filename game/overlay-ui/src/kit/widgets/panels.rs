@@ -36,51 +36,22 @@ const STATUS_DOT_DIM: f32 = 0.65;
 /// the panel, which a click works as well. Returns whether the keycap was clicked, which a panel
 /// takes as its key being pressed.
 pub fn panel_header(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> bool {
-    header(ui, title, hotkey, false, None).0
-}
-
-/// What paints something of a panel's own after the title on its title row, handed the room
-/// between the title and the keycap (see [`panel_header_with_aside`]).
-pub type HeaderAside<'a> = &'a dyn Fn(&Ui, egui::Rect);
-
-/// A panel's title row with something of the panel's own after the title: `aside` paints into the
-/// room between the title and the keycap, from the title's end to the keycap's start and as tall as
-/// the title, and is handed that room. Returns whether the keycap was clicked.
-pub fn panel_header_with_aside(
-    ui: &mut Ui,
-    title: &str,
-    hotkey: Option<&str>,
-    aside: HeaderAside<'_>,
-) -> bool {
-    header(ui, title, hotkey, false, Some(aside)).0
+    header(ui, title, hotkey, false).0
 }
 
 /// The same row with a close affordance, returning whether it was clicked.
 pub fn panel_header_with_close(ui: &mut Ui, title: &str, hotkey: Option<&str>) -> bool {
-    header(ui, title, hotkey, true, None).1
+    header(ui, title, hotkey, true).1
 }
 
 /// Draws a title row, returning whether its keycap and its close affordance were clicked.
-fn header(
-    ui: &mut Ui,
-    title: &str,
-    hotkey: Option<&str>,
-    closable: bool,
-    aside: Option<HeaderAside<'_>>,
-) -> (bool, bool) {
+fn header(ui: &mut Ui, title: &str, hotkey: Option<&str>, closable: bool) -> (bool, bool) {
     let row = ui.horizontal(|ui| {
         ui.set_min_height(HEADER_HEIGHT);
-        let title_rect = ui.label(text::panel_title().job(title)).rect;
+        ui.label(text::panel_title().job(title));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let closed = closable && close_button(ui).clicked();
             let key_clicked = hotkey.is_some_and(|key| kbd_button(ui, key).clicked());
-            if let Some(aside) = aside {
-                let room = ui.available_rect_before_wrap();
-                aside(
-                    ui,
-                    egui::Rect::from_x_y_ranges(room.x_range(), title_rect.y_range()),
-                );
-            }
             (key_clicked, closed)
         })
         .inner

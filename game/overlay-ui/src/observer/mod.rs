@@ -23,6 +23,7 @@ pub(crate) mod production;
 pub(crate) mod race_icon;
 pub(crate) mod scoreboard;
 pub(crate) mod selection;
+pub(crate) mod series_plate;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
 mod unit_codes;
@@ -59,6 +60,7 @@ pub use selection::{
     UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
     render_selection_view,
 };
+pub use series_plate::{SeriesPlateOutcome, render_series_plate};
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
@@ -772,6 +774,7 @@ pub(crate) fn panel_name(panel: Panel) -> String {
     match panel {
         Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
         Panel::MapControl => tr!("observer.mapControl", "Map control"),
+        Panel::Series => tr!("observer.panelSeries", "Series"),
         Panel::Economy => tr!("observer.panelEconomy", "Economy"),
         Panel::Military => tr!("observer.panelMilitary", "Military"),
         Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
@@ -803,19 +806,6 @@ pub(crate) struct WingFrame<R> {
     pub(crate) inner: R,
 }
 
-/// What a stats wing's title row carries: the panel's name and keycap, and where the panel has one,
-/// something of its own painted after the name (see [`widgets::panel_header_with_aside`]).
-pub(crate) struct WingTitle<'a> {
-    pub(crate) panel: Panel,
-    pub(crate) aside: Option<widgets::HeaderAside<'a>>,
-}
-
-impl From<Panel> for WingTitle<'_> {
-    fn from(panel: Panel) -> Self {
-        WingTitle { panel, aside: None }
-    }
-}
-
 /// The area the stats wing that is `panel` is drawn in.
 pub fn wing_id(panel: Panel) -> Id {
     Id::new(("sb_wing", panel.label()))
@@ -834,16 +824,15 @@ pub fn wing_id(panel: Panel) -> Id {
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;
 /// egui sizes a panel from its contents out, so the width given here is the panel's and the width
 /// its contents get is what is left of it inside the chrome.
-pub(crate) fn wing_panel<'a, R>(
+pub(crate) fn wing_panel<R>(
     ctx: &Context,
-    title: impl Into<WingTitle<'a>>,
+    panel: Panel,
     wing: Wing,
     top: f32,
     width: f32,
     shown: bool,
     add: impl FnOnce(&mut Ui) -> R,
 ) -> Option<WingFrame<R>> {
-    let WingTitle { panel, aside } = title.into();
     let margin = layout::screen_margin(ctx.viewport_rect());
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, margin),
@@ -859,11 +848,8 @@ pub(crate) fn wing_panel<'a, R>(
             // fixed layouts, and egui's own item spacing would add to every one of them.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(tiers::panel_content_width(width));
-            let (title, key) = (panel_name(panel), panel.key_label());
-            let key_clicked = match aside {
-                Some(aside) => widgets::panel_header_with_aside(ui, &title, key.as_deref(), aside),
-                None => widgets::panel_header(ui, &title, key.as_deref()),
-            };
+            let key_clicked =
+                widgets::panel_header(ui, &panel_name(panel), panel.key_label().as_deref());
             (key_clicked, add(ui))
         })
         .inner
