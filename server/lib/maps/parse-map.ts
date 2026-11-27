@@ -17,6 +17,13 @@ export interface ParsedMap {
   hash: string
 }
 
+function validateMapDimensions(map: Chk) {
+  const [width, height] = map.size
+  if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+    throw new Error(`Invalid map dimensions: ${width}x${height}`)
+  }
+}
+
 export async function parseAndHashMap(
   filePath: string,
   extension: MapExtension,
@@ -42,6 +49,7 @@ export async function parseAndHashMap(
         }),
       )
   })
+  validateMapDimensions(map)
   const hash = await hasher.hashPromise
   return {
     map,

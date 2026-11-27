@@ -2,9 +2,9 @@ import { container } from 'tsyringe'
 import { Redis } from '../redis/redis'
 
 export interface CreateThrottleOptions {
-  /** The number of milliseconds in which `rate` and `burst` act */
+  /** The number of milliseconds in which `rate` and `burst` act. Must be finite and positive. */
   window: number
-  /** How many tokens are refreshed every `window` amount of time */
+  /** How many tokens are refreshed every `window` amount of time. Must be finite and positive. */
   rate: number
   /** The maximum number of requests allowed in a `window` amount of time */
   burst: number
@@ -49,6 +49,12 @@ export class TokenBucketThrottle {
   }
 }
 
+function validatePositiveFiniteOption(name: 'rate' | 'window', value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`Throttle ${name} must be a finite number greater than zero`)
+  }
+}
+
 /**
  * Creates a new throttle object using the specified options and our usual redis client. The `name`
  * is used in the redis key.
@@ -61,6 +67,9 @@ export class TokenBucketThrottle {
  *    (default: 10 * (`burst` / `rate`) `window`s)
  */
 export default function createThrottle(name: string, opts: CreateThrottleOptions) {
+  validatePositiveFiniteOption('rate', opts.rate)
+  validatePositiveFiniteOption('window', opts.window)
+
   return new TokenBucketThrottle('sbthrottle:' + name, {
     ...opts,
     expiry:
