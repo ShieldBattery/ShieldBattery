@@ -6,7 +6,7 @@ import { Provider as ReduxProvider } from 'react-redux'
 import { beforeAll, describe, expect, test } from 'vitest'
 import { GameType } from '../../../common/games/game-type'
 import { Lobby, Team } from '../../../common/lobbies'
-import { LobbyBestOfJson } from '../../../common/lobbies/lobby-best-of'
+import { LobbyBestOfJson, LobbyBestOfSides } from '../../../common/lobbies/lobby-best-of'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { createHuman, createObserver, createOpen, Slot } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
@@ -70,6 +70,12 @@ function makeLobby(top: Slot[] = [createHuman(ALICE, 't')]): Lobby {
   }
 }
 
+/** Who played the games of the best-of fixtures. */
+const PLAYERS: LobbyBestOfSides = [
+  [CAROL, ALICE],
+  [BOB, ERIN],
+]
+
 const SERIES: LobbyBestOfJson = {
   id: 'series',
   length: 3,
@@ -77,7 +83,7 @@ const SERIES: LobbyBestOfJson = {
     [CAROL, ALICE, DAVE],
     [BOB, ERIN],
   ],
-  games: [{ gameId: 'g1', status: 'won', winner: 0 }],
+  games: [{ gameId: 'g1', players: PLAYERS, status: 'won', winner: 0 }],
 }
 
 function makeStore(lobby: Lobby, bestOfs: LobbyBestOfJson[]) {
@@ -151,8 +157,8 @@ describe('BestOfScoreTile', () => {
       ...SERIES,
       length: 2,
       games: [
-        { gameId: 'g1', status: 'won', winner: 0 },
-        { gameId: 'g2', status: 'won', winner: 1 },
+        { gameId: 'g1', players: PLAYERS, status: 'won', winner: 0 },
+        { gameId: 'g2', players: PLAYERS, status: 'won', winner: 1 },
       ],
       outcome: { kind: 'drawn' },
     }

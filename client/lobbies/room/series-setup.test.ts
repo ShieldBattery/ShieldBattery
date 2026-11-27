@@ -184,9 +184,9 @@ describe('getFormatChangeOutcome', () => {
   const running: Pick<LobbyBestOfJson, 'length' | 'playAll' | 'games' | 'outcome'> = {
     length: 7,
     games: [
-      { gameId: 'g1', status: 'won', winner: 0 },
-      { gameId: 'g2', status: 'noWinner' },
-      { gameId: 'g3', status: 'won', winner: 1 },
+      { gameId: 'g1', players: SIDES, status: 'won', winner: 0 },
+      { gameId: 'g2', players: SIDES, status: 'noWinner' },
+      { gameId: 'g3', players: SIDES, status: 'won', winner: 1 },
       { resultId: 'r1', status: 'won', winner: 0 },
     ],
   }
@@ -213,7 +213,7 @@ describe('getFormatChangeOutcome', () => {
     const playAll: typeof running = {
       length: 5,
       playAll: true,
-      games: [...running.games, { gameId: 'g4', status: 'won', winner: 0 }],
+      games: [...running.games, { gameId: 'g4', players: SIDES, status: 'won', winner: 0 }],
     }
     expect(getFormatChangeOutcome(playAll, { length: 6 })).toBeUndefined()
     expect(getFormatChangeOutcome(playAll, { playAll: false })).toEqual({ kind: 'won', winner: 0 })

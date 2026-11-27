@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../../common/games/game-type'
 import { Lobby } from '../../../common/lobbies'
-import { LobbyBestOfJson } from '../../../common/lobbies/lobby-best-of'
+import { LobbyBestOfJson, LobbyBestOfSides } from '../../../common/lobbies/lobby-best-of'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { createHuman, createObserver, createOpen, Slot } from '../../../common/lobbies/slot'
@@ -50,14 +50,17 @@ function makeLobby(top: Slot[], bottom: Slot[], observers: Slot[] = []): Lobby {
   }
 }
 
+/** Who played the games of the best-of fixtures. */
+const PLAYERS: LobbyBestOfSides = [[ALICE], [BOB]]
+
 const RUNNING: LobbyBestOfJson = {
   id: '2',
   length: 3,
   sides: [[ALICE], [BOB]],
   games: [
-    { gameId: 'g3', status: 'won', winner: 0 },
-    { gameId: 'g4', status: 'notCounted' },
-    { gameId: 'g5', status: 'won', winner: 1 },
+    { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0 },
+    { gameId: 'g4', players: PLAYERS, status: 'notCounted' },
+    { gameId: 'g5', players: PLAYERS, status: 'won', winner: 1 },
   ],
 }
 
@@ -66,7 +69,7 @@ const ENDED: LobbyBestOfJson = {
   title: 'Warm-up',
   length: 1,
   sides: [[ALICE], [BOB]],
-  games: [{ gameId: 'g2', status: 'won', winner: 0 }],
+  games: [{ gameId: 'g2', players: PLAYERS, status: 'won', winner: 0 }],
   outcome: { kind: 'won', winner: 0 },
 }
 
@@ -101,7 +104,7 @@ describe('client/lobbies/room/best-of-display', () => {
     test('keeps a reopened series up once the lobby has played one of its games again', () => {
       const reopened: LobbyBestOfJson = {
         ...ENDED,
-        games: [...ENDED.games, { gameId: 'g4', status: 'won', winner: 0 }],
+        games: [...ENDED.games, { gameId: 'g4', players: PLAYERS, status: 'won', winner: 0 }],
       }
       const games = ['g1', 'g2', 'g3', 'g4'].map(seriesGame)
       expect(getDisplayedBestOf([reopened], games, false)).toBe(reopened)
@@ -153,10 +156,10 @@ describe('client/lobbies/room/best-of-display', () => {
         ...RUNNING,
         games: [
           { resultId: 'a', status: 'won', winner: 1 },
-          { gameId: 'g3', status: 'won', winner: 0 },
+          { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0 },
           { resultId: 'b', status: 'won', winner: 0 },
           { resultId: 'c', status: 'won', winner: 1 },
-          { gameId: 'g4', status: 'won', winner: 1 },
+          { gameId: 'g4', players: PLAYERS, status: 'won', winner: 1 },
           { resultId: 'd', status: 'won', winner: 0 },
         ],
         outcome: { kind: 'won', winner: 1 },
@@ -193,8 +196,8 @@ describe('client/lobbies/room/best-of-display', () => {
       const running: LobbyBestOfJson = {
         ...RUNNING,
         games: [
-          { gameId: 'g3', status: 'won', winner: 0 },
-          { gameId: 'g4', status: 'pending' },
+          { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0 },
+          { gameId: 'g4', players: PLAYERS, status: 'pending' },
           { resultId: 'a', status: 'won', winner: 1 },
         ],
       }
@@ -210,9 +213,9 @@ describe('client/lobbies/room/best-of-display', () => {
       const reopened: LobbyBestOfJson = {
         ...RUNNING,
         games: [
-          { gameId: 'g3', status: 'won', winner: 0 },
+          { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0 },
           { resultId: 'a', status: 'won', winner: 1 },
-          { gameId: 'g5', status: 'won', winner: 0 },
+          { gameId: 'g5', players: PLAYERS, status: 'won', winner: 0 },
           { resultId: 'b', status: 'won', winner: 0 },
         ],
       }
@@ -236,7 +239,7 @@ describe('client/lobbies/room/best-of-display', () => {
       const reopened: LobbyBestOfJson = {
         ...RUNNING,
         games: [
-          { gameId: 'g3', status: 'won', winner: 0 },
+          { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0 },
           { resultId: 'a', status: 'won', winner: 0 },
         ],
         outcome: { kind: 'won', winner: 0 },
@@ -272,7 +275,7 @@ describe('client/lobbies/room/best-of-display', () => {
       const pending: LobbyBestOfJson = {
         ...fresh,
         sides: [[CAROL], [BOB]],
-        games: [{ gameId: 'g1', status: 'pending' }],
+        games: [{ gameId: 'g1', players: PLAYERS, status: 'pending' }],
       }
       expect(getBestOfStartBlocker(lobby, [pending])).toEqual({ kind: 'bestOfGamePending' })
     })

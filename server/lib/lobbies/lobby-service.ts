@@ -46,6 +46,7 @@ import {
   findBestOfGameWinner,
   getBestOfOutcomeAfterChange,
   getBestOfScore,
+  getBestOfSeatedSides,
   getBestOfSideName,
   getBestOfTextProblem,
   getRunningBestOf,
@@ -54,6 +55,7 @@ import {
   LobbyBestOfAddedResultJson,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
+  LobbyBestOfLaunchedGameJson,
   LobbyBestOfLogoJson,
   LobbyBestOfOutcome,
   LobbyBestOfSideNames,
@@ -3088,7 +3090,10 @@ export class LobbyService {
       this.bestOfLaunchSides.set(gameId, [[...runningBestOf.sides[0]], [...runningBestOf.sides[1]]])
       this._replaceRunningBestOf(lobby, {
         ...runningBestOf,
-        games: [...runningBestOf.games, { gameId, status: 'pending' }],
+        games: [
+          ...runningBestOf.games,
+          { gameId, players: getBestOfSeatedSides(lobby, runningBestOf.sides), status: 'pending' },
+        ],
       })
     }
     // The lobby left the public list when its countdown began; it belongs back on it now, marked as
@@ -3300,15 +3305,19 @@ export class LobbyService {
           game => !isBestOfAddedResult(game) && game.gameId === gameId && game.status === 'pending',
         )
       : -1
+    const pending = latest?.games[index]
     const sides = this.bestOfLaunchSides.get(gameId)
-    if (!latest || index === -1 || !sides) {
+    if (!latest || !pending || isBestOfAddedResult(pending) || !sides) {
       return
     }
     this.bestOfLaunchSides.delete(gameId)
 
     const winner = findBestOfGameWinner(sides, result.outcomes)
+    const { players } = pending
     const settled: LobbyBestOfGameJson =
-      winner !== undefined ? { gameId, status: 'won', winner } : { gameId, status: 'noWinner' }
+      winner !== undefined
+        ? { gameId, players, status: 'won', winner }
+        : { gameId, players, status: 'noWinner' }
     this._applyBestOfChange(lobby, latest, {
       ...latest,
       games: latest.games.map((game, i) => (i === index ? settled : game)),
@@ -3357,7 +3366,7 @@ export class LobbyService {
           return game
         }
         this.bestOfLaunchSides.delete(game.gameId)
-        return { gameId: game.gameId, status: 'notCounted' }
+        return { gameId: game.gameId, players: game.players, status: 'notCounted' }
       })
       const stopped: LobbyBestOfJson = { ...previous, games }
       list[list.length - 1] = stopped
@@ -3578,7 +3587,7 @@ export class LobbyService {
         return game
       }
       this.bestOfLaunchSides.delete(game.gameId)
-      return { gameId: game.gameId, status: 'notCounted' }
+      return { gameId: game.gameId, players: game.players, status: 'notCounted' }
     })
     this._replaceRunningBestOf(lobby, { ...running, games, outcome: { kind: 'unfinished' } })
   }
@@ -3620,10 +3629,11 @@ export class LobbyService {
 
     // A game whose results haven't settled no longer waits for them
     this.bestOfLaunchSides.delete(gameId)
+    const { players } = latest.games[index] as LobbyBestOfLaunchedGameJson
     const set: LobbyBestOfGameJson =
       result.status === 'won'
-        ? { gameId, status: 'won', winner: result.winner, setByHost: true }
-        : { gameId, status: 'notCounted' }
+        ? { gameId, players, status: 'won', winner: result.winner, setByHost: true }
+        : { gameId, players, status: 'notCounted' }
     return this._applyBestOfChange(
       lobby,
       latest,

@@ -9,6 +9,7 @@ import {
   isBestOfAddedResult,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
+  LobbyBestOfSides,
   toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
@@ -186,6 +187,12 @@ function makeLobby(crowded = false): Lobby {
   }
 }
 
+/** Who played the mock series' games: the two seated pairs, whoever else a side holds. */
+const PLAYED_BY: LobbyBestOfSides = [
+  [HOST, ALLY],
+  [RIVAL_1, RIVAL_2],
+]
+
 const RUNNING_BEST_OF: LobbyBestOfJson = {
   id: 'mock-running-best-of',
   title: 'Grand Final',
@@ -195,9 +202,9 @@ const RUNNING_BEST_OF: LobbyBestOfJson = {
     [RIVAL_1, RIVAL_2],
   ],
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'won', winner: 1 },
-    { gameId: 'mock-game-3', status: 'won', winner: 0 },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'won', winner: 1 },
+    { gameId: 'mock-game-3', players: PLAYED_BY, status: 'won', winner: 0 },
   ],
   overlay: {
     line1: 'Casters  Nyoken & Day9',
@@ -243,8 +250,8 @@ const PENDING_BEST_OF: LobbyBestOfJson = {
   id: 'mock-pending-best-of',
   length: 5,
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'pending' },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'pending' },
   ],
 }
 
@@ -253,11 +260,11 @@ const SETTLED_BEST_OF: LobbyBestOfJson = {
   ...RUNNING_NAMED_BEST_OF,
   id: 'mock-settled-best-of',
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'noWinner' },
-    { gameId: 'mock-game-3', status: 'won', winner: 1 },
-    { gameId: 'mock-game-4', status: 'notCounted' },
-    { gameId: 'mock-game-5', status: 'won', winner: 0 },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'noWinner' },
+    { gameId: 'mock-game-3', players: PLAYED_BY, status: 'won', winner: 1 },
+    { gameId: 'mock-game-4', players: PLAYED_BY, status: 'notCounted' },
+    { gameId: 'mock-game-5', players: PLAYED_BY, status: 'won', winner: 0 },
   ],
 }
 
@@ -267,8 +274,8 @@ const HOST_SET_BEST_OF: LobbyBestOfJson = {
   id: 'mock-host-set-best-of',
   length: 5,
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'won', winner: 1, setByHost: true },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'won', winner: 1, setByHost: true },
   ],
 }
 
@@ -280,7 +287,7 @@ const ADDED_BEST_OF: LobbyBestOfJson = {
   games: [
     { resultId: 'mock-added-1', status: 'won', winner: 0 },
     { resultId: 'mock-added-2', status: 'won', winner: 1 },
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
   ],
 }
 
@@ -290,9 +297,9 @@ const ENDED_WON_BEST_OF: LobbyBestOfJson = {
   id: 'mock-ended-won-best-of',
   length: 3,
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'won', winner: 1 },
-    { gameId: 'mock-game-3', status: 'won', winner: 0 },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'won', winner: 1 },
+    { gameId: 'mock-game-3', players: PLAYED_BY, status: 'won', winner: 0 },
   ],
   outcome: { kind: 'won', winner: 0 },
 }
@@ -304,10 +311,10 @@ const ENDED_DRAWN_BEST_OF: LobbyBestOfJson = {
   title: 'Showmatch',
   length: 4,
   games: [
-    { gameId: 'mock-game-1', status: 'won', winner: 0 },
-    { gameId: 'mock-game-2', status: 'won', winner: 1 },
-    { gameId: 'mock-game-3', status: 'won', winner: 1 },
-    { gameId: 'mock-game-4', status: 'won', winner: 0 },
+    { gameId: 'mock-game-1', players: PLAYED_BY, status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', players: PLAYED_BY, status: 'won', winner: 1 },
+    { gameId: 'mock-game-3', players: PLAYED_BY, status: 'won', winner: 1 },
+    { gameId: 'mock-game-4', players: PLAYED_BY, status: 'won', winner: 0 },
   ],
   outcome: { kind: 'drawn' },
 }
@@ -323,13 +330,13 @@ const LONG_RESULTS_BEST_OF: LobbyBestOfJson = {
     ...Array.from({ length: 12 }, (_, i): LobbyBestOfJson['games'][number] => {
       const gameId = `mock-game-${i + 1}`
       if (i === 4) {
-        return { gameId, status: 'noWinner' }
+        return { gameId, players: PLAYED_BY, status: 'noWinner' }
       } else if (i === 7) {
-        return { gameId, status: 'won', winner: 1, setByHost: true }
+        return { gameId, players: PLAYED_BY, status: 'won', winner: 1, setByHost: true }
       } else if (i === 11) {
-        return { gameId, status: 'pending' }
+        return { gameId, players: PLAYED_BY, status: 'pending' }
       }
-      return { gameId, status: 'won', winner: i % 3 === 0 ? 1 : 0 }
+      return { gameId, players: PLAYED_BY, status: 'won', winner: i % 3 === 0 ? 1 : 0 }
     }),
   ],
 }

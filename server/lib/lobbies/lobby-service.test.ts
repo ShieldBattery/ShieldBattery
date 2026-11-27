@@ -5123,6 +5123,8 @@ describe('lobbies/lobby-service', () => {
     const H = HOST_USER.id
     const J = JOINER_USER.id
     const OH = OTHER_HOST_USER.id
+    /** Who plays each game of a lobby with the host on top and the joiner on the bottom. */
+    const PLAYED: [SbUserId[], SbUserId[]] = [[H], [J]]
 
     /** The record each game reconciles to, once a test has settled it. */
     let records: Map<string, GameRecord>
@@ -5493,8 +5495,8 @@ describe('lobbies/lobby-service', () => {
         ],
       })
       expect(runningBestOf(id).games).toEqual([
-        { gameId: first, status: 'won', winner: 1 },
-        { gameId: second, status: 'pending' },
+        { gameId: first, players: PLAYED, status: 'won', winner: 1 },
+        { gameId: second, players: PLAYED, status: 'pending' },
       ])
       expect(
         lobbyPublishes(id)
@@ -5616,8 +5618,8 @@ describe('lobbies/lobby-service', () => {
           type: 'bestOfEnded',
           bestOf: expect.objectContaining({
             games: [
-              { gameId: first, status: 'won', winner: 0 },
-              { gameId: second, status: 'won', winner: 0 },
+              { gameId: first, players: PLAYED, status: 'won', winner: 0 },
+              { gameId: second, players: PLAYED, status: 'won', winner: 0 },
             ],
             outcome: { kind: 'won', winner: 0 },
           }),
@@ -5636,7 +5638,9 @@ describe('lobbies/lobby-service', () => {
       const first = await playGame(id)
       expect(bestOfEvents(id).at(-1)).toEqual({
         type: 'bestOfUpdated',
-        bestOf: expect.objectContaining({ games: [{ gameId: first, status: 'noWinner' }] }),
+        bestOf: expect.objectContaining({
+          games: [{ gameId: first, players: PLAYED, status: 'noWinner' }],
+        }),
       })
 
       const second = await launchGame(id)
@@ -5647,8 +5651,8 @@ describe('lobbies/lobby-service', () => {
       ])
 
       expect(runningBestOf(id).games).toEqual([
-        { gameId: first, status: 'noWinner' },
-        { gameId: second, status: 'noWinner' },
+        { gameId: first, players: PLAYED, status: 'noWinner' },
+        { gameId: second, players: PLAYED, status: 'noWinner' },
       ])
       expect(runningBestOf(id).outcome).toBeUndefined()
       // The game is replayed under the same number
@@ -5672,7 +5676,9 @@ describe('lobbies/lobby-service', () => {
       expect(bestOfEvents(id)).toEqual([
         {
           type: 'bestOfCorrected',
-          bestOf: expect.objectContaining({ games: [{ gameId: first, status: 'notCounted' }] }),
+          bestOf: expect.objectContaining({
+            games: [{ gameId: first, players: PLAYED, status: 'notCounted' }],
+          }),
           correction: { kind: 'gameResult', gameId: first, result: notCounted },
           reopened: false,
         },
@@ -5701,13 +5707,15 @@ describe('lobbies/lobby-service', () => {
       ])
       expect(lobbyService.series.get(id)![0].result).toBeDefined()
       expect(bestOfEvents(id)).toEqual([])
-      expect(runningBestOf(id).games).toEqual([{ gameId: first, status: 'notCounted' }])
+      expect(runningBestOf(id).games).toEqual([
+        { gameId: first, players: PLAYED, status: 'notCounted' },
+      ])
 
       const second = await launchGame(id)
       expect(lastLoadRequest().bestOf).toMatchObject({ gameNumber: 1 })
       expect(runningBestOf(id).games).toEqual([
-        { gameId: first, status: 'notCounted' },
-        { gameId: second, status: 'pending' },
+        { gameId: first, players: PLAYED, status: 'notCounted' },
+        { gameId: second, players: PLAYED, status: 'pending' },
       ])
     })
 
@@ -5726,8 +5734,8 @@ describe('lobbies/lobby-service', () => {
           type: 'bestOfEnded',
           bestOf: expect.objectContaining({
             games: [
-              { gameId: first, status: 'won', winner: 1 },
-              { gameId: second, status: 'notCounted' },
+              { gameId: first, players: PLAYED, status: 'won', winner: 1 },
+              { gameId: second, players: PLAYED, status: 'notCounted' },
             ],
             outcome: { kind: 'unfinished' },
           }),
@@ -5813,7 +5821,9 @@ describe('lobbies/lobby-service', () => {
         [J, 'loss'],
       ])
 
-      expect(runningBestOf(id).games).toEqual([{ gameId: first, status: 'won', winner: 0 }])
+      expect(runningBestOf(id).games).toEqual([
+        { gameId: first, players: PLAYED, status: 'won', winner: 0 },
+      ])
     })
 
     /** Moves a member seated as a player to an observer seat. */
@@ -6074,6 +6084,180 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
     })
 
+    describe("a launched game's players", () => {
+      /** Creates a lobby with a series whose second side holds an observing member. */
+      async function createSeriesWithObserver() {
+        const id = await createTeamLobby()
+        await joinLobby(lister, id)
+        const L = LISTER_USER.id
+        moveToObservers(id, L)
+        startBestOf([[H], [J, L]])
+        return { id, L }
+      }
+
+      /** The people seated as players in each player team of a lobby. */
+      function seatedByTeam(id: SbLobbyId): SbUserId[][] {
+        return lobbyService.lobbies
+          .get(id)!
+          .teams.filter(team => !team.isObserver)
+          .map(team => team.slots.filter(slot => slot.type === 'human').map(slot => slot.userId!))
+      }
+
+      /** Plays a game of the series, which its observing member is in as well. */
+      function playSeriesGame(id: SbLobbyId, winner?: SbUserId) {
+        return playGame(id, winner, [host, joiner, lister])
+      }
+
+      /** The players of the series' games, in launch order. */
+      function playersOf(id: SbLobbyId) {
+        return runningBestOf(id).games.map(game => ('players' in game ? game.players : undefined))
+      }
+
+      test('lists only the side members seated as players', async () => {
+        const { id } = await createSeriesWithObserver()
+        fakeNydus.publish.mockClear()
+
+        const first = await launchGame(id)
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [[H], [J]], status: 'pending' },
+        ])
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfUpdated',
+            bestOf: expect.objectContaining({
+              games: [{ gameId: first, players: [[H], [J]], status: 'pending' }],
+            }),
+          },
+        ])
+      })
+
+      test('leaves out a side member waiting on the bench', async () => {
+        const id = await createTeamLobby()
+        for (let i = 0; i < 6; i++) {
+          await joinLobby(connectExtra(200 + i), id)
+        }
+        const benched = connectExtra(100)
+        await joinLobby(benched, id)
+        expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([
+          benched.user.userId,
+        ])
+        const [top, bottom] = seatedByTeam(id)
+        startBestOf([[...top, benched.user.userId], bottom])
+
+        const first = await launchGame(id)
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [top, bottom], status: 'pending' },
+        ])
+      })
+
+      test('is unchanged once the result settles, whoever won or if nobody did', async () => {
+        const { id } = await createSeriesWithObserver()
+        const first = await playSeriesGame(id, J)
+        const second = await playSeriesGame(id)
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [[H], [J]], status: 'won', winner: 1 },
+          { gameId: second, players: [[H], [J]], status: 'noWinner' },
+        ])
+      })
+
+      test('is unchanged when the host sets or discards its result', async () => {
+        const { id } = await createSeriesWithObserver()
+        const first = await playSeriesGame(id, J)
+        const set = (gameId: string, result: BestOfHostResult) =>
+          lobbyService.setBestOfGameResult({ client: host.client, gameId, result })
+        set(first, { status: 'won', winner: 0 })
+
+        // The host can discard a game whose result hasn't settled, and one that has
+        const second = await launchGame(id)
+        await endGame(second, [host, joiner, lister])
+        set(second, { status: 'notCounted' })
+        const third = await playSeriesGame(id, H)
+        set(third, { status: 'notCounted' })
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [[H], [J]], status: 'won', winner: 0, setByHost: true },
+          { gameId: second, players: [[H], [J]], status: 'notCounted' },
+          { gameId: third, players: [[H], [J]], status: 'notCounted' },
+        ])
+
+        set(second, { status: 'won', winner: 1 })
+        expect(playersOf(id)).toEqual([
+          [[H], [J]],
+          [[H], [J]],
+          [[H], [J]],
+        ])
+      })
+
+      test('is unchanged when ending the series discards a pending game', async () => {
+        const { id } = await createSeriesWithObserver()
+        const first = await launchGame(id)
+        await endGame(first, [host, joiner, lister])
+        lobbyService.endBestOf({ client: host.client })
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [[H], [J]], status: 'notCounted' },
+        ])
+      })
+
+      test('is unchanged when starting another series stops counting a pending game', async () => {
+        const { id, L } = await createSeriesWithObserver()
+        await playSeriesGame(id, H)
+        const second = await launchGame(id)
+        await endGame(second, [host, joiner, lister])
+        lobbyService.addBestOfResult({ client: host.client, winner: 0 })
+        lobbyService.addBestOfResult({ client: host.client, winner: 0 })
+        expect(lobbyService.bestOfs.get(id)![0].outcome).toEqual({ kind: 'won', winner: 0 })
+
+        startBestOf([[J, L], [H]])
+
+        const [previous] = lobbyService.bestOfs.get(id)!
+        expect(previous.games[1]).toEqual({
+          gameId: second,
+          players: [[H], [J]],
+          status: 'notCounted',
+        })
+      })
+
+      test('is unchanged by the host changing the sides after the launch', async () => {
+        const { id, L } = await createSeriesWithObserver()
+        const first = await launchGame(id)
+        await endGame(first, [host, joiner, lister])
+
+        lobbyService.updateBestOf({ client: host.client, sides: [[J], [H, L]] })
+        expect(playersOf(id)).toEqual([[[H], [J]]])
+
+        await settle(first, [
+          [H, 'win'],
+          [J, 'loss'],
+        ])
+        lobbyService.updateBestOf({ client: host.client, sides: [[H, J], [L]] })
+
+        expect(runningBestOf(id).games).toEqual([
+          // Its winner is the side that held the winner when it launched, not the one that holds
+          // them now
+          { gameId: first, players: [[H], [J]], status: 'won', winner: 0 },
+        ])
+      })
+
+      test('lists the members seated for each game, as the sides stood at its launch', async () => {
+        const { id, L } = await createSeriesWithObserver()
+        const first = await playSeriesGame(id, H)
+
+        const [joinerTeam] = findSlotByUserId(lobbyService.lobbies.get(id)!, J)
+        moveToObservers(id, J)
+        moveToTeam(id, L, joinerTeam!)
+        const second = await launchGame(id)
+
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, players: [[H], [J]], status: 'won', winner: 0 },
+          { gameId: second, players: [[H], [L]], status: 'pending' },
+        ])
+      })
+    })
+
     test('a game is refused while a side has nobody seated, naming the side', async () => {
       const id = await createTeamLobby()
       await joinLobby(lister, id)
@@ -6181,8 +6365,8 @@ describe('lobbies/lobby-service', () => {
       ])
 
       expect(runningBestOf(id).games).toEqual([
-        { gameId: first, status: 'won', winner: 0 },
-        { gameId: second, status: 'won', winner: 0 },
+        { gameId: first, players: [[J], [H]], status: 'won', winner: 0 },
+        { gameId: second, players: [[L], [H]], status: 'won', winner: 0 },
       ])
       expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
     })
@@ -6284,7 +6468,9 @@ describe('lobbies/lobby-service', () => {
       for (const attempt of attempts) {
         expect(attempt).toThrow(codeError(LobbyServiceErrorCode.GameInProgress))
       }
-      expect(runningBestOf(id).games).toEqual([{ gameId: 'game-1', status: 'pending' }])
+      expect(runningBestOf(id).games).toEqual([
+        { gameId: 'game-1', players: PLAYED, status: 'pending' },
+      ])
     })
 
     test('a closed lobby forgets its best-of series', async () => {
@@ -6317,8 +6503,8 @@ describe('lobbies/lobby-service', () => {
           type: 'bestOfEnded',
           bestOf: expect.objectContaining({
             games: [
-              { gameId: first, status: 'won', winner: 0 },
-              { gameId: second, status: 'won', winner: 1 },
+              { gameId: first, players: PLAYED, status: 'won', winner: 0 },
+              { gameId: second, players: PLAYED, status: 'won', winner: 1 },
             ],
             outcome: { kind: 'drawn' },
           }),
@@ -6504,7 +6690,13 @@ describe('lobbies/lobby-service', () => {
 
         const corrected = setResult(first, won(1))
 
-        const expected = { gameId: first, status: 'won', winner: 1, setByHost: true }
+        const expected = {
+          gameId: first,
+          players: PLAYED,
+          status: 'won',
+          winner: 1,
+          setByHost: true,
+        }
         expect(corrected.games).toEqual([expected])
         expect(bestOfEvents(id)).toEqual([
           {
@@ -6540,11 +6732,15 @@ describe('lobbies/lobby-service', () => {
         setResult(first, won(1))
         setResult(second, won(1))
         expect(runningBestOf(id).games).toEqual([
-          { gameId: first, status: 'won', winner: 1, setByHost: true },
-          { gameId: second, status: 'won', winner: 1, setByHost: true },
+          { gameId: first, players: PLAYED, status: 'won', winner: 1, setByHost: true },
+          { gameId: second, players: PLAYED, status: 'won', winner: 1, setByHost: true },
         ])
         setResult(first, { status: 'notCounted' })
-        expect(runningBestOf(id).games[0]).toEqual({ gameId: first, status: 'notCounted' })
+        expect(runningBestOf(id).games[0]).toEqual({
+          gameId: first,
+          players: PLAYED,
+          status: 'notCounted',
+        })
 
         const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
         expect(() => setResult(first, { status: 'notCounted' })).toThrow(invalid)
@@ -6592,7 +6788,7 @@ describe('lobbies/lobby-service', () => {
         fakeNydus.publish.mockClear()
         const removed = removeResult(ids[0])
         expect(removed.games).toEqual([
-          { gameId: first, status: 'won', winner: 1 },
+          { gameId: first, players: PLAYED, status: 'won', winner: 1 },
           { resultId: ids[1], status: 'won', winner: 1 },
         ])
         expect(bestOfEvents(id)).toEqual([
@@ -6680,9 +6876,9 @@ describe('lobbies/lobby-service', () => {
           sides: [{ score: 1 }, { score: 1 }],
         })
         expect(runningBestOf(id).games.slice(1)).toEqual([
-          { gameId: second, status: 'won', winner: 0 },
-          { gameId: third, status: 'notCounted' },
-          { gameId: fourth, status: 'pending' },
+          { gameId: second, players: PLAYED, status: 'won', winner: 0 },
+          { gameId: third, players: PLAYED, status: 'notCounted' },
+          { gameId: fourth, players: PLAYED, status: 'pending' },
         ])
       })
 
@@ -6748,7 +6944,12 @@ describe('lobbies/lobby-service', () => {
           'seriesGameUpdated',
           'bestOfEnded',
         ])
-        expect(runningBestOf(id).games[1]).toEqual({ gameId: second, status: 'won', winner: 0 })
+        expect(runningBestOf(id).games[1]).toEqual({
+          gameId: second,
+          players: PLAYED,
+          status: 'won',
+          winner: 0,
+        })
         expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
       })
 
@@ -6773,7 +6974,12 @@ describe('lobbies/lobby-service', () => {
             bestOf: expect.objectContaining({ outcome: { kind: 'won', winner: 0 } }),
           },
         ])
-        expect(runningBestOf(id).games[1]).toEqual({ gameId: second, status: 'won', winner: 1 })
+        expect(runningBestOf(id).games[1]).toEqual({
+          gameId: second,
+          players: PLAYED,
+          status: 'won',
+          winner: 1,
+        })
       })
 
       test('starting another series stops counting the pending games of the one before', async () => {
@@ -6789,7 +6995,7 @@ describe('lobbies/lobby-service', () => {
         startBestOf([[J], [H]])
 
         const [previous, started] = lobbyService.bestOfs.get(id)!
-        expect(previous.games[1]).toEqual({ gameId: second, status: 'notCounted' })
+        expect(previous.games[1]).toEqual({ gameId: second, players: PLAYED, status: 'notCounted' })
         expect(previous.outcome).toEqual({ kind: 'won', winner: 0 })
         expect(lobbyService.bestOfLaunchSides.has(second)).toBe(false)
         expect(bestOfEvents(id)).toEqual([

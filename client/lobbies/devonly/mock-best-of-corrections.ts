@@ -6,6 +6,7 @@ import {
   isBestOfAddedResult,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
+  LobbyBestOfLaunchedGameJson,
   LobbyBestOfOutcome,
 } from '../../../common/lobbies/lobby-best-of'
 import { LobbyBestOfCorrection } from '../../../common/lobbies/lobby-network'
@@ -63,10 +64,15 @@ export function mockSetBestOfGameResult(
   gameId: string,
   result: BestOfHostResult,
 ): MockBestOfChange {
+  const existing = bestOf.games.find(
+    (game): game is LobbyBestOfLaunchedGameJson =>
+      !isBestOfAddedResult(game) && game.gameId === gameId,
+  )
+  const players = existing?.players ?? [[], []]
   const set: LobbyBestOfGameJson =
     result.status === 'won'
-      ? { gameId, status: 'won', winner: result.winner, setByHost: true }
-      : { gameId, status: 'notCounted' }
+      ? { gameId, players, status: 'won', winner: result.winner, setByHost: true }
+      : { gameId, players, status: 'notCounted' }
   return applyMockBestOfChange(
     bestOf,
     {

@@ -521,7 +521,7 @@ function playBestOf(
       type: '@lobbies/updateGameStarted',
       payload: { runState: { gameId, inGameUsers: [], elapsedMs: 0 } },
     })
-    bestOf = { ...bestOf, games: [...bestOf.games, { gameId, status: 'pending' }] }
+    bestOf = { ...bestOf, games: [...bestOf.games, { gameId, players: sides, status: 'pending' }] }
     dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
     dispatch({
       type: '@lobbies/updateRegroup',
@@ -541,7 +541,9 @@ function playBestOf(
       bestOf = {
         ...bestOf,
         games: bestOf.games.map(g =>
-          !isBestOfAddedResult(g) && g.gameId === gameId ? { gameId, status: 'notCounted' } : g,
+          !isBestOfAddedResult(g) && g.gameId === gameId
+            ? { gameId, players: g.players, status: 'notCounted' }
+            : g,
         ),
       }
       dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
@@ -570,8 +572,8 @@ function playBestOf(
           return g
         }
         return plan === 'noWinner'
-          ? { gameId, status: 'noWinner' }
-          : { gameId, status: 'won', winner: plan }
+          ? { gameId, players: g.players, status: 'noWinner' }
+          : { gameId, players: g.players, status: 'won', winner: plan }
       }),
     }
     if ((end === 'won' || end === 'drawn') && index === games.length - 1 && plan !== 'noWinner') {
@@ -589,7 +591,7 @@ function playBestOf(
     bestOf = {
       ...bestOf,
       games: bestOf.games.map(g =>
-        g.status === 'pending' ? { gameId: g.gameId, status: 'notCounted' } : g,
+        g.status === 'pending' ? { gameId: g.gameId, players: g.players, status: 'notCounted' } : g,
       ),
       outcome: { kind: 'unfinished' },
     }
@@ -652,9 +654,13 @@ function seedLongBestOf(dispatch: LobbyTestDispatch, sideNames?: LobbyBestOfSide
     games: plans.map((plan, i): LobbyBestOfJson['games'][number] => {
       const gameId = `mock-long-game-${i + 1}`
       if (plan === 0 || plan === 1) {
-        return { gameId, status: 'won', winner: plan }
+        return { gameId, players: LONG_NAMES_SIDES, status: 'won', winner: plan }
       }
-      return { gameId, status: plan === 'noWinner' ? 'noWinner' : 'notCounted' }
+      return {
+        gameId,
+        players: LONG_NAMES_SIDES,
+        status: plan === 'noWinner' ? 'noWinner' : 'notCounted',
+      }
     }),
   }
   dispatch({
@@ -1149,7 +1155,9 @@ function LobbyRoomTestInner() {
                     bestOf: {
                       ...runningBestOf,
                       games: runningBestOf.games.map(g =>
-                        g.status === 'pending' ? { gameId: g.gameId, status: 'notCounted' } : g,
+                        g.status === 'pending'
+                          ? { gameId: g.gameId, players: g.players, status: 'notCounted' }
+                          : g,
                       ),
                       outcome: { kind: 'unfinished' },
                     },
