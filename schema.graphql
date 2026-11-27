@@ -679,6 +679,21 @@ All of the matchmaking types that we support. These values match the enum values
 """
 scalar MatchmakingType
 
+"""
+A record in one matchup: `races` against `opponent_races`, each one team's races sorted
+(e.g. `p`, `pt`). Counts ranked games of at least 2 minutes with a clear winner.
+"""
+type MatchupRecord {
+	"""
+	Unique across every scope, mode, season and matchup.
+	"""
+	id: String!
+	races: String!
+	opponentRaces: String!
+	wins: Int!
+	losses: Int!
+}
+
 type Mutation {
 	"""
 	Commends another player from a game both users played in.
@@ -981,6 +996,18 @@ type Query {
 	A user's rating and points over time in a single mode, oldest first.
 	"""
 	userRatingHistory(userId: SbUserId!, matchmakingType: MatchmakingType!): RatingHistory!
+	"""
+	A player's record in each matchup they've played in a mode, from their own team's side,
+	in one season or summed over all of them (`season_id` of `None`). Most played first.
+	"""
+	userMatchups(userId: SbUserId!, matchmakingType: MatchmakingType!, seasonId: Int): [MatchupRecord!]!
+	"""
+	The whole ladder's record in each matchup of a mode, in one season or summed over all of
+	them. Every game counts once from each team's side, so `p` against `z` and `z` against `p`
+	are both present, and a mirror's wins always equal its losses (each is its game count).
+	Most played first.
+	"""
+	ladderMatchups(matchmakingType: MatchmakingType!, seasonId: Int): [MatchupRecord!]!
 }
 
 """

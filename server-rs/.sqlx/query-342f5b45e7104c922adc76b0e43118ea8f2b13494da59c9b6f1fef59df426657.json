@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT races, opponent_races,\n                    sum(wins)::integer AS \"wins!\", sum(losses)::integer AS \"losses!\"\n                FROM ladder_matchup_stats\n                WHERE matchmaking_type = $1 AND ($2::integer IS NULL OR season_id = $2)\n                GROUP BY races, opponent_races\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "races",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ladder_matchup_stats",
+            "name": "races"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "opponent_races",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ladder_matchup_stats",
+            "name": "opponent_races"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "wins!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "losses!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "342f5b45e7104c922adc76b0e43118ea8f2b13494da59c9b6f1fef59df426657"
+}

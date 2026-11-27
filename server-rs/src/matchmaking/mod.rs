@@ -12,6 +12,7 @@ pub mod backbone;
 pub mod config;
 pub mod history;
 pub mod matchmaker;
+pub mod matchups;
 mod metrics;
 pub(crate) mod rating_distribution;
 

@@ -16,6 +16,7 @@ import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
+import { ConnectedMatchupStats } from './matchup-stats'
 import { ModeStatsCard, ModeStatsCardState } from './mode-stats-card'
 import { RatingChartPoint, RatingChartSeason } from './rating-chart-data'
 
@@ -255,6 +256,13 @@ function ConnectedModeStatsCard({
       points={points}
       totalGames={data?.userRatingHistory.totalGames}
       downsampled={data?.userRatingHistory.downsampled}
+      renderMatchups={seasonId => (
+        <ConnectedMatchupStats
+          userId={userId}
+          matchmakingType={matchmakingType}
+          seasonId={seasonId}
+        />
+      )}
     />
   )
 }

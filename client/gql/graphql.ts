@@ -1181,6 +1181,37 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
+export type UserMatchupsQueryVariables = Exact<{
+  userId: Types.SbUserId
+  matchmakingType: Types.MatchmakingType
+  seasonId?: number | null | undefined
+}>
+
+export type UserMatchupsQuery = {
+  userMatchups: Array<{
+    id: string
+    races: string
+    opponentRaces: string
+    wins: number
+    losses: number
+  }>
+}
+
+export type LadderMatchupsQueryVariables = Exact<{
+  matchmakingType: Types.MatchmakingType
+  seasonId?: number | null | undefined
+}>
+
+export type LadderMatchupsQuery = {
+  ladderMatchups: Array<{
+    id: string
+    races: string
+    opponentRaces: string
+    wins: number
+    losses: number
+  }>
+}
+
 export type UserProfileOverlayLiveQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
@@ -6247,6 +6278,131 @@ export const AdminUpdateUserPermissionsDocument = {
   AdminUpdateUserPermissionsMutation,
   AdminUpdateUserPermissionsMutationVariables
 >
+export const UserMatchupsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserMatchups' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'seasonId' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userMatchups' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'seasonId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'seasonId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'races' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'opponentRaces' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'losses' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserMatchupsQuery, UserMatchupsQueryVariables>
+export const LadderMatchupsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'LadderMatchups' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'seasonId' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'ladderMatchups' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'seasonId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'seasonId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'races' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'opponentRaces' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'losses' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LadderMatchupsQuery, LadderMatchupsQueryVariables>
 export const UserProfileOverlayLiveDocument = {
   kind: 'Document',
   definitions: [

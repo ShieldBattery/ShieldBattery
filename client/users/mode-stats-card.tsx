@@ -1,5 +1,5 @@
 import * as m from 'motion/react-m'
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { isSoloType, MATCHMAKING_MODES, MatchmakingType } from '../../common/matchmaking'
@@ -143,6 +143,13 @@ const Downsampled = styled.div`
   margin-top: 8px;
 `
 
+/** Separates the matchups from the rating chart above them. */
+const MatchupsArea = styled.div`
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-outline-variant);
+`
+
 const LoadError = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
@@ -154,7 +161,8 @@ const LoadError = styled.div`
  *
  * Takes its history as props rather than fetching it, so the dev page can render the same
  * card against constructed data. Metric and season are the card's own UI state and stay
- * here — a caller has no reason to own them.
+ * here — a caller has no reason to own them. The matchups below the chart follow the same
+ * season, so they're rendered by the caller for whichever season is picked.
  */
 export function ModeStatsCard({
   matchmakingType,
@@ -169,6 +177,7 @@ export function ModeStatsCard({
   points: allPoints,
   totalGames,
   downsampled,
+  renderMatchups,
 }: {
   matchmakingType: MatchmakingType
   wins: number
@@ -183,6 +192,8 @@ export function ModeStatsCard({
   points: ReadonlyArray<RatingChartPoint>
   totalGames?: number
   downsampled?: boolean
+  /** Renders this mode's matchups for a season, or for every season summed (`undefined`). */
+  renderMatchups?: (seasonId: number | undefined) => ReactNode
 }) {
   const { t } = useTranslation()
   const [metric, setMetric] = useState<RatingMetric>('rating')
@@ -297,6 +308,11 @@ export function ModeStatsCard({
                     count: totalGames,
                   })}
                 </Downsampled>
+              ) : undefined}
+              {renderMatchups ? (
+                <MatchupsArea>
+                  {renderMatchups(season === ALL_SEASONS ? undefined : Number(season))}
+                </MatchupsArea>
               ) : undefined}
             </>
           ) : undefined}

@@ -3,7 +3,10 @@ import styled from 'styled-components'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { buttonReset } from '../../material/button-reset'
 import { labelMedium } from '../../styles/typography'
+import { MatchupScope } from '../matchup-rows'
+import { MatchupRecordsState, MatchupStats } from '../matchup-stats'
 import { ModeStatsCard, ModeStatsCardState } from '../mode-stats-card'
+import { devLadderMatchups, devPlayerMatchups } from './matchup-data'
 import { MODES_BY_PLAYTIME, SEASONS } from './stats-data'
 
 const Container = styled.div`
@@ -50,6 +53,10 @@ const CARD_STATES: ReadonlyArray<ModeStatsCardState> = ['ready', 'loading', 'err
 export function StatsPageTest() {
   const [open, setOpen] = useState<MatchmakingType | undefined>(MODES_BY_PLAYTIME[0].type)
   const [state, setState] = useState<ModeStatsCardState>('ready')
+  const [scope, setScope] = useState<MatchupScope>('player')
+  // The matchups follow the same scenario as the card, so loading and error can be seen there too.
+  const matchupState = (records: ReturnType<typeof devPlayerMatchups>): MatchupRecordsState =>
+    state === 'ready' ? { state, records } : { state }
 
   return (
     <Container>
@@ -76,6 +83,14 @@ export function StatsPageTest() {
             points={mode.history}
             totalGames={mode.history.length}
             downsampled={false}
+            renderMatchups={seasonId => (
+              <MatchupStats
+                scope={scope}
+                onScopeChange={setScope}
+                player={matchupState(devPlayerMatchups(mode.type, seasonId))}
+                ladder={matchupState(devLadderMatchups(mode.type, seasonId))}
+              />
+            )}
           />
         ))}
       </ModeList>
