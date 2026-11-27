@@ -5,11 +5,14 @@ import {
   BEST_OF_LOGO_MAX_DIMENSION,
   BEST_OF_LOGO_MAX_SIZE_BYTES,
   BEST_OF_MAX_SIDE_SIZE,
+  BestOfDecidedOutcome,
   BestOfDisplayName,
   BestOfDisplayNameChange,
   BestOfTextProblem,
+  getBestOfDecidedOutcome,
   getBestOfDisplayName,
   getBestOfSideName,
+  getBestOfWinsNeeded,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
   LobbyBestOfSideNames,
@@ -19,6 +22,7 @@ import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { isFetchError } from '../../network/fetch-errors'
 import { StartBestOfParams, UpdateBestOfParams } from '../action-creators'
+import { bestOfFormatLabel } from './best-of-parts'
 
 /** The logo size limit as the page writes it, in megabytes. */
 export const BEST_OF_LOGO_MAX_SIZE_MB = BEST_OF_LOGO_MAX_SIZE_BYTES / (1024 * 1024)
@@ -133,6 +137,9 @@ export function batchDisplayNameLookups(userIds: ReadonlyArray<SbUserId>): SbUse
 
 /** What the host entered on the series page. */
 export interface SeriesSetupValues {
+  /** A valid length (see `isValidBestOfLength`). */
+  length: number
+  playAll: boolean
   title: string
   sides: LobbyBestOfSides
   /** As typed, in side order. */
@@ -179,7 +186,6 @@ function getDisplayNameChanges(
  * Display names follow the same idea (see `getDisplayNameChanges`).
  */
 export function buildStartBestOfParams(
-  length: number,
   values: SeriesSetupValues,
   initialLogo: LogoSlotValue,
 ): StartBestOfParams {
@@ -189,7 +195,8 @@ export function buildStartBestOfParams(
   const line1 = values.line1.trim()
   const line2 = values.line2.trim()
   return {
-    length,
+    length: values.length,
+    ...(values.playAll ? { playAll: true } : {}),
     ...(title ? { title } : {}),
     sides: values.sides,
     ...(sideNames[0] || sideNames[1] ? { sideNames } : {}),
@@ -206,7 +213,10 @@ export function buildStartBestOfParams(
  * server refuses a request that changes nothing.
  */
 export function buildUpdateBestOfParams(
-  editing: Pick<LobbyBestOfJson, 'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'>,
+  editing: Pick<
+    LobbyBestOfJson,
+    'length' | 'playAll' | 'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'
+  >,
   values: SeriesSetupValues,
 ): UpdateBestOfParams | undefined {
   const title = values.title.trim()
@@ -219,6 +229,8 @@ export function buildUpdateBestOfParams(
   const line2 = values.line2.trim()
 
   const changes: UpdateBestOfParams = {
+    ...(values.length !== editing.length ? { length: values.length } : {}),
+    ...(values.playAll !== !!editing.playAll ? { playAll: values.playAll } : {}),
     ...(title !== (editing.title ?? '') ? { title: title || null } : {}),
     ...(!sameSides(values.sides, editing.sides) ? { sides: values.sides } : {}),
     // Both names go whenever either changed, since the server replaces them together.
@@ -271,19 +283,69 @@ export function bestOfTextProblemMessage(
 }
 
 /**
- * Writes the series page's footer summary: its length, its two sides (with the score while it
- * runs), and its title. A part that has nothing to say is left out: the length while it isn't a
- * valid one, the sides while either is empty, and the title while there is none.
+ * Returns how saving a change to a running series' length or to whether it is played to its full
+ * length would decide the series at once, given its current results, or `undefined` when the
+ * change leaves it running (or doesn't touch its format). Such a save ends the series, so the page
+ * asks the host first.
+ */
+export function getFormatChangeOutcome(
+  running: Pick<LobbyBestOfJson, 'length' | 'playAll' | 'games' | 'outcome'>,
+  changes: Pick<UpdateBestOfParams, 'length' | 'playAll'>,
+): BestOfDecidedOutcome | undefined {
+  if (running.outcome || (changes.length === undefined && changes.playAll === undefined)) {
+    return undefined
+  }
+  const playAll = changes.playAll ?? !!running.playAll
+  return getBestOfDecidedOutcome({
+    length: changes.length ?? running.length,
+    ...(playAll ? { playAll: true } : {}),
+    games: running.games,
+  })
+}
+
+/**
+ * Says what a series' format means for how it is won, for the hint under the length on the series
+ * page.
+ */
+export function bestOfFormatHint(
+  { length, playAll }: Pick<LobbyBestOfJson, 'length' | 'playAll'>,
+  t: TFunction,
+): string {
+  if (playAll) {
+    return t('lobbies.seriesSetup.formatHintPlayAll', {
+      defaultValue_one: '{{count}} game is played. The side that wins it takes the series.',
+      defaultValue_other:
+        'All {{count}} games are played. The side with more wins takes the series.',
+      count: length,
+    })
+  }
+  const winsNeeded = getBestOfWinsNeeded(length)
+  return length % 2 === 0
+    ? t('lobbies.seriesSetup.formatHintEven', {
+        defaultValue: 'First to {{winsNeeded}} wins the series. It is drawn at {{half}}–{{half}}.',
+        winsNeeded,
+        half: length / 2,
+      })
+    : t('lobbies.seriesSetup.formatHintOdd', {
+        defaultValue: 'First to {{winsNeeded}} wins the series.',
+        winsNeeded,
+      })
+}
+
+/**
+ * Writes the series page's footer summary: its format, its two sides (with the score while it
+ * runs), and its title. A part that has nothing to say is left out: the format while its length
+ * isn't a valid one, the sides while either is empty, and the title while there is none.
  */
 export function formatSeriesSetupSummary(
   t: TFunction,
   {
-    length,
+    format,
     sideLabels,
     score,
     title,
   }: {
-    length: number | undefined
+    format: Pick<LobbyBestOfJson, 'length' | 'playAll'> | undefined
     /** Undefined while either side is empty. */
     sideLabels: [side1: string, side2: string] | undefined
     /** Given while the series runs. */
@@ -308,13 +370,7 @@ export function formatSeriesSetupSummary(
         })
   }
 
-  return [
-    length !== undefined
-      ? t('lobbies.seriesSetup.summaryLength', { defaultValue: 'Best of {{length}}', length })
-      : undefined,
-    sidesPart,
-    title.trim() || undefined,
-  ]
+  return [format ? bestOfFormatLabel(format, t) : undefined, sidesPart, title.trim() || undefined]
     .filter(Boolean)
     .join(' · ')
 }

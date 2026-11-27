@@ -20,6 +20,7 @@ import {
   openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
+import { BEST_OF_MAX_LENGTH, BestOfHostResult } from '../../../common/lobbies/lobby-best-of'
 import { LobbyMapStatus, LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
@@ -5159,9 +5160,9 @@ describe('lobbies/lobby-service', () => {
 
     function startBestOf(
       sides: [SbUserId[], SbUserId[]] = [[H], [J]],
-      { length = 3, title }: { length?: number; title?: string } = {},
+      { length = 3, title, playAll }: { length?: number; title?: string; playAll?: boolean } = {},
     ) {
-      lobbyService.startBestOf({ client: host.client, length, title, sides })
+      lobbyService.startBestOf({ client: host.client, length, title, sides, playAll })
     }
 
     /** Runs the countdown and launches the lobby's next game, returning its id. */
@@ -5225,7 +5226,7 @@ describe('lobbies/lobby-service', () => {
         lobbyService.startBestOf({ client: host.client, lobbyId: id, length, title, sides })
       const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
 
-      for (const length of [0, 2, 4, 101, 1.5, -1]) {
+      for (const length of [0, 100, 101, 1.5, -1]) {
         expect(() => start(length, undefined, [[H], [J]])).toThrow(invalid)
       }
       expect(() => start(3, 'x'.repeat(51), [[H], [J]])).toThrow(invalid)
@@ -5665,21 +5666,32 @@ describe('lobbies/lobby-service', () => {
       await endGame(first)
       fakeNydus.publish.mockClear()
 
-      lobbyService.discardBestOfGame({ client: host.client, gameId: first })
+      const notCounted = { status: 'notCounted' } as const
+      lobbyService.setBestOfGameResult({ client: host.client, gameId: first, result: notCounted })
 
       expect(bestOfEvents(id)).toEqual([
         {
-          type: 'bestOfUpdated',
+          type: 'bestOfCorrected',
           bestOf: expect.objectContaining({ games: [{ gameId: first, status: 'notCounted' }] }),
+          correction: { kind: 'gameResult', gameId: first, result: notCounted },
+          reopened: false,
         },
       ])
-      const notPending = codeError(LobbyServiceErrorCode.BestOfGameNotPending)
-      expect(() => lobbyService.discardBestOfGame({ client: host.client, gameId: first })).toThrow(
-        notPending,
-      )
+      expect(lobbyService.bestOfLaunchSides.has(first)).toBe(false)
       expect(() =>
-        lobbyService.discardBestOfGame({ client: host.client, gameId: 'some-other-game' }),
-      ).toThrow(notPending)
+        lobbyService.setBestOfGameResult({
+          client: host.client,
+          gameId: first,
+          result: notCounted,
+        }),
+      ).toThrow(codeError(LobbyServiceErrorCode.InvalidBestOf))
+      expect(() =>
+        lobbyService.setBestOfGameResult({
+          client: host.client,
+          gameId: 'some-other-game',
+          result: notCounted,
+        }),
+      ).toThrow(codeError(LobbyServiceErrorCode.BestOfResultNotFound))
 
       // A result that turns up afterwards changes nothing
       fakeNydus.publish.mockClear()
@@ -5725,9 +5737,6 @@ describe('lobbies/lobby-service', () => {
       const noneRunning = codeError(LobbyServiceErrorCode.NoBestOfRunning)
       expect(() => lobbyService.endBestOf({ client: host.client })).toThrow(noneRunning)
       expect(() => lobbyService.updateBestOf({ client: host.client, title: 'x' })).toThrow(
-        noneRunning,
-      )
-      expect(() => lobbyService.discardBestOfGame({ client: host.client, gameId: second })).toThrow(
         noneRunning,
       )
 
@@ -6225,9 +6234,20 @@ describe('lobbies/lobby-service', () => {
         notHost,
       )
       expect(() => lobbyService.endBestOf({ client: joiner.client })).toThrow(notHost)
-      expect(() => lobbyService.discardBestOfGame({ client: joiner.client, gameId: 'g' })).toThrow(
+      expect(() =>
+        lobbyService.setBestOfGameResult({
+          client: joiner.client,
+          gameId: 'g',
+          result: { status: 'notCounted' },
+        }),
+      ).toThrow(notHost)
+      expect(() => lobbyService.addBestOfResult({ client: joiner.client, winner: 1 })).toThrow(
         notHost,
       )
+      expect(() =>
+        lobbyService.removeBestOfResult({ client: joiner.client, resultId: 'r' }),
+      ).toThrow(notHost)
+      expect(() => lobbyService.updateBestOf({ client: joiner.client, length: 5 })).toThrow(notHost)
       expect(runningBestOf(id)).toEqual({
         id: expect.any(String),
         length: 3,
@@ -6243,7 +6263,15 @@ describe('lobbies/lobby-service', () => {
         () => lobbyService.startBestOf({ client: host.client, length: 3, sides: [[H], [J]] }),
         () => lobbyService.updateBestOf({ client: host.client, title: 'x' }),
         () => lobbyService.endBestOf({ client: host.client }),
-        () => lobbyService.discardBestOfGame({ client: host.client, gameId: 'game-1' }),
+        () => lobbyService.updateBestOf({ client: host.client, length: 5 }),
+        () =>
+          lobbyService.setBestOfGameResult({
+            client: host.client,
+            gameId: 'game-1',
+            result: { status: 'won', winner: 0 },
+          }),
+        () => lobbyService.addBestOfResult({ client: host.client, winner: 0 }),
+        () => lobbyService.removeBestOfResult({ client: host.client, resultId: 'r' }),
       ]
 
       forceStart()
@@ -6272,6 +6300,579 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbies.has(id)).toBe(false)
       expect(lobbyService.bestOfs.has(id)).toBe(false)
       expect(lobbyService.bestOfLaunchSides.has(first)).toBe(false)
+    })
+
+    describe('lengths and playing every game', () => {
+      test('an even length is won by a majority, or drawn once every game counted', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 2 })
+        const first = await playGame(id, H)
+        expect(runningBestOf(id).outcome).toBeUndefined()
+        fakeNydus.publish.mockClear()
+
+        const second = await playGame(id, J)
+
+        expect(bestOfEvents(id).map(event => event.type)).toEqual(['bestOfUpdated', 'bestOfEnded'])
+        expect(bestOfEvents(id).at(-1)).toEqual({
+          type: 'bestOfEnded',
+          bestOf: expect.objectContaining({
+            games: [
+              { gameId: first, status: 'won', winner: 0 },
+              { gameId: second, status: 'won', winner: 1 },
+            ],
+            outcome: { kind: 'drawn' },
+          }),
+        })
+
+        startBestOf([[H], [J]], { length: 4 })
+        await playGame(id, J)
+        await playGame(id, J)
+        await playGame(id, J)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 1 })
+        expect(runningBestOf(id).games).toHaveLength(3)
+      })
+
+      test('a series that plays every game goes on past a majority', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 3, playAll: true })
+        expect(runningBestOf(id).playAll).toBe(true)
+
+        await playGame(id, H)
+        await playGame(id, H)
+        expect(runningBestOf(id).outcome).toBeUndefined()
+        const third = await launchGame(id)
+        expect(lastLoadRequest().bestOf).toMatchObject({ length: 3, playAll: true, gameNumber: 3 })
+        await endGame(third)
+        await settle(third, [
+          [H, 'loss'],
+          [J, 'win'],
+        ])
+
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+      })
+
+      test('a series that plays every game can end drawn', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 2, playAll: true })
+        await playGame(id, H)
+        fakeNydus.publish.mockClear()
+
+        await playGame(id, J)
+
+        expect(bestOfEvents(id).at(-1)).toEqual({
+          type: 'bestOfEnded',
+          bestOf: expect.objectContaining({ outcome: { kind: 'drawn' } }),
+        })
+      })
+
+      test('a series that ends at a majority has no play-all setting', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { playAll: false })
+
+        expect(runningBestOf(id)).not.toHaveProperty('playAll')
+      })
+
+      test('shortening it so a side has a majority ends it at once', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 5 })
+        await playGame(id, H)
+        await playGame(id, H)
+        fakeNydus.publish.mockClear()
+
+        const updated = lobbyService.updateBestOf({ client: host.client, length: 3 })
+
+        expect(updated).toEqual(
+          expect.objectContaining({ length: 3, outcome: { kind: 'won', winner: 0 } }),
+        )
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: updated,
+            correction: { kind: 'format', length: 3, playAll: false },
+            reopened: false,
+          },
+          { type: 'bestOfEnded', bestOf: updated },
+        ])
+        // Over, so its format can't be changed any more
+        expect(() => lobbyService.updateBestOf({ client: host.client, length: 5 })).toThrow(
+          codeError(LobbyServiceErrorCode.NoBestOfRunning),
+        )
+      })
+
+      test('lengthening it, or making it play every game, keeps it running', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 3 })
+        await playGame(id, H)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.updateBestOf({ client: host.client, length: 6 })
+        lobbyService.updateBestOf({ client: host.client, playAll: true })
+
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: expect.objectContaining({ length: 6 }),
+            correction: { kind: 'format', length: 6, playAll: false },
+            reopened: false,
+          },
+          {
+            type: 'bestOfCorrected',
+            bestOf: expect.objectContaining({ length: 6, playAll: true }),
+            correction: { kind: 'format', length: 6, playAll: true },
+            reopened: false,
+          },
+        ])
+        expect(runningBestOf(id).outcome).toBeUndefined()
+        await launchGame(id)
+        expect(lastLoadRequest().bestOf).toMatchObject({ length: 6, playAll: true, gameNumber: 2 })
+      })
+
+      test('no longer playing every game ends it at once when a side has a majority', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 3, playAll: true })
+        await playGame(id, J)
+        await playGame(id, J)
+        expect(runningBestOf(id).outcome).toBeUndefined()
+        fakeNydus.publish.mockClear()
+
+        lobbyService.updateBestOf({ client: host.client, playAll: false })
+
+        expect(bestOfEvents(id).map(event => event.type)).toEqual([
+          'bestOfCorrected',
+          'bestOfEnded',
+        ])
+        expect(runningBestOf(id)).not.toHaveProperty('playAll')
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 1 })
+      })
+
+      test('a length or play-all setting it already has changes nothing', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 3 })
+        fakeNydus.publish.mockClear()
+        const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
+
+        expect(() => lobbyService.updateBestOf({ client: host.client, length: 3 })).toThrow(invalid)
+        expect(() => lobbyService.updateBestOf({ client: host.client, playAll: false })).toThrow(
+          invalid,
+        )
+        expect(() =>
+          lobbyService.updateBestOf({ client: host.client, length: 3, playAll: false }),
+        ).toThrow(invalid)
+        for (const length of [0, 100, 2.5]) {
+          expect(() => lobbyService.updateBestOf({ client: host.client, length })).toThrow(invalid)
+        }
+        expect(bestOfEvents(id)).toEqual([])
+
+        // Alongside another change, it is only that change
+        lobbyService.updateBestOf({ client: host.client, length: 3, title: 'Final' })
+        expect(bestOfEvents(id)).toEqual([
+          { type: 'bestOfUpdated', bestOf: expect.objectContaining({ title: 'Final', length: 3 }) },
+        ])
+      })
+    })
+
+    describe('corrections', () => {
+      const won = (winner: 0 | 1) => ({ status: 'won', winner }) as const
+
+      function setResult(gameId: string, result: BestOfHostResult) {
+        return lobbyService.setBestOfGameResult({ client: host.client, gameId, result })
+      }
+
+      function addResult(winner: 0 | 1) {
+        return lobbyService.addBestOfResult({ client: host.client, winner })
+      }
+
+      function removeResult(resultId: string) {
+        return lobbyService.removeBestOfResult({ client: host.client, resultId })
+      }
+
+      /** The id of the hand-added result at `index` of the lobby's latest series. */
+      function addedResultId(id: SbLobbyId, index: number): string {
+        const entry = runningBestOf(id).games[index]
+        if (!('resultId' in entry)) {
+          throw new Error(`entry ${index} isn't a hand-added result`)
+        }
+        return entry.resultId
+      }
+
+      test("a pending game's result can be set, and a result that settles later is ignored", async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        const first = await launchGame(id)
+        await endGame(first)
+        fakeNydus.publish.mockClear()
+
+        const corrected = setResult(first, won(1))
+
+        const expected = { gameId: first, status: 'won', winner: 1, setByHost: true }
+        expect(corrected.games).toEqual([expected])
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: corrected,
+            correction: { kind: 'gameResult', gameId: first, result: won(1) },
+            reopened: false,
+          },
+        ])
+        expect(lobbyService.bestOfLaunchSides.has(first)).toBe(false)
+
+        fakeNydus.publish.mockClear()
+        await settle(first, [
+          [H, 'win'],
+          [J, 'loss'],
+        ])
+        expect(bestOfEvents(id)).toEqual([])
+        expect(runningBestOf(id).games).toEqual([expected])
+
+        await launchGame(id)
+        expect(lastLoadRequest().bestOf).toMatchObject({
+          gameNumber: 2,
+          sides: [{ score: 0 }, { score: 1 }],
+        })
+      })
+
+      test("a settled game's result can be changed, but not to the one it counts as", async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 5 })
+        const first = await playGame(id, H)
+        const second = await playGame(id)
+
+        setResult(first, won(1))
+        setResult(second, won(1))
+        expect(runningBestOf(id).games).toEqual([
+          { gameId: first, status: 'won', winner: 1, setByHost: true },
+          { gameId: second, status: 'won', winner: 1, setByHost: true },
+        ])
+        setResult(first, { status: 'notCounted' })
+        expect(runningBestOf(id).games[0]).toEqual({ gameId: first, status: 'notCounted' })
+
+        const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
+        expect(() => setResult(first, { status: 'notCounted' })).toThrow(invalid)
+        expect(() => setResult(second, won(1))).toThrow(invalid)
+        expect(() => setResult('another-lobbys-game', won(0))).toThrow(
+          codeError(LobbyServiceErrorCode.BestOfResultNotFound),
+        )
+
+        await launchGame(id)
+        expect(lastLoadRequest().bestOf).toMatchObject({
+          gameNumber: 2,
+          sides: [{ score: 0 }, { score: 1 }],
+        })
+      })
+
+      test('a result added by hand counts as a game played, and can be removed', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 5 })
+        fakeNydus.publish.mockClear()
+
+        const corrected = addResult(0)
+
+        expect(corrected.games).toEqual([
+          { resultId: expect.any(String), status: 'won', winner: 0 },
+        ])
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: corrected,
+            correction: { kind: 'resultAdded', winner: 0 },
+            reopened: false,
+          },
+        ])
+
+        // A 1-0 head start makes the first game played game 2
+        const first = await playGame(id, J)
+        expect(loadGameRequests[0].bestOf).toMatchObject({
+          gameNumber: 2,
+          sides: [{ score: 1 }, { score: 0 }],
+        })
+        addResult(1)
+        const ids = [addedResultId(id, 0), addedResultId(id, 2)]
+        expect(new Set(ids).size).toBe(2)
+
+        fakeNydus.publish.mockClear()
+        const removed = removeResult(ids[0])
+        expect(removed.games).toEqual([
+          { gameId: first, status: 'won', winner: 1 },
+          { resultId: ids[1], status: 'won', winner: 1 },
+        ])
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: removed,
+            correction: { kind: 'resultRemoved', winner: 0 },
+            reopened: false,
+          },
+        ])
+
+        const notFound = codeError(LobbyServiceErrorCode.BestOfResultNotFound)
+        expect(() => removeResult(ids[0])).toThrow(notFound)
+        // A game isn't a hand-added result, nor the other way around
+        expect(() => removeResult(first)).toThrow(notFound)
+        expect(() => setResult(ids[1], won(0))).toThrow(notFound)
+      })
+
+      test('a correction that decides the series ends it after announcing the correction', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        await playGame(id, H)
+        fakeNydus.publish.mockClear()
+
+        const corrected = addResult(0)
+
+        expect(corrected.outcome).toEqual({ kind: 'won', winner: 0 })
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: corrected,
+            correction: { kind: 'resultAdded', winner: 0 },
+            reopened: false,
+          },
+          { type: 'bestOfEnded', bestOf: corrected },
+        ])
+        await launchGame(id)
+        expect(lastLoadRequest()).not.toHaveProperty('bestOf')
+      })
+
+      test("a correction that leaves it ended the same way doesn't announce its end again", async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        await playGame(id, H)
+        await playGame(id, H)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+        fakeNydus.publish.mockClear()
+
+        addResult(1)
+
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: expect.objectContaining({ outcome: { kind: 'won', winner: 0 } }),
+            correction: { kind: 'resultAdded', winner: 1 },
+            reopened: false,
+          },
+        ])
+      })
+
+      test('a correction that takes the deciding win away reopens it', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        await playGame(id, J)
+        const second = await playGame(id, H)
+        const third = await playGame(id, H)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+        fakeNydus.publish.mockClear()
+
+        const corrected = setResult(third, { status: 'notCounted' })
+
+        expect(corrected).not.toHaveProperty('outcome')
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: corrected,
+            correction: { kind: 'gameResult', gameId: third, result: { status: 'notCounted' } },
+            reopened: true,
+          },
+        ])
+        // Running again, so the next game is one of its games, replaying the one that didn't count
+        const fourth = await launchGame(id)
+        expect(lastLoadRequest().bestOf).toMatchObject({
+          gameNumber: 3,
+          sides: [{ score: 1 }, { score: 1 }],
+        })
+        expect(runningBestOf(id).games.slice(1)).toEqual([
+          { gameId: second, status: 'won', winner: 0 },
+          { gameId: third, status: 'notCounted' },
+          { gameId: fourth, status: 'pending' },
+        ])
+      })
+
+      test('a correction that gives the win to the other side announces the new end', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 1 })
+        const first = await playGame(id, H)
+        fakeNydus.publish.mockClear()
+
+        const corrected = setResult(first, won(1))
+
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfCorrected',
+            bestOf: corrected,
+            correction: { kind: 'gameResult', gameId: first, result: won(1) },
+            reopened: false,
+          },
+          {
+            type: 'bestOfEnded',
+            bestOf: expect.objectContaining({ outcome: { kind: 'won', winner: 1 } }),
+          },
+        ])
+      })
+
+      test('a series the host ended early stays ended until its results decide it', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        addResult(0)
+        lobbyService.endBestOf({ client: host.client })
+        fakeNydus.publish.mockClear()
+
+        addResult(1)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'unfinished' })
+        expect(bestOfEvents(id).map(event => event.type)).toEqual(['bestOfCorrected'])
+
+        addResult(0)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+        expect(bestOfEvents(id).map(event => event.type)).toEqual([
+          'bestOfCorrected',
+          'bestOfCorrected',
+          'bestOfEnded',
+        ])
+      })
+
+      test('a pending game of a series a correction decided still settles', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 2 })
+        await playGame(id, H)
+        const second = await launchGame(id)
+        await endGame(second)
+        addResult(1)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'drawn' })
+        fakeNydus.publish.mockClear()
+
+        // Its result decides the series anew
+        await settle(second, [
+          [H, 'win'],
+          [J, 'loss'],
+        ])
+
+        expect(lobbyPublishes(id).map(data => data.type)).toEqual([
+          'seriesGameUpdated',
+          'bestOfEnded',
+        ])
+        expect(runningBestOf(id).games[1]).toEqual({ gameId: second, status: 'won', winner: 0 })
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+      })
+
+      test('a pending game that settles without changing the outcome is an update', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        await playGame(id, H)
+        const second = await launchGame(id)
+        await endGame(second)
+        addResult(0)
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+        fakeNydus.publish.mockClear()
+
+        await settle(second, [
+          [H, 'loss'],
+          [J, 'win'],
+        ])
+
+        expect(bestOfEvents(id)).toEqual([
+          {
+            type: 'bestOfUpdated',
+            bestOf: expect.objectContaining({ outcome: { kind: 'won', winner: 0 } }),
+          },
+        ])
+        expect(runningBestOf(id).games[1]).toEqual({ gameId: second, status: 'won', winner: 1 })
+      })
+
+      test('starting another series stops counting the pending games of the one before', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        await playGame(id, H)
+        const second = await launchGame(id)
+        await endGame(second)
+        addResult(0)
+        expect(lobbyService.bestOfs.get(id)![0].outcome).toEqual({ kind: 'won', winner: 0 })
+        fakeNydus.publish.mockClear()
+
+        startBestOf([[J], [H]])
+
+        const [previous, started] = lobbyService.bestOfs.get(id)!
+        expect(previous.games[1]).toEqual({ gameId: second, status: 'notCounted' })
+        expect(previous.outcome).toEqual({ kind: 'won', winner: 0 })
+        expect(lobbyService.bestOfLaunchSides.has(second)).toBe(false)
+        expect(bestOfEvents(id)).toEqual([
+          { type: 'bestOfUpdated', bestOf: previous },
+          { type: 'bestOfStarted', bestOf: started },
+        ])
+
+        // A result that settles for it afterwards changes neither series
+        fakeNydus.publish.mockClear()
+        await settle(second, [
+          [H, 'loss'],
+          [J, 'win'],
+        ])
+        expect(bestOfEvents(id)).toEqual([])
+        expect(lobbyService.bestOfs.get(id)).toEqual([previous, started])
+      })
+
+      test('starting another series after one with no pending game only starts it', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 1 })
+        await playGame(id, H)
+        const previous = lobbyService.bestOfs.get(id)![0]
+        fakeNydus.publish.mockClear()
+
+        startBestOf()
+
+        expect(bestOfEvents(id).map(event => event.type)).toEqual(['bestOfStarted'])
+        expect(lobbyService.bestOfs.get(id)![0]).toBe(previous)
+      })
+
+      test("only the lobby's latest series can be corrected, ended or not", async () => {
+        const id = await createTeamLobby()
+        expect(() => addResult(0)).toThrow(codeError(LobbyServiceErrorCode.NoBestOf))
+        expect(() => setResult('game-1', won(0))).toThrow(codeError(LobbyServiceErrorCode.NoBestOf))
+
+        startBestOf([[H], [J]], { length: 1 })
+        const first = await playGame(id, H)
+        // Still correctable once it ended
+        setResult(first, won(1))
+        expect(lobbyService.bestOfs.get(id)![0].outcome).toEqual({ kind: 'won', winner: 1 })
+
+        startBestOf()
+        expect(() => setResult(first, won(0))).toThrow(
+          codeError(LobbyServiceErrorCode.BestOfResultNotFound),
+        )
+        addResult(0)
+        expect(lobbyService.bestOfs.get(id)![0].games).toHaveLength(1)
+        expect(runningBestOf(id).games).toHaveLength(1)
+      })
+
+      test('adding results is refused once the score holds as many wins as a series can', async () => {
+        const id = await createTeamLobby()
+        startBestOf()
+        for (let i = 0; i < BEST_OF_MAX_LENGTH; i++) {
+          addResult(i % 2 === 0 ? 0 : 1)
+        }
+
+        expect(() => addResult(1)).toThrow(codeError(LobbyServiceErrorCode.InvalidBestOf))
+        expect(runningBestOf(id).games).toHaveLength(BEST_OF_MAX_LENGTH)
+        // Over-full, and still decided
+        expect(runningBestOf(id).outcome).toEqual({ kind: 'won', winner: 0 })
+      })
+
+      test('the next game launched carries the corrected score, game number and format', async () => {
+        const id = await createTeamLobby()
+        startBestOf([[H], [J]], { length: 4, playAll: true })
+        const first = await playGame(id, H)
+        addResult(1)
+        addResult(1)
+        setResult(first, { status: 'notCounted' })
+
+        await launchGame(id)
+
+        expect(lastLoadRequest().bestOf).toEqual({
+          length: 4,
+          playAll: true,
+          gameNumber: 3,
+          sides: [
+            { players: [H], score: 0 },
+            { players: [J], score: 2 },
+          ],
+        })
+      })
     })
   })
 })

@@ -558,8 +558,10 @@ pub struct MatchupView {
 /// How a series is played, as far as the overlay says anything about it.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SeriesFormat {
-    /// The side that wins the most of `length` games takes the series.
-    BestOf { length: u32 },
+    /// A series of `length` games. Unless `play_all`, the side that wins the most of them takes the
+    /// series, so it can be over before the last is played; a `play_all` series plays every one of
+    /// them whatever the score. An even `length` can end level.
+    BestOf { length: u32, play_all: bool },
 }
 
 /// Where a series stood when one of its games started: everything the overlay says about it, none
@@ -675,11 +677,24 @@ impl SeriesView {
     /// wherever it is drawn: the title is what gives way to a narrow line.
     pub(crate) fn progress(&self) -> String {
         match self.format {
-            SeriesFormat::BestOf { length } => tr_plural!(
+            SeriesFormat::BestOf {
+                length,
+                play_all: false,
+            } => tr_plural!(
                 "observer.bestOfGame",
                 length,
                 one = "Best of {{count}} · Game {{game}}",
                 other = "Best of {{count}} · Game {{game}}",
+                game = self.game_number
+            ),
+            SeriesFormat::BestOf {
+                length,
+                play_all: true,
+            } => tr_plural!(
+                "observer.playAllGame",
+                length,
+                one = "{{count}} game · Game {{game}}",
+                other = "{{count}} games · Game {{game}}",
                 game = self.game_number
             ),
         }
@@ -2010,7 +2025,10 @@ mod tests {
     fn longest_series() -> SeriesView {
         SeriesView {
             title: Some("W".repeat(50)),
-            format: SeriesFormat::BestOf { length: 99 },
+            format: SeriesFormat::BestOf {
+                length: 99,
+                play_all: false,
+            },
             game_number: 24,
             scores: [12, 11],
             lines: Vec::new(),
@@ -2108,6 +2126,22 @@ mod tests {
                 "{teams:?}: {width}"
             );
         }
+    }
+
+    #[test]
+    fn the_series_line_words_the_format_by_whether_every_game_is_played() {
+        let progress = |length, play_all, game_number| {
+            SeriesView {
+                format: SeriesFormat::BestOf { length, play_all },
+                game_number,
+                ..longest_series()
+            }
+            .progress()
+        };
+        assert_eq!(progress(5, false, 3), "Best of 5 · Game 3");
+        assert_eq!(progress(2, false, 2), "Best of 2 · Game 2");
+        assert_eq!(progress(5, true, 3), "5 games · Game 3");
+        assert_eq!(progress(1, true, 1), "1 game · Game 1");
     }
 
     #[test]
@@ -2451,7 +2485,10 @@ mod tests {
     fn running_series() -> SeriesView {
         SeriesView {
             title: Some("Grand Final".to_string()),
-            format: SeriesFormat::BestOf { length: 7 },
+            format: SeriesFormat::BestOf {
+                length: 7,
+                play_all: false,
+            },
             game_number: 4,
             scores: [2, 1],
             ..longest_series()

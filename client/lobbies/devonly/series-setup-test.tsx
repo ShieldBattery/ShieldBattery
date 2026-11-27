@@ -6,12 +6,14 @@ import { Lobby, Team } from '../../../common/lobbies'
 import {
   BestOfDisplayName,
   getRunningBestOf,
+  isBestOfAddedResult,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
   toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
   GetRememberedBestOfOverlayResponse,
+  LobbySeriesGameJson,
   LobbyServiceErrorCode,
 } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
@@ -21,7 +23,11 @@ import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
-import { BigGameHunters, loadMapsForTesting } from '../../maps/devonly/maps-for-testing'
+import {
+  BigGameHunters,
+  FightingSpirit,
+  loadMapsForTesting,
+} from '../../maps/devonly/maps-for-testing'
 import { FilledButton } from '../../material/button'
 import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { FetchError } from '../../network/fetch-errors'
@@ -32,6 +38,13 @@ import { BestOfLogoSlot } from '../room/best-of-logo-slot'
 import { RoomSeriesSetup } from '../room/room-series-setup'
 import { logoFileProblemMessage, LogoSlotValue } from '../room/series-setup'
 import { IsolatedReduxProvider } from './isolated-redux'
+import {
+  mockAddBestOfResult,
+  MockBestOfChange,
+  mockRemoveBestOfResult,
+  mockSetBestOfGameResult,
+  mockUpdateBestOfFormat,
+} from './mock-best-of-corrections'
 import { applyMockBestOfNames } from './mock-best-of-names'
 import { ScenarioPicker } from './scenario-picker'
 import { SQUARE_LOGO, WIDE_LOGO } from './series-setup-samples'
@@ -92,6 +105,13 @@ type ScenarioId =
   | 'runningNamed'
   | 'eightOnASide'
   | 'namesFailed'
+  | 'resultsPending'
+  | 'resultsSettled'
+  | 'resultsHostSet'
+  | 'resultsAdded'
+  | 'resultsEndedWon'
+  | 'resultsEndedDrawn'
+  | 'resultsLong'
   | 'logoSlots'
 type ServerAnswerId = 'accept' | 'refuseRoster' | 'refuseLogo' | 'refuseTooBig' | 'throttled'
 
@@ -105,6 +125,13 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'runningNamed', label: 'Running · named sides + display names' },
   { id: 'eightOnASide', label: 'Running · eight on a side, long names' },
   { id: 'namesFailed', label: 'Remembered display names · failed to load' },
+  { id: 'resultsPending', label: 'Results · game waiting for results' },
+  { id: 'resultsSettled', label: 'Results · settled games' },
+  { id: 'resultsHostSet', label: 'Results · game set by host' },
+  { id: 'resultsAdded', label: 'Results · added win' },
+  { id: 'resultsEndedWon', label: 'Results · last series won' },
+  { id: 'resultsEndedDrawn', label: 'Results · last series drawn' },
+  { id: 'resultsLong', label: 'Results · long names, many rows' },
   { id: 'logoSlots', label: 'Logo slot states' },
 ]
 
@@ -210,6 +237,103 @@ const EIGHT_ON_A_SIDE_BEST_OF: LobbyBestOfJson = {
   ],
 }
 
+/** A Bo5 at 1–0 whose second game is still waiting for its results. */
+const PENDING_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_BEST_OF,
+  id: 'mock-pending-best-of',
+  length: 5,
+  games: [
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', status: 'pending' },
+  ],
+}
+
+/** A Bo7 at 2–1 with a game that settled with no winner and one the host stopped counting. */
+const SETTLED_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_NAMED_BEST_OF,
+  id: 'mock-settled-best-of',
+  games: [
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', status: 'noWinner' },
+    { gameId: 'mock-game-3', status: 'won', winner: 1 },
+    { gameId: 'mock-game-4', status: 'notCounted' },
+    { gameId: 'mock-game-5', status: 'won', winner: 0 },
+  ],
+}
+
+/** A Bo5 at 1–1 whose second game the host gave to the other side. */
+const HOST_SET_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_NAMED_BEST_OF,
+  id: 'mock-host-set-best-of',
+  length: 5,
+  games: [
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', status: 'won', winner: 1, setByHost: true },
+  ],
+}
+
+/** A Bo5 carried on from another lobby: a win added for each side, then a game played here. */
+const ADDED_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_NAMED_BEST_OF,
+  id: 'mock-added-best-of',
+  length: 5,
+  games: [
+    { resultId: 'mock-added-1', status: 'won', winner: 0 },
+    { resultId: 'mock-added-2', status: 'won', winner: 1 },
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+  ],
+}
+
+/** The lobby's last series, a Bo3 its first side won 2–1. */
+const ENDED_WON_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_NAMED_BEST_OF,
+  id: 'mock-ended-won-best-of',
+  length: 3,
+  games: [
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', status: 'won', winner: 1 },
+    { gameId: 'mock-game-3', status: 'won', winner: 0 },
+  ],
+  outcome: { kind: 'won', winner: 0 },
+}
+
+/** The lobby's last series, a Bo4 that ended level at 2–2. */
+const ENDED_DRAWN_BEST_OF: LobbyBestOfJson = {
+  ...RUNNING_BEST_OF,
+  id: 'mock-ended-drawn-best-of',
+  title: 'Showmatch',
+  length: 4,
+  games: [
+    { gameId: 'mock-game-1', status: 'won', winner: 0 },
+    { gameId: 'mock-game-2', status: 'won', winner: 1 },
+    { gameId: 'mock-game-3', status: 'won', winner: 1 },
+    { gameId: 'mock-game-4', status: 'won', winner: 0 },
+  ],
+  outcome: { kind: 'drawn' },
+}
+
+/** A Bo99 between eight-person sides with long names, a dozen rows into it. */
+const LONG_RESULTS_BEST_OF: LobbyBestOfJson = {
+  ...EIGHT_ON_A_SIDE_BEST_OF,
+  id: 'mock-long-results-best-of',
+  length: 99,
+  sideNames: undefined,
+  games: [
+    { resultId: 'mock-added-1', status: 'won', winner: 1 },
+    ...Array.from({ length: 12 }, (_, i): LobbyBestOfJson['games'][number] => {
+      const gameId = `mock-game-${i + 1}`
+      if (i === 4) {
+        return { gameId, status: 'noWinner' }
+      } else if (i === 7) {
+        return { gameId, status: 'won', winner: 1, setByHost: true }
+      } else if (i === 11) {
+        return { gameId, status: 'pending' }
+      }
+      return { gameId, status: 'won', winner: i % 3 === 0 ? 1 : 0 }
+    }),
+  ],
+}
+
 function scenarioBestOfs(scenario: ScenarioId): LobbyBestOfJson[] {
   switch (scenario) {
     case 'running':
@@ -218,9 +342,43 @@ function scenarioBestOfs(scenario: ScenarioId): LobbyBestOfJson[] {
       return [RUNNING_NAMED_BEST_OF]
     case 'eightOnASide':
       return [EIGHT_ON_A_SIDE_BEST_OF]
+    case 'resultsPending':
+      return [PENDING_BEST_OF]
+    case 'resultsSettled':
+      return [SETTLED_BEST_OF]
+    case 'resultsHostSet':
+      return [HOST_SET_BEST_OF]
+    case 'resultsAdded':
+      return [ADDED_BEST_OF]
+    case 'resultsEndedWon':
+      return [ENDED_WON_BEST_OF]
+    case 'resultsEndedDrawn':
+      return [ENDED_DRAWN_BEST_OF]
+    case 'resultsLong':
+      return [LONG_RESULTS_BEST_OF]
     default:
       return []
   }
+}
+
+/**
+ * The lobby's finished games behind a scenario's series, so their rows can name their maps. A game
+ * still waiting for its results is among them too, since it has finished.
+ */
+function scenarioSeries(bestOfs: ReadonlyArray<LobbyBestOfJson>): LobbySeriesGameJson[] {
+  return bestOfs.flatMap(bestOf =>
+    bestOf.games.flatMap((game, i) =>
+      isBestOfAddedResult(game)
+        ? []
+        : [
+            {
+              gameId: game.gameId,
+              mapId: i % 2 ? FightingSpirit.id : BigGameHunters.id,
+              teams: [],
+            },
+          ],
+    ),
+  )
 }
 
 const REMEMBERED: GetRememberedBestOfOverlayResponse = {
@@ -257,17 +415,20 @@ function seedScenario(dispatch: ReturnType<typeof useAppDispatch>, scenario: Sce
   dispatch({ type: '@lobbies/updateLeaveSelf' })
   dispatch(loadMapsForTesting())
   dispatch({ type: '@users/loadUsers', payload: MOCK_USERS })
+  const bestOfs = scenarioBestOfs(scenario)
   dispatch({
     type: '@lobbies/init',
     payload: {
       type: 'init',
-      lobby: makeLobby(scenario === 'eightOnASide' || scenario === 'rememberedNames'),
+      lobby: makeLobby(
+        scenario === 'eightOnASide' || scenario === 'rememberedNames' || scenario === 'resultsLong',
+      ),
       userInfos: MOCK_USERS,
       readyUsers: [],
       shuffleCount: 0,
       mapStatuses: [],
-      series: [],
-      bestOfs: scenarioBestOfs(scenario),
+      series: scenarioSeries(bestOfs),
+      bestOfs,
     },
   })
 }
@@ -394,6 +555,7 @@ function SeriesSetupTestInner() {
 
   const lobbyName = useAppSelector(s => s.lobby.info.name)
   const runningBestOf = useAppSelector(s => getRunningBestOf(s.lobby.bestOfs))
+  const latestBestOf = useAppSelector(s => s.lobby.bestOfs.at(-1))
 
   const reopen = () => {
     setIsOpen(true)
@@ -408,6 +570,33 @@ function SeriesSetupTestInner() {
       } else {
         spec.onError(makeRefusal(serverAnswer))
       }
+    }, 600)
+  }
+
+  /**
+   * Answers a correction the way the server would: an accepted one lands its events in the store
+   * before the page hears back with the corrected series.
+   */
+  const answerCorrection = (
+    description: string,
+    spec: RequestHandlingSpec<LobbyBestOfJson>,
+    change: (latest: LobbyBestOfJson) => MockBestOfChange | undefined,
+  ) => {
+    setLastRequest(description)
+    setTimeout(() => {
+      if (serverAnswer !== 'accept') {
+        spec.onError(makeRefusal(serverAnswer))
+        return
+      }
+      const result = latestBestOf ? change(latestBestOf) : undefined
+      if (!result) {
+        spec.onError(makeRefusal('refuseRoster'))
+        return
+      }
+      for (const action of result.actions) {
+        dispatch(action)
+      }
+      spec.onSuccess(result.bestOf)
     }, 600)
   }
 
@@ -469,6 +658,7 @@ function SeriesSetupTestInner() {
               id: `mock-started-best-of-${openCount}`,
               ...(request.title ? { title: request.title } : {}),
               length: request.length,
+              ...(request.playAll ? { playAll: true } : {}),
               sides: request.sides,
               games: [],
               overlay: toBestOfOverlayJson({
@@ -506,11 +696,10 @@ function SeriesSetupTestInner() {
                 updated.title = request.title
               }
             }
-            const bestOf = applyMockBestOfNames(updated, request, 'update')
-            dispatch({
-              type: '@lobbies/updateBestOfUpdated',
-              payload: { type: 'bestOfUpdated', bestOf },
-            })
+            const named = applyMockBestOfNames(updated, request, 'update')
+            for (const action of mockUpdateBestOfFormat(runningBestOf, named, request).actions) {
+              dispatch(action)
+            }
           })
         }}
         onEndBestOf={() => {
@@ -525,6 +714,21 @@ function SeriesSetupTestInner() {
             })
           }
         }}
+        onSetBestOfGameResult={(gameId, result, spec) =>
+          answerCorrection(`set-result ${JSON.stringify({ gameId, result })}`, spec, latest =>
+            mockSetBestOfGameResult(latest, gameId, result),
+          )
+        }
+        onAddBestOfResult={(winner, spec) =>
+          answerCorrection(`add-result ${JSON.stringify({ winner })}`, spec, latest =>
+            mockAddBestOfResult(latest, winner),
+          )
+        }
+        onRemoveBestOfResult={(resultId, spec) =>
+          answerCorrection(`remove-result ${JSON.stringify({ resultId })}`, spec, latest =>
+            mockRemoveBestOfResult(latest, resultId),
+          )
+        }
       />
     )
   }
@@ -544,7 +748,7 @@ function SeriesSetupTestInner() {
           }}
         />
         <ScenarioPicker
-          label='Server answers start / save with'
+          label='Server answers start / save / corrections with'
           scenarios={SERVER_ANSWERS}
           active={serverAnswer}
           onChange={setServerAnswer}

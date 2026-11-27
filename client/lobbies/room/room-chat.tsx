@@ -35,7 +35,12 @@ import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-en
 import { LobbyUserMenu } from '../lobby-menu-items'
 import { JoinLobbyMessage, LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
-import { BestOfEndedLine, BestOfStartedLine } from './best-of-chat-lines'
+import {
+  BestOfCorrectedLine,
+  BestOfEndedLine,
+  BestOfReopenedLine,
+  BestOfStartedLine,
+} from './best-of-chat-lines'
 import { getReadyEligibleUsers, lobbyTeamLabel, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
@@ -807,6 +812,7 @@ function RoomChatMessage({ message }: MessageComponentProps) {
             bestOfId={msg.bestOfId}
             title={msg.title}
             length={msg.length}
+            playAll={msg.playAll}
             sides={msg.sides}
           />
         </SystemMessage>
@@ -820,6 +826,22 @@ function RoomChatMessage({ message }: MessageComponentProps) {
             score={msg.score}
             outcome={msg.outcome}
           />
+        </SystemMessage>
+      )
+    case LobbyMessageType.LobbyBestOfCorrected:
+      return (
+        <SystemMessage time={msg.time}>
+          <BestOfCorrectedLine
+            bestOfId={msg.bestOfId}
+            sides={msg.sides}
+            correction={msg.correction}
+          />
+        </SystemMessage>
+      )
+    case LobbyMessageType.LobbyBestOfReopened:
+      return (
+        <SystemMessage time={msg.time}>
+          <BestOfReopenedLine bestOfId={msg.bestOfId} score={msg.score} />
         </SystemMessage>
       )
     case LobbyMessageType.LobbyBenchJoin:

@@ -44,19 +44,40 @@ export function useLobbyBestOf(bestOfId: string): LobbyBestOfJson | undefined {
   return useAppSelector(s => s.lobby.bestOfs.find(bestOf => bestOf.id === bestOfId))
 }
 
-/** Heads a best-of series wherever the room shows it, e.g. "Grand Final · Best of 3". */
-export function bestOfLabel(
-  bestOf: Pick<LobbyBestOfJson, 'title' | 'length'>,
+/**
+ * Words a best-of series' format the way the room writes it everywhere: "Best of 3" for a series
+ * that ends once a side has a majority, or "4 games" for one played to its full length.
+ */
+export function bestOfFormatLabel(
+  bestOf: Pick<LobbyBestOfJson, 'length' | 'playAll'>,
   t: TFunction,
 ): string {
-  return bestOf.title
-    ? t('lobbies.room.bestOf.labelTitled', {
-        defaultValue: '{{title}} · Best of {{length}}',
-        title: bestOf.title,
+  return bestOf.playAll
+    ? t('lobbies.room.bestOf.formatPlayAll', {
+        defaultValue_one: '{{count}} game',
+        defaultValue_other: '{{count}} games',
+        count: bestOf.length,
+      })
+    : t('lobbies.room.bestOf.formatBestOf', {
+        defaultValue: 'Best of {{length}}',
         length: bestOf.length,
       })
-    : t('lobbies.room.bestOf.label', {
-        defaultValue: 'Series · Best of {{length}}',
-        length: bestOf.length,
+}
+
+/** Heads a best-of series wherever the room shows it, e.g. "Grand Final · Best of 3". */
+export function bestOfLabel(
+  bestOf: Pick<LobbyBestOfJson, 'title' | 'length' | 'playAll'>,
+  t: TFunction,
+): string {
+  const seriesFormat = bestOfFormatLabel(bestOf, t)
+  return bestOf.title
+    ? t('lobbies.room.bestOf.formatLabelTitled', {
+        defaultValue: '{{title}} · {{seriesFormat}}',
+        title: bestOf.title,
+        seriesFormat,
+      })
+    : t('lobbies.room.bestOf.formatLabel', {
+        defaultValue: 'Series · {{seriesFormat}}',
+        seriesFormat,
       })
 }

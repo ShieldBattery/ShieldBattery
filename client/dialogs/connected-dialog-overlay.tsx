@@ -94,6 +94,9 @@ const LeaveLeagueDialog = React.lazy(async () => ({
 const JoinCodeDialog = React.lazy(async () => ({
   default: (await import('../lobbies/join-code-dialog')).JoinCodeDialog,
 }))
+const LobbyBestOfFormatEndsDialog = React.lazy(async () => ({
+  default: (await import('../lobbies/best-of-format-ends-dialog')).LobbyBestOfFormatEndsDialog,
+}))
 const LobbyEndBestOfDialog = React.lazy(async () => ({
   default: (await import('../lobbies/end-best-of-dialog')).LobbyEndBestOfDialog,
 }))
@@ -297,6 +300,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LeagueExplainerDialog }
     case DialogType.LeaveLeague:
       return { component: LeaveLeagueDialog }
+    case DialogType.LobbyBestOfFormatEnds:
+      return { component: LobbyBestOfFormatEndsDialog }
     case DialogType.LobbyEndBestOf:
       return { component: LobbyEndBestOfDialog }
     case DialogType.LobbyLeaveAndCreate:

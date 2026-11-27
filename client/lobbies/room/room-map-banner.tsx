@@ -19,8 +19,9 @@ import {
   getBestOfScore,
   getBestOfSideName,
   getRunningBestOf,
-  LobbyBestOfGameJson,
+  LobbyBestOfAddedResultJson,
   LobbyBestOfJson,
+  LobbyBestOfLaunchedGameJson,
 } from '../../../common/lobbies/lobby-best-of'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
@@ -560,6 +561,29 @@ const SeriesDuration = styled.span`
   flex-shrink: 0;
 `
 
+const SeriesHostNote = styled.span`
+  ${singleLine};
+  flex-shrink: 0;
+`
+
+/** A result the host added to a best-of series by hand, which has no game to show. */
+const SeriesAddedRow = styled(SeriesRow)`
+  min-height: 32px;
+`
+
+const SeriesAddedNote = styled.span`
+  ${bodyMedium};
+  ${singleLine};
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+`
+
+const SeriesAddedWinner = styled.span`
+  ${bodyMedium};
+  ${singleLine};
+  min-width: 0;
+`
+
 const SeriesAction = styled(IconButton)`
   width: 32px;
   min-height: 32px;
@@ -643,7 +667,7 @@ type GameOutcome =
 function useGameOutcome(
   game: LobbySeriesGameJson,
   bestOf: LobbyBestOfJson | undefined,
-  bestOfGame: LobbyBestOfGameJson | undefined,
+  bestOfGame: LobbyBestOfLaunchedGameJson | undefined,
 ): GameOutcome {
   const isWon = bestOf && bestOfGame?.status === 'won'
   const winningSide = isWon ? bestOf.sides[bestOfGame.winner] : NO_PLAYERS
@@ -701,7 +725,7 @@ function SeriesGameRow({
   game: LobbySeriesGameJson
   gameNumber: number
   bestOf?: LobbyBestOfJson
-  bestOfGame?: LobbyBestOfGameJson
+  bestOfGame?: LobbyBestOfLaunchedGameJson
   /** Stops the game counting towards its best-of series, when the viewer can. */
   onDiscard?: () => void
   onWatchReplay: (gameId: string) => void
@@ -726,6 +750,7 @@ function SeriesGameRow({
   } else if (outcome.kind === 'pending') {
     outcomeNote = t('lobbies.room.series.waitingForResults', 'Waiting for results')
   }
+  const isSetByHost = bestOfGame?.status === 'won' && !!bestOfGame.setByHost
 
   return (
     <SeriesRow>
@@ -745,6 +770,12 @@ function SeriesGameRow({
           ) : (
             <SeriesWinner>{outcomeNote}</SeriesWinner>
           )}
+          {isSetByHost ? (
+            <>
+              <SeriesFactDivider>·</SeriesFactDivider>
+              <SeriesHostNote>{t('lobbies.room.bestOf.setByHost', 'Set by host')}</SeriesHostNote>
+            </>
+          ) : null}
           {game.result ? (
             <>
               <SeriesFactDivider>·</SeriesFactDivider>
@@ -776,6 +807,35 @@ function SeriesGameRow({
   )
 }
 
+/** A result the host added to a best-of series by hand, as the full list of games shows it. */
+function SeriesAddedResultRow({
+  bestOf,
+  result,
+  gameNumber,
+}: {
+  bestOf: LobbyBestOfJson
+  result: LobbyBestOfAddedResultJson
+  gameNumber: number
+}) {
+  const { t } = useTranslation()
+  const winnerLabel = useBestOfSideLabel(
+    bestOf.sides[result.winner],
+    getBestOfSideName(bestOf, result.winner),
+  )
+
+  return (
+    <SeriesAddedRow data-testid='series-added-result-row'>
+      <SeriesGameNumber>
+        {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
+      </SeriesGameNumber>
+      <SeriesAddedNote>{t('lobbies.room.bestOf.addedByHost', 'Added by host')}</SeriesAddedNote>
+      <SeriesFactDivider>·</SeriesFactDivider>
+      <SeriesTrophyIcon icon='trophy' size={14} filled />
+      <SeriesAddedWinner>{winnerLabel}</SeriesAddedWinner>
+    </SeriesAddedRow>
+  )
+}
+
 /**
  * One tile in the session's games timeline: a finished game's number, length, and who took it,
  * opening a small menu to watch its replay or read its full summary.
@@ -792,7 +852,7 @@ function GameTile({
   game: LobbySeriesGameJson
   gameNumber: number
   bestOf?: LobbyBestOfJson
-  bestOfGame?: LobbyBestOfGameJson
+  bestOfGame?: LobbyBestOfLaunchedGameJson
   /** Stops the game counting towards its best-of series, when the viewer can. */
   onDiscard?: () => void
   onWatchReplay: (gameId: string) => void
@@ -951,18 +1011,27 @@ function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
 /** Labels the timeline for a best-of series, adding how it ended once it's over. */
 function timelineBestOfLabel(bestOf: LobbyBestOfJson, t: TFunction): string {
   const label = bestOfLabel(bestOf, t)
-  if (!bestOf.outcome) {
-    return label
-  }
-  return bestOf.outcome.kind === 'won'
-    ? t('lobbies.room.bestOf.labelFinal', {
+  switch (bestOf.outcome?.kind) {
+    case undefined:
+      return label
+    case 'won':
+      return t('lobbies.room.bestOf.labelFinal', {
         defaultValue: '{{label}} · Final',
         label,
       })
-    : t('lobbies.room.bestOf.labelEndedEarly', {
+    case 'drawn':
+      return t('lobbies.room.bestOf.labelDrawn', {
+        defaultValue: '{{label}} · Drawn',
+        label,
+      })
+    case 'unfinished':
+      return t('lobbies.room.bestOf.labelEndedEarly', {
         defaultValue: '{{label}} · Ended early',
         label,
       })
+    default:
+      return assertUnreachable(bestOf.outcome)
+  }
 }
 
 /** Heads the run of a best-of series' games in the full list of the lobby's games. */
@@ -975,6 +1044,9 @@ function SeriesBestOfHeaderRow({ bestOf }: { bestOf: LobbyBestOfJson }) {
       <SeriesBestOfTitle>{bestOfLabel(bestOf, t)}</SeriesBestOfTitle>
       {bestOf.outcome?.kind === 'unfinished' ? (
         <SeriesBestOfNote>{t('lobbies.room.bestOf.unfinished', 'Unfinished')}</SeriesBestOfNote>
+      ) : null}
+      {bestOf.outcome?.kind === 'drawn' ? (
+        <SeriesBestOfNote>{t('lobbies.room.bestOf.drawn', 'Drawn')}</SeriesBestOfNote>
       ) : null}
       <SeriesBestOfScore>
         {t('lobbies.room.bestOf.score', {
@@ -1126,7 +1198,7 @@ export function RoomMapBanner({
 
   // Only the host can stop a game counting, and only while the lobby is gathering for its next one.
   const canDiscard = isHost && lifecycle === 'gathering'
-  const discardHandlerFor = (bestOfGame: LobbyBestOfGameJson | undefined) =>
+  const discardHandlerFor = (bestOfGame: LobbyBestOfLaunchedGameJson | undefined) =>
     canDiscard && bestOfGame?.status === 'pending'
       ? () => onDiscardBestOfGame(bestOfGame.gameId)
       : undefined
@@ -1343,25 +1415,36 @@ export function RoomMapBanner({
                       {t('lobbies.room.series.gamesLabel', 'Games')}
                     </PopoverSectionLabel>
                     <SeriesRows>
-                      {sessionEntries.map(entry =>
-                        entry.kind === 'bestOf' ? (
-                          <SeriesBestOfHeaderRow
-                            key={`best-of-${entry.bestOf.id}`}
-                            bestOf={entry.bestOf}
-                          />
-                        ) : (
-                          <SeriesGameRow
-                            key={entry.game.gameId}
-                            game={entry.game}
-                            gameNumber={entry.gameNumber}
-                            bestOf={entry.bestOf}
-                            bestOfGame={entry.bestOfGame}
-                            onDiscard={discardHandlerFor(entry.bestOfGame)}
-                            onWatchReplay={onWatchReplay}
-                            onViewGameSummary={onViewGameSummary}
-                          />
-                        ),
-                      )}
+                      {sessionEntries.map(entry => {
+                        switch (entry.kind) {
+                          case 'bestOf':
+                            return <SeriesBestOfHeaderRow key={entry.key} bestOf={entry.bestOf} />
+                          case 'addedResult':
+                            return (
+                              <SeriesAddedResultRow
+                                key={entry.key}
+                                bestOf={entry.bestOf}
+                                result={entry.result}
+                                gameNumber={entry.gameNumber}
+                              />
+                            )
+                          case 'game':
+                            return (
+                              <SeriesGameRow
+                                key={entry.key}
+                                game={entry.game}
+                                gameNumber={entry.gameNumber}
+                                bestOf={entry.bestOf}
+                                bestOfGame={entry.bestOfGame}
+                                onDiscard={discardHandlerFor(entry.bestOfGame)}
+                                onWatchReplay={onWatchReplay}
+                                onViewGameSummary={onViewGameSummary}
+                              />
+                            )
+                          default:
+                            return assertUnreachable(entry)
+                        }
+                      })}
                     </SeriesRows>
                   </SeriesSection>
                 ) : null}

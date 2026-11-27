@@ -53,6 +53,7 @@ export enum DialogType {
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   LeaveLeague = 'leaveLeague',
+  LobbyBestOfFormatEnds = 'lobbyBestOfFormatEnds',
   LobbyEndBestOf = 'lobbyEndBestOf',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
@@ -314,6 +315,20 @@ type LeaveLeagueDialogPayload = BaseDialogPayload<
     onRemoved: () => void
   }
 >
+type LobbyBestOfFormatEndsDialogPayload = BaseDialogPayload<
+  typeof DialogType.LobbyBestOfFormatEnds,
+  {
+    /** The format the host is saving for the lobby's running best-of series. */
+    length: number
+    playAll: boolean
+    /** The series' score, in side order. */
+    score: [number, number]
+    /** How the format ends the series: won by a side (named by its label) or drawn. */
+    outcome: { kind: 'won'; winner: 0 | 1; winnerLabel: string } | { kind: 'drawn' }
+    /** Saves the host's changes, once they have confirmed it. */
+    onConfirm: () => void
+  }
+>
 type LobbyEndBestOfDialogPayload = BaseDialogPayload<
   typeof DialogType.LobbyEndBestOf,
   {
@@ -554,6 +569,7 @@ export type DialogPayload =
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | LeaveLeagueDialogPayload
+  | LobbyBestOfFormatEndsDialogPayload
   | LobbyEndBestOfDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload

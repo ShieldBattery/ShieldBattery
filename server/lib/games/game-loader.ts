@@ -442,7 +442,7 @@ function toSeriesOverlay(bestOf: BestOfLaunchInfo, playerInfos: PlayerInfo[]): S
     .map(({ userId, name }) => ({ userId, name }))
   return {
     ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
-    format: { kind: 'bestOf', length: bestOf.length },
+    format: { kind: 'bestOf', length: bestOf.length, ...(bestOf.playAll ? { playAll: true } : {}) },
     gameNumber: bestOf.gameNumber,
     sides: [toSide(bestOf.sides[0]), toSide(bestOf.sides[1])],
     ...(displayNames.length ? { displayNames } : {}),

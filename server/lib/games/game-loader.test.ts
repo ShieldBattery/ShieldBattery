@@ -1789,6 +1789,30 @@ describe('games/game-loader/GameLoader', () => {
       await load
     })
 
+    // A series that ends at a majority carries no `playAll`: the formats the other tests here expect
+    // in full have none
+    test('carries that the series plays every game', async () => {
+      const { load } = await startRosterLoad(
+        'game-series-play-all',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+        ],
+        undefined,
+        { ...bestOf, length: 4, playAll: true },
+      )
+
+      expect(publishedSetupFor(p1).seriesOverlay.format).toEqual({
+        kind: 'bestOf',
+        length: 4,
+        playAll: true,
+      })
+
+      gameLoader.registerGameAsLoaded('game-series-play-all', p1)
+      gameLoader.registerGameAsLoaded('game-series-play-all', p2)
+      await load
+    })
+
     test("carries the caster overlay's lines and logo URL", async () => {
       const { load } = await startRosterLoad(
         'game-series-overlay',

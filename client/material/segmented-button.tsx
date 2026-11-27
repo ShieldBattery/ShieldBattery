@@ -10,7 +10,8 @@ import { Ripple } from './ripple'
 /** One choice in a `SegmentedButtonGroup`. */
 export interface Segment<T> {
   value: T
-  label: string
+  /** Usually text; a label that can run long can be an `EllipsizedText` with a maximum width. */
+  label: React.ReactNode
   /**
    * Whether this choice turns something off. Selected, it's filled with a quiet neutral rather than
    * the primary color, so a row of groups shows at a glance which things are in use.

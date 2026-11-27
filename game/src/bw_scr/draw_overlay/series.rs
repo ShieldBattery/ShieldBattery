@@ -196,7 +196,9 @@ fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<Resolved>> {
     let display_names = DisplayNames::resolve(&series.display_names, &slots);
     info!("Display names for the observer panels: {display_names:?}");
     let format = match series.format {
-        SeriesOverlayFormat::BestOf { length } => SeriesFormat::BestOf { length },
+        SeriesOverlayFormat::BestOf { length, play_all } => {
+            SeriesFormat::BestOf { length, play_all }
+        }
         SeriesOverlayFormat::Unknown => {
             warn!("The game's series is in a format this build doesn't know; not showing it");
             return Some(Some(Resolved {

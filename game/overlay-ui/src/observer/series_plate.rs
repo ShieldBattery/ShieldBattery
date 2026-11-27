@@ -164,11 +164,23 @@ impl MiddleBlock {
 /// What the middle block says the series is played as.
 fn format_label(series: &SeriesView) -> String {
     match series.format {
-        SeriesFormat::BestOf { length } => tr_plural!(
+        SeriesFormat::BestOf {
+            length,
+            play_all: false,
+        } => tr_plural!(
             "observer.seriesBestOf",
             length,
             one = "Best of {{count}}",
             other = "Best of {{count}}"
+        ),
+        SeriesFormat::BestOf {
+            length,
+            play_all: true,
+        } => tr_plural!(
+            "observer.seriesPlayAll",
+            length,
+            one = "{{count}} game",
+            other = "{{count}} games"
         ),
     }
 }
@@ -439,12 +451,27 @@ mod tests {
     fn longest_series() -> SeriesView {
         SeriesView {
             title: Some("W".repeat(50)),
-            format: SeriesFormat::BestOf { length: 99 },
+            format: SeriesFormat::BestOf {
+                length: 99,
+                play_all: false,
+            },
             game_number: 24,
             scores: [12, 11],
             lines: Vec::new(),
             logo: None,
             side_names: [None, None],
+        }
+    }
+
+    /// A play-all series of ninety-nine games at twelve to eleven going into its twenty-fourth,
+    /// under fifty of the widest letter as its title.
+    fn longest_play_all_series() -> SeriesView {
+        SeriesView {
+            format: SeriesFormat::BestOf {
+                length: 99,
+                play_all: true,
+            },
+            ..longest_series()
         }
     }
 
@@ -516,7 +543,13 @@ mod tests {
 
     #[test]
     fn a_narrowing_room_elides_the_names_before_it_drops_them() {
-        let view = series_game(&[1, 2], longest_series());
+        for series in [longest_series(), longest_play_all_series()] {
+            check_narrowing_room(series);
+        }
+    }
+
+    fn check_narrowing_room(series: SeriesView) {
+        let view = series_game(&[1, 2], series);
         crate::observer::test_support::settled_at(egui::vec2(1920.0, 1080.0), |ctx| {
             let series = view.shown_series()?;
             let full = Plate::lay_out(ctx, &view, series, f32::INFINITY);
@@ -552,6 +585,21 @@ mod tests {
             Some(())
         })
         .expect("the plates are laid out");
+    }
+
+    #[test]
+    fn the_middle_block_words_the_format_by_whether_every_game_is_played() {
+        let label = |length, play_all| {
+            format_label(&SeriesView {
+                format: SeriesFormat::BestOf { length, play_all },
+                ..longest_series()
+            })
+        };
+        assert_eq!(label(5, false), "Best of 5");
+        assert_eq!(label(2, false), "Best of 2");
+        assert_eq!(label(5, true), "5 games");
+        assert_eq!(label(2, true), "2 games");
+        assert_eq!(label(1, true), "1 game");
     }
 
     #[test]
@@ -713,7 +761,10 @@ mod tests {
     fn running_series() -> SeriesView {
         SeriesView {
             title: Some("Grand Final".to_string()),
-            format: SeriesFormat::BestOf { length: 7 },
+            format: SeriesFormat::BestOf {
+                length: 7,
+                play_all: false,
+            },
             game_number: 4,
             scores: [2, 1],
             ..longest_series()

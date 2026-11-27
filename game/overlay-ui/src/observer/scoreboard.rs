@@ -365,7 +365,10 @@ mod tests {
     fn a_series_leaves_the_panel_exactly_as_it_is_without_one() {
         let series = crate::observer::SeriesView {
             title: Some("W".repeat(50)),
-            format: crate::observer::SeriesFormat::BestOf { length: 99 },
+            format: crate::observer::SeriesFormat::BestOf {
+                length: 99,
+                play_all: false,
+            },
             game_number: 24,
             scores: [12, 11],
             lines: vec!["a".repeat(60), "W".repeat(60)],

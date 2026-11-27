@@ -14,6 +14,7 @@ import {
   getDisplayedBestOf,
   getRecentGameLimit,
   groupSessionGames,
+  SessionGamesEntry,
 } from './best-of-display'
 
 const ALICE = makeSbUserId(1)
@@ -69,6 +70,20 @@ const ENDED: LobbyBestOfJson = {
   outcome: { kind: 'won', winner: 0 },
 }
 
+/** Writes a list entry the way the tests compare them. */
+function describeEntry(entry: SessionGamesEntry): string {
+  switch (entry.kind) {
+    case 'bestOf':
+      return `bestOf ${entry.bestOf.id}`
+    case 'game':
+      return `${entry.game.gameId}:${entry.gameNumber}`
+    case 'addedResult':
+      return `+${entry.result.resultId}:${entry.gameNumber}`
+    default:
+      return entry satisfies never
+  }
+}
+
 describe('client/lobbies/room/best-of-display', () => {
   describe('getDisplayedBestOf', () => {
     const series = ['g1', 'g2'].map(seriesGame)
@@ -81,6 +96,16 @@ describe('client/lobbies/room/best-of-display', () => {
       expect(getDisplayedBestOf([ENDED], series, false)).toBe(ENDED)
       expect(getDisplayedBestOf([ENDED], series, true)).toBeUndefined()
       expect(getDisplayedBestOf([ENDED], [...series, seriesGame('g3')], false)).toBeUndefined()
+    })
+
+    test('keeps a reopened series up once the lobby has played one of its games again', () => {
+      const reopened: LobbyBestOfJson = {
+        ...ENDED,
+        games: [...ENDED.games, { gameId: 'g4', status: 'won', winner: 0 }],
+      }
+      const games = ['g1', 'g2', 'g3', 'g4'].map(seriesGame)
+      expect(getDisplayedBestOf([reopened], games, false)).toBe(reopened)
+      expect(getDisplayedBestOf([reopened], games.slice(0, 3), false)).toBeUndefined()
     })
 
     test('shows nothing for a series that ended without a finished game', () => {
@@ -111,13 +136,114 @@ describe('client/lobbies/room/best-of-display', () => {
         { ...RUNNING, outcome: { kind: 'unfinished' } },
       ])
 
-      expect(
-        entries.map(entry =>
-          entry.kind === 'bestOf'
-            ? `bestOf ${entry.bestOf.id}`
-            : `${entry.game.gameId}:${entry.gameNumber}`,
-        ),
-      ).toEqual(['g1:1', 'bestOf 1', 'g2:1', 'bestOf 2', 'g3:1', 'g4:2', 'g5:2', 'g6:6'])
+      expect(entries.map(describeEntry)).toEqual([
+        'g1:1',
+        'bestOf 1',
+        'g2:1',
+        'bestOf 2',
+        'g3:1',
+        'g4:2',
+        'g5:2',
+        'g6:6',
+      ])
+    })
+
+    test('lists added results where the series holds them among its games', () => {
+      const withAdded: LobbyBestOfJson = {
+        ...RUNNING,
+        games: [
+          { resultId: 'a', status: 'won', winner: 1 },
+          { gameId: 'g3', status: 'won', winner: 0 },
+          { resultId: 'b', status: 'won', winner: 0 },
+          { resultId: 'c', status: 'won', winner: 1 },
+          { gameId: 'g4', status: 'won', winner: 1 },
+          { resultId: 'd', status: 'won', winner: 0 },
+        ],
+        outcome: { kind: 'won', winner: 1 },
+      }
+      const entries = groupSessionGames(['g1', 'g3', 'g4', 'g5'].map(seriesGame), [withAdded])
+
+      expect(entries.map(describeEntry)).toEqual([
+        'g1:1',
+        'bestOf 2',
+        '+a:1',
+        'g3:2',
+        '+b:3',
+        '+c:4',
+        'g4:5',
+        '+d:6',
+        'g5:4',
+      ])
+    })
+
+    test('lists the added results of the running series under its header before any game', () => {
+      const running: LobbyBestOfJson = {
+        ...RUNNING,
+        games: [
+          { resultId: 'a', status: 'won', winner: 0 },
+          { resultId: 'b', status: 'won', winner: 1 },
+        ],
+      }
+      const entries = groupSessionGames(['g1'].map(seriesGame), [running])
+
+      expect(entries.map(describeEntry)).toEqual(['g1:1', 'bestOf 2', '+a:1', '+b:2'])
+    })
+
+    test('lists the added results after a pending game where the series holds them', () => {
+      const running: LobbyBestOfJson = {
+        ...RUNNING,
+        games: [
+          { gameId: 'g3', status: 'won', winner: 0 },
+          { gameId: 'g4', status: 'pending' },
+          { resultId: 'a', status: 'won', winner: 1 },
+        ],
+      }
+      const entries = groupSessionGames(['g3'].map(seriesGame), [running])
+
+      expect(entries.map(describeEntry)).toEqual(['bestOf 2', 'g3:1', '+a:2'])
+    })
+
+    test('heads a series again when it resumes after games outside it, with unique keys', () => {
+      // The series ended after g3, the lobby played g4 outside it, then a correction reopened it
+      // and g5 joined it. A result added between g3 and g5 is listed just before g5, and the one
+      // added after g5 closes the series' last run.
+      const reopened: LobbyBestOfJson = {
+        ...RUNNING,
+        games: [
+          { gameId: 'g3', status: 'won', winner: 0 },
+          { resultId: 'a', status: 'won', winner: 1 },
+          { gameId: 'g5', status: 'won', winner: 0 },
+          { resultId: 'b', status: 'won', winner: 0 },
+        ],
+      }
+      const entries = groupSessionGames(['g3', 'g4', 'g5'].map(seriesGame), [reopened])
+
+      expect(entries.map(describeEntry)).toEqual([
+        'bestOf 2',
+        'g3:1',
+        'g4:2',
+        'bestOf 2',
+        '+a:2',
+        'g5:3',
+        '+b:4',
+      ])
+      const keys = entries.map(entry => entry.key)
+      expect(new Set(keys).size).toBe(keys.length)
+    })
+
+    test('results after the last finished game close its run, even with games after it', () => {
+      // Reopened after the lobby played g4 outside it, and ended again by an added win.
+      const reopened: LobbyBestOfJson = {
+        ...RUNNING,
+        games: [
+          { gameId: 'g3', status: 'won', winner: 0 },
+          { resultId: 'a', status: 'won', winner: 0 },
+        ],
+        outcome: { kind: 'won', winner: 0 },
+      }
+      const entries = groupSessionGames(['g3', 'g4'].map(seriesGame), [reopened])
+
+      expect(entries.map(describeEntry)).toEqual(['bestOf 2', 'g3:1', '+a:2', 'g4:2'])
     })
 
     test('heads the running series at the end before it has a finished game', () => {

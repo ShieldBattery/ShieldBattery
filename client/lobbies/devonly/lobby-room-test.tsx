@@ -6,6 +6,7 @@ import { BenchedUser, findSlotById, getHumanSlots, Lobby, Team } from '../../../
 import {
   BestOfSideIndex,
   getRunningBestOf,
+  isBestOfAddedResult,
   LobbyBestOfJson,
   LobbyBestOfSideNames,
   LobbyBestOfSides,
@@ -43,6 +44,13 @@ import { titleMedium } from '../../styles/typography'
 import { LobbyRoom } from '../room/lobby-room'
 import { canMoveSlot } from '../room/slot-movement'
 import { IsolatedReduxProvider } from './isolated-redux'
+import {
+  mockAddBestOfResult,
+  MockBestOfChange,
+  mockRemoveBestOfResult,
+  mockSetBestOfGameResult,
+  mockUpdateBestOfFormat,
+} from './mock-best-of-corrections'
 import { applyMockBestOfNames } from './mock-best-of-names'
 import { ScenarioPicker } from './scenario-picker'
 
@@ -99,6 +107,9 @@ type ScenarioId =
   | 'bestOfNamedNobodySeated'
   | 'bestOfUnnamedNobodySeated'
   | 'bestOfNamedLong'
+  | 'bestOfDrawn'
+  | 'bestOfPlayAll'
+  | 'bestOfCorrected'
 type ViewpointId = 'host' | 'member' | 'benched'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -118,6 +129,9 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'bestOfNamedNobodySeated', label: 'Series · named side with nobody seated' },
   { id: 'bestOfUnnamedNobodySeated', label: 'Series · unnamed side with nobody seated' },
   { id: 'bestOfNamedLong', label: 'Series · named 4v4, long names' },
+  { id: 'bestOfDrawn', label: 'Series · Bo4 drawn 2–2' },
+  { id: 'bestOfPlayAll', label: 'Series · 5 games, all played, at 2–1' },
+  { id: 'bestOfCorrected', label: 'Series · game set by host + added win' },
 ]
 
 const VIEWPOINTS: ReadonlyArray<{ id: ViewpointId; label: string }> = [
@@ -474,6 +488,7 @@ function playBestOf(
   {
     title,
     length,
+    playAll,
     sides = TWO_V_TWO_SIDES,
     sideNames,
     games,
@@ -481,16 +496,19 @@ function playBestOf(
   }: {
     title?: string
     length: number
+    playAll?: boolean
     sides?: LobbyBestOfSides
     sideNames?: LobbyBestOfSideNames
     games: ReadonlyArray<BestOfGamePlan>
-    end?: 'won' | 'unfinished'
+    /** How the last game ends the series, if it does: won by its winner, or drawn. */
+    end?: 'won' | 'drawn' | 'unfinished'
   },
-) {
+): LobbyBestOfJson {
   let bestOf: LobbyBestOfJson = {
     id: 'mock-best-of',
     ...(title ? { title } : {}),
     length,
+    ...(playAll ? { playAll: true } : {}),
     sides,
     ...(sideNames ? { sideNames } : {}),
     games: [],
@@ -522,7 +540,9 @@ function playBestOf(
     if (plan === 'notCounted') {
       bestOf = {
         ...bestOf,
-        games: bestOf.games.map(g => (g.gameId === gameId ? { gameId, status: 'notCounted' } : g)),
+        games: bestOf.games.map(g =>
+          !isBestOfAddedResult(g) && g.gameId === gameId ? { gameId, status: 'notCounted' } : g,
+        ),
       }
       dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
       return
@@ -546,7 +566,7 @@ function playBestOf(
     bestOf = {
       ...bestOf,
       games: bestOf.games.map(g => {
-        if (g.gameId !== gameId) {
+        if (isBestOfAddedResult(g) || g.gameId !== gameId) {
           return g
         }
         return plan === 'noWinner'
@@ -554,8 +574,11 @@ function playBestOf(
           : { gameId, status: 'won', winner: plan }
       }),
     }
-    if (end === 'won' && index === games.length - 1 && plan !== 'noWinner') {
-      bestOf = { ...bestOf, outcome: { kind: 'won', winner: plan } }
+    if ((end === 'won' || end === 'drawn') && index === games.length - 1 && plan !== 'noWinner') {
+      bestOf = {
+        ...bestOf,
+        outcome: end === 'won' ? { kind: 'won', winner: plan } : { kind: 'drawn' },
+      }
       dispatch({ type: '@lobbies/updateBestOfEnded', payload: { type: 'bestOfEnded', bestOf } })
     } else {
       dispatch({ type: '@lobbies/updateBestOfUpdated', payload: { type: 'bestOfUpdated', bestOf } })
@@ -572,6 +595,18 @@ function playBestOf(
     }
     dispatch({ type: '@lobbies/updateBestOfEnded', payload: { type: 'bestOfEnded', bestOf } })
   }
+  return bestOf
+}
+
+/** Plays out a correction of a mock series through the events the server sends for it. */
+function correctBestOf(
+  dispatch: LobbyTestDispatch,
+  { bestOf, actions }: MockBestOfChange,
+): LobbyBestOfJson {
+  for (const action of actions) {
+    dispatch(action)
+  }
+  return bestOf
 }
 
 /**
@@ -672,7 +707,10 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
     scenario === 'bestOfEndedEarly' ||
     scenario === 'bestOfNamed' ||
     scenario === 'bestOfNamedNobodySeated' ||
-    scenario === 'bestOfUnnamedNobodySeated'
+    scenario === 'bestOfUnnamedNobodySeated' ||
+    scenario === 'bestOfDrawn' ||
+    scenario === 'bestOfPlayAll' ||
+    scenario === 'bestOfCorrected'
   ) {
     dispatch({
       type: '@lobbies/init',
@@ -709,6 +747,30 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       })
     } else if (scenario === 'bestOfUnnamedNobodySeated') {
       playBestOf(dispatch, { length: 3, sides: UNSEATED_SIDES, games: [0] })
+    } else if (scenario === 'bestOfDrawn') {
+      playBestOf(dispatch, {
+        title: 'Showmatch',
+        length: 4,
+        sideNames: NAMED_SIDES,
+        games: [0, 1, 1, 0],
+        end: 'drawn',
+      })
+    } else if (scenario === 'bestOfPlayAll') {
+      playBestOf(dispatch, { length: 5, playAll: true, games: [0, 1, 0] })
+    } else if (scenario === 'bestOfCorrected') {
+      // The second game's results named the wrong side, and the first side forfeited a game
+      // played elsewhere before the series moved to this lobby.
+      let bestOf = playBestOf(dispatch, {
+        title: 'Grand Final',
+        length: 5,
+        sideNames: NAMED_SIDES,
+        games: [0, 1, 'noWinner'],
+      })
+      bestOf = correctBestOf(
+        dispatch,
+        mockSetBestOfGameResult(bestOf, 'mock-best-of-game-2', { status: 'won', winner: 0 }),
+      )
+      correctBestOf(dispatch, mockAddBestOfResult(bestOf, 1))
     } else if (scenario === 'bestOfWon') {
       playBestOf(dispatch, {
         title: 'Grand Final',
@@ -934,6 +996,7 @@ function LobbyRoomTestInner() {
   const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(viewerId))
   const bestOfs = useAppSelector(s => s.lobby.bestOfs)
   const runningBestOf = getRunningBestOf(bestOfs)
+  const latestBestOf = bestOfs.at(-1)
 
   return (
     <Container>
@@ -1030,6 +1093,7 @@ function LobbyRoomTestInner() {
                 id: `mock-started-best-of-${bestOfs.length + 1}`,
                 ...(request.title ? { title: request.title } : {}),
                 length: request.length,
+                ...(request.playAll ? { playAll: true } : {}),
                 sides: request.sides,
                 games: [],
                 overlay: toBestOfOverlayJson({
@@ -1071,11 +1135,8 @@ function LobbyRoomTestInner() {
                     updated.title = request.title
                   }
                 }
-                const bestOf = applyMockBestOfNames(updated, request, 'update')
-                dispatch({
-                  type: '@lobbies/updateBestOfUpdated',
-                  payload: { type: 'bestOfUpdated', bestOf },
-                })
+                const named = applyMockBestOfNames(updated, request, 'update')
+                correctBestOf(dispatch, mockUpdateBestOfFormat(runningBestOf, named, request))
               }
               spec.onSuccess()
             }}
@@ -1113,22 +1174,33 @@ function LobbyRoomTestInner() {
               }, 300)
             }}
             onDiscardBestOfGame={gameId => {
-              if (runningBestOf) {
-                dispatch({
-                  type: '@lobbies/updateBestOfUpdated',
-                  payload: {
-                    type: 'bestOfUpdated',
-                    bestOf: {
-                      ...runningBestOf,
-                      games: runningBestOf.games.map(g =>
-                        g.gameId === gameId ? { gameId, status: 'notCounted' } : g,
-                      ),
-                    },
-                  },
-                })
+              if (latestBestOf) {
+                correctBestOf(
+                  dispatch,
+                  mockSetBestOfGameResult(latestBestOf, gameId, { status: 'notCounted' }),
+                )
               }
             }}
-
+            onSetBestOfGameResult={(gameId, result, spec) => {
+              if (latestBestOf) {
+                spec.onSuccess(
+                  correctBestOf(dispatch, mockSetBestOfGameResult(latestBestOf, gameId, result)),
+                )
+              }
+            }}
+            onAddBestOfResult={(winner, spec) => {
+              if (latestBestOf) {
+                spec.onSuccess(correctBestOf(dispatch, mockAddBestOfResult(latestBestOf, winner)))
+              }
+            }}
+            onRemoveBestOfResult={(resultId, spec) => {
+              const change = latestBestOf
+                ? mockRemoveBestOfResult(latestBestOf, resultId)
+                : undefined
+              if (change) {
+                spec.onSuccess(correctBestOf(dispatch, change))
+              }
+            }}
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}
             onViewGameSummary={gameId => console.log('onViewGameSummary', gameId)}
           />

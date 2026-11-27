@@ -12,6 +12,7 @@ import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
 import {
   BestOfDisplayName,
   BestOfDisplayNameChange,
+  BestOfHostResult,
   BestOfSideIndex,
   LobbyBestOfJson,
   LobbyBestOfOverlayJson,
@@ -79,11 +80,14 @@ export enum LobbyServiceErrorCode {
    * or a declared text encoding other than UTF-8.
    */
   BestOfLogoUnsupportedSvg = 'BestOfLogoUnsupportedSvg',
-  /** The host tried to discard a game that isn't a pending game of the running best-of series. */
-  BestOfGameNotPending = 'BestOfGameNotPending',
+  /**
+   * A correction named a game or hand-added result that isn't one of the lobby's latest best-of
+   * series.
+   */
+  BestOfResultNotFound = 'BestOfResultNotFound',
   /**
    * A game was started while a game of the running best-of series has no settled result yet (nor
-   * has been discarded by the host).
+   * one the host set).
    */
   BestOfGamePending = 'BestOfGamePending',
   /**
@@ -100,8 +104,9 @@ export enum LobbyServiceErrorCode {
   GameInProgress = 'GameInProgress',
   /**
    * A best-of series' length, title, sides, side names, display names or caster overlay lines
-   * aren't ones it can be played with (its text is checked by `getBestOfTextProblem`), or a change
-   * to it changes nothing.
+   * aren't ones it can be played with (its text is checked by `getBestOfTextProblem`), a change to
+   * it changes nothing (a game set to the result it already counts as among them), or a hand-added
+   * result would take its score to `BEST_OF_MAX_LENGTH` wins or more.
    */
   InvalidBestOf = 'InvalidBestOf',
   InvalidGameSubType = 'InvalidGameSubType',
@@ -115,6 +120,8 @@ export enum LobbyServiceErrorCode {
   LobbyFull = 'LobbyFull',
   MapNotDownloaded = 'MapNotDownloaded',
   NoActiveClient = 'NoActiveClient',
+  /** A correction of a best-of series' results was asked of a lobby that has had none. */
+  NoBestOf = 'NoBestOf',
   /** A best-of series action needs one to be running, and none is. */
   NoBestOfRunning = 'NoBestOfRunning',
   NoLobby = 'NoLobby',
@@ -300,8 +307,13 @@ export interface StartLobbyCountdownRequest extends LobbyClientRequest {
  * series starts with.
  */
 export interface StartLobbyBestOfRequest extends LobbyClientRequest {
-  /** An odd number of games, at most `BEST_OF_MAX_LENGTH`. */
+  /** A whole number of games from 1 to `BEST_OF_MAX_LENGTH`, odd or even. */
   length: number
+  /**
+   * When set, the series is played to its full length: it ends only once `length` games have
+   * counted, not as soon as a side has won a majority of them.
+   */
+  playAll?: boolean
   /**
    * Trimmed, at most `BEST_OF_TITLE_MAX_LENGTH` characters. An empty title is no title. Like every
    * text field of a series, refused for what `getBestOfTextProblem` refuses.
@@ -334,13 +346,24 @@ export interface StartLobbyBestOfRequest extends LobbyClientRequest {
 
 /**
  * The request by the host to change the running best-of series. Absent fields are left as they are,
- * and at least one change (a field or a logo file) has to be given. Its length can't be changed.
+ * and at least one change (a field or a logo file) has to be given; a `length` or `playAll` equal to
+ * the series' own is no change.
  *
  * Sent as `multipart/form-data`: this object as JSON in the `changes` field, and optionally a new
  * logo file in the `logo` field. The lines and logo the series has afterwards become the ones the
  * host's next series starts with.
  */
 export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
+  /**
+   * The new length, with the same rules as when starting one. A length the results already decide
+   * ends the series at once.
+   */
+  length?: number
+  /**
+   * Whether the series is played to its full length, as when starting one. Turning it off can end
+   * the series at once, when a side already has a majority.
+   */
+  playAll?: boolean
   /** The new title; `null` or an empty title clears it. */
   title?: string | null
   /**
@@ -388,17 +411,48 @@ export interface GetRememberedBestOfDisplayNamesResponse {
 }
 
 /**
- * The body of a request by the host to end the running best-of series before either side has won
+ * The body of a request by the host to end the running best-of series before its results decide
  * it. Its games with no settled result are no longer counted.
  */
 export type EndLobbyBestOfRequest = LobbyClientRequest
 
 /**
- * The body of a request by the host to stop counting a game of the running best-of series whose
- * results haven't settled, so the series can go on without them.
+ * The body of a request by the host to set the result of a game of the lobby's latest best-of
+ * series, running or ended, whether the game's own results have settled or not. Results that
+ * settle for the game later change nothing. Setting a game to the result it already counts as is
+ * refused.
+ *
+ * Sent as JSON. Answered with a `LobbyBestOfCorrectionResponse`.
  */
-export interface DiscardLobbyBestOfGameRequest extends LobbyClientRequest {
+export interface SetLobbyBestOfGameResultRequest extends LobbyClientRequest {
   gameId: string
+  result: BestOfHostResult
+}
+
+/**
+ * The body of a request by the host to add a win for a side to the lobby's latest best-of series,
+ * running or ended, with no game behind it. Refused once the series' score adds up to
+ * `BEST_OF_MAX_LENGTH` wins.
+ *
+ * Answered with a `LobbyBestOfCorrectionResponse`.
+ */
+export interface AddLobbyBestOfResultRequest extends LobbyClientRequest {
+  winner: BestOfSideIndex
+}
+
+/**
+ * The body of a request by the host to remove a result they added by hand from the lobby's latest
+ * best-of series, running or ended.
+ *
+ * Answered with a `LobbyBestOfCorrectionResponse`.
+ */
+export interface RemoveLobbyBestOfResultRequest extends LobbyClientRequest {
+  resultId: string
+}
+
+/** The response to a correction of a best-of series' results: the series after it. */
+export interface LobbyBestOfCorrectionResponse {
+  bestOf: LobbyBestOfJson
 }
 
 /**
@@ -556,6 +610,7 @@ export type LobbyEvent =
   | LobbyTeamsShuffledEvent
   | LobbyBestOfStartedEvent
   | LobbyBestOfUpdatedEvent
+  | LobbyBestOfCorrectedEvent
   | LobbyBestOfEndedEvent
 
 /**
@@ -899,20 +954,49 @@ export interface LobbyBestOfStartedEvent {
 }
 
 /**
- * A best-of series changed without starting or ending: the host edited it, one of its games
- * launched (published after the {@link LobbyGameStartedEvent}), or one of its games was settled
- * (published after the {@link LobbySeriesGameUpdatedEvent}) or discarded. Carries the whole series,
- * to replace the one with the same `id`.
+ * A best-of series changed without the host correcting it and without its outcome changing: the
+ * host edited its title, sides, names or caster overlay, one of its games launched (published after
+ * the {@link LobbyGameStartedEvent}), or one of its games settled (published after the
+ * {@link LobbySeriesGameUpdatedEvent}) without deciding it anew. Carries the whole series, which can
+ * have an `outcome` (a game of a series a correction decided can settle afterwards), to replace the
+ * one with the same `id`.
  */
 export interface LobbyBestOfUpdatedEvent {
   type: 'bestOfUpdated'
   bestOf: LobbyBestOfJson
 }
 
+/** A correction the host made to a best-of series' results or format. */
+export type LobbyBestOfCorrection =
+  /** The host set the result of one of its games. */
+  | { kind: 'gameResult'; gameId: string; result: BestOfHostResult }
+  /** The host added a win for `winner` with no game behind it. */
+  | { kind: 'resultAdded'; winner: BestOfSideIndex }
+  /** The host removed a win for `winner` they had added by hand. */
+  | { kind: 'resultRemoved'; winner: BestOfSideIndex }
+  /** The host changed the series' length or whether it is played to its full length. */
+  | { kind: 'format'; length: number; playAll: boolean }
+
 /**
- * A best-of series ended, either because a side won it (published after the
- * {@link LobbySeriesGameUpdatedEvent} of the deciding game) or because the host ended it early.
- * Carries the whole series with its `outcome` set, to replace the one with the same `id`.
+ * The host corrected a best-of series' results or format. Carries the whole series as it is
+ * afterwards, outcome included, to replace the one with the same `id`. When the correction decides
+ * the series anew (it had no outcome, or a different one), a {@link LobbyBestOfEndedEvent} follows.
+ */
+export interface LobbyBestOfCorrectedEvent {
+  type: 'bestOfCorrected'
+  bestOf: LobbyBestOfJson
+  correction: LobbyBestOfCorrection
+  /** The series had been won or drawn and the correction left it undecided, so it runs again. */
+  reopened: boolean
+}
+
+/**
+ * A best-of series ended, or ended differently: its results decided it (published after the
+ * {@link LobbySeriesGameUpdatedEvent} of the deciding game, or after the
+ * {@link LobbyBestOfCorrectedEvent} of the deciding correction), or the host ended it early. It is
+ * published only when a series' outcome changes to one it didn't have, so a correction that leaves
+ * a series ended the same way publishes none. Carries the whole series with its `outcome` set, to
+ * replace the one with the same `id`.
  */
 export interface LobbyBestOfEndedEvent {
   type: 'bestOfEnded'

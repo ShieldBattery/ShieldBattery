@@ -28,13 +28,13 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
+  addBestOfResult,
   addComputer,
   banPlayer,
   cancelCountdown,
   changeSlot,
   closeSlot,
   deactivateLobby,
-  discardBestOfGame,
   endBestOf,
   getLobbyState,
   getRememberedBestOfDisplayNames,
@@ -44,8 +44,10 @@ import {
   makeObserver,
   moveSlot,
   openSlot,
+  removeBestOfResult,
   removeObserver,
   sendChat,
+  setBestOfGameResult,
   setRace,
   setReady,
   shuffleSlots,
@@ -343,7 +345,22 @@ function ConnectedLobby() {
         dispatch(getRememberedBestOfDisplayNames(userIds, spec))
       }}
       onDiscardBestOfGame={gameId => {
-        dispatch(discardBestOfGame(gameId, actionSpec))
+        dispatch(
+          setBestOfGameResult(
+            gameId,
+            { status: 'notCounted' },
+            { onSuccess: () => {}, onError: onActionError },
+          ),
+        )
+      }}
+      onSetBestOfGameResult={(gameId, result, spec) => {
+        dispatch(setBestOfGameResult(gameId, result, spec))
+      }}
+      onAddBestOfResult={(winner, spec) => {
+        dispatch(addBestOfResult(winner, spec))
+      }}
+      onRemoveBestOfResult={(resultId, spec) => {
+        dispatch(removeBestOfResult(resultId, spec))
       }}
       onWatchReplay={onWatchReplay}
       onViewGameSummary={gameId => {
