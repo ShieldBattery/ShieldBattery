@@ -2177,6 +2177,9 @@ pub enum Series {
     /// its twenty-fourth, under the longest title a lobby allows, with every player carrying the
     /// longest name the game allows.
     Stretched,
+    /// The running best of three with no title, which leaves the tab under the plate only what the
+    /// casters set.
+    Untitled,
 }
 
 impl Series {
@@ -2186,6 +2189,7 @@ impl Series {
             Series::None => "",
             Series::Running => "series",
             Series::Stretched => "series-stress",
+            Series::Untitled => "series-untitled",
         }
     }
 }
@@ -2265,9 +2269,11 @@ impl Caster {
     /// The casters' setups each shape of series game is rendered with, past the series alone: the
     /// lines alone, the logo alone, and both, with the stress series where its long title is what
     /// the rows have to share the tab with.
-    const RENDERED: [(Series, Caster); 8] = [
+    const RENDERED: [(Series, Caster); 10] = [
         (Series::Running, Caster::Line),
         (Series::Running, Caster::Lines),
+        (Series::Untitled, Caster::Lines),
+        (Series::Untitled, Caster::Logo(SampleLogo::Square)),
         (Series::Running, Caster::LongLines),
         (Series::Stretched, Caster::LongLines),
         (Series::Running, Caster::Logo(SampleLogo::Square)),
@@ -2427,16 +2433,16 @@ impl Preset {
     }
 
     /// The series games rendered with something on their caster overlay: each setup in
-    /// [`Caster::RENDERED`] in both of the matchup's forms for one and two a side, and on the bar
-    /// alone between the corner cards at three a side, where the compact scoreboard is no
-    /// different from two a side's but for its rows.
+    /// [`Caster::RENDERED`] on the bar and on the plate the compact scoreboard leaves the series,
+    /// for one, two and three a side.
     pub fn caster_presets() -> impl Iterator<Item = Preset> {
-        const SHAPES: [(usize, usize, Top); 5] = [
+        const SHAPES: [(usize, usize, Top); 6] = [
             (2, 1, Top::Bar),
             (2, 1, Top::Compact),
             (4, 2, Top::Bar),
             (4, 2, Top::Compact),
             (6, 3, Top::Bar),
+            (6, 3, Top::Compact),
         ];
         Caster::RENDERED.into_iter().flat_map(|(series, caster)| {
             SHAPES.map(|(players, team_size, top)| {
@@ -2445,7 +2451,7 @@ impl Preset {
         })
     }
 
-    pub const ALL: [Preset; 61] = [
+    pub const ALL: [Preset; 62] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2523,6 +2529,8 @@ impl Preset {
         Preset::series(2, 1, Series::Running, Top::BarWithoutSeries),
         Preset::series(6, 3, Series::Running, Top::BarWithoutSeries),
         Preset::series(2, 1, Series::Running, Top::CompactWithoutSeries),
+        // A series with nothing for the tab under its plate, which hangs none.
+        Preset::series(2, 1, Series::Untitled, Top::Compact),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -2626,6 +2634,10 @@ impl Preset {
         match self.series {
             Series::None => {}
             Series::Running => knobs.observer.series = true,
+            Series::Untitled => {
+                knobs.observer.series = true;
+                knobs.observer.series_title = String::new();
+            }
             Series::Stretched => {
                 knobs.observer.series = true;
                 knobs.observer.series_title = LONG_SERIES_TITLE.to_string();

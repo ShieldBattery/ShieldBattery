@@ -354,7 +354,8 @@ mod tests {
     }
 
     /// The series is a panel of its own, so a series game's Matchup panel is the panel of a game
-    /// with no series: the same height, the same name slots, the same everything.
+    /// with no series: the same height, the same name slots, the same everything, whatever lines
+    /// and logo the series carries for the casters.
     #[test]
     fn a_series_leaves_the_panel_exactly_as_it_is_without_one() {
         let series = crate::observer::SeriesView {
@@ -362,8 +363,11 @@ mod tests {
             format: crate::observer::SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
-            lines: Vec::new(),
-            logo: None,
+            lines: vec!["a".repeat(60), "W".repeat(60)],
+            logo: Some(crate::observer::SeriesLogo {
+                texture: egui::TextureId::User(1),
+                size: [576, 144],
+            }),
         };
         for teams in [
             &[1, 2][..],

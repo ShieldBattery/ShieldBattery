@@ -155,10 +155,11 @@ under its middle; put away, the bar is the bar of a game with no series. Whereve
 (the compact style, the matchup off, or the bar put away with `E`) the series stands on a **series
 plate** of its own (`observer::series_plate`) hung from the middle of the top edge: each side named
 at its end (one player, two stacked, or the side's label from three up), its score in a cell, and
-the format over the game number between them, with the bar's tab under it carrying the title. The
-plate keeps to the room between the wings, giving up its names to a narrow screen before anything
-else, and the map-control strip hangs under it as it hangs under the bar. The Matchup panel itself
-never carries the series.
+the format over the game number between them, with the bar's tab under it carrying the title and
+whatever lines and logo the series was given for the casters, and no tab at all where it has none of
+those. The plate keeps to the room between the wings, giving up its names to a narrow screen before
+anything else, and the map-control strip hangs under it as it hangs under the bar. The Matchup panel
+itself never carries the series.
 
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell

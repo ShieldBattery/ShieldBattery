@@ -615,14 +615,14 @@ fn line_rows(lines: &[String]) -> Vec<LineRow<'_>> {
     }
 }
 
-/// The style the caster's lines are set in, wherever they are drawn: running text, a step quieter
-/// than the series line they follow.
-pub(crate) fn caster_line_spec() -> TextSpec {
+/// The style the caster's lines are set in: running text, a step quieter than the series line they
+/// follow.
+fn caster_line_spec() -> TextSpec {
     text::body(CASTER_LINE_SIZE, BodyWeight::Regular).with_color(theme::TEXT_SECONDARY)
 }
 
 /// Lays out `line`, a caster's line, elided at its end to `room`.
-pub(crate) fn lay_out_caster_line(ctx: &Context, line: &str, room: f32) -> Arc<Galley> {
+fn lay_out_caster_line(ctx: &Context, line: &str, room: f32) -> Arc<Galley> {
     let spec = caster_line_spec();
     spec.layout(ctx, spec.job_truncated(line, room))
 }
@@ -712,6 +712,16 @@ impl TabAnchor {
     /// Whether the series line in the tab says how far into the series the game is.
     fn says_progress(self) -> bool {
         self == TabAnchor::Bar
+    }
+
+    /// Whether a tab hung from this carries a series line for `series` at all: always under the
+    /// bar, and under the plate only for a series with a title, the line there being the title.
+    fn has_series_line(self, series: &SeriesView) -> bool {
+        self.says_progress()
+            || series
+                .title
+                .as_deref()
+                .is_some_and(|title| !title.is_empty())
     }
 }
 
@@ -843,7 +853,10 @@ impl MatchupView {
     /// How far down the screen the bar reaches, the series tab hung under its middle included, given
     /// whether the series panel is on: what a surface hung under the middle of the bar clears.
     pub fn bar_depth(&self, series_panel: bool) -> f32 {
-        self.form().height() + self.bar_series(series_panel).map_or(0.0, tab_height)
+        self.form().height()
+            + self
+                .bar_series(series_panel)
+                .map_or(0.0, |series| tab_height(series, TabAnchor::Bar))
     }
 
     /// The game's players grouped into the sides they are on, in the order the sides are listed.
@@ -966,11 +979,13 @@ fn tab_room(screen: Rect, form: MatchupForm, block: f32) -> f32 {
     }
 }
 
-/// How tall the series tab is for `series`: a row for the series line and one for each row of the
-/// caster's lines, and with a logo never shorter than the logo's cell. Settled by what the series
-/// carries rather than by the screen, so what hangs under the tab can be placed before it is drawn.
-fn tab_height(series: &SeriesView) -> f32 {
-    let rows = 1 + line_rows(series.caster_lines()).len();
+/// How tall the series tab hung from `anchor` is for `series`: a row for the series line where it
+/// has one and one for each row of the caster's lines, and with a logo never shorter than the
+/// logo's cell. Settled by what the series carries rather than by the screen, so what hangs under
+/// the tab can be placed before it is drawn.
+fn tab_height(series: &SeriesView, anchor: TabAnchor) -> f32 {
+    let line = usize::from(anchor.has_series_line(series));
+    let rows = line + line_rows(series.caster_lines()).len();
     let text = rows as f32 * TAB_ROW_HEIGHT;
     if series.logo.is_some() {
         text.max(LOGO_TAB_HEIGHT)
@@ -991,7 +1006,8 @@ struct Tab {
     height: f32,
     /// The logo and the size it is drawn at, where the series has one and the tab has room for it.
     logo: Option<(SeriesLogo, Vec2)>,
-    series_line: SeriesLine,
+    /// The series line, where the tab carries one.
+    series_line: Option<SeriesLine>,
     /// The rows of the caster's lines under the series line.
     rows: Vec<Arc<Galley>>,
 }
@@ -1004,14 +1020,16 @@ impl Tab {
     /// never narrower than what it hangs from nor wider than the room. One carrying the caster's
     /// lines is as wide as its widest row, in the same bounds and never wider than
     /// [`TAB_MAX_WIDTH`]. One with a logo is as wide as its contents, the logo's cell and the rows
-    /// beside it, however narrow that is, and in the same bounds otherwise. Where the room is
+    /// beside it, however narrow that is, and in the same bounds otherwise; one under the plate with
+    /// nothing but a logo in it is the logo, centered, and its padding. Where the room is
     /// narrower than what the tab hangs from, which no screen the game runs at comes near, the tab
     /// keeps the width it hangs from. A row that does not fit is elided at its end, each row on its
     /// own, and how far into the series the game is always stays whole: a logo with too little room
     /// beside it shrinks, and is left out once it would be too small to read.
     fn lay_out(ctx: &Context, series: &SeriesView, room: f32, anchor: TabAnchor) -> Tab {
         let line_rows = line_rows(series.caster_lines());
-        let height = tab_height(series);
+        let height = tab_height(series, anchor);
+        let has_series_line = anchor.has_series_line(series);
         let least = anchor.min_width();
         let cap = if line_rows.is_empty() && series.logo.is_none() {
             room
@@ -1022,7 +1040,14 @@ impl Tab {
         let text_natural = line_rows
             .iter()
             .map(|&row| lay_out_line_row(ctx, row, f32::INFINITY).size().x)
-            .fold(SeriesLine::natural_width(ctx, series, anchor), f32::max);
+            .fold(
+                if has_series_line {
+                    SeriesLine::natural_width(ctx, series, anchor)
+                } else {
+                    0.0
+                },
+                f32::max,
+            );
         let logo = series.logo.and_then(|logo| {
             let room = cap
                 - LOGO_CELL_EXTRA
@@ -1032,6 +1057,10 @@ impl Tab {
             (size.x >= MIN_LOGO_WIDTH.min(series_logo_size(logo.size).x)).then_some((logo, size))
         });
         let (width, text_room) = match logo {
+            // A logo with no text beside it is the tab's one thing, with nothing to wall off from.
+            Some((_, size)) if !has_series_line && line_rows.is_empty() => {
+                (even_width(size.x + LOGO_PAD_LEFT * 2.0).min(cap), 0.0)
+            }
             Some((_, size)) => {
                 let cell = LOGO_CELL_EXTRA + size.x + TAB_PAD * 2.0;
                 let width = even_width(cell + text_natural).min(cap);
@@ -1046,7 +1075,8 @@ impl Tab {
             width,
             height,
             logo,
-            series_line: SeriesLine::lay_out(ctx, series, text_room, anchor),
+            series_line: has_series_line
+                .then(|| SeriesLine::lay_out(ctx, series, text_room, anchor)),
             rows: line_rows
                 .into_iter()
                 .map(|row| lay_out_line_row(ctx, row, text_room))
@@ -1074,7 +1104,12 @@ impl Tab {
                 divides: false,
             },
         );
-        let text_left = self.logo.map(|(logo, size)| {
+        let logo_only = self.series_line.is_none() && self.rows.is_empty();
+        let text_left = self.logo.and_then(|(logo, size)| {
+            if logo_only {
+                paint_logo(ui, logo, Rect::from_center_size(tab.center(), size));
+                return None;
+            }
             let logo_rect = Rect::from_min_size(
                 pos2(tab.left() + LOGO_PAD_LEFT, tab.center().y - size.y * 0.5),
                 size,
@@ -1088,24 +1123,28 @@ impl Tab {
                 ],
                 egui::Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
             ));
-            x + theme::HAIRLINE * 0.5 + TAB_PAD
+            Some(x + theme::HAIRLINE * 0.5 + TAB_PAD)
         });
         // The rows are a block centered down the tab, which a logo taller than them leaves room
         // around.
-        let rows = 1 + self.rows.len();
+        let line_rows = usize::from(self.series_line.is_some());
+        let rows = line_rows + self.rows.len();
         let top = tab.top() + (tab.height() - rows as f32 * TAB_ROW_HEIGHT) * 0.5;
         let middle = |row: usize| top + TAB_ROW_HEIGHT * (row as f32 + 0.5);
-        let line = &self.series_line;
-        match text_left {
-            Some(left) => line.paint(ui, left, middle(0)),
-            None => line.paint(ui, tab.center().x - line.width() * 0.5, middle(0)),
+        if let Some(line) = &self.series_line {
+            match text_left {
+                Some(left) => line.paint(ui, left, middle(0)),
+                None => line.paint(ui, tab.center().x - line.width() * 0.5, middle(0)),
+            }
         }
         let spec = caster_line_spec();
         let pixels_per_point = ui.ctx().pixels_per_point();
         for (index, galley) in self.rows.iter().enumerate() {
             let left = text_left.unwrap_or(tab.center().x - galley.size().x * 0.5);
-            let middle =
-                egui::emath::GuiRounding::round_to_pixels(middle(index + 1), pixels_per_point);
+            let middle = egui::emath::GuiRounding::round_to_pixels(
+                middle(index + line_rows),
+                pixels_per_point,
+            );
             ui.painter().galley(
                 pos2(left, middle - galley.size().y * 0.5),
                 galley.clone(),
@@ -1117,7 +1156,7 @@ impl Tab {
 }
 
 /// Paints `logo` filling `rect`.
-pub(crate) fn paint_logo(ui: &Ui, logo: SeriesLogo, rect: Rect) {
+fn paint_logo(ui: &Ui, logo: SeriesLogo, rect: Rect) {
     ui.painter().image(
         logo.texture,
         rect,
@@ -1127,14 +1166,11 @@ pub(crate) fn paint_logo(ui: &Ui, logo: SeriesLogo, rect: Rect) {
 }
 
 /// How tall the series tab hung from `anchor` is for `series`, or nothing where `anchor` hangs no
-/// tab for it: under the plate the tab's line is the series' title alone, so a series nobody named
-/// has nothing to put there.
+/// tab for it: under the plate the tab's line is the series' title alone, so a series with no title,
+/// no lines for the casters and no logo has nothing to put there.
 pub(crate) fn series_tab_height(series: &SeriesView, anchor: TabAnchor) -> Option<f32> {
-    let titled = series
-        .title
-        .as_deref()
-        .is_some_and(|title| !title.is_empty());
-    (anchor.says_progress() || titled).then(|| tab_height(series))
+    let height = tab_height(series, anchor);
+    (height > 0.0).then_some(height)
 }
 
 /// Draws the series tab for `series` under the middle of `above`, the surface it hangs from as
@@ -2021,7 +2057,11 @@ mod tests {
         ] {
             for (logo, height) in [(None, plain), (Some(logo(576, 144)), with_logo)] {
                 let series = with_caster(lines, logo);
-                assert_eq!(tab_height(&series), height, "{lines:?} {logo:?}");
+                assert_eq!(
+                    tab_height(&series, TabAnchor::Bar),
+                    height,
+                    "{lines:?} {logo:?}"
+                );
                 let view = series_view(&[1, 2], series);
                 assert_eq!(view.bar_depth(true), BAR_HEIGHT + height);
                 let (bar, tab) = settled_bar(&view, vec2(1920.0, 1080.0));
@@ -2112,11 +2152,15 @@ mod tests {
                     ))
                 })
                 .expect("the tab is laid out");
-                assert!(tab.series_line.progress_whole(), "{teams:?} {logo:?}");
+                let line = tab
+                    .series_line
+                    .as_ref()
+                    .expect("the bar's tab has a series line");
+                assert!(line.progress_whole(), "{teams:?} {logo:?}");
                 let (_, size) = tab.logo.expect("there is room for the logo");
                 assert!(size.x <= LOGO_MAX_SIZE.x && size.y <= LOGO_MAX_SIZE.y);
                 let text_room = tab.width - LOGO_CELL_EXTRA - size.x - TAB_PAD * 2.0;
-                assert!(tab.series_line.width() <= text_room + 0.01, "{teams:?}");
+                assert!(line.width() <= text_room + 0.01, "{teams:?}");
                 for row in &tab.rows {
                     assert!(row.size().x <= text_room + 0.01, "{teams:?}");
                 }
