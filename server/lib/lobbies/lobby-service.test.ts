@@ -6085,6 +6085,10 @@ describe('lobbies/lobby-service', () => {
         sideNames: [null, 'Ironclad'],
       })
       expect(forceStart).toThrow(rosterError('Ironclad has nobody seated'))
+      // What the client is told names the side by its index, not its name
+      expect(forceStart).toThrow(
+        expect.objectContaining({ data: { unseatedSides: [1], extra: [], mixedTeams: false } }),
+      )
 
       lobbyService.updateBestOf({ client: host.client, sideNames: [null, null] })
       expect(forceStart).toThrow(rosterError('Team 2 has nobody seated'))
@@ -6102,6 +6106,11 @@ describe('lobbies/lobby-service', () => {
 
       expect(forceStart).toThrow(
         rosterError("someone seated as a player isn't on either side of the best-of"),
+      )
+      expect(forceStart).toThrow(
+        expect.objectContaining({
+          data: { unseatedSides: [], extra: [LISTER_USER.id], mixedTeams: false },
+        }),
       )
     })
 

@@ -7,6 +7,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { getErrorStack } from '../../common/errors'
 import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { LobbyState } from '../../common/lobbies'
+import { getRunningBestOf } from '../../common/lobbies/lobby-best-of'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { isInParticipatingGame } from '../active-game/game-client-reducer'
@@ -208,13 +209,14 @@ function ConnectedLobby() {
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(selfUser.id))
+  const runningBestOf = useAppSelector(s => getRunningBestOf(s.lobby.bestOfs))
 
   // Everything the room dispatches is a request the server can refuse (the lobby moved on, the
   // layout won't take the change), and the viewer is watching for it to happen, so a refusal has to
   // say so rather than leaving the room looking like it ignored the click.
   const onActionError = (err: unknown) => {
     logger.error(`Error performing a lobby action: ${getErrorStack(err)}`)
-    snackbarController.showSnackbar(lobbyActionErrorMessage(err, t))
+    snackbarController.showSnackbar(lobbyActionErrorMessage(err, t, runningBestOf))
   }
   const actionSpec: RequestHandlingSpec<void> = {
     onSuccess: () => {},

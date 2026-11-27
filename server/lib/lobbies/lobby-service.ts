@@ -55,6 +55,7 @@ import {
   toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
+  BestOfRosterMismatchErrorBody,
   changesGameSettings,
   getPlayerSeats,
   isLobbySummaryFull,
@@ -2745,9 +2746,17 @@ export class LobbyService {
       }
       const roster = checkBestOfRoster(lobby, runningBestOf.sides)
       if (!roster.ok) {
+        const { unseatedSides, extra, mixedTeams } = roster
         throw new LobbyServiceError(
           LobbyServiceErrorCode.BestOfRosterMismatch,
           describeBestOfRosterProblem(runningBestOf, roster),
+          {
+            data: {
+              unseatedSides,
+              extra,
+              mixedTeams,
+            } satisfies Omit<BestOfRosterMismatchErrorBody, 'code'>,
+          },
         )
       }
     }

@@ -12,6 +12,7 @@ import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
 import {
   BestOfDisplayName,
   BestOfDisplayNameChange,
+  BestOfSideIndex,
   LobbyBestOfJson,
   LobbyBestOfOverlayJson,
   LobbyBestOfSideNames,
@@ -88,7 +89,8 @@ export enum LobbyServiceErrorCode {
   /**
    * A game was started while the seats aren't arranged for a game between the running best-of
    * series' two sides: a side has nobody in a player seat, someone in a player seat is on neither
-   * side, or a team holds players of both sides (see `checkBestOfRoster`).
+   * side, or a team holds players of both sides (see `checkBestOfRoster`). Its response body is a
+   * `BestOfRosterMismatchErrorBody`.
    */
   BestOfRosterMismatch = 'BestOfRosterMismatch',
   ChatRestricted = 'ChatRestricted',
@@ -397,6 +399,21 @@ export type EndLobbyBestOfRequest = LobbyClientRequest
  */
 export interface DiscardLobbyBestOfGameRequest extends LobbyClientRequest {
   gameId: string
+}
+
+/**
+ * The response body of a game start refused because the seats aren't arranged for a game between
+ * the running best-of series' sides: what `checkBestOfRoster` found, for the client to describe in
+ * its own words. Only facts travel, never a side's name.
+ */
+export interface BestOfRosterMismatchErrorBody {
+  code: LobbyServiceErrorCode.BestOfRosterMismatch
+  /** The sides none of whose members sit in a player seat, in side order. */
+  unseatedSides: BestOfSideIndex[]
+  /** The people seated as players who are on neither side, in seat order. */
+  extra: SbUserId[]
+  /** Whether a team of several holds players of both sides. */
+  mixedTeams: boolean
 }
 
 /** The body of a request that acts on a single slot of a lobby. */

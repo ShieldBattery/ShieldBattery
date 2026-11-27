@@ -2,6 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import got from 'got'
 import http from 'http'
 import Koa from 'koa'
+import koaBody from 'koa-body'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
@@ -386,6 +387,7 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
   let server: http.Server
   let baseUrl: string
   let overlayService: { startBestOf: Mock; updateBestOf: Mock }
+  let lobbyService: { startCountdown: Mock }
   let throttleKeys: string[]
 
   beforeEach(async () => {
@@ -404,8 +406,9 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
       startBestOf: vi.fn().mockResolvedValue({}),
       updateBestOf: vi.fn().mockResolvedValue({}),
     }
+    lobbyService = { startCountdown: vi.fn() }
     const api = new LobbyApi(
-      {} as any,
+      lobbyService as any,
       { getById: vi.fn().mockReturnValue({ clientType: 'electron', userId: SENDER_ID }) } as any,
       {} as any,
       {} as any,
@@ -418,6 +421,8 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
     app.on('error', () => {})
     app
       .use(errorPayloadMiddleware())
+      // The app parses JSON bodies for every route, as the server does
+      .use(koaBody())
       .use(async (ctx, next) => {
         ;(ctx as any).session = { user: { id: SENDER_ID } }
         await next()
@@ -633,6 +638,33 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
       400, 400, 400, 400,
     ])
     expect(overlayService.startBestOf).toHaveBeenCalledTimes(1)
+  })
+
+  test('answers a start refused for the roster with what the roster check found', async () => {
+    const roster = { unseatedSides: [1], extra: [makeSbUserId(7)], mixedTeams: false }
+    lobbyService.startCountdown.mockImplementation(() => {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.BestOfRosterMismatch,
+        'Ironclad has nobody seated',
+        { data: roster },
+      )
+    })
+
+    const response = await got.post(`${baseUrl}/start-countdown`, {
+      json: { clientId: 'client-1', force: true },
+      throwHttpErrors: false,
+      retry: { limit: 0 },
+      headers: { accept: 'application/json' },
+    })
+
+    expect(response.statusCode).toBe(409)
+    // The side travels as its index, never as its name or a sentence about it
+    expect(JSON.parse(response.body)).toEqual({
+      code: LobbyServiceErrorCode.BestOfRosterMismatch,
+      unseatedSides: [1],
+      extra: [7],
+      mixedTeams: false,
+    })
   })
 
   test("answers a refused logo with the service's code", async () => {

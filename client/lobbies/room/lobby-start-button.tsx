@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { buttonReset } from '../../material/button-reset'
 import { useAppSelector } from '../../redux-hooks'
 import { labelLarge, labelSmall } from '../../styles/typography'
+import { bestOfSideNotSeatedMessage } from '../lobby-action-errors'
 import { BestOfStartBlocker } from './best-of-display'
 import { START_GAME_HOLD_MS, useStartGameHold } from './use-start-game-hold'
 
@@ -138,16 +139,7 @@ export function LobbyStartButton({
   } else if (blocker?.kind === 'bestOfGamePending') {
     hint = t('lobbies.room.rail.bestOfGamePending', "Waiting for the last game's result")
   } else if (blocker?.kind === 'bestOfSideNotSeated') {
-    hint =
-      blocker.sideName !== undefined
-        ? t('lobbies.room.rail.bestOfNamedSideNotSeated', {
-            defaultValue: '{{name}} has nobody seated',
-            name: blocker.sideName,
-          })
-        : t('lobbies.room.rail.bestOfSideNotSeated', {
-            defaultValue: 'Team {{number}} has nobody seated',
-            number: blocker.side + 1,
-          })
+    hint = bestOfSideNotSeatedMessage(t, blocker.side, blocker.sideName)
   } else if (blocker?.kind === 'bestOfExtraPlayer') {
     hint = t('lobbies.room.rail.bestOfExtraPlayer', {
       defaultValue: "{{name}} isn't in the series",
