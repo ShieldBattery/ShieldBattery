@@ -52,6 +52,8 @@ pub enum Action {
     ToggleSelection,
     /// The map control bar.
     ToggleMapControl,
+    /// The series panel, which a live series game puts in the matchup bar or on a plate of its own.
+    ToggleSeries,
     /// Step the observer vision selection.
     CycleVision,
     /// The list of players whose vision the game is shown through, which SC:R's diplomacy keys open.
@@ -65,7 +67,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for a caller walking the table.
-    pub const ALL: [Action; 21] = [
+    pub const ALL: [Action; 22] = [
         Action::PauseResume,
         Action::SpeedUp,
         Action::SpeedDown,
@@ -83,6 +85,7 @@ impl Action {
         Action::ToggleControlGroups,
         Action::ToggleSelection,
         Action::ToggleMapControl,
+        Action::ToggleSeries,
         Action::CycleVision,
         Action::ToggleVisionPicker,
         Action::ToggleSpoilerFree,
@@ -109,6 +112,7 @@ impl Action {
             Action::ToggleControlGroups => "control groups",
             Action::ToggleSelection => "selection",
             Action::ToggleMapControl => "map control",
+            Action::ToggleSeries => "series",
             Action::CycleVision => "cycle vision",
             Action::ToggleVisionPicker => "vision list",
             Action::ToggleSpoilerFree => "spoiler-free",
@@ -295,6 +299,8 @@ impl Hotkeys {
             (Action::ToggleTimeline, Chord::new(T)),
             (Action::ToggleControlGroups, Chord::new(H)),
             (Action::ToggleMapControl, Chord::new(N)),
+            // SC:R has no key for the series, and `Alt+S` is its save key.
+            (Action::ToggleSeries, Chord::new(S)),
             (Action::CycleVision, Chord::new(V)),
             (Action::ToggleSpoilerFree, Chord::new(L)),
         ];

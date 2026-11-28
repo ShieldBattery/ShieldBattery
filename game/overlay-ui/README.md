@@ -147,6 +147,19 @@ in whichever form it is in, and `Shift+E` switches forms. Both forms are drawn e
 the chosen one shown, so a switch fades one out as the other comes in, and the wings under it ease to
 their new place.
 
+A live game that is one of a lobby's series (never a replay, and never for a player) carries the
+series with it: each side's score, the format, which game this is and the series' title. That is a
+panel of its own, `Panel::Series` behind `S`, offered by the dock and its key only in such a game.
+While the bar is up the series is drawn into it, a score cell either side of the clock and a tab
+under its middle; put away, the bar is the bar of a game with no series. Wherever the bar is not up
+(the compact style, the matchup off, or the bar put away with `E`) the series stands on a **series
+plate** of its own (`observer::series_plate`) hung from the middle of the top edge: each side named
+at its end (one player, two stacked, or the side's label from three up), its score in a cell, and
+the format over the game number between them, with the bar's tab under it carrying the title. The
+plate keeps to the room between the wings, giving up its names to a narrow screen before anything
+else, and the map-control strip hangs under it as it hangs under the bar. The Matchup panel itself
+never carries the series.
+
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell
 stacks them: each surface is placed under the bottom edge the one above it actually came out at.
@@ -327,6 +340,7 @@ built leaves the game's own behavior alone.
 | Matchup (Shift: form)                | `E`       | Cycle vision              | `V`     |
 | Minimap                              | `Q`       | Spoiler-free              | `L`     |
 | Dock (Shift: form)                   | `R`       | Selection                 | `W`     |
+| Series                               | `S`       |                           |         |
 
 **Holding `Alt`** (pressed without Ctrl, which with it is AltGr on many keyboards) brings up the
 **on-screen count** (`observer::on_screen`) for as long as it is held, drawn on the map itself
@@ -407,7 +421,7 @@ matchup between the bar and the compact scoreboard, `R` (or `` ` ``) takes the d
 and off screen while `Shift+R` switches it between its two forms, bringing a hidden dock back in
 the form it went away in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
-measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
+measurement, `N` moves the map-control bar but only while a host is reporting one, `S` moves the series panel but only in a live game with a series to show, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The playback keys are consumed only while a replay's view-model is being
 fed, and `L` only in a replay, so anywhere else they stay the game's. The keycap a panel's title row
 names its key with is a control as well: clicking it puts the panel away as the key does, and the

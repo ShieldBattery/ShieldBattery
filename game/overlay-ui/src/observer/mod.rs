@@ -23,6 +23,7 @@ pub(crate) mod production;
 pub(crate) mod race_icon;
 pub(crate) mod scoreboard;
 pub(crate) mod selection;
+pub(crate) mod series_plate;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
 mod unit_codes;
@@ -39,7 +40,8 @@ pub use graphs::{
 pub use layout::{Span, StackAnchor, StackSlot, minimap_reserve};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
-    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
+    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, SeriesFormat, SeriesView,
+    render_matchup_view,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
@@ -58,6 +60,7 @@ pub use selection::{
     UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
     render_selection_view,
 };
+pub use series_plate::{SeriesPlateOutcome, render_series_plate};
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
@@ -771,6 +774,7 @@ pub(crate) fn panel_name(panel: Panel) -> String {
     match panel {
         Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
         Panel::MapControl => tr!("observer.mapControl", "Map control"),
+        Panel::Series => tr!("observer.panelSeries", "Series"),
         Panel::Economy => tr!("observer.panelEconomy", "Economy"),
         Panel::Military => tr!("observer.panelMilitary", "Military"),
         Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
@@ -953,17 +957,25 @@ pub(crate) fn paint_stat_identity(
 /// it for a panel to settle into the size it is drawn at.
 #[cfg(test)]
 pub(crate) mod test_support {
-    use egui::{Context, Rect, pos2, vec2};
+    use egui::{Context, Rect, Vec2, pos2, vec2};
 
     /// The rect `draw` reports once a 1920x1080 screen has settled around it: the passes it takes
     /// an area to learn its size and a panel to finish its entrance.
-    pub(crate) fn settled_rect(mut draw: impl FnMut(&Context) -> Option<Rect>) -> Option<Rect> {
+    pub(crate) fn settled_rect(draw: impl FnMut(&Context) -> Option<Rect>) -> Option<Rect> {
+        settled_at(vec2(1920.0, 1080.0), draw)
+    }
+
+    /// What `draw` reports once a screen of `size` has settled around it.
+    pub(crate) fn settled_at<T>(
+        size: Vec2,
+        mut draw: impl FnMut(&Context) -> Option<T>,
+    ) -> Option<T> {
         let ctx = Context::default();
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         let mut rect = None;
         for pass in 0..6 {
             let raw = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), size)),
                 time: Some(f64::from(pass) * 0.25),
                 ..Default::default()
             };

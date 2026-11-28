@@ -1052,6 +1052,8 @@ impl Shell {
             // The bar reports a measurement the game does not keep, so a game whose host has none
             // leaves the key alone rather than moving a preference nothing can act on.
             Action::ToggleMapControl if !self.observer.map_control_available() => false,
+            // Only a series game has a series to show, so in any other game the key stays the game's.
+            Action::ToggleSeries if !self.observer.series_available() => false,
             _ => match Panel::for_action(action) {
                 Some(panel) => {
                     self.prefs.toggle(panel);
@@ -1134,7 +1136,8 @@ mod tests {
             0.0,
         );
         for action in Action::ALL {
-            if action == Action::CycleVision {
+            // The series key is taken only in a live series game, which a replay never is.
+            if matches!(action, Action::CycleVision | Action::ToggleSeries) {
                 continue;
             }
             let chord = shell.hotkeys().chord_for(action).unwrap();

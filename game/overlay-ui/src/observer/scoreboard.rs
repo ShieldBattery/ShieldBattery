@@ -322,6 +322,7 @@ mod tests {
                 .collect(),
             elapsed_secs: 0,
             is_replay: false,
+            series: None,
         }
     }
 
@@ -331,6 +332,56 @@ mod tests {
         settled_rect(|ctx| render_scoreboard_view(&view, ctx, true).map(|outcome| outcome.rect))
             .expect("the scoreboard is drawn")
             .height()
+    }
+
+    /// Everything the panel paints for `view` on a 1920x1080 screen once it has settled.
+    fn painted(view: &MatchupView) -> Vec<egui::epaint::ClippedShape> {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut shapes = Vec::new();
+        for pass in 0..6 {
+            ctx.begin_pass(egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1920.0, 1080.0))),
+                time: Some(f64::from(pass) * 0.25),
+                ..Default::default()
+            });
+            render_scoreboard_view(view, &ctx, true);
+            let mut output = ctx.end_pass();
+            output.textures_delta.clear();
+            shapes = output.shapes;
+        }
+        shapes
+    }
+
+    /// The series is a panel of its own, so a series game's Matchup panel is the panel of a game
+    /// with no series: the same height, the same name slots, the same everything.
+    #[test]
+    fn a_series_leaves_the_panel_exactly_as_it_is_without_one() {
+        let series = crate::observer::SeriesView {
+            title: Some("W".repeat(50)),
+            format: crate::observer::SeriesFormat::BestOf { length: 99 },
+            game_number: 24,
+            scores: [12, 11],
+        };
+        for teams in [
+            &[1, 2][..],
+            &[1, 1, 2, 2],
+            &[1, 1, 1, 2, 2, 2],
+            &[1, 1, 1, 1, 2, 2, 2, 2],
+        ] {
+            // Every player carrying the longest name the game allows, which is what fills a name
+            // slot to its end.
+            let game = |series: Option<crate::observer::SeriesView>| {
+                let mut game = view(teams);
+                for player in &mut game.players {
+                    player.name = "W".repeat(24);
+                }
+                MatchupView { series, ..game }
+            };
+            let scored = game(Some(series.clone()));
+            assert!(scored.shown_series().is_some(), "{teams:?}");
+            assert!(painted(&game(None)) == painted(&scored), "{teams:?}");
+        }
     }
 
     #[test]

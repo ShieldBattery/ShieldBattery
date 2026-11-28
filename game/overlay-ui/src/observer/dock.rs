@@ -75,7 +75,8 @@ pub(crate) const FLOATING_STRIP_HEIGHT: f32 = KEY_HEIGHT + tiers::PANEL_MARGIN_H
 pub(crate) const TABLE_WIDTH: f32 = crate::playback_controls::PANEL_WIDTH;
 
 /// Height of the column's keycaps, shorter than the strip's so its rows fit the height of the
-/// selection panel it stands beside: one for the all-panels key and the chevron, then one a pair.
+/// selection panel it stands beside: one for the all-panels key and the chevron, then one for each
+/// of [`PAIRS`] the game offers a key in, which is never more than all of them.
 const COLUMN_KEY_HEIGHT: f32 = 20.0;
 const COLUMN_ROWS: usize = PAIRS.len() + 1;
 
@@ -101,11 +102,12 @@ const ROW_GAP: f32 = 2.0;
 const ROW_PAD: f32 = 6.0;
 
 /// The panels in the order the table lists them, which is the order the keycaps come in: the bars
-/// along the top edge, the left wing, the right wing, the bottom row, and the game's own minimap with
-/// the replay's playback controls.
-const ROWS: [Panel; 11] = [
+/// along the top edge and the series, the left wing, the right wing, the bottom row, and the game's
+/// own minimap with the replay's playback controls.
+const ROWS: [Panel; 12] = [
     Panel::Matchup,
     Panel::MapControl,
+    Panel::Series,
     Panel::Economy,
     Panel::Timeline,
     Panel::Military,
@@ -119,19 +121,22 @@ const ROWS: [Panel; 11] = [
 
 /// The table's rows in the pairs the column lays them out in, a row of keycaps to each. The
 /// selection panel is the table's alone here, for want of room for another row: it is the panel the
-/// column stands against.
-const PAIRS: [[Panel; 2]; 5] = [
-    [Panel::Matchup, Panel::MapControl],
-    [Panel::Economy, Panel::Timeline],
-    [Panel::Military, Panel::Graphs],
-    [Panel::Production, Panel::ControlGroups],
-    [Panel::Minimap, Panel::PlaybackControls],
+/// column stands against. The series has a row of its own, which the column lays out only in a game
+/// with a series to show, so the column of any other game has no row for it.
+const PAIRS: [&[Panel]; 6] = [
+    &[Panel::Matchup, Panel::MapControl],
+    &[Panel::Series],
+    &[Panel::Economy, Panel::Timeline],
+    &[Panel::Military, Panel::Graphs],
+    &[Panel::Production, Panel::ControlGroups],
+    &[Panel::Minimap, Panel::PlaybackControls],
 ];
 
 /// The keys the strip carries after the all-panels key, grouped as the table pairs them: the panels
 /// a watcher turns on and off as the game goes. The rest are the table's alone, for want of room on
-/// the strip: map control is a sliver of a bar, the minimap is all but never put away, and the
-/// playback controls are the panel the strip is the top of. Floating in a replay, with the playback
+/// the strip: map control is a sliver of a bar, the series is set up once a game and left, the
+/// minimap is all but never put away, and the playback controls are the panel the strip is the top
+/// of. Floating in a replay, with the playback
 /// controls put away, the strip carries [`PLATE_GROUP`] after these as the way to bring them back.
 const STRIP_GROUPS: [&[Panel]; 4] = [
     &[Panel::Matchup],
@@ -184,34 +189,41 @@ fn matchup_style_label(style: MatchupStyle) -> String {
     }
 }
 
-/// Whether this game gets a key for `panel`.
+/// Whether the game `dock` is drawn for gets a key for `panel`.
 ///
 /// Spoiler-free is not a panel at all: it is a way of watching rather than a surface, and the
 /// playback controls carry its switch.
-fn offered(panel: Panel, mode: Mode, map_control_available: bool) -> bool {
+fn offered(panel: Panel, dock: &DockContext<'_>) -> bool {
     match panel {
         // A key that hid the surface it sits on could not be clicked again, so the dock is reached
         // by its own key alone.
         Panel::Dock => false,
         // The playback controls only exist in a replay, so offering them while observing a live
         // game would be offering a switch with nothing behind it.
-        Panel::PlaybackControls => mode == Mode::Replay,
-        // A host with no map-control reading gets no key for the bar: a switch that turns nothing
-        // on is worse than no switch.
-        Panel::MapControl => map_control_available,
+        Panel::PlaybackControls => dock.mode == Mode::Replay,
+        // A host with no map-control reading gets no key for the bar, and a game that is one of no
+        // series none for the series: a switch that turns nothing on is worse than no switch.
+        Panel::MapControl => dock.map_control_available,
+        Panel::Series => dock.series_available,
         _ => true,
     }
 }
 
 /// The table's rows in this game: every panel it offers, in the table's order.
-fn rows(mode: Mode, map_control_available: bool) -> impl Iterator<Item = Panel> {
-    ROWS.into_iter()
-        .filter(move |&panel| offered(panel, mode, map_control_available))
+fn rows<'a>(dock: &'a DockContext<'_>) -> impl Iterator<Item = Panel> + 'a {
+    ROWS.into_iter().filter(move |&panel| offered(panel, dock))
 }
 
 /// How tall the table's contents are with this game's rows in it: its title row over its rows.
-fn table_height(mode: Mode, map_control_available: bool) -> f32 {
-    HEADER_HEIGHT + rows(mode, map_control_available).count() as f32 * (ROW_GAP + ROW_HEIGHT)
+fn table_height(dock: &DockContext<'_>) -> f32 {
+    HEADER_HEIGHT + rows(dock).count() as f32 * (ROW_GAP + ROW_HEIGHT)
+}
+
+/// The column's rows of keys in this game: each of [`PAIRS`] it offers a key in, in order.
+fn column_pairs<'a>(dock: &'a DockContext<'_>) -> impl Iterator<Item = &'static [Panel]> + 'a {
+    PAIRS
+        .into_iter()
+        .filter(move |pair| pair.iter().any(|&panel| offered(panel, dock)))
 }
 
 /// The strip's place, standing on the top edge of the plate at `plate`.
@@ -325,6 +337,8 @@ pub struct DockContext<'a> {
     pub hotkeys: &'a Hotkeys,
     pub mode: Mode,
     pub map_control_available: bool,
+    /// Whether the game has a series to show, which is the only game the dock offers its key in.
+    pub series_available: bool,
     pub placement: DockPlacement,
     /// The panels the watcher wants on screen that the screen has no room for this frame.
     pub displaced: &'a [Panel],
@@ -400,7 +414,7 @@ fn render_strip(
     let height = ctx.animate_value_with_time(
         id.with("height"),
         if prefs.dock_expanded {
-            table_height(dock.mode, dock.map_control_available)
+            table_height(dock)
         } else {
             body
         },
@@ -485,7 +499,7 @@ fn render_column_table(
 ) -> Option<DockOutcome> {
     let id = Id::new("sb_obs_dock_table");
     let column = column_beside(dock.placement.selection);
-    let height = table_height(dock.mode, dock.map_control_available);
+    let height = table_height(dock);
     let area = Area::new(id)
         .pivot(Align2::LEFT_TOP)
         .fixed_pos(pos2(
@@ -648,10 +662,11 @@ fn draw_strip(
 }
 
 /// Draws the column in `rect`: the all-panels key and the chevron that opens the table over it,
-/// then a row of keycaps for each pair, with a gap where this game offers no key.
+/// then a row of keycaps for each pair this game offers a key in, with a gap where it offers one of
+/// the pair and not the other.
 fn draw_column(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_>) -> DockOutcome {
     let mut outcome = DockOutcome::none();
-    let pitch = rect.height() / COLUMN_ROWS as f32;
+    let pitch = rect.height() / (column_pairs(dock).count() + 1) as f32;
     let cell = |row: usize, column: usize| {
         Rect::from_min_size(
             pos2(
@@ -668,9 +683,9 @@ fn draw_column(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'
     if clicked {
         outcome.expanded = Some(!prefs.dock_expanded);
     }
-    for (row, pair) in PAIRS.iter().enumerate() {
+    for (row, pair) in column_pairs(dock).enumerate() {
         for (column, &panel) in pair.iter().enumerate() {
-            if !offered(panel, dock.mode, dock.map_control_available) {
+            if !offered(panel, dock) {
                 continue;
             }
             let (clicked, key_hint) = draw_panel_key(ui, cell(row + 1, column), panel, prefs, dock);
@@ -736,7 +751,7 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     hint = hint.or(all_hint);
 
     let mut top = header.bottom();
-    for panel in rows(dock.mode, dock.map_control_available) {
+    for panel in rows(dock) {
         top += ROW_GAP;
         let row = Rect::from_min_size(pos2(rect.left(), top), vec2(rect.width(), ROW_HEIGHT));
         top += ROW_HEIGHT;
@@ -1127,6 +1142,32 @@ mod tests {
         }
     }
 
+    /// The series' row and key are the dock's only in a game with a series to show, as the playback
+    /// controls' are only in a replay: the column of any other game has no row for it.
+    #[test]
+    fn the_series_is_offered_only_in_a_game_with_a_series_to_show() {
+        let hotkeys = Hotkeys::defaults();
+        let live = |series_available| DockContext {
+            mode: Mode::Observing,
+            map_control_available: false,
+            series_available,
+            ..replay_dock(&hotkeys, on_plate(PLATE))
+        };
+        let (plain, series) = (live(false), live(true));
+        assert!(!rows(&plain).any(|panel| panel == Panel::Series));
+        assert!(rows(&series).any(|panel| panel == Panel::Series));
+        assert_eq!(
+            table_height(&series) - table_height(&plain),
+            ROW_GAP + ROW_HEIGHT
+        );
+        assert_eq!(column_pairs(&plain).count(), PAIRS.len() - 1);
+        assert_eq!(column_pairs(&series).count(), PAIRS.len());
+        assert_eq!(
+            Hotkeys::defaults().bare_key(Panel::Series.action()),
+            Some("S")
+        );
+    }
+
     /// The column reads as the table does, short only of the panel it stands against.
     #[test]
     fn the_columns_pairs_are_the_tables_rows_but_the_selection() {
@@ -1134,6 +1175,7 @@ mod tests {
             PAIRS
                 .into_iter()
                 .flatten()
+                .copied()
                 .eq(ROWS.into_iter().filter(|&panel| panel != Panel::Selection))
         );
     }
@@ -1173,6 +1215,24 @@ mod tests {
         max: pos2(1555.0, 1064.0),
     };
 
+    /// What the dock of a replay with a map-control reading is drawn from, placed at `placement`.
+    fn replay_dock(hotkeys: &Hotkeys, placement: DockPlacement) -> DockContext<'_> {
+        DockContext {
+            hotkeys,
+            mode: Mode::Replay,
+            map_control_available: true,
+            series_available: false,
+            placement,
+            displaced: &[],
+        }
+    }
+
+    /// How tall the table of a replay with a map-control reading is, chrome included.
+    fn replay_table_height() -> f32 {
+        let hotkeys = Hotkeys::defaults();
+        table_height(&replay_dock(&hotkeys, on_plate(PLATE))) + tiers::PANEL_MARGIN_HEIGHT
+    }
+
     /// The rects the dock's surfaces settle into, as many of them as there are to draw.
     fn placed(expanded: bool, placement: DockPlacement, count: usize) -> Vec<Rect> {
         let hotkeys = Hotkeys::defaults();
@@ -1183,18 +1243,8 @@ mod tests {
         (0..count)
             .map(|index| {
                 crate::observer::test_support::settled_rect(|ctx| {
-                    render_obs_dock(
-                        &prefs,
-                        &DockContext {
-                            hotkeys: &hotkeys,
-                            mode: Mode::Replay,
-                            map_control_available: true,
-                            placement,
-                            displaced: &[],
-                        },
-                        ctx,
-                    )
-                    .and_then(|outcome| outcome.rects.get(index).copied())
+                    render_obs_dock(&prefs, &replay_dock(&hotkeys, placement), ctx)
+                        .and_then(|outcome| outcome.rects.get(index).copied())
                 })
                 .expect("the dock is drawn")
             })
@@ -1226,10 +1276,7 @@ mod tests {
         };
         assert_eq!(table.right_bottom(), strip.right_bottom());
         assert_eq!(table.width(), strip.width());
-        assert_eq!(
-            table.height(),
-            table_height(Mode::Replay, true) + tiers::PANEL_MARGIN_HEIGHT
-        );
+        assert_eq!(table.height(), replay_table_height());
     }
 
     #[test]
@@ -1288,10 +1335,7 @@ mod tests {
             panic!("the table alone is drawn");
         };
         assert_eq!(table.right_bottom(), strip.right_bottom());
-        assert_eq!(
-            table.height(),
-            table_height(Mode::Replay, true) + tiers::PANEL_MARGIN_HEIGHT
-        );
+        assert_eq!(table.height(), replay_table_height());
     }
 
     /// The panel the dock toggles once the pointer clicks at `pos`, with the dock where `placement`
@@ -1321,17 +1365,7 @@ mod tests {
                 events,
                 ..Default::default()
             });
-            let outcome = render_obs_dock(
-                &prefs,
-                &DockContext {
-                    hotkeys: &hotkeys,
-                    mode: Mode::Replay,
-                    map_control_available: true,
-                    placement,
-                    displaced: &[],
-                },
-                &ctx,
-            );
+            let outcome = render_obs_dock(&prefs, &replay_dock(&hotkeys, placement), &ctx);
             toggled = toggled.or(outcome.and_then(|outcome| outcome.toggled));
             let mut out = ctx.end_pass();
             out.textures_delta.clear();
