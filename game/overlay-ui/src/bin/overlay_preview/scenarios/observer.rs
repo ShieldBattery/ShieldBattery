@@ -24,9 +24,10 @@ use overlay_ui::observer::{
     MilitaryPlayerView, MilitaryView, ObserverView, OnScreenPlayerView, OnScreenUnitView,
     OnScreenView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
     ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, SeriesFormat,
-    SeriesView, Significance, StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView,
-    TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView,
-    UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    SeriesLogo, SeriesView, Significance, StatusColor, SubjectProgress, TeamCardPlayerView,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
+    TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect,
+    WeaponDamageView, team_name,
 };
 use overlay_ui::shell::{MatchupStyle, PanelPrefs};
 use serde::{Deserialize, Serialize};
@@ -324,6 +325,127 @@ pub struct Knobs {
     pub series_game: u32,
     /// Each side's score going into this game: the side listed first, then the other.
     pub series_scores: [u32; 2],
+    /// The series' lines for the casters, in order. Empty for a line that is not set.
+    pub series_line1: String,
+    pub series_line2: String,
+    /// Which sample logo the series carries, if any.
+    pub series_logo: SampleLogo,
+}
+
+/// The most characters a lobby lets a caster's line have.
+const CASTER_LINE_LIMIT: usize = 60;
+
+/// Two caster lines short enough to share a row of the bar's tab.
+const SHORT_LINES: [&str; 2] = ["Casters  Alice & Bob", "Observer  Carol"];
+
+/// Two caster lines as long as a lobby lets them be, which take a row each and run out of room.
+const LONG_LINES: [&str; 2] = [
+    "Casters  Artosis & Tasteless with special guest Nyoken here!",
+    "Observer  Cloudy, Stage  Upper bracket semifinals, day three",
+];
+
+const _: () = assert!(LONG_LINES[0].len() == CASTER_LINE_LIMIT);
+const _: () = assert!(LONG_LINES[1].len() == CASTER_LINE_LIMIT);
+
+/// A sample logo for a series, drawn here rather than loaded so a render needs nothing from outside.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Serialize, Deserialize)]
+pub enum SampleLogo {
+    #[default]
+    None,
+    /// A square emblem.
+    Square,
+    /// A wordmark four times as wide as it is tall, the widest the logo's box takes whole.
+    Wide,
+}
+
+impl SampleLogo {
+    pub const ALL: [SampleLogo; 3] = [SampleLogo::None, SampleLogo::Square, SampleLogo::Wide];
+
+    fn label(self) -> &'static str {
+        match self {
+            SampleLogo::None => "none",
+            SampleLogo::Square => "square",
+            SampleLogo::Wide => "wide",
+        }
+    }
+
+    /// The logo's size in pixels as the server would hand it over: rasterized to fit four times the
+    /// box it is drawn in.
+    fn source_size(self) -> Option<[u32; 2]> {
+        match self {
+            SampleLogo::None => None,
+            SampleLogo::Square => Some([144, 144]),
+            SampleLogo::Wide => Some([576, 144]),
+        }
+    }
+
+    /// The color of the logo at `(u, v)`, its width and height each counted from 0 to 1, or nothing
+    /// where it is clear.
+    fn paint(self, u: f32, v: f32) -> Option<Color32> {
+        const GOLD: Color32 = Color32::from_rgb(0xff, 0xc1, 0x3a);
+        const NAVY: Color32 = Color32::from_rgb(0x12, 0x2a, 0x55);
+        const WHITE: Color32 = Color32::from_rgb(0xf4, 0xf6, 0xfa);
+        // A shield of gold rimmed around a navy field with a white chevron on it.
+        let emblem = |u: f32, v: f32| {
+            let (x, y) = (u - 0.5, v - 0.5);
+            let inside = |inset: f32| {
+                let half = 0.46 - inset;
+                x.abs() <= half && y >= -half && y <= half * 0.2 + (half - x.abs()) * 0.6
+            };
+            if !inside(0.0) {
+                return None;
+            }
+            if !inside(0.07) {
+                return Some(GOLD);
+            }
+            let chevron = (y - 0.12 + x.abs() * 0.8).abs() < 0.08;
+            Some(if chevron { WHITE } else { NAVY })
+        };
+        match self {
+            SampleLogo::None => None,
+            SampleLogo::Square => emblem(u, v),
+            SampleLogo::Wide => {
+                // The emblem in the wordmark's first quarter, then "letters" of the name beside it.
+                let x = u * 4.0;
+                if x < 1.0 {
+                    return emblem(x, v);
+                }
+                let letter = ((x - 1.15) / 0.36).floor();
+                let within = (x - 1.15) / 0.36 - letter;
+                let tall = (0.0..7.0).contains(&letter) && within < 0.72;
+                let band = if letter as i32 % 3 == 1 { 0.22 } else { 0.3 };
+                (tall && (v - 0.5).abs() < band).then_some(if letter < 3.0 { GOLD } else { WHITE })
+            }
+        }
+    }
+
+    /// The logo drawn `size` pixels across, sampled four times a pixel each way so its edges are
+    /// smoothed the way a rasterized upload's are.
+    fn image(self, [width, height]: [usize; 2]) -> egui::ColorImage {
+        const SAMPLES: usize = 4;
+        let mut pixels = Vec::with_capacity(width * height);
+        for y in 0..height {
+            for x in 0..width {
+                let mut sum = [0.0f32; 4];
+                for sy in 0..SAMPLES {
+                    for sx in 0..SAMPLES {
+                        let u = (x as f32 + (sx as f32 + 0.5) / SAMPLES as f32) / width as f32;
+                        let v = (y as f32 + (sy as f32 + 0.5) / SAMPLES as f32) / height as f32;
+                        if let Some(color) = self.paint(u, v) {
+                            let [r, g, b, a] = color.to_array();
+                            for (total, channel) in sum.iter_mut().zip([r, g, b, a]) {
+                                *total += f32::from(channel);
+                            }
+                        }
+                    }
+                }
+                let count = (SAMPLES * SAMPLES) as f32;
+                let [r, g, b, a] = sum.map(|total| (total / count).round() as u8);
+                pixels.push(Color32::from_rgba_premultiplied(r, g, b, a));
+            }
+        }
+        egui::ColorImage::new([width, height], pixels)
+    }
 }
 
 impl Default for Knobs {
@@ -369,6 +491,9 @@ impl Default for Knobs {
             series_length: 3,
             series_game: 2,
             series_scores: [1, 0],
+            series_line1: String::new(),
+            series_line2: String::new(),
+            series_logo: SampleLogo::None,
         }
     }
 }
@@ -443,6 +568,9 @@ pub struct State {
     /// Whether the list of players under the minimap's vision button has been opened for a preset
     /// that asks for it. Once, so a watcher in the live preview can close it again.
     pub vision_picker_opened: bool,
+    /// The series' sample logo as the host would hand it over: which one, the density it was drawn
+    /// for, and its texture.
+    logo: Option<(SampleLogo, f32, egui::TextureHandle)>,
 }
 
 impl State {
@@ -452,7 +580,39 @@ impl State {
             show_entire_map: false,
             last_selection: None,
             vision_picker_opened: false,
+            logo: None,
         }
+    }
+
+    /// Readies the texture of the sample logo `logo` on `ctx`, drawn at the pixel size the panels
+    /// draw it at, the way the game DLL scales an uploaded logo ahead of time for its screen.
+    pub fn prepare_logo(&mut self, ctx: &egui::Context, logo: SampleLogo) {
+        let pixels_per_point = ctx.pixels_per_point();
+        if self
+            .logo
+            .as_ref()
+            .is_some_and(|(kind, density, _)| *kind == logo && *density == pixels_per_point)
+        {
+            return;
+        }
+        self.logo = logo.source_size().map(|source| {
+            let size = overlay_ui::observer::series_logo_size(source) * pixels_per_point;
+            let image = logo.image([size.x.ceil() as usize, size.y.ceil() as usize]);
+            let texture =
+                ctx.load_texture("sample_series_logo", image, egui::TextureOptions::LINEAR);
+            (logo, pixels_per_point, texture)
+        });
+    }
+
+    /// The sample logo readied last, as the panels are handed it.
+    fn logo(&self) -> Option<SeriesLogo> {
+        self.logo.as_ref().map(|(_, _, texture)| {
+            let [width, height] = texture.size();
+            SeriesLogo {
+                texture: texture.id(),
+                size: [width as u32, height as u32],
+            }
+        })
     }
 
     /// Answers a vision toggle the way the game does, by changing what the watcher is shown.
@@ -497,6 +657,13 @@ pub fn build_view(
             },
             game_number: knobs.series_game,
             scores: knobs.series_scores,
+            lines: [&knobs.series_line1, &knobs.series_line2]
+                .into_iter()
+                .map(|line| line.trim())
+                .filter(|line| !line.is_empty())
+                .map(str::to_string)
+                .collect(),
+            logo: state.logo(),
         }),
     };
     ObserverView {
@@ -2010,6 +2177,9 @@ pub enum Series {
     /// its twenty-fourth, under the longest title a lobby allows, with every player carrying the
     /// longest name the game allows.
     Stretched,
+    /// The running best of three with no title, which leaves the tab under the plate only what the
+    /// casters set.
+    Untitled,
 }
 
 impl Series {
@@ -2019,6 +2189,7 @@ impl Series {
             Series::None => "",
             Series::Running => "series",
             Series::Stretched => "series-stress",
+            Series::Untitled => "series-untitled",
         }
     }
 }
@@ -2077,6 +2248,87 @@ impl Top {
     }
 }
 
+/// What the caster overlay of a preset's series carries: its lines for the casters and its logo.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Caster {
+    /// Nothing: the series alone.
+    None,
+    /// One short line.
+    Line,
+    /// Two short lines, which share a row of the bar's tab.
+    Lines,
+    /// Two lines as long as a lobby lets them be, which take a row each and run out of room.
+    LongLines,
+    /// A logo and no lines.
+    Logo(SampleLogo),
+    /// A logo and two lines of the given length.
+    Full { logo: SampleLogo, long: bool },
+}
+
+impl Caster {
+    /// The casters' setups each shape of series game is rendered with, past the series alone: the
+    /// lines alone, the logo alone, and both, with the stress series where its long title is what
+    /// the rows have to share the tab with.
+    const RENDERED: [(Series, Caster); 10] = [
+        (Series::Running, Caster::Line),
+        (Series::Running, Caster::Lines),
+        (Series::Untitled, Caster::Lines),
+        (Series::Untitled, Caster::Logo(SampleLogo::Square)),
+        (Series::Running, Caster::LongLines),
+        (Series::Stretched, Caster::LongLines),
+        (Series::Running, Caster::Logo(SampleLogo::Square)),
+        (Series::Running, Caster::Logo(SampleLogo::Wide)),
+        (
+            Series::Running,
+            Caster::Full {
+                logo: SampleLogo::Square,
+                long: false,
+            },
+        ),
+        (
+            Series::Stretched,
+            Caster::Full {
+                logo: SampleLogo::Wide,
+                long: true,
+            },
+        ),
+    ];
+
+    /// What a render with this setup is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Caster::None => "",
+            Caster::Line => "caster-line",
+            Caster::Lines => "caster-lines",
+            Caster::LongLines => "caster-long-lines",
+            Caster::Logo(SampleLogo::Wide) => "caster-logo-wide",
+            Caster::Logo(_) => "caster-logo-square",
+            Caster::Full { long: true, .. } => "caster-full-long",
+            Caster::Full { .. } => "caster-full",
+        }
+    }
+
+    /// Sets the knobs' lines and logo to this setup.
+    fn apply(self, knobs: &mut Knobs) {
+        let (lines, logo): (&[&str], SampleLogo) = match self {
+            Caster::None => (&[], SampleLogo::None),
+            Caster::Line => (&SHORT_LINES[..1], SampleLogo::None),
+            Caster::Lines => (&SHORT_LINES, SampleLogo::None),
+            Caster::LongLines => (&LONG_LINES, SampleLogo::None),
+            Caster::Logo(logo) => (&[], logo),
+            Caster::Full { logo, long } => (if long { &LONG_LINES } else { &SHORT_LINES }, logo),
+        };
+        let line = |index: usize| {
+            lines
+                .get(index)
+                .map_or(String::new(), |line| line.to_string())
+        };
+        knobs.series_line1 = line(0);
+        knobs.series_line2 = line(1);
+        knobs.series_logo = logo;
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -2089,6 +2341,8 @@ pub struct Preset {
     pub showcase: Showcase,
     pub hover: Hover,
     pub series: Series,
+    /// What the series' caster overlay carries.
+    pub caster: Caster,
     /// How the watcher has the top of the screen.
     pub top: Top,
 }
@@ -2104,6 +2358,7 @@ impl Preset {
             hover: Hover::None,
             series: Series::None,
             top: Top::Compact,
+            caster: Caster::None,
         }
     }
 
@@ -2117,6 +2372,7 @@ impl Preset {
             hover: Hover::None,
             series: Series::None,
             top: Top::Compact,
+            caster: Caster::None,
         }
     }
 
@@ -2131,6 +2387,7 @@ impl Preset {
             hover,
             series: Series::None,
             top: Top::Compact,
+            caster: Caster::None,
         }
     }
 
@@ -2144,6 +2401,7 @@ impl Preset {
             hover: Hover::None,
             series: Series::None,
             top: Top::Compact,
+            caster: Caster::None,
         }
     }
 
@@ -2151,6 +2409,17 @@ impl Preset {
     /// slot with the analyst's screen up, so the series is seen beside every surface it shares the
     /// top of the screen with, under `top`.
     pub const fn series(players: usize, team_size: usize, series: Series, top: Top) -> Preset {
+        Preset::caster(players, team_size, series, Caster::None, top)
+    }
+
+    /// A series game as [`series`](Self::series) has it, with `caster` on its caster overlay.
+    pub const fn caster(
+        players: usize,
+        team_size: usize,
+        series: Series,
+        caster: Caster,
+        top: Top,
+    ) -> Preset {
         Preset {
             players,
             team_size,
@@ -2158,11 +2427,31 @@ impl Preset {
             showcase: Showcase::Knobs,
             hover: Hover::None,
             series,
+            caster,
             top,
         }
     }
 
-    pub const ALL: [Preset; 61] = [
+    /// The series games rendered with something on their caster overlay: each setup in
+    /// [`Caster::RENDERED`] on the bar and on the plate the compact scoreboard leaves the series,
+    /// for one, two and three a side.
+    pub fn caster_presets() -> impl Iterator<Item = Preset> {
+        const SHAPES: [(usize, usize, Top); 6] = [
+            (2, 1, Top::Bar),
+            (2, 1, Top::Compact),
+            (4, 2, Top::Bar),
+            (4, 2, Top::Compact),
+            (6, 3, Top::Bar),
+            (6, 3, Top::Compact),
+        ];
+        Caster::RENDERED.into_iter().flat_map(|(series, caster)| {
+            SHAPES.map(|(players, team_size, top)| {
+                Preset::caster(players, team_size, series, caster, top)
+            })
+        })
+    }
+
+    pub const ALL: [Preset; 62] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2240,6 +2529,8 @@ impl Preset {
         Preset::series(2, 1, Series::Running, Top::BarWithoutSeries),
         Preset::series(6, 3, Series::Running, Top::BarWithoutSeries),
         Preset::series(2, 1, Series::Running, Top::CompactWithoutSeries),
+        // A series with nothing for the tab under its plate, which hangs none.
+        Preset::series(2, 1, Series::Untitled, Top::Compact),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -2262,12 +2553,16 @@ impl Preset {
             return format!("{}-{}", self.shape(), self.hover.slug());
         }
         if self.series != Series::None {
-            return format!(
-                "{}-{}-{}",
-                self.shape(),
-                self.series.slug(),
-                self.top.slug()
-            );
+            let form = self.top.slug();
+            if self.caster != Caster::None {
+                return format!(
+                    "{}-{}-{}-{form}",
+                    self.shape(),
+                    self.series.slug(),
+                    self.caster.slug()
+                );
+            }
+            return format!("{}-{}-{form}", self.shape(), self.series.slug());
         }
         format!("{}-{}", self.shape(), self.panels.slug())
     }
@@ -2339,6 +2634,10 @@ impl Preset {
         match self.series {
             Series::None => {}
             Series::Running => knobs.observer.series = true,
+            Series::Untitled => {
+                knobs.observer.series = true;
+                knobs.observer.series_title = String::new();
+            }
             Series::Stretched => {
                 knobs.observer.series = true;
                 knobs.observer.series_title = LONG_SERIES_TITLE.to_string();
@@ -2348,6 +2647,7 @@ impl Preset {
                 knobs.observer.long_names = true;
             }
         }
+        self.caster.apply(&mut knobs.observer);
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
         // them has, so the readings of a building are watched from a Protoss player's side, as is
         // the carrier, which only a Protoss player has.
@@ -2531,6 +2831,26 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
                 .add(egui::Slider::new(score, 0..=50).text(format!("side {} score", index + 1)))
                 .changed();
         }
+        for (label, line) in [
+            ("caster line 1:", &mut k.series_line1),
+            ("caster line 2:", &mut k.series_line2),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(label);
+                changed |= ui
+                    .add(egui::TextEdit::singleline(line).char_limit(CASTER_LINE_LIMIT))
+                    .on_hover_text("Empty for a line that is not set.")
+                    .changed();
+            });
+        }
+        ui.horizontal(|ui| {
+            ui.label("logo:");
+            for logo in SampleLogo::ALL {
+                changed |= ui
+                    .selectable_value(&mut k.series_logo, logo, logo.label())
+                    .changed();
+            }
+        });
     });
     changed |= ui
         .checkbox(&mut k.map_control, "reports map control")

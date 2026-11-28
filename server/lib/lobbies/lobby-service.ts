@@ -31,6 +31,7 @@ import {
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
   BEST_OF_MAX_SIDE_SIZE,
+  BEST_OF_OVERLAY_LINE_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
   checkBestOfRoster,
   findBestOfGameWinner,
@@ -40,8 +41,10 @@ import {
   isValidBestOfLength,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
+  LobbyBestOfLogoJson,
   LobbyBestOfSides,
   toBestOfLaunchInfo,
+  toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
   changesGameSettings,
@@ -118,6 +121,35 @@ import {
 } from './lobby-summaries'
 
 export class LobbyServiceError extends CodedError<LobbyServiceErrorCode> {}
+
+/** What the host gives to start a best-of series. */
+export interface StartBestOfParams {
+  client: ClientSocketsGroup
+  lobbyId?: SbLobbyId
+  length: number
+  title?: string
+  sides: Readonly<LobbyBestOfSides>
+  /** The caster overlay's first text line; trimmed, with an empty one meaning none. */
+  line1?: string
+  /** The caster overlay's second text line; trimmed, with an empty one meaning none. */
+  line2?: string
+  logo?: LobbyBestOfLogoJson
+}
+
+/** What the host changes about a running best-of series. `undefined` leaves a part as it is. */
+export interface UpdateBestOfParams {
+  client: ClientSocketsGroup
+  lobbyId?: SbLobbyId
+  /** The new title; `null` or an empty title clears it. */
+  title?: string | null
+  sides?: Readonly<LobbyBestOfSides>
+  /** The new first text line of the caster overlay; `null` or an empty line clears it. */
+  line1?: string | null
+  /** The new second text line of the caster overlay; `null` or an empty line clears it. */
+  line2?: string | null
+  /** The new logo of the caster overlay; `null` removes it. */
+  logo?: LobbyBestOfLogoJson | null
+}
 
 /**
  * The nydus path of the public lobby list channel, which is also the base path every lobby-specific
@@ -272,6 +304,21 @@ function validatedBestOfTitle(title: string | null | undefined): string | undefi
   const trimmed = title?.trim() ?? ''
   if (trimmed.length > BEST_OF_TITLE_MAX_LENGTH) {
     throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'best-of title is too long')
+  }
+  return trimmed || undefined
+}
+
+/**
+ * Returns a text line of a best-of series' caster overlay as it is kept: trimmed, with an empty one
+ * meaning no line. Throws for a line that is too long.
+ */
+function validatedBestOfOverlayLine(line: string | null | undefined): string | undefined {
+  const trimmed = line?.trim() ?? ''
+  if (trimmed.length > BEST_OF_OVERLAY_LINE_MAX_LENGTH) {
+    throw new LobbyServiceError(
+      LobbyServiceErrorCode.InvalidBestOf,
+      'best-of overlay line is too long',
+    )
   }
   return trimmed || undefined
 }
@@ -3087,22 +3134,37 @@ export class LobbyService {
   }
 
   /**
-   * Starts a best-of series of `length` games between the two sides the host picked. Every game the
-   * lobby launches from now until the series ends counts towards it.
+   * Starts a best-of series of `length` games between the two sides the host picked, and returns
+   * it. Every game the lobby launches from now until the series ends counts towards it.
    */
-  startBestOf({
+  startBestOf(params: StartBestOfParams): LobbyBestOfJson {
+    const { lobby, bestOf } = this._newBestOf(params)
+    let list = this.bestOfs.get(lobby.id)
+    if (!list) {
+      list = []
+      this.bestOfs.set(lobby.id, list)
+    }
+    list.push(bestOf)
+    this._publishTo(lobby, { type: 'bestOfStarted', bestOf })
+    return bestOf
+  }
+
+  /** Throws whatever `startBestOf` would throw for these params, without starting anything. */
+  checkStartBestOf(params: StartBestOfParams): void {
+    this._newBestOf(params)
+  }
+
+  /** Validates the start of a best-of series and returns the series it would start. */
+  private _newBestOf({
     client,
     lobbyId,
     length,
     title,
     sides,
-  }: {
-    client: ClientSocketsGroup
-    lobbyId?: SbLobbyId
-    length: number
-    title?: string
-    sides: Readonly<LobbyBestOfSides>
-  }): void {
+    line1,
+    line2,
+    logo,
+  }: StartBestOfParams): { lobby: Lobby; bestOf: LobbyBestOfJson } {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
@@ -3120,45 +3182,61 @@ export class LobbyService {
     const validTitle = validatedBestOfTitle(title)
     const members = new Set(getLobbyMemberIds(lobby))
     const validSides = validatedBestOfSides(sides, userId => members.has(userId))
+    const overlay = toBestOfOverlayJson({
+      line1: validatedBestOfOverlayLine(line1),
+      line2: validatedBestOfOverlayLine(line2),
+      logo,
+    })
 
-    let list = this.bestOfs.get(lobby.id)
-    if (!list) {
-      list = []
-      this.bestOfs.set(lobby.id, list)
-    }
     const bestOf: LobbyBestOfJson = {
       // A live lobby's list of series only ever grows, so numbering them by position never repeats
-      id: String(list.length + 1),
+      id: String((this.bestOfs.get(lobby.id)?.length ?? 0) + 1),
       ...(validTitle !== undefined ? { title: validTitle } : {}),
       length,
       sides: validSides,
       games: [],
+      ...(overlay ? { overlay } : {}),
     }
-    list.push(bestOf)
-    this._publishTo(lobby, { type: 'bestOfStarted', bestOf })
+    return { lobby, bestOf }
   }
 
   /**
-   * Changes the title and/or sides of a lobby's running best-of series. The games already won stay
-   * with the side that won them, whoever plays for it now. Someone already on either side may stay
-   * on one after leaving the lobby; anyone added has to be in it.
+   * Changes the title, sides and/or caster overlay of a lobby's running best-of series, and returns
+   * the changed series. The games already won stay with the side that won them, whoever plays for
+   * it now. Someone already on either side may stay on one after leaving the lobby; anyone added has
+   * to be in it.
    */
-  updateBestOf({
+  updateBestOf(params: UpdateBestOfParams): LobbyBestOfJson {
+    const { lobby, updated } = this._updatedBestOf(params)
+    this._replaceRunningBestOf(lobby, updated)
+    return updated
+  }
+
+  /** Throws whatever `updateBestOf` would throw for these params, without changing anything. */
+  checkUpdateBestOf(params: UpdateBestOfParams): void {
+    this._updatedBestOf(params)
+  }
+
+  /** Validates a change to a lobby's running best-of series and returns the series it would give. */
+  private _updatedBestOf({
     client,
     lobbyId,
     title,
     sides,
-  }: {
-    client: ClientSocketsGroup
-    lobbyId?: SbLobbyId
-    /** The new title; `null` or an empty title clears it, and `undefined` leaves it as it is. */
-    title?: string | null
-    sides?: Readonly<LobbyBestOfSides>
-  }): void {
+    line1,
+    line2,
+    logo,
+  }: UpdateBestOfParams): { lobby: Lobby; updated: LobbyBestOfJson } {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const running = this._ensureBestOfEditable(lobby, client)
 
-    if (title === undefined && sides === undefined) {
+    if (
+      title === undefined &&
+      sides === undefined &&
+      line1 === undefined &&
+      line2 === undefined &&
+      logo === undefined
+    ) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'nothing to change')
     }
     const newTitle = title === undefined ? running.title : validatedBestOfTitle(title)
@@ -3168,6 +3246,11 @@ export class LobbyService {
       const current = new Set(running.sides.flat())
       newSides = validatedBestOfSides(sides, userId => members.has(userId) || current.has(userId))
     }
+    const overlay = toBestOfOverlayJson({
+      line1: line1 === undefined ? running.overlay?.line1 : validatedBestOfOverlayLine(line1),
+      line2: line2 === undefined ? running.overlay?.line2 : validatedBestOfOverlayLine(line2),
+      logo: logo === undefined ? running.overlay?.logo : (logo ?? undefined),
+    })
 
     const updated: LobbyBestOfJson = { ...running, sides: newSides }
     if (newTitle === undefined) {
@@ -3175,7 +3258,37 @@ export class LobbyService {
     } else {
       updated.title = newTitle
     }
-    this._replaceRunningBestOf(lobby, updated)
+    if (overlay === undefined) {
+      delete updated.overlay
+    } else {
+      updated.overlay = overlay
+    }
+    return { lobby, updated }
+  }
+
+  /**
+   * Gives every best-of series of every lobby that shows the logo served at `previousUrl` the logo
+   * `logo` instead, or no logo when it is `undefined`. Running series tell their lobby about the
+   * change; series that are over are only changed for whoever is handed them later.
+   */
+  replaceBestOfLogo(previousUrl: string, logo: LobbyBestOfLogoJson | undefined): void {
+    for (const [lobbyId, list] of this.bestOfs) {
+      const lobby = this.lobbies.get(lobbyId)
+      for (let i = 0; i < list.length; i++) {
+        const bestOf = list[i]
+        if (bestOf.overlay?.logo?.url !== previousUrl) {
+          continue
+        }
+        const overlay = toBestOfOverlayJson({ ...bestOf.overlay, logo })
+        const { overlay: _, ...rest } = bestOf
+        const replaced: LobbyBestOfJson = overlay ? { ...rest, overlay } : rest
+        if (lobby && i === list.length - 1 && !bestOf.outcome) {
+          this._replaceRunningBestOf(lobby, replaced)
+        } else {
+          list[i] = replaced
+        }
+      }
+    }
   }
 
   /**

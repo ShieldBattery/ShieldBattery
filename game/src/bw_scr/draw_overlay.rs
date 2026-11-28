@@ -54,6 +54,7 @@ pub mod options;
 mod production;
 mod resource_icons;
 mod series;
+mod series_logo;
 mod stats;
 mod wireframe;
 
@@ -897,7 +898,10 @@ impl OverlayState {
             // Only a client watching a game live is shown its series: a player gets no observer
             // panels at all, and a replay is never shown one.
             let series = if host_frame.mode == Mode::Observing {
-                self.series.frame(bw, setup_info)
+                // The loading screen's images are let go of in this frame's pass while it is the
+                // game's first.
+                let images_settled = !self.was_loading;
+                self.series.frame(bw, setup_info, &ctx, images_settled)
             } else {
                 None
             };

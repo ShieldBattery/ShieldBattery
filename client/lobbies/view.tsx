@@ -36,6 +36,7 @@ import {
   discardBestOfGame,
   endBestOf,
   getLobbyState,
+  getRememberedBestOfOverlay,
   kickPlayer,
   leaveLobby,
   makeObserver,
@@ -218,15 +219,6 @@ function ConnectedLobby() {
     onSuccess: () => {},
     onError: onActionError,
   }
-  // For a request whose caller also follows its outcome (e.g. a form that stays open on failure),
-  // reports a refusal the same way as any other action before handing it on.
-  const withActionError = (spec: RequestHandlingSpec<void>): RequestHandlingSpec<void> => ({
-    ...spec,
-    onError: err => {
-      onActionError(err)
-      spec.onError(err)
-    },
-  })
 
   const onWatchReplay = (gameId: string) => {
     dispatch(
@@ -333,13 +325,16 @@ function ConnectedLobby() {
         }
       }}
       onStartBestOf={(request, spec) => {
-        dispatch(startBestOf(request, withActionError(spec)))
+        dispatch(startBestOf(request, spec))
       }}
       onUpdateBestOf={(request, spec) => {
-        dispatch(updateBestOf(request, withActionError(spec)))
+        dispatch(updateBestOf(request, spec))
       }}
       onEndBestOf={() => {
         dispatch(endBestOf(actionSpec))
+      }}
+      onLoadRememberedBestOfOverlay={spec => {
+        dispatch(getRememberedBestOfOverlay(spec))
       }}
       onDiscardBestOfGame={gameId => {
         dispatch(discardBestOfGame(gameId, actionSpec))

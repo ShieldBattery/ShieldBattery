@@ -117,22 +117,69 @@ test('computer edits and rejected personal edits leave the saved race alone', as
   )
 })
 
-test('best-of changes are sent as JSON, keeping a cleared title and both sides', async () => {
+/** Reads a multipart best-of body back as the JSON field it carries and the logo file, if any. */
+function readBestOfForm(body: unknown, field: 'series' | 'changes') {
+  expect(body).toBeInstanceOf(FormData)
+  const form = body as FormData
+  return {
+    fields: [...form.keys()].sort(),
+    request: JSON.parse(form.get(field) as string),
+    logo: form.get('logo'),
+  }
+}
+
+test('a best-of start is sent as multipart, with the series as JSON and the logo as a file', async () => {
+  const logo = new File(['png'], 'logo.png', { type: 'image/png' })
   await new Promise<void>((onSuccess, onError) => {
-    startBestOf({ length: 3, sides: [[USER_ID], [makeSbUserId(2)]] }, { onSuccess, onError })(
-      vi.fn(),
-      getState,
-    )
+    startBestOf(
+      { length: 3, sides: [[USER_ID], [makeSbUserId(2)]], line1: 'Casters', logo },
+      { onSuccess, onError },
+    )(vi.fn(), getState)
   })
   await new Promise<void>((onSuccess, onError) => {
-    updateBestOf({ title: null }, { onSuccess, onError })(vi.fn(), getState)
+    startBestOf(
+      { length: 5, title: 'Final', sides: [[USER_ID], [makeSbUserId(2)]], deleteLogo: true },
+      { onSuccess, onError },
+    )(vi.fn(), getState)
   })
 
-  expect(vi.mocked(fetchJson).mock.calls.map(([url, options]) => [url, options?.body])).toEqual([
-    [
-      expect.stringContaining('/start-best-of'),
-      JSON.stringify({ clientId, length: 3, sides: [[USER_ID], [2]] }),
-    ],
-    [expect.stringContaining('/update-best-of'), JSON.stringify({ clientId, title: null })],
-  ])
+  const [[startUrl, startOptions], [secondUrl, secondOptions]] = vi.mocked(fetchJson).mock.calls
+  expect(startUrl).toContain('/lobbies/lobby/start-best-of')
+  expect(startOptions?.method).toBe('POST')
+  expect(readBestOfForm(startOptions?.body, 'series')).toEqual({
+    fields: ['logo', 'series'],
+    request: { clientId, length: 3, sides: [[USER_ID], [2]], line1: 'Casters' },
+    logo,
+  })
+  expect(secondUrl).toContain('/lobbies/lobby/start-best-of')
+  expect(readBestOfForm(secondOptions?.body, 'series')).toEqual({
+    fields: ['series'],
+    request: { clientId, length: 5, title: 'Final', sides: [[USER_ID], [2]], deleteLogo: true },
+    logo: null,
+  })
+})
+
+test('a best-of change is sent as multipart, keeping cleared fields as null', async () => {
+  const logo = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })
+  await new Promise<void>((onSuccess, onError) => {
+    updateBestOf({ title: null, line2: null }, { onSuccess, onError })(vi.fn(), getState)
+  })
+  await new Promise<void>((onSuccess, onError) => {
+    updateBestOf({ line1: 'Observer', logo }, { onSuccess, onError })(vi.fn(), getState)
+  })
+
+  const [[clearUrl, clearOptions], [logoUrl, logoOptions]] = vi.mocked(fetchJson).mock.calls
+  expect(clearUrl).toContain('/lobbies/lobby/update-best-of')
+  expect(clearOptions?.method).toBe('POST')
+  expect(readBestOfForm(clearOptions?.body, 'changes')).toEqual({
+    fields: ['changes'],
+    request: { clientId, title: null, line2: null },
+    logo: null,
+  })
+  expect(logoUrl).toContain('/lobbies/lobby/update-best-of')
+  expect(readBestOfForm(logoOptions?.body, 'changes')).toEqual({
+    fields: ['changes', 'logo'],
+    request: { clientId, line1: 'Observer' },
+    logo,
+  })
 })

@@ -9,7 +9,7 @@ import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
-import { LobbyBestOfJson, LobbyBestOfSides } from './lobby-best-of'
+import { LobbyBestOfJson, LobbyBestOfOverlayJson, LobbyBestOfSides } from './lobby-best-of'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson, SlotType } from './slot'
 
@@ -52,6 +52,25 @@ export enum LobbyServiceErrorCode {
   Banned = 'Banned',
   /** A best-of series was started while another one is still running. */
   BestOfAlreadyRunning = 'BestOfAlreadyRunning',
+  /** A best-of series' uploaded logo failed the image safety check. */
+  BestOfLogoInappropriate = 'BestOfLogoInappropriate',
+  /**
+   * A best-of series' uploaded logo isn't a PNG, WebP or SVG image that can be read. An SVG has to
+   * be uncompressed UTF-8 text.
+   */
+  BestOfLogoInvalidFormat = 'BestOfLogoInvalidFormat',
+  /**
+   * A best-of series' uploaded PNG or WebP logo is more than `BEST_OF_LOGO_MAX_DIMENSION` pixels on
+   * its longest side, or an SVG logo declares a size too large to draw.
+   */
+  BestOfLogoTooLarge = 'BestOfLogoTooLarge',
+  /**
+   * A best-of series' uploaded SVG logo uses something that is refused for safety: embedded or
+   * linked images, references to anything outside the file, inline `data:` documents, entity or
+   * attribute-list declarations, character references, CSS escapes or imports, stylesheet links,
+   * or a declared text encoding other than UTF-8.
+   */
+  BestOfLogoUnsupportedSvg = 'BestOfLogoUnsupportedSvg',
   /** The host tried to discard a game that isn't a pending game of the running best-of series. */
   BestOfGameNotPending = 'BestOfGameNotPending',
   /**
@@ -66,7 +85,10 @@ export enum LobbyServiceErrorCode {
   CountingDown = 'CountingDown',
   ForcedRace = 'ForcedRace',
   GameInProgress = 'GameInProgress',
-  /** A best-of series' length, title or sides aren't ones it can be played with. */
+  /**
+   * A best-of series' length, title, sides or caster overlay lines aren't ones it can be played
+   * with, or a change to it changes nothing.
+   */
   InvalidBestOf = 'InvalidBestOf',
   InvalidGameSubType = 'InvalidGameSubType',
   InvalidGameType = 'InvalidGameType',
@@ -255,8 +277,13 @@ export interface StartLobbyCountdownRequest extends LobbyClientRequest {
 }
 
 /**
- * The body of a request by the host to start a best-of series. Takes a lobby that has none running,
- * and every member of either side has to be in the lobby (seated, observing, or on the bench).
+ * The request by the host to start a best-of series. Takes a lobby that has none running, and every
+ * member of either side has to be in the lobby (seated, observing, or on the bench).
+ *
+ * Sent as `multipart/form-data`: this object as JSON in the `series` field, and optionally a logo
+ * file in the `logo` field. Without a logo file and without `deleteLogo`, the series gets the logo
+ * the host last used. Whatever lines and logo the series starts with become the ones the host's next
+ * series starts with.
  */
 export interface StartLobbyBestOfRequest extends LobbyClientRequest {
   /** An odd number of games, at most `BEST_OF_MAX_LENGTH`. */
@@ -265,11 +292,24 @@ export interface StartLobbyBestOfRequest extends LobbyClientRequest {
   title?: string
   /** Two sides of 1 to `BEST_OF_MAX_SIDE_SIZE` people each, nobody on both. */
   sides: LobbyBestOfSides
+  /**
+   * The caster overlay's first text line. Trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH`
+   * characters; absent or empty means no first line.
+   */
+  line1?: string
+  /** The caster overlay's second text line, with the same rules as `line1`. */
+  line2?: string
+  /** Starts the series without a logo and forgets the host's last one. Not allowed with a file. */
+  deleteLogo?: boolean
 }
 
 /**
- * The body of a request by the host to change the running best-of series. Absent fields are left
- * as they are, and at least one has to be given. Its length can't be changed.
+ * The request by the host to change the running best-of series. Absent fields are left as they are,
+ * and at least one change (a field or a logo file) has to be given. Its length can't be changed.
+ *
+ * Sent as `multipart/form-data`: this object as JSON in the `changes` field, and optionally a new
+ * logo file in the `logo` field. The lines and logo the series has afterwards become the ones the
+ * host's next series starts with.
  */
 export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
   /** The new title; `null` or an empty title clears it. */
@@ -279,7 +319,22 @@ export interface UpdateLobbyBestOfRequest extends LobbyClientRequest {
    * either side don't have to still be in the lobby. Games already won stay with the side index.
    */
   sides?: LobbyBestOfSides
+  /**
+   * The caster overlay's new first text line, trimmed, at most `BEST_OF_OVERLAY_LINE_MAX_LENGTH`
+   * characters; `null` or an empty line clears it.
+   */
+  line1?: string | null
+  /** The caster overlay's new second text line, with the same rules as `line1`. */
+  line2?: string | null
+  /** Removes the series' logo and forgets the host's last one. Not allowed with a file. */
+  deleteLogo?: boolean
 }
+
+/**
+ * The caster overlay a host's next best-of series starts with: the lines and logo their last one
+ * was started or saved with. Empty for someone who has never started one.
+ */
+export type GetRememberedBestOfOverlayResponse = LobbyBestOfOverlayJson
 
 /**
  * The body of a request by the host to end the running best-of series before either side has won

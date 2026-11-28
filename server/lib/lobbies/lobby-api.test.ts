@@ -1,7 +1,14 @@
-import { RouterContext } from '@koa/router'
-import { describe, expect, test, vi } from 'vitest'
+import Router, { RouterContext } from '@koa/router'
+import got from 'got'
+import http from 'http'
+import Koa from 'koa'
+import { AddressInfo } from 'net'
+import { container } from 'tsyringe'
+import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
+import { FilesErrorCode } from '../../../common/files'
 import { GameType } from '../../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../../common/lobbies'
+import { BEST_OF_LOGO_MAX_SIZE_BYTES } from '../../../common/lobbies/lobby-best-of'
 import {
   InviteToLobbyErrorCode,
   LobbyJoinErrorCode,
@@ -12,6 +19,9 @@ import { createHuman, createOpen } from '../../../common/lobbies/slot'
 import { NotificationType } from '../../../common/notifications'
 import { AllowedInviteSource } from '../../../common/settings/account-settings'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { errorPayloadMiddleware } from '../errors/error-payload-middleware'
+import { applyApiRoutes } from '../http/http-api'
+import { Redis } from '../redis/redis'
 import { findUserById } from '../users/user-model'
 import { convertLobbyServiceError, LobbyApi } from './lobby-api'
 import { LobbyServiceError } from './lobby-service'
@@ -33,6 +43,10 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.Banned]: { status: 409, bodyCode: LobbyJoinErrorCode.Banned },
   [LobbyServiceErrorCode.BestOfAlreadyRunning]: { status: 409 },
   [LobbyServiceErrorCode.BestOfGameNotPending]: { status: 409 },
+  [LobbyServiceErrorCode.BestOfLogoInappropriate]: { status: 400 },
+  [LobbyServiceErrorCode.BestOfLogoInvalidFormat]: { status: 400 },
+  [LobbyServiceErrorCode.BestOfLogoTooLarge]: { status: 400 },
+  [LobbyServiceErrorCode.BestOfLogoUnsupportedSvg]: { status: 400 },
   [LobbyServiceErrorCode.BestOfGamePending]: { status: 409 },
   [LobbyServiceErrorCode.BestOfRosterMismatch]: { status: 409 },
   [LobbyServiceErrorCode.ChatRestricted]: { status: 403 },
@@ -206,6 +220,7 @@ function makeInviteApi({
     notificationService as any,
     userRelationshipService as any,
     accountSettingsService as any,
+    {} as any,
   )
 
   return { api, lobbyService, notificationService, userRelationshipService }
@@ -367,6 +382,188 @@ describe('lobbies/lobby-api/LobbyApi#inviteToLobby', () => {
   })
 })
 
+describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
+  let server: http.Server
+  let baseUrl: string
+  let overlayService: { startBestOf: Mock; updateBestOf: Mock }
+  let throttleKeys: string[]
+
+  beforeEach(async () => {
+    throttleKeys = []
+    container.register(Redis, {
+      useValue: {
+        client: {
+          sbThrottle: vi.fn(async (key: string) => {
+            throttleKeys.push(key)
+            return [0, 0]
+          }),
+        },
+      } as unknown as Redis,
+    })
+    overlayService = {
+      startBestOf: vi.fn().mockResolvedValue({}),
+      updateBestOf: vi.fn().mockResolvedValue({}),
+    }
+    const api = new LobbyApi(
+      {} as any,
+      { getById: vi.fn().mockReturnValue({ clientType: 'electron', userId: SENDER_ID }) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      overlayService as any,
+    )
+    const router = new Router()
+    applyApiRoutes(router, api)
+    const app = new Koa()
+    app.on('error', () => {})
+    app
+      .use(errorPayloadMiddleware())
+      .use(async (ctx, next) => {
+        ;(ctx as any).session = { user: { id: SENDER_ID } }
+        await next()
+      })
+      .use(router.routes())
+    const callback = app.callback()
+    server = http.createServer((req, res) => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      callback(req, res)
+    })
+    await new Promise<void>(resolve => server.listen(0, resolve))
+    baseUrl = `http://localhost:${(server.address() as AddressInfo).port}/api/1/lobbies/${LOBBY_ID}`
+  })
+
+  afterEach(async () => {
+    await new Promise<void>(resolve => server.close(() => resolve()))
+  })
+
+  function form(field: string, value: object, logo?: Blob) {
+    const body = new FormData()
+    body.append(field, JSON.stringify(value))
+    if (logo) {
+      body.append('logo', logo, 'brand.png')
+    }
+    return body
+  }
+
+  function post(route: string, body: FormData) {
+    return got.post(`${baseUrl}/${route}`, {
+      body,
+      throwHttpErrors: false,
+      retry: { limit: 0 },
+      headers: { accept: 'application/json' },
+    })
+  }
+
+  const series = { clientId: 'client-1', length: 3, sides: [[2], [3]] }
+
+  test('starts one from the multipart fields, with the logo file and its own throttle', async () => {
+    const response = await post(
+      'start-best-of',
+      form(
+        'series',
+        { ...series, title: ' Final ', line1: '  Casters  ', line2: '' },
+        new Blob([Buffer.from('logo bytes')]),
+      ),
+    )
+
+    expect(response.statusCode).toBe(204)
+    expect(overlayService.startBestOf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lobbyId: LOBBY_ID,
+        length: 3,
+        title: 'Final',
+        sides: [[2], [3]],
+        line1: 'Casters',
+        line2: '',
+      }),
+      {
+        kind: 'replace',
+        file: expect.objectContaining({
+          filepath: expect.any(String),
+          originalFilename: 'brand.png',
+        }),
+      },
+    )
+    expect(throttleKeys).toEqual([`sbthrottle:lobbies/best-of-logo~${SENDER_ID}`])
+  })
+
+  test('starts one without a file, keeping or removing the remembered logo', async () => {
+    await post('start-best-of', form('series', series))
+    await post('start-best-of', form('series', { ...series, deleteLogo: true }))
+
+    expect(overlayService.startBestOf.mock.calls.map(([, change]) => change)).toEqual([
+      { kind: 'keep' },
+      { kind: 'remove' },
+    ])
+    expect(throttleKeys).toEqual([
+      `sbthrottle:lobbies/action~${SENDER_ID}`,
+      `sbthrottle:lobbies/action~${SENDER_ID}`,
+    ])
+  })
+
+  test('refuses a logo over 2 MB with a 413', async () => {
+    const response = await post(
+      'start-best-of',
+      form('series', series, new Blob([Buffer.alloc(BEST_OF_LOGO_MAX_SIZE_BYTES + 1)])),
+    )
+
+    expect(response.statusCode).toBe(413)
+    expect(JSON.parse(response.body)).toEqual({ code: FilesErrorCode.MaxFileSizeExceeded })
+    expect(overlayService.startBestOf).not.toHaveBeenCalled()
+  })
+
+  test('refuses lines over the limit, and a logo both uploaded and removed', async () => {
+    const tooLong = await post(
+      'start-best-of',
+      form('series', { ...series, line2: 'x'.repeat(61) }),
+    )
+    const both = await post(
+      'start-best-of',
+      form('series', { ...series, deleteLogo: true }, new Blob([Buffer.from('logo')])),
+    )
+
+    expect(tooLong.statusCode).toBe(400)
+    expect(both.statusCode).toBe(400)
+    expect(overlayService.startBestOf).not.toHaveBeenCalled()
+  })
+
+  test('saves a change of lines, or of the logo alone, and refuses one that changes nothing', async () => {
+    const lines = await post(
+      'update-best-of',
+      form('changes', { clientId: 'client-1', line1: null, line2: ' Observer ' }),
+    )
+    const logoOnly = await post(
+      'update-best-of',
+      form('changes', { clientId: 'client-1' }, new Blob([Buffer.from('logo')])),
+    )
+    const nothing = await post('update-best-of', form('changes', { clientId: 'client-1' }))
+
+    expect(lines.statusCode).toBe(204)
+    expect(logoOnly.statusCode).toBe(204)
+    expect(nothing.statusCode).toBe(400)
+    expect(overlayService.updateBestOf.mock.calls).toEqual([
+      [expect.objectContaining({ line1: null, line2: 'Observer' }), { kind: 'keep' }],
+      [expect.objectContaining({ line1: undefined }), expect.objectContaining({ kind: 'replace' })],
+    ])
+  })
+
+  test("answers a refused logo with the service's code", async () => {
+    overlayService.startBestOf.mockRejectedValue(
+      new LobbyServiceError(LobbyServiceErrorCode.BestOfLogoInappropriate, 'inappropriate'),
+    )
+
+    const response = await post(
+      'start-best-of',
+      form('series', series, new Blob([Buffer.from('logo')])),
+    )
+
+    expect(response.statusCode).toBe(400)
+    expect(JSON.parse(response.body)).toEqual({
+      code: LobbyServiceErrorCode.BestOfLogoInappropriate,
+    })
+  })
+})
+
 describe('lobbies/lobby-api/LobbyApi#joinLobby', () => {
   test('still succeeds when clearing the invite notification fails', async () => {
     const lobbyService = {
@@ -380,6 +577,7 @@ describe('lobbies/lobby-api/LobbyApi#joinLobby', () => {
       lobbyService as any,
       { getById: vi.fn().mockReturnValue({ clientType: 'electron' }) } as any,
       notificationService as any,
+      {} as any,
       {} as any,
       {} as any,
     )

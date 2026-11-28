@@ -5273,6 +5273,151 @@ describe('lobbies/lobby-service', () => {
       expect(runningBestOf(id)).not.toHaveProperty('title')
     })
 
+    test("starting one keeps its caster overlay's lines trimmed, and blank ones as none", async () => {
+      const id = await createTeamLobby()
+      const logo = { url: 'https://cdn.example.com/logo.png', fileName: 'brand.svg' }
+
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        sides: [[H], [J]],
+        line1: '   ',
+        line2: '  Casters  Alice & Bob  ',
+        logo,
+      })
+
+      expect(runningBestOf(id).overlay).toEqual({ line2: 'Casters  Alice & Bob', logo })
+      expect(bestOfEvents(id)).toEqual([
+        {
+          type: 'bestOfStarted',
+          bestOf: expect.objectContaining({ overlay: { line2: 'Casters  Alice & Bob', logo } }),
+        },
+      ])
+      await launchGame(id)
+      expect(lastLoadRequest().bestOf).toEqual(
+        expect.objectContaining({ lines: ['Casters  Alice & Bob'], logoUrl: logo.url }),
+      )
+    })
+
+    test('a series with no caster overlay has none, and launches without one', async () => {
+      const id = await createTeamLobby()
+
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        sides: [[H], [J]],
+        line1: '',
+        line2: ' ',
+      })
+
+      expect(runningBestOf(id)).not.toHaveProperty('overlay')
+      await launchGame(id)
+      expect(lastLoadRequest().bestOf).not.toHaveProperty('lines')
+      expect(lastLoadRequest().bestOf).not.toHaveProperty('logoUrl')
+    })
+
+    test('starting or changing one refuses a caster overlay line over the limit', async () => {
+      const id = await createTeamLobby()
+      const invalid = codeError(LobbyServiceErrorCode.InvalidBestOf)
+      const tooLong = 'x'.repeat(61)
+      const start = (line1?: string, line2?: string) =>
+        lobbyService.startBestOf({
+          client: host.client,
+          length: 3,
+          sides: [[H], [J]],
+          line1,
+          line2,
+        })
+
+      expect(() => start(tooLong)).toThrow(invalid)
+      expect(() => start(undefined, tooLong)).toThrow(invalid)
+      expect(() =>
+        lobbyService.checkStartBestOf({
+          client: host.client,
+          length: 3,
+          sides: [[H], [J]],
+          line1: tooLong,
+        }),
+      ).toThrow(invalid)
+      expect(lobbyService.bestOfs.get(id) ?? []).toEqual([])
+
+      // Trimming happens before the limit applies
+      start(`  ${'x'.repeat(60)}  `)
+      expect(runningBestOf(id).overlay).toEqual({ line1: 'x'.repeat(60) })
+
+      expect(() => lobbyService.updateBestOf({ client: host.client, line2: tooLong })).toThrow(
+        invalid,
+      )
+      expect(runningBestOf(id).overlay).toEqual({ line1: 'x'.repeat(60) })
+    })
+
+    test("the host can change the caster overlay's lines and logo, leaving the rest", async () => {
+      const id = await createTeamLobby()
+      const logo = { url: 'https://cdn.example.com/a.png', fileName: 'a.png' }
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 3,
+        title: 'Final',
+        sides: [[H], [J]],
+        line1: 'Casters  Alice',
+        line2: 'Observer  Carol',
+      })
+      fakeNydus.publish.mockClear()
+
+      lobbyService.updateBestOf({ client: host.client, line1: '  Casters  Bob ', logo })
+      expect(runningBestOf(id).overlay).toEqual({
+        line1: 'Casters  Bob',
+        line2: 'Observer  Carol',
+        logo,
+      })
+      expect(bestOfEvents(id)).toEqual([
+        {
+          type: 'bestOfUpdated',
+          bestOf: expect.objectContaining({
+            title: 'Final',
+            overlay: { line1: 'Casters  Bob', line2: 'Observer  Carol', logo },
+          }),
+        },
+      ])
+
+      lobbyService.updateBestOf({ client: host.client, line1: null, line2: '' })
+      expect(runningBestOf(id).overlay).toEqual({ logo })
+
+      lobbyService.updateBestOf({ client: host.client, logo: null })
+      expect(runningBestOf(id)).not.toHaveProperty('overlay')
+      expect(runningBestOf(id).title).toBe('Final')
+    })
+
+    test('replacing a logo moves every series showing it to the new one', async () => {
+      const id = await createTeamLobby()
+      const oldLogo = { url: 'https://cdn.example.com/old.png', fileName: 'old.png' }
+      const newLogo = { url: 'https://cdn.example.com/new.png', fileName: 'new.png' }
+      lobbyService.startBestOf({
+        client: host.client,
+        length: 1,
+        sides: [[H], [J]],
+        line1: 'Line',
+        logo: oldLogo,
+      })
+      await playGame(id, H)
+      lobbyService.startBestOf({ client: host.client, length: 3, sides: [[H], [J]], logo: oldLogo })
+      fakeNydus.publish.mockClear()
+
+      lobbyService.replaceBestOfLogo(oldLogo.url, newLogo)
+
+      const [ended, running] = lobbyService.bestOfs.get(id)!
+      expect(ended.overlay).toEqual({ line1: 'Line', logo: newLogo })
+      expect(running.overlay).toEqual({ logo: newLogo })
+      // Only the running one is announced
+      expect(bestOfEvents(id)).toEqual([
+        { type: 'bestOfUpdated', bestOf: expect.objectContaining({ overlay: { logo: newLogo } }) },
+      ])
+
+      lobbyService.replaceBestOfLogo(newLogo.url, undefined)
+      expect(lobbyService.bestOfs.get(id)![0].overlay).toEqual({ line1: 'Line' })
+      expect(runningBestOf(id)).not.toHaveProperty('overlay')
+    })
+
     test('only one can run at a time', async () => {
       const id = await createTeamLobby()
       startBestOf()

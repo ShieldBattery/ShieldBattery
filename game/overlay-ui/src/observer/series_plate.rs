@@ -433,6 +433,8 @@ mod tests {
             format: SeriesFormat::BestOf { length: 99 },
             game_number: 24,
             scores: [12, 11],
+            lines: Vec::new(),
+            logo: None,
         }
     }
 
@@ -588,9 +590,9 @@ mod tests {
         };
         assert_eq!(plate.top(), 0.0);
         assert_eq!(tab.top(), plate.bottom());
-        assert_eq!(tab.height(), matchup::TAB_HEIGHT);
+        assert_eq!(tab.height(), matchup::TAB_ROW_HEIGHT);
         assert!((tab.center().x - plate.center().x).abs() < 0.5);
-        assert_eq!(depth, PLATE_HEIGHT + matchup::TAB_HEIGHT);
+        assert_eq!(depth, PLATE_HEIGHT + matchup::TAB_ROW_HEIGHT);
         let room = map_control::room_between_wings(Rect::from_min_size(egui::Pos2::ZERO, size));
         assert!(tab.width() <= room);
 
@@ -600,5 +602,87 @@ mod tests {
         });
         assert_eq!(rects.len(), 1, "{rects:?}");
         assert_eq!(depth, PLATE_HEIGHT);
+    }
+
+    /// A logo of `width` by `height` pixels, on a texture no test draws from.
+    fn logo(width: u32, height: u32) -> crate::observer::SeriesLogo {
+        crate::observer::SeriesLogo {
+            texture: egui::TextureId::User(1),
+            size: [width, height],
+        }
+    }
+
+    /// The plate's rects and its depth once a 1920x1080 screen has settled around `view`.
+    fn settled_plate(view: &MatchupView) -> (Vec<Rect>, f32) {
+        crate::observer::test_support::settled_at(egui::vec2(1920.0, 1080.0), |ctx| {
+            render_series_plate(view, ctx, true).map(|outcome| (outcome.rects, outcome.depth))
+        })
+        .expect("the plate is drawn")
+    }
+
+    #[test]
+    fn the_tab_under_the_plate_carries_the_casters_lines_and_logo_as_the_bars_does() {
+        let short = vec!["a".repeat(20), "b".repeat(20)];
+        let long = vec!["a".repeat(40), "b".repeat(40)];
+        for title in [Some("Grand Final".to_string()), None] {
+            for (lines, logo) in [
+                (Vec::new(), Some(logo(576, 144))),
+                (Vec::new(), Some(logo(144, 144))),
+                (short.clone(), None),
+                (long.clone(), None),
+                (long.clone(), Some(logo(576, 144))),
+            ] {
+                let series = SeriesView {
+                    title: title.clone(),
+                    lines: lines.clone(),
+                    logo,
+                    ..longest_series()
+                };
+                // The plate's tab has the rows the bar's has, short only of the series line where
+                // there is no title to be one.
+                let bar = matchup::series_tab_height(&series, TabAnchor::Bar)
+                    .expect("the bar always hangs a tab");
+                let expected = if title.is_some() || logo.is_some() && lines.len() < 2 {
+                    bar
+                } else {
+                    bar - matchup::TAB_ROW_HEIGHT
+                };
+                let view = series_game(&[1, 2], series);
+                let (rects, depth) = settled_plate(&view);
+                let [plate, tab] = rects[..] else {
+                    panic!("{title:?} {lines:?}: {rects:?}");
+                };
+                assert_eq!(tab.height(), expected, "{title:?} {lines:?} {logo:?}");
+                assert_eq!(tab.top(), plate.bottom());
+                assert_eq!(depth, plate.height() + expected);
+            }
+        }
+    }
+
+    #[test]
+    fn a_plate_for_a_series_with_nothing_for_its_tab_hangs_none() {
+        let series = SeriesView {
+            title: Some(String::new()),
+            ..longest_series()
+        };
+        let (rects, depth) = settled_plate(&series_game(&[1, 1, 2, 2], series));
+        assert_eq!(rects.len(), 1, "{rects:?}");
+        assert_eq!(depth, STACKED_PLATE_HEIGHT);
+    }
+
+    #[test]
+    fn a_logo_alone_under_the_plate_is_a_tab_as_narrow_as_the_logo() {
+        let series = SeriesView {
+            title: None,
+            logo: Some(logo(144, 144)),
+            ..longest_series()
+        };
+        let (rects, _) = settled_plate(&series_game(&[1, 2], series));
+        let [plate, tab] = rects[..] else {
+            panic!("{rects:?}");
+        };
+        // The square logo's 36 points and 8 either side of it, centered under the plate.
+        assert_eq!(tab.width(), 52.0);
+        assert!((tab.center().x - plate.center().x).abs() < 0.5);
     }
 }

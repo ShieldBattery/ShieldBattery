@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -21,11 +21,7 @@ import {
   LobbyBestOfGameJson,
   LobbyBestOfJson,
 } from '../../../common/lobbies/lobby-best-of'
-import {
-  LobbySeriesGameJson,
-  StartLobbyBestOfRequest,
-  UpdateLobbyBestOfRequest,
-} from '../../../common/lobbies/lobby-network'
+import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, tilesetToName } from '../../../common/maps'
@@ -44,7 +40,6 @@ import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
-import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -1129,8 +1124,8 @@ function gameSubTypeLabel(lobby: Lobby, t: TFunction): string {
 export function RoomMapBanner({
   viewerId,
   onArrangeTeams,
-  onStartBestOf,
-  onUpdateBestOf,
+  onOpenSeriesSetup,
+  focusSeriesTool = false,
   onEndBestOf,
   onDiscardBestOfGame,
   onWatchReplay,
@@ -1138,14 +1133,13 @@ export function RoomMapBanner({
 }: {
   viewerId: SbUserId
   onArrangeTeams: (arrangement: TeamArrangement) => void
-  onStartBestOf: (
-    request: Omit<StartLobbyBestOfRequest, 'clientId'>,
-    spec: RequestHandlingSpec<void>,
-  ) => void
-  onUpdateBestOf: (
-    request: Omit<UpdateLobbyBestOfRequest, 'clientId'>,
-    spec: RequestHandlingSpec<void>,
-  ) => void
+  /** Opens the page that starts a series, or edits the running one. */
+  onOpenSeriesSetup: () => void
+  /**
+   * Whether the button that opens the series page takes focus as the banner mounts, for when the
+   * host comes back to the room from that page.
+   */
+  focusSeriesTool?: boolean
   onEndBestOf: () => void
   onDiscardBestOfGame: (gameId: string) => void
   onWatchReplay: (gameId: string) => void
@@ -1246,14 +1240,13 @@ export function RoomMapBanner({
       ? () => onDiscardBestOfGame(bestOfGame.gameId)
       : undefined
 
-  const openBestOfDialog = () => {
-    dispatch(
-      openDialog({
-        type: DialogType.LobbyBestOf,
-        initData: { onStart: onStartBestOf, onUpdate: onUpdateBestOf },
-      }),
-    )
-  }
+  const seriesToolRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (focusSeriesTool) {
+      seriesToolRef.current?.focus()
+    }
+  }, [focusSeriesTool])
+
   const openEndBestOfDialog = () => {
     dispatch(openDialog({ type: DialogType.LobbyEndBestOf, initData: { onConfirm: onEndBestOf } }))
   }
@@ -1344,21 +1337,26 @@ export function RoomMapBanner({
               {runningBestOf ? (
                 <>
                   <HostToolButton
+                    ref={seriesToolRef}
                     label={t('lobbies.room.banner.editSeries', 'Edit series')}
                     iconStart={<MaterialIcon icon='edit' size={18} />}
-                    onClick={openBestOfDialog}
+                    onClick={onOpenSeriesSetup}
+                    testName='edit-series-button'
                   />
                   <HostToolButton
                     label={t('lobbies.room.banner.endSeries', 'End series')}
                     iconStart={<MaterialIcon icon='flag' size={18} />}
                     onClick={openEndBestOfDialog}
+                    testName='banner-end-series-button'
                   />
                 </>
               ) : (
                 <HostToolButton
+                  ref={seriesToolRef}
                   label={t('lobbies.room.banner.startSeries', 'Start series')}
                   iconStart={<MaterialIcon icon='trophy' size={18} />}
-                  onClick={openBestOfDialog}
+                  onClick={onOpenSeriesSetup}
+                  testName='start-series-button'
                 />
               )}
             </HostTools>

@@ -1,0 +1,298 @@
+import { TFunction } from 'i18next'
+import { FilesErrorCode } from '../../../common/files'
+import {
+  BEST_OF_LOGO_ACCEPTED_TYPES,
+  BEST_OF_LOGO_MAX_DIMENSION,
+  BEST_OF_LOGO_MAX_SIZE_BYTES,
+  LobbyBestOfJson,
+  LobbyBestOfLogoJson,
+  LobbyBestOfSides,
+} from '../../../common/lobbies/lobby-best-of'
+import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
+import { isFetchError } from '../../network/fetch-errors'
+import { StartBestOfParams, UpdateBestOfParams } from '../action-creators'
+
+/** The logo size limit as the page writes it, in megabytes. */
+export const BEST_OF_LOGO_MAX_SIZE_MB = BEST_OF_LOGO_MAX_SIZE_BYTES / (1024 * 1024)
+
+/** What the series page's logo slot holds. */
+export type LogoSlotValue =
+  /** No logo: the series has none, or the host removed it. */
+  | { kind: 'none' }
+  /** A logo already on the server: the running series' one, or the host's remembered one. */
+  | { kind: 'stored'; logo: LobbyBestOfLogoJson }
+  /** A file the host picked on the page, not uploaded yet. */
+  | { kind: 'picked'; file: File }
+  /**
+   * The host's remembered logo couldn't be loaded, so whether they have one isn't known. Starting
+   * a series without touching the slot gives it whatever remembered logo the host has.
+   */
+  | { kind: 'unknown' }
+
+/** Returns the slot value for a logo the server reported, which may be none. */
+export function storedLogoSlot(logo: LobbyBestOfLogoJson | undefined): LogoSlotValue {
+  return logo ? { kind: 'stored', logo } : { kind: 'none' }
+}
+
+function sameSides(a: Readonly<LobbyBestOfSides>, b: Readonly<LobbyBestOfSides>): boolean {
+  return a.every(
+    (side, i) => side.length === b[i].length && side.every((userId, j) => userId === b[i][j]),
+  )
+}
+
+/** What the host entered on the series page. */
+export interface SeriesSetupValues {
+  title: string
+  sides: LobbyBestOfSides
+  line1: string
+  line2: string
+  logo: LogoSlotValue
+}
+
+/**
+ * Builds the request that starts a series from what the host entered. The logo slot's starting
+ * value decides what an empty slot means: removing a logo the slot opened with also forgets it as
+ * the host's remembered logo, while a slot that opened empty (or unknown) sends nothing about it.
+ */
+export function buildStartBestOfParams(
+  length: number,
+  values: SeriesSetupValues,
+  initialLogo: LogoSlotValue,
+): StartBestOfParams {
+  const title = values.title.trim()
+  const line1 = values.line1.trim()
+  const line2 = values.line2.trim()
+  return {
+    length,
+    ...(title ? { title } : {}),
+    sides: values.sides,
+    ...(line1 ? { line1 } : {}),
+    ...(line2 ? { line2 } : {}),
+    ...logoChange(values.logo, initialLogo),
+  }
+}
+
+/**
+ * Builds the request that saves the host's changes to a running series, holding only what differs
+ * from the series as the page opened on it. Returns undefined when nothing changed, since the
+ * server refuses a request that changes nothing.
+ */
+export function buildUpdateBestOfParams(
+  editing: Pick<LobbyBestOfJson, 'title' | 'sides' | 'overlay'>,
+  values: SeriesSetupValues,
+): UpdateBestOfParams | undefined {
+  const title = values.title.trim()
+  const line1 = values.line1.trim()
+  const line2 = values.line2.trim()
+
+  const changes: UpdateBestOfParams = {
+    ...(title !== (editing.title ?? '') ? { title: title || null } : {}),
+    ...(!sameSides(values.sides, editing.sides) ? { sides: values.sides } : {}),
+    ...(line1 !== (editing.overlay?.line1 ?? '') ? { line1: line1 || null } : {}),
+    ...(line2 !== (editing.overlay?.line2 ?? '') ? { line2: line2 || null } : {}),
+    ...logoChange(values.logo, storedLogoSlot(editing.overlay?.logo)),
+  }
+
+  return Object.keys(changes).length > 0 ? changes : undefined
+}
+
+function logoChange(
+  logo: LogoSlotValue,
+  initialLogo: LogoSlotValue,
+): Pick<StartBestOfParams, 'logo' | 'deleteLogo'> {
+  if (logo.kind === 'picked') {
+    return { logo: logo.file }
+  } else if (logo.kind === 'none' && initialLogo.kind === 'stored') {
+    return { deleteLogo: true }
+  } else {
+    return {}
+  }
+}
+
+/**
+ * Writes the series page's footer summary: its length, its two sides (with the score while it
+ * runs), and its title. A part that has nothing to say is left out: the length while it isn't a
+ * valid one, the sides while either is empty, and the title while there is none.
+ */
+export function formatSeriesSetupSummary(
+  t: TFunction,
+  {
+    length,
+    sideLabels,
+    score,
+    title,
+  }: {
+    length: number | undefined
+    /** Undefined while either side is empty. */
+    sideLabels: [side1: string, side2: string] | undefined
+    /** Given while the series runs. */
+    score?: [number, number]
+    title: string
+  },
+): string {
+  let sidesPart: string | undefined
+  if (sideLabels) {
+    sidesPart = score
+      ? t('lobbies.seriesSetup.summarySidesScore', {
+          defaultValue: '{{side1}} {{score1}}–{{score2}} {{side2}}',
+          side1: sideLabels[0],
+          side2: sideLabels[1],
+          score1: score[0],
+          score2: score[1],
+        })
+      : t('lobbies.seriesSetup.summarySides', {
+          defaultValue: '{{side1}} vs {{side2}}',
+          side1: sideLabels[0],
+          side2: sideLabels[1],
+        })
+  }
+
+  return [
+    length !== undefined
+      ? t('lobbies.seriesSetup.summaryLength', { defaultValue: 'Best of {{length}}', length })
+      : undefined,
+    sidesPart,
+    title.trim() || undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/** Why a file picked for the logo was refused before anything was sent. */
+export type LogoFileProblem =
+  | { kind: 'type' }
+  | { kind: 'size' }
+  | { kind: 'dimensions'; width: number; height: number }
+  | { kind: 'unreadable' }
+
+const LOGO_EXTENSION_TYPES: ReadonlyArray<[extension: string, type: string]> = [
+  ['.png', 'image/png'],
+  ['.webp', 'image/webp'],
+  ['.svg', 'image/svg+xml'],
+]
+
+/**
+ * The type a picked logo file is offered as: what the browser reports for it, or, when it reports
+ * nothing, what its extension says. The server tells the formats apart by content either way.
+ */
+function getLogoFileType(file: File): string {
+  if (file.type) {
+    return file.type
+  }
+  const name = file.name.toLowerCase()
+  return LOGO_EXTENSION_TYPES.find(([extension]) => name.endsWith(extension))?.[1] ?? ''
+}
+
+/** Reads the pixel size of an image file by loading it locally. */
+export function loadImageFileDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error(`could not load ${file.name} as an image`))
+    }
+    image.src = url
+  })
+}
+
+/**
+ * Checks a file picked for the logo against what the server accepts, as far as that can be told
+ * locally: PNG, WebP or SVG, at most `BEST_OF_LOGO_MAX_SIZE_BYTES`, and for PNG and WebP at most
+ * `BEST_OF_LOGO_MAX_DIMENSION` pixels on the longest side. Returns undefined for a file that
+ * passes.
+ */
+export async function checkLogoFile(
+  file: File,
+  loadDimensions: (
+    file: File,
+  ) => Promise<{ width: number; height: number }> = loadImageFileDimensions,
+): Promise<LogoFileProblem | undefined> {
+  const type = getLogoFileType(file)
+  if (!BEST_OF_LOGO_ACCEPTED_TYPES.includes(type)) {
+    return { kind: 'type' }
+  }
+  if (file.size > BEST_OF_LOGO_MAX_SIZE_BYTES) {
+    return { kind: 'size' }
+  }
+  if (type === 'image/svg+xml') {
+    return undefined
+  }
+
+  try {
+    const { width, height } = await loadDimensions(file)
+    return Math.max(width, height) > BEST_OF_LOGO_MAX_DIMENSION
+      ? { kind: 'dimensions', width, height }
+      : undefined
+  } catch {
+    return { kind: 'unreadable' }
+  }
+}
+
+/** The message the logo slot shows for a file refused before anything was sent. */
+export function logoFileProblemMessage(problem: LogoFileProblem, t: TFunction): string {
+  switch (problem.kind) {
+    case 'type':
+      return t('lobbies.seriesSetup.logoErrorType', 'Choose a PNG, WebP or SVG image.')
+    case 'size':
+      return t('lobbies.seriesSetup.logoErrorSize', {
+        defaultValue: 'This file is larger than {{size}} MB.',
+        size: BEST_OF_LOGO_MAX_SIZE_MB,
+      })
+    case 'dimensions':
+      return t('lobbies.seriesSetup.logoErrorDimensions', {
+        defaultValue:
+          'This image is {{width}}×{{height}}. A PNG or WebP logo can be at most {{max}}px on its longest side.',
+        width: problem.width,
+        height: problem.height,
+        max: BEST_OF_LOGO_MAX_DIMENSION,
+      })
+    case 'unreadable':
+      return t('lobbies.seriesSetup.logoErrorUnreadable', "This image couldn't be read.")
+    default:
+      return problem satisfies never
+  }
+}
+
+/**
+ * Returns the message for a start or save the server refused because of its logo, which the page
+ * shows on the logo slot, or undefined for a refusal about anything else.
+ */
+export function bestOfLogoErrorMessage(err: unknown, t: TFunction): string | undefined {
+  if (!isFetchError(err)) {
+    return undefined
+  }
+  if (err.status === 413 || err.code === FilesErrorCode.MaxFileSizeExceeded) {
+    return logoFileProblemMessage({ kind: 'size' }, t)
+  }
+
+  switch (err.code as LobbyServiceErrorCode | undefined) {
+    case LobbyServiceErrorCode.BestOfLogoInvalidFormat:
+      return t(
+        'lobbies.seriesSetup.logoErrorInvalidFormat',
+        "This file isn't a PNG, WebP or SVG image that can be read.",
+      )
+    case LobbyServiceErrorCode.BestOfLogoTooLarge:
+      return t('lobbies.seriesSetup.logoErrorTooLarge', {
+        defaultValue:
+          'This image is too large. A PNG or WebP logo can be at most {{max}}px on its longest side, and an SVG has to be drawable at a reasonable size.',
+        max: BEST_OF_LOGO_MAX_DIMENSION,
+      })
+    case LobbyServiceErrorCode.BestOfLogoInappropriate:
+      return t(
+        'lobbies.seriesSetup.logoErrorInappropriate',
+        "This image can't be used as a logo. Choose a different one.",
+      )
+    case LobbyServiceErrorCode.BestOfLogoUnsupportedSvg:
+      return t(
+        'lobbies.seriesSetup.logoErrorUnsupportedSvg',
+        "This SVG uses something a logo can't have, such as an embedded image or a link to another file. Export it with everything drawn as shapes, or as a PNG.",
+      )
+    default:
+      return undefined
+  }
+}

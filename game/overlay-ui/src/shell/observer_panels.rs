@@ -937,7 +937,7 @@ pub(super) fn number_key_digit(key: Key) -> Option<u8> {
 mod tests {
     use egui::{Key, Modifiers, Rect};
 
-    use crate::observer::matchup::{BAR_HEIGHT, BAR_WIDTH, SCORES_WIDTH, TAB_HEIGHT};
+    use crate::observer::matchup::{BAR_HEIGHT, BAR_WIDTH, SCORES_WIDTH, TAB_ROW_HEIGHT};
     use crate::shell::test_support::*;
     use crate::shell::{Intent, MatchupStyle, PanelPrefs};
 
@@ -1918,7 +1918,7 @@ mod tests {
             };
             assert_eq!(surface.top(), 0.0, "{label}");
             assert_eq!(tab.top(), surface.bottom(), "{label}");
-            assert_eq!(tab.height(), TAB_HEIGHT, "{label}");
+            assert_eq!(tab.height(), TAB_ROW_HEIGHT, "{label}");
             if plate {
                 assert_eq!(surface.height(), PLATE_HEIGHT, "{label}");
             } else {

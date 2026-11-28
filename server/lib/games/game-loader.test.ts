@@ -1789,6 +1789,53 @@ describe('games/game-loader/GameLoader', () => {
       await load
     })
 
+    test("carries the caster overlay's lines and logo URL", async () => {
+      const { load } = await startRosterLoad(
+        'game-series-overlay',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+        ],
+        undefined,
+        {
+          ...bestOf,
+          lines: ['Casters  Alice & Bob', 'Observer  Carol'],
+          logoUrl: 'https://cdn.example.com/best-of-logos/ab/cd/abcd.png',
+        },
+      )
+
+      expect(publishedSetupFor(p1).seriesOverlay).toEqual(
+        expect.objectContaining({
+          lines: ['Casters  Alice & Bob', 'Observer  Carol'],
+          logoUrl: 'https://cdn.example.com/best-of-logos/ab/cd/abcd.png',
+        }),
+      )
+
+      gameLoader.registerGameAsLoaded('game-series-overlay', p1)
+      gameLoader.registerGameAsLoaded('game-series-overlay', p2)
+      await load
+    })
+
+    test('leaves the lines and logo URL out when the series has none', async () => {
+      const { load } = await startRosterLoad(
+        'game-series-no-overlay',
+        [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+        ],
+        undefined,
+        bestOf,
+      )
+
+      const overlay = publishedSetupFor(p1).seriesOverlay
+      expect(overlay).not.toHaveProperty('lines')
+      expect(overlay).not.toHaveProperty('logoUrl')
+
+      gameLoader.registerGameAsLoaded('game-series-no-overlay', p1)
+      gameLoader.registerGameAsLoaded('game-series-no-overlay', p2)
+      await load
+    })
+
     test("leaves out side members who aren't seated players", async () => {
       // p3 observes and p4 isn't in the game at all.
       const { load } = await startRosterLoad(

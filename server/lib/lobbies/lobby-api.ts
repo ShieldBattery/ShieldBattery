@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import { ExtendableContext, Next } from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
@@ -11,8 +12,10 @@ import {
   MAX_MAP_QUEUE,
 } from '../../../common/lobbies'
 import {
+  BEST_OF_LOGO_MAX_SIZE_BYTES,
   BEST_OF_MAX_LENGTH,
   BEST_OF_MAX_SIDE_SIZE,
+  BEST_OF_OVERLAY_LINE_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
 } from '../../../common/lobbies/lobby-best-of'
 import {
@@ -49,6 +52,7 @@ import { ALL_RACE_CHARS } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import logger from '../logging/logger'
@@ -57,15 +61,21 @@ import NotificationService from '../notifications/notification-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { AccountSettingsService } from '../settings/account-settings-service'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser, throttleMiddlewareFunc } from '../throttle/middleware'
 import { findUserById } from '../users/user-model'
 import { UserRelationshipService } from '../users/user-relationship-service'
 import { validateRequest } from '../validation/joi-validator'
+import { json } from '../validation/json-validator'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
   UserSocketsGroup,
 } from '../websockets/socket-groups'
+import {
+  BestOfLogoChange,
+  LobbyBestOfOverlayService,
+  UploadedBestOfLogo,
+} from './lobby-best-of-overlay-service'
 import { LobbyService, LobbyServiceError } from './lobby-service'
 
 // Creating, joining, and leaving are one-off transitions in and out of a lobby, so a
@@ -107,8 +117,53 @@ const lobbyInviteThrottle = createThrottle('lobbies/invite', {
 // for. `/lobbies` is also served by the deliberately unauthenticated `LobbySummaryApi`, so the login
 // check has to be attached per route here rather than to the class, or it would guard that endpoint
 // too.
+// Starting or saving a best-of series with a logo attached costs an image safety check and a stored
+// file, so those requests get an image upload's tighter cap.
+const bestOfLogoThrottle = createThrottle('lobbies/best-of-logo', {
+  rate: 3,
+  burst: 12,
+  window: 60000,
+})
+
 const authed = [ensureLoggedIn, throttleMiddleware(lobbyThrottle, throttleByUser)]
 const authedAction = [ensureLoggedIn, throttleMiddleware(lobbyActionThrottle, throttleByUser)]
+
+/** Throttles a best-of start or save by whether it has a logo file attached. */
+async function throttleBestOfChange(ctx: ExtendableContext, next: Next) {
+  const throttle = ctx.request.files?.logo ? bestOfLogoThrottle : lobbyActionThrottle
+  await throttleMiddlewareFunc(throttle, throttleByUser, ctx, next)
+}
+
+/**
+ * The middleware of a best-of start or save: the login check before the upload is read, the
+ * upload with the logo's own size limit, and then the throttle that depends on it.
+ */
+const bestOfChange = [
+  ensureLoggedIn,
+  handleMultipartFiles(BEST_OF_LOGO_MAX_SIZE_BYTES),
+  throttleBestOfChange,
+]
+
+/**
+ * Returns how a best-of start or save treats the logo: the `logo` file field, when one was
+ * uploaded, replaces it, and `deleteLogo` removes it.
+ */
+function getBestOfLogoChange(
+  ctx: RouterContext,
+  deleteLogo: boolean | undefined,
+): BestOfLogoChange {
+  const file = ctx.request.files?.logo
+  if (Array.isArray(file)) {
+    throw new httpErrors.BadRequest('only one logo file can be uploaded')
+  }
+  if (file && deleteLogo) {
+    throw new httpErrors.BadRequest("a logo can't be uploaded and removed at once")
+  }
+  if (file) {
+    return { kind: 'replace', file: file as UploadedBestOfLogo }
+  }
+  return deleteLogo ? { kind: 'remove' } : { kind: 'keep' }
+}
 
 /** Validates a route's `:lobbyId` as a well-formed lobby id. */
 const lobbyIdParams = Joi.object<{ lobbyId: SbLobbyId }>({
@@ -217,21 +272,43 @@ const bestOfSideSchema = Joi.array()
  */
 const bestOfSidesSchema = Joi.array().ordered(bestOfSideSchema, bestOfSideSchema).length(2)
 
-const startBestOfBody = Joi.object<StartLobbyBestOfRequest>({
-  clientId: clientIdSchema,
-  length: Joi.number().integer().min(1).max(BEST_OF_MAX_LENGTH).required(),
-  title: bestOfTitleSchema,
-  sides: bestOfSidesSchema.required(),
+/**
+ * A text line of a best-of series' caster overlay, trimmed. Empty is accepted and means no line; the
+ * service has the final say on what a line can be.
+ */
+const bestOfOverlayLineSchema = Joi.string().allow('').trim().max(BEST_OF_OVERLAY_LINE_MAX_LENGTH)
+
+/** The multipart body of a best-of start: the request as JSON in its `series` field. */
+const startBestOfBody = Joi.object<{ series: StartLobbyBestOfRequest }>({
+  series: json
+    .object({
+      clientId: clientIdSchema,
+      length: Joi.number().integer().min(1).max(BEST_OF_MAX_LENGTH).required(),
+      title: bestOfTitleSchema,
+      sides: bestOfSidesSchema.required(),
+      line1: bestOfOverlayLineSchema,
+      line2: bestOfOverlayLineSchema,
+      deleteLogo: Joi.boolean(),
+    })
+    .required(),
 })
 
-/** A change to the running best-of series, which has to change something. */
-const updateBestOfBody = Joi.object<UpdateLobbyBestOfRequest>({
-  clientId: clientIdSchema,
-  title: bestOfTitleSchema.allow(null),
-  sides: bestOfSidesSchema,
+/**
+ * The multipart body of a change to the running best-of series: the request as JSON in its
+ * `changes` field. Whether it changes anything also depends on whether a logo file came with it.
+ */
+const updateBestOfBody = Joi.object<{ changes: UpdateLobbyBestOfRequest }>({
+  changes: json
+    .object({
+      clientId: clientIdSchema,
+      title: bestOfTitleSchema.allow(null),
+      sides: bestOfSidesSchema,
+      line1: bestOfOverlayLineSchema.allow(null),
+      line2: bestOfOverlayLineSchema.allow(null),
+      deleteLogo: Joi.boolean(),
+    })
+    .required(),
 })
-  .or('title', 'sides')
-  .required()
 
 const discardBestOfGameBody = Joi.object<DiscardLobbyBestOfGameRequest>({
   clientId: clientIdSchema,
@@ -255,6 +332,10 @@ export function convertLobbyServiceError(err: unknown): void {
   }
 
   switch (err.code) {
+    case LobbyServiceErrorCode.BestOfLogoInappropriate:
+    case LobbyServiceErrorCode.BestOfLogoInvalidFormat:
+    case LobbyServiceErrorCode.BestOfLogoTooLarge:
+    case LobbyServiceErrorCode.BestOfLogoUnsupportedSvg:
     case LobbyServiceErrorCode.ComputerInObserverSlot:
     case LobbyServiceErrorCode.InvalidBestOf:
     case LobbyServiceErrorCode.InvalidGameSubType:
@@ -334,6 +415,7 @@ export class LobbyApi {
     private notificationService: NotificationService,
     private userRelationshipService: UserRelationshipService,
     private accountSettingsService: AccountSettingsService,
+    private bestOfOverlayService: LobbyBestOfOverlayService,
   ) {}
 
   @httpPost('/')
@@ -798,38 +880,65 @@ export class LobbyApi {
   }
 
   @httpPost('/:lobbyId/start-best-of')
-  @httpBefore(...authedAction)
+  @httpBefore(...bestOfChange)
   async startBestOf(ctx: RouterContext): Promise<void> {
-    const { params, body } = validateRequest(ctx, {
+    const {
+      params,
+      body: { series },
+    } = validateRequest(ctx, {
       params: lobbyIdParams,
       body: startBestOfBody,
     })
-    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    const logoChange = getBestOfLogoChange(ctx, series.deleteLogo)
+    const client = this.getClientSockets(ctx.session!.user.id, series.clientId)
 
-    this.lobbyService.startBestOf({
-      client,
-      lobbyId: params.lobbyId,
-      length: body.length,
-      title: body.title,
-      sides: body.sides,
-    })
+    await this.bestOfOverlayService.startBestOf(
+      {
+        client,
+        lobbyId: params.lobbyId,
+        length: series.length,
+        title: series.title,
+        sides: series.sides,
+        line1: series.line1,
+        line2: series.line2,
+      },
+      logoChange,
+    )
   }
 
   @httpPost('/:lobbyId/update-best-of')
-  @httpBefore(...authedAction)
+  @httpBefore(...bestOfChange)
   async updateBestOf(ctx: RouterContext): Promise<void> {
-    const { params, body } = validateRequest(ctx, {
+    const {
+      params,
+      body: { changes },
+    } = validateRequest(ctx, {
       params: lobbyIdParams,
       body: updateBestOfBody,
     })
-    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    const logoChange = getBestOfLogoChange(ctx, changes.deleteLogo)
+    if (
+      changes.title === undefined &&
+      changes.sides === undefined &&
+      changes.line1 === undefined &&
+      changes.line2 === undefined &&
+      logoChange.kind === 'keep'
+    ) {
+      throw new httpErrors.BadRequest('nothing to change')
+    }
+    const client = this.getClientSockets(ctx.session!.user.id, changes.clientId)
 
-    this.lobbyService.updateBestOf({
-      client,
-      lobbyId: params.lobbyId,
-      title: body.title,
-      sides: body.sides,
-    })
+    await this.bestOfOverlayService.updateBestOf(
+      {
+        client,
+        lobbyId: params.lobbyId,
+        title: changes.title,
+        sides: changes.sides,
+        line1: changes.line1,
+        line2: changes.line2,
+      },
+      logoChange,
+    )
   }
 
   @httpPost('/:lobbyId/end-best-of')

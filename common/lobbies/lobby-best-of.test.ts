@@ -14,6 +14,7 @@ import {
   LobbyBestOfJson,
   suggestBestOfSides,
   toBestOfLaunchInfo,
+  toBestOfOverlayJson,
 } from './lobby-best-of'
 import { makeSbLobbyId } from './sb-lobby-id'
 import { createClosed, createComputer, createHuman, createObserver, createOpen, Slot } from './slot'
@@ -270,6 +271,26 @@ describe('lobbies/lobby-best-of', () => {
         { players: [BOB], score: 0 },
       ],
     })
+  })
+
+  test("toBestOfLaunchInfo carries the caster overlay's set lines in order and its logo URL", () => {
+    const series = (overlay: LobbyBestOfJson['overlay']) => ({ ...bestOf([]), overlay })
+    const logo = { url: 'https://cdn.example.com/logo.png', fileName: 'logo.svg' }
+
+    expect(toBestOfLaunchInfo(series({ line1: 'One', line2: 'Two', logo }))).toEqual(
+      expect.objectContaining({ lines: ['One', 'Two'], logoUrl: logo.url }),
+    )
+    expect(toBestOfLaunchInfo(series({ line2: 'Two' }))).toEqual(
+      expect.objectContaining({ lines: ['Two'] }),
+    )
+    const none = toBestOfLaunchInfo(series(undefined))
+    expect(none).not.toHaveProperty('lines')
+    expect(none).not.toHaveProperty('logoUrl')
+  })
+
+  test('toBestOfOverlayJson keeps only the parts that are set', () => {
+    expect(toBestOfOverlayJson({ line1: '', line2: undefined })).toBeUndefined()
+    expect(toBestOfOverlayJson({ line1: '', line2: 'Two' })).toEqual({ line2: 'Two' })
   })
 
   describe('suggestBestOfSides', () => {

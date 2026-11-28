@@ -5,11 +5,10 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility } from '../../../common/lobbies'
 import { MapInfoJson, SbMapId } from '../../../common/maps'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { BrowseLocalMaps } from '../../maps/browse-local-maps'
 import { BrowseServerMaps } from '../../maps/browse-server-maps'
-import { IconButton, TextButton } from '../../material/button'
-import { bodySmall, singleLine, titleLarge } from '../../styles/typography'
+import { TextButton } from '../../material/button'
+import { SetupPage, SetupPageTitle } from '../setup-page'
 import { GameSetupModel } from './game-setup-form'
 
 export enum MapBrowseState {
@@ -17,43 +16,6 @@ export enum MapBrowseState {
   Server,
   Local,
 }
-
-const Root = styled.div`
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-`
-
-const FormScroller = styled.div<{ $hidden: boolean }>`
-  flex-grow: 1;
-  min-height: 0;
-  contain: strict;
-  overflow-y: auto;
-
-  display: ${props => (props.$hidden ? 'none' : 'block')};
-`
-
-const Content = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px 24px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-`
-
-const HeaderBlock = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`
 
 const BrowseColumn = styled.div`
   width: 100%;
@@ -66,7 +28,10 @@ const BrowseColumn = styled.div`
   min-height: 0;
 `
 
-const BrowseHeader = styled(HeaderBlock)`
+const BrowseHeader = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   align-items: flex-start;
   padding: 16px 24px 0;
 `
@@ -74,46 +39,6 @@ const BrowseHeader = styled(HeaderBlock)`
 const BrowseArea = styled.div`
   flex-grow: 1;
   min-height: 0;
-`
-
-const Title = styled.div`
-  ${titleLarge};
-`
-
-const FooterBar = styled.div<{ $hidden: boolean }>`
-  flex-shrink: 0;
-  /* Slightly wider than the 960px form column (24px beyond it on each side, matching the page's
-     24px padding rhythm) so the bar frames the column without stretching across the whole
-     container. */
-  width: 100%;
-  max-width: 1008px;
-  margin: 0 auto;
-  /* The bar doesn't reach the window edges, so it's framed as a contained surface: bordered and
-     slightly rounded on the exposed sides, square along the bottom edge it sits flush against. */
-  border: 1px solid var(--theme-outline-variant);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  background-color: var(--theme-container-low);
-
-  display: ${props => (props.$hidden ? 'none' : 'block')};
-`
-
-const FooterContent = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 10px 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`
-
-const SummaryText = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-  flex-grow: 1;
-  min-width: 0;
 `
 
 export interface GameSetupPageProps {
@@ -132,10 +57,8 @@ export interface GameSetupPageProps {
 }
 
 /**
- * The page scaffolding shared by every surface that hosts `GameSetupForm`: a title header above the
- * 960px form column, an in-page map browser that swaps in over the form when picking a map, and a
- * footer bar with a one-line summary and the caller's action buttons. The form itself stays mounted
- * (but hidden) while browsing, so in-progress edits survive the round trip.
+ * The page every surface that hosts `GameSetupForm` is built on: the lobby setup page scaffold,
+ * plus an in-page map browser that swaps in over the form when picking a map.
  */
 export function GameSetupPage({
   title,
@@ -151,61 +74,43 @@ export function GameSetupPage({
   const browsing = browseState !== MapBrowseState.None
 
   return (
-    <Root>
-      {browsing ? (
-        <BrowseColumn>
-          <BrowseHeader>
-            <TextButton
-              label={t('common.actions.back', 'Back')}
-              iconStart='arrow_back'
-              onClick={() =>
-                onBrowseStateChange(
-                  browseState === MapBrowseState.Local
-                    ? MapBrowseState.Server
-                    : MapBrowseState.None,
-                )
-              }
-            />
-            <Title>{t('lobbies.createLobby.selectMap', 'Select map')}</Title>
-          </BrowseHeader>
-          <BrowseArea>
-            {browseState === MapBrowseState.Server ? (
-              <BrowseServerMaps
-                onMapClick={onMapPicked}
-                onBrowseLocalMaps={() => onBrowseStateChange(MapBrowseState.Local)}
+    <SetupPage
+      title={title}
+      onBack={onBack}
+      summary={summary}
+      footerActions={footerActions}
+      cover={
+        browsing ? (
+          <BrowseColumn>
+            <BrowseHeader>
+              <TextButton
+                label={t('common.actions.back', 'Back')}
+                iconStart='arrow_back'
+                onClick={() =>
+                  onBrowseStateChange(
+                    browseState === MapBrowseState.Local
+                      ? MapBrowseState.Server
+                      : MapBrowseState.None,
+                  )
+                }
               />
-            ) : (
-              <BrowseLocalMaps onMapUpload={onMapPicked} />
-            )}
-          </BrowseArea>
-        </BrowseColumn>
-      ) : null}
-
-      <FormScroller $hidden={browsing}>
-        <Content>
-          <Header>
-            {onBack ? (
-              <IconButton
-                icon={<MaterialIcon icon='arrow_back' />}
-                title={t('common.actions.back', 'Back')}
-                onClick={onBack}
-              />
-            ) : null}
-
-            <Title>{title}</Title>
-          </Header>
-
-          {children}
-        </Content>
-      </FormScroller>
-
-      <FooterBar $hidden={browsing}>
-        <FooterContent>
-          <SummaryText>{summary}</SummaryText>
-          {footerActions}
-        </FooterContent>
-      </FooterBar>
-    </Root>
+              <SetupPageTitle>{t('lobbies.createLobby.selectMap', 'Select map')}</SetupPageTitle>
+            </BrowseHeader>
+            <BrowseArea>
+              {browseState === MapBrowseState.Server ? (
+                <BrowseServerMaps
+                  onMapClick={onMapPicked}
+                  onBrowseLocalMaps={() => onBrowseStateChange(MapBrowseState.Local)}
+                />
+              ) : (
+                <BrowseLocalMaps onMapUpload={onMapPicked} />
+              )}
+            </BrowseArea>
+          </BrowseColumn>
+        ) : undefined
+      }>
+      {children}
+    </SetupPage>
   )
 }
 

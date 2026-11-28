@@ -9,6 +9,7 @@ import {
   DiscardLobbyBestOfGameRequest,
   EndLobbyBestOfRequest,
   GetLobbyStateResponse,
+  GetRememberedBestOfOverlayResponse,
   InviteToLobbyRequest,
   JoinLobbyRequest,
   LobbyClientRequest,
@@ -338,43 +339,89 @@ export function shuffleSlots(spec: RequestHandlingSpec<void>): ThunkAction {
 }
 
 /** What the host picked for a best-of series they're starting. */
-export type StartBestOfParams = Omit<StartLobbyBestOfRequest, 'clientId'>
+export interface StartBestOfParams extends Omit<StartLobbyBestOfRequest, 'clientId'> {
+  /**
+   * A logo to upload for the series' caster overlay, which also becomes the host's remembered one.
+   */
+  logo?: File
+}
 
-/** Starts a best-of series in the lobby the user is currently hosting. */
+/**
+ * Starts a best-of series in the lobby the user is currently hosting. Without a `logo` and without
+ * `deleteLogo`, the series gets the logo the host last used.
+ */
 export function startBestOf(
-  params: StartBestOfParams,
+  { logo, ...series }: StartBestOfParams,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/start-best-of`, {
+  return currentLobbyRequest(spec, lobbyId => {
+    // The series is sent as JSON inside the form so the sides arrive as two lists of user ids.
+    const formData = new FormData()
+    formData.append(
+      'series',
+      JSON.stringify({ clientId, ...series } satisfies StartLobbyBestOfRequest),
+    )
+    if (logo) {
+      formData.append('logo', logo)
+    }
+
+    return fetchJson<void>(apiUrl`lobbies/${lobbyId}/start-best-of`, {
       method: 'POST',
-      // Sent as JSON rather than form params so the sides arrive as two lists of user ids.
-      body: JSON.stringify({ clientId, ...params } satisfies StartLobbyBestOfRequest),
+      body: formData,
       signal: spec.signal,
-    }),
-  )
+    })
+  })
 }
 
 /**
  * The changes the host made to the lobby's running best-of series. Only what changed should be
  * given; anything absent is left as it is.
  */
-export type UpdateBestOfParams = Omit<UpdateLobbyBestOfRequest, 'clientId'>
+export interface UpdateBestOfParams extends Omit<UpdateLobbyBestOfRequest, 'clientId'> {
+  /** A new logo to upload for the series' caster overlay, replacing the one it has. */
+  logo?: File
+}
 
-/** Changes the title and/or sides of the running best-of series in the lobby the user is hosting. */
+/**
+ * Changes the title, sides and/or caster overlay of the running best-of series in the lobby the
+ * user is hosting.
+ */
 export function updateBestOf(
-  params: UpdateBestOfParams,
+  { logo, ...changes }: UpdateBestOfParams,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/update-best-of`, {
+  return currentLobbyRequest(spec, lobbyId => {
+    // The changes are sent as JSON inside the form so that a cleared title or line arrives as
+    // `null` and the sides as two lists of user ids.
+    const formData = new FormData()
+    formData.append(
+      'changes',
+      JSON.stringify({ clientId, ...changes } satisfies UpdateLobbyBestOfRequest),
+    )
+    if (logo) {
+      formData.append('logo', logo)
+    }
+
+    return fetchJson<void>(apiUrl`lobbies/${lobbyId}/update-best-of`, {
       method: 'POST',
-      // Sent as JSON rather than form params so that a cleared title arrives as `null` and the
-      // sides as two lists of user ids.
-      body: JSON.stringify({ clientId, ...params } satisfies UpdateLobbyBestOfRequest),
+      body: formData,
       signal: spec.signal,
-    }),
-  )
+    })
+  })
+}
+
+/**
+ * Loads the caster overlay (text lines and logo) the user's next best-of series starts with: the
+ * one their last series was started or saved with.
+ */
+export function getRememberedBestOfOverlay(
+  spec: RequestHandlingSpec<GetRememberedBestOfOverlayResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson<GetRememberedBestOfOverlayResponse>(apiUrl`lobby-best-of-overlay`, {
+      signal: spec.signal,
+    })
+  })
 }
 
 /** Ends the running best-of series in the lobby the user is hosting before either side won it. */

@@ -40,8 +40,8 @@ pub use graphs::{
 pub use layout::{Span, StackAnchor, StackSlot, minimap_reserve};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
-    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, SeriesFormat, SeriesView,
-    render_matchup_view,
+    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, SeriesFormat, SeriesLogo,
+    SeriesView, render_matchup_view, series_logo_size,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
