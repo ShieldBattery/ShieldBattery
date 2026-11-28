@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { IntRange, SetRequired, Simplify, Tagged } from 'type-fest'
+import { SetRequired, Simplify, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo } from './chat'
 import { binarySearch } from './data-structures/arrays'
@@ -7,7 +7,7 @@ import { GameServerRegionId } from './game-server-regions'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
-import { ZenModeSettings } from './settings/zen-mode'
+import { AnonymizedNameIndex, ZenModeSettings } from './settings/zen-mode'
 import { MatchmakingType } from './typeshare'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
@@ -19,6 +19,7 @@ import { SbUserId } from './users/sb-user-id'
 export const MATCHMAKING_SEASON_FINALIZED_TIME_MS = 6 * 60 * 60 * 1000 // 6 hours
 
 export { MatchmakingType }
+export { type AnonymizedNameIndex, NUM_ANONYMIZED_NAMES } from './settings/zen-mode'
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
@@ -766,10 +767,6 @@ export interface DraftTeam {
 export interface AnonymizedDraftTeam {
   players: AnonymizedDraftPlayer[]
 }
-
-export const NUM_ANONYMIZED_NAMES = 6
-
-export type AnonymizedNameIndex = IntRange<0, typeof NUM_ANONYMIZED_NAMES>
 
 /**
  * Retrieve an anonymized name for use when a player's name cannot be known yet (e.g. during the

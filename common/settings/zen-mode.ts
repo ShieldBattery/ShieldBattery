@@ -1,5 +1,9 @@
-import type { AnonymizedNameIndex } from '../matchmaking'
+import type { IntRange } from 'type-fest'
 import { SbUserId } from '../users/sb-user-id'
+
+export const NUM_ANONYMIZED_NAMES = 6
+
+export type AnonymizedNameIndex = IntRange<0, typeof NUM_ANONYMIZED_NAMES>
 
 /** Preferences captured when a ranked match begins, and held through its draft and game. */
 export interface ZenModeSettings {
