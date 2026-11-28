@@ -1,15 +1,23 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getPlayerSlots } from '../../../common/lobbies'
+import {
+  BestOfSideIndex,
+  getBestOfScore,
+  getBestOfWinsNeeded,
+  LobbyBestOfJson,
+} from '../../../common/lobbies/lobby-best-of'
 import { getWinsByUser } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { EllipsizedText } from '../../material/ellipsized-text'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
+import { useBestOfSideLabel } from './best-of-parts'
 
 const ScoreboardRoot = styled.div`
   display: flex;
@@ -47,6 +55,12 @@ const ScoreboardRank = styled.div`
   width: 16px;
   flex-shrink: 0;
   color: var(--theme-on-surface-variant);
+`
+
+const ScoreboardSideName = styled(EllipsizedText)`
+  ${bodyMedium};
+  flex-grow: 1;
+  min-width: 0;
 `
 
 const ScoreboardAvatar = styled(ConnectedAvatar)`
@@ -144,6 +158,66 @@ export function LobbyScoreboard() {
           </ScoreboardRow>
         )
       })}
+    </ScoreboardRoot>
+  )
+}
+
+/** One side's row in a best-of series' standings: who plays for it and how many games it has won. */
+function BestOfStandingsRow({
+  bestOf,
+  sideIndex,
+  wins,
+  leading,
+}: {
+  bestOf: LobbyBestOfJson
+  sideIndex: BestOfSideIndex
+  wins: number
+  leading: boolean
+}) {
+  const sideLabel = useBestOfSideLabel(bestOf.sides[sideIndex])
+
+  return (
+    <ScoreboardRow>
+      <ScoreboardSideName text={sideLabel} />
+      <ScoreboardWins>
+        {leading ? <ScoreboardTrophyIcon icon='trophy' size={14} filled /> : null}
+        <ScoreboardWinsValue $leading={leading}>{wins}</ScoreboardWinsValue>
+      </ScoreboardWins>
+    </ScoreboardRow>
+  )
+}
+
+/**
+ * A running best-of series' standings: its two sides and the games each has won, headed by how many
+ * a side needs to win it.
+ */
+export function BestOfStandings({ bestOf }: { bestOf: LobbyBestOfJson }) {
+  const { t } = useTranslation()
+  const score = getBestOfScore(bestOf)
+
+  return (
+    <ScoreboardRoot
+      role='region'
+      aria-label={t('lobbies.room.series.standings', 'Standings')}
+      tabIndex={0}>
+      <ScoreboardHeader>
+        <ScoreboardHeaderLabel>
+          {t('lobbies.room.scoreboard.firstTo', {
+            defaultValue: 'First to {{winsNeeded}}',
+            winsNeeded: getBestOfWinsNeeded(bestOf.length),
+          })}
+        </ScoreboardHeaderLabel>
+        <ScoreboardHeaderLabel>{t('lobbies.room.scoreboard.wins', 'Wins')}</ScoreboardHeaderLabel>
+      </ScoreboardHeader>
+      {([0, 1] as const).map(sideIndex => (
+        <BestOfStandingsRow
+          key={sideIndex}
+          bestOf={bestOf}
+          sideIndex={sideIndex}
+          wins={score[sideIndex]}
+          leading={score[sideIndex] > score[sideIndex === 0 ? 1 : 0]}
+        />
+      ))}
     </ScoreboardRoot>
   )
 }

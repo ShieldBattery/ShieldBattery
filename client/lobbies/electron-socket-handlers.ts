@@ -346,6 +346,21 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
+  bestOfStarted: (lobbyId, event) => ({
+    type: '@lobbies/updateBestOfStarted',
+    payload: event,
+  }),
+
+  bestOfUpdated: (lobbyId, event) => ({
+    type: '@lobbies/updateBestOfUpdated',
+    payload: event,
+  }),
+
+  bestOfEnded: (lobbyId, event) => ({
+    type: '@lobbies/updateBestOfEnded',
+    payload: event,
+  }),
+
   readyChange: (lobbyId, event) => ({
     type: '@lobbies/updateReadyChange',
     payload: event,

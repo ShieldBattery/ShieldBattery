@@ -14,11 +14,24 @@ import {
   Lobby,
   slotCount,
 } from '../../../common/lobbies'
-import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
+import {
+  getBestOfGameNumber,
+  getBestOfScore,
+  getRunningBestOf,
+  LobbyBestOfGameJson,
+  LobbyBestOfJson,
+} from '../../../common/lobbies/lobby-best-of'
+import {
+  LobbySeriesGameJson,
+  StartLobbyBestOfRequest,
+  UpdateLobbyBestOfRequest,
+} from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { batchGetMapInfo } from '../../maps/action-creators'
@@ -26,10 +39,12 @@ import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
+import { EllipsizedText } from '../../material/ellipsized-text'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
+import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -41,7 +56,15 @@ import {
 } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
 import { WarpFieldDescriptionInfo } from '../warp-field'
-import { LobbyScoreboard } from './lobby-scoreboard'
+import {
+  getBestOfSeriesGames,
+  getDisplayedBestOf,
+  getRecentGameLimit,
+  groupSessionGames,
+  NumberedSeriesGame,
+} from './best-of-display'
+import { bestOfLabel, useBestOfSideLabel, useUserNames } from './best-of-parts'
+import { BestOfStandings, LobbyScoreboard } from './lobby-scoreboard'
 import {
   lobbyTeamLabel,
   SectionLabel,
@@ -218,6 +241,18 @@ const TimelineSpacer = styled.div`
   flex-grow: 1;
 `
 
+/** The section's label, which gives up width to the "All games" button and ellipsizes. */
+const TimelineLabel = styled(EllipsizedText)`
+  ${labelSmall};
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 4px;
+
+  color: var(--theme-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+`
+
 const AllGamesButton = styled.button`
   ${buttonReset};
   ${labelMedium};
@@ -225,9 +260,11 @@ const AllGamesButton = styled.button`
 
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 2px;
   padding: 2px 6px;
   margin: -2px -6px;
+  white-space: nowrap;
 
   border-radius: 6px;
 
@@ -265,11 +302,20 @@ const OverflowChip = styled.button`
   }
 `
 
-const GameTileButton = styled.button`
-  ${buttonReset};
+const GameTileFrame = styled.div`
+  position: relative;
   flex: 1 1 0;
   min-width: 96px;
-  padding: 8px 12px;
+
+  display: flex;
+`
+
+/** Leaves room on the right for an action laid over the tile, when it has one. */
+const GameTileButton = styled.button<{ $hasAction?: boolean }>`
+  ${buttonReset};
+  flex-grow: 1;
+  min-width: 0;
+  padding: 8px ${props => (props.$hasAction ? '40px' : '12px')} 8px 12px;
 
   display: flex;
   flex-direction: column;
@@ -325,8 +371,86 @@ const GameTileUnresolved = styled(GameTileWinner)`
   color: var(--theme-on-surface-variant);
 `
 
+/** An action laid over the right end of a game tile, beside the menu the tile itself opens. */
+const GameTileAction = styled(Tooltip)`
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+`
+
+const CompactIconButton = styled(IconButton)`
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+`
+
+/**
+ * The best-of series' score at the start of the timeline, in the same frame as the game tiles but
+ * not a button itself: it opens nothing.
+ */
+const ScoreTile = styled.div`
+  flex: 0 1 208px;
+  min-width: 160px;
+  padding: 8px 12px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+
+  border-radius: 8px;
+  background-color: rgb(from var(--theme-container-low) r g b / 0.7);
+  backdrop-filter: blur(4px);
+  outline: 1px solid rgb(from var(--theme-on-surface) r g b / 0.08);
+`
+
+const ScoreRow = styled.div<{ $winner: boolean }>`
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: ${props => (props.$winner ? 'var(--theme-amber)' : 'inherit')};
+`
+
+/** The side's label: its first player's name, which ellipsizes, then the count of the others. */
+const ScoreSideLabel = styled(Tooltip)`
+  flex: 1 1 auto;
+  min-width: 0;
+`
+
+const ScoreSideContent = styled.div`
+  ${bodyMedium};
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+const ScoreSideName = styled.span`
+  ${singleLine};
+  min-width: 0;
+`
+
+const ScoreSideMore = styled.span`
+  flex-shrink: 0;
+  white-space: nowrap;
+`
+
+const ScoreValue = styled.span`
+  ${titleMedium};
+  flex-shrink: 0;
+  min-width: 2ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+`
+
 const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'playing' }>`
-  flex: 0 0 96px;
+  flex: 0 0 auto;
   min-width: 96px;
   padding: 8px 12px;
 
@@ -360,7 +484,7 @@ const NextSlotNumeral = styled.div`
 
 const NextSlotValue = styled.div`
   ${titleMedium};
-  ${singleLine};
+  white-space: nowrap;
 `
 
 /**
@@ -510,6 +634,35 @@ const SeriesAction = styled(IconButton)`
   flex-shrink: 0;
 `
 
+/** Heads the run of games in the full list that belong to one best-of series. */
+const SeriesBestOfHeader = styled.div`
+  ${labelMedium};
+  min-height: 28px;
+  padding-top: 4px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  border-bottom: 1px solid var(--theme-outline-variant);
+`
+
+const SeriesBestOfTitle = styled.span`
+  ${singleLine};
+  flex-grow: 1;
+  min-width: 0;
+`
+
+const SeriesBestOfNote = styled.span`
+  ${labelSmall};
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+`
+
+const SeriesBestOfScore = styled.span`
+  flex-shrink: 0;
+`
+
 /**
  * Names whoever won a finished game, or `undefined` when there is nobody to name: the winning side
  * in the lobby's own team labels, or the winning player in a game played as a single side, where no
@@ -538,15 +691,83 @@ function useWinnerLabel(winner: LobbySeriesWinner | undefined): string | undefin
   return winner.kind === 'team' ? lobbyTeamLabel(winner, t) : (winnerName ?? '…')
 }
 
+/** An empty side, shared so it reads the same on every render. */
+const NO_PLAYERS: ReadonlyArray<SbUserId> = Object.freeze([])
+
+/** How a finished game turned out, as the room's timeline and full list of games tell it. */
+type GameOutcome =
+  | { kind: 'won'; winnerLabel: string }
+  /** Played in a best-of series without counting towards it. */
+  | { kind: 'notCounted' }
+  | { kind: 'noWinner' }
+  | { kind: 'pending' }
+
+/**
+ * Works out how a finished game turned out. A game of a best-of series reads the way the series
+ * counted it, naming the side that won it as the side stands now; any other game names its winner
+ * the way the lobby labels it.
+ */
+function useGameOutcome(
+  game: LobbySeriesGameJson,
+  bestOf: LobbyBestOfJson | undefined,
+  bestOfGame: LobbyBestOfGameJson | undefined,
+): GameOutcome {
+  const winningSide =
+    bestOf && bestOfGame?.status === 'won' ? bestOf.sides[bestOfGame.winner] : NO_PLAYERS
+  const sideLabel = useBestOfSideLabel(winningSide)
+  const winnerLabel = useWinnerLabel(bestOfGame ? undefined : findSeriesGameWinner(game))
+
+  if (bestOfGame) {
+    switch (bestOfGame.status) {
+      case 'won':
+        return { kind: 'won', winnerLabel: sideLabel }
+      case 'noWinner':
+      case 'notCounted':
+        return { kind: 'notCounted' }
+      case 'pending':
+        return { kind: 'pending' }
+      default:
+        return assertUnreachable(bestOfGame)
+    }
+  }
+
+  if (winnerLabel !== undefined) {
+    return { kind: 'won', winnerLabel }
+  }
+  return game.result ? { kind: 'noWinner' } : { kind: 'pending' }
+}
+
+/**
+ * Stops a game of the running best-of series that is still waiting for its result from counting,
+ * so the series can go on without it.
+ */
+function DiscardGameButton({ onDiscard }: { onDiscard: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <CompactIconButton
+      icon={<MaterialIcon icon='block' size={18} />}
+      ariaLabel={t('lobbies.room.bestOf.discardGame', "Don't count this game")}
+      onClick={onDiscard}
+    />
+  )
+}
+
 /** One finished game from the lobby's games so far: what was played, who took it, and how to revisit it. */
 function SeriesGameRow({
   game,
   gameNumber,
+  bestOf,
+  bestOfGame,
+  onDiscard,
   onWatchReplay,
   onViewGameSummary,
 }: {
   game: LobbySeriesGameJson
   gameNumber: number
+  bestOf?: LobbyBestOfJson
+  bestOfGame?: LobbyBestOfGameJson
+  /** Stops the game counting towards its best-of series, when the viewer can. */
+  onDiscard?: () => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
@@ -560,7 +781,15 @@ function SeriesGameRow({
     dispatch(batchGetMapInfo(game.mapId))
   }, [dispatch, game.mapId])
 
-  const winnerLabel = useWinnerLabel(findSeriesGameWinner(game))
+  const outcome = useGameOutcome(game, bestOf, bestOfGame)
+  let outcomeNote: string | undefined
+  if (outcome.kind === 'notCounted') {
+    outcomeNote = t('lobbies.room.bestOf.notCounted', 'Not counted')
+  } else if (outcome.kind === 'noWinner') {
+    outcomeNote = t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
+  } else if (outcome.kind === 'pending') {
+    outcomeNote = t('lobbies.room.series.waitingForResults', 'Waiting for results')
+  }
 
   return (
     <SeriesRow>
@@ -572,17 +801,13 @@ function SeriesGameRow({
           {mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')}
         </SeriesMapName>
         <SeriesFactRow>
-          {winnerLabel !== undefined ? (
+          {outcome.kind === 'won' ? (
             <>
               <SeriesTrophyIcon icon='trophy' size={14} filled />
-              <SeriesWinner>{winnerLabel}</SeriesWinner>
+              <SeriesWinner>{outcome.winnerLabel}</SeriesWinner>
             </>
           ) : (
-            <SeriesWinner>
-              {game.result
-                ? t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
-                : t('lobbies.room.series.waitingForResults', 'Waiting for results')}
-            </SeriesWinner>
+            <SeriesWinner>{outcomeNote}</SeriesWinner>
           )}
           {game.result ? (
             <>
@@ -592,6 +817,11 @@ function SeriesGameRow({
           ) : null}
         </SeriesFactRow>
       </SeriesMain>
+      {onDiscard ? (
+        <Tooltip text={t('lobbies.room.bestOf.discardGame', "Don't count this game")} tabIndex={-1}>
+          <DiscardGameButton onDiscard={onDiscard} />
+        </Tooltip>
+      ) : null}
       <Tooltip text={t('lobbies.room.series.watchReplay', 'Watch replay')} tabIndex={-1}>
         <SeriesAction
           icon={<MaterialIcon icon='play_arrow' />}
@@ -617,11 +847,18 @@ function SeriesGameRow({
 function GameTile({
   game,
   gameNumber,
+  bestOf,
+  bestOfGame,
+  onDiscard,
   onWatchReplay,
   onViewGameSummary,
 }: {
   game: LobbySeriesGameJson
   gameNumber: number
+  bestOf?: LobbyBestOfJson
+  bestOfGame?: LobbyBestOfGameJson
+  /** Stops the game counting towards its best-of series, when the viewer can. */
+  onDiscard?: () => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
@@ -629,41 +866,53 @@ function GameTile({
   const { anchorRef, anchorX, anchorY, isOpen, openMenu, closeMenu } =
     useAnchoredMenu<HTMLButtonElement>('left', 'bottom')
 
-  const winnerLabel = useWinnerLabel(findSeriesGameWinner(game))
+  const outcome = useGameOutcome(game, bestOf, bestOfGame)
+  let outcomeNote: string | undefined
+  if (outcome.kind === 'notCounted') {
+    outcomeNote = t('lobbies.room.bestOf.notCounted', 'Not counted')
+  } else if (outcome.kind === 'noWinner') {
+    outcomeNote = t('lobbies.room.series.tileNoWinner', 'No winner')
+  } else if (outcome.kind === 'pending') {
+    outcomeNote = t('lobbies.room.series.tilePending', 'Pending')
+  }
 
   return (
-    <>
+    <GameTileFrame>
       <GameTileButton
         ref={anchorRef}
         type='button'
         aria-haspopup='menu'
         aria-expanded={isOpen}
+        $hasAction={!!onDiscard}
         onClick={openMenu}>
         <GameTileTopRow>
           <GameTileNumber>
             {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
           </GameTileNumber>
-          {game.result ? (
+          {game.result && !onDiscard ? (
             <GameTileDuration>{getGameDurationString(game.result.durationMs)}</GameTileDuration>
           ) : null}
         </GameTileTopRow>
         <GameTileBottomRow>
-          {winnerLabel !== undefined ? (
+          {outcome.kind === 'won' ? (
             <>
               <GameTileTrophy>
                 <MaterialIcon icon='trophy' size={14} filled />
               </GameTileTrophy>
-              <GameTileWinner>{winnerLabel}</GameTileWinner>
+              <GameTileWinner>{outcome.winnerLabel}</GameTileWinner>
             </>
           ) : (
-            <GameTileUnresolved>
-              {game.result
-                ? t('lobbies.room.series.tileNoWinner', 'No winner')
-                : t('lobbies.room.series.tilePending', 'Pending')}
-            </GameTileUnresolved>
+            <GameTileUnresolved>{outcomeNote}</GameTileUnresolved>
           )}
         </GameTileBottomRow>
       </GameTileButton>
+      {onDiscard ? (
+        <GameTileAction
+          text={t('lobbies.room.bestOf.discardGame', "Don't count this game")}
+          tabIndex={-1}>
+          <DiscardGameButton onDiscard={onDiscard} />
+        </GameTileAction>
+      ) : null}
       <Popover
         open={isOpen}
         onDismiss={closeMenu}
@@ -690,7 +939,7 @@ function GameTile({
           />
         </MenuList>
       </Popover>
-    </>
+    </GameTileFrame>
   )
 }
 
@@ -763,6 +1012,95 @@ function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
   }
 }
 
+/** One side's row in the score tile: who it is, and how many games it has won. */
+function BestOfScoreRow({
+  side,
+  score,
+  isWinner,
+}: {
+  side: ReadonlyArray<SbUserId>
+  score: number
+  isWinner: boolean
+}) {
+  const { t } = useTranslation()
+  const names = useUserNames(side)
+
+  return (
+    <ScoreRow $winner={isWinner}>
+      {isWinner ? <MaterialIcon icon='trophy' size={14} filled /> : null}
+      <ScoreSideLabel text={names.join(', ')} tabIndex={-1}>
+        <ScoreSideContent>
+          <ScoreSideName>{names[0] ?? '…'}</ScoreSideName>
+          {names.length > 1 ? (
+            <ScoreSideMore>
+              {t('lobbies.room.bestOf.sideMore', {
+                defaultValue: '+{{extra}}',
+                extra: names.length - 1,
+              })}
+            </ScoreSideMore>
+          ) : null}
+        </ScoreSideContent>
+      </ScoreSideLabel>
+      <ScoreValue>{score}</ScoreValue>
+    </ScoreRow>
+  )
+}
+
+/**
+ * The timeline's leading tile while it shows a best-of series: a row per side with the games it
+ * has won. The side that won the series is marked the way the standings mark their leader.
+ */
+function BestOfScoreTile({ bestOf }: { bestOf: LobbyBestOfJson }) {
+  const [score1, score2] = getBestOfScore(bestOf)
+  const winner = bestOf.outcome?.kind === 'won' ? bestOf.outcome.winner : undefined
+
+  return (
+    <ScoreTile>
+      <BestOfScoreRow side={bestOf.sides[0]} score={score1} isWinner={winner === 0} />
+      <BestOfScoreRow side={bestOf.sides[1]} score={score2} isWinner={winner === 1} />
+    </ScoreTile>
+  )
+}
+
+/** Labels the timeline for a best-of series, adding how it ended once it's over. */
+function timelineBestOfLabel(bestOf: LobbyBestOfJson, t: TFunction): string {
+  const label = bestOfLabel(bestOf, t)
+  if (!bestOf.outcome) {
+    return label
+  }
+  return bestOf.outcome.kind === 'won'
+    ? t('lobbies.room.bestOf.labelFinal', {
+        defaultValue: '{{label}} · Final',
+        label,
+      })
+    : t('lobbies.room.bestOf.labelEndedEarly', {
+        defaultValue: '{{label}} · Ended early',
+        label,
+      })
+}
+
+/** Heads the run of a best-of series' games in the full list of the lobby's games. */
+function SeriesBestOfHeaderRow({ bestOf }: { bestOf: LobbyBestOfJson }) {
+  const { t } = useTranslation()
+  const [score1, score2] = getBestOfScore(bestOf)
+
+  return (
+    <SeriesBestOfHeader>
+      <SeriesBestOfTitle>{bestOfLabel(bestOf, t)}</SeriesBestOfTitle>
+      {bestOf.outcome?.kind === 'unfinished' ? (
+        <SeriesBestOfNote>{t('lobbies.room.bestOf.unfinished', 'Unfinished')}</SeriesBestOfNote>
+      ) : null}
+      <SeriesBestOfScore>
+        {t('lobbies.room.bestOf.score', {
+          defaultValue: '{{score1}} – {{score2}}',
+          score1,
+          score2,
+        })}
+      </SeriesBestOfScore>
+    </SeriesBestOfHeader>
+  )
+}
+
 /** A label for the way a lobby's seats are split up, e.g. "3 vs 5" or "3 teams". */
 function gameSubTypeLabel(lobby: Lobby, t: TFunction): string {
   if (lobby.gameType === GameType.TopVsBottom) {
@@ -784,24 +1122,46 @@ function gameSubTypeLabel(lobby: Lobby, t: TFunction): string {
  * thumbnail card, the lobby's key facts, and the host's seating tools, giving the room a sense of
  * place. Below that runs a horizontal timeline of the lobby's games so far, ending in a slot for the
  * game it is headed into, which follows that game from the countdown through to its finish.
+ *
+ * While a best-of series is up (see `getDisplayedBestOf`), the timeline is that series instead: its
+ * score, and only its games, numbered the way it counts them.
  */
 export function RoomMapBanner({
   viewerId,
   onArrangeTeams,
+  onStartBestOf,
+  onUpdateBestOf,
+  onEndBestOf,
+  onDiscardBestOfGame,
   onWatchReplay,
   onViewGameSummary,
 }: {
   viewerId: SbUserId
   onArrangeTeams: (arrangement: TeamArrangement) => void
+  onStartBestOf: (
+    request: Omit<StartLobbyBestOfRequest, 'clientId'>,
+    spec: RequestHandlingSpec<void>,
+  ) => void
+  onUpdateBestOf: (
+    request: Omit<UpdateLobbyBestOfRequest, 'clientId'>,
+    spec: RequestHandlingSpec<void>,
+  ) => void
+  onEndBestOf: () => void
+  onDiscardBestOfGame: (gameId: string) => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const lobby = useAppSelector(s => s.lobby.info)
   const map = lobby.map!
   const series = useAppSelector(s => s.lobby.series)
+  const bestOfs = useAppSelector(s => s.lobby.bestOfs)
   const shuffleCount = useAppSelector(s => s.lobby.shuffleCount)
   const lifecycle = useLobbyLifecycle()
+
+  const runningBestOf = getRunningBestOf(bestOfs)
+  const displayedBestOf = getDisplayedBestOf(bestOfs, series, lifecycle !== 'gathering')
 
   const isHost = lobby.host.userId === viewerId
   const playerTeams = lobby.teams.filter(team => !team.isObserver)
@@ -817,9 +1177,9 @@ export function RoomMapBanner({
   const shuffleBlockedByComputers =
     hasControlledOpens(lobby.gameType) &&
     getLobbySlots(lobby).some(slot => slot.type === SlotType.Computer)
-  // Only a gathering lobby's layout can be rearranged; from the countdown until the game ends its
-  // seats are what the game was configured with.
-  const showHostTools = isHost && lifecycle === 'gathering' && (canSwap || canShuffle)
+  // Only a gathering lobby's layout can be rearranged, or its series started, changed or ended; from
+  // the countdown until the game ends, its seats are what the game was configured with.
+  const showHostTools = isHost && lifecycle === 'gathering'
 
   const mapStats: Array<[label: string, value: React.ReactNode, labelInfo?: React.ReactNode]> = [
     [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
@@ -856,16 +1216,47 @@ export function RoomMapBanner({
   ])
 
   const mapQueue = lobby.mapQueue
-  const nextGameNumber = series.length + 1
+  // While a series runs, every game the lobby launches is one of its games, so the games still to
+  // come are numbered the way it counts them.
+  const nextGameNumber = runningBestOf
+    ? getBestOfGameNumber(runningBestOf, runningBestOf.games.length)
+    : series.length + 1
+  // An ended series stays up for the games it was, but the games to come aren't part of it.
+  const showUpcoming = !displayedBestOf || !displayedBestOf.outcome
+
+  const timelineGames: NumberedSeriesGame[] = displayedBestOf
+    ? getBestOfSeriesGames(displayedBestOf, series)
+    : series.map((game, i) => ({ game, gameNumber: i + 1 }))
+  const sessionEntries = groupSessionGames(series, bestOfs)
 
   const [timelineRef, timelineSize] = useObservedDimensions<HTMLDivElement>()
-  // Reserve room for readable winner names alongside the earlier-games chip, the next game, and the
-  // maps queued after it.
-  const recentGameLimit = (timelineSize?.width ?? 0) >= (mapQueue.length ? 620 : 480) ? 2 : 1
-  const recentStartIndex = Math.max(0, series.length - recentGameLimit)
-  const recentGames = series
-    .slice(recentStartIndex)
-    .map((game, i) => ({ game, gameNumber: recentStartIndex + i + 1 }))
+  const recentGameLimit = getRecentGameLimit({
+    stripWidth: timelineSize?.width ?? 0,
+    hasScoreTile: !!displayedBestOf,
+    hasNextGame: showUpcoming,
+    hasQueuedMaps: showUpcoming && mapQueue.length > 0,
+  })
+  const recentStartIndex = Math.max(0, timelineGames.length - recentGameLimit)
+  const recentGames = timelineGames.slice(recentStartIndex)
+
+  // Only the host can stop a game counting, and only while the lobby is gathering for its next one.
+  const canDiscard = isHost && lifecycle === 'gathering'
+  const discardHandlerFor = (bestOfGame: LobbyBestOfGameJson | undefined) =>
+    canDiscard && bestOfGame?.status === 'pending'
+      ? () => onDiscardBestOfGame(bestOfGame.gameId)
+      : undefined
+
+  const openBestOfDialog = () => {
+    dispatch(
+      openDialog({
+        type: DialogType.LobbyBestOf,
+        initData: { onStart: onStartBestOf, onUpdate: onUpdateBestOf },
+      }),
+    )
+  }
+  const openEndBestOfDialog = () => {
+    dispatch(openDialog({ type: DialogType.LobbyEndBestOf, initData: { onConfirm: onEndBestOf } }))
+  }
 
   const {
     anchorRef: allGamesAnchorRef,
@@ -950,13 +1341,39 @@ export function RoomMapBanner({
                   })}
                 </ShuffleCount>
               ) : null}
+              {runningBestOf ? (
+                <>
+                  <HostToolButton
+                    label={t('lobbies.room.banner.editSeries', 'Edit series')}
+                    iconStart={<MaterialIcon icon='edit' size={18} />}
+                    onClick={openBestOfDialog}
+                  />
+                  <HostToolButton
+                    label={t('lobbies.room.banner.endSeries', 'End series')}
+                    iconStart={<MaterialIcon icon='flag' size={18} />}
+                    onClick={openEndBestOfDialog}
+                  />
+                </>
+              ) : (
+                <HostToolButton
+                  label={t('lobbies.room.banner.startSeries', 'Start series')}
+                  iconStart={<MaterialIcon icon='trophy' size={18} />}
+                  onClick={openBestOfDialog}
+                />
+              )}
             </HostTools>
           ) : null}
           <TimelineSection>
             <TimelineLabelRow>
-              <SectionLabel>{t('lobbies.room.series.gamesLabel', 'Games')}</SectionLabel>
+              <TimelineLabel
+                text={
+                  displayedBestOf
+                    ? timelineBestOfLabel(displayedBestOf, t)
+                    : t('lobbies.room.series.gamesLabel', 'Games')
+                }
+              />
               <TimelineSpacer />
-              {series.length > 0 || mapQueue.length > 0 ? (
+              {series.length > 0 || mapQueue.length > 0 || runningBestOf ? (
                 <AllGamesButton
                   ref={allGamesAnchorRef}
                   type='button'
@@ -969,6 +1386,7 @@ export function RoomMapBanner({
               ) : null}
             </TimelineLabelRow>
             <TimelineStrip ref={timelineRef}>
+              {displayedBestOf ? <BestOfScoreTile bestOf={displayedBestOf} /> : null}
               {recentStartIndex > 0 ? (
                 <OverflowChip
                   type='button'
@@ -979,17 +1397,20 @@ export function RoomMapBanner({
                   +{recentStartIndex}
                 </OverflowChip>
               ) : null}
-              {recentGames.map(({ game, gameNumber }) => (
+              {recentGames.map(({ game, gameNumber, bestOfGame }) => (
                 <GameTile
                   key={game.gameId}
                   game={game}
                   gameNumber={gameNumber}
+                  bestOf={displayedBestOf}
+                  bestOfGame={bestOfGame}
+                  onDiscard={discardHandlerFor(bestOfGame)}
                   onWatchReplay={onWatchReplay}
                   onViewGameSummary={onViewGameSummary}
                 />
               ))}
-              <NextGameSlot nextGameNumber={nextGameNumber} />
-              {mapQueue.length > 0 ? (
+              {showUpcoming ? <NextGameSlot nextGameNumber={nextGameNumber} /> : null}
+              {showUpcoming && mapQueue.length > 0 ? (
                 <QueuedMapsTile
                   type='button'
                   aria-haspopup='dialog'
@@ -1015,31 +1436,45 @@ export function RoomMapBanner({
               originX='right'
               originY='top'>
               <SeriesList>
-                {series.length > 0 ? (
-                  <>
-                    <SeriesSection>
-                      <PopoverSectionLabel>
-                        {t('lobbies.room.series.standings', 'Standings')}
-                      </PopoverSectionLabel>
+                {runningBestOf || series.length > 0 ? (
+                  <SeriesSection>
+                    <PopoverSectionLabel>
+                      {t('lobbies.room.series.standings', 'Standings')}
+                    </PopoverSectionLabel>
+                    {runningBestOf ? (
+                      <BestOfStandings bestOf={runningBestOf} />
+                    ) : (
                       <LobbyScoreboard />
-                    </SeriesSection>
-                    <SeriesSection>
-                      <PopoverSectionLabel>
-                        {t('lobbies.room.series.gamesLabel', 'Games')}
-                      </PopoverSectionLabel>
-                      <SeriesRows>
-                        {series.map((game, index) => (
+                    )}
+                  </SeriesSection>
+                ) : null}
+                {sessionEntries.length > 0 ? (
+                  <SeriesSection>
+                    <PopoverSectionLabel>
+                      {t('lobbies.room.series.gamesLabel', 'Games')}
+                    </PopoverSectionLabel>
+                    <SeriesRows>
+                      {sessionEntries.map(entry =>
+                        entry.kind === 'bestOf' ? (
+                          <SeriesBestOfHeaderRow
+                            key={`best-of-${entry.bestOf.id}`}
+                            bestOf={entry.bestOf}
+                          />
+                        ) : (
                           <SeriesGameRow
-                            key={game.gameId}
-                            game={game}
-                            gameNumber={index + 1}
+                            key={entry.game.gameId}
+                            game={entry.game}
+                            gameNumber={entry.gameNumber}
+                            bestOf={entry.bestOf}
+                            bestOfGame={entry.bestOfGame}
+                            onDiscard={discardHandlerFor(entry.bestOfGame)}
                             onWatchReplay={onWatchReplay}
                             onViewGameSummary={onViewGameSummary}
                           />
-                        ))}
-                      </SeriesRows>
-                    </SeriesSection>
-                  </>
+                        ),
+                      )}
+                    </SeriesRows>
+                  </SeriesSection>
                 ) : null}
                 {mapQueue.length > 0 ? (
                   <SeriesSection>

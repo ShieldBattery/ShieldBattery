@@ -1773,12 +1773,18 @@
   },
   "lobbies": {
     "actionErrors": {
+      "bestOfAlreadyRunning": "A series is already running",
+      "bestOfGameNotPending": "That game is no longer waiting for a result",
+      "bestOfGamePending": "The series' last game doesn't have a result yet",
+      "bestOfRosterMismatch": "The seated players don't match the series' sides",
       "countingDown": "The lobby is already counting down",
       "gameInProgress": "The lobby is in a game right now",
       "generic": "Something went wrong. Please try again.",
+      "invalidBestOf": "The series needs an odd number of games and players who are in the lobby",
       "invalidSlotOperation": "That seat cannot be changed right now",
       "invalidTeamLayout": "The teams cannot be rearranged in this layout",
       "mapNotDownloaded": "Not everyone has the map yet",
+      "noBestOfRunning": "No series is running",
       "notEnoughSides": "The game needs players on at least two sides",
       "notEveryoneReady": "Not everyone is ready yet",
       "notHost": "Only the host can do that",
@@ -1786,6 +1792,27 @@
     },
     "activity": {
       "title": "Lobbies ({{lobbyCount}})"
+    },
+    "bestOfDialog": {
+      "addPlayer": "Add player",
+      "customLengthLabel": "Games",
+      "editTitle": "Edit series",
+      "emptySide": "No players yet",
+      "fixedLength": "Best of {{length}}",
+      "invalidLength": "An odd number from 1 to {{max}}",
+      "lengthCustom": "Custom",
+      "lengthLabel": "Length",
+      "lengthPreset": "Bo{{length}}",
+      "playersLabel": "Players",
+      "removePlayer": "Remove from side",
+      "removePlayerNamed": "Remove {{name}}",
+      "seatBench": "Bench",
+      "seatObserver": "Observer",
+      "seatPlayer": "Player",
+      "sideHeading": "Side {{number}}",
+      "startAction": "Start series",
+      "startTitle": "Start a series",
+      "titleLabel": "Title (optional)"
     },
     "browser": {
       "benchCaptionBenchFull": "The lobby and its bench are both full",
@@ -1870,6 +1897,12 @@
       "visibility": "Visibility",
       "visibilityListed": "Public",
       "visibilityUnlisted": "Unlisted"
+    },
+    "endBestOfDialog": {
+      "body": "{{side1}} and {{side2}} are at {{score1}}–{{score2}}. Ending the series now leaves it unfinished.",
+      "bodyPending": "{{side1}} and {{side2}} are at {{score1}}–{{score2}}. Ending the series now leaves it unfinished, and a game still waiting for its result won't count.",
+      "confirmAction": "End series",
+      "title": "End the series?"
     },
     "errors": {
       "load": "There was a problem loading this lobby"
@@ -2008,10 +2041,13 @@
     "room": {
       "banner": {
         "alliancesLocked": "Locked",
+        "editSeries": "Edit series",
+        "endSeries": "End series",
         "shuffle": "Shuffle",
         "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "shuffleCount_one": "Shuffled {{count}} time",
         "shuffleCount_other": "Shuffled {{count}} times",
+        "startSeries": "Start series",
         "statAlliances": "Alliances",
         "statMode": "Mode",
         "statSize": "Size",
@@ -2020,7 +2056,22 @@
         "swapTeams": "Swap teams",
         "warpFieldActive": "Active"
       },
+      "bestOf": {
+        "discardGame": "Don't count this game",
+        "label": "Series · Best of {{length}}",
+        "labelEndedEarly": "{{label}} · Ended early",
+        "labelFinal": "{{label}} · Final",
+        "labelTitled": "{{title}} · Best of {{length}}",
+        "notCounted": "Not counted",
+        "score": "{{score1}} – {{score2}}",
+        "sideMore": "+{{extra}}",
+        "unfinished": "Unfinished"
+      },
       "chat": {
+        "bestOfEndedEarly": "The series was ended at {{score1}}–{{score2}}",
+        "bestOfStarted": "Series started: Best of {{length}} · <4>{{side1}}</4> vs <7>{{side2}}</7>",
+        "bestOfStartedTitled": "Series started: <1>{{title}}</1> · Best of {{length}} · <6>{{side1}}</6> vs <9>{{side2}}</9>",
+        "bestOfWon": "<0>{{winner}}</0> won the series {{winnerScore}}–{{loserScore}}",
         "countdownCanceled": "The countdown was canceled",
         "countdownStarted": "The game is starting",
         "isNowHost": "<0></0> is now the host",
@@ -2076,6 +2127,10 @@
       "rail": {
         "benchHeading": "Bench · {{benchCount}}",
         "benchTooltip": "Joined while seats were full. The first in line takes the next opening.",
+        "bestOfExtraPlayer": "{{name}} isn't in the series",
+        "bestOfGamePending": "Waiting for the last game's result",
+        "bestOfMissingPlayer": "{{name}} needs a player seat",
+        "bestOfMixedTeams": "The series' sides must be on opposing teams",
         "cancelReady": "Cancel ready",
         "everyoneReady": "Everyone is ready",
         "holdToBypassReadiness": "Hold for {{seconds}} seconds to start without waiting",
@@ -2095,6 +2150,7 @@
         "ready": "Ready"
       },
       "scoreboard": {
+        "firstTo": "First to {{winsNeeded}}",
         "player": "Player",
         "wins": "Wins"
       },

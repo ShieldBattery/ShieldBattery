@@ -33,6 +33,8 @@ import {
   changeSlot,
   closeSlot,
   deactivateLobby,
+  discardBestOfGame,
+  endBestOf,
   getLobbyState,
   kickPlayer,
   leaveLobby,
@@ -44,9 +46,11 @@ import {
   setRace,
   setReady,
   shuffleSlots,
+  startBestOf,
   startCountdown,
   swapTeams,
   transferHost,
+  updateBestOf,
 } from './action-creators'
 import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
@@ -214,6 +218,15 @@ function ConnectedLobby() {
     onSuccess: () => {},
     onError: onActionError,
   }
+  // For a request whose caller also follows its outcome (e.g. a form that stays open on failure),
+  // reports a refusal the same way as any other action before handing it on.
+  const withActionError = (spec: RequestHandlingSpec<void>): RequestHandlingSpec<void> => ({
+    ...spec,
+    onError: err => {
+      onActionError(err)
+      spec.onError(err)
+    },
+  })
 
   const onWatchReplay = (gameId: string) => {
     dispatch(
@@ -318,6 +331,18 @@ function ConnectedLobby() {
           default:
             assertUnreachable(arrangement)
         }
+      }}
+      onStartBestOf={(request, spec) => {
+        dispatch(startBestOf(request, withActionError(spec)))
+      }}
+      onUpdateBestOf={(request, spec) => {
+        dispatch(updateBestOf(request, withActionError(spec)))
+      }}
+      onEndBestOf={() => {
+        dispatch(endBestOf(actionSpec))
+      }}
+      onDiscardBestOfGame={gameId => {
+        dispatch(discardBestOfGame(gameId, actionSpec))
       }}
       onWatchReplay={onWatchReplay}
       onViewGameSummary={gameId => {

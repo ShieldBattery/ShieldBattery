@@ -4,7 +4,9 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { buttonReset } from '../../material/button-reset'
+import { useAppSelector } from '../../redux-hooks'
 import { labelLarge, labelSmall } from '../../styles/typography'
+import { BestOfStartBlocker } from './best-of-display'
 import { START_GAME_HOLD_MS, useStartGameHold } from './use-start-game-hold'
 
 const Root = styled.div`
@@ -90,7 +92,10 @@ const Hint = styled(m.div)`
  * Why the lobby can't start at all right now. Unlike readiness, which the host can hold the button
  * to bypass, these leave the button disabled: the server refuses the start either way.
  */
-export type LobbyStartBlocker = 'needsOpposingSides' | 'mapNotDownloaded'
+export type LobbyStartBlocker =
+  | { kind: 'needsOpposingSides' }
+  | { kind: 'mapNotDownloaded' }
+  | BestOfStartBlocker
 
 /** Starts immediately when everyone is ready, or after a deliberate hold to bypass readiness. */
 export function LobbyStartButton({
@@ -115,16 +120,38 @@ export function LobbyStartButton({
     onForceStart,
   })
   const ready = allReady && !disabled
+  const blockerUserId =
+    blocker?.kind === 'bestOfMissingPlayer' || blocker?.kind === 'bestOfExtraPlayer'
+      ? blocker.userId
+      : undefined
+  const blockerUserName =
+    useAppSelector(s =>
+      blockerUserId !== undefined ? s.users.byId.get(blockerUserId)?.name : undefined,
+    ) ?? '…'
   const label =
     !disabled && !allReady && (isHolding || showHoldHint)
       ? t('lobbies.room.rail.holdToStartAnyway', 'Hold to start anyway')
       : t('lobbies.room.rail.startGame', 'Start game')
 
   let hint: string
-  if (blocker === 'needsOpposingSides') {
+  if (blocker?.kind === 'needsOpposingSides') {
     hint = t('lobbies.room.rail.needsOpposingSides', 'Needs at least two opposing players')
-  } else if (blocker === 'mapNotDownloaded') {
+  } else if (blocker?.kind === 'mapNotDownloaded') {
     hint = t('lobbies.room.rail.mapNotDownloaded', 'Not everyone has the map yet')
+  } else if (blocker?.kind === 'bestOfGamePending') {
+    hint = t('lobbies.room.rail.bestOfGamePending', "Waiting for the last game's result")
+  } else if (blocker?.kind === 'bestOfMissingPlayer') {
+    hint = t('lobbies.room.rail.bestOfMissingPlayer', {
+      defaultValue: '{{name}} needs a player seat',
+      name: blockerUserName,
+    })
+  } else if (blocker?.kind === 'bestOfExtraPlayer') {
+    hint = t('lobbies.room.rail.bestOfExtraPlayer', {
+      defaultValue: "{{name}} isn't in the series",
+      name: blockerUserName,
+    })
+  } else if (blocker?.kind === 'bestOfMixedTeams') {
+    hint = t('lobbies.room.rail.bestOfMixedTeams', "The series' sides must be on opposing teams")
   } else if (ready) {
     hint = t('lobbies.room.rail.everyoneReady', 'Everyone is ready')
   } else {

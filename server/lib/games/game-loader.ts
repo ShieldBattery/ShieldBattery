@@ -10,6 +10,7 @@ import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GamePlayerRank, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameType } from '../../../common/games/game-type'
+import { BestOfLaunchInfo } from '../../../common/lobbies/lobby-best-of'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -404,6 +405,11 @@ export interface GameLoadRequest {
    * matchmaking games.
    */
   ranks?: GamePlayerRank[]
+  /**
+   * Where the best-of series the game is part of stood when the game launched. Only provided for
+   * lobby games played as part of one.
+   */
+  bestOf?: BestOfLaunchInfo
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }

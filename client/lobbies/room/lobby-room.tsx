@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import {
+  StartLobbyBestOfRequest,
+  UpdateLobbyBestOfRequest,
+} from '../../../common/lobbies/lobby-network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { useAppSelector } from '../../redux-hooks'
 import { RoomChat } from './room-chat'
 import { RoomGameSetup } from './room-game-setup'
@@ -42,6 +47,16 @@ export interface LobbyRoomProps {
   onSlotAction: (action: SlotAction, slotId: string) => void
   onRetryMapDownload: () => void
   onArrangeTeams: (arrangement: TeamArrangement) => void
+  onStartBestOf: (
+    request: Omit<StartLobbyBestOfRequest, 'clientId'>,
+    spec: RequestHandlingSpec<void>,
+  ) => void
+  onUpdateBestOf: (
+    request: Omit<UpdateLobbyBestOfRequest, 'clientId'>,
+    spec: RequestHandlingSpec<void>,
+  ) => void
+  onEndBestOf: () => void
+  onDiscardBestOfGame: (gameId: string) => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }
@@ -67,6 +82,10 @@ export function LobbyRoom({
   onSlotAction,
   onRetryMapDownload,
   onArrangeTeams,
+  onStartBestOf,
+  onUpdateBestOf,
+  onEndBestOf,
+  onDiscardBestOfGame,
   onWatchReplay,
   onViewGameSummary,
 }: LobbyRoomProps) {
@@ -98,6 +117,10 @@ export function LobbyRoom({
                 <RoomMapBanner
                   viewerId={viewerId}
                   onArrangeTeams={onArrangeTeams}
+                  onStartBestOf={onStartBestOf}
+                  onUpdateBestOf={onUpdateBestOf}
+                  onEndBestOf={onEndBestOf}
+                  onDiscardBestOfGame={onDiscardBestOfGame}
                   onWatchReplay={onWatchReplay}
                   onViewGameSummary={onViewGameSummary}
                 />
