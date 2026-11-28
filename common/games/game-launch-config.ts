@@ -3,6 +3,7 @@ import { MapInfoJson } from '../maps'
 import { MatchmakingDivision, MatchmakingType } from '../matchmaking'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
+import { ZenModeSettings, ZenPlayer } from '../settings/zen-mode'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameType } from './game-type'
@@ -89,6 +90,10 @@ export interface GameSetup {
   ranks?: GamePlayerRank[]
   /** The matchmaking type of the match this game is for, or `undefined` for a lobby game. */
   matchmakingType?: MatchmakingType
+  /** Local preferences held for the duration of this ranked match. */
+  zenMode?: ZenModeSettings
+  /** Ranked match aliases and public chat-mute status, shared by all participants. */
+  zenPlayers?: ZenPlayer[]
   /**
    * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use
    * the default for the game mode). */

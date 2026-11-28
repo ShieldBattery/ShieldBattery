@@ -16,6 +16,10 @@ import { isUserAvailability, UserAvailability } from '../users/availability'
  * apply to existing accounts without a migration.
  */
 export interface AccountSettings {
+  /** Hide other players' identities during ranked drafts and games. Takes effect next match. */
+  zenAnonymizePlayers: boolean
+  /** Disable sending and receiving ranked match chat. Takes effect next match. */
+  zenMuteChat: boolean
   /**
    * While this client is in a game, channel messages (mentions included) play no alert sound and
    * don't ask the main process for attention (transient tray icon / taskbar flash); unread and
@@ -124,6 +128,8 @@ export function isChatDisplayMode(value: unknown): value is ChatDisplayMode {
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
+  zenAnonymizePlayers: false,
+  zenMuteChat: false,
   quietChannelsWhileInGame: true,
   quietWhispersWhileInGame: true,
   quietLobbyWhileInGame: true,

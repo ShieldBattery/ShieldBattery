@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { IntRange, SetRequired, Simplify, Tagged } from 'type-fest'
+import { SetRequired, Simplify, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo } from './chat'
 import { binarySearch } from './data-structures/arrays'
@@ -7,6 +7,7 @@ import { GameServerRegionId } from './game-server-regions'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
+import { AnonymizedNameIndex, ZenModeSettings } from './settings/zen-mode'
 import { MatchmakingType } from './typeshare'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
@@ -18,6 +19,7 @@ import { SbUserId } from './users/sb-user-id'
 export const MATCHMAKING_SEASON_FINALIZED_TIME_MS = 6 * 60 * 60 * 1000 // 6 hours
 
 export { MatchmakingType }
+export { type AnonymizedNameIndex, NUM_ANONYMIZED_NAMES } from './settings/zen-mode'
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
@@ -751,10 +753,12 @@ export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 60000
 /** Time allowed for each draft pick in milliseconds. */
 export const DRAFT_PICK_TIME_MS = 15000
 
-export type DraftPlayer = { userId: SbUserId; provisionalRace: RaceChar } & (
-  | { hasLocked: false }
-  | { hasLocked: true; finalRace: RaceChar }
-)
+export type DraftPlayer = {
+  userId: SbUserId
+  provisionalRace: RaceChar
+  nameIndex?: AnonymizedNameIndex
+  zenMuted?: boolean
+} & ({ hasLocked: false } | { hasLocked: true; finalRace: RaceChar })
 
 export interface DraftTeam {
   players: DraftPlayer[]
@@ -763,10 +767,6 @@ export interface DraftTeam {
 export interface AnonymizedDraftTeam {
   players: AnonymizedDraftPlayer[]
 }
-
-export const NUM_ANONYMIZED_NAMES = 6
-
-export type AnonymizedNameIndex = IntRange<0, typeof NUM_ANONYMIZED_NAMES>
 
 /**
  * Retrieve an anonymized name for use when a player's name cannot be known yet (e.g. during the
@@ -789,14 +789,17 @@ export function getAnonymizedName(nameIndex: AnonymizedNameIndex, t: TFunction):
   }
 }
 
-export type AnonymizedDraftPlayer = { index: number; nameIndex: AnonymizedNameIndex } & (
-  | { hasLocked: false }
-  | { hasLocked: true; finalRace: RaceChar }
-)
+export type AnonymizedDraftPlayer = {
+  index: number
+  nameIndex: AnonymizedNameIndex
+  zenMuted?: boolean
+} & ({ hasLocked: false } | { hasLocked: true; finalRace: RaceChar })
 
 export interface ClientDraftState {
   /** The match being drafted, which the player's draft requests name. */
   matchId: string
+  /** Local preferences captured at the start of this match. */
+  zenMode?: ZenModeSettings
   mapId: SbMapId
   currentPicker?: { team: number; slot: number }
   myTeamIndex: number
@@ -1331,6 +1334,7 @@ export enum MatchmakingServiceErrorCode {
   NoActiveDraft = 'noActiveDraft',
   InvalidDraftPick = 'invalidDraftPick',
   UserChatRestricted = 'userChatRestricted',
+  ZenChatMuted = 'zenChatMuted',
   UnsupportedMachine = 'unsupportedMachine',
 }
 

@@ -105,6 +105,7 @@ import {
   getMatchPath,
 } from './matchmaking-socket-paths'
 import { adjustMatchmakingRatingForInactivity } from './rating'
+import { captureZenMatchSnapshot, ZenMatchSnapshot } from './zen-mode'
 
 /** Per-type data held while a player is searching in that mode. */
 interface PlayerTypeData {
@@ -364,7 +365,11 @@ class Match {
   /**
    * Runs a race draft for team modes, will return a resolved promise for modes without a draft.
    */
-  runDraft(activeClients: Map<SbUserId, ClientSocketsGroup>, map: MapInfo): Promise<void> {
+  runDraft(
+    activeClients: Map<SbUserId, ClientSocketsGroup>,
+    map: MapInfo,
+    zenSnapshot: ZenMatchSnapshot,
+  ): Promise<void> {
     if (this.type === MatchmakingType.Match1v1 || this.type === MatchmakingType.Match1v1Fastest) {
       return Promise.resolve()
     }
@@ -380,6 +385,7 @@ class Match {
       this.abortController,
       this.publisher,
       activeClients,
+      zenSnapshot,
     )
     return raceAbort(this.abortController.signal, this.draftState.completedPromise)
   }
@@ -1385,15 +1391,16 @@ export class MatchmakingService {
         throw new Error('A simulated match cannot launch')
       }
       const mapInfo = await mapPromise
+      const zenSnapshot = await captureZenMatchSnapshot(Array.from(match.players(), p => p.id))
       match.signal.throwIfAborted()
       phase = 'drafting'
       match.setPhase(phase)
-      await match.runDraft(activeClients, mapInfo)
+      await match.runDraft(activeClients, mapInfo, zenSnapshot)
 
       match.signal.throwIfAborted()
       phase = 'loading'
       match.setPhase(phase)
-      const gameId = await this.doGameLoad(match, mapInfo)
+      const gameId = await this.doGameLoad(match, mapInfo, zenSnapshot)
 
       this.matchLaunchedMetric.labels(match.type).inc()
 
@@ -1591,7 +1598,7 @@ export class MatchmakingService {
     }
   }
 
-  private async doGameLoad(match: Match, mapInfo: MapInfo) {
+  private async doGameLoad(match: Match, mapInfo: MapInfo, zenSnapshot: ZenMatchSnapshot) {
     /**
      * Each participant paired with the race they'll actually play, grouped into the game's teams.
      * The shapes the game loader, the game process and the persisted game config each need are all
@@ -1789,6 +1796,7 @@ export class MatchmakingService {
       mapId: chosenMap.id,
       gameConfig,
       ranks,
+      zenSnapshot,
       signal: match.signal,
       onGameRegistered: gameId => match.setLoadingGameId(gameId),
     })

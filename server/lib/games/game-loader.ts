@@ -19,6 +19,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
+import { ZenMatchSnapshot } from '../matchmaking/zen-mode'
 import { NetcodeV2Service, NetcodeV2SessionLoadState } from '../netcode-v2/netcode-v2-service'
 import { monotonicNow } from '../time/monotonic-now'
 import { ActivityStatusService } from '../users/activity-status-service'
@@ -404,6 +405,7 @@ export interface GameLoadRequest {
    * matchmaking games.
    */
   ranks?: GamePlayerRank[]
+  zenSnapshot?: ZenMatchSnapshot
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }
@@ -579,6 +581,7 @@ export class GameLoader {
     ranks,
     signal,
     onGameRegistered,
+    zenSnapshot,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
     const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
 
@@ -611,6 +614,7 @@ export class GameLoader {
           resultCodes,
           playerInfos,
           ranks,
+          zenSnapshot,
         }).onFailure(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
@@ -1238,6 +1242,7 @@ export class GameLoader {
     resultCodes,
     playerInfos,
     ranks,
+    zenSnapshot,
   }: {
     gameId: string
     mapId: SbMapId
@@ -1245,6 +1250,7 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ranks?: GamePlayerRank[]
+    zenSnapshot?: ZenMatchSnapshot
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -1391,6 +1397,8 @@ export class GameLoader {
           gameId,
           setup: {
             ...generalSetup,
+            zenMode: zenSnapshot?.settings.get(userId),
+            zenPlayers: zenSnapshot?.players,
             useNetcodeV2,
             resultCode: resultCodes.get(userId)!,
             isChatRestricted: restrictionsSet.has(userId),

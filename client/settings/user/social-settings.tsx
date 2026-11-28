@@ -13,6 +13,7 @@ import { RelationshipsLoadErrorRow, useRelationshipsLoader } from '../../social/
 import { userRelationshipErrorToString } from '../../social/relationship-errors'
 import { bodyLarge, labelLarge, singleLine, titleLarge, titleSmall } from '../../styles/typography'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
+import { ZenModeSettings } from './zen-mode-settings'
 
 const Root = styled.div`
   display: flex;
@@ -128,6 +129,7 @@ export function UserSocialSettings() {
 
   return (
     <Root>
+      <ZenModeSettings />
       <SectionHeader>
         <HeaderTitle>{t('settings.user.social.blockedUsers.title', 'Blocked users')}</HeaderTitle>
         <BlockCount>

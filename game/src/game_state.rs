@@ -277,6 +277,7 @@ impl GameState {
         // Set before BW initializes, so the loading screen knows which participant is this client
         // from its first frame.
         game_thread::set_local_user_id(local_user.id);
+        crate::zen_mode::configure(&info, local_user.id);
         // The server base URL the netcode-v2 re-home provider posts to (same origin as the results
         // submission). Captured before `init_state` is moved into `Started`.
         let server_url = init_state.server_config.server_url.clone();

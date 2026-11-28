@@ -1,7 +1,7 @@
 //! Installation of gameplay and platform hooks.
 
 use std::borrow::Cow;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr::null;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
@@ -1070,7 +1070,16 @@ impl BwScr {
                                 false => CStr::from_ptr(text as *const std::ffi::c_char).to_bytes(),
                             };
                             if should_announce(Kind::GameMessage, key(bytes)) {
-                                orig(text, duration);
+                                let replaced = std::str::from_utf8(bytes).ok().and_then(|text| {
+                                    match super::zen_text::anonymize(text) {
+                                        Cow::Owned(text) => CString::new(text).ok(),
+                                        Cow::Borrowed(_) => None,
+                                    }
+                                });
+                                orig(
+                                    replaced.as_ref().map_or(text, |s| s.as_ptr().cast()),
+                                    duration,
+                                );
                             }
                         },
                         address.0 as usize - base,
@@ -1354,13 +1363,27 @@ impl BwScr {
                         }
                     }
 
+                    let replaced = CStr::from_ptr(text).to_str().ok().and_then(|text| {
+                        match super::zen_text::anonymize(text) {
+                            Cow::Owned(text) => CString::new(text).ok(),
+                            Cow::Borrowed(_) => None,
+                        }
+                    });
+                    let text = replaced.as_ref().map_or(text, |s| s.as_ptr());
                     let tag = chat::ObserverChatTag::from_u8(
                         self.chat_observer_tag.load(Ordering::Relaxed),
                     );
-                    match tag.apply(CStr::from_ptr(text).to_bytes()) {
-                        Some(tagged) => orig(tagged.as_ptr(), player, unused),
-                        None => orig(text, player, unused),
+                    let tagged = tag.apply(CStr::from_ptr(text).to_bytes());
+                    let text = tagged.as_ref().map_or(text, |s| s.as_ptr());
+                    if let Some(line) =
+                        super::zen_text::format_chat_line(player, CStr::from_ptr(text))
+                    {
+                        // PrintText normally adds the real sender name. Sender 16 displays the
+                        // complete line as supplied, including the alias and message.
+                        orig(line.as_ptr(), 16, unused);
+                        return;
                     }
+                    orig(text, player, unused);
                 },
                 address,
             );

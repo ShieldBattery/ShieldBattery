@@ -29,6 +29,22 @@ export async function getAccountSettings(
   }
 }
 
+/** Retrieves stored settings for all requested users in a single query. */
+export async function getManyAccountSettings(
+  userIds: readonly SbUserId[],
+  withClient?: DbClient,
+): Promise<Map<SbUserId, Partial<AccountSettings>>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbAccountSettings & { user_id: SbUserId }>(sql`
+      SELECT user_id, settings FROM account_settings WHERE user_id = ANY(${userIds})
+    `)
+    return new Map(result.rows.map(row => [row.user_id, row.settings]))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Merges `patch` into a user's stored settings, creating the row if it doesn't exist yet, and
  * returns the resulting stored JSON. Only the keys present in `patch` are changed; callers fill in

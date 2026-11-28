@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { labelSmall } from '../styles/typography'
 import { LiveUsersContext } from '../twitch/live-state'
 import { getBatchUserInfo } from '../users/action-creators'
+import { AnonymizedUsersContext } from '../users/anonymized-users'
 import { AvailabilityDot } from '../users/availability'
 import PlaceholderIcon from './avatar-placeholder.svg?react'
 import { randomColorForString } from './colors'
@@ -181,13 +182,16 @@ export function ConnectedAvatar({
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
   const avatarUrl = useAppSelector(s => s.users.byId.get(userId)?.avatarUrl)
   const liveUsers = useContext(LiveUsersContext)
+  const alias = useContext(AnonymizedUsersContext).get(userId)
   const isLive = showLiveIndicator && liveUsers.has(userId)
 
   useEffect(() => {
     dispatch(getBatchUserInfo(userId))
   }, [dispatch, userId])
 
-  if (!username) {
+  if (alias !== undefined) {
+    return <Avatar className={className} />
+  } else if (!username) {
     return <LoadingAvatar className={className} />
   } else {
     return (

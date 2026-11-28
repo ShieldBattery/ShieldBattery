@@ -92,6 +92,7 @@ pub struct AlliancePlayerView {
     pub race: RaceView,
     pub standing: PlayerStanding,
     pub muted: bool,
+    pub zen_muted: bool,
     pub blocked: bool,
     pub report: ReportState,
 }
@@ -234,6 +235,8 @@ pub struct AlliancesView {
     pub chat_target: ChatTargetChoice,
     /// The choices of where chat goes, in the order the menu lists them.
     pub chat_targets: Vec<ChatTargetOption>,
+    /// The local player has disabled match chat through Zen mode.
+    pub chat_disabled: bool,
 }
 
 /// Something the player did on the screen, which the host carries out.
@@ -422,6 +425,9 @@ pub fn render_alliances_view(
                         _ => outcome.menu = Some(None),
                     }
                 }
+                Some(AlliancesMenu::ChatTarget) if view.chat_disabled => {
+                    outcome.menu = Some(None);
+                }
                 Some(AlliancesMenu::ChatTarget) => {
                     draw_chat_menu(ui.ctx(), view, chat_anchor, &mut outcome)
                 }
@@ -439,6 +445,14 @@ fn draw_header(ui: &mut Ui, view: &AlliancesView, outcome: &mut AlliancesOutcome
         ui.set_width(width);
         tiers::dialog_title(ui, &tr!("alliances.title", "Alliances & chat"));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if view.chat_disabled {
+                ui.label(
+                    text::body(12.0, BodyWeight::Medium)
+                        .with_color(GREY_BLUE80)
+                        .job(&tr!("zenMode.chatDisabled", "Match chat disabled")),
+                );
+                return;
+            }
             let mut people = view
                 .players
                 .iter()
@@ -701,11 +715,11 @@ fn draw_row(
     }
     player.user_id.map(|user_id| {
         let button_size = Vec2::splat(widgets::ICON_BUTTON_SIZE);
-        let (glyph, state) = match player.muted {
+        let (glyph, state) = match player.muted || view.chat_disabled {
             true => (Glyph::SpeakerMuted, IconButtonState::Raised),
             false => (Glyph::Speaker, IconButtonState::Rest),
         };
-        if centered(ui, columns.mute, button_size, false, |ui| {
+        if centered(ui, columns.mute, button_size, view.chat_disabled, |ui| {
             widgets::icon_button(ui, glyph, state)
         })
         .clicked()
@@ -842,10 +856,31 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     } else {
         theme::TEXT_PRIMARY
     };
+    let zen_icon_size = 16.0;
+    let zen_icon_gap = theme::SPACE_SM;
+    if player.zen_muted {
+        right -= zen_icon_size + zen_icon_gap;
+    }
     let name_job = text::player_name(NAME_SIZE)
         .with_color(name_color)
         .job_truncated(&player.name, (right - left).max(0.0));
     let name = ui.ctx().fonts_mut(|fonts| fonts.layout_job(name_job));
+    if player.zen_muted {
+        let icon = Rect::from_min_size(
+            pos2(
+                left + name.size().x + zen_icon_gap,
+                rect.center().y - zen_icon_size * 0.5,
+            ),
+            Vec2::splat(zen_icon_size),
+        );
+        widgets::paint_glyph(painter, icon, Glyph::Zen, theme::TEXT_SECONDARY);
+        ui.interact(
+            icon,
+            ui.id().with(("zen_mute", player.user_id)),
+            Sense::hover(),
+        )
+        .on_hover_text(tr!("zenMode.chatDisabled", "Match chat disabled"));
+    }
     painter.galley(
         pos2(left, rect.center().y - name.size().y * 0.5),
         name,
@@ -897,7 +932,12 @@ fn draw_footer(
                         || tr!("alliances.chatAll", "All players"),
                         ChatTargetOption::label,
                     );
-                let dropdown = widgets::dropdown_button(ui, &current, CHAT_TARGET_MIN_WIDTH, open);
+                let dropdown = ui
+                    .scope(|ui| {
+                        widgets::set_disabled(ui, view.chat_disabled);
+                        widgets::dropdown_button(ui, &current, CHAT_TARGET_MIN_WIDTH, open)
+                    })
+                    .inner;
                 if dropdown.clicked() {
                     outcome.menu = Some(match open {
                         true => None,
@@ -1179,6 +1219,7 @@ mod tests {
                 vision: false,
             }),
             muted: false,
+            zen_muted: false,
             blocked: false,
             report: ReportState::None,
         }
@@ -1198,6 +1239,7 @@ mod tests {
             alliances_open: true,
             allied_victory: false,
             chat_target: ChatTargetChoice::All,
+            chat_disabled: false,
             chat_targets: vec![ChatTargetOption {
                 choice: ChatTargetChoice::All,
                 recipient: None,
@@ -1295,6 +1337,16 @@ mod tests {
         }
     }
 
+    #[test]
+    fn zen_mute_closes_an_open_chat_target_menu() {
+        let ctx = fresh_ctx();
+        let mut view = view(vec![player(1, "a")]);
+        view.chat_disabled = true;
+        let (outcome, _) = render(&ctx, &view, Some(AlliancesMenu::ChatTarget));
+        assert_eq!(outcome.menu, Some(None));
+        assert!(outcome.actions.is_empty());
+    }
+
     fn diplomacy_view() -> AlliancesView {
         let player = |player_id: u8, allied: bool| AlliancePlayerView {
             team: 0,
@@ -1308,6 +1360,7 @@ mod tests {
                 vision: false,
             }),
             muted: false,
+            zen_muted: false,
             blocked: false,
             report: ReportState::None,
         };
@@ -1316,6 +1369,7 @@ mod tests {
             alliances_open: true,
             allied_victory: false,
             chat_target: ChatTargetChoice::All,
+            chat_disabled: false,
             chat_targets: Vec::new(),
         }
     }

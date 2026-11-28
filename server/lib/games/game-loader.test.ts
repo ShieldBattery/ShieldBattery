@@ -1874,6 +1874,16 @@ describe('games/game-loader/GameLoader', () => {
       players: [player1.player, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
+      zenSnapshot: {
+        settings: new Map([
+          [p1, { anonymizePlayers: true, muteChat: false }],
+          [p2, { anonymizePlayers: false, muteChat: true }],
+        ]),
+        players: [
+          { userId: p1, nameIndex: 1, muteChat: false },
+          { userId: p2, nameIndex: 0, muteChat: true },
+        ],
+      },
       gameConfig: lobbyConfig([
         [{ id: p1, race: 't', isComputer: false }],
         [{ id: p2, race: 'z', isComputer: false }],
@@ -1909,6 +1919,14 @@ describe('games/game-loader/GameLoader', () => {
     expect(netcodeV2Service.createSessionForGame.mock.calls[0][0]).toMatchObject({
       seed: publishedSetup.seed,
     })
+
+    const configs = publisher.publish.mock.calls.filter(call => call[1]?.type === 'setGameConfig')
+    for (const [path, event] of configs) {
+      const userId = path.endsWith(`/${p1}`) ? p1 : p2
+      expect(event.setup.zenMode).toEqual(request.zenSnapshot!.settings.get(userId))
+      expect(event.setup.zenPlayers).toEqual(request.zenSnapshot!.players)
+    }
+    expect(configs).toHaveLength(2)
 
     expect(activityStatusService.setInGame).toHaveBeenCalledTimes(2)
     expect(activityStatusService.setInGame).toHaveBeenCalledWith(

@@ -1571,12 +1571,14 @@ mod tests {
                     },
                 ),
                 muted: false,
+                zen_muted: false,
                 blocked: false,
                 report: crate::alliances::ReportState::None,
             }],
             alliances_open: true,
             allied_victory: false,
             chat_target: crate::alliances::ChatTargetChoice::All,
+            chat_disabled: false,
             chat_targets: Vec::new(),
         }
     }

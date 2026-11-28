@@ -96,6 +96,7 @@ mod sync;
 mod team_colors;
 mod thread_stack;
 mod windows;
+mod zen_mode;
 
 #[cfg(debug_assertions)]
 const WAIT_DEBUGGER: bool = false;

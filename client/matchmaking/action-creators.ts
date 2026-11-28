@@ -570,6 +570,9 @@ export function sendDraftChatMessage(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
+    if (jotaiStore.get(draftStateAtom)?.zenMode?.muteChat) {
+      return
+    }
     await fetchJson<void>(apiUrl`matchmaking/draft/chat`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftChatMessageRequest>({

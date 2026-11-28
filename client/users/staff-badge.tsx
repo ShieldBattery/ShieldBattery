@@ -1,3 +1,4 @@
+import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -6,6 +7,7 @@ import Logo from '../logos/logo-no-bg.svg?react'
 import { elevationPlus2 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
+import { AnonymizedUsersContext } from './anonymized-users'
 
 const BadgeRoot = styled(Tooltip)`
   width: 22px;
@@ -97,11 +99,12 @@ export function StaffBadgedAvatar({
   showAvailability?: boolean
 }) {
   const hasStaffBadge = useAppSelector(s => s.users.byId.get(userId)?.staffBadge ?? false)
+  const anonymized = useContext(AnonymizedUsersContext).has(userId)
 
   return (
     <BadgedAvatarRoot className={className}>
       <FillingAvatar userId={userId} showAvailability={showAvailability} />
-      {hasStaffBadge ? <CornerBadge /> : null}
+      {hasStaffBadge && !anonymized ? <CornerBadge /> : null}
     </BadgedAvatarRoot>
   )
 }

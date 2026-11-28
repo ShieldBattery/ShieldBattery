@@ -406,5 +406,14 @@
     "soundOn": "효과음 켬",
     "windowed": "창 모드",
     "windowedFullscreen": "창 모드(전체 화면)"
+  },
+  "zenMode": {
+    "chatDisabled": "게임 채팅 꺼짐",
+    "name0": "느릿느릿 라이나돈",
+    "name1": "배짱 벤갈라스",
+    "name2": "살금살금 스캔티드",
+    "name3": "날카로운 카카루",
+    "name4": "락락 라그나사우르",
+    "name5": "엉뚱한 우르사돈"
   }
 }

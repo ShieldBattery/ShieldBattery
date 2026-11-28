@@ -69,6 +69,7 @@ pub struct ChatManager {
     blocked_players: HashSet<SbUserId>,
     /// Players that are temporarily muted for this game only.
     muted_players: HashSet<SbUserId>,
+    zen_muted: bool,
     local_user_id: Option<SbUserId>,
     is_chat_restricted: bool,
     /// Text to print in the game's chat area, queued by code running off the game thread (which
@@ -105,6 +106,7 @@ pub struct OtherPlayer {
     pub user_id: SbUserId,
     pub player_id: Option<BwPlayerId>,
     pub muted: bool,
+    pub zen_muted: bool,
     pub blocked: bool,
 }
 
@@ -138,6 +140,7 @@ impl ChatManager {
             players: Vec::new(),
             blocked_players: HashSet::new(),
             muted_players: HashSet::new(),
+            zen_muted: false,
             local_user_id: None,
             is_chat_restricted: false,
             pending_notices: Vec::new(),
@@ -245,10 +248,11 @@ impl ChatManager {
             .iter()
             .filter(|player| Some(player.sb_user_id) != self.local_user_id)
             .map(|player| OtherPlayer {
-                name: player.name.clone(),
+                name: crate::zen_mode::display_name(player.sb_user_id, &player.name).into_owned(),
                 user_id: player.sb_user_id,
                 player_id: player.player_id,
                 muted: self.muted_players.contains(&player.sb_user_id),
+                zen_muted: crate::zen_mode::is_muted(player.sb_user_id),
                 blocked: self.blocked_players.contains(&player.sb_user_id),
             })
             .collect()
@@ -322,6 +326,14 @@ impl ChatManager {
         let msg =
             CString::new(format!("\x06Couldn't report \x07{name}\x06{detail}")).unwrap_or_default();
         self.pending_notices.push(msg);
+    }
+
+    pub fn set_zen_muted(&mut self, muted: bool) {
+        self.zen_muted = muted;
+    }
+
+    pub fn is_zen_muted(&self) -> bool {
+        self.zen_muted
     }
 
     pub fn add_muted_player(&mut self, player_id: SbUserId) {
@@ -398,6 +410,9 @@ impl ChatManager {
             _ => return false,
         };
 
+        if self.zen_muted {
+            return true;
+        }
         let player = self
             .players
             .iter()
@@ -413,6 +428,9 @@ impl ChatManager {
     /// player; it's only called for commands that need it.
     pub fn handle_send_chat(&mut self, text: &str, is_enemy: impl Fn(BwPlayerId) -> bool) -> bool {
         if !text.starts_with("/") {
+            if self.zen_muted {
+                return true;
+            }
             if self.is_chat_restricted {
                 let msg = CString::new("\x06You are currently restricted from sending messages.")
                     .unwrap();
@@ -622,6 +640,21 @@ mod tests {
         ] {
             assert_eq!(ObserverChatTag::from_u8(tag as u8), tag);
         }
+    }
+
+    #[test]
+    fn zen_mute_filters_senders_without_changing_individual_mutes() {
+        let mut manager = manager_with_players();
+        manager.add_muted_player(SbUserId(2));
+        manager.set_zen_muted(true);
+        assert!(manager.is_zen_muted());
+        assert!(manager.handle_message("hi", 3));
+        assert!(manager.handle_message("hi", 128));
+        assert!(!manager.handle_message("notice", u32::MAX));
+        assert!(manager.handle_send_chat("hello", |_| false));
+        manager.set_zen_muted(false);
+        assert!(manager.handle_message("hi", 3));
+        assert!(!manager.handle_message("hi", 128));
     }
 
     #[test]

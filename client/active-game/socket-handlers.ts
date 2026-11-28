@@ -5,6 +5,7 @@ import { GameLaunchConfig, isReplayMapInfo } from '../../common/games/game-launc
 import { GameLoaderEvent } from '../../common/games/game-loader-network'
 import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { getAnonymizedName } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { openDialog } from '../dialogs/action-creators'
@@ -72,7 +73,16 @@ export default function ({
           serverConfig: {
             serverUrl: makeServerUrl(''),
           },
-          setup,
+          setup:
+            setup.zenMode?.anonymizePlayers && setup.zenPlayers
+              ? {
+                  ...setup,
+                  zenPlayers: setup.zenPlayers.map(player => ({
+                    ...player,
+                    localizedAlias: getAnonymizedName(player.nameIndex, i18n.t),
+                  })),
+                }
+              : setup,
           language: i18n.language,
         }
         ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)

@@ -406,5 +406,14 @@
     "soundOn": "音效已开启",
     "windowed": "窗口化",
     "windowedFullscreen": "全屏窗口"
+  },
+  "zenMode": {
+    "chatDisabled": "对局聊天已关闭",
+    "name0": "憨犀犀角兽",
+    "name1": "猛孟加豹",
+    "name2": "潜行斯坎迪蝎",
+    "name3": "机敏彩蛇鸟",
+    "name4": "无情岩龙",
+    "name5": "疯狂熊齿兽"
   }
 }

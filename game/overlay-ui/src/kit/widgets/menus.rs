@@ -408,6 +408,8 @@ pub enum Glyph {
     Speaker,
     /// A speaker, crossed out.
     SpeakerMuted,
+    /// A seated figure, indicating match chat is disabled.
+    Zen,
     /// A circle struck through.
     Block,
     /// A flag on a pole.
@@ -467,6 +469,34 @@ pub fn paint_glyph(painter: &egui::Painter, rect: Rect, glyph: Glyph, color: Col
             shapes.push(line(&[(14.0, 5.5), (10.5, 10.5)], 1.3));
             shapes
         }
+        Glyph::Zen => vec![
+            Shape::circle_filled(at(8.0, 3.0), 1.5 * scale, color),
+            line(&[(8.0, 5.2), (8.0, 9.4)], 1.5),
+            line(
+                &[(4.0, 6.2), (5.6, 8.7), (8.0, 9.4), (10.4, 8.7), (12.0, 6.2)],
+                1.3,
+            ),
+            line(
+                &[
+                    (8.0, 9.4),
+                    (5.5, 10.8),
+                    (2.7, 11.3),
+                    (4.5, 13.0),
+                    (8.0, 13.0),
+                ],
+                1.4,
+            ),
+            line(
+                &[
+                    (8.0, 9.4),
+                    (10.5, 10.8),
+                    (13.3, 11.3),
+                    (11.5, 13.0),
+                    (8.0, 13.0),
+                ],
+                1.4,
+            ),
+        ],
         Glyph::Block => vec![
             Shape::circle_stroke(at(8.0, 8.0), 6.0 * scale, stroke(1.3)),
             line(&[(3.8, 3.8), (12.2, 12.2)], 1.3),

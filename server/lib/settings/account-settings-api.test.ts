@@ -4,6 +4,15 @@ import { updateAccountSettingsSchema } from './account-settings-api'
 
 describe('settings/account-settings-api', () => {
   describe('updateAccountSettingsSchema', () => {
+    test('validates Zen mode toggles', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ zenAnonymizePlayers: true, zenMuteChat: false })
+          .error,
+      ).toBeUndefined()
+      expect(updateAccountSettingsSchema.validate({ zenMuteChat: 'sometimes' }).error).toBeDefined()
+      expect(updateAccountSettingsSchema.validate({ zenAnonymizePlayers: 5 }).error).toBeDefined()
+    })
+
     test('accepts a known availability', () => {
       const { error, value } = updateAccountSettingsSchema.validate({
         availability: UserAvailability.DoNotDisturb,

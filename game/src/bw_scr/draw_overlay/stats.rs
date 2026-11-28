@@ -1538,7 +1538,7 @@ pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
     if name.is_empty() {
         format!("Player {}", player_id + 1)
     } else {
-        name.into_owned()
+        super::super::zen_text::player_name(player_id, &name)
     }
 }
 

@@ -106,6 +106,7 @@ pub(crate) mod thiscall;
 mod tick_gates;
 mod unit_health_bars;
 mod unit_highlights;
+mod zen_text;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -1362,6 +1363,9 @@ impl BwScr {
     /// [`TurnState::submit_chat`](netcode_v2::TurnState::submit_chat)), and the only thing that
     /// matters to the caller is whether native chat should be suppressed.
     unsafe fn send_chat_message(&self, target: netcode_v2::ChatTarget, text: &str) -> bool {
+        if crate::zen_mode::mute_chat() {
+            return true;
+        }
         unsafe {
             let Some(sent) =
                 netcode_v2::with_turn_state(|s| s.submit_chat(target, text.to_string()))
@@ -1716,7 +1720,7 @@ impl BwScr {
             if name.is_empty() {
                 format!("Player {}", unique_player + 1)
             } else {
-                name.into_owned()
+                zen_text::player_name(unique_player, &name)
             }
         }
     }
@@ -4276,6 +4280,7 @@ impl BwScr {
         chat_manager.set_players(players);
         // Must be set before the blocked players so the local user can't end up blocked.
         chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
+        chat_manager.set_zen_muted(crate::zen_mode::mute_chat());
         chat_manager.set_blocked_players(blocked_users);
     }
 

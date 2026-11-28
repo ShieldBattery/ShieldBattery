@@ -141,6 +141,9 @@ export const eventToAction: EventToActionMap = {
   },
 
   draftChatMessage: event => (dispatch, getState) => {
+    if (jotaiStore.get(draftStateAtom)?.zenMode?.muteChat) {
+      return
+    }
     const {
       auth,
       relationships: { blocks },

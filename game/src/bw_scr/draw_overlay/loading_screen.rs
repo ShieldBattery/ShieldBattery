@@ -3,6 +3,10 @@ use std::time::Instant;
 use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow, Vec2};
 use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
+use overlay_ui::{
+    kit::widgets::{self, Glyph},
+    tr,
+};
 
 use crate::{
     app_messages::{
@@ -334,8 +338,17 @@ impl OverlayState {
         } else {
             user.map(|u| u.name.as_str()).unwrap_or("Unknown Player")
         };
-        let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
-        let rank = ranks.iter().find(|r| Some(r.user_id) == player.user_id);
+        let username = player.user_id.map_or_else(
+            || std::borrow::Cow::Borrowed(username),
+            |id| crate::zen_mode::display_name(id, username),
+        );
+        let anonymized = matches!(username, std::borrow::Cow::Owned(_));
+        let avatar_url = (!anonymized)
+            .then(|| user.and_then(|u| u.avatar_url.as_deref()))
+            .flatten();
+        let rank = (!anonymized)
+            .then(|| ranks.iter().find(|r| Some(r.user_id) == player.user_id))
+            .flatten();
         let (race_icon, race_color) = match player.bw_race() {
             RACE_PROTOSS => (
                 egui::include_image!("icons/zealot_24px.svg"),
@@ -401,12 +414,17 @@ impl OverlayState {
                                 ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                                 ui.vertical(|ui| {
                                     ui.spacing_mut().item_spacing.y = 4.0;
-                                    ui.label(
-                                        RichText::new(username)
-                                            .size(28.0)
-                                            .color(colors::GREY99)
-                                            .family(display()),
-                                    );
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            RichText::new(username.as_ref())
+                                                .size(28.0)
+                                                .color(colors::GREY99)
+                                                .family(display()),
+                                        );
+                                        if player.user_id.is_some_and(crate::zen_mode::is_muted) {
+                                            zen_mute_glyph(ui);
+                                        }
+                                    });
                                     if let Some(rank) = rank {
                                         add_rank(ui, rank);
                                     }
@@ -432,6 +450,12 @@ impl OverlayState {
             },
         );
     }
+}
+
+fn zen_mute_glyph(ui: &mut egui::Ui) {
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
+    widgets::paint_glyph(ui.painter(), rect, Glyph::Zen, colors::GREY99);
+    response.on_hover_text(tr!("zenMode.chatDisabled", "Match chat disabled"));
 }
 
 fn background_image() -> egui::Image<'static> {
@@ -482,7 +506,14 @@ fn add_observer_row(
             for observer in observers {
                 let user = users.iter().find(|u| Some(u.id) == observer.user_id);
                 let name = user.map(|u| u.name.as_str()).unwrap_or("Unknown Player");
-                let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
+                let name = observer.user_id.map_or_else(
+                    || std::borrow::Cow::Borrowed(name),
+                    |id| crate::zen_mode::display_name(id, name),
+                );
+                let anonymized = matches!(name, std::borrow::Cow::Owned(_));
+                let avatar_url = (!anonymized)
+                    .then(|| user.and_then(|u| u.avatar_url.as_deref()))
+                    .flatten();
                 let presence = presence(observer);
                 let opacity = presence_opacity(&ctx, observer, presence);
 
@@ -512,7 +543,7 @@ fn add_observer_row(
                                 ui.set_max_width(OBSERVER_NAME_MAX_WIDTH);
                                 ui.add(
                                     Label::new(
-                                        RichText::new(name)
+                                        RichText::new(name.as_ref())
                                             .size(18.0)
                                             .color(colors::GREY99)
                                             .family(display()),
@@ -520,6 +551,9 @@ fn add_observer_row(
                                     .truncate(),
                                 );
                             });
+                            if observer.user_id.is_some_and(crate::zen_mode::is_muted) {
+                                zen_mute_glyph(ui);
+                            }
                             add_presence_note(ui, presence, 14.0);
                         });
                     },
