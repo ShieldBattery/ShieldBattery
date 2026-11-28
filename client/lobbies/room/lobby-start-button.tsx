@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { buttonReset } from '../../material/button-reset'
 import { useAppSelector } from '../../redux-hooks'
 import { labelLarge, labelSmall } from '../../styles/typography'
+import { bestOfSideNotSeatedMessage } from '../lobby-action-errors'
 import { BestOfStartBlocker } from './best-of-display'
 import { START_GAME_HOLD_MS, useStartGameHold } from './use-start-game-hold'
 
@@ -120,10 +121,7 @@ export function LobbyStartButton({
     onForceStart,
   })
   const ready = allReady && !disabled
-  const blockerUserId =
-    blocker?.kind === 'bestOfMissingPlayer' || blocker?.kind === 'bestOfExtraPlayer'
-      ? blocker.userId
-      : undefined
+  const blockerUserId = blocker?.kind === 'bestOfExtraPlayer' ? blocker.userId : undefined
   const blockerUserName =
     useAppSelector(s =>
       blockerUserId !== undefined ? s.users.byId.get(blockerUserId)?.name : undefined,
@@ -140,11 +138,8 @@ export function LobbyStartButton({
     hint = t('lobbies.room.rail.mapNotDownloaded', 'Not everyone has the map yet')
   } else if (blocker?.kind === 'bestOfGamePending') {
     hint = t('lobbies.room.rail.bestOfGamePending', "Waiting for the last game's result")
-  } else if (blocker?.kind === 'bestOfMissingPlayer') {
-    hint = t('lobbies.room.rail.bestOfMissingPlayer', {
-      defaultValue: '{{name}} needs a player seat',
-      name: blockerUserName,
-    })
+  } else if (blocker?.kind === 'bestOfSideNotSeated') {
+    hint = bestOfSideNotSeatedMessage(t, blocker.side, blocker.sideName)
   } else if (blocker?.kind === 'bestOfExtraPlayer') {
     hint = t('lobbies.room.rail.bestOfExtraPlayer', {
       defaultValue: "{{name}} isn't in the series",
@@ -207,6 +202,7 @@ export function LobbyStartButton({
       <Hint
         id={hintId}
         aria-live='polite'
+        data-testid='start-game-hint'
         animate={{
           color:
             isHolding || showHoldHint

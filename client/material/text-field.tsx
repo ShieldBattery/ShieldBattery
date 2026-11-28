@@ -259,6 +259,11 @@ export interface TextFieldProps {
    * trailing icons, so avoid combining it with `dense` fields that have them.
    */
   maxLength?: number
+  /**
+   * Counts the value's characters the way `maxLength` is meant, for the counter. Defaults to UTF-16
+   * code units (`String.length`).
+   */
+  countCharacters?: (value: string) => number
   maxRows?: number
   multiline?: boolean
   name?: string
@@ -294,6 +299,7 @@ export function TextField({
   leadingIcons = [],
   leadingContent,
   maxLength,
+  countCharacters,
   maxRows,
   multiline,
   name,
@@ -528,7 +534,9 @@ export function TextField({
         />
         {trailingIconsElements.length > 0 ? trailingIconsElements : null}
         <InputUnderline focused={isFocused} error={!!errorText} />
-        {maxLength !== undefined ? <InlineCounter value={value} maxLength={maxLength} /> : null}
+        {maxLength !== undefined ? (
+          <InlineCounter value={value} maxLength={maxLength} countCharacters={countCharacters} />
+        ) : null}
         {/* Renders above the counter so its hover/focus tint applies to the counter's backdrop
             the same as the rest of the field */}
         <StateLayer />

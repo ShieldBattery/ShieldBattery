@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { getBestOfScore, getRunningBestOf } from '../../common/lobbies/lobby-best-of'
+import {
+  getBestOfScore,
+  getBestOfSideName,
+  getRunningBestOf,
+} from '../../common/lobbies/lobby-best-of'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { TextButton } from '../material/button'
@@ -34,8 +38,14 @@ export function LobbyEndBestOfDialog({ onCancel, close, onConfirm }: LobbyEndBes
   const { t } = useTranslation()
   const currentBestOf = useAppSelector(s => getRunningBestOf(s.lobby.bestOfs))
   const [bestOf] = useState(currentBestOf)
-  const side1 = useBestOfSideLabel(bestOf?.sides[0] ?? NO_PLAYERS)
-  const side2 = useBestOfSideLabel(bestOf?.sides[1] ?? NO_PLAYERS)
+  const side1 = useBestOfSideLabel(
+    bestOf?.sides[0] ?? NO_PLAYERS,
+    bestOf ? getBestOfSideName(bestOf, 0) : undefined,
+  )
+  const side2 = useBestOfSideLabel(
+    bestOf?.sides[1] ?? NO_PLAYERS,
+    bestOf ? getBestOfSideName(bestOf, 1) : undefined,
+  )
   const [score1, score2] = bestOf ? getBestOfScore(bestOf) : [0, 0]
   const hasPendingGame = bestOf?.games.some(game => game.status === 'pending') ?? false
 

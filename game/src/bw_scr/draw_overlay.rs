@@ -39,6 +39,7 @@ use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
 use self::series::{SeriesFrame, SeriesState};
 use self::stats::ObserverViewCache;
+use self::stats::SeriesPanels;
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
@@ -897,7 +898,8 @@ impl OverlayState {
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
             // Only a client watching a game live is shown its series: a player gets no observer
             // panels at all, and a replay is never shown one.
-            let series = if host_frame.mode == Mode::Observing {
+            let observing = host_frame.mode == Mode::Observing;
+            let series = if observing {
                 // The loading screen's images are let go of in this frame's pass while it is the
                 // game's first.
                 let images_settled = !self.was_loading;
@@ -905,13 +907,19 @@ impl OverlayState {
             } else {
                 None
             };
-            let teams = series.as_ref().map(|series| &series.teams);
-            let matchup = self.build_matchup_view(bw, apm, setup_info, series.as_ref());
-            let production = self.build_production_view(bw, teams);
+            let series_panels = SeriesPanels {
+                teams: series.as_ref().map(|series| &series.teams),
+                // Kept for the whole game once worked out, on the frames the series itself is not
+                // shown as well as on the ones it is.
+                display_names: observing.then(|| self.series.display_names()).flatten(),
+            };
+            let matchup =
+                self.build_matchup_view(bw, apm, setup_info, series.as_ref(), series_panels);
+            let production = self.build_production_view(bw, series_panels.teams);
             ObserverViewCache::build(
                 self.observer_view.take(),
                 bw,
-                teams,
+                series_panels,
                 game_stats,
                 self.shell.panel_prefs(),
                 matchup,
@@ -1588,21 +1596,23 @@ impl OverlayState {
     }
 
     /// Builds the matchup bar's view: every player the replay is worth showing, in team order, and
-    /// the series the game is one of where the watcher is shown one.
+    /// the series the game is one of where the watcher is shown one. A series game's players are on
+    /// the teams and under the names `series_panels` gives them.
     fn build_matchup_view(
         &self,
         bw: &BwVars,
         apm: Option<&ApmStats>,
         setup: Option<&GameSetupInfo>,
         series: Option<&SeriesFrame>,
+        series_panels: SeriesPanels<'_>,
     ) -> MatchupView {
         let random_picks = stats::random_picks(bw, setup);
-        let players = replay_players_by_team(bw, series.map(|series| &series.teams))
+        let players = replay_players_by_team(bw, series_panels.teams)
             .filter(|&(_team, player_id)| shown_on_panels(bw, player_id))
             .map(|(team, player_id)| unsafe {
-                let player = bw.players.add(player_id as usize);
                 let random = stats::has_pick(random_picks, player_id);
-                matchup_player_view(bw, player, player_id, team, random, apm)
+                let name = series_panels.player_name(bw, player_id);
+                matchup_player_view(bw, player_id, team, name, random, apm)
             })
             .collect();
         MatchupView {
@@ -2292,12 +2302,12 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
 /// matchup bar shows. A replay carries its own recorded speed instead.
 pub const FASTEST_GAME_SPEED: u8 = 6;
 
-/// Reads one player's half of the matchup bar off the game.
+/// Reads one player's half of the matchup bar off the game, naming them `name`.
 unsafe fn matchup_player_view(
     bw: &BwVars,
-    player: *mut bw::Player,
     player_id: u8,
     team: u8,
+    name: String,
     random: bool,
     apm: Option<&ApmStats>,
 ) -> MatchupPlayerView {
@@ -2318,14 +2328,10 @@ unsafe fn matchup_player_view(
             bw.rgb_colors,
             player_id,
         );
-        let mut name = bw::player_name(player);
-        if name.is_empty() {
-            name = format!("Player {}", player_id + 1).into();
-        }
         MatchupPlayerView {
             player_id,
             team,
-            name: name.into_owned(),
+            name,
             color: Color32::from_rgb(color[0], color[1], color[2]),
             race: race.1,
             random,

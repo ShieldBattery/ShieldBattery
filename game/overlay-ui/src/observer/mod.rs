@@ -736,13 +736,13 @@ pub(crate) fn teams_worth_dividing(teams: impl IntoIterator<Item = u8>) -> bool 
     sides > 1 && longest > 1
 }
 
-/// Paints the rule that separates one team's rows from the next one's, naming the team it opens.
-pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, team: u8) {
-    let label = team_name(team);
+/// Paints the rule that separates one team's rows from the next one's, naming the team it opens with
+/// `label`, what [`team_name`] calls it.
+pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, label: &str) {
     let spec = text::column_label();
-    let galley = spec.galley(ui, &label);
-    let width = galley.size().x;
-    paint_text(ui, rect, &spec, &label, Align::LEFT);
+    // A label too long for the row is elided at its end, which leaves no room for the rule.
+    let width = spec.galley(ui, label).size().x.min(rect.width());
+    paint_text(ui, rect, &spec, label, Align::LEFT);
     let line_left = rect.left() + width + theme::SPACE_SM;
     if line_left < rect.right() {
         ui.painter().add(egui::Shape::line_segment(
@@ -755,17 +755,47 @@ pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, team: u8) {
     }
 }
 
-/// Paints the name of the team a divided table opens with in `rect`, the part of the headings row
-/// over the names that the headings leave empty. The first team's rows start straight under the
-/// headings rather than under a divider of their own, so without it that team would be the one side
-/// the table never names.
-pub(crate) fn paint_first_team_name(ui: &Ui, rect: Rect, team: u8) {
-    paint_column_heading(ui, rect, &team_name(team), Align::LEFT);
+/// Paints `label`, what [`team_name`] calls the team a divided table opens with, in `rect`, the part
+/// of the headings row over the names that the headings leave empty. The first team's rows start
+/// straight under the headings rather than under a divider of their own, so without it that team
+/// would be the one side the table never names.
+pub(crate) fn paint_first_team_name(ui: &Ui, rect: Rect, label: &str) {
+    paint_column_heading(ui, rect, label, Align::LEFT);
 }
 
-/// What a team is called wherever one is named: on a divider, on a corner card, in a legend.
-pub fn team_name(team: u8) -> String {
-    tr!("observer.teamName", "Team {{number}}", number = team)
+/// What the two sides of a series game are called, for every panel that names a team.
+///
+/// Empty for a game whose series is not shown, and for a game that is no series': its teams are
+/// called by their numbers alone.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct TeamNames {
+    /// Each side of the series as the panels number it, with the name it was given where it has
+    /// one, in the order the matchup lists the sides.
+    sides: Vec<(u8, Option<String>)>,
+}
+
+impl TeamNames {
+    /// The names of a series whose sides the panels number `teams`, in the order the matchup lists
+    /// them, given `names`, each side's name in the same order where it has one.
+    pub fn of_series(teams: [u8; 2], names: &[Option<String>; 2]) -> TeamNames {
+        TeamNames {
+            sides: teams.into_iter().zip(names.iter().cloned()).collect(),
+        }
+    }
+}
+
+/// What a team is called wherever one is named: on a divider, on a corner card, in a legend. A side
+/// of a series the host named takes its name, a side they left unnamed is the side's place in the
+/// series ("Team 1" for the side listed first), and any other team is its number.
+pub fn team_name(names: &TeamNames, team: u8) -> String {
+    let number = match names.sides.iter().position(|(side, _)| *side == team) {
+        Some(position) => match &names.sides[position].1 {
+            Some(name) => return name.clone(),
+            None => position as u8 + 1,
+        },
+        None => team,
+    };
+    tr!("observer.teamName", "Team {{number}}", number = number)
 }
 
 /// What `panel` is called, spelled out: the title on its own header, and its row in the dock's
@@ -1115,6 +1145,21 @@ mod tests {
         assert!(teams_worth_dividing([1, 2, 2]));
         // Four sides of two are four blocks of rows, each worth a rule of its own.
         assert!(teams_worth_dividing([1, 1, 2, 2, 3, 3, 4, 4]));
+    }
+
+    #[test]
+    fn a_named_side_is_called_by_its_name_and_every_other_team_by_its_number() {
+        let none = TeamNames::default();
+        assert_eq!(team_name(&none, 1), "Team 1");
+        assert_eq!(team_name(&none, 3), "Team 3");
+        let names = TeamNames::of_series([1, 2], &[Some("Nexus Esports".to_string()), None]);
+        assert_eq!(team_name(&names, 1), "Nexus Esports");
+        assert_eq!(team_name(&names, 2), "Team 2");
+        assert_eq!(team_name(&names, 3), "Team 3");
+        // An unnamed side is called by its place in the series, whatever the panels number it.
+        let names = TeamNames::of_series([4, 7], &[None, Some("아이언클래드".to_string())]);
+        assert_eq!(team_name(&names, 4), "Team 1");
+        assert_eq!(team_name(&names, 7), "아이언클래드");
     }
 
     #[test]

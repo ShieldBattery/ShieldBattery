@@ -1304,7 +1304,7 @@ describe('client/lobbies/lobby-reducer', () => {
       ).toBe(false)
     })
 
-    test('a started series is added and announced with its title, length and sides', () => {
+    test('a started series is added and announced with its id, title, length and sides', () => {
       let state = lobbyReducer(undefined, initAction())
 
       state = lobbyReducer(state, {
@@ -1315,6 +1315,7 @@ describe('client/lobbies/lobby-reducer', () => {
       expect(state.bestOfs).toEqual([{ ...BEST_OF, title: 'Grand Final' }])
       expect(state.chat.at(-1)).toMatchObject({
         type: LobbyMessageType.LobbyBestOfStarted,
+        bestOfId: BEST_OF.id,
         title: 'Grand Final',
         length: 3,
         sides: BEST_OF.sides,
@@ -1360,6 +1361,7 @@ describe('client/lobbies/lobby-reducer', () => {
       expect(state.bestOfs).toEqual([won])
       expect(state.chat.at(-1)).toMatchObject({
         type: LobbyMessageType.LobbyBestOfEnded,
+        bestOfId: BEST_OF.id,
         sides: BEST_OF.sides,
         score: [1, 2],
         outcome: { kind: 'won', winner: 1 },

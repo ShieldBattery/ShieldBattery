@@ -33,14 +33,9 @@ import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import {
-  BestOfEndedMessage,
-  BestOfStartedMessage,
-  JoinLobbyMessage,
-  LobbyMessageType,
-} from '../lobby-message-records'
+import { JoinLobbyMessage, LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
-import { useBestOfSideLabel } from './best-of-parts'
+import { BestOfEndedLine, BestOfStartedLine } from './best-of-chat-lines'
 import { getReadyEligibleUsers, lobbyTeamLabel, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
@@ -707,60 +702,6 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
   )
 }
 
-/** Announces a best-of series the host started, naming who plays it. */
-function BestOfStartedLine({
-  title,
-  length,
-  sides,
-}: Omit<BestOfStartedMessage, 'id' | 'type' | 'time'>) {
-  const { t } = useTranslation()
-  const side1 = useBestOfSideLabel(sides[0])
-  const side2 = useBestOfSideLabel(sides[1])
-
-  return title ? (
-    <Trans t={t} i18nKey='lobbies.room.chat.bestOfStartedTitled'>
-      Series started: <SystemImportant>{{ title } as TransInterpolation}</SystemImportant> · Best of{' '}
-      {{ length }} · <SystemImportant>{{ side1 } as TransInterpolation}</SystemImportant> vs{' '}
-      <SystemImportant>{{ side2 } as TransInterpolation}</SystemImportant>
-    </Trans>
-  ) : (
-    <Trans t={t} i18nKey='lobbies.room.chat.bestOfStarted'>
-      Series started: Best of {{ length }} ·{' '}
-      <SystemImportant>{{ side1 } as TransInterpolation}</SystemImportant> vs{' '}
-      <SystemImportant>{{ side2 } as TransInterpolation}</SystemImportant>
-    </Trans>
-  )
-}
-
-/** Announces how a best-of series ended: who won it and by how much, or the score it stopped at. */
-function BestOfEndedLine({
-  sides,
-  score,
-  outcome,
-}: Omit<BestOfEndedMessage, 'id' | 'type' | 'time'>) {
-  const { t } = useTranslation()
-  const side1 = useBestOfSideLabel(sides[0])
-  const side2 = useBestOfSideLabel(sides[1])
-
-  if (outcome.kind === 'unfinished') {
-    return t('lobbies.room.chat.bestOfEndedEarly', {
-      defaultValue: 'The series was ended at {{score1}}–{{score2}}',
-      score1: score[0],
-      score2: score[1],
-    })
-  }
-
-  const winner = outcome.winner === 0 ? side1 : side2
-  const winnerScore = score[outcome.winner]
-  const loserScore = score[outcome.winner === 0 ? 1 : 0]
-  return (
-    <Trans t={t} i18nKey='lobbies.room.chat.bestOfWon'>
-      <SystemImportant>{{ winner } as TransInterpolation}</SystemImportant> won the series{' '}
-      {{ winnerScore }}–{{ loserScore }}
-    </Trans>
-  )
-}
-
 /**
  * Renders the lobby-specific entries of the room's chat log. Plain messages between people are
  * handled by the message list itself; everything here is the lobby narrating itself.
@@ -862,13 +803,23 @@ function RoomChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.LobbyBestOfStarted:
       return (
         <SystemMessage time={msg.time}>
-          <BestOfStartedLine title={msg.title} length={msg.length} sides={msg.sides} />
+          <BestOfStartedLine
+            bestOfId={msg.bestOfId}
+            title={msg.title}
+            length={msg.length}
+            sides={msg.sides}
+          />
         </SystemMessage>
       )
     case LobbyMessageType.LobbyBestOfEnded:
       return (
         <SystemMessage time={msg.time}>
-          <BestOfEndedLine sides={msg.sides} score={msg.score} outcome={msg.outcome} />
+          <BestOfEndedLine
+            bestOfId={msg.bestOfId}
+            sides={msg.sides}
+            score={msg.score}
+            outcome={msg.outcome}
+          />
         </SystemMessage>
       )
     case LobbyMessageType.LobbyBenchJoin:

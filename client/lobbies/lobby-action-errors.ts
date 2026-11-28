@@ -1,6 +1,41 @@
 import { TFunction } from 'i18next'
-import { LobbyServiceErrorCode } from '../../common/lobbies/lobby-network'
-import { isFetchError } from '../network/fetch-errors'
+import {
+  BestOfSideIndex,
+  getBestOfSideName,
+  LobbyBestOfJson,
+} from '../../common/lobbies/lobby-best-of'
+import {
+  BestOfRosterMismatchErrorBody,
+  LobbyServiceErrorCode,
+} from '../../common/lobbies/lobby-network'
+import { FetchError, isFetchError } from '../network/fetch-errors'
+
+/**
+ * Says that a side of the running best-of series has nobody in a player seat, naming it by its name
+ * when it has one and as "Team N" otherwise.
+ */
+export function bestOfSideNotSeatedMessage(
+  t: TFunction,
+  side: BestOfSideIndex,
+  sideName: string | undefined,
+): string {
+  return sideName !== undefined
+    ? t('lobbies.room.rail.bestOfNamedSideNotSeated', {
+        defaultValue: '{{name}} has nobody seated',
+        name: sideName,
+      })
+    : t('lobbies.room.rail.bestOfSideNotSeated', {
+        defaultValue: 'Team {{number}} has nobody seated',
+        number: side + 1,
+      })
+}
+
+/** The first side a refused start's body says has nobody seated, if it says any. */
+function getUnseatedSide(err: FetchError): BestOfSideIndex | undefined {
+  const body = err.body as Partial<BestOfRosterMismatchErrorBody> | undefined
+  const side = Array.isArray(body?.unseatedSides) ? body.unseatedSides[0] : undefined
+  return side === 0 || side === 1 ? side : undefined
+}
 
 /**
  * Returns the user-facing message for a lobby action the server refused: readying up, rearranging
@@ -10,8 +45,15 @@ import { isFetchError } from '../network/fetch-errors'
  * These are the refusals normal use reaches, where the lobby moved on between the click and the
  * request landing, or where its layout can't support what was asked. Anything else is a bug or a
  * network failure and gets the generic message.
+ *
+ * `runningBestOf` is the lobby's running best-of series, if any, which names a side a refused start
+ * says has nobody seated.
  */
-export function lobbyActionErrorMessage(err: unknown, t: TFunction): string {
+export function lobbyActionErrorMessage(
+  err: unknown,
+  t: TFunction,
+  runningBestOf?: Pick<LobbyBestOfJson, 'sideNames'>,
+): string {
   if (!isFetchError(err)) {
     return genericMessage(t)
   }
@@ -57,11 +99,19 @@ export function lobbyActionErrorMessage(err: unknown, t: TFunction): string {
         'lobbies.actionErrors.bestOfGamePending',
         "The series' last game doesn't have a result yet",
       )
-    case LobbyServiceErrorCode.BestOfRosterMismatch:
-      return t(
-        'lobbies.actionErrors.bestOfRosterMismatch',
-        "The seated players don't match the series' sides",
-      )
+    case LobbyServiceErrorCode.BestOfRosterMismatch: {
+      const side = getUnseatedSide(err)
+      return side !== undefined
+        ? bestOfSideNotSeatedMessage(
+            t,
+            side,
+            runningBestOf ? getBestOfSideName(runningBestOf, side) : undefined,
+          )
+        : t(
+            'lobbies.actionErrors.bestOfRosterMismatch',
+            "The seated players don't match the series' sides",
+          )
+    }
     case LobbyServiceErrorCode.BestOfGameNotPending:
       return t(
         'lobbies.actionErrors.bestOfGameNotPending',

@@ -17,6 +17,7 @@ import {
 import {
   getBestOfGameNumber,
   getBestOfScore,
+  getBestOfSideName,
   getRunningBestOf,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
@@ -58,7 +59,8 @@ import {
   groupSessionGames,
   NumberedSeriesGame,
 } from './best-of-display'
-import { bestOfLabel, useBestOfSideLabel, useUserNames } from './best-of-parts'
+import { bestOfLabel, useBestOfSideLabel } from './best-of-parts'
+import { BestOfScoreTile } from './best-of-score-tile'
 import { BestOfStandings, LobbyScoreboard } from './lobby-scoreboard'
 import {
   lobbyTeamLabel,
@@ -380,70 +382,6 @@ const CompactIconButton = styled(IconButton)`
   padding: 0;
 `
 
-/**
- * The best-of series' score at the start of the timeline, in the same frame as the game tiles but
- * not a button itself: it opens nothing.
- */
-const ScoreTile = styled.div`
-  flex: 0 1 208px;
-  min-width: 160px;
-  padding: 8px 12px;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-
-  border-radius: 8px;
-  background-color: rgb(from var(--theme-container-low) r g b / 0.7);
-  backdrop-filter: blur(4px);
-  outline: 1px solid rgb(from var(--theme-on-surface) r g b / 0.08);
-`
-
-const ScoreRow = styled.div<{ $winner: boolean }>`
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  color: ${props => (props.$winner ? 'var(--theme-amber)' : 'inherit')};
-`
-
-/** The side's label: its first player's name, which ellipsizes, then the count of the others. */
-const ScoreSideLabel = styled(Tooltip)`
-  flex: 1 1 auto;
-  min-width: 0;
-`
-
-const ScoreSideContent = styled.div`
-  ${bodyMedium};
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`
-
-const ScoreSideName = styled.span`
-  ${singleLine};
-  min-width: 0;
-`
-
-const ScoreSideMore = styled.span`
-  flex-shrink: 0;
-  white-space: nowrap;
-`
-
-const ScoreValue = styled.span`
-  ${titleMedium};
-  flex-shrink: 0;
-  min-width: 2ch;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-`
-
 const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'playing' }>`
   flex: 0 0 auto;
   min-width: 96px;
@@ -707,9 +645,12 @@ function useGameOutcome(
   bestOf: LobbyBestOfJson | undefined,
   bestOfGame: LobbyBestOfGameJson | undefined,
 ): GameOutcome {
-  const winningSide =
-    bestOf && bestOfGame?.status === 'won' ? bestOf.sides[bestOfGame.winner] : NO_PLAYERS
-  const sideLabel = useBestOfSideLabel(winningSide)
+  const isWon = bestOf && bestOfGame?.status === 'won'
+  const winningSide = isWon ? bestOf.sides[bestOfGame.winner] : NO_PLAYERS
+  const sideLabel = useBestOfSideLabel(
+    winningSide,
+    isWon ? getBestOfSideName(bestOf, bestOfGame.winner) : undefined,
+  )
   const winnerLabel = useWinnerLabel(bestOfGame ? undefined : findSeriesGameWinner(game))
 
   if (bestOfGame) {
@@ -1005,56 +946,6 @@ function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
     default:
       return assertUnreachable(lifecycle)
   }
-}
-
-/** One side's row in the score tile: who it is, and how many games it has won. */
-function BestOfScoreRow({
-  side,
-  score,
-  isWinner,
-}: {
-  side: ReadonlyArray<SbUserId>
-  score: number
-  isWinner: boolean
-}) {
-  const { t } = useTranslation()
-  const names = useUserNames(side)
-
-  return (
-    <ScoreRow $winner={isWinner}>
-      {isWinner ? <MaterialIcon icon='trophy' size={14} filled /> : null}
-      <ScoreSideLabel text={names.join(', ')} tabIndex={-1}>
-        <ScoreSideContent>
-          <ScoreSideName>{names[0] ?? '…'}</ScoreSideName>
-          {names.length > 1 ? (
-            <ScoreSideMore>
-              {t('lobbies.room.bestOf.sideMore', {
-                defaultValue: '+{{extra}}',
-                extra: names.length - 1,
-              })}
-            </ScoreSideMore>
-          ) : null}
-        </ScoreSideContent>
-      </ScoreSideLabel>
-      <ScoreValue>{score}</ScoreValue>
-    </ScoreRow>
-  )
-}
-
-/**
- * The timeline's leading tile while it shows a best-of series: a row per side with the games it
- * has won. The side that won the series is marked the way the standings mark their leader.
- */
-function BestOfScoreTile({ bestOf }: { bestOf: LobbyBestOfJson }) {
-  const [score1, score2] = getBestOfScore(bestOf)
-  const winner = bestOf.outcome?.kind === 'won' ? bestOf.outcome.winner : undefined
-
-  return (
-    <ScoreTile>
-      <BestOfScoreRow side={bestOf.sides[0]} score={score1} isWinner={winner === 0} />
-      <BestOfScoreRow side={bestOf.sides[1]} score={score2} isWinner={winner === 1} />
-    </ScoreTile>
-  )
 }
 
 /** Labels the timeline for a best-of series, adding how it ended once it's over. */

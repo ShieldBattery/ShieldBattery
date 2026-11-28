@@ -559,20 +559,31 @@ pub struct SeriesOverlay {
     /// one.
     #[serde(default)]
     pub logo_url: Option<String>,
+    /// The names whoever runs the series gave this game's players to be shown under in place of
+    /// their account names, one for each player who has one. Empty when nobody has one.
+    #[serde(default)]
+    pub display_names: Vec<SeriesOverlayDisplayName>,
 }
 
 /// One side of a series as the observer overlay shows it.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesOverlaySide {
-    /// What a person named the side, if anyone did. Not drawn: the overlay names a side by the
-    /// players it lists.
+    /// What a person named the side, if anyone did.
     #[serde(default)]
     pub caption: Option<String>,
     /// The number shown for the side. For a best-of, the games it has won so far.
     pub score: u32,
     /// The side's members who are seated as players in this game.
     pub players: Vec<SbUserId>,
+}
+
+/// The name a series shows one of its players under, in place of their account name.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesOverlayDisplayName {
+    pub user_id: SbUserId,
+    pub name: String,
 }
 
 /// How a series is played, as far as showing it goes: only the facts travel, and the overlay words
@@ -1002,6 +1013,79 @@ mod tests {
         assert_eq!(series.sides[1].players, vec![SbUserId(20)]);
         assert!(series.lines.is_empty());
         assert_eq!(series.logo_url, None);
+        assert!(series.display_names.is_empty());
+    }
+
+    #[test]
+    fn game_setup_carries_its_series_side_names_and_display_names() {
+        let series = |extra: serde_json::Value| {
+            let mut overlay = serde_json::json!({
+                "format": { "kind": "bestOf", "length": 3 },
+                "gameNumber": 1,
+                "sides": [
+                    { "caption": "Nexus Esports", "score": 0, "players": [10, 11] },
+                    { "caption": "아이언클래드", "score": 0, "players": [20] },
+                ],
+            });
+            if let (Some(fields), Some(extra)) = (overlay.as_object_mut(), extra.as_object()) {
+                fields.extend(extra.clone());
+            }
+            game_setup(serde_json::json!({ "seriesOverlay": overlay }))
+                .expect("valid setup")
+                .series_overlay
+                .expect("the series is carried")
+        };
+        let named = series(serde_json::json!({
+            "displayNames": [
+                { "userId": 10, "name": "Bisu [SBX]" },
+                { "userId": 20, "name": "星际老王" },
+            ],
+        }));
+        assert_eq!(named.sides[0].caption.as_deref(), Some("Nexus Esports"));
+        assert_eq!(named.sides[1].caption.as_deref(), Some("아이언클래드"));
+        assert_eq!(
+            named.display_names,
+            vec![
+                SeriesOverlayDisplayName {
+                    user_id: SbUserId(10),
+                    name: "Bisu [SBX]".to_string(),
+                },
+                SeriesOverlayDisplayName {
+                    user_id: SbUserId(20),
+                    name: "星际老王".to_string(),
+                },
+            ]
+        );
+        // Side names with no display names, and display names with no side names, each load alone.
+        let unnamed_players = series(serde_json::json!({}));
+        assert_eq!(
+            unnamed_players.sides[0].caption.as_deref(),
+            Some("Nexus Esports")
+        );
+        assert!(unnamed_players.display_names.is_empty());
+        let unnamed_sides = game_setup(serde_json::json!({
+            "seriesOverlay": {
+                "format": { "kind": "bestOf", "length": 3 },
+                "gameNumber": 1,
+                "sides": [
+                    { "score": 0, "players": [10] },
+                    { "score": 0, "players": [20] },
+                ],
+                "displayNames": [{ "userId": 10, "name": "Bisu" }],
+            },
+        }))
+        .expect("valid setup")
+        .series_overlay
+        .expect("the series is carried");
+        assert_eq!(unnamed_sides.sides[0].caption, None);
+        assert_eq!(unnamed_sides.sides[1].caption, None);
+        assert_eq!(unnamed_sides.display_names.len(), 1);
+        // An empty list loads as no display names.
+        assert!(
+            series(serde_json::json!({ "displayNames": [] }))
+                .display_names
+                .is_empty()
+        );
     }
 
     #[test]

@@ -2,6 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import got from 'got'
 import http from 'http'
 import Koa from 'koa'
+import koaBody from 'koa-body'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
@@ -386,6 +387,7 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
   let server: http.Server
   let baseUrl: string
   let overlayService: { startBestOf: Mock; updateBestOf: Mock }
+  let lobbyService: { startCountdown: Mock }
   let throttleKeys: string[]
 
   beforeEach(async () => {
@@ -404,8 +406,9 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
       startBestOf: vi.fn().mockResolvedValue({}),
       updateBestOf: vi.fn().mockResolvedValue({}),
     }
+    lobbyService = { startCountdown: vi.fn() }
     const api = new LobbyApi(
-      {} as any,
+      lobbyService as any,
       { getById: vi.fn().mockReturnValue({ clientType: 'electron', userId: SENDER_ID }) } as any,
       {} as any,
       {} as any,
@@ -418,6 +421,8 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
     app.on('error', () => {})
     app
       .use(errorPayloadMiddleware())
+      // The app parses JSON bodies for every route, as the server does
+      .use(koaBody())
       .use(async (ctx, next) => {
         ;(ctx as any).session = { user: { id: SENDER_ID } }
         await next()
@@ -512,10 +517,12 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
     expect(overlayService.startBestOf).not.toHaveBeenCalled()
   })
 
-  test('refuses lines over the limit, and a logo both uploaded and removed', async () => {
+  test('refuses lines far over the limit, and a logo both uploaded and removed', async () => {
+    // The limit counts code points, which the service checks; only twice it in UTF-16 units is
+    // refused before then
     const tooLong = await post(
       'start-best-of',
-      form('series', { ...series, line2: 'x'.repeat(61) }),
+      form('series', { ...series, line2: 'x'.repeat(121) }),
     )
     const both = await post(
       'start-best-of',
@@ -525,6 +532,19 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
     expect(tooLong.statusCode).toBe(400)
     expect(both.statusCode).toBe(400)
     expect(overlayService.startBestOf).not.toHaveBeenCalled()
+  })
+
+  test('passes a title and line of emoji at their limits on to the service', async () => {
+    const response = await post(
+      'start-best-of',
+      form('series', { ...series, title: '🏆'.repeat(50), line1: '🎙'.repeat(60) }),
+    )
+
+    expect(response.statusCode).toBe(204)
+    expect(overlayService.startBestOf).toHaveBeenCalledWith(
+      expect.objectContaining({ title: '🏆'.repeat(50), line1: '🎙'.repeat(60) }),
+      { kind: 'keep' },
+    )
   })
 
   test('saves a change of lines, or of the logo alone, and refuses one that changes nothing', async () => {
@@ -545,6 +565,106 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
       [expect.objectContaining({ line1: null, line2: 'Observer' }), { kind: 'keep' }],
       [expect.objectContaining({ line1: undefined }), expect.objectContaining({ kind: 'replace' })],
     ])
+  })
+
+  test('carries side names and display names through a start and a save', async () => {
+    const start = await post(
+      'start-best-of',
+      form('series', {
+        ...series,
+        sideNames: ['  Ironclad ', null],
+        displayNames: [
+          { userId: 2, name: ' 이영호 ' },
+          { userId: 3, name: null },
+        ],
+      }),
+    )
+    const rename = await post(
+      'update-best-of',
+      form('changes', { clientId: 'client-1', sideNames: ['', 'Zerg 🐙'] }),
+    )
+    const displayNamesOnly = await post(
+      'update-best-of',
+      form('changes', { clientId: 'client-1', displayNames: [{ userId: 3, name: 'Jaedong' }] }),
+    )
+
+    expect([start.statusCode, rename.statusCode, displayNamesOnly.statusCode]).toEqual([
+      204, 204, 204,
+    ])
+    expect(overlayService.startBestOf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sideNames: ['Ironclad', null],
+        displayNames: [
+          { userId: 2, name: '이영호' },
+          { userId: 3, name: null },
+        ],
+      }),
+      { kind: 'keep' },
+    )
+    expect(overlayService.updateBestOf.mock.calls).toEqual([
+      [
+        expect.objectContaining({ sideNames: ['', 'Zerg 🐙'], displayNames: undefined }),
+        { kind: 'keep' },
+      ],
+      [
+        expect.objectContaining({
+          sideNames: undefined,
+          displayNames: [{ userId: 3, name: 'Jaedong' }],
+        }),
+        { kind: 'keep' },
+      ],
+    ])
+  })
+
+  test('accepts sides of 8 and refuses 9, one side name, or a malformed display name', async () => {
+    const eight = [2, 3, 4, 5, 6, 7, 8, 9]
+    const ok = await post('start-best-of', form('series', { ...series, sides: [eight, [10]] }))
+    const nine = await post(
+      'start-best-of',
+      form('series', { ...series, sides: [[...eight, 11], [10]] }),
+    )
+    const oneName = await post('start-best-of', form('series', { ...series, sideNames: ['A'] }))
+    const noUser = await post(
+      'start-best-of',
+      form('series', { ...series, displayNames: [{ name: 'Flash' }] }),
+    )
+    const wayTooLong = await post(
+      'start-best-of',
+      form('series', { ...series, displayNames: [{ userId: 2, name: 'x'.repeat(33) }] }),
+    )
+
+    expect(ok.statusCode).toBe(204)
+    expect([nine, oneName, noUser, wayTooLong].map(response => response.statusCode)).toEqual([
+      400, 400, 400, 400,
+    ])
+    expect(overlayService.startBestOf).toHaveBeenCalledTimes(1)
+  })
+
+  test('answers a start refused for the roster with what the roster check found', async () => {
+    const roster = { unseatedSides: [1], extra: [makeSbUserId(7)], mixedTeams: false }
+    lobbyService.startCountdown.mockImplementation(() => {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.BestOfRosterMismatch,
+        'Ironclad has nobody seated',
+        { data: roster },
+      )
+    })
+
+    const response = await got.post(`${baseUrl}/start-countdown`, {
+      json: { clientId: 'client-1', force: true },
+      throwHttpErrors: false,
+      retry: { limit: 0 },
+      headers: { accept: 'application/json' },
+    })
+
+    expect(response.statusCode).toBe(409)
+    // The side travels as its index, never as its name or a sentence about it
+    expect(JSON.parse(response.body)).toEqual({
+      code: LobbyServiceErrorCode.BestOfRosterMismatch,
+      unseatedSides: [1],
+      extra: [7],
+      mixedTeams: false,
+    })
   })
 
   test("answers a refused logo with the service's code", async () => {

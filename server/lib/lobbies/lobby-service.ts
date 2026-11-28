@@ -30,23 +30,32 @@ import {
 } from '../../../common/lobbies'
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
+  BEST_OF_DISPLAY_NAME_MAX_LENGTH,
   BEST_OF_MAX_SIDE_SIZE,
   BEST_OF_OVERLAY_LINE_MAX_LENGTH,
+  BEST_OF_SIDE_NAME_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
+  BestOfDisplayName,
+  BestOfDisplayNameChange,
+  BestOfRosterCheck,
   checkBestOfRoster,
   findBestOfGameWinner,
   getBestOfScore,
+  getBestOfSideName,
+  getBestOfTextProblem,
   getBestOfWinsNeeded,
   getRunningBestOf,
   isValidBestOfLength,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
+  LobbyBestOfSideNames,
   LobbyBestOfSides,
   toBestOfLaunchInfo,
   toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
 import {
+  BestOfRosterMismatchErrorBody,
   changesGameSettings,
   getPlayerSeats,
   isLobbySummaryFull,
@@ -129,6 +138,13 @@ export interface StartBestOfParams {
   length: number
   title?: string
   sides: Readonly<LobbyBestOfSides>
+  /** The sides' names; each trimmed, with `null` or an empty one meaning none. */
+  sideNames?: Readonly<LobbyBestOfSideNames>
+  /**
+   * Display names for people on the sides; someone with no entry, or an entry whose name is `null`
+   * or empty, has none.
+   */
+  displayNames?: ReadonlyArray<BestOfDisplayNameChange>
   /** The caster overlay's first text line; trimmed, with an empty one meaning none. */
   line1?: string
   /** The caster overlay's second text line; trimmed, with an empty one meaning none. */
@@ -142,7 +158,15 @@ export interface UpdateBestOfParams {
   lobbyId?: SbLobbyId
   /** The new title; `null` or an empty title clears it. */
   title?: string | null
+  /** The new sides. Someone taken off both loses their display name. */
   sides?: Readonly<LobbyBestOfSides>
+  /** The sides' new names; `null` or an empty name clears a side's. */
+  sideNames?: Readonly<LobbyBestOfSideNames>
+  /**
+   * Display names to set (an entry with a name) or clear (one whose name is `null` or empty) for
+   * people on the sides as they are after this change. People not listed keep theirs.
+   */
+  displayNames?: ReadonlyArray<BestOfDisplayNameChange>
   /** The new first text line of the caster overlay; `null` or an empty line clears it. */
   line1?: string | null
   /** The new second text line of the caster overlay; `null` or an empty line clears it. */
@@ -297,36 +321,44 @@ function toSeriesTeams(lobby: Lobby): LobbySeriesTeamJson[] {
 }
 
 /**
- * Returns a best-of series title as it is kept: trimmed, with an empty one meaning no title. Throws
- * for a title that is too long.
+ * Returns text a host typed for a best-of series as it is kept: trimmed, with empty text meaning
+ * none. Throws for text that is too long or holds a character `getBestOfTextProblem` refuses.
  */
-function validatedBestOfTitle(title: string | null | undefined): string | undefined {
-  const trimmed = title?.trim() ?? ''
-  if (trimmed.length > BEST_OF_TITLE_MAX_LENGTH) {
-    throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'best-of title is too long')
-  }
-  return trimmed || undefined
-}
-
-/**
- * Returns a text line of a best-of series' caster overlay as it is kept: trimmed, with an empty one
- * meaning no line. Throws for a line that is too long.
- */
-function validatedBestOfOverlayLine(line: string | null | undefined): string | undefined {
-  const trimmed = line?.trim() ?? ''
-  if (trimmed.length > BEST_OF_OVERLAY_LINE_MAX_LENGTH) {
+function validatedBestOfText(
+  text: string | null | undefined,
+  maxLength: number,
+  what: string,
+): string | undefined {
+  const trimmed = text?.trim() ?? ''
+  const problem = getBestOfTextProblem(trimmed, maxLength)
+  if (problem === 'tooLong') {
+    throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, `${what} is too long`)
+  } else if (problem === 'invalidCharacters') {
     throw new LobbyServiceError(
       LobbyServiceErrorCode.InvalidBestOf,
-      'best-of overlay line is too long',
+      `${what} contains characters it can't have`,
     )
   }
   return trimmed || undefined
 }
 
+/** Returns a best-of series title as it is kept, with an empty one meaning no title, or throws. */
+function validatedBestOfTitle(title: string | null | undefined): string | undefined {
+  return validatedBestOfText(title, BEST_OF_TITLE_MAX_LENGTH, 'best-of title')
+}
+
+/**
+ * Returns a text line of a best-of series' caster overlay as it is kept, with an empty one meaning
+ * no line, or throws.
+ */
+function validatedBestOfOverlayLine(line: string | null | undefined): string | undefined {
+  return validatedBestOfText(line, BEST_OF_OVERLAY_LINE_MAX_LENGTH, 'best-of overlay line')
+}
+
 /**
  * Checks the two sides a host picked for a best-of series: each holds 1 to `BEST_OF_MAX_SIDE_SIZE`
  * people, nobody is named twice (on one side or across both), and everyone is someone `canPlay`
- * accepts. Returns a copy of the sides, or throws.
+ * accepts. Who of them is seated makes no difference here. Returns a copy of the sides, or throws.
  */
 function validatedBestOfSides(
   sides: Readonly<LobbyBestOfSides>,
@@ -361,6 +393,88 @@ function validatedBestOfSides(
     }
   }
   return [[...sides[0]], [...sides[1]]]
+}
+
+/**
+ * Returns the names of a best-of series' sides as they are kept, or `undefined` when neither side
+ * has one. Throws for a name that can't be used.
+ */
+function validatedBestOfSideNames(
+  names: Readonly<LobbyBestOfSideNames>,
+): LobbyBestOfSideNames | undefined {
+  if (names.length !== 2) {
+    throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'a best-of has two side names')
+  }
+  const kept = names.map(
+    name =>
+      validatedBestOfText(name, BEST_OF_SIDE_NAME_MAX_LENGTH, "a best-of side's name") ?? null,
+  ) as LobbyBestOfSideNames
+  return kept[0] !== null || kept[1] !== null ? kept : undefined
+}
+
+/**
+ * Checks the display names a host set or cleared for a best-of series with `sides`: each is for
+ * someone on a side, nobody twice, and every name one that can be used. Returns each person's name
+ * as it is kept, `undefined` for one cleared.
+ */
+function validatedBestOfDisplayNameChanges(
+  changes: ReadonlyArray<BestOfDisplayNameChange>,
+  sides: Readonly<LobbyBestOfSides>,
+): Map<SbUserId, string | undefined> {
+  const onSides = new Set(sides.flat())
+  const result = new Map<SbUserId, string | undefined>()
+  for (const { userId, name } of changes) {
+    if (!onSides.has(userId)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidBestOf,
+        'only people on a side of a best-of can have a display name',
+      )
+    }
+    if (result.has(userId)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidBestOf,
+        'a person can only be given one display name',
+      )
+    }
+    result.set(
+      userId,
+      validatedBestOfText(name, BEST_OF_DISPLAY_NAME_MAX_LENGTH, 'a best-of display name'),
+    )
+  }
+  return result
+}
+
+/**
+ * Returns the display names of everyone on `sides` that `nameOf` gives one, in side order, or
+ * `undefined` when nobody has one.
+ */
+function toBestOfDisplayNames(
+  sides: Readonly<LobbyBestOfSides>,
+  nameOf: (userId: SbUserId) => string | undefined,
+): BestOfDisplayName[] | undefined {
+  const displayNames = sides.flat().flatMap(userId => {
+    const name = nameOf(userId)
+    return name !== undefined ? [{ userId, name }] : []
+  })
+  return displayNames.length ? displayNames : undefined
+}
+
+/**
+ * Describes why `roster` keeps a lobby's next game from being a game of its best-of series, naming
+ * the first side with nobody seated by its name, or as "Team N" when it has none.
+ */
+function describeBestOfRosterProblem(
+  bestOf: LobbyBestOfJson,
+  roster: Extract<BestOfRosterCheck, { ok: false }>,
+): string {
+  if (roster.unseatedSides.length) {
+    const side = roster.unseatedSides[0]
+    return `${getBestOfSideName(bestOf, side) ?? `Team ${side + 1}`} has nobody seated`
+  } else if (roster.extra.length) {
+    return "someone seated as a player isn't on either side of the best-of"
+  } else {
+    return "a team holds players of both of the best-of's sides"
+  }
 }
 
 /**
@@ -2630,10 +2744,19 @@ export class LobbyService {
           "the best-of's last game has no result yet",
         )
       }
-      if (!checkBestOfRoster(lobby, runningBestOf.sides).ok) {
+      const roster = checkBestOfRoster(lobby, runningBestOf.sides)
+      if (!roster.ok) {
+        const { unseatedSides, extra, mixedTeams } = roster
         throw new LobbyServiceError(
           LobbyServiceErrorCode.BestOfRosterMismatch,
-          "the seated players don't match the best-of's sides",
+          describeBestOfRosterProblem(runningBestOf, roster),
+          {
+            data: {
+              unseatedSides,
+              extra,
+              mixedTeams,
+            } satisfies Omit<BestOfRosterMismatchErrorBody, 'code'>,
+          },
         )
       }
     }
@@ -2748,7 +2871,7 @@ export class LobbyService {
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
-        ...(runningBestOf ? { bestOf: toBestOfLaunchInfo(runningBestOf) } : {}),
+        ...(runningBestOf ? { bestOf: toBestOfLaunchInfo(runningBestOf, lobby) } : {}),
         signal: abortController.signal,
       })
 
@@ -3161,6 +3284,8 @@ export class LobbyService {
     length,
     title,
     sides,
+    sideNames,
+    displayNames,
     line1,
     line2,
     logo,
@@ -3182,6 +3307,11 @@ export class LobbyService {
     const validTitle = validatedBestOfTitle(title)
     const members = new Set(getLobbyMemberIds(lobby))
     const validSides = validatedBestOfSides(sides, userId => members.has(userId))
+    const validSideNames = sideNames ? validatedBestOfSideNames(sideNames) : undefined
+    const displayNameChanges = validatedBestOfDisplayNameChanges(displayNames ?? [], validSides)
+    const validDisplayNames = toBestOfDisplayNames(validSides, userId =>
+      displayNameChanges.get(userId),
+    )
     const overlay = toBestOfOverlayJson({
       line1: validatedBestOfOverlayLine(line1),
       line2: validatedBestOfOverlayLine(line2),
@@ -3194,6 +3324,8 @@ export class LobbyService {
       ...(validTitle !== undefined ? { title: validTitle } : {}),
       length,
       sides: validSides,
+      ...(validSideNames ? { sideNames: validSideNames } : {}),
+      ...(validDisplayNames ? { displayNames: validDisplayNames } : {}),
       games: [],
       ...(overlay ? { overlay } : {}),
     }
@@ -3201,10 +3333,10 @@ export class LobbyService {
   }
 
   /**
-   * Changes the title, sides and/or caster overlay of a lobby's running best-of series, and returns
-   * the changed series. The games already won stay with the side that won them, whoever plays for
-   * it now. Someone already on either side may stay on one after leaving the lobby; anyone added has
-   * to be in it.
+   * Changes the title, sides, side names, display names and/or caster overlay of a lobby's running
+   * best-of series, and returns the changed series. The games already won stay with the side that
+   * won them, whoever plays for it now. Someone already on either side may stay on one after leaving
+   * the lobby; anyone added has to be in it. Someone taken off both sides loses their display name.
    */
   updateBestOf(params: UpdateBestOfParams): LobbyBestOfJson {
     const { lobby, updated } = this._updatedBestOf(params)
@@ -3223,6 +3355,8 @@ export class LobbyService {
     lobbyId,
     title,
     sides,
+    sideNames,
+    displayNames,
     line1,
     line2,
     logo,
@@ -3233,6 +3367,8 @@ export class LobbyService {
     if (
       title === undefined &&
       sides === undefined &&
+      sideNames === undefined &&
+      displayNames === undefined &&
       line1 === undefined &&
       line2 === undefined &&
       logo === undefined
@@ -3246,22 +3382,34 @@ export class LobbyService {
       const current = new Set(running.sides.flat())
       newSides = validatedBestOfSides(sides, userId => members.has(userId) || current.has(userId))
     }
+    const newSideNames =
+      sideNames === undefined ? running.sideNames : validatedBestOfSideNames(sideNames)
+    const displayNameChanges = validatedBestOfDisplayNameChanges(displayNames ?? [], newSides)
+    const newDisplayNames = toBestOfDisplayNames(newSides, userId =>
+      displayNameChanges.has(userId)
+        ? displayNameChanges.get(userId)
+        : running.displayNames?.find(entry => entry.userId === userId)?.name,
+    )
     const overlay = toBestOfOverlayJson({
       line1: line1 === undefined ? running.overlay?.line1 : validatedBestOfOverlayLine(line1),
       line2: line2 === undefined ? running.overlay?.line2 : validatedBestOfOverlayLine(line2),
       logo: logo === undefined ? running.overlay?.logo : (logo ?? undefined),
     })
 
-    const updated: LobbyBestOfJson = { ...running, sides: newSides }
-    if (newTitle === undefined) {
-      delete updated.title
-    } else {
-      updated.title = newTitle
-    }
-    if (overlay === undefined) {
-      delete updated.overlay
-    } else {
-      updated.overlay = overlay
+    const {
+      title: _title,
+      sideNames: _sideNames,
+      displayNames: _displayNames,
+      overlay: _overlay,
+      ...rest
+    } = running
+    const updated: LobbyBestOfJson = {
+      ...rest,
+      ...(newTitle !== undefined ? { title: newTitle } : {}),
+      sides: newSides,
+      ...(newSideNames ? { sideNames: newSideNames } : {}),
+      ...(newDisplayNames ? { displayNames: newDisplayNames } : {}),
+      ...(overlay ? { overlay } : {}),
     }
     return { lobby, updated }
   }

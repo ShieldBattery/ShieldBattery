@@ -151,11 +151,16 @@ describe('client/lobbies/room/best-of-display', () => {
       expect(getBestOfStartBlocker(lobby, [pending])).toEqual({ kind: 'bestOfGamePending' })
     })
 
-    test('names the first missing member, then the first extra player', () => {
+    test('names the first side with nobody seated, then the first extra player', () => {
       expect(getBestOfStartBlocker(lobby, [{ ...fresh, sides: [[CAROL, DAVE], [BOB]] }])).toEqual({
-        kind: 'bestOfMissingPlayer',
-        userId: CAROL,
+        kind: 'bestOfSideNotSeated',
+        side: 0,
       })
+      expect(
+        getBestOfStartBlocker(lobby, [
+          { ...fresh, sides: [[ALICE], [CAROL]], sideNames: [null, 'Ironclad'] },
+        ]),
+      ).toEqual({ kind: 'bestOfSideNotSeated', side: 1, sideName: 'Ironclad' })
       const crowded = makeLobby(
         [createHuman(ALICE), createHuman(ERIN)],
         [createHuman(BOB), createHuman(DAVE)],
@@ -164,6 +169,29 @@ describe('client/lobbies/room/best-of-display', () => {
         kind: 'bestOfExtraPlayer',
         userId: ERIN,
       })
+    })
+
+    test('side members observing or on the bench do not hold the game up', () => {
+      const withSpectators: Lobby = {
+        ...makeLobby(
+          [createHuman(ALICE), createOpen()],
+          [createHuman(BOB), createOpen()],
+          [createObserver(CAROL)],
+        ),
+        bench: [{ userId: DAVE, race: 'z', joinedAt: 0 }],
+      }
+      expect(
+        getBestOfStartBlocker(withSpectators, [
+          {
+            ...fresh,
+            sides: [
+              [ALICE, CAROL],
+              [DAVE, BOB],
+            ],
+            sideNames: ['Nexus', 'Ironclad'],
+          },
+        ]),
+      ).toBeUndefined()
     })
 
     test('refuses sides that share a team', () => {

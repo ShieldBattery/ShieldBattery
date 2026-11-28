@@ -21,9 +21,9 @@ use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, WingOutcome, paint_column_heading,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, TeamNames, Wing, WingOutcome, paint_column_heading,
     paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
-    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
+    paint_text, stat_table_height, team_name, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -158,8 +158,11 @@ pub(crate) fn panel_height(view: &EconomyView) -> f32 {
 
 /// Draws the economy panel against the left edge of the screen at `top`, fading and sliding it in
 /// and out. Returns nothing at all once it is gone, or while there is nobody to report on.
+///
+/// `names` is what its team dividers call the teams.
 pub fn render_economy_view(
     view: &EconomyView,
+    names: &TeamNames,
     ctx: &Context,
     shown: bool,
     top: f32,
@@ -171,7 +174,7 @@ pub fn render_economy_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        |ui| draw_panel(ui, view, names),
     )?;
     Some(WingOutcome {
         rect: wing.rect,
@@ -179,14 +182,14 @@ pub fn render_economy_view(
     })
 }
 
-fn draw_panel(ui: &mut Ui, view: &EconomyView) {
+fn draw_panel(ui: &mut Ui, view: &EconomyView, names: &TeamNames) {
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     draw_headings(
         ui,
         view.players
             .first()
-            .map(|player| player.team)
-            .filter(|_| divided),
+            .filter(|_| divided)
+            .map(|player| team_name(names, player.team)),
     );
     let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
@@ -195,7 +198,7 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
             ui.add_space(STAT_ROW_GAP);
             let (row, _) =
                 ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
-            paint_team_divider(ui, row, player.team);
+            paint_team_divider(ui, row, &team_name(names, player.team));
         }
         ui.add_space(STAT_ROW_GAP);
         draw_row(ui, player);
@@ -204,13 +207,13 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
 
 /// Draws the row of column headings, each aligned the way its column's values are, and saying on
 /// hover what its column counts: the headings are a word each, and two of the columns are rates.
-/// `first_team` is the team a divided table opens with, named over the names.
-fn draw_headings(ui: &mut Ui, first_team: Option<u8>) {
+/// `first_team` is what the team a divided table opens with is called, named over the names.
+fn draw_headings(ui: &mut Ui, first_team: Option<String>) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
     let names = cursor.take(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH);
     if let Some(team) = first_team {
-        paint_first_team_name(ui, names, team);
+        paint_first_team_name(ui, names, &team);
     }
     cursor.skip(COLUMN_GAP);
     draw_heading(
@@ -383,7 +386,8 @@ mod tests {
                 players: teams.iter().map(|team| player(*team)).collect(),
             };
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_economy_view(&view, ctx, true, 100.0).map(|outcome| outcome.rect)
+                render_economy_view(&view, &TeamNames::default(), ctx, true, 100.0)
+                    .map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");
             assert_eq!(rect.height(), panel_height(&view), "{teams:?}");

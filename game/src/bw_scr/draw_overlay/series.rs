@@ -16,12 +16,20 @@
 //! The series' lines for the casters travel with the rest of it, and its logo is loaded from its
 //! URL the first frame the series is shown (see [`series_logo`](super::series_logo)): never for a
 //! game whose series is not shown, so a player's client and a replay never fetch it.
+//!
+//! So do the names its host gave its sides, which the panels label the sides with while the series
+//! is shown, and the names they gave its players to be shown under. Those are worked out with the
+//! sides, once, and every observer panel names a player by theirs for the whole of a game watched
+//! live, whether or not the series itself can be shown on a given frame: a name that went back to
+//! the account's halfway through a game would read as a different player.
 
 use overlay_ui::observer::{SeriesFormat, SeriesView};
 
 use super::series_logo::SeriesLogoLoader;
 use super::{BwVars, is_active_player, shown_on_panels};
-use crate::app_messages::{GameSetupInfo, SbUserId, SeriesOverlayFormat, SeriesOverlaySide};
+use crate::app_messages::{
+    GameSetupInfo, SbUserId, SeriesOverlayDisplayName, SeriesOverlayFormat, SeriesOverlaySide,
+};
 use crate::bw::players::BwPlayerId;
 use crate::game_thread;
 
@@ -44,11 +52,65 @@ pub(super) struct SeriesFrame {
 #[derive(Default)]
 pub(super) struct SeriesState {
     /// `None` until worked out, and then what there is to show: nothing for a game that is no
-    /// series', or that is one the panels cannot show.
-    resolved: Option<Option<ResolvedSeries>>,
+    /// series'.
+    resolved: Option<Option<Resolved>>,
     /// Whether the log has been told why a shown player left the series off, which it is told once
     /// a game rather than every frame.
     explained: bool,
+}
+
+/// What there is to show of a game's series.
+struct Resolved {
+    /// The names its players are shown under.
+    display_names: DisplayNames,
+    /// The series as the panels show it, or `None` for one in a format this build cannot word.
+    series: Option<ResolvedSeries>,
+}
+
+/// The name each slot's player is shown under on the observer panels in place of their account
+/// name, where the series gives them one.
+#[derive(Default, Debug, PartialEq, Eq)]
+pub(super) struct DisplayNames([Option<String>; 8]);
+
+impl DisplayNames {
+    /// The names `entries` give the people in `slots`. A person is shown under the first name
+    /// `entries` give their account that says anything once trimmed; one they give no such name,
+    /// and every computer, under their own. Entries for accounts that play no slot are left out.
+    fn resolve(entries: &[SeriesOverlayDisplayName], slots: &[Slot]) -> DisplayNames {
+        let mut names = DisplayNames::default();
+        for slot in slots.iter().filter(|slot| !slot.computer) {
+            let Some(user) = slot.user else {
+                continue;
+            };
+            let name = entries
+                .iter()
+                .filter(|entry| entry.user_id == user)
+                .map(|entry| entry.name.trim())
+                .find(|name| !name.is_empty());
+            if let (Some(name), Some(entry)) = (name, names.0.get_mut(usize::from(slot.player_id)))
+            {
+                *entry = Some(name.to_string());
+            }
+        }
+        names
+    }
+
+    fn get(&self, player_id: u8) -> Option<&str> {
+        self.0.get(usize::from(player_id))?.as_deref()
+    }
+}
+
+/// What an observer panel calls the player in `player_id`'s slot: the name `display_names` show them
+/// under where they give them one, and `account`, the name they play under, everywhere else.
+pub(super) fn panel_name(
+    display_names: Option<&DisplayNames>,
+    player_id: u8,
+    account: String,
+) -> String {
+    match display_names.and_then(|names| names.get(player_id)) {
+        Some(name) => name.to_string(),
+        None => account,
+    }
 }
 
 struct ResolvedSeries {
@@ -76,7 +138,7 @@ impl SeriesState {
             // Asked again next frame while the game has yet to say who ended up in which slot.
             self.resolved = Some(resolve(bw, setup?)?);
         }
-        let resolved = self.resolved.as_mut()?.as_mut()?;
+        let resolved = self.resolved.as_mut()?.as_mut()?.series.as_mut()?;
         let shown = (0..8u8)
             .filter(|&player_id| is_active_player(bw, usize::from(player_id)))
             .filter(|&player_id| shown_on_panels(bw, player_id));
@@ -101,20 +163,19 @@ impl SeriesState {
             }
         }
     }
+
+    /// The names the players of the game are shown under on the observer panels, once
+    /// [`frame`](Self::frame) has worked them out: nothing for a game that is no series'.
+    pub(super) fn display_names(&self) -> Option<&DisplayNames> {
+        Some(&self.resolved.as_ref()?.as_ref()?.display_names)
+    }
 }
 
 /// Works out what there is to show of `setup`'s series, or `None` while the game has yet to say
 /// which slot each user ended up in.
-fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<ResolvedSeries>> {
+fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<Resolved>> {
     let Some(series) = setup.series_overlay.as_ref().filter(|_| !setup.is_replay()) else {
         return Some(None);
-    };
-    let format = match series.format {
-        SeriesOverlayFormat::BestOf { length } => SeriesFormat::BestOf { length },
-        SeriesOverlayFormat::Unknown => {
-            warn!("The game's series is in a format this build doesn't know; not showing it");
-            return Some(None);
-        }
     };
     let mapping = game_thread::player_id_mapping_if_set()?;
     let slots: Vec<Slot> = (0..8u8)
@@ -132,35 +193,57 @@ fn resolve(bw: &BwVars, setup: &GameSetupInfo) -> Option<Option<ResolvedSeries>>
             }
         })
         .collect();
+    let display_names = DisplayNames::resolve(&series.display_names, &slots);
+    info!("Display names for the observer panels: {display_names:?}");
+    let format = match series.format {
+        SeriesOverlayFormat::BestOf { length } => SeriesFormat::BestOf { length },
+        SeriesOverlayFormat::Unknown => {
+            warn!("The game's series is in a format this build doesn't know; not showing it");
+            return Some(Some(Resolved {
+                display_names,
+                series: None,
+            }));
+        }
+    };
     let sides = resolve_sides(&series.sides, &slots);
     let lines = caster_lines(&series.lines);
+    let side_names = series.sides.each_ref().map(side_name);
     let logo_url = series.logo_url.as_deref().filter(|url| !url.is_empty());
     info!(
-        "Series for the observer panels: {:?}, {:?}, game {}, scores {}-{}, captions {:?}/{:?}, \
+        "Series for the observer panels: {:?}, {:?}, game {}, scores {}-{}, side names {:?}, \
          slot sides {:?}, caster lines {:?}, logo {:?}",
         series.title,
         series.format,
         series.game_number,
         series.sides[0].score,
         series.sides[1].score,
-        series.sides[0].caption,
-        series.sides[1].caption,
+        side_names,
         sides,
         lines,
         logo_url,
     );
-    Some(Some(ResolvedSeries {
-        sides,
-        view: SeriesView {
-            title: series.title.clone().filter(|title| !title.is_empty()),
-            format,
-            game_number: series.game_number,
-            scores: series.sides.each_ref().map(|side| side.score),
-            lines,
-            logo: None,
-        },
-        logo: logo_url.map(|url| SeriesLogoLoader::new(url.to_string())),
+    Some(Some(Resolved {
+        display_names,
+        series: Some(ResolvedSeries {
+            sides,
+            view: SeriesView {
+                title: series.title.clone().filter(|title| !title.is_empty()),
+                format,
+                game_number: series.game_number,
+                scores: series.sides.each_ref().map(|side| side.score),
+                lines,
+                logo: None,
+                side_names,
+            },
+            logo: logo_url.map(|url| SeriesLogoLoader::new(url.to_string())),
+        }),
     }))
+}
+
+/// What the panels call `side`: the name its host gave it, where it says anything once trimmed.
+fn side_name(side: &SeriesOverlaySide) -> Option<String> {
+    let name = side.caption.as_deref()?.trim();
+    (!name.is_empty()).then(|| name.to_string())
 }
 
 /// The caster lines of `lines` the panels show: the first two that say anything.
@@ -379,6 +462,84 @@ mod tests {
             lines(&[" ", " Stage  Final ", "", "Observer  Carol", "Extra"]),
             vec!["Stage  Final", "Observer  Carol"]
         );
+    }
+
+    fn display_name(user: u32, name: &str) -> SeriesOverlayDisplayName {
+        SeriesOverlayDisplayName {
+            user_id: SbUserId(user),
+            name: name.to_string(),
+        }
+    }
+
+    #[test]
+    fn a_player_is_shown_under_the_first_display_name_given_to_their_account() {
+        let slots = [
+            person(0, 0, 10),
+            person(1, 0, 20),
+            computer(2, 0),
+            person(4, 0, 30),
+            person(5, 0, 40),
+        ];
+        let entries = [
+            // Someone not in the game, who no slot is shown under.
+            display_name(99, "Nobody"),
+            display_name(10, "흑운장"),
+            // A second name for the same account, which the first outranks.
+            display_name(10, "Second"),
+            display_name(20, "  星际老王 "),
+            // A blank name says nothing, so the next one for the account is the one shown.
+            display_name(30, "   "),
+            display_name(30, "SixteenCharsLong"),
+            display_name(40, ""),
+        ];
+        let names = DisplayNames::resolve(&entries, &slots);
+        assert_eq!(
+            names,
+            DisplayNames([
+                Some("흑운장".to_string()),
+                Some("星际老王".to_string()),
+                None,
+                None,
+                Some("SixteenCharsLong".to_string()),
+                None,
+                None,
+                None,
+            ])
+        );
+        assert_eq!(DisplayNames::resolve(&[], &slots), DisplayNames::default());
+    }
+
+    #[test]
+    fn a_panel_names_a_player_by_their_display_name_and_by_their_account_without_one() {
+        let names = DisplayNames::resolve(&[display_name(10, "Bisu [SBX]")], &[person(1, 0, 10)]);
+        let account = |name: &str| name.to_string();
+        assert_eq!(panel_name(Some(&names), 1, account("tec27")), "Bisu [SBX]");
+        // Everyone the series gives no name keeps their own.
+        assert_eq!(panel_name(Some(&names), 0, account("Rhynso")), "Rhynso");
+        assert_eq!(
+            panel_name(Some(&names), 9, account("Player 10")),
+            "Player 10"
+        );
+        // As does everyone in a game that has no display names to give: one with no series, one
+        // that is a replay, and every client that is playing rather than watching.
+        assert_eq!(panel_name(None, 1, account("tec27")), "tec27");
+    }
+
+    #[test]
+    fn a_side_is_named_by_what_its_host_called_it_once_trimmed() {
+        let named = |caption: Option<&str>| {
+            side_name(&SeriesOverlaySide {
+                caption: caption.map(str::to_string),
+                ..side(&[10])
+            })
+        };
+        assert_eq!(
+            named(Some(" Nexus Esports ")).as_deref(),
+            Some("Nexus Esports")
+        );
+        assert_eq!(named(Some("   ")), None);
+        assert_eq!(named(Some("")), None);
+        assert_eq!(named(None), None);
     }
 
     #[test]

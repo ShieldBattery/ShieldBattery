@@ -7,6 +7,7 @@ import {
   BestOfSideIndex,
   getRunningBestOf,
   LobbyBestOfJson,
+  LobbyBestOfSideNames,
   LobbyBestOfSides,
   toBestOfOverlayJson,
 } from '../../../common/lobbies/lobby-best-of'
@@ -42,6 +43,7 @@ import { titleMedium } from '../../styles/typography'
 import { LobbyRoom } from '../room/lobby-room'
 import { canMoveSlot } from '../room/slot-movement'
 import { IsolatedReduxProvider } from './isolated-redux'
+import { applyMockBestOfNames } from './mock-best-of-names'
 import { ScenarioPicker } from './scenario-picker'
 
 type LobbyTestDispatch = DispatchFunction<ReduxAction>
@@ -93,6 +95,10 @@ type ScenarioId =
   | 'bestOfWon'
   | 'bestOfEndedEarly'
   | 'bestOfLong'
+  | 'bestOfNamed'
+  | 'bestOfNamedNobodySeated'
+  | 'bestOfUnnamedNobodySeated'
+  | 'bestOfNamedLong'
 type ViewpointId = 'host' | 'member' | 'benched'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
@@ -108,6 +114,10 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'bestOfWon', label: 'Series · won' },
   { id: 'bestOfEndedEarly', label: 'Series · ended early' },
   { id: 'bestOfLong', label: 'Series · 4v4 Bo99' },
+  { id: 'bestOfNamed', label: 'Series · named sides, rosters + bench' },
+  { id: 'bestOfNamedNobodySeated', label: 'Series · named side with nobody seated' },
+  { id: 'bestOfUnnamedNobodySeated', label: 'Series · unnamed side with nobody seated' },
+  { id: 'bestOfNamedLong', label: 'Series · named 4v4, long names' },
 ]
 
 const VIEWPOINTS: ReadonlyArray<{ id: ViewpointId; label: string }> = [
@@ -400,6 +410,22 @@ const TWO_V_TWO_SIDES: LobbyBestOfSides = [
   [DRONEBRO, HEARTCUTTER],
 ]
 
+/**
+ * Team league rosters around the 2v2's seats: each side has someone off the seats too, blueSky on
+ * the bench and NerdRage observing.
+ */
+const NAMED_ROSTER_SIDES: LobbyBestOfSides = [
+  [TEC27, PACHI, BLUESKY],
+  [DRONEBRO, HEARTCUTTER, NERDRAGE],
+]
+const NAMED_SIDES: LobbyBestOfSideNames = ['Nexus Esports', 'Ironclad']
+
+/** Sides whose second one has nobody in a player seat: one observing, one not in the lobby. */
+const UNSEATED_SIDES: LobbyBestOfSides = [
+  [TEC27, PACHI, DRONEBRO, HEARTCUTTER],
+  [NERDRAGE, SUNN0],
+]
+
 /** A full 4v4 of people with names too long to fit anywhere they're listed side by side. */
 function makeLongNamesLobby(): Lobby {
   return makeLobby(
@@ -422,6 +448,11 @@ const LONG_NAMES_SIDES: LobbyBestOfSides = [
   [TEC27, LONG_1, LONG_2, HEARTCUTTER],
   [LONG_3, LONG_4, DRONEBRO, PACHI],
 ]
+/** Side names at the longest a side's name can be. */
+const LONG_SIDE_NAMES: LobbyBestOfSideNames = [
+  'Overlords of the Creep 9',
+  'Carriers Have Arrived 99',
+]
 const LONG_NAMES_TEAMS: LobbySeriesTeamJson[] = LONG_NAMES_SIDES.map((side, i) => ({
   teamId: i === 0 ? TOP_TEAM_ID : BOTTOM_TEAM_ID,
   name: i === 0 ? 'Top' : 'Bottom',
@@ -443,11 +474,15 @@ function playBestOf(
   {
     title,
     length,
+    sides = TWO_V_TWO_SIDES,
+    sideNames,
     games,
     end,
   }: {
     title?: string
     length: number
+    sides?: LobbyBestOfSides
+    sideNames?: LobbyBestOfSideNames
     games: ReadonlyArray<BestOfGamePlan>
     end?: 'won' | 'unfinished'
   },
@@ -456,7 +491,8 @@ function playBestOf(
     id: 'mock-best-of',
     ...(title ? { title } : {}),
     length,
-    sides: TWO_V_TWO_SIDES,
+    sides,
+    ...(sideNames ? { sideNames } : {}),
     games: [],
   }
   dispatch({ type: '@lobbies/updateBestOfStarted', payload: { type: 'bestOfStarted', bestOf } })
@@ -542,7 +578,7 @@ function playBestOf(
  * Seeds a long-running 4v4 best-of series straight into the arrival's init, the way someone joining
  * partway through one gets it: a Bo99 at 12–10, with a couple of games that counted for nobody.
  */
-function seedLongBestOf(dispatch: LobbyTestDispatch) {
+function seedLongBestOf(dispatch: LobbyTestDispatch, sideNames?: LobbyBestOfSideNames) {
   const plans: BestOfGamePlan[] = []
   for (let i = 0; i < 24; i++) {
     if (i === 7) {
@@ -577,6 +613,7 @@ function seedLongBestOf(dispatch: LobbyTestDispatch) {
     title: 'Team League Season Finale: Upper Bracket Decider',
     length: 99,
     sides: LONG_NAMES_SIDES,
+    ...(sideNames ? { sideNames } : {}),
     games: plans.map((plan, i): LobbyBestOfJson['games'][number] => {
       const gameId = `mock-long-game-${i + 1}`
       if (plan === 0 || plan === 1) {
@@ -622,8 +659,8 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
   dispatch(loadMapsForTesting())
   dispatch({ type: '@users/loadUsers', payload: MOCK_USERS })
 
-  if (scenario === 'bestOfLong') {
-    seedLongBestOf(dispatch)
+  if (scenario === 'bestOfLong' || scenario === 'bestOfNamedLong') {
+    seedLongBestOf(dispatch, scenario === 'bestOfNamedLong' ? LONG_SIDE_NAMES : undefined)
     sendMockChat(dispatch, LONG_1, 'game 25, nobody is sleeping tonight')
     return
   }
@@ -632,7 +669,10 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
     scenario === 'bestOfRunning' ||
     scenario === 'bestOfPending' ||
     scenario === 'bestOfWon' ||
-    scenario === 'bestOfEndedEarly'
+    scenario === 'bestOfEndedEarly' ||
+    scenario === 'bestOfNamed' ||
+    scenario === 'bestOfNamedNobodySeated' ||
+    scenario === 'bestOfUnnamedNobodySeated'
   ) {
     dispatch({
       type: '@lobbies/init',
@@ -652,6 +692,23 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       playBestOf(dispatch, { title: 'Grand Final', length: 3, games: [0] })
     } else if (scenario === 'bestOfPending') {
       playBestOf(dispatch, { length: 5, games: [0, 'noWinner', 'pending'] })
+    } else if (scenario === 'bestOfNamed') {
+      playBestOf(dispatch, {
+        title: 'Grand Final',
+        length: 7,
+        sides: NAMED_ROSTER_SIDES,
+        sideNames: NAMED_SIDES,
+        games: [0, 1, 0],
+      })
+    } else if (scenario === 'bestOfNamedNobodySeated') {
+      playBestOf(dispatch, {
+        length: 3,
+        sides: UNSEATED_SIDES,
+        sideNames: NAMED_SIDES,
+        games: [1],
+      })
+    } else if (scenario === 'bestOfUnnamedNobodySeated') {
+      playBestOf(dispatch, { length: 3, sides: UNSEATED_SIDES, games: [0] })
     } else if (scenario === 'bestOfWon') {
       playBestOf(dispatch, {
         title: 'Grand Final',
@@ -969,7 +1026,7 @@ function LobbyRoomTestInner() {
             }}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
             onStartBestOf={(request, spec) => {
-              const bestOf: LobbyBestOfJson = {
+              const started: LobbyBestOfJson = {
                 id: `mock-started-best-of-${bestOfs.length + 1}`,
                 ...(request.title ? { title: request.title } : {}),
                 length: request.length,
@@ -983,6 +1040,7 @@ function LobbyRoomTestInner() {
                     : undefined,
                 }),
               }
+              const bestOf = applyMockBestOfNames(started, request, 'start')
               dispatch({
                 type: '@lobbies/updateBestOfStarted',
                 payload: { type: 'bestOfStarted', bestOf },
@@ -996,7 +1054,7 @@ function LobbyRoomTestInner() {
                 if (request.logo) {
                   logo = { url: URL.createObjectURL(request.logo), fileName: request.logo.name }
                 }
-                const bestOf: LobbyBestOfJson = {
+                const updated: LobbyBestOfJson = {
                   ...runningBestOf,
                   ...(request.sides ? { sides: request.sides } : {}),
                   overlay: toBestOfOverlayJson({
@@ -1008,11 +1066,12 @@ function LobbyRoomTestInner() {
                   }),
                 }
                 if (request.title !== undefined) {
-                  delete bestOf.title
+                  delete updated.title
                   if (request.title) {
-                    bestOf.title = request.title
+                    updated.title = request.title
                   }
                 }
+                const bestOf = applyMockBestOfNames(updated, request, 'update')
                 dispatch({
                   type: '@lobbies/updateBestOfUpdated',
                   payload: { type: 'bestOfUpdated', bestOf },
@@ -1041,6 +1100,15 @@ function LobbyRoomTestInner() {
               setTimeout(() => {
                 if (!spec.signal?.aborted) {
                   spec.onSuccess({ line1: 'Casters  Nyoken & Day9', line2: 'Observer  Royo' })
+                }
+              }, 300)
+            }}
+            onLoadRememberedBestOfDisplayNames={(userIds, spec) => {
+              setTimeout(() => {
+                if (!spec.signal?.aborted) {
+                  spec.onSuccess({
+                    displayNames: userIds.includes(PACHI) ? [{ userId: PACHI, name: 'Flash' }] : [],
+                  })
                 }
               }, 300)
             }}

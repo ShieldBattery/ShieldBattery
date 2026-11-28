@@ -832,7 +832,10 @@ fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
         Some(_) => theme::TEXT_SECONDARY,
         None => theme::TEXT_PRIMARY,
     };
-    parts.push(body(BodyWeight::Medium, label_color).galley(ui, &event.label()));
+    // Only a replay has these cards, and no replay is shown its series: its sides are its teams'
+    // numbers.
+    let label = event.label(&crate::observer::TeamNames::default());
+    parts.push(body(BodyWeight::Medium, label_color).galley(ui, &label));
     if let Some(detail) = event.kind.detail() {
         parts.push(body(BodyWeight::Regular, theme::TEXT_SECONDARY).galley(ui, &detail));
     }

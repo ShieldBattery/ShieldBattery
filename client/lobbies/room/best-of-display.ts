@@ -1,7 +1,9 @@
 import { Lobby } from '../../../common/lobbies'
 import {
+  BestOfSideIndex,
   checkBestOfRoster,
   getBestOfGameNumber,
+  getBestOfSideName,
   getRunningBestOf,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
@@ -131,7 +133,7 @@ export function groupSessionGames(
 /** Why the running best-of series keeps the lobby from starting its next game. */
 export type BestOfStartBlocker =
   | { kind: 'bestOfGamePending' }
-  | { kind: 'bestOfMissingPlayer'; userId: SbUserId }
+  | { kind: 'bestOfSideNotSeated'; side: BestOfSideIndex; sideName?: string }
   | { kind: 'bestOfExtraPlayer'; userId: SbUserId }
   | { kind: 'bestOfMixedTeams' }
 
@@ -140,7 +142,7 @@ export type BestOfStartBlocker =
  * the server refuses to start, or `undefined` when nothing does (or no series is running).
  *
  * A game of the series still waiting for its result comes first, since nothing about the seats can
- * fix that. A roster problem names only the first person it's about.
+ * fix that. A roster problem names only the first side or person it's about.
  */
 export function getBestOfStartBlocker(
   lobby: Lobby,
@@ -157,8 +159,10 @@ export function getBestOfStartBlocker(
   const roster = checkBestOfRoster(lobby, running.sides)
   if (roster.ok) {
     return undefined
-  } else if (roster.missing.length) {
-    return { kind: 'bestOfMissingPlayer', userId: roster.missing[0] }
+  } else if (roster.unseatedSides.length) {
+    const side = roster.unseatedSides[0]
+    const sideName = getBestOfSideName(running, side)
+    return { kind: 'bestOfSideNotSeated', side, ...(sideName !== undefined ? { sideName } : {}) }
   } else if (roster.extra.length) {
     return { kind: 'bestOfExtraPlayer', userId: roster.extra[0] }
   } else {

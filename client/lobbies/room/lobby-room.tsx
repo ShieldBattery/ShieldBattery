@@ -1,7 +1,10 @@
 import * as React from 'react'
 import { useState } from 'react'
 import styled from 'styled-components'
-import { GetRememberedBestOfOverlayResponse } from '../../../common/lobbies/lobby-network'
+import {
+  GetRememberedBestOfDisplayNamesResponse,
+  GetRememberedBestOfOverlayResponse,
+} from '../../../common/lobbies/lobby-network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { RequestHandlingSpec } from '../../network/abortable-thunk'
@@ -57,6 +60,11 @@ export interface LobbyRoomProps {
   onLoadRememberedBestOfOverlay: (
     spec: RequestHandlingSpec<GetRememberedBestOfOverlayResponse>,
   ) => void
+  /** Loads the display names the viewer last gave the given people in a best-of series. */
+  onLoadRememberedBestOfDisplayNames: (
+    userIds: ReadonlyArray<SbUserId>,
+    spec: RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>,
+  ) => void
   onDiscardBestOfGame: (gameId: string) => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
@@ -87,6 +95,7 @@ export function LobbyRoom({
   onUpdateBestOf,
   onEndBestOf,
   onLoadRememberedBestOfOverlay,
+  onLoadRememberedBestOfDisplayNames,
   onDiscardBestOfGame,
   onWatchReplay,
   onViewGameSummary,
@@ -122,6 +131,7 @@ export function LobbyRoom({
         onUpdateBestOf={onUpdateBestOf}
         onEndBestOf={onEndBestOf}
         onLoadRememberedOverlay={onLoadRememberedBestOfOverlay}
+        onLoadRememberedDisplayNames={onLoadRememberedBestOfDisplayNames}
       />
     )
   } else {

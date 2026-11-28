@@ -3,19 +3,28 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
 import {
+  BEST_OF_DISPLAY_NAME_MAX_LENGTH,
   BEST_OF_MAX_LENGTH,
   BEST_OF_MAX_SIDE_SIZE,
   BEST_OF_OVERLAY_LINE_MAX_LENGTH,
   BEST_OF_PRESET_LENGTHS,
+  BEST_OF_SIDE_NAME_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
   BestOfSideIndex,
+  BestOfTextProblem,
+  countBestOfTextCharacters,
   getBestOfScore,
+  getBestOfSideName,
+  getBestOfTextProblem,
   getRunningBestOf,
   isValidBestOfLength,
   LobbyBestOfSides,
   suggestBestOfSides,
 } from '../../../common/lobbies/lobby-best-of'
-import { GetRememberedBestOfOverlayResponse } from '../../../common/lobbies/lobby-network'
+import {
+  GetRememberedBestOfDisplayNamesResponse,
+  GetRememberedBestOfOverlayResponse,
+} from '../../../common/lobbies/lobby-network'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
@@ -44,16 +53,29 @@ import { BestOfLogoSlot } from './best-of-logo-slot'
 import { useBestOfSideLabel } from './best-of-parts'
 import { useAnchoredMenu } from './room-parts'
 import {
+  batchDisplayNameLookups,
   bestOfLogoErrorMessage,
+  bestOfTextProblemMessage,
   buildStartBestOfParams,
   buildUpdateBestOfParams,
+  DisplayNameFields,
+  fillRememberedDisplayNames,
   formatSeriesSetupSummary,
+  getDisplayNamesToLoad,
+  initialDisplayNameFields,
   LogoSlotValue,
   SeriesSetupValues,
   storedLogoSlot,
+  typeDisplayName,
 } from './series-setup'
 
 const DEFAULT_LENGTH = 3
+
+/**
+ * The narrowest a side's column can be while a person's row fits their name and "Shown as" field
+ * side by side. Below it the field moves under the name.
+ */
+const SIDE_ROW_STACKS_BELOW_PX = 360
 
 const Form = styled.form`
   display: flex;
@@ -106,6 +128,7 @@ const SidesGrid = styled.div`
 `
 
 const SideColumn = styled.div`
+  container: series-side / inline-size;
   min-width: 0;
 
   display: flex;
@@ -113,20 +136,45 @@ const SideColumn = styled.div`
   gap: 4px;
 `
 
-const SideHeading = styled.div`
-  ${labelMedium};
-  padding-bottom: 4px;
+/**
+ * A person on a side: who they are, the name observers see them under, and removing them. In a
+ * narrow column the "Shown as" field drops below the name, lined up with it.
+ */
+const SidePlayerRow = styled.div`
+  display: grid;
+  grid-template-areas: 'avatar name field remove';
+  grid-template-columns: 24px minmax(0, 1fr) minmax(128px, 176px) 32px;
+  align-items: start;
+  column-gap: 8px;
 
-  border-bottom: 1px solid var(--theme-outline-variant);
-  color: var(--theme-on-surface-variant);
+  @container series-side (width < ${SIDE_ROW_STACKS_BELOW_PX}px) {
+    grid-template-areas:
+      'avatar name remove'
+      '. field field';
+    grid-template-columns: 24px minmax(0, 1fr) 32px;
+    row-gap: 2px;
+  }
 `
 
-const SidePlayerRow = styled.div`
-  min-height: 40px;
+/** Holds a row's leading and trailing parts level with the "Shown as" field beside them. */
+const RowCell = styled.div`
+  min-width: 0;
+  height: 40px;
 
   display: flex;
   align-items: center;
-  gap: 8px;
+`
+
+const AvatarCell = styled(RowCell)`
+  grid-area: avatar;
+`
+
+const NameCell = styled(RowCell)`
+  grid-area: name;
+`
+
+const RemoveCell = styled(RowCell)`
+  grid-area: remove;
 `
 
 const SidePlayerAvatar = styled(ConnectedAvatar)`
@@ -138,6 +186,11 @@ const SidePlayerAvatar = styled(ConnectedAvatar)`
 const SidePlayerName = styled(EllipsizedText)`
   ${bodyMedium};
   flex-grow: 1;
+  min-width: 0;
+`
+
+const ShownAsField = styled(TextField)`
+  grid-area: field;
   min-width: 0;
 `
 
@@ -164,6 +217,16 @@ const AddPlayerButton = styled(TextButton)`
   margin-left: -8px;
 `
 
+const FullSideNote = styled.div`
+  ${bodySmall};
+  min-height: 40px;
+
+  display: flex;
+  align-items: center;
+
+  color: var(--theme-on-surface-variant);
+`
+
 const CandidateAvatar = styled(ConnectedAvatar)`
   width: 24px;
   height: 24px;
@@ -184,12 +247,12 @@ const LineFields = styled.div`
   gap: 8px;
 `
 
-const OverlayHint = styled.div`
+const SectionHint = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
 `
 
-const OverlayLoadError = styled(LoadErrorRow)`
+const SectionLoadError = styled(LoadErrorRow)`
   justify-content: flex-start;
 `
 
@@ -221,17 +284,26 @@ export interface RoomSeriesSetupProps {
   onEndBestOf: () => void
   /** Loads the caster overlay the host's last series was started or saved with. */
   onLoadRememberedOverlay: (spec: RequestHandlingSpec<GetRememberedBestOfOverlayResponse>) => void
+  /**
+   * Loads the display names the host last gave the given people, at most as many as both sides
+   * hold.
+   */
+  onLoadRememberedDisplayNames: (
+    userIds: ReadonlyArray<SbUserId>,
+    spec: RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>,
+  ) => void
 }
 
 /**
  * The host's page for a best-of series, which takes over the room the way Game setup does: starting
- * one when none is running, or changing the title, sides and caster overlay of the one that is. A
- * running series' length is part of what its sides agreed to play, so it can't be changed.
+ * one when none is running, or changing the title, sides, names and caster overlay of the one that
+ * is. A running series' length is part of what its sides agreed to play, so it can't be changed.
  *
  * Whether it starts or edits is settled when it opens, from the lobby as it stood then, so a series
  * starting or ending under it doesn't turn the form into the other one halfway through. A new
  * series opens with the caster overlay the host's last one had, which the server remembers per
- * account.
+ * account, and every person on a side gets the display name the host last gave them unless the
+ * series already has one for them.
  */
 export function RoomSeriesSetup({
   onClose,
@@ -239,6 +311,7 @@ export function RoomSeriesSetup({
   onUpdateBestOf,
   onEndBestOf,
   onLoadRememberedOverlay,
+  onLoadRememberedDisplayNames,
 }: RoomSeriesSetupProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -249,10 +322,27 @@ export function RoomSeriesSetup({
   const [title, setTitle] = useState(editing?.title ?? '')
   const [lengthChoice, setLengthChoice] = useState<number | 'custom'>(DEFAULT_LENGTH)
   const [customLength, setCustomLength] = useState('')
-  const [sides, setSides] = useState<LobbyBestOfSides>(() => {
+  // The sides and "Shown as" fields the page opens with, and the remembered display names to look
+  // up for them as it opens.
+  const [opening] = useState(() => {
     const initial = editing?.sides ?? suggestBestOfSides(lobby) ?? [[], []]
-    return [[...initial[0]], [...initial[1]]]
+    const openingSides: LobbyBestOfSides = [[...initial[0]], [...initial[1]]]
+    const openingDisplayNames = initialDisplayNameFields(editing)
+    return {
+      sides: openingSides,
+      displayNames: openingDisplayNames,
+      nameLookups: batchDisplayNameLookups(
+        getDisplayNamesToLoad(openingSides, openingDisplayNames),
+      ),
+    }
   })
+  const [sides, setSides] = useState<LobbyBestOfSides>(opening.sides)
+  const [sideNames, setSideNames] = useState<[string, string]>(() =>
+    editing ? [getBestOfSideName(editing, 0) ?? '', getBestOfSideName(editing, 1) ?? ''] : ['', ''],
+  )
+  const [displayNames, setDisplayNames] = useState<DisplayNameFields>(opening.displayNames)
+  const [pendingNameLoads, setPendingNameLoads] = useState(opening.nameLookups.length)
+  const [hasNameLoadFailed, setHasNameLoadFailed] = useState(false)
   const [line1, setLine1] = useState(editing?.overlay?.line1 ?? '')
   const [line2, setLine2] = useState(editing?.overlay?.line2 ?? '')
   // What the logo slot opened with, which decides what an empty slot means on submit. A new series'
@@ -270,6 +360,8 @@ export function RoomSeriesSetup({
 
   const titleRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const logoSlotRef = useRef<HTMLDivElement>(null)
+  // Aborts the page's loads once it closes, including the ones started after it opened.
+  const loadSignalRef = useRef<AbortSignal>(undefined)
 
   const loadRemembered = (signal?: AbortSignal) => {
     onLoadRememberedOverlay({
@@ -290,38 +382,85 @@ export function RoomSeriesSetup({
       },
     })
   }
-  const loadRememberedOnOpen = useEffectEvent((signal: AbortSignal) => loadRemembered(signal))
+
+  // A failed load only leaves fields empty: the server keeps what it remembers either way, since an
+  // empty field the page didn't fill in sends nothing about that person.
+  // Each lookup is counted in `pendingNameLoads` before it is requested.
+  const requestRememberedNames = (batch: ReadonlyArray<SbUserId>, signal?: AbortSignal) => {
+    onLoadRememberedDisplayNames(batch, {
+      signal,
+      onSuccess: ({ displayNames: remembered }) => {
+        setDisplayNames(fields => fillRememberedDisplayNames(fields, remembered))
+        setPendingNameLoads(count => count - 1)
+      },
+      onError: err => {
+        logger.error(`Error loading remembered best-of display names: ${getErrorStack(err)}`)
+        setHasNameLoadFailed(true)
+        setPendingNameLoads(count => count - 1)
+      },
+    })
+  }
+  const loadRememberedNames = (userIds: ReadonlyArray<SbUserId>, signal?: AbortSignal) => {
+    for (const batch of batchDisplayNameLookups(userIds)) {
+      setPendingNameLoads(count => count + 1)
+      requestRememberedNames(batch, signal)
+    }
+  }
 
   const isEditing = editing !== undefined
+  const loadOnOpen = useEffectEvent((signal: AbortSignal) => {
+    if (!isEditing) {
+      loadRemembered(signal)
+    }
+    for (const batch of opening.nameLookups) {
+      requestRememberedNames(batch, signal)
+    }
+  })
+
   useEffect(() => {
     titleRef.current?.focus()
-    if (isEditing) {
-      return () => {}
-    }
-
     const controller = new AbortController()
-    loadRememberedOnOpen(controller.signal)
+    loadSignalRef.current = controller.signal
+    loadOnOpen(controller.signal)
     return () => controller.abort()
-  }, [isEditing])
+  }, [])
 
   const length = lengthChoice === 'custom' ? Number(customLength) : lengthChoice
   const isLengthValid = editing !== undefined || isValidBestOfLength(length)
   const showLengthError = lengthChoice === 'custom' && customLength !== '' && !isLengthValid
   const isRememberedLoading = rememberedState === 'loading'
+
+  const titleProblem = getBestOfTextProblem(title, BEST_OF_TITLE_MAX_LENGTH)
+  const line1Problem = getBestOfTextProblem(line1, BEST_OF_OVERLAY_LINE_MAX_LENGTH)
+  const line2Problem = getBestOfTextProblem(line2, BEST_OF_OVERLAY_LINE_MAX_LENGTH)
+  const sideNameProblems = [
+    getBestOfTextProblem(sideNames[0], BEST_OF_SIDE_NAME_MAX_LENGTH),
+    getBestOfTextProblem(sideNames[1], BEST_OF_SIDE_NAME_MAX_LENGTH),
+  ] as const
+  const getDisplayNameProblem = (userId: SbUserId) =>
+    getBestOfTextProblem(displayNames.get(userId)?.value ?? '', BEST_OF_DISPLAY_NAME_MAX_LENGTH)
+  const hasTextProblem =
+    !!titleProblem ||
+    !!line1Problem ||
+    !!line2Problem ||
+    sideNameProblems.some(Boolean) ||
+    sides.flat().some(userId => !!getDisplayNameProblem(userId))
+
   const canSubmit =
     !isSubmitting &&
     !isRememberedLoading &&
+    pendingNameLoads === 0 &&
     isLengthValid &&
-    title.trim().length <= BEST_OF_TITLE_MAX_LENGTH &&
-    line1.trim().length <= BEST_OF_OVERLAY_LINE_MAX_LENGTH &&
-    line2.trim().length <= BEST_OF_OVERLAY_LINE_MAX_LENGTH &&
+    !hasTextProblem &&
     sides[0].length > 0 &&
     sides[1].length > 0
 
   const candidates = getBestOfCandidates(lobby, sides)
 
-  const side1Label = useBestOfSideLabel(sides[0])
-  const side2Label = useBestOfSideLabel(sides[1])
+  const usableSideName = (side: BestOfSideIndex) =>
+    !sideNameProblems[side] ? sideNames[side].trim() || undefined : undefined
+  const side1Label = useBestOfSideLabel(sides[0], usableSideName(0))
+  const side2Label = useBestOfSideLabel(sides[1], usableSideName(1))
   // The score keeps up with the series while the page is open, since games can settle under it.
   let summaryLength: number | undefined
   if (editing) {
@@ -337,6 +476,9 @@ export function RoomSeriesSetup({
     title,
   })
 
+  const problemText = (problem: BestOfTextProblem | undefined, maxLength: number) =>
+    problem ? bestOfTextProblemMessage(problem, maxLength, t) : undefined
+
   // A refusal is about what was sent, so it stops applying once the host changes anything.
   const edited = () => setRequestError(undefined)
 
@@ -347,6 +489,7 @@ export function RoomSeriesSetup({
       next[sideIndex].push(userId)
       return next
     })
+    loadRememberedNames(getDisplayNamesToLoad([[userId], []], displayNames), loadSignalRef.current)
   }
   const removeFromSide = (sideIndex: BestOfSideIndex, userId: SbUserId) => {
     edited()
@@ -355,6 +498,14 @@ export function RoomSeriesSetup({
       next[sideIndex] = next[sideIndex].filter(id => id !== userId)
       return next
     })
+  }
+  const changeSideName = (sideIndex: BestOfSideIndex, name: string) => {
+    edited()
+    setSideNames(current => (sideIndex === 0 ? [name, current[1]] : [current[0], name]))
+  }
+  const changeDisplayName = (userId: SbUserId, name: string) => {
+    edited()
+    setDisplayNames(fields => typeDisplayName(fields, userId, name))
   }
 
   const onRequestError = (err: Error) => {
@@ -375,7 +526,15 @@ export function RoomSeriesSetup({
       return
     }
 
-    const values: SeriesSetupValues = { title, sides, line1, line2, logo }
+    const values: SeriesSetupValues = {
+      title,
+      sides,
+      sideNames,
+      displayNames,
+      line1,
+      line2,
+      logo,
+    }
     const spec: RequestHandlingSpec<void> = {
       onSuccess: () => onClose(),
       onError: onRequestError,
@@ -489,12 +648,14 @@ export function RoomSeriesSetup({
               floatingLabel={true}
               value={title}
               maxLength={BEST_OF_TITLE_MAX_LENGTH}
+              countCharacters={countBestOfTextCharacters}
+              errorText={problemText(titleProblem, BEST_OF_TITLE_MAX_LENGTH)}
               disabled={isSubmitting}
               onChange={event => {
                 edited()
                 setTitle(event.target.value)
               }}
-              inputProps={{ maxLength: BEST_OF_TITLE_MAX_LENGTH, autoComplete: 'off' }}
+              inputProps={{ autoComplete: 'off' }}
               testName='series-setup-title-input'
             />
             <LengthBlock>
@@ -553,14 +714,43 @@ export function RoomSeriesSetup({
 
         <Section>
           <SectionHeader>{t('lobbies.seriesSetup.playersSection', 'Players')}</SectionHeader>
+          <SectionHint>
+            {t(
+              'lobbies.seriesSetup.playersHint',
+              'Observers see each player by their “Shown as” name in game. Remembered for your next series.',
+            )}
+          </SectionHint>
+          {hasNameLoadFailed ? (
+            <SectionLoadError
+              message={t(
+                'lobbies.seriesSetup.rememberedNamesLoadError',
+                "Your remembered “Shown as” names couldn't be loaded.",
+              )}
+              onRetry={() => {
+                setHasNameLoadFailed(false)
+                loadRememberedNames(
+                  getDisplayNamesToLoad(sides, displayNames),
+                  loadSignalRef.current,
+                )
+              }}
+            />
+          ) : null}
           <SidesGrid>
             {([0, 1] as const).map(sideIndex => (
               <BestOfSideEditor
                 key={sideIndex}
                 sideIndex={sideIndex}
+                name={sideNames[sideIndex]}
+                nameError={problemText(sideNameProblems[sideIndex], BEST_OF_SIDE_NAME_MAX_LENGTH)}
                 players={sides[sideIndex]}
+                displayNames={displayNames}
+                getDisplayNameError={userId =>
+                  problemText(getDisplayNameProblem(userId), BEST_OF_DISPLAY_NAME_MAX_LENGTH)
+                }
                 candidates={candidates}
                 disabled={isSubmitting}
+                onNameChange={name => changeSideName(sideIndex, name)}
+                onDisplayNameChange={changeDisplayName}
                 onAdd={userId => addToSide(sideIndex, userId)}
                 onRemove={userId => removeFromSide(sideIndex, userId)}
               />
@@ -571,14 +761,14 @@ export function RoomSeriesSetup({
         <Section>
           <SectionHeader>{t('lobbies.seriesSetup.overlaySection', 'Caster overlay')}</SectionHeader>
           {rememberedState === 'failed' ? (
-            <OverlayLoadError
+            <SectionLoadError
               message={t(
                 'lobbies.seriesSetup.rememberedLoadError',
                 "Your last lines and logo couldn't be loaded.",
               )}
               onRetry={() => {
                 setRememberedState('loading')
-                loadRemembered()
+                loadRemembered(loadSignalRef.current)
               }}
             />
           ) : null}
@@ -589,12 +779,14 @@ export function RoomSeriesSetup({
                 floatingLabel={true}
                 value={line1}
                 maxLength={BEST_OF_OVERLAY_LINE_MAX_LENGTH}
+                countCharacters={countBestOfTextCharacters}
+                errorText={problemText(line1Problem, BEST_OF_OVERLAY_LINE_MAX_LENGTH)}
                 disabled={isSubmitting || isRememberedLoading}
                 onChange={event => {
                   edited()
                   setLine1(event.target.value)
                 }}
-                inputProps={{ maxLength: BEST_OF_OVERLAY_LINE_MAX_LENGTH, autoComplete: 'off' }}
+                inputProps={{ autoComplete: 'off' }}
                 testName='series-setup-line1-input'
               />
               <TextField
@@ -602,12 +794,14 @@ export function RoomSeriesSetup({
                 floatingLabel={true}
                 value={line2}
                 maxLength={BEST_OF_OVERLAY_LINE_MAX_LENGTH}
+                countCharacters={countBestOfTextCharacters}
+                errorText={problemText(line2Problem, BEST_OF_OVERLAY_LINE_MAX_LENGTH)}
                 disabled={isSubmitting || isRememberedLoading}
                 onChange={event => {
                   edited()
                   setLine2(event.target.value)
                 }}
-                inputProps={{ maxLength: BEST_OF_OVERLAY_LINE_MAX_LENGTH, autoComplete: 'off' }}
+                inputProps={{ autoComplete: 'off' }}
                 testName='series-setup-line2-input'
               />
             </LineFields>
@@ -634,31 +828,46 @@ export function RoomSeriesSetup({
               />
             </div>
           </OverlayGrid>
-          <OverlayHint>
+          <SectionHint>
             {t(
               'lobbies.seriesSetup.overlayHint',
               'Shown to observers on the scoreboard. Remembered for your next series.',
             )}
-          </OverlayHint>
+          </SectionHint>
         </Section>
       </Form>
     </SetupPage>
   )
 }
 
-/** One side of the series being set up: who's on it, and adding more people up to the limit. */
+/**
+ * One side of the series being set up: its name, who's on it with the name observers see each of
+ * them under, and adding more people up to the limit.
+ */
 function BestOfSideEditor({
   sideIndex,
+  name,
+  nameError,
   players,
+  displayNames,
+  getDisplayNameError,
   candidates,
   disabled,
+  onNameChange,
+  onDisplayNameChange,
   onAdd,
   onRemove,
 }: {
   sideIndex: BestOfSideIndex
+  name: string
+  nameError: string | undefined
   players: ReadonlyArray<SbUserId>
+  displayNames: DisplayNameFields
+  getDisplayNameError: (userId: SbUserId) => string | undefined
   candidates: ReadonlyArray<BestOfCandidate>
   disabled: boolean
+  onNameChange: (name: string) => void
+  onDisplayNameChange: (userId: SbUserId, name: string) => void
   onAdd: (userId: SbUserId) => void
   onRemove: (userId: SbUserId) => void
 }) {
@@ -677,32 +886,53 @@ function BestOfSideEditor({
 
   return (
     <SideColumn data-testid={`series-setup-side-${sideNumber}`}>
-      <SideHeading>
-        {t('lobbies.seriesSetup.sideHeading', {
-          defaultValue: 'Side {{number}}',
+      <TextField
+        label={t('lobbies.seriesSetup.sideNameLabel', {
+          defaultValue: 'Side {{number}} name (optional)',
           number: sideNumber,
         })}
-      </SideHeading>
+        floatingLabel={true}
+        value={name}
+        maxLength={BEST_OF_SIDE_NAME_MAX_LENGTH}
+        countCharacters={countBestOfTextCharacters}
+        errorText={nameError}
+        disabled={disabled}
+        onChange={event => onNameChange(event.target.value)}
+        inputProps={{ autoComplete: 'off' }}
+        testName={`series-setup-side-name-${sideNumber}`}
+      />
       {players.length ? (
         players.map(userId => (
           <SidePlayer
             key={userId}
             userId={userId}
+            displayName={displayNames.get(userId)?.value ?? ''}
+            displayNameError={getDisplayNameError(userId)}
             disabled={disabled}
+            onDisplayNameChange={value => onDisplayNameChange(userId, value)}
             onRemove={() => onRemove(userId)}
           />
         ))
       ) : (
         <EmptySide>{t('lobbies.seriesSetup.emptySide', 'No players yet')}</EmptySide>
       )}
-      <AddPlayerButton
-        ref={anchorRef}
-        label={t('lobbies.seriesSetup.addPlayer', 'Add player')}
-        iconStart={<MaterialIcon icon='add' size={20} />}
-        disabled={disabled || isFull || candidates.length === 0}
-        onClick={openMenu}
-        testName={`series-setup-add-player-${sideNumber}`}
-      />
+      {isFull ? (
+        <FullSideNote data-testid={`series-setup-side-full-${sideNumber}`}>
+          {t('lobbies.seriesSetup.sideFull', {
+            defaultValue: 'A side holds at most {{max}} players',
+            max: BEST_OF_MAX_SIDE_SIZE,
+          })}
+        </FullSideNote>
+      ) : (
+        <AddPlayerButton
+          ref={anchorRef}
+          label={t('lobbies.seriesSetup.addPlayer', 'Add player')}
+          iconStart={<MaterialIcon icon='add' size={20} />}
+          disabled={disabled || candidates.length === 0}
+          onClick={openMenu}
+          testName={`series-setup-add-player-${sideNumber}`}
+        />
+      )}
       <Popover
         open={isOpen}
         onDismiss={closeMenu}
@@ -733,11 +963,17 @@ function BestOfSideEditor({
 
 function SidePlayer({
   userId,
+  displayName,
+  displayNameError,
   disabled,
+  onDisplayNameChange,
   onRemove,
 }: {
   userId: SbUserId
+  displayName: string
+  displayNameError: string | undefined
   disabled: boolean
+  onDisplayNameChange: (value: string) => void
   onRemove: () => void
 }) {
   const { t } = useTranslation()
@@ -745,20 +981,48 @@ function SidePlayer({
 
   return (
     <SidePlayerRow data-testid='series-setup-side-player'>
-      <SidePlayerAvatar userId={userId} />
-      <SidePlayerName text={name} />
-      <Tooltip text={t('lobbies.seriesSetup.removePlayer', 'Remove from side')} tabIndex={-1}>
-        <RemoveButton
-          icon={<MaterialIcon icon='close' size={20} />}
-          ariaLabel={t('lobbies.seriesSetup.removePlayerNamed', {
-            defaultValue: 'Remove {{name}}',
+      <AvatarCell>
+        <SidePlayerAvatar userId={userId} />
+      </AvatarCell>
+      <NameCell>
+        <SidePlayerName text={name} />
+      </NameCell>
+      <ShownAsField
+        label={t('lobbies.seriesSetup.shownAsLabel', 'Shown as')}
+        floatingLabel={true}
+        alwaysHasValue={true}
+        dense={true}
+        value={displayName}
+        maxLength={BEST_OF_DISPLAY_NAME_MAX_LENGTH}
+        countCharacters={countBestOfTextCharacters}
+        errorText={displayNameError}
+        allowErrors={!!displayNameError}
+        disabled={disabled}
+        onChange={event => onDisplayNameChange(event.target.value)}
+        inputProps={{
+          placeholder: name,
+          autoComplete: 'off',
+          'aria-label': t('lobbies.seriesSetup.shownAsLabelNamed', {
+            defaultValue: '{{name}} is shown to observers as',
             name,
-          })}
-          disabled={disabled}
-          onClick={onRemove}
-          testName={`series-setup-remove-player-${userId}`}
-        />
-      </Tooltip>
+          }),
+        }}
+        testName={`series-setup-shown-as-${userId}`}
+      />
+      <RemoveCell>
+        <Tooltip text={t('lobbies.seriesSetup.removePlayer', 'Remove from side')} tabIndex={-1}>
+          <RemoveButton
+            icon={<MaterialIcon icon='close' size={20} />}
+            ariaLabel={t('lobbies.seriesSetup.removePlayerNamed', {
+              defaultValue: 'Remove {{name}}',
+              name,
+            })}
+            disabled={disabled}
+            onClick={onRemove}
+            testName={`series-setup-remove-player-${userId}`}
+          />
+        </Tooltip>
+      </RemoveCell>
     </SidePlayerRow>
   )
 }

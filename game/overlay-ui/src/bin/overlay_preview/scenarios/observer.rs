@@ -25,9 +25,9 @@ use overlay_ui::observer::{
     OnScreenView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
     ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, SeriesFormat,
     SeriesLogo, SeriesView, Significance, StatusColor, SubjectProgress, TeamCardPlayerView,
-    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
-    TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView, UpgradeEffect,
-    WeaponDamageView, team_name,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TeamNames, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::{MatchupStyle, PanelPrefs};
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,82 @@ const _: () = assert!(LONG_SERIES_TITLE.len() == 50);
 const NAMES: [&str; MAX_PLAYERS] = [
     "Rhynso", "tec27", "Artosis", "Nyoken", "Sasin", "Dandy", "Cloudy", "KogeT",
 ];
+
+/// The most characters a lobby lets a series side's name have.
+const SIDE_NAME_LIMIT: usize = 24;
+
+/// Two side names, as a host names a team league's sides.
+const SIDE_NAMES: [&str; 2] = ["Nexus Esports", "Ironclad"];
+
+/// Two side names as long as a lobby lets them be.
+const LONG_SIDE_NAMES: [&str; 2] = ["Nexus Esports Academy II", "Ironclad Gaming Division"];
+
+const _: () = assert!(LONG_SIDE_NAMES[0].len() == SIDE_NAME_LIMIT);
+const _: () = assert!(LONG_SIDE_NAMES[1].len() == SIDE_NAME_LIMIT);
+
+/// The most characters a lobby lets a display name have.
+const DISPLAY_NAME_LIMIT: usize = 16;
+
+/// The names a series' host shows the fake game's players under, in slot order, where they gave a
+/// player one: handles in Korean and Chinese, which only the overlay's fallback faces carry, one as
+/// long as a lobby lets a display name be, and players who keep their account names beside them.
+const SAMPLE_DISPLAY_NAMES: [Option<&str>; MAX_PLAYERS] = [
+    Some("흑운장"),
+    Some("星际老王"),
+    Some("[NXS] Rhynso.GG!"),
+    None,
+    Some("이제동"),
+    Some("小胖"),
+    None,
+    Some("Bisu"),
+];
+
+/// Display names as long as a lobby lets them be, in Latin, Korean and Chinese, which set at three
+/// different widths.
+const LONG_DISPLAY_NAMES: [&str; 3] = [
+    "MaxDisplayName16",
+    "가나다라마바사아자차카타파하거너",
+    "星际争霸老王星际争霸老王星际争霸",
+];
+
+const _: () = assert!(LONG_DISPLAY_NAMES[0].len() == DISPLAY_NAME_LIMIT);
+
+/// Which names a series' host shows the fake game's players under.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Serialize, Deserialize)]
+pub enum DisplayNames {
+    /// None: every player keeps their account name.
+    #[default]
+    Off,
+    /// [`SAMPLE_DISPLAY_NAMES`].
+    Sample,
+    /// Every player under a name as long as a lobby allows, from [`LONG_DISPLAY_NAMES`] in turn.
+    Longest,
+}
+
+impl DisplayNames {
+    const ALL: [DisplayNames; 3] = [
+        DisplayNames::Off,
+        DisplayNames::Sample,
+        DisplayNames::Longest,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            DisplayNames::Off => "off",
+            DisplayNames::Sample => "sample",
+            DisplayNames::Longest => "longest",
+        }
+    }
+
+    /// The name the player in slot `index` is shown under, where they have one.
+    fn name(self, index: usize) -> Option<&'static str> {
+        match self {
+            DisplayNames::Off => None,
+            DisplayNames::Sample => SAMPLE_DISPLAY_NAMES[index % MAX_PLAYERS],
+            DisplayNames::Longest => Some(LONG_DISPLAY_NAMES[index % LONG_DISPLAY_NAMES.len()]),
+        }
+    }
+}
 
 /// How many points a graph line is drawn from. The panel is a few hundred points wide, so more
 /// samples than this would be more line segments than there are pixels to draw them in.
@@ -330,6 +406,11 @@ pub struct Knobs {
     pub series_line2: String,
     /// Which sample logo the series carries, if any.
     pub series_logo: SampleLogo,
+    /// What the host named each side of the series: the side listed first, then the other. Empty
+    /// for a side they left unnamed.
+    pub series_side_names: [String; 2],
+    /// Which names the series' host shows the players under in place of their account names.
+    pub display_names: DisplayNames,
 }
 
 /// The most characters a lobby lets a caster's line have.
@@ -494,6 +575,8 @@ impl Default for Knobs {
             series_line1: String::new(),
             series_line2: String::new(),
             series_logo: SampleLogo::None,
+            series_side_names: [String::new(), String::new()],
+            display_names: DisplayNames::Off,
         }
     }
 }
@@ -644,6 +727,10 @@ pub fn build_view(
 ) -> ObserverView {
     let t = game_secs as f64;
     let players = knobs.player_count();
+    let side_names = knobs.series_side_names.each_ref().map(|name| {
+        let name = name.trim();
+        (!name.is_empty()).then(|| name.to_string())
+    });
     let matchup = MatchupView {
         players: (0..players)
             .map(|index| matchup_player(knobs, state, index, t))
@@ -664,8 +751,10 @@ pub fn build_view(
                 .map(str::to_string)
                 .collect(),
             logo: state.logo(),
+            side_names,
         }),
     };
+    let team_names = matchup.team_names();
     ObserverView {
         show_entire_map: state.show_entire_map,
         // The corner cards carry the players the bar gave up, so they are built for exactly the
@@ -683,7 +772,7 @@ pub fn build_view(
                 .map(|index| military_player(knobs, state, index, t))
                 .collect(),
         },
-        graphs: graphs_view(knobs, graphs, game_secs),
+        graphs: graphs_view(knobs, graphs, game_secs, &team_names),
         timeline: TimelineView {
             events: timeline_events(knobs, game_secs),
         },
@@ -735,8 +824,12 @@ fn spells(knobs: &Knobs, index: usize) -> Spells {
     }
 }
 
-/// The name a panel other than the matchup bar puts on a player.
+/// The name every panel puts on a player: the one the series' host shows them under where the knobs
+/// give them one, and their account name otherwise.
 fn player_name(knobs: &Knobs, index: usize) -> String {
+    if let Some(name) = knobs.display_names.name(index) {
+        return name.to_string();
+    }
     if knobs.long_names {
         LONG_NAME.to_string()
     } else {
@@ -908,11 +1001,17 @@ fn on_screen(knobs: &Knobs, state: &State, t: f64) -> OnScreenView {
     view
 }
 
-/// The graphs panel's lines, of whichever thing the watcher asked to see them of.
+/// The graphs panel's lines, of whichever thing the watcher asked to see them of, a side's labelled
+/// with what `team_names` calls it.
 ///
 /// A game with one player per side has only one answer, so the panel is told there is no grouping
 /// to name rather than titled with a distinction it does not have.
-fn graphs_view(knobs: &Knobs, request: GraphRequest, game_secs: u64) -> GraphsView {
+fn graphs_view(
+    knobs: &Knobs,
+    request: GraphRequest,
+    game_secs: u64,
+    team_names: &TeamNames,
+) -> GraphsView {
     let has_teams = knobs.has_teams();
     let per_player = request.per_player || !has_teams;
     let lines = if per_player {
@@ -928,7 +1027,7 @@ fn graphs_view(knobs: &Knobs, request: GraphRequest, game_secs: u64) -> GraphsVi
             .map(|team| {
                 let side = knobs.side(team);
                 GraphLineView {
-                    label: team_name(team),
+                    label: team_name(team_names, team),
                     // A side's line takes the color of the player at the top of its block in every
                     // other panel, which is the only color on screen that already stands for it.
                     color: overlay_ui::kit::theme::player_color(side.first().copied().unwrap_or(0)),
@@ -2329,6 +2428,74 @@ impl Caster {
     }
 }
 
+/// What a preset's series names: its sides, and its players in place of their account names.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Names {
+    /// Nothing: the sides are numbered and the players keep their account names.
+    None,
+    /// Both sides, and the players by the sample display names.
+    Named,
+    /// Both sides and every player, by names as long as a lobby lets them be.
+    Long,
+    /// The side listed first alone, and the players by the sample display names.
+    FirstSide,
+    /// The other side alone, and the players by the sample display names.
+    SecondSide,
+}
+
+impl Names {
+    /// The names each shape of series game is rendered with, and the series and caster overlay
+    /// they share the matchup with: both sides named, with the caster's lines and logo beside them
+    /// and without; names as long as a lobby allows under the longest title, with the longest
+    /// lines and the wide logo and without; and each side named alone.
+    const RENDERED: [(Series, Names, Caster); 6] = [
+        (Series::Running, Names::Named, Caster::None),
+        (
+            Series::Running,
+            Names::Named,
+            Caster::Full {
+                logo: SampleLogo::Square,
+                long: false,
+            },
+        ),
+        (Series::Stretched, Names::Long, Caster::None),
+        (
+            Series::Stretched,
+            Names::Long,
+            Caster::Full {
+                logo: SampleLogo::Wide,
+                long: true,
+            },
+        ),
+        (Series::Running, Names::FirstSide, Caster::None),
+        (Series::Running, Names::SecondSide, Caster::None),
+    ];
+
+    /// What a render with these names is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Names::None => "",
+            Names::Named => "named",
+            Names::Long => "named-long",
+            Names::FirstSide => "named-first",
+            Names::SecondSide => "named-second",
+        }
+    }
+
+    /// Sets the knobs' side names and display names to these.
+    fn apply(self, knobs: &mut Knobs) {
+        let (sides, display_names) = match self {
+            Names::None => (["", ""], DisplayNames::Off),
+            Names::Named => (SIDE_NAMES, DisplayNames::Sample),
+            Names::Long => (LONG_SIDE_NAMES, DisplayNames::Longest),
+            Names::FirstSide => ([SIDE_NAMES[0], ""], DisplayNames::Sample),
+            Names::SecondSide => (["", SIDE_NAMES[1]], DisplayNames::Sample),
+        };
+        knobs.series_side_names = sides.map(str::to_string);
+        knobs.display_names = display_names;
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -2345,6 +2512,8 @@ pub struct Preset {
     pub caster: Caster,
     /// How the watcher has the top of the screen.
     pub top: Top,
+    /// What the series names.
+    pub names: Names,
 }
 
 impl Preset {
@@ -2359,6 +2528,7 @@ impl Preset {
             series: Series::None,
             top: Top::Compact,
             caster: Caster::None,
+            names: Names::None,
         }
     }
 
@@ -2373,6 +2543,7 @@ impl Preset {
             series: Series::None,
             top: Top::Compact,
             caster: Caster::None,
+            names: Names::None,
         }
     }
 
@@ -2388,6 +2559,7 @@ impl Preset {
             series: Series::None,
             top: Top::Compact,
             caster: Caster::None,
+            names: Names::None,
         }
     }
 
@@ -2402,6 +2574,7 @@ impl Preset {
             series: Series::None,
             top: Top::Compact,
             caster: Caster::None,
+            names: Names::None,
         }
     }
 
@@ -2420,6 +2593,18 @@ impl Preset {
         caster: Caster,
         top: Top,
     ) -> Preset {
+        Preset::named(players, team_size, series, Names::None, caster, top)
+    }
+
+    /// A series game as [`caster`](Self::caster) has it, naming `names`.
+    pub const fn named(
+        players: usize,
+        team_size: usize,
+        series: Series,
+        names: Names,
+        caster: Caster,
+        top: Top,
+    ) -> Preset {
         Preset {
             players,
             team_size,
@@ -2429,7 +2614,31 @@ impl Preset {
             series,
             caster,
             top,
+            names,
         }
+    }
+
+    /// The series games rendered with named sides and players: each setup in [`Names::RENDERED`] on
+    /// the bar and on the plate the compact scoreboard leaves the series, for one, two, three and
+    /// four a side.
+    pub fn named_presets() -> impl Iterator<Item = Preset> {
+        const SHAPES: [(usize, usize, Top); 8] = [
+            (2, 1, Top::Bar),
+            (2, 1, Top::Compact),
+            (4, 2, Top::Bar),
+            (4, 2, Top::Compact),
+            (6, 3, Top::Bar),
+            (6, 3, Top::Compact),
+            (8, 4, Top::Bar),
+            (8, 4, Top::Compact),
+        ];
+        Names::RENDERED
+            .into_iter()
+            .flat_map(|(series, names, caster)| {
+                SHAPES.map(|(players, team_size, top)| {
+                    Preset::named(players, team_size, series, names, caster, top)
+                })
+            })
     }
 
     /// The series games rendered with something on their caster overlay: each setup in
@@ -2554,15 +2763,19 @@ impl Preset {
         }
         if self.series != Series::None {
             let form = self.top.slug();
-            if self.caster != Caster::None {
-                return format!(
-                    "{}-{}-{}-{form}",
-                    self.shape(),
-                    self.series.slug(),
-                    self.caster.slug()
-                );
-            }
-            return format!("{}-{}-{form}", self.shape(), self.series.slug());
+            let shape = self.shape();
+            let parts = [
+                shape.as_str(),
+                self.series.slug(),
+                self.names.slug(),
+                self.caster.slug(),
+                form,
+            ];
+            return parts
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join("-");
         }
         format!("{}-{}", self.shape(), self.panels.slug())
     }
@@ -2648,6 +2861,7 @@ impl Preset {
             }
         }
         self.caster.apply(&mut knobs.observer);
+        self.names.apply(&mut knobs.observer);
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
         // them has, so the readings of a building are watched from a Protoss player's side, as is
         // the carrier, which only a Protoss player has.
@@ -2848,6 +3062,28 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
             for logo in SampleLogo::ALL {
                 changed |= ui
                     .selectable_value(&mut k.series_logo, logo, logo.label())
+                    .changed();
+            }
+        });
+        for (index, name) in k.series_side_names.iter_mut().enumerate() {
+            ui.horizontal(|ui| {
+                ui.label(format!("side {} name:", index + 1));
+                changed |= ui
+                    .add(egui::TextEdit::singleline(name).char_limit(SIDE_NAME_LIMIT))
+                    .on_hover_text("Empty for a side the host left unnamed.")
+                    .changed();
+            });
+        }
+        ui.horizontal(|ui| {
+            ui.label("display names:");
+            for names in DisplayNames::ALL {
+                changed |= ui
+                    .selectable_value(&mut k.display_names, names, names.label())
+                    .on_hover_text(
+                        "The names the series' host shows the players under on every panel that \
+                         names one: a sample with Korean and Chinese handles and one as long as a \
+                         lobby allows, or every player under one as long as that.",
+                    )
                     .changed();
             }
         });

@@ -4,6 +4,7 @@ import { getPlayerSlots } from '../../../common/lobbies'
 import {
   BestOfSideIndex,
   getBestOfScore,
+  getBestOfSideName,
   getBestOfWinsNeeded,
   LobbyBestOfJson,
 } from '../../../common/lobbies/lobby-best-of'
@@ -174,7 +175,10 @@ function BestOfStandingsRow({
   wins: number
   leading: boolean
 }) {
-  const sideLabel = useBestOfSideLabel(bestOf.sides[sideIndex])
+  const sideLabel = useBestOfSideLabel(
+    bestOf.sides[sideIndex],
+    getBestOfSideName(bestOf, sideIndex),
+  )
 
   return (
     <ScoreboardRow>

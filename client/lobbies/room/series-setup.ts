@@ -4,11 +4,19 @@ import {
   BEST_OF_LOGO_ACCEPTED_TYPES,
   BEST_OF_LOGO_MAX_DIMENSION,
   BEST_OF_LOGO_MAX_SIZE_BYTES,
+  BEST_OF_MAX_SIDE_SIZE,
+  BestOfDisplayName,
+  BestOfDisplayNameChange,
+  BestOfTextProblem,
+  getBestOfDisplayName,
+  getBestOfSideName,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
+  LobbyBestOfSideNames,
   LobbyBestOfSides,
 } from '../../../common/lobbies/lobby-best-of'
 import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { isFetchError } from '../../network/fetch-errors'
 import { StartBestOfParams, UpdateBestOfParams } from '../action-creators'
 
@@ -40,19 +48,135 @@ function sameSides(a: Readonly<LobbyBestOfSides>, b: Readonly<LobbyBestOfSides>)
   )
 }
 
+/** A "Shown as" field on the series page: the display name observers see someone under. */
+export interface DisplayNameField {
+  /** What the field holds, as typed. */
+  value: string
+  /**
+   * What the page filled the field with on its own: the running series' display name for the
+   * person, or the one the host is remembered to give them. Empty when it filled in nothing.
+   */
+  filled: string
+  /** Whether the host has typed in the field, after which the page never fills it in again. */
+  touched: boolean
+}
+
+/** The page's "Shown as" fields by person. A person without an entry has an empty field. */
+export type DisplayNameFields = ReadonlyMap<SbUserId, DisplayNameField>
+
+/** The "Shown as" fields a page opens with: the display names of the series it edits, if any. */
+export function initialDisplayNameFields(
+  editing: Pick<LobbyBestOfJson, 'displayNames'> | undefined,
+): DisplayNameFields {
+  return new Map(
+    (editing?.displayNames ?? []).map(({ userId, name }) => [
+      userId,
+      { value: name, filled: name, touched: false },
+    ]),
+  )
+}
+
+/** Returns the fields with the host's typing in one person's field applied. */
+export function typeDisplayName(
+  fields: DisplayNameFields,
+  userId: SbUserId,
+  value: string,
+): DisplayNameFields {
+  const next = new Map(fields)
+  next.set(userId, { value, filled: fields.get(userId)?.filled ?? '', touched: true })
+  return next
+}
+
+/** Whether the page may still fill in a field: the host hasn't typed in it and it is empty. */
+function isFillable(field: DisplayNameField | undefined): boolean {
+  return !field || (!field.touched && !field.value)
+}
+
+/**
+ * Returns the fields with the display names the host is remembered to give people filled in, but
+ * only into fields `isFillable` allows: a remembered name can land after the host started typing,
+ * and never replaces a display name the running series already has.
+ */
+export function fillRememberedDisplayNames(
+  fields: DisplayNameFields,
+  remembered: ReadonlyArray<BestOfDisplayName>,
+): DisplayNameFields {
+  const next = new Map(fields)
+  for (const { userId, name } of remembered) {
+    if (isFillable(fields.get(userId))) {
+      next.set(userId, { value: name, filled: name, touched: false })
+    }
+  }
+  return next
+}
+
+/** Returns the people on the sides whose remembered display name could still be filled in. */
+export function getDisplayNamesToLoad(
+  sides: Readonly<LobbyBestOfSides>,
+  fields: DisplayNameFields,
+): SbUserId[] {
+  return sides.flat().filter(userId => isFillable(fields.get(userId)))
+}
+
+/**
+ * Splits the people to look remembered display names up for into the requests the server takes,
+ * each asking about at most as many people as both sides can hold.
+ */
+export function batchDisplayNameLookups(userIds: ReadonlyArray<SbUserId>): SbUserId[][] {
+  const batchSize = BEST_OF_MAX_SIDE_SIZE * 2
+  const batches: SbUserId[][] = []
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    batches.push(userIds.slice(i, i + batchSize))
+  }
+  return batches
+}
+
 /** What the host entered on the series page. */
 export interface SeriesSetupValues {
   title: string
   sides: LobbyBestOfSides
+  /** As typed, in side order. */
+  sideNames: [side1: string, side2: string]
+  displayNames: DisplayNameFields
   line1: string
   line2: string
   logo: LogoSlotValue
+}
+
+function trimmedSideNames(values: Pick<SeriesSetupValues, 'sideNames'>): LobbyBestOfSideNames {
+  return [values.sideNames[0].trim() || null, values.sideNames[1].trim() || null]
+}
+
+/**
+ * Lists the display name changes the fields make for the people on the sides, compared to the
+ * display names `current` has (none, for a series being started):
+ *
+ * - a field holding a name other than the current one sets it
+ * - an empty field clears the display name when the page had filled the field in or the person has
+ *   one, which also makes the server forget the name it remembers for them
+ * - anything else changes nothing, so a field that was simply left blank leaves alone whatever the
+ *   server remembers (which the page may have failed to load)
+ */
+function getDisplayNameChanges(
+  values: Pick<SeriesSetupValues, 'sides' | 'displayNames'>,
+  current: Pick<LobbyBestOfJson, 'displayNames'>,
+): BestOfDisplayNameChange[] {
+  return values.sides.flat().flatMap((userId): BestOfDisplayNameChange[] => {
+    const field = values.displayNames.get(userId)
+    const name = field?.value.trim() ?? ''
+    const currentName = getBestOfDisplayName(current, userId) ?? ''
+    if (name) {
+      return name !== currentName ? [{ userId, name }] : []
+    }
+    return field?.filled || currentName ? [{ userId, name: null }] : []
+  })
 }
 
 /**
  * Builds the request that starts a series from what the host entered. The logo slot's starting
  * value decides what an empty slot means: removing a logo the slot opened with also forgets it as
  * the host's remembered logo, while a slot that opened empty (or unknown) sends nothing about it.
+ * Display names follow the same idea (see `getDisplayNameChanges`).
  */
 export function buildStartBestOfParams(
   length: number,
@@ -60,12 +184,16 @@ export function buildStartBestOfParams(
   initialLogo: LogoSlotValue,
 ): StartBestOfParams {
   const title = values.title.trim()
+  const sideNames = trimmedSideNames(values)
+  const displayNames = getDisplayNameChanges(values, {})
   const line1 = values.line1.trim()
   const line2 = values.line2.trim()
   return {
     length,
     ...(title ? { title } : {}),
     sides: values.sides,
+    ...(sideNames[0] || sideNames[1] ? { sideNames } : {}),
+    ...(displayNames.length ? { displayNames } : {}),
     ...(line1 ? { line1 } : {}),
     ...(line2 ? { line2 } : {}),
     ...logoChange(values.logo, initialLogo),
@@ -78,16 +206,24 @@ export function buildStartBestOfParams(
  * server refuses a request that changes nothing.
  */
 export function buildUpdateBestOfParams(
-  editing: Pick<LobbyBestOfJson, 'title' | 'sides' | 'overlay'>,
+  editing: Pick<LobbyBestOfJson, 'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'>,
   values: SeriesSetupValues,
 ): UpdateBestOfParams | undefined {
   const title = values.title.trim()
+  const sideNames = trimmedSideNames(values)
+  const sideNamesChanged = ([0, 1] as const).some(
+    side => sideNames[side] !== (getBestOfSideName(editing, side) ?? null),
+  )
+  const displayNames = getDisplayNameChanges(values, editing)
   const line1 = values.line1.trim()
   const line2 = values.line2.trim()
 
   const changes: UpdateBestOfParams = {
     ...(title !== (editing.title ?? '') ? { title: title || null } : {}),
     ...(!sameSides(values.sides, editing.sides) ? { sides: values.sides } : {}),
+    // Both names go whenever either changed, since the server replaces them together.
+    ...(sideNamesChanged ? { sideNames } : {}),
+    ...(displayNames.length ? { displayNames } : {}),
     ...(line1 !== (editing.overlay?.line1 ?? '') ? { line1: line1 || null } : {}),
     ...(line2 !== (editing.overlay?.line2 ?? '') ? { line2: line2 || null } : {}),
     ...logoChange(values.logo, storedLogoSlot(editing.overlay?.logo)),
@@ -106,6 +242,31 @@ function logoChange(
     return { deleteLogo: true }
   } else {
     return {}
+  }
+}
+
+/**
+ * The message a text field on the series page shows for text that can't be used, given the most
+ * characters the field takes.
+ */
+export function bestOfTextProblemMessage(
+  problem: BestOfTextProblem,
+  maxLength: number,
+  t: TFunction,
+): string {
+  switch (problem) {
+    case 'tooLong':
+      return t('lobbies.seriesSetup.textTooLong', {
+        defaultValue: 'At most {{max}} characters',
+        max: maxLength,
+      })
+    case 'invalidCharacters':
+      return t(
+        'lobbies.seriesSetup.textInvalidCharacters',
+        "Contains characters that can't be used",
+      )
+    default:
+      return problem satisfies never
   }
 }
 
