@@ -10,14 +10,20 @@ import {
   BEST_OF_PRESET_LENGTHS,
   BEST_OF_SIDE_NAME_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
+  BestOfHostResult,
   BestOfSideIndex,
   BestOfTextProblem,
   countBestOfTextCharacters,
+  getBestOfGameNumber,
   getBestOfScore,
   getBestOfSideName,
   getBestOfTextProblem,
   getRunningBestOf,
+  isBestOfAddedResult,
   isValidBestOfLength,
+  LobbyBestOfAddedResultJson,
+  LobbyBestOfJson,
+  LobbyBestOfLaunchedGameJson,
   LobbyBestOfSides,
   suggestBestOfSides,
 } from '../../../common/lobbies/lobby-best-of'
@@ -32,7 +38,9 @@ import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { LoadErrorRow } from '../../lists/load-error-row'
 import logger from '../../logging/logger'
+import { batchGetMapInfo } from '../../maps/action-creators'
 import { FilledButton, IconButton, TextButton } from '../../material/button'
+import { CheckBox } from '../../material/check-box'
 import { EllipsizedText } from '../../material/ellipsized-text'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
@@ -43,17 +51,18 @@ import { Tooltip } from '../../material/tooltip'
 import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { DotsIndicator } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyLarge, bodyMedium, bodySmall, labelMedium } from '../../styles/typography'
+import { bodyMedium, bodySmall, labelLarge, labelMedium } from '../../styles/typography'
 import { StartBestOfParams, UpdateBestOfParams } from '../action-creators'
 import { Section, SectionHeader } from '../create/game-setup-form'
 import { lobbyActionErrorMessage } from '../lobby-action-errors'
 import { SetupPage } from '../setup-page'
 import { BestOfCandidate, getBestOfCandidates } from './best-of-display'
 import { BestOfLogoSlot } from './best-of-logo-slot'
-import { useBestOfSideLabel } from './best-of-parts'
+import { bestOfLabel, useBestOfSideLabel } from './best-of-parts'
 import { useAnchoredMenu } from './room-parts'
 import {
   batchDisplayNameLookups,
+  bestOfFormatHint,
   bestOfLogoErrorMessage,
   bestOfTextProblemMessage,
   buildStartBestOfParams,
@@ -62,6 +71,7 @@ import {
   fillRememberedDisplayNames,
   formatSeriesSetupSummary,
   getDisplayNamesToLoad,
+  getFormatChangeOutcome,
   initialDisplayNameFields,
   LogoSlotValue,
   SeriesSetupValues,
@@ -113,12 +123,10 @@ const CustomLengthField = styled(TextField)`
   margin-top: 8px;
 `
 
-const FixedLength = styled.div`
-  ${bodyLarge};
-  min-height: 40px;
-
-  display: flex;
-  align-items: center;
+/** Cancels `CheckBox`'s start padding so the box lines up with the length choices above it. */
+const PlayAllCheckBox = styled(CheckBox)`
+  align-self: flex-start;
+  margin-left: -2px;
 `
 
 const SidesGrid = styled.div`
@@ -273,6 +281,121 @@ const EndSeriesButton = styled(TextButton)`
   color: var(--theme-error);
 `
 
+const ResultsHeader = styled(SectionHeader)`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
+const ResultsTitle = styled(EllipsizedText)`
+  flex: 0 1 auto;
+  min-width: 0;
+`
+
+const ResultsOutcome = styled.span`
+  ${labelMedium};
+  flex-shrink: 0;
+`
+
+const ResultsScore = styled.span`
+  ${labelLarge};
+  flex-shrink: 0;
+  margin-left: auto;
+
+  color: var(--theme-on-surface);
+  font-variant-numeric: tabular-nums;
+`
+
+const ResultRows = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+/**
+ * One entry of a series' results: its game number, what it was, and how it counts. The rows share
+ * their columns, so the controls line up down the list.
+ */
+const ResultRow = styled.div`
+  min-height: 48px;
+  padding-block: 4px;
+
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+
+  & + & {
+    border-top: 1px solid var(--theme-outline-variant);
+  }
+`
+
+const ResultNumber = styled.div`
+  ${labelLarge};
+`
+
+const ResultMain = styled.div`
+  min-width: 0;
+
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+`
+
+const ResultMapName = styled(EllipsizedText)`
+  ${bodyMedium};
+  flex: 0 1 auto;
+  min-width: 0;
+`
+
+const ResultNote = styled.span`
+  ${bodySmall};
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--theme-on-surface-variant);
+`
+
+/** A side's label in a result's choices, which gives way to the other choices when it's long. */
+const ResultSideLabel = styled(EllipsizedText)`
+  max-width: 160px;
+`
+
+const AddedResultWinner = styled.div`
+  ${bodyMedium};
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const AddedResultTrophy = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
+const AddedResultSide = styled(EllipsizedText)`
+  max-width: 240px;
+`
+
+const AddResultLabel = styled.div`
+  ${bodyMedium};
+  grid-column: 1 / 3;
+  color: var(--theme-on-surface-variant);
+`
+
+const AddResultButtons = styled.div`
+  min-width: 0;
+
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+`
+
+const AddResultSide = styled(EllipsizedText)`
+  max-width: 200px;
+`
+
 /** Where loading the host's remembered caster overlay stands. */
 type RememberedLoadState = 'loading' | 'loaded' | 'failed'
 
@@ -292,36 +415,102 @@ export interface RoomSeriesSetupProps {
     userIds: ReadonlyArray<SbUserId>,
     spec: RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>,
   ) => void
+  /**
+   * Sets the result of a game of the lobby's latest series, answering with the series as that left
+   * it.
+   */
+  onSetBestOfGameResult: (
+    gameId: string,
+    result: BestOfHostResult,
+    spec: RequestHandlingSpec<LobbyBestOfJson>,
+  ) => void
+  /**
+   * Adds a win for a side, with no game behind it, to the lobby's latest series, answering with the
+   * series as that left it.
+   */
+  onAddBestOfResult: (winner: BestOfSideIndex, spec: RequestHandlingSpec<LobbyBestOfJson>) => void
+  /**
+   * Removes a result the host added by hand from the lobby's latest series, answering with the
+   * series as that left it.
+   */
+  onRemoveBestOfResult: (resultId: string, spec: RequestHandlingSpec<LobbyBestOfJson>) => void
 }
 
 /**
  * The host's page for a best-of series, which takes over the room the way Game setup does: starting
- * one when none is running, or changing the title, sides, names and caster overlay of the one that
- * is. A running series' length is part of what its sides agreed to play, so it can't be changed.
+ * one when none is running, or changing the format, title, sides, names and caster overlay of the
+ * one that is. Under either form it lists the results of the lobby's latest series, which the host
+ * can correct there.
  *
  * Whether it starts or edits is settled when it opens, from the lobby as it stood then, so a series
- * starting or ending under it doesn't turn the form into the other one halfway through. A new
- * series opens with the caster overlay the host's last one had, which the server remembers per
- * account, and every person on a side gets the display name the host last gave them unless the
+ * starting or ending under it doesn't turn the form into the other one halfway through. The one
+ * exception is a correction made on the page itself that ends the running series or reopens the
+ * ended one: the host asked for that change, so the form is replaced by the one the series now
+ * needs, set up from the series the correction answered with. The lobby's own copy of the series
+ * may not have caught up with the correction yet.
+ *
+ * A new series opens with the caster overlay the host's last one had, which the server remembers
+ * per account, and every person on a side gets the display name the host last gave them unless the
  * series already has one for them.
  */
-export function RoomSeriesSetup({
+export function RoomSeriesSetup(props: RoomSeriesSetupProps) {
+  const currentBestOf = useAppSelector(s => getRunningBestOf(s.lobby.bestOfs))
+  const [form, setForm] = useState(() => ({ key: 0, editing: currentBestOf }))
+
+  return (
+    <SeriesSetupForm
+      key={form.key}
+      {...props}
+      editing={form.editing}
+      onRunningChange={bestOf =>
+        setForm(current => ({
+          key: current.key + 1,
+          editing: bestOf.outcome ? undefined : bestOf,
+        }))
+      }
+    />
+  )
+}
+
+/** Picks the length choice a form opens with for `length`: its preset, or a custom one. */
+function openingLengthChoice(length: number): number | 'custom' {
+  return BEST_OF_PRESET_LENGTHS.includes(length) ? length : 'custom'
+}
+
+function SeriesSetupForm({
+  editing,
+  onRunningChange,
   onClose,
   onStartBestOf,
   onUpdateBestOf,
   onEndBestOf,
   onLoadRememberedOverlay,
   onLoadRememberedDisplayNames,
-}: RoomSeriesSetupProps) {
+  onSetBestOfGameResult,
+  onAddBestOfResult,
+  onRemoveBestOfResult,
+}: RoomSeriesSetupProps & {
+  /** The running series the form edits, or `undefined` for a form that starts one. */
+  editing: LobbyBestOfJson | undefined
+  /**
+   * Called when a correction made on the page ended the series the form edits, or reopened the
+   * ended one shown under a form that starts one, with the series the correction answered with.
+   */
+  onRunningChange: (bestOf: LobbyBestOfJson) => void
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const lobby = useAppSelector(s => s.lobby.info)
-  const currentBestOf = useAppSelector(s => getRunningBestOf(s.lobby.bestOfs))
+  const latestBestOf = useAppSelector(s => s.lobby.bestOfs.at(-1))
 
-  const [editing] = useState(currentBestOf)
   const [title, setTitle] = useState(editing?.title ?? '')
-  const [lengthChoice, setLengthChoice] = useState<number | 'custom'>(DEFAULT_LENGTH)
-  const [customLength, setCustomLength] = useState('')
+  const [lengthChoice, setLengthChoice] = useState(() =>
+    openingLengthChoice(editing?.length ?? DEFAULT_LENGTH),
+  )
+  const [customLength, setCustomLength] = useState(() =>
+    editing && openingLengthChoice(editing.length) === 'custom' ? String(editing.length) : '',
+  )
+  const [playAll, setPlayAll] = useState(!!editing?.playAll)
   // The sides and "Shown as" fields the page opens with, and the remembered display names to look
   // up for them as it opens.
   const [opening] = useState(() => {
@@ -357,6 +546,7 @@ export function RoomSeriesSetup({
   )
   const [requestError, setRequestError] = useState<string>()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCorrecting, setIsCorrecting] = useState(false)
 
   const titleRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const logoSlotRef = useRef<HTMLDivElement>(null)
@@ -426,7 +616,8 @@ export function RoomSeriesSetup({
   }, [])
 
   const length = lengthChoice === 'custom' ? Number(customLength) : lengthChoice
-  const isLengthValid = editing !== undefined || isValidBestOfLength(length)
+  const isLengthValid =
+    (lengthChoice !== 'custom' || customLength.trim() !== '') && isValidBestOfLength(length)
   const showLengthError = lengthChoice === 'custom' && customLength !== '' && !isLengthValid
   const isRememberedLoading = rememberedState === 'loading'
 
@@ -448,6 +639,7 @@ export function RoomSeriesSetup({
 
   const canSubmit =
     !isSubmitting &&
+    !isCorrecting &&
     !isRememberedLoading &&
     pendingNameLoads === 0 &&
     isLengthValid &&
@@ -461,16 +653,11 @@ export function RoomSeriesSetup({
     !sideNameProblems[side] ? sideNames[side].trim() || undefined : undefined
   const side1Label = useBestOfSideLabel(sides[0], usableSideName(0))
   const side2Label = useBestOfSideLabel(sides[1], usableSideName(1))
-  // The score keeps up with the series while the page is open, since games can settle under it.
-  let summaryLength: number | undefined
-  if (editing) {
-    summaryLength = editing.length
-  } else if (isLengthValid) {
-    summaryLength = length
-  }
-  const liveBestOf = editing && currentBestOf?.id === editing.id ? currentBestOf : editing
+  // The score keeps up with the series while the page is open, since games can settle and results
+  // be corrected under it.
+  const liveBestOf = editing && latestBestOf?.id === editing.id ? latestBestOf : editing
   const summary = formatSeriesSetupSummary(t, {
-    length: summaryLength,
+    format: isLengthValid ? { length, ...(playAll ? { playAll: true } : {}) } : undefined,
     sideLabels: sides[0].length && sides[1].length ? [side1Label, side2Label] : undefined,
     score: liveBestOf ? getBestOfScore(liveBestOf) : undefined,
     title,
@@ -527,6 +714,8 @@ export function RoomSeriesSetup({
     }
 
     const values: SeriesSetupValues = {
+      length,
+      playAll,
       title,
       sides,
       sideNames,
@@ -544,7 +733,7 @@ export function RoomSeriesSetup({
       setIsSubmitting(true)
       setRequestError(undefined)
       setLogoError(undefined)
-      onStartBestOf(buildStartBestOfParams(length, values, initialLogo), spec)
+      onStartBestOf(buildStartBestOfParams(values, initialLogo), spec)
       return
     }
 
@@ -553,10 +742,59 @@ export function RoomSeriesSetup({
       onClose()
       return
     }
-    setIsSubmitting(true)
+    const save = () => {
+      setIsSubmitting(true)
+      setRequestError(undefined)
+      setLogoError(undefined)
+      onUpdateBestOf(changes, spec)
+    }
+
+    const ending = liveBestOf ? getFormatChangeOutcome(liveBestOf, changes) : undefined
+    if (!liveBestOf || !ending) {
+      save()
+      return
+    }
+    dispatch(
+      openDialog({
+        type: DialogType.LobbyBestOfFormatEnds,
+        initData: {
+          length,
+          playAll,
+          score: getBestOfScore(liveBestOf),
+          outcome:
+            ending.kind === 'won'
+              ? {
+                  kind: 'won',
+                  winner: ending.winner,
+                  winnerLabel: ending.winner === 0 ? side1Label : side2Label,
+                }
+              : { kind: 'drawn' },
+          onConfirm: save,
+        },
+      }),
+    )
+  }
+
+  // A correction applies at once and is answered with the series as it left it, which decides
+  // whether the form still fits: one that edits a series the correction ended, or starts one while
+  // the correction reopened the last one, is replaced.
+  const correct = (send: (spec: RequestHandlingSpec<LobbyBestOfJson>) => void) => {
+    setIsCorrecting(true)
     setRequestError(undefined)
-    setLogoError(undefined)
-    onUpdateBestOf(changes, spec)
+    send({
+      signal: loadSignalRef.current,
+      onSuccess: bestOf => {
+        setIsCorrecting(false)
+        if (!!bestOf.outcome === isEditing) {
+          onRunningChange(bestOf)
+        }
+      },
+      onError: err => {
+        logger.error(`Error correcting a best-of series: ${getErrorStack(err)}`)
+        setIsCorrecting(false)
+        setRequestError(lobbyActionErrorMessage(err, t, latestBestOf))
+      },
+    })
   }
 
   const onBack = () => {
@@ -595,6 +833,19 @@ export function RoomSeriesSetup({
     },
   ]
 
+  const resultsSection = latestBestOf ? (
+    <BestOfResultsSection
+      bestOf={latestBestOf}
+      isEditing={isEditing}
+      disabled={isSubmitting || isCorrecting}
+      onSetGameResult={(gameId, result) =>
+        correct(spec => onSetBestOfGameResult(gameId, result, spec))
+      }
+      onAddResult={winner => correct(spec => onAddBestOfResult(winner, spec))}
+      onRemoveResult={resultId => correct(spec => onRemoveBestOfResult(resultId, spec))}
+    />
+  ) : null
+
   const submitLabel = editing
     ? t('common.actions.save', 'Save')
     : t('lobbies.seriesSetup.startAction', 'Start series')
@@ -603,7 +854,7 @@ export function RoomSeriesSetup({
       {editing ? (
         <EndSeriesButton
           label={t('lobbies.seriesSetup.endAction', 'End series')}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isCorrecting}
           onClick={onEndSeries}
           testName='series-setup-end-button'
         />
@@ -662,55 +913,61 @@ export function RoomSeriesSetup({
               <LengthLabel id='series-setup-length-label'>
                 {t('lobbies.seriesSetup.lengthLabel', 'Length')}
               </LengthLabel>
-              {editing ? (
-                <FixedLength data-testid='series-setup-fixed-length'>
-                  {t('lobbies.seriesSetup.fixedLength', {
-                    defaultValue: 'Best of {{length}}',
-                    length: editing.length,
-                  })}
-                </FixedLength>
-              ) : (
-                <>
-                  <SegmentedButtonGroup
-                    segments={lengthSegments}
-                    value={lengthChoice}
-                    onChange={value => {
-                      edited()
-                      setLengthChoice(value)
-                    }}
-                    ariaLabelledBy='series-setup-length-label'
-                    disabled={isSubmitting}
-                    testName='series-setup-length'
-                  />
-                  {lengthChoice === 'custom' ? (
-                    <CustomLengthField
-                      type='number'
-                      dense={true}
-                      label={t('lobbies.seriesSetup.customLengthLabel', 'Games')}
-                      floatingLabel={true}
-                      value={customLength}
-                      disabled={isSubmitting}
-                      onChange={event => {
-                        edited()
-                        setCustomLength(event.target.value)
-                      }}
-                      errorText={
-                        showLengthError
-                          ? t('lobbies.seriesSetup.invalidLength', {
-                              defaultValue: 'An odd number from 1 to {{max}}',
-                              max: BEST_OF_MAX_LENGTH,
-                            })
-                          : undefined
-                      }
-                      inputProps={{ min: 1, max: BEST_OF_MAX_LENGTH, step: 2 }}
-                      testName='series-setup-custom-length-input'
-                    />
-                  ) : null}
-                </>
-              )}
+              <SegmentedButtonGroup
+                segments={lengthSegments}
+                value={lengthChoice}
+                onChange={value => {
+                  edited()
+                  setLengthChoice(value)
+                }}
+                ariaLabelledBy='series-setup-length-label'
+                disabled={isSubmitting}
+                testName='series-setup-length'
+              />
+              {lengthChoice === 'custom' ? (
+                <CustomLengthField
+                  type='number'
+                  dense={true}
+                  label={t('lobbies.seriesSetup.customLengthLabel', 'Games')}
+                  floatingLabel={true}
+                  value={customLength}
+                  disabled={isSubmitting}
+                  onChange={event => {
+                    edited()
+                    setCustomLength(event.target.value)
+                  }}
+                  errorText={
+                    showLengthError
+                      ? t('lobbies.seriesSetup.lengthOutOfRange', {
+                          defaultValue: 'A number from 1 to {{max}}',
+                          max: BEST_OF_MAX_LENGTH,
+                        })
+                      : undefined
+                  }
+                  inputProps={{ min: 1, max: BEST_OF_MAX_LENGTH, step: 1 }}
+                  testName='series-setup-custom-length-input'
+                />
+              ) : null}
+              <PlayAllCheckBox
+                label={t('lobbies.seriesSetup.playAllLabel', 'Play all games')}
+                checked={playAll}
+                disabled={isSubmitting}
+                onChange={event => {
+                  edited()
+                  setPlayAll(event.target.checked)
+                }}
+              />
+              {isLengthValid ? (
+                <SectionHint data-testid='series-setup-format-hint'>
+                  {bestOfFormatHint({ length, ...(playAll ? { playAll: true } : {}) }, t)}
+                </SectionHint>
+              ) : null}
             </LengthBlock>
           </SeriesRow>
         </Section>
+
+        {/* A running series' results sit by its format, which decides what they add up to. */}
+        {isEditing ? resultsSection : null}
 
         <Section>
           <SectionHeader>{t('lobbies.seriesSetup.playersSection', 'Players')}</SectionHeader>
@@ -835,6 +1092,9 @@ export function RoomSeriesSetup({
             )}
           </SectionHint>
         </Section>
+
+        {/* Under a form that starts a series, the results are the last series', so they come last. */}
+        {isEditing ? null : resultsSection}
       </Form>
     </SetupPage>
   )
@@ -1024,5 +1284,279 @@ function SidePlayer({
         </Tooltip>
       </RemoveCell>
     </SidePlayerRow>
+  )
+}
+
+/**
+ * How a game of a series counts, as its result choices show it. Nothing is chosen while it waits
+ * for its results or they gave it no winner.
+ */
+type GameResultChoice = BestOfSideIndex | 'notCounted' | undefined
+
+function getGameResultChoice(game: LobbyBestOfLaunchedGameJson): GameResultChoice {
+  switch (game.status) {
+    case 'won':
+      return game.winner
+    case 'notCounted':
+      return 'notCounted'
+    case 'pending':
+    case 'noWinner':
+      return undefined
+    default:
+      return game satisfies never
+  }
+}
+
+/**
+ * The results of the lobby's latest best-of series, read live from the lobby, each of which the
+ * host can correct on the spot: a game can be given to either side or stop counting, and a win can
+ * be added for either side with no game behind it (or such a win removed). Under a form that edits
+ * a series, it is that series; under one that starts a series, it is the last one, which ended.
+ */
+function BestOfResultsSection({
+  bestOf,
+  isEditing,
+  disabled,
+  onSetGameResult,
+  onAddResult,
+  onRemoveResult,
+}: {
+  bestOf: LobbyBestOfJson
+  /** Whether the page's form edits this series, rather than starting the next one. */
+  isEditing: boolean
+  disabled: boolean
+  onSetGameResult: (gameId: string, result: BestOfHostResult) => void
+  onAddResult: (winner: BestOfSideIndex) => void
+  onRemoveResult: (resultId: string) => void
+}) {
+  const { t } = useTranslation()
+  const side1Label = useBestOfSideLabel(bestOf.sides[0], getBestOfSideName(bestOf, 0))
+  const side2Label = useBestOfSideLabel(bestOf.sides[1], getBestOfSideName(bestOf, 1))
+  const sideLabels: [string, string] = [side1Label, side2Label]
+  const [score1, score2] = getBestOfScore(bestOf)
+  // The server takes no more wins once the score adds up to the longest series there can be.
+  const isFull = score1 + score2 >= BEST_OF_MAX_LENGTH
+
+  const title = isEditing
+    ? t('lobbies.seriesSetup.resultsSection', 'Results')
+    : t('lobbies.seriesSetup.resultsSectionOf', {
+        defaultValue: 'Results · {{label}}',
+        label: bestOfLabel(bestOf, t),
+      })
+  let outcomeNote: string | undefined
+  switch (bestOf.outcome?.kind) {
+    case undefined:
+      break
+    case 'won':
+      outcomeNote = t('lobbies.seriesSetup.resultsFinal', 'Final')
+      break
+    case 'drawn':
+      outcomeNote = t('lobbies.seriesSetup.resultsDrawn', 'Drawn')
+      break
+    case 'unfinished':
+      outcomeNote = t('lobbies.seriesSetup.resultsEndedEarly', 'Ended early')
+      break
+    default:
+      bestOf.outcome satisfies never
+  }
+
+  return (
+    <Section data-testid='series-results'>
+      <ResultsHeader>
+        <ResultsTitle text={title} />
+        {outcomeNote ? (
+          <ResultsOutcome data-testid='series-results-outcome'>{outcomeNote}</ResultsOutcome>
+        ) : null}
+        <ResultsScore data-testid='series-results-score'>
+          {t('lobbies.room.bestOf.score', {
+            defaultValue: '{{score1}} – {{score2}}',
+            score1,
+            score2,
+          })}
+        </ResultsScore>
+      </ResultsHeader>
+      <ResultRows>
+        {bestOf.games.map((entry, index) =>
+          isBestOfAddedResult(entry) ? (
+            <AddedResultRow
+              key={`added-${entry.resultId}`}
+              result={entry}
+              gameNumber={getBestOfGameNumber(bestOf, index)}
+              sideLabels={sideLabels}
+              disabled={disabled}
+              onRemove={() => onRemoveResult(entry.resultId)}
+            />
+          ) : (
+            <GameResultRow
+              key={`game-${entry.gameId}`}
+              game={entry}
+              gameNumber={getBestOfGameNumber(bestOf, index)}
+              sideLabels={sideLabels}
+              disabled={disabled}
+              onSetResult={result => onSetGameResult(entry.gameId, result)}
+            />
+          ),
+        )}
+        <ResultRow data-testid='series-results-add'>
+          <AddResultLabel>{t('lobbies.seriesSetup.addResult', 'Add a result')}</AddResultLabel>
+          <AddResultButtons>
+            {([0, 1] as const).map(side => (
+              <TextButton
+                key={side}
+                label={
+                  <AddResultSide
+                    text={t('lobbies.seriesSetup.addWinFor', {
+                      defaultValue: 'Win for {{side}}',
+                      side: sideLabels[side],
+                    })}
+                  />
+                }
+                iconStart={<MaterialIcon icon='add' size={20} />}
+                disabled={disabled || isFull}
+                onClick={() => onAddResult(side)}
+                testName={`series-results-add-${side + 1}`}
+              />
+            ))}
+          </AddResultButtons>
+        </ResultRow>
+      </ResultRows>
+      <SectionHint>
+        {t(
+          'lobbies.seriesSetup.resultsHint',
+          'Changes apply right away and are announced in the lobby chat.',
+        )}
+      </SectionHint>
+    </Section>
+  )
+}
+
+/**
+ * A game launched as part of the series: its number, the map it was played on (once the lobby has
+ * it among its finished games), anything to note about how it counts, and the choice of how it
+ * counts, which applies as soon as it's picked.
+ */
+function GameResultRow({
+  game,
+  gameNumber,
+  sideLabels,
+  disabled,
+  onSetResult,
+}: {
+  game: LobbyBestOfLaunchedGameJson
+  gameNumber: number
+  sideLabels: [string, string]
+  disabled: boolean
+  onSetResult: (result: BestOfHostResult) => void
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const mapId = useAppSelector(s => s.lobby.series.find(g => g.gameId === game.gameId)?.mapId)
+  const mapName = useAppSelector(s => (mapId ? s.maps.byId.get(mapId)?.name : undefined))
+
+  // A series' earlier games can be on maps the lobby has since moved off of, which nothing else
+  // here has any reason to have loaded.
+  useEffect(() => {
+    if (mapId) {
+      dispatch(batchGetMapInfo(mapId))
+    }
+  }, [dispatch, mapId])
+
+  let note: string | undefined
+  if (game.status === 'pending') {
+    note = t('lobbies.room.series.waitingForResults', 'Waiting for results')
+  } else if (game.status === 'noWinner') {
+    note = t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
+  } else if (game.status === 'won' && game.setByHost) {
+    note = t('lobbies.room.bestOf.setByHost', 'Set by host')
+  }
+
+  const choice = getGameResultChoice(game)
+  const segments: ReadonlyArray<Segment<GameResultChoice>> = [
+    ...([0, 1] as const).map(side => ({
+      value: side,
+      label: <ResultSideLabel text={sideLabels[side]} />,
+      testName: `series-results-${game.gameId}-side-${side + 1}`,
+    })),
+    {
+      value: 'notCounted',
+      label: t('lobbies.seriesSetup.resultNotCounted', 'Not counted'),
+      neutral: true,
+      testName: `series-results-${game.gameId}-not-counted`,
+    },
+  ]
+
+  return (
+    <ResultRow data-testid={`series-results-game-${game.gameId}`}>
+      <ResultNumber>
+        {t('lobbies.room.series.gameNumber', 'Game {{number}}', { number: gameNumber })}
+      </ResultNumber>
+      <ResultMain>
+        {mapName ? <ResultMapName text={mapName} /> : null}
+        {note ? <ResultNote>{note}</ResultNote> : null}
+      </ResultMain>
+      <SegmentedButtonGroup
+        segments={segments}
+        value={choice}
+        onChange={value => {
+          // The server refuses a game set to the result it already counts as.
+          if (value === choice || value === undefined) {
+            return
+          }
+          onSetResult(
+            value === 'notCounted' ? { status: 'notCounted' } : { status: 'won', winner: value },
+          )
+        }}
+        ariaLabel={t('lobbies.seriesSetup.resultChoicesLabel', {
+          defaultValue: 'How game {{number}} counts',
+          number: gameNumber,
+        })}
+        disabled={disabled}
+        testName={`series-results-${game.gameId}`}
+      />
+    </ResultRow>
+  )
+}
+
+/** A win the host added to the series by hand: its number, the side it is for, and removing it. */
+function AddedResultRow({
+  result,
+  gameNumber,
+  sideLabels,
+  disabled,
+  onRemove,
+}: {
+  result: LobbyBestOfAddedResultJson
+  gameNumber: number
+  sideLabels: [string, string]
+  disabled: boolean
+  onRemove: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <ResultRow data-testid={`series-results-added-${result.resultId}`}>
+      <ResultNumber>
+        {t('lobbies.room.series.gameNumber', 'Game {{number}}', { number: gameNumber })}
+      </ResultNumber>
+      <ResultMain>
+        <ResultNote>{t('lobbies.room.bestOf.addedByHost', 'Added by host')}</ResultNote>
+      </ResultMain>
+      <AddedResultWinner>
+        <AddedResultTrophy icon='trophy' size={18} filled />
+        <AddedResultSide text={sideLabels[result.winner]} />
+        <Tooltip text={t('lobbies.seriesSetup.removeResult', 'Remove this result')} tabIndex={-1}>
+          <RemoveButton
+            icon={<MaterialIcon icon='close' size={20} />}
+            ariaLabel={t('lobbies.seriesSetup.removeResultNamed', {
+              defaultValue: 'Remove the added win for {{side}}',
+              side: sideLabels[result.winner],
+            })}
+            disabled={disabled}
+            onClick={onRemove}
+            testName={`series-results-remove-${result.resultId}`}
+          />
+        </Tooltip>
+      </AddedResultWinner>
+    </ResultRow>
   )
 }

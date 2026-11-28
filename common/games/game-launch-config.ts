@@ -40,7 +40,15 @@ export interface PlayerInfo {
  * How a series is played, as far as showing it goes. Only the facts travel; any wording about the
  * format is composed by whoever displays it.
  */
-export type SeriesOverlayFormat = { kind: 'bestOf'; length: number }
+export type SeriesOverlayFormat = {
+  kind: 'bestOf'
+  length: number
+  /**
+   * Whether the series is played to its full length rather than ending once a side has won a
+   * majority of it. Absent means it isn't.
+   */
+  playAll?: boolean
+}
 
 /** One side of a series, as the observer overlay shows it. */
 export interface SeriesOverlaySide {

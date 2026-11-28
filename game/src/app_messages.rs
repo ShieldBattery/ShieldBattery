@@ -591,8 +591,13 @@ pub struct SeriesOverlayDisplayName {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SeriesOverlayFormat {
+    /// `length` games in a series. Unless `play_all`, it ends once a side has won more than half of
+    /// them; a `play_all` series plays all `length` whatever the score.
     BestOf {
         length: u32,
+        // The enum's `rename_all` names its variants, not their fields.
+        #[serde(default, rename = "playAll")]
+        play_all: bool,
     },
     /// A format added on the server after this build, which still has to deserialize so the game
     /// can load. The overlay shows nothing of a series it cannot word.
@@ -1003,7 +1008,13 @@ mod tests {
         .expect("valid setup");
         let series = setup.series_overlay.expect("the series is carried");
         assert_eq!(series.title.as_deref(), Some("Grand Final"));
-        assert_eq!(series.format, SeriesOverlayFormat::BestOf { length: 3 });
+        assert_eq!(
+            series.format,
+            SeriesOverlayFormat::BestOf {
+                length: 3,
+                play_all: false
+            }
+        );
         assert_eq!(series.game_number, 2);
         assert_eq!(series.sides[0].caption, None);
         assert_eq!(series.sides[0].score, 1);
@@ -1149,6 +1160,51 @@ mod tests {
                 .lines
                 .len(),
             3
+        );
+    }
+
+    #[test]
+    fn a_series_format_plays_all_its_games_only_when_it_says_so() {
+        let format = |extra: serde_json::Value| {
+            let mut format = serde_json::json!({ "kind": "bestOf", "length": 5 });
+            if let (Some(fields), Some(extra)) = (format.as_object_mut(), extra.as_object()) {
+                fields.extend(extra.clone());
+            }
+            game_setup(serde_json::json!({
+                "seriesOverlay": {
+                    "format": format,
+                    "gameNumber": 1,
+                    "sides": [
+                        { "score": 0, "players": [10] },
+                        { "score": 0, "players": [20] },
+                    ],
+                },
+            }))
+            .expect("valid setup")
+            .series_overlay
+            .expect("the series is carried")
+            .format
+        };
+        assert_eq!(
+            format(serde_json::json!({})),
+            SeriesOverlayFormat::BestOf {
+                length: 5,
+                play_all: false
+            }
+        );
+        assert_eq!(
+            format(serde_json::json!({ "playAll": false })),
+            SeriesOverlayFormat::BestOf {
+                length: 5,
+                play_all: false
+            }
+        );
+        assert_eq!(
+            format(serde_json::json!({ "playAll": true })),
+            SeriesOverlayFormat::BestOf {
+                length: 5,
+                play_all: true
+            }
         );
     }
 

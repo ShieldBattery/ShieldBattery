@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
@@ -31,24 +32,30 @@ import {
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
   BEST_OF_DISPLAY_NAME_MAX_LENGTH,
+  BEST_OF_MAX_LENGTH,
   BEST_OF_MAX_SIDE_SIZE,
   BEST_OF_OVERLAY_LINE_MAX_LENGTH,
   BEST_OF_SIDE_NAME_MAX_LENGTH,
   BEST_OF_TITLE_MAX_LENGTH,
   BestOfDisplayName,
   BestOfDisplayNameChange,
+  BestOfHostResult,
   BestOfRosterCheck,
+  BestOfSideIndex,
   checkBestOfRoster,
   findBestOfGameWinner,
+  getBestOfOutcomeAfterChange,
   getBestOfScore,
   getBestOfSideName,
   getBestOfTextProblem,
-  getBestOfWinsNeeded,
   getRunningBestOf,
+  isBestOfAddedResult,
   isValidBestOfLength,
+  LobbyBestOfAddedResultJson,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
   LobbyBestOfLogoJson,
+  LobbyBestOfOutcome,
   LobbyBestOfSideNames,
   LobbyBestOfSides,
   toBestOfLaunchInfo,
@@ -60,6 +67,7 @@ import {
   getPlayerSeats,
   isLobbySummaryFull,
   LobbyBenchRemoveEvent,
+  LobbyBestOfCorrection,
   LobbyChangedSetting,
   LobbyCountdownJson,
   LobbyInitEvent,
@@ -136,6 +144,8 @@ export interface StartBestOfParams {
   client: ClientSocketsGroup
   lobbyId?: SbLobbyId
   length: number
+  /** Plays the series to its full length rather than ending it once a side has a majority. */
+  playAll?: boolean
   title?: string
   sides: Readonly<LobbyBestOfSides>
   /** The sides' names; each trimmed, with `null` or an empty one meaning none. */
@@ -156,6 +166,12 @@ export interface StartBestOfParams {
 export interface UpdateBestOfParams {
   client: ClientSocketsGroup
   lobbyId?: SbLobbyId
+  /** The new length; one equal to the series' own is no change. */
+  length?: number
+  /**
+   * Whether the series is played to its full length; one equal to the series' own is no change.
+   */
+  playAll?: boolean
   /** The new title; `null` or an empty title clears it. */
   title?: string | null
   /** The new sides. Someone taken off both loses their display name. */
@@ -475,6 +491,25 @@ function describeBestOfRosterProblem(
   } else {
     return "a team holds players of both of the best-of's sides"
   }
+}
+
+/** Whether two outcomes of a best-of series are the same: the same kind, and the same winner. */
+function isSameBestOfOutcome(
+  a: LobbyBestOfOutcome | undefined,
+  b: LobbyBestOfOutcome | undefined,
+): boolean {
+  if (!a || !b) {
+    return a === b
+  }
+  return a.kind === b.kind && (a.kind !== 'won' || b.kind !== 'won' || a.winner === b.winner)
+}
+
+/** Whether a game of a best-of series already counts as `result`. */
+function bestOfGameCountsAs(game: LobbyBestOfGameJson, result: BestOfHostResult): boolean {
+  return (
+    game.status === result.status &&
+    (game.status !== 'won' || result.status !== 'won' || game.winner === result.winner)
+  )
 }
 
 /**
@@ -894,7 +929,8 @@ export class LobbyService {
 
   /**
    * Replaces a lobby's running best-of series with a new version of it and tells the lobby: as its
-   * end when the new version has an outcome, and as an update otherwise.
+   * end when the new version has an outcome, and as an update otherwise. A change to the series'
+   * results or format goes through `_applyBestOfChange` instead.
    */
   private _replaceRunningBestOf(lobby: Lobby, updated: LobbyBestOfJson) {
     const list = this.bestOfs.get(lobby.id)!
@@ -903,6 +939,49 @@ export class LobbyService {
       type: updated.outcome ? 'bestOfEnded' : 'bestOfUpdated',
       bestOf: updated,
     })
+  }
+
+  /**
+   * Replaces a lobby's latest best-of series, `previous`, with `changed`, a version of it whose
+   * results or format may differ, giving it the outcome `getBestOfOutcomeAfterChange` calls for
+   * (whatever outcome `changed` carries is ignored). Returns the series as it is kept.
+   *
+   * Every change to a series' results or format comes through here, and it tells the lobby:
+   *
+   * 1. a correction by the host is announced as one, saying whether it reopened the series;
+   * 2. when the series now has an outcome it didn't have before, its end is announced (after the
+   *    correction, if any);
+   * 3. any other change is announced as an update.
+   *
+   * A correction that leaves an ended series ended the same way doesn't announce its end again.
+   */
+  private _applyBestOfChange(
+    lobby: Lobby,
+    previous: LobbyBestOfJson,
+    changed: LobbyBestOfJson,
+    correction?: LobbyBestOfCorrection,
+  ): LobbyBestOfJson {
+    const outcome = getBestOfOutcomeAfterChange(changed, previous.outcome)
+    const { outcome: _, ...rest } = changed
+    const updated: LobbyBestOfJson = outcome ? { ...rest, outcome } : rest
+    const list = this.bestOfs.get(lobby.id)!
+    list[list.length - 1] = updated
+
+    if (correction) {
+      const wasDecided = previous.outcome?.kind === 'won' || previous.outcome?.kind === 'drawn'
+      this._publishTo(lobby, {
+        type: 'bestOfCorrected',
+        bestOf: updated,
+        correction,
+        reopened: wasDecided && !outcome,
+      })
+    }
+    if (outcome && !isSameBestOfOutcome(outcome, previous.outcome)) {
+      this._publishTo(lobby, { type: 'bestOfEnded', bestOf: updated })
+    } else if (!correction) {
+      this._publishTo(lobby, { type: 'bestOfUpdated', bestOf: updated })
+    }
+    return updated
   }
 
   /** Serializes the game launch a lobby has under way for the wire, or `undefined` if it has none. */
@@ -3205,21 +3284,24 @@ export class LobbyService {
   }
 
   /**
-   * Counts a game of a lobby's running best-of series now that its results have settled, ending the
-   * series if that gives one side more than half of its games. The game counts for the side whose
-   * players won it as the sides stood when it launched; a game neither side (or both) won counts
-   * for nobody.
+   * Counts a game of a lobby's latest best-of series now that its results have settled, which
+   * decides the series when its results now do. The game counts for the side whose players won it
+   * as the sides stood when it launched; a game neither side (or both) won counts for nobody.
    *
-   * Only a game still pending in the running series is counted: one the host stopped counting, or
-   * one that launched when no series was running, is left alone.
+   * Only a game still pending in the latest series is counted, whether or not the series has an
+   * outcome (a correction can decide a series while one of its games is pending). A game the host
+   * set a result for, one of an earlier series, or one that launched when no series was running is
+   * left alone.
    */
   private _settleBestOfGame(lobby: Lobby, gameId: string, result: LobbySeriesGameResultJson) {
-    const running = this._runningBestOf(lobby.id)
-    const index = running
-      ? running.games.findIndex(game => game.gameId === gameId && game.status === 'pending')
+    const latest = this.bestOfs.get(lobby.id)?.at(-1)
+    const index = latest
+      ? latest.games.findIndex(
+          game => !isBestOfAddedResult(game) && game.gameId === gameId && game.status === 'pending',
+        )
       : -1
     const sides = this.bestOfLaunchSides.get(gameId)
-    if (!running || index === -1 || !sides) {
+    if (!latest || index === -1 || !sides) {
       return
     }
     this.bestOfLaunchSides.delete(gameId)
@@ -3227,17 +3309,10 @@ export class LobbyService {
     const winner = findBestOfGameWinner(sides, result.outcomes)
     const settled: LobbyBestOfGameJson =
       winner !== undefined ? { gameId, status: 'won', winner } : { gameId, status: 'noWinner' }
-    const updated: LobbyBestOfJson = {
-      ...running,
-      games: running.games.map((game, i) => (i === index ? settled : game)),
-    }
-    if (
-      winner !== undefined &&
-      getBestOfScore(updated)[winner] >= getBestOfWinsNeeded(updated.length)
-    ) {
-      updated.outcome = { kind: 'won', winner }
-    }
-    this._replaceRunningBestOf(lobby, updated)
+    this._applyBestOfChange(lobby, latest, {
+      ...latest,
+      games: latest.games.map((game, i) => (i === index ? settled : game)),
+    })
   }
 
   /** Drops everything a closed lobby remembered about the games it played. */
@@ -3245,7 +3320,9 @@ export class LobbyService {
     this.series.delete(lobbyId)
     for (const bestOf of this.bestOfs.get(lobbyId) ?? []) {
       for (const game of bestOf.games) {
-        this.bestOfLaunchSides.delete(game.gameId)
+        if (!isBestOfAddedResult(game)) {
+          this.bestOfLaunchSides.delete(game.gameId)
+        }
       }
     }
     this.bestOfs.delete(lobbyId)
@@ -3259,6 +3336,11 @@ export class LobbyService {
   /**
    * Starts a best-of series of `length` games between the two sides the host picked, and returns
    * it. Every game the lobby launches from now until the series ends counts towards it.
+   *
+   * The series before it, if any, can no longer be corrected, so its games still waiting for their
+   * results stop counting (a correction can decide a series while one of its games is pending).
+   * When it has any, the lobby is told of that series' change, keeping its outcome, before it is
+   * told of the start.
    */
   startBestOf(params: StartBestOfParams): LobbyBestOfJson {
     const { lobby, bestOf } = this._newBestOf(params)
@@ -3267,6 +3349,21 @@ export class LobbyService {
       list = []
       this.bestOfs.set(lobby.id, list)
     }
+
+    const previous = list.at(-1)
+    if (previous?.games.some(game => game.status === 'pending')) {
+      const games = previous.games.map((game): LobbyBestOfGameJson => {
+        if (isBestOfAddedResult(game) || game.status !== 'pending') {
+          return game
+        }
+        this.bestOfLaunchSides.delete(game.gameId)
+        return { gameId: game.gameId, status: 'notCounted' }
+      })
+      const stopped: LobbyBestOfJson = { ...previous, games }
+      list[list.length - 1] = stopped
+      this._publishTo(lobby, { type: 'bestOfUpdated', bestOf: stopped })
+    }
+
     list.push(bestOf)
     this._publishTo(lobby, { type: 'bestOfStarted', bestOf })
     return bestOf
@@ -3282,6 +3379,7 @@ export class LobbyService {
     client,
     lobbyId,
     length,
+    playAll,
     title,
     sides,
     sideNames,
@@ -3323,6 +3421,7 @@ export class LobbyService {
       id: String((this.bestOfs.get(lobby.id)?.length ?? 0) + 1),
       ...(validTitle !== undefined ? { title: validTitle } : {}),
       length,
+      ...(playAll ? { playAll: true } : {}),
       sides: validSides,
       ...(validSideNames ? { sideNames: validSideNames } : {}),
       ...(validDisplayNames ? { displayNames: validDisplayNames } : {}),
@@ -3333,15 +3432,18 @@ export class LobbyService {
   }
 
   /**
-   * Changes the title, sides, side names, display names and/or caster overlay of a lobby's running
-   * best-of series, and returns the changed series. The games already won stay with the side that
-   * won them, whoever plays for it now. Someone already on either side may stay on one after leaving
-   * the lobby; anyone added has to be in it. Someone taken off both sides loses their display name.
+   * Changes the length, whether it is played to its full length, title, sides, side names, display
+   * names and/or caster overlay of a lobby's running best-of series, and returns the changed series.
+   * The games already won stay with the side that won them, whoever plays for it now. Someone
+   * already on either side may stay on one after leaving the lobby; anyone added has to be in it.
+   * Someone taken off both sides loses their display name.
+   *
+   * A change of length or of playing to the full length is a correction, which ends the series at
+   * once when its results decide it under the new format.
    */
   updateBestOf(params: UpdateBestOfParams): LobbyBestOfJson {
-    const { lobby, updated } = this._updatedBestOf(params)
-    this._replaceRunningBestOf(lobby, updated)
-    return updated
+    const { lobby, running, updated, correction } = this._updatedBestOf(params)
+    return this._applyBestOfChange(lobby, running, updated, correction)
   }
 
   /** Throws whatever `updateBestOf` would throw for these params, without changing anything. */
@@ -3349,10 +3451,15 @@ export class LobbyService {
     this._updatedBestOf(params)
   }
 
-  /** Validates a change to a lobby's running best-of series and returns the series it would give. */
+  /**
+   * Validates a change to a lobby's running best-of series and returns the series it would give,
+   * along with the correction it makes when it changes the series' format.
+   */
   private _updatedBestOf({
     client,
     lobbyId,
+    length,
+    playAll,
     title,
     sides,
     sideNames,
@@ -3360,11 +3467,24 @@ export class LobbyService {
     line1,
     line2,
     logo,
-  }: UpdateBestOfParams): { lobby: Lobby; updated: LobbyBestOfJson } {
+  }: UpdateBestOfParams): {
+    lobby: Lobby
+    running: LobbyBestOfJson
+    updated: LobbyBestOfJson
+    correction: LobbyBestOfCorrection | undefined
+  } {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const running = this._ensureBestOfEditable(lobby, client)
 
+    if (length !== undefined && !isValidBestOfLength(length)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidBestOf, 'invalid best-of length')
+    }
+    const newLength = length ?? running.length
+    const newPlayAll = playAll ?? !!running.playAll
+    const formatChanged = newLength !== running.length || newPlayAll !== !!running.playAll
+
     if (
+      !formatChanged &&
       title === undefined &&
       sides === undefined &&
       sideNames === undefined &&
@@ -3398,6 +3518,7 @@ export class LobbyService {
 
     const {
       title: _title,
+      playAll: _playAll,
       sideNames: _sideNames,
       displayNames: _displayNames,
       overlay: _overlay,
@@ -3406,12 +3527,17 @@ export class LobbyService {
     const updated: LobbyBestOfJson = {
       ...rest,
       ...(newTitle !== undefined ? { title: newTitle } : {}),
+      length: newLength,
+      ...(newPlayAll ? { playAll: true } : {}),
       sides: newSides,
       ...(newSideNames ? { sideNames: newSideNames } : {}),
       ...(newDisplayNames ? { displayNames: newDisplayNames } : {}),
       ...(overlay ? { overlay } : {}),
     }
-    return { lobby, updated }
+    const correction: LobbyBestOfCorrection | undefined = formatChanged
+      ? { kind: 'format', length: newLength, playAll: newPlayAll }
+      : undefined
+    return { lobby, running, updated, correction }
   }
 
   /**
@@ -3440,7 +3566,7 @@ export class LobbyService {
   }
 
   /**
-   * Ends a lobby's running best-of series before either side has won it. Its games whose results
+   * Ends a lobby's running best-of series before its results decide it. Its games whose results
    * haven't settled are no longer counted.
    */
   endBestOf({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
@@ -3458,38 +3584,136 @@ export class LobbyService {
   }
 
   /**
-   * Stops counting a game of a lobby's running best-of series whose results haven't settled (and
-   * may never), so the series can go on without it. A result that arrives for it later is ignored.
+   * Sets the result of a game of a lobby's latest best-of series, running or ended, whether its own
+   * results have settled or not, and returns the corrected series. Results that settle for the game
+   * later change nothing. Setting a game to the result it already counts as is refused.
    */
-  discardBestOfGame({
+  setBestOfGameResult({
     client,
     lobbyId,
     gameId,
+    result,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
     gameId: string
-  }): void {
+    result: BestOfHostResult
+  }): LobbyBestOfJson {
     const lobby = this.getLobbyForClient(client, lobbyId)
-    const running = this._ensureBestOfEditable(lobby, client)
+    const latest = this._ensureBestOfCorrectable(lobby, client)
 
-    const index = running.games.findIndex(
-      game => game.gameId === gameId && game.status === 'pending',
+    const index = latest.games.findIndex(
+      game => !isBestOfAddedResult(game) && game.gameId === gameId,
     )
     if (index === -1) {
       throw new LobbyServiceError(
-        LobbyServiceErrorCode.BestOfGameNotPending,
-        "that game isn't a pending game of the best-of",
+        LobbyServiceErrorCode.BestOfResultNotFound,
+        "that game isn't one of the best-of's",
+      )
+    }
+    if (bestOfGameCountsAs(latest.games[index], result)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidBestOf,
+        'that game already counts as that result',
       )
     }
 
+    // A game whose results haven't settled no longer waits for them
     this.bestOfLaunchSides.delete(gameId)
-    this._replaceRunningBestOf(lobby, {
-      ...running,
-      games: running.games.map((game, i) =>
-        i === index ? { gameId, status: 'notCounted' } : game,
-      ),
-    })
+    const set: LobbyBestOfGameJson =
+      result.status === 'won'
+        ? { gameId, status: 'won', winner: result.winner, setByHost: true }
+        : { gameId, status: 'notCounted' }
+    return this._applyBestOfChange(
+      lobby,
+      latest,
+      { ...latest, games: latest.games.map((game, i) => (i === index ? set : game)) },
+      { kind: 'gameResult', gameId, result },
+    )
+  }
+
+  /**
+   * Adds a win for `winner` with no game behind it to a lobby's latest best-of series, running or
+   * ended, and returns the corrected series. Refused once the series' score adds up to
+   * `BEST_OF_MAX_LENGTH` wins.
+   */
+  addBestOfResult({
+    client,
+    lobbyId,
+    winner,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    winner: BestOfSideIndex
+  }): LobbyBestOfJson {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const latest = this._ensureBestOfCorrectable(lobby, client)
+
+    const [a, b] = getBestOfScore(latest)
+    if (a + b >= BEST_OF_MAX_LENGTH) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidBestOf,
+        'the best-of has as many wins as it can hold',
+      )
+    }
+
+    return this._applyBestOfChange(
+      lobby,
+      latest,
+      { ...latest, games: [...latest.games, { resultId: nanoid(), status: 'won', winner }] },
+      { kind: 'resultAdded', winner },
+    )
+  }
+
+  /**
+   * Removes a result the host added by hand from a lobby's latest best-of series, running or
+   * ended, and returns the corrected series.
+   */
+  removeBestOfResult({
+    client,
+    lobbyId,
+    resultId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    resultId: string
+  }): LobbyBestOfJson {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const latest = this._ensureBestOfCorrectable(lobby, client)
+
+    const removed = latest.games.find(
+      (game): game is LobbyBestOfAddedResultJson =>
+        isBestOfAddedResult(game) && game.resultId === resultId,
+    )
+    if (!removed) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.BestOfResultNotFound,
+        "that result isn't one added to the best-of",
+      )
+    }
+
+    return this._applyBestOfChange(
+      lobby,
+      latest,
+      { ...latest, games: latest.games.filter(game => game !== removed) },
+      { kind: 'resultRemoved', winner: removed.winner },
+    )
+  }
+
+  /**
+   * Ensures the acting client is the host of a gathering lobby that has had a best-of series, and
+   * returns its latest one, running or ended: the one whose results can be corrected.
+   */
+  private _ensureBestOfCorrectable(lobby: Lobby, client: ClientSocketsGroup): LobbyBestOfJson {
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const latest = this.bestOfs.get(lobby.id)?.at(-1)
+    if (!latest) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NoBestOf, 'the lobby has had no best-of')
+    }
+    return latest
   }
 
   /**

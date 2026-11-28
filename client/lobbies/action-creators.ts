@@ -4,22 +4,30 @@ import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { findSlotByUserId, LobbyVisibility } from '../../common/lobbies'
 import {
+  BestOfHostResult,
+  BestOfSideIndex,
+  LobbyBestOfJson,
+} from '../../common/lobbies/lobby-best-of'
+import {
+  AddLobbyBestOfResultRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
-  DiscardLobbyBestOfGameRequest,
   EndLobbyBestOfRequest,
   GetLobbyStateResponse,
   GetRememberedBestOfDisplayNamesResponse,
   GetRememberedBestOfOverlayResponse,
   InviteToLobbyRequest,
   JoinLobbyRequest,
+  LobbyBestOfCorrectionResponse,
   LobbyClientRequest,
   LobbyNetworkParams,
   LobbyPreferencesResponse,
   LobbySlotRequest,
   MoveSlotRequest,
+  RemoveLobbyBestOfResultRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
+  SetLobbyBestOfGameResultRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyBestOfRequest,
@@ -384,8 +392,8 @@ export interface UpdateBestOfParams extends Omit<UpdateLobbyBestOfRequest, 'clie
 }
 
 /**
- * Changes the title, sides and/or caster overlay of the running best-of series in the lobby the
- * user is hosting.
+ * Changes the length, whether it is played to its full length, the title, sides and/or caster
+ * overlay of the running best-of series in the lobby the user is hosting.
  */
 export function updateBestOf(
   { logo, ...changes }: UpdateBestOfParams,
@@ -454,14 +462,73 @@ export function endBestOf(spec: RequestHandlingSpec<void>): ThunkAction {
 }
 
 /**
- * Stops counting a game of the running best-of series whose results haven't settled, so the
- * series can go on without it.
+ * Sends a correction of the latest best-of series in the lobby the user is hosting, answering with
+ * the series as the correction left it. Fails when the user isn't in a lobby, since there is no
+ * series to answer with.
  */
-export function discardBestOfGame(gameId: string, spec: RequestHandlingSpec<void>): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/discard-best-of-game`, {
+function currentLobbyBestOfCorrection(
+  spec: RequestHandlingSpec<LobbyBestOfJson>,
+  makeRequest: (lobbyId: SbLobbyId) => Promise<LobbyBestOfCorrectionResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) {
+      throw new Error('not in a lobby')
+    }
+
+    const { bestOf } = await makeRequest(lobby.info.id)
+    return bestOf
+  })
+}
+
+/**
+ * Sets the result of a game of the latest best-of series in the lobby the user is hosting, running
+ * or ended, whether its own results have settled or not.
+ */
+export function setBestOfGameResult(
+  gameId: string,
+  result: BestOfHostResult,
+  spec: RequestHandlingSpec<LobbyBestOfJson>,
+): ThunkAction {
+  return currentLobbyBestOfCorrection(spec, lobbyId =>
+    fetchJson<LobbyBestOfCorrectionResponse>(apiUrl`lobbies/${lobbyId}/set-best-of-game-result`, {
       method: 'POST',
-      body: encodeBodyAsParams<DiscardLobbyBestOfGameRequest>({ clientId, gameId }),
+      // Sent as JSON so the result arrives as an object
+      body: JSON.stringify({ clientId, gameId, result } satisfies SetLobbyBestOfGameResultRequest),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/**
+ * Adds a win for a side, with no game behind it, to the latest best-of series in the lobby the user
+ * is hosting, running or ended.
+ */
+export function addBestOfResult(
+  winner: BestOfSideIndex,
+  spec: RequestHandlingSpec<LobbyBestOfJson>,
+): ThunkAction {
+  return currentLobbyBestOfCorrection(spec, lobbyId =>
+    fetchJson<LobbyBestOfCorrectionResponse>(apiUrl`lobbies/${lobbyId}/add-best-of-result`, {
+      method: 'POST',
+      body: encodeBodyAsParams<AddLobbyBestOfResultRequest>({ clientId, winner }),
+      signal: spec.signal,
+    }),
+  )
+}
+
+/**
+ * Removes a result the user added by hand from the latest best-of series in the lobby they're
+ * hosting, running or ended.
+ */
+export function removeBestOfResult(
+  resultId: string,
+  spec: RequestHandlingSpec<LobbyBestOfJson>,
+): ThunkAction {
+  return currentLobbyBestOfCorrection(spec, lobbyId =>
+    fetchJson<LobbyBestOfCorrectionResponse>(apiUrl`lobbies/${lobbyId}/remove-best-of-result`, {
+      method: 'POST',
+      body: encodeBodyAsParams<RemoveLobbyBestOfResultRequest>({ clientId, resultId }),
       signal: spec.signal,
     }),
   )

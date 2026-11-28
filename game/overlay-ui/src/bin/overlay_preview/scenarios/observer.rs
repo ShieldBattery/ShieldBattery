@@ -395,8 +395,11 @@ pub struct Knobs {
     /// What the series is called. Empty for a series nobody named, which leaves the line its
     /// format and game number alone.
     pub series_title: String,
-    /// How many games the series is the best of.
+    /// How many games the series has: the most it can last when it ends once a side has won more
+    /// than half of them, and exactly how many it plays when `series_play_all`.
     pub series_length: u32,
+    /// Whether the series plays all its games whatever the score.
+    pub series_play_all: bool,
     /// Which game of the series this is, counting from one.
     pub series_game: u32,
     /// Each side's score going into this game: the side listed first, then the other.
@@ -570,6 +573,7 @@ impl Default for Knobs {
             series: false,
             series_title: "Grand Final".to_string(),
             series_length: 3,
+            series_play_all: false,
             series_game: 2,
             series_scores: [1, 0],
             series_line1: String::new(),
@@ -741,6 +745,7 @@ pub fn build_view(
             title: (!knobs.series_title.is_empty()).then(|| knobs.series_title.clone()),
             format: SeriesFormat::BestOf {
                 length: knobs.series_length,
+                play_all: knobs.series_play_all,
             },
             game_number: knobs.series_game,
             scores: knobs.series_scores,
@@ -2276,6 +2281,10 @@ pub enum Series {
     /// its twenty-fourth, under the longest title a lobby allows, with every player carrying the
     /// longest name the game allows.
     Stretched,
+    /// A titled play-all series of five going into its third game, level at one game each.
+    PlayAll,
+    /// A titled best of two going into its second game, one side a game up.
+    Even,
     /// The running best of three with no title, which leaves the tab under the plate only what the
     /// casters set.
     Untitled,
@@ -2289,6 +2298,8 @@ impl Series {
             Series::Running => "series",
             Series::Stretched => "series-stress",
             Series::Untitled => "series-untitled",
+            Series::PlayAll => "series-play-all",
+            Series::Even => "series-even",
         }
     }
 }
@@ -2660,7 +2671,7 @@ impl Preset {
         })
     }
 
-    pub const ALL: [Preset; 62] = [
+    pub const ALL: [Preset; 66] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -2740,6 +2751,11 @@ impl Preset {
         Preset::series(2, 1, Series::Running, Top::CompactWithoutSeries),
         // A series with nothing for the tab under its plate, which hangs none.
         Preset::series(2, 1, Series::Untitled, Top::Compact),
+        // A play-all series and an even best-of, each on the bar and on its plate.
+        Preset::series(2, 1, Series::PlayAll, Top::Bar),
+        Preset::series(2, 1, Series::PlayAll, Top::Compact),
+        Preset::series(2, 1, Series::Even, Top::Bar),
+        Preset::series(2, 1, Series::Even, Top::Compact),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -2850,6 +2866,19 @@ impl Preset {
             Series::Untitled => {
                 knobs.observer.series = true;
                 knobs.observer.series_title = String::new();
+            }
+            Series::PlayAll => {
+                knobs.observer.series = true;
+                knobs.observer.series_length = 5;
+                knobs.observer.series_play_all = true;
+                knobs.observer.series_game = 3;
+                knobs.observer.series_scores = [1, 1];
+            }
+            Series::Even => {
+                knobs.observer.series = true;
+                knobs.observer.series_length = 2;
+                knobs.observer.series_game = 2;
+                knobs.observer.series_scores = [1, 0];
             }
             Series::Stretched => {
                 knobs.observer.series = true;
@@ -3035,7 +3064,11 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
                 .changed();
         });
         changed |= ui
-            .add(egui::Slider::new(&mut k.series_length, 1..=99).text("best of"))
+            .add(egui::Slider::new(&mut k.series_length, 1..=99).text("games"))
+            .changed();
+        changed |= ui
+            .checkbox(&mut k.series_play_all, "play all games")
+            .on_hover_text("Every game is played whatever the score, rather than a best of.")
             .changed();
         changed |= ui
             .add(egui::Slider::new(&mut k.series_game, 1..=99).text("game number"))

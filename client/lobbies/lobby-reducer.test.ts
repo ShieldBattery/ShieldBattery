@@ -1393,6 +1393,163 @@ describe('client/lobbies/lobby-reducer', () => {
       })
     })
 
+    test('a play-all series is announced as one', () => {
+      let state = lobbyReducer(undefined, initAction())
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfStarted',
+        payload: { type: 'bestOfStarted', bestOf: { ...BEST_OF, length: 4, playAll: true } },
+      })
+
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfStarted,
+        length: 4,
+        playAll: true,
+      })
+    })
+
+    test('an update to an earlier series replaces it and leaves the running one alone', () => {
+      const earlier: LobbyBestOfJson = {
+        ...BEST_OF,
+        id: '0',
+        games: [{ gameId: 'game-1', status: 'pending' }],
+        outcome: { kind: 'unfinished' },
+      }
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [earlier, BEST_OF] }))
+
+      const settled: LobbyBestOfJson = {
+        ...earlier,
+        games: [{ gameId: 'game-1', status: 'notCounted' }],
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfUpdated',
+        payload: { type: 'bestOfUpdated', bestOf: settled },
+      })
+
+      expect(state.bestOfs).toEqual([settled, BEST_OF])
+    })
+
+    test('a drawn series is announced with the score it ended level at', () => {
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [BEST_OF] }))
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfEnded',
+        payload: {
+          type: 'bestOfEnded',
+          bestOf: {
+            ...BEST_OF,
+            length: 2,
+            games: [
+              { gameId: 'game-1', status: 'won', winner: 0 },
+              { resultId: 'r1', status: 'won', winner: 1 },
+            ],
+            outcome: { kind: 'drawn' },
+          },
+        },
+      })
+
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfEnded,
+        score: [1, 1],
+        outcome: { kind: 'drawn' },
+      })
+    })
+
+    test('a correction replaces the series and is announced with what it changed', () => {
+      const earlier: LobbyBestOfJson = { ...BEST_OF, id: '0', outcome: { kind: 'unfinished' } }
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [earlier, BEST_OF] }))
+      const chatLength = state.chat.length
+
+      // Game 2 is numbered by the wins before it in the corrected series, the added one included.
+      const corrected: LobbyBestOfJson = {
+        ...BEST_OF,
+        games: [
+          { resultId: 'r1', status: 'won', winner: 1 },
+          { gameId: 'game-1', status: 'won', winner: 0, setByHost: true },
+        ],
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfCorrected',
+        payload: {
+          type: 'bestOfCorrected',
+          bestOf: corrected,
+          correction: {
+            kind: 'gameResult',
+            gameId: 'game-1',
+            result: { status: 'won', winner: 0 },
+          },
+          reopened: false,
+        },
+      })
+
+      expect(state.bestOfs).toEqual([earlier, corrected])
+      expect(state.chat).toHaveLength(chatLength + 1)
+      expect(state.chat.at(-1)).toMatchObject({
+        type: LobbyMessageType.LobbyBestOfCorrected,
+        bestOfId: BEST_OF.id,
+        sides: BEST_OF.sides,
+        correction: { kind: 'gameResult', gameNumber: 2, result: { status: 'won', winner: 0 } },
+      })
+    })
+
+    test('a correction of a game, a result or the format carries what the line needs', () => {
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [BEST_OF] }))
+
+      for (const correction of [
+        { kind: 'resultAdded', winner: 1 },
+        { kind: 'resultRemoved', winner: 0 },
+        { kind: 'format', length: 4, playAll: true },
+      ] as const) {
+        state = lobbyReducer(state, {
+          type: '@lobbies/updateBestOfCorrected',
+          payload: { type: 'bestOfCorrected', bestOf: BEST_OF, correction, reopened: false },
+        })
+        expect(state.chat.at(-1)).toMatchObject({
+          type: LobbyMessageType.LobbyBestOfCorrected,
+          correction,
+        })
+      }
+    })
+
+    test('a correction that reopens a decided series announces that after itself', () => {
+      const won: LobbyBestOfJson = {
+        ...BEST_OF,
+        games: [
+          { gameId: 'game-1', status: 'won', winner: 0 },
+          { gameId: 'game-2', status: 'won', winner: 0 },
+        ],
+        outcome: { kind: 'won', winner: 0 },
+      }
+      let state = lobbyReducer(undefined, initAction({ bestOfs: [won] }))
+      const chatLength = state.chat.length
+
+      const reopened: LobbyBestOfJson = {
+        ...BEST_OF,
+        games: [
+          { gameId: 'game-1', status: 'won', winner: 0 },
+          { gameId: 'game-2', status: 'notCounted' },
+        ],
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBestOfCorrected',
+        payload: {
+          type: 'bestOfCorrected',
+          bestOf: reopened,
+          correction: { kind: 'gameResult', gameId: 'game-2', result: { status: 'notCounted' } },
+          reopened: true,
+        },
+      })
+
+      expect(state.bestOfs).toEqual([reopened])
+      expect(state.chat.slice(chatLength)).toMatchObject([
+        {
+          type: LobbyMessageType.LobbyBestOfCorrected,
+          correction: { kind: 'gameResult', gameNumber: 2, result: { status: 'notCounted' } },
+        },
+        { type: LobbyMessageType.LobbyBestOfReopened, bestOfId: BEST_OF.id, score: [1, 0] },
+      ])
+    })
+
     test('series events are ignored when not in a lobby', () => {
       const state = lobbyReducer(undefined, {
         type: '@lobbies/updateBestOfStarted',

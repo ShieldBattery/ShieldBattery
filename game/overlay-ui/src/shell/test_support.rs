@@ -155,7 +155,10 @@ pub(super) fn series_game(teams: &[u8]) -> ObserverView {
     game.matchup.is_replay = false;
     game.matchup.series = Some(SeriesView {
         title: Some("Grand Final".to_string()),
-        format: SeriesFormat::BestOf { length: 3 },
+        format: SeriesFormat::BestOf {
+            length: 3,
+            play_all: false,
+        },
         game_number: 2,
         scores: [1, 0],
         lines: Vec::new(),

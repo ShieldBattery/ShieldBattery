@@ -43,12 +43,12 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.AlreadyStarted]: { status: 409 },
   [LobbyServiceErrorCode.Banned]: { status: 409, bodyCode: LobbyJoinErrorCode.Banned },
   [LobbyServiceErrorCode.BestOfAlreadyRunning]: { status: 409 },
-  [LobbyServiceErrorCode.BestOfGameNotPending]: { status: 409 },
   [LobbyServiceErrorCode.BestOfLogoInappropriate]: { status: 400 },
   [LobbyServiceErrorCode.BestOfLogoInvalidFormat]: { status: 400 },
   [LobbyServiceErrorCode.BestOfLogoTooLarge]: { status: 400 },
   [LobbyServiceErrorCode.BestOfLogoUnsupportedSvg]: { status: 400 },
   [LobbyServiceErrorCode.BestOfGamePending]: { status: 409 },
+  [LobbyServiceErrorCode.BestOfResultNotFound]: { status: 409 },
   [LobbyServiceErrorCode.BestOfRosterMismatch]: { status: 409 },
   [LobbyServiceErrorCode.ChatRestricted]: { status: 403 },
   [LobbyServiceErrorCode.ComputerInObserverSlot]: { status: 400 },
@@ -70,6 +70,7 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.LobbyFull]: { status: 409, bodyCode: LobbyJoinErrorCode.Full },
   [LobbyServiceErrorCode.MapNotDownloaded]: { status: 409 },
   [LobbyServiceErrorCode.NoActiveClient]: { status: 400 },
+  [LobbyServiceErrorCode.NoBestOf]: { status: 409 },
   [LobbyServiceErrorCode.NoBestOfRunning]: { status: 409 },
   [LobbyServiceErrorCode.NoLobby]: { status: 404, bodyCode: LobbyJoinErrorCode.NoLongerOpen },
   [LobbyServiceErrorCode.NotCountingDown]: { status: 409 },
@@ -387,8 +388,19 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
   let server: http.Server
   let baseUrl: string
   let overlayService: { startBestOf: Mock; updateBestOf: Mock }
-  let lobbyService: { startCountdown: Mock }
+  let lobbyService: {
+    startCountdown: Mock
+    setBestOfGameResult: Mock
+    addBestOfResult: Mock
+    removeBestOfResult: Mock
+  }
   let throttleKeys: string[]
+  const corrected = {
+    id: '1',
+    length: 4,
+    sides: [[2], [3]],
+    games: [{ resultId: 'r1', status: 'won', winner: 1 }],
+  }
 
   beforeEach(async () => {
     throttleKeys = []
@@ -406,7 +418,12 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
       startBestOf: vi.fn().mockResolvedValue({}),
       updateBestOf: vi.fn().mockResolvedValue({}),
     }
-    lobbyService = { startCountdown: vi.fn() }
+    lobbyService = {
+      startCountdown: vi.fn(),
+      setBestOfGameResult: vi.fn().mockReturnValue(corrected),
+      addBestOfResult: vi.fn().mockReturnValue(corrected),
+      removeBestOfResult: vi.fn().mockReturnValue(corrected),
+    }
     const api = new LobbyApi(
       lobbyService as any,
       { getById: vi.fn().mockReturnValue({ clientType: 'electron', userId: SENDER_ID }) } as any,
@@ -681,6 +698,170 @@ describe('lobbies/lobby-api/LobbyApi best-of starts and saves', () => {
     expect(JSON.parse(response.body)).toEqual({
       code: LobbyServiceErrorCode.BestOfLogoInappropriate,
     })
+  })
+
+  test('starts and changes one with any length and whether it plays every game', async () => {
+    const start = await post(
+      'start-best-of',
+      form('series', { ...series, length: 4, playAll: true }),
+    )
+    const lengthOnly = await post('update-best-of', form('changes', { clientId: 'c', length: 6 }))
+    const playAllOnly = await post(
+      'update-best-of',
+      form('changes', { clientId: 'c', playAll: false }),
+    )
+
+    expect([start.statusCode, lengthOnly.statusCode, playAllOnly.statusCode]).toEqual([
+      204, 204, 204,
+    ])
+    expect(overlayService.startBestOf).toHaveBeenCalledWith(
+      expect.objectContaining({ length: 4, playAll: true }),
+      { kind: 'keep' },
+    )
+    expect(overlayService.updateBestOf.mock.calls).toEqual([
+      [expect.objectContaining({ length: 6, playAll: undefined }), { kind: 'keep' }],
+      [expect.objectContaining({ length: undefined, playAll: false }), { kind: 'keep' }],
+    ])
+  })
+
+  test('refuses a length or play-all setting that is no length or setting', async () => {
+    const responses = [
+      await post('start-best-of', form('series', { ...series, length: 0 })),
+      await post('start-best-of', form('series', { ...series, length: 100 })),
+      await post('start-best-of', form('series', { ...series, playAll: 'sometimes' })),
+      await post('update-best-of', form('changes', { clientId: 'c', length: 2.5 })),
+      await post('update-best-of', form('changes', { clientId: 'c', length: 100 })),
+      await post('update-best-of', form('changes', { clientId: 'c', playAll: 'yes' })),
+    ]
+
+    expect(responses.map(response => response.statusCode)).toEqual([400, 400, 400, 400, 400, 400])
+    expect(overlayService.startBestOf).not.toHaveBeenCalled()
+    expect(overlayService.updateBestOf).not.toHaveBeenCalled()
+  })
+
+  function postJson(route: string, json: object) {
+    return got.post(`${baseUrl}/${route}`, {
+      json,
+      throwHttpErrors: false,
+      retry: { limit: 0 },
+      headers: { accept: 'application/json' },
+    })
+  }
+
+  function postParams(route: string, params: Record<string, string>) {
+    return got.post(`${baseUrl}/${route}`, {
+      form: params,
+      throwHttpErrors: false,
+      retry: { limit: 0 },
+      headers: { accept: 'application/json' },
+    })
+  }
+
+  test("sets a game's result, answering with the corrected series", async () => {
+    const won = await postJson('set-best-of-game-result', {
+      clientId: 'client-1',
+      gameId: 'game-1',
+      result: { status: 'won', winner: 1 },
+    })
+    const notCounted = await postJson('set-best-of-game-result', {
+      clientId: 'client-1',
+      gameId: 'game-2',
+      result: { status: 'notCounted' },
+    })
+
+    expect([won.statusCode, notCounted.statusCode]).toEqual([200, 200])
+    expect(JSON.parse(won.body)).toEqual({ bestOf: corrected })
+    expect(lobbyService.setBestOfGameResult.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          lobbyId: LOBBY_ID,
+          gameId: 'game-1',
+          result: { status: 'won', winner: 1 },
+        }),
+      ],
+      [
+        expect.objectContaining({
+          lobbyId: LOBBY_ID,
+          gameId: 'game-2',
+          result: { status: 'notCounted' },
+        }),
+      ],
+    ])
+  })
+
+  test("refuses a game result that isn't one the host can give", async () => {
+    const results = [
+      { status: 'won', winner: 2 },
+      { status: 'won' },
+      { status: 'pending' },
+      { status: 'noWinner' },
+      { status: 'notCounted', winner: 0 },
+      'notCounted',
+    ]
+    const responses = await Promise.all([
+      ...results.map(result =>
+        postJson('set-best-of-game-result', { clientId: 'client-1', gameId: 'game-1', result }),
+      ),
+      postJson('set-best-of-game-result', { clientId: 'client-1', gameId: 'game-1' }),
+      postJson('set-best-of-game-result', {
+        clientId: 'client-1',
+        result: { status: 'notCounted' },
+      }),
+    ])
+
+    expect(responses.map(response => response.statusCode)).toEqual(responses.map(() => 400))
+    expect(lobbyService.setBestOfGameResult).not.toHaveBeenCalled()
+  })
+
+  test('adds a result for either side, sent as JSON or as form params', async () => {
+    const asJson = await postJson('add-best-of-result', { clientId: 'client-1', winner: 0 })
+    const asParams = await postParams('add-best-of-result', { clientId: 'client-1', winner: '1' })
+
+    expect([asJson.statusCode, asParams.statusCode]).toEqual([200, 200])
+    expect(JSON.parse(asParams.body)).toEqual({ bestOf: corrected })
+    expect(lobbyService.addBestOfResult.mock.calls).toEqual([
+      [expect.objectContaining({ lobbyId: LOBBY_ID, winner: 0 })],
+      [expect.objectContaining({ lobbyId: LOBBY_ID, winner: 1 })],
+    ])
+  })
+
+  test('refuses a result for no side', async () => {
+    const responses = await Promise.all([
+      postJson('add-best-of-result', { clientId: 'client-1', winner: 2 }),
+      postJson('add-best-of-result', { clientId: 'client-1', winner: -1 }),
+      postJson('add-best-of-result', { clientId: 'client-1' }),
+    ])
+
+    expect(responses.map(response => response.statusCode)).toEqual([400, 400, 400])
+    expect(lobbyService.addBestOfResult).not.toHaveBeenCalled()
+  })
+
+  test('removes an added result by its id', async () => {
+    const removed = await postParams('remove-best-of-result', {
+      clientId: 'client-1',
+      resultId: 'r1',
+    })
+    const noId = await postParams('remove-best-of-result', { clientId: 'client-1' })
+
+    expect([removed.statusCode, noId.statusCode]).toEqual([200, 400])
+    expect(JSON.parse(removed.body)).toEqual({ bestOf: corrected })
+    expect(lobbyService.removeBestOfResult.mock.calls).toEqual([
+      [expect.objectContaining({ lobbyId: LOBBY_ID, resultId: 'r1' })],
+    ])
+  })
+
+  test("answers a correction the service refuses with the service's code", async () => {
+    lobbyService.removeBestOfResult.mockImplementation(() => {
+      throw new LobbyServiceError(LobbyServiceErrorCode.BestOfResultNotFound, 'not found')
+    })
+
+    const response = await postParams('remove-best-of-result', {
+      clientId: 'client-1',
+      resultId: 'gone',
+    })
+
+    expect(response.statusCode).toBe(409)
+    expect(JSON.parse(response.body)).toEqual({ code: LobbyServiceErrorCode.BestOfResultNotFound })
   })
 })
 

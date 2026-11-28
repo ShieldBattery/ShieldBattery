@@ -18,6 +18,18 @@ function refusal(body: object) {
 }
 
 describe('lobbies/lobby-action-errors', () => {
+  test('says why a correction of a series was refused', () => {
+    expect(lobbyActionErrorMessage(refusal({ code: LobbyServiceErrorCode.NoBestOf }), t)).toBe(
+      'This lobby has not played a series',
+    )
+    expect(
+      lobbyActionErrorMessage(refusal({ code: LobbyServiceErrorCode.BestOfResultNotFound }), t),
+    ).toBe('That result is no longer part of the series')
+    expect(lobbyActionErrorMessage(refusal({ code: LobbyServiceErrorCode.InvalidBestOf }), t)).toBe(
+      "The series can't be set up that way. Its players have to be in the lobby, and it can count at most 99 games.",
+    )
+  })
+
   describe('a start refused for the best-of roster', () => {
     const code = LobbyServiceErrorCode.BestOfRosterMismatch
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import createDeferred from '../../common/async/deferred'
 import { GameType } from '../../common/games/game-type'
+import { LobbyBestOfJson } from '../../common/lobbies/lobby-best-of'
 import { makeSbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { createComputer, createHuman } from '../../common/lobbies/slot'
 import { makeSbMapId } from '../../common/maps'
@@ -9,7 +10,16 @@ import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { setUserLocalStorageValue } from '../react/state-hooks'
 import { RootState } from '../root-reducer'
-import { createLobby, joinLobby, setRace, startBestOf, updateBestOf } from './action-creators'
+import {
+  addBestOfResult,
+  createLobby,
+  joinLobby,
+  removeBestOfResult,
+  setBestOfGameResult,
+  setRace,
+  startBestOf,
+  updateBestOf,
+} from './action-creators'
 import lobbyReducer from './lobby-reducer'
 
 vi.mock('../../common/ipc', () => ({
@@ -182,4 +192,58 @@ test('a best-of change is sent as multipart, keeping cleared fields as null', as
     request: { clientId, line1: 'Observer' },
     logo,
   })
+})
+
+test('best-of corrections answer with the corrected series', async () => {
+  const corrected: LobbyBestOfJson = {
+    id: 'series',
+    length: 3,
+    sides: [[USER_ID], [makeSbUserId(2)]],
+    games: [{ gameId: 'g1', status: 'won', winner: 1, setByHost: true }],
+  }
+  vi.mocked(fetchJson).mockResolvedValue({ bestOf: corrected })
+
+  const answers = await Promise.all([
+    new Promise<LobbyBestOfJson>((onSuccess, onError) => {
+      setBestOfGameResult(
+        'g1',
+        { status: 'won', winner: 1 },
+        { onSuccess, onError },
+      )(vi.fn(), getState)
+    }),
+    new Promise<LobbyBestOfJson>((onSuccess, onError) => {
+      addBestOfResult(0, { onSuccess, onError })(vi.fn(), getState)
+    }),
+    new Promise<LobbyBestOfJson>((onSuccess, onError) => {
+      removeBestOfResult('r1', { onSuccess, onError })(vi.fn(), getState)
+    }),
+  ])
+
+  expect(answers).toEqual([corrected, corrected, corrected])
+  const [[setUrl, setOptions], [addUrl, addOptions], [removeUrl, removeOptions]] =
+    vi.mocked(fetchJson).mock.calls
+  expect(setUrl).toContain('/lobbies/lobby/set-best-of-game-result')
+  // The result is an object, so it goes as JSON rather than as form params.
+  expect(JSON.parse(setOptions?.body as string)).toEqual({
+    clientId,
+    gameId: 'g1',
+    result: { status: 'won', winner: 1 },
+  })
+  expect(addUrl).toContain('/lobbies/lobby/add-best-of-result')
+  expect(addOptions?.body).toEqual({ clientId, winner: 0 })
+  expect(removeUrl).toContain('/lobbies/lobby/remove-best-of-result')
+  expect(removeOptions?.body).toEqual({ clientId, resultId: 'r1' })
+})
+
+test('a best-of correction fails when the user is in no lobby', async () => {
+  const outOfLobby = () => {
+    const state = getState()
+    return { ...state, lobby: { ...state.lobby, info: { ...state.lobby.info, name: '' } } }
+  }
+  await expect(
+    new Promise<LobbyBestOfJson>((onSuccess, onError) => {
+      addBestOfResult(0, { onSuccess, onError })(vi.fn(), outOfLobby)
+    }),
+  ).rejects.toThrow('not in a lobby')
+  expect(fetchJson).not.toHaveBeenCalled()
 })

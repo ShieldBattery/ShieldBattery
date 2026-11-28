@@ -5,8 +5,10 @@ import {
   getBestOfGameNumber,
   getBestOfSideName,
   getRunningBestOf,
-  LobbyBestOfGameJson,
+  isBestOfAddedResult,
+  LobbyBestOfAddedResultJson,
   LobbyBestOfJson,
+  LobbyBestOfLaunchedGameJson,
 } from '../../../common/lobbies/lobby-best-of'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { SlotType } from '../../../common/lobbies/slot'
@@ -23,7 +25,7 @@ export interface NumberedSeriesGame {
   /** The best-of series the game was played in, if it was played in one. */
   bestOf?: LobbyBestOfJson
   /** How the game counts towards that best-of series. */
-  bestOfGame?: LobbyBestOfGameJson
+  bestOfGame?: LobbyBestOfLaunchedGameJson
 }
 
 /**
@@ -36,6 +38,9 @@ export function getBestOfSeriesGames(
 ): NumberedSeriesGame[] {
   const seriesById = new Map(series.map(game => [game.gameId, game]))
   return bestOf.games.flatMap((bestOfGame, index) => {
+    if (isBestOfAddedResult(bestOfGame)) {
+      return []
+    }
     const game = seriesById.get(bestOfGame.gameId)
     return game
       ? [{ game, gameNumber: getBestOfGameNumber(bestOf, index), bestOf, bestOfGame }]
@@ -48,9 +53,9 @@ export function getBestOfSeriesGames(
  * or else the one that ended last, for as long as the lobby hasn't moved on to a game outside it.
  *
  * Every game the lobby launches while a series runs belongs to it, so an ended series is still the
- * lobby's latest business exactly while no finished game follows its own, and no game is on its way
- * (`isLaunching`: counting down, loading or being played). A series that ended without any finished
- * game has no place among the lobby's games to show it at, so it isn't shown.
+ * lobby's latest business exactly while the lobby's last finished game is one of its own, and no
+ * game is on its way (`isLaunching`: counting down, loading or being played). A series that ended
+ * without any finished game has no place among the lobby's games to show it at, so it isn't shown.
  */
 export function getDisplayedBestOf(
   bestOfs: ReadonlyArray<LobbyBestOfJson>,
@@ -63,68 +68,144 @@ export function getDisplayedBestOf(
   }
 
   const last = bestOfs.at(-1)
-  if (!last || isLaunching) {
+  const lastGameId = series.at(-1)?.gameId
+  if (!last || isLaunching || lastGameId === undefined) {
     return undefined
   }
-
-  const gameIds = new Set(last.games.map(game => game.gameId))
-  const firstIndex = series.findIndex(game => gameIds.has(game.gameId))
-  if (firstIndex === -1) {
-    return undefined
-  }
-  return series.slice(firstIndex).every(game => gameIds.has(game.gameId)) ? last : undefined
+  return last.games.some(game => !isBestOfAddedResult(game) && game.gameId === lastGameId)
+    ? last
+    : undefined
 }
 
-/** One row of the lobby's full list of games. */
+/** One row of the lobby's full list of games, with a key unique within the list. */
 export type SessionGamesEntry =
-  /** Begins the run of games that belong to a best-of series. */
-  { kind: 'bestOf'; bestOf: LobbyBestOfJson } | ({ kind: 'game' } & NumberedSeriesGame)
+  /** Begins a run of games that belong to a best-of series. */
+  | { kind: 'bestOf'; key: string; bestOf: LobbyBestOfJson }
+  | ({ kind: 'game'; key: string } & NumberedSeriesGame)
+  /** A result the host added to a best-of series by hand, with no game behind it. */
+  | {
+      kind: 'addedResult'
+      key: string
+      bestOf: LobbyBestOfJson
+      result: LobbyBestOfAddedResultJson
+      /** Counted the way the series counts its games. */
+      gameNumber: number
+    }
 
 /**
  * Lays out the lobby's finished games in the order they were played, with each best-of series'
  * games headed by the series. Games within a series are numbered the way the series counts them,
  * and the rest by their place among the lobby's games.
  *
+ * A series' games are usually played one after another, but a correction can reopen a series after
+ * the lobby has played games outside it, and the games it plays then join it again. Each unbroken
+ * run of a series' games is headed by the series, so one can be headed more than once.
+ *
+ * The results the host added to a series by hand are listed among its games in the order the
+ * series holds them: one added before a finished game of the series comes just before that game,
+ * and those after its last finished game close the run that game ends.
+ *
  * The running series is headed even before it has a finished game, at the end of the list, since
- * that's where its games will go. A series that ended without any finished game has no place in
- * the list, so it is left out.
+ * that's where its games will go, and lists the results added to it there. A series that ended
+ * without any finished game has no place in the list, so it is left out.
  */
 export function groupSessionGames(
   series: ReadonlyArray<LobbySeriesGameJson>,
   bestOfs: ReadonlyArray<LobbyBestOfJson>,
 ): SessionGamesEntry[] {
-  const byGameId = new Map<string, { bestOf: LobbyBestOfJson; index: number }>()
+  const byGameId = new Map<
+    string,
+    { bestOf: LobbyBestOfJson; index: number; bestOfGame: LobbyBestOfLaunchedGameJson }
+  >()
   for (const bestOf of bestOfs) {
-    bestOf.games.forEach((game, index) => byGameId.set(game.gameId, { bestOf, index }))
+    bestOf.games.forEach((bestOfGame, index) => {
+      if (!isBestOfAddedResult(bestOfGame)) {
+        byGameId.set(bestOfGame.gameId, { bestOf, index, bestOfGame })
+      }
+    })
   }
-
-  const entries: SessionGamesEntry[] = []
-  const headed = new Set<string>()
-  let currentBestOf: LobbyBestOfJson | undefined
+  // Where each series' last finished game is among the lobby's games, which is the run that lists
+  // the results added after it.
+  const lastSeriesIndex = new Map<string, number>()
   series.forEach((game, seriesIndex) => {
     const owner = byGameId.get(game.gameId)
-    if (owner && owner.bestOf !== currentBestOf) {
-      entries.push({ kind: 'bestOf', bestOf: owner.bestOf })
-      headed.add(owner.bestOf.id)
+    if (owner) {
+      lastSeriesIndex.set(owner.bestOf.id, seriesIndex)
     }
-    currentBestOf = owner?.bestOf
-
-    entries.push(
-      owner
-        ? {
-            kind: 'game',
-            game,
-            gameNumber: getBestOfGameNumber(owner.bestOf, owner.index),
-            bestOf: owner.bestOf,
-            bestOfGame: owner.bestOf.games[owner.index],
-          }
-        : { kind: 'game', game, gameNumber: seriesIndex + 1 },
-    )
   })
 
+  const entries: SessionGamesEntry[] = []
+  const runCounts = new Map<string, number>()
+  // How far into each series' entries the list has gotten.
+  const listedUpTo = new Map<string, number>()
+
+  const head = (bestOf: LobbyBestOfJson) => {
+    const run = (runCounts.get(bestOf.id) ?? 0) + 1
+    runCounts.set(bestOf.id, run)
+    entries.push({
+      kind: 'bestOf',
+      key: run === 1 ? `best-of-${bestOf.id}` : `best-of-${bestOf.id}-${run}`,
+      bestOf,
+    })
+  }
+  const listAddedResults = (bestOf: LobbyBestOfJson, end: number) => {
+    const start = listedUpTo.get(bestOf.id) ?? 0
+    for (let index = start; index < end; index++) {
+      const entry = bestOf.games[index]
+      if (isBestOfAddedResult(entry)) {
+        entries.push({
+          kind: 'addedResult',
+          key: `added-${bestOf.id}-${entry.resultId}`,
+          bestOf,
+          result: entry,
+          gameNumber: getBestOfGameNumber(bestOf, index),
+        })
+      }
+    }
+    listedUpTo.set(bestOf.id, Math.max(start, end))
+  }
+  const endRun = (bestOf: LobbyBestOfJson, lastIndexOfRun: number) => {
+    if (lastSeriesIndex.get(bestOf.id) === lastIndexOfRun) {
+      listAddedResults(bestOf, bestOf.games.length)
+    }
+  }
+
+  let run: { bestOf: LobbyBestOfJson; lastIndex: number } | undefined
+  series.forEach((game, seriesIndex) => {
+    const owner = byGameId.get(game.gameId)
+    if (run && owner?.bestOf !== run.bestOf) {
+      endRun(run.bestOf, run.lastIndex)
+      run = undefined
+    }
+
+    if (!owner) {
+      entries.push({ kind: 'game', key: game.gameId, game, gameNumber: seriesIndex + 1 })
+      return
+    }
+
+    if (!run) {
+      head(owner.bestOf)
+    }
+    listAddedResults(owner.bestOf, owner.index)
+    entries.push({
+      kind: 'game',
+      key: game.gameId,
+      game,
+      gameNumber: getBestOfGameNumber(owner.bestOf, owner.index),
+      bestOf: owner.bestOf,
+      bestOfGame: owner.bestOfGame,
+    })
+    listedUpTo.set(owner.bestOf.id, Math.max(listedUpTo.get(owner.bestOf.id) ?? 0, owner.index + 1))
+    run = { bestOf: owner.bestOf, lastIndex: seriesIndex }
+  })
+  if (run) {
+    endRun(run.bestOf, run.lastIndex)
+  }
+
   const running = getRunningBestOf(bestOfs)
-  if (running && !headed.has(running.id)) {
-    entries.push({ kind: 'bestOf', bestOf: running })
+  if (running && !runCounts.has(running.id)) {
+    head(running)
+    listAddedResults(running, running.games.length)
   }
 
   return entries

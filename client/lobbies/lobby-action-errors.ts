@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import {
+  BEST_OF_MAX_LENGTH,
   BestOfSideIndex,
   getBestOfSideName,
   LobbyBestOfJson,
@@ -39,8 +40,8 @@ function getUnseatedSide(err: FetchError): BestOfSideIndex | undefined {
 
 /**
  * Returns the user-facing message for a lobby action the server refused: readying up, rearranging
- * the seats, starting or calling off the countdown, the host's slot surgery, and running a best-of
- * series. Shared by every surface that dispatches one so the same refusal reads the same everywhere.
+ * the seats, starting or calling off the countdown, the host's slot surgery, and running or
+ * correcting a best-of series. Shared by every surface that dispatches one so the same refusal reads the same everywhere.
  *
  * These are the refusals normal use reaches, where the lobby moved on between the click and the
  * request landing, or where its layout can't support what was asked. Anything else is a bug or a
@@ -89,11 +90,19 @@ export function lobbyActionErrorMessage(
       return t('lobbies.actionErrors.bestOfAlreadyRunning', 'A series is already running')
     case LobbyServiceErrorCode.NoBestOfRunning:
       return t('lobbies.actionErrors.noBestOfRunning', 'No series is running')
-    case LobbyServiceErrorCode.InvalidBestOf:
+    case LobbyServiceErrorCode.NoBestOf:
+      return t('lobbies.actionErrors.noBestOf', 'This lobby has not played a series')
+    case LobbyServiceErrorCode.BestOfResultNotFound:
       return t(
-        'lobbies.actionErrors.invalidBestOf',
-        'The series needs an odd number of games and players who are in the lobby',
+        'lobbies.actionErrors.bestOfResultNotFound',
+        'That result is no longer part of the series',
       )
+    case LobbyServiceErrorCode.InvalidBestOf:
+      return t('lobbies.actionErrors.invalidBestOfChange', {
+        defaultValue:
+          "The series can't be set up that way. Its players have to be in the lobby, and it can count at most {{max}} games.",
+        max: BEST_OF_MAX_LENGTH,
+      })
     case LobbyServiceErrorCode.BestOfGamePending:
       return t(
         'lobbies.actionErrors.bestOfGamePending',
@@ -112,11 +121,6 @@ export function lobbyActionErrorMessage(
             "The seated players don't match the series' sides",
           )
     }
-    case LobbyServiceErrorCode.BestOfGameNotPending:
-      return t(
-        'lobbies.actionErrors.bestOfGameNotPending',
-        'That game is no longer waiting for a result',
-      )
     default:
       return genericMessage(t)
   }

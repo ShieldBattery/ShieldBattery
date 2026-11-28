@@ -2,9 +2,15 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
-import { getBestOfScore, LobbyBestOfJson } from '../../common/lobbies/lobby-best-of'
+import {
+  getBestOfGameNumber,
+  getBestOfScore,
+  isBestOfAddedResult,
+  LobbyBestOfJson,
+} from '../../common/lobbies/lobby-best-of'
 import {
   changesGameSettings,
+  LobbyBestOfCorrection,
   LobbyLaunchJson,
   LobbyMemberMapStatusJson,
   LobbyRunStateJson,
@@ -16,7 +22,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ReduxAction } from '../action-types'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { JoinLobbyMessage, LobbyMessageType } from './lobby-message-records'
+import { BestOfCorrectionRecord, JoinLobbyMessage, LobbyMessageType } from './lobby-message-records'
 
 export interface LobbyLoadingState {
   isCountingDown: boolean
@@ -269,6 +275,27 @@ function replaceBestOf(draft: LobbyDraft, bestOf: LobbyBestOfJson): void {
 }
 
 /**
+ * Words a correction of a best-of series for its chat line, given the series as the correction left
+ * it. A game is named by its number in that series.
+ */
+function toCorrectionRecord(
+  correction: LobbyBestOfCorrection,
+  corrected: LobbyBestOfJson,
+): BestOfCorrectionRecord {
+  if (correction.kind !== 'gameResult') {
+    return correction
+  }
+  const index = corrected.games.findIndex(
+    game => !isBestOfAddedResult(game) && game.gameId === correction.gameId,
+  )
+  return {
+    kind: 'gameResult',
+    gameNumber: getBestOfGameNumber(corrected, index === -1 ? corrected.games.length : index),
+    result: correction.result,
+  }
+}
+
+/**
  * Keys are constrained to real action types (and the handler map below is declared with
  * `satisfies`, so excess-property checking applies): a typo'd key fails to compile instead of
  * producing a handler that silently never fires.
@@ -378,16 +405,45 @@ const lobbyHandlers = {
       bestOfId: bestOf.id,
       ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
       length: bestOf.length,
+      ...(bestOf.playAll ? { playAll: true } : {}),
       sides: bestOf.sides,
     })
   },
 
+  // Usually about the running series, but it can be about any of them: a series whose game was
+  // still waiting for its result when the next one started is updated once that game stops counting.
   '@lobbies/updateBestOfUpdated'(draft, action) {
     if (!draft.info.name) {
       return
     }
 
     replaceBestOf(draft, action.payload.bestOf)
+  },
+
+  '@lobbies/updateBestOfCorrected'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    const { bestOf, correction, reopened } = action.payload
+    replaceBestOf(draft, bestOf)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyBestOfCorrected,
+      time: Date.now(),
+      bestOfId: bestOf.id,
+      sides: bestOf.sides,
+      correction: toCorrectionRecord(correction, bestOf),
+    })
+    if (reopened) {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.LobbyBestOfReopened,
+        time: Date.now(),
+        bestOfId: bestOf.id,
+        score: getBestOfScore(bestOf),
+      })
+    }
   },
 
   '@lobbies/updateBestOfEnded'(draft, action) {

@@ -8,14 +8,17 @@ import {
   checkBestOfRoster,
   countBestOfTextCharacters,
   findBestOfGameWinner,
+  getBestOfDecidedOutcome,
   getBestOfDisplayName,
   getBestOfGameNumber,
+  getBestOfOutcomeAfterChange,
   getBestOfScore,
   getBestOfSeatedSides,
   getBestOfSideName,
   getBestOfTextProblem,
   getBestOfWinsNeeded,
   getRunningBestOf,
+  isBestOfAddedResult,
   isValidBestOfLength,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
@@ -68,14 +71,23 @@ const won = (winner: 0 | 1, gameId = 'game'): LobbyBestOfGameJson => ({
   winner,
 })
 
+const added = (winner: 0 | 1, resultId = 'result'): LobbyBestOfGameJson => ({
+  resultId,
+  status: 'won',
+  winner,
+})
+
 describe('lobbies/lobby-best-of', () => {
-  test('isValidBestOfLength accepts odd lengths up to the maximum', () => {
+  test('isValidBestOfLength accepts odd and even lengths up to the maximum', () => {
     expect(isValidBestOfLength(1)).toBe(true)
+    expect(isValidBestOfLength(2)).toBe(true)
     expect(isValidBestOfLength(3)).toBe(true)
+    expect(isValidBestOfLength(4)).toBe(true)
+    expect(isValidBestOfLength(98)).toBe(true)
     expect(isValidBestOfLength(99)).toBe(true)
 
     expect(isValidBestOfLength(0)).toBe(false)
-    expect(isValidBestOfLength(2)).toBe(false)
+    expect(isValidBestOfLength(100)).toBe(false)
     expect(isValidBestOfLength(101)).toBe(false)
     expect(isValidBestOfLength(-1)).toBe(false)
     expect(isValidBestOfLength(3.5)).toBe(false)
@@ -120,6 +132,130 @@ describe('lobbies/lobby-best-of', () => {
     // The next game
     expect(getBestOfGameNumber(series, 4)).toBe(3)
     expect(getBestOfGameNumber(bestOf([]), 0)).toBe(1)
+  })
+
+  test('the score and game numbers count hand-added and host-set results as wins', () => {
+    const series = bestOf(
+      [
+        added(0, 'head-start'),
+        { gameId: 'a', status: 'won', winner: 1, setByHost: true },
+        { gameId: 'b', status: 'notCounted' },
+        won(0, 'c'),
+        added(1, 'forfeit'),
+      ],
+      { length: 7 },
+    )
+
+    expect(getBestOfScore(series)).toEqual([2, 2])
+    // A 1-0 head start makes the first game played game 2
+    expect(getBestOfGameNumber(series, 1)).toBe(2)
+    expect(getBestOfGameNumber(series, 2)).toBe(3)
+    expect(getBestOfGameNumber(series, 3)).toBe(3)
+    expect(getBestOfGameNumber(series, 5)).toBe(5)
+  })
+
+  test('isBestOfAddedResult tells hand-added results from games', () => {
+    expect(isBestOfAddedResult(added(0))).toBe(true)
+    expect(isBestOfAddedResult(won(0))).toBe(false)
+    expect(isBestOfAddedResult({ gameId: 'g', status: 'pending' })).toBe(false)
+  })
+
+  describe('getBestOfDecidedOutcome', () => {
+    const decided = (
+      length: number,
+      score: [number, number],
+      playAll?: true,
+    ): ReturnType<typeof getBestOfDecidedOutcome> =>
+      getBestOfDecidedOutcome({
+        length,
+        ...(playAll ? { playAll } : {}),
+        games: [
+          ...Array.from({ length: score[0] }, (_, i) => won(0, `a${i}`)),
+          ...Array.from({ length: score[1] }, (_, i) => won(1, `b${i}`)),
+        ],
+      })
+
+    test('decides an odd length as soon as a side has a majority', () => {
+      expect(decided(3, [0, 0])).toBeUndefined()
+      expect(decided(3, [1, 1])).toBeUndefined()
+      expect(decided(3, [2, 0])).toEqual({ kind: 'won', winner: 0 })
+      expect(decided(3, [1, 2])).toEqual({ kind: 'won', winner: 1 })
+      expect(decided(1, [0, 1])).toEqual({ kind: 'won', winner: 1 })
+    })
+
+    test('decides an even length by a majority, or drawn once every game counted level', () => {
+      expect(decided(4, [2, 1])).toBeUndefined()
+      expect(decided(4, [2, 2])).toEqual({ kind: 'drawn' })
+      expect(decided(4, [3, 0])).toEqual({ kind: 'won', winner: 0 })
+      expect(decided(4, [1, 3])).toEqual({ kind: 'won', winner: 1 })
+      expect(decided(2, [1, 0])).toBeUndefined()
+      expect(decided(2, [1, 1])).toEqual({ kind: 'drawn' })
+      expect(decided(2, [2, 0])).toEqual({ kind: 'won', winner: 0 })
+    })
+
+    test('decides a play-all series only once every game counted', () => {
+      expect(decided(3, [2, 0], true)).toBeUndefined()
+      expect(decided(5, [3, 1], true)).toBeUndefined()
+      expect(decided(3, [2, 1], true)).toEqual({ kind: 'won', winner: 0 })
+      expect(decided(3, [3, 0], true)).toEqual({ kind: 'won', winner: 0 })
+      expect(decided(4, [2, 2], true)).toEqual({ kind: 'drawn' })
+      expect(decided(4, [1, 3], true)).toEqual({ kind: 'won', winner: 1 })
+    })
+
+    test('still answers for more counted games than the length', () => {
+      expect(decided(3, [3, 3])).toEqual({ kind: 'drawn' })
+      expect(decided(3, [4, 2], true)).toEqual({ kind: 'won', winner: 0 })
+    })
+
+    test('counts only wins, including hand-added ones', () => {
+      expect(
+        getBestOfDecidedOutcome({
+          length: 3,
+          games: [
+            added(1),
+            { gameId: 'a', status: 'noWinner' },
+            { gameId: 'b', status: 'notCounted' },
+            { gameId: 'c', status: 'pending' },
+          ],
+        }),
+      ).toBeUndefined()
+      expect(getBestOfDecidedOutcome({ length: 3, games: [added(1, 'x'), added(1, 'y')] })).toEqual(
+        { kind: 'won', winner: 1 },
+      )
+    })
+  })
+
+  describe('getBestOfOutcomeAfterChange', () => {
+    const decided = { length: 3, games: [won(0, 'a'), won(0, 'b')] }
+    const undecided = { length: 3, games: [won(0, 'a')] }
+    const drawn = { length: 2, games: [won(0, 'a'), won(1, 'b')] }
+
+    test('gives the outcome the results decide, whatever the series had', () => {
+      expect(getBestOfOutcomeAfterChange(decided, undefined)).toEqual({ kind: 'won', winner: 0 })
+      expect(getBestOfOutcomeAfterChange(decided, { kind: 'won', winner: 1 })).toEqual({
+        kind: 'won',
+        winner: 0,
+      })
+      expect(getBestOfOutcomeAfterChange(decided, { kind: 'unfinished' })).toEqual({
+        kind: 'won',
+        winner: 0,
+      })
+      expect(getBestOfOutcomeAfterChange(drawn, { kind: 'won', winner: 0 })).toEqual({
+        kind: 'drawn',
+      })
+    })
+
+    test('keeps a series the host ended early ended while its results decide nothing', () => {
+      expect(getBestOfOutcomeAfterChange(undecided, { kind: 'unfinished' })).toEqual({
+        kind: 'unfinished',
+      })
+    })
+
+    test('runs a won or drawn series again once its results no longer decide it', () => {
+      expect(getBestOfOutcomeAfterChange(undecided, { kind: 'won', winner: 0 })).toBeUndefined()
+      expect(getBestOfOutcomeAfterChange(undecided, { kind: 'drawn' })).toBeUndefined()
+      expect(getBestOfOutcomeAfterChange(undecided, undefined)).toBeUndefined()
+    })
   })
 
   describe('findBestOfGameWinner', () => {
@@ -358,6 +494,28 @@ describe('lobbies/lobby-best-of', () => {
           { players: [BOB], score: 0 },
         ],
       })
+    })
+
+    test('carries the corrected score and game number, and whether every game is played', () => {
+      const series = bestOf(
+        [
+          added(1, 'head-start'),
+          { gameId: 'a', status: 'won', winner: 0, setByHost: true },
+          { gameId: 'b', status: 'notCounted' },
+        ],
+        { length: 4, playAll: true, sides: [[ALICE, BOB], [CARA]] },
+      )
+
+      expect(toBestOfLaunchInfo(series, seatedAll)).toEqual({
+        length: 4,
+        playAll: true,
+        gameNumber: 3,
+        sides: [
+          { players: [ALICE, BOB], score: 1 },
+          { players: [CARA], score: 1 },
+        ],
+      })
+      expect(toBestOfLaunchInfo(bestOf([]), seatedAll)).not.toHaveProperty('playAll')
     })
 
     test("lists each side's seated members, its name, and only their display names", () => {

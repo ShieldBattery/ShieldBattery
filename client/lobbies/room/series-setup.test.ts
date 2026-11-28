@@ -12,8 +12,10 @@ import {
 import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { FetchError } from '../../network/fetch-errors'
+import { bestOfFormatLabel } from './best-of-parts'
 import {
   batchDisplayNameLookups,
+  bestOfFormatHint,
   bestOfLogoErrorMessage,
   bestOfTextProblemMessage,
   buildStartBestOfParams,
@@ -23,18 +25,26 @@ import {
   fillRememberedDisplayNames,
   formatSeriesSetupSummary,
   getDisplayNamesToLoad,
+  getFormatChangeOutcome,
   initialDisplayNameFields,
   LogoSlotValue,
   SeriesSetupValues,
   typeDisplayName,
 } from './series-setup'
 
-/** Fills a default value's `{{placeholders}}` from its options, the way i18next does. */
+/**
+ * Fills a default value's `{{placeholders}}` from its options, the way i18next does, picking the
+ * English plural form by `count` when one is given.
+ */
 const t = ((_key: string, options?: string | Record<string, unknown>) => {
   if (typeof options === 'string') {
     return options
   }
-  const template = String(options?.defaultValue ?? '')
+  const plural =
+    typeof options?.count === 'number'
+      ? options[options.count === 1 ? 'defaultValue_one' : 'defaultValue_other']
+      : undefined
+  const template = String(plural ?? options?.defaultValue ?? '')
   return template.replace(/{{(\w+)}}/g, (_match, name: string) => String(options?.[name]))
 }) as unknown as TFunction
 
@@ -54,6 +64,8 @@ const NO_FIELDS: DisplayNameFields = new Map()
 
 function values(overrides: Partial<SeriesSetupValues> = {}): SeriesSetupValues {
   return {
+    length: 3,
+    playAll: false,
     title: '',
     sides: SIDES,
     sideNames: ['', ''],
@@ -82,7 +94,7 @@ describe('formatSeriesSetupSummary', () => {
   test('a new series names its length, its sides and its title', () => {
     expect(
       formatSeriesSetupSummary(t, {
-        length: 7,
+        format: { length: 7 },
         sideLabels: ['claude-2', 'claude-3'],
         title: 'Grand Final',
       }),
@@ -92,7 +104,7 @@ describe('formatSeriesSetupSummary', () => {
   test('a running series shows the score between its sides', () => {
     expect(
       formatSeriesSetupSummary(t, {
-        length: 7,
+        format: { length: 7 },
         sideLabels: ['claude-2', 'claude-3'],
         score: [2, 1],
         title: 'Grand Final',
@@ -102,46 +114,147 @@ describe('formatSeriesSetupSummary', () => {
 
   test('leaves out the title when there is none, even when it is only spaces', () => {
     expect(
-      formatSeriesSetupSummary(t, { length: 3, sideLabels: ['a, b', 'c, d'], title: '   ' }),
+      formatSeriesSetupSummary(t, {
+        format: { length: 3 },
+        sideLabels: ['a, b', 'c, d'],
+        title: '   ',
+      }),
     ).toBe('Best of 3 · a, b vs c, d')
   })
 
   test('leaves out the sides while either side is empty', () => {
-    expect(formatSeriesSetupSummary(t, { length: 5, sideLabels: undefined, title: 'Final' })).toBe(
-      'Best of 5 · Final',
-    )
     expect(
-      formatSeriesSetupSummary(t, { length: 5, sideLabels: undefined, score: [1, 0], title: '' }),
+      formatSeriesSetupSummary(t, {
+        format: { length: 5 },
+        sideLabels: undefined,
+        title: 'Final',
+      }),
+    ).toBe('Best of 5 · Final')
+    expect(
+      formatSeriesSetupSummary(t, {
+        format: { length: 5 },
+        sideLabels: undefined,
+        score: [1, 0],
+        title: '',
+      }),
     ).toBe('Best of 5')
   })
 
   test('leaves out the length while it is not a valid one', () => {
     expect(
-      formatSeriesSetupSummary(t, { length: undefined, sideLabels: ['a', 'b'], title: '' }),
+      formatSeriesSetupSummary(t, { format: undefined, sideLabels: ['a', 'b'], title: '' }),
     ).toBe('a vs b')
   })
 })
 
+describe('series format', () => {
+  test('is worded as a best-of, or as a number of games when every game is played', () => {
+    expect(bestOfFormatLabel({ length: 3 }, t)).toBe('Best of 3')
+    expect(bestOfFormatLabel({ length: 4 }, t)).toBe('Best of 4')
+    expect(bestOfFormatLabel({ length: 4, playAll: true }, t)).toBe('4 games')
+    expect(bestOfFormatLabel({ length: 1, playAll: true }, t)).toBe('1 game')
+  })
+
+  test('the summary names the format the host picked', () => {
+    expect(
+      formatSeriesSetupSummary(t, {
+        format: { length: 6, playAll: true },
+        sideLabels: ['a', 'b'],
+        title: '',
+      }),
+    ).toBe('6 games · a vs b')
+  })
+
+  test('the hint says what it takes to win, and when an even series is drawn', () => {
+    expect(bestOfFormatHint({ length: 5 }, t)).toBe('First to 3 wins the series.')
+    expect(bestOfFormatHint({ length: 4 }, t)).toBe(
+      'First to 3 wins the series. It is drawn at 2–2.',
+    )
+    expect(bestOfFormatHint({ length: 4, playAll: true }, t)).toBe(
+      'All 4 games are played. The side with more wins takes the series.',
+    )
+    expect(bestOfFormatHint({ length: 1, playAll: true }, t)).toBe(
+      '1 game is played. The side that wins it takes the series.',
+    )
+  })
+})
+
+describe('getFormatChangeOutcome', () => {
+  // A Bo7 at 2–1, with a game that counts for nobody.
+  const running: Pick<LobbyBestOfJson, 'length' | 'playAll' | 'games' | 'outcome'> = {
+    length: 7,
+    games: [
+      { gameId: 'g1', status: 'won', winner: 0 },
+      { gameId: 'g2', status: 'noWinner' },
+      { gameId: 'g3', status: 'won', winner: 1 },
+      { resultId: 'r1', status: 'won', winner: 0 },
+    ],
+  }
+
+  test('is nothing for a save that leaves the format alone or the series undecided', () => {
+    expect(getFormatChangeOutcome(running, {})).toBeUndefined()
+    expect(getFormatChangeOutcome(running, { length: 5 })).toBeUndefined()
+    expect(getFormatChangeOutcome(running, { playAll: true })).toBeUndefined()
+  })
+
+  test('is how a length the results already decide ends the series', () => {
+    expect(getFormatChangeOutcome(running, { length: 3 })).toEqual({ kind: 'won', winner: 0 })
+    expect(getFormatChangeOutcome(running, { length: 1 })).toEqual({ kind: 'won', winner: 0 })
+  })
+
+  test('a length every counted game has filled ends it drawn when the sides are level', () => {
+    const level = { ...running, games: running.games.slice(0, 3) }
+    expect(getFormatChangeOutcome(level, { length: 2 })).toEqual({ kind: 'drawn' })
+    expect(getFormatChangeOutcome(level, { length: 2, playAll: true })).toEqual({ kind: 'drawn' })
+  })
+
+  test('playing every game holds off a majority until all of them have counted', () => {
+    // 5 games, all played, at 3–1.
+    const playAll: typeof running = {
+      length: 5,
+      playAll: true,
+      games: [...running.games, { gameId: 'g4', status: 'won', winner: 0 }],
+    }
+    expect(getFormatChangeOutcome(playAll, { length: 6 })).toBeUndefined()
+    expect(getFormatChangeOutcome(playAll, { playAll: false })).toEqual({ kind: 'won', winner: 0 })
+    expect(getFormatChangeOutcome(playAll, { length: 4 })).toEqual({ kind: 'won', winner: 0 })
+  })
+
+  test('is nothing for a series that has already ended', () => {
+    expect(
+      getFormatChangeOutcome({ ...running, outcome: { kind: 'unfinished' } }, { length: 3 }),
+    ).toBeUndefined()
+  })
+})
+
 describe('buildStartBestOfParams', () => {
+  test('sends that every game is played only when it is', () => {
+    expect(buildStartBestOfParams(values({ length: 4, playAll: true }), NONE)).toEqual({
+      length: 4,
+      playAll: true,
+      sides: SIDES,
+    })
+    expect(buildStartBestOfParams(values({ length: 4 }), NONE)).not.toHaveProperty('playAll')
+  })
+
   test('trims the title and the lines, and leaves out the ones that are empty', () => {
     expect(
       buildStartBestOfParams(
-        3,
-        values({ title: '  Final  ', line1: '   ', line2: ' Observer  Royo ' }),
+        values({ length: 3, title: '  Final  ', line1: '   ', line2: ' Observer  Royo ' }),
         NONE,
       ),
     ).toEqual({ length: 3, title: 'Final', sides: SIDES, line2: 'Observer  Royo' })
   })
 
   test('an untouched remembered logo is left to the server', () => {
-    expect(buildStartBestOfParams(1, values({ logo: STORED }), STORED)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, logo: STORED }), STORED)).toEqual({
       length: 1,
       sides: SIDES,
     })
   })
 
   test('a picked logo is sent as a file', () => {
-    expect(buildStartBestOfParams(1, values({ logo: PICKED }), STORED)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, logo: PICKED }), STORED)).toEqual({
       length: 1,
       sides: SIDES,
       logo: PICKED_FILE,
@@ -149,7 +262,7 @@ describe('buildStartBestOfParams', () => {
   })
 
   test('removing the remembered logo sends deleteLogo', () => {
-    expect(buildStartBestOfParams(1, values({ logo: NONE }), STORED)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, logo: NONE }), STORED)).toEqual({
       length: 1,
       sides: SIDES,
       deleteLogo: true,
@@ -157,11 +270,11 @@ describe('buildStartBestOfParams', () => {
   })
 
   test('a slot that opened empty or unknown sends nothing about the logo', () => {
-    expect(buildStartBestOfParams(1, values({ logo: NONE }), NONE)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, logo: NONE }), NONE)).toEqual({
       length: 1,
       sides: SIDES,
     })
-    expect(buildStartBestOfParams(1, values({ logo: UNKNOWN }), UNKNOWN)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, logo: UNKNOWN }), UNKNOWN)).toEqual({
       length: 1,
       sides: SIDES,
     })
@@ -171,8 +284,9 @@ describe('buildStartBestOfParams', () => {
 describe('buildUpdateBestOfParams', () => {
   const editing: Pick<
     LobbyBestOfJson,
-    'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'
+    'length' | 'playAll' | 'title' | 'sides' | 'sideNames' | 'displayNames' | 'overlay'
   > = {
+    length: 3,
     title: 'Grand Final',
     sides: SIDES,
     overlay: { line1: 'Casters  Alice & Bob', line2: 'Observer  Carol', logo: STORED_LOGO },
@@ -195,6 +309,19 @@ describe('buildUpdateBestOfParams', () => {
     ).toBeUndefined()
   })
 
+  test('sends the length and play-all only when they changed', () => {
+    expect(buildUpdateBestOfParams(editing, { ...unchanged, length: 4 })).toEqual({ length: 4 })
+    expect(buildUpdateBestOfParams(editing, { ...unchanged, playAll: true })).toEqual({
+      playAll: true,
+    })
+    expect(
+      buildUpdateBestOfParams({ ...editing, playAll: true }, { ...unchanged, playAll: false }),
+    ).toEqual({ playAll: false })
+    expect(
+      buildUpdateBestOfParams({ ...editing, playAll: true }, { ...unchanged, playAll: true }),
+    ).toBeUndefined()
+  })
+
   test('sends only the title when only the title changed', () => {
     expect(buildUpdateBestOfParams(editing, { ...unchanged, title: 'Semi Final' })).toEqual({
       title: 'Semi Final',
@@ -211,7 +338,7 @@ describe('buildUpdateBestOfParams', () => {
   test('sends a changed line, and a line set on a series that had none', () => {
     expect(
       buildUpdateBestOfParams(
-        { title: undefined, sides: SIDES, overlay: undefined },
+        { length: 3, title: undefined, sides: SIDES, overlay: undefined },
         values({ line1: 'Casters  Dave' }),
       ),
     ).toEqual({ line1: 'Casters  Dave' })
@@ -341,19 +468,22 @@ describe('bestOfLogoErrorMessage', () => {
 
 describe('side names', () => {
   test('a start sends both side names, trimmed, when either is set', () => {
-    expect(buildStartBestOfParams(3, values({ sideNames: ['  Ironclad ', ''] }), NONE)).toEqual({
+    expect(
+      buildStartBestOfParams(values({ length: 3, sideNames: ['  Ironclad ', ''] }), NONE),
+    ).toEqual({
       length: 3,
       sides: SIDES,
       sideNames: ['Ironclad', null],
     })
-    expect(buildStartBestOfParams(3, values({ sideNames: [' ', '   '] }), NONE)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 3, sideNames: [' ', '   '] }), NONE)).toEqual({
       length: 3,
       sides: SIDES,
     })
   })
 
   test('a save sends both names when either changed, and nothing about them otherwise', () => {
-    const editing: Pick<LobbyBestOfJson, 'sides' | 'sideNames'> = {
+    const editing: Pick<LobbyBestOfJson, 'length' | 'sides' | 'sideNames'> = {
+      length: 3,
       sides: SIDES,
       sideNames: ['Ironclad', null],
     }
@@ -366,7 +496,9 @@ describe('side names', () => {
     expect(buildUpdateBestOfParams(editing, values({ sideNames: ['', ''] }))).toEqual({
       sideNames: [null, null],
     })
-    expect(buildUpdateBestOfParams({ sides: SIDES }, values({ sideNames: ['', 'X'] }))).toEqual({
+    expect(
+      buildUpdateBestOfParams({ length: 3, sides: SIDES }, values({ sideNames: ['', 'X'] })),
+    ).toEqual({
       sideNames: [null, 'X'],
     })
   })
@@ -381,7 +513,7 @@ describe('display names', () => {
         [A, 'Rhynso'],
       ],
     )
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).toEqual({
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE)).toEqual({
       length: 1,
       sides: SIDES,
       displayNames: [
@@ -393,14 +525,14 @@ describe('display names', () => {
 
   test('a start sends a remembered name left in place, so it stays remembered', () => {
     const displayNames = fields([{ userId: A, name: 'Rhynso' }])
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE).displayNames).toEqual([
       { userId: A, name: 'Rhynso' },
     ])
   })
 
   test('a start clears a remembered name the host emptied, which forgets it', () => {
     const displayNames = fields([{ userId: A, name: 'Rhynso' }], [[A, '  ']])
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE).displayNames).toEqual([
       { userId: A, name: null },
     ])
   })
@@ -413,28 +545,29 @@ describe('display names', () => {
         [A, ''],
       ],
     )
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).not.toHaveProperty(
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE)).not.toHaveProperty(
       'displayNames',
     )
   })
 
   test('with the remembered names unloaded, only what the host typed is sent', () => {
     const displayNames = fields([], [[B, 'tec27']])
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE).displayNames).toEqual([
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE).displayNames).toEqual([
       { userId: B, name: 'tec27' },
     ])
   })
 
   test('names for people no longer on a side are not sent', () => {
     const displayNames = fields([], [[C, 'Artosis']])
-    expect(buildStartBestOfParams(1, values({ displayNames }), NONE)).not.toHaveProperty(
+    expect(buildStartBestOfParams(values({ length: 1, displayNames }), NONE)).not.toHaveProperty(
       'displayNames',
     )
   })
 
   describe('saving a running series', () => {
     const sides: LobbyBestOfSides = [[A, C], [B]]
-    const editing: Pick<LobbyBestOfJson, 'sides' | 'displayNames'> = {
+    const editing: Pick<LobbyBestOfJson, 'length' | 'sides' | 'displayNames'> = {
+      length: 3,
       sides,
       displayNames: [
         { userId: A, name: 'Rhynso' },

@@ -1,4 +1,9 @@
-import { LobbyBestOfOutcome, LobbyBestOfSides } from '../../common/lobbies/lobby-best-of'
+import {
+  BestOfHostResult,
+  BestOfSideIndex,
+  LobbyBestOfOutcome,
+  LobbyBestOfSides,
+} from '../../common/lobbies/lobby-best-of'
 import { LobbyChangedSetting } from '../../common/lobbies/lobby-network'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseMessage } from '../messaging/base-message-record'
@@ -24,6 +29,8 @@ export enum LobbyMessageType {
   LobbyPriorShuffles = 'lobbyPriorShuffles',
   LobbyBestOfStarted = 'lobbyBestOfStarted',
   LobbyBestOfEnded = 'lobbyBestOfEnded',
+  LobbyBestOfCorrected = 'lobbyBestOfCorrected',
+  LobbyBestOfReopened = 'lobbyBestOfReopened',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -149,11 +156,13 @@ export interface BestOfStartedMessage extends BaseMessage {
   readonly bestOfId: string
   readonly title?: string
   readonly length: number
+  /** Set when the series is played to its full length. */
+  readonly playAll?: true
   readonly sides: Readonly<LobbyBestOfSides>
 }
 
 /**
- * A best-of series ended, either won by one side or ended early by the host. Its members and score
+ * A best-of series ended: won by one side, drawn, or ended early by the host. Its members and score
  * are captured as they stood when it ended; its sides' names are read from the series by `bestOfId`
  * when the line is shown.
  */
@@ -164,6 +173,40 @@ export interface BestOfEndedMessage extends BaseMessage {
   readonly sides: Readonly<LobbyBestOfSides>
   readonly score: readonly [number, number]
   readonly outcome: LobbyBestOfOutcome
+}
+
+/**
+ * What a host's correction of a best-of series changed, as its chat line tells it. A game is named
+ * by its number in the corrected series, captured when the correction lands, since later changes
+ * to the series can renumber it.
+ */
+export type BestOfCorrectionRecord =
+  | { readonly kind: 'gameResult'; readonly gameNumber: number; readonly result: BestOfHostResult }
+  | { readonly kind: 'resultAdded'; readonly winner: BestOfSideIndex }
+  | { readonly kind: 'resultRemoved'; readonly winner: BestOfSideIndex }
+  | { readonly kind: 'format'; readonly length: number; readonly playAll: boolean }
+
+/**
+ * The host corrected a best-of series' results or format. Its members are captured as they stood
+ * then; its sides' names are read from the series by `bestOfId` when the line is shown.
+ */
+export interface BestOfCorrectedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyBestOfCorrected
+  /** The series' id, unique within the lobby. */
+  readonly bestOfId: string
+  readonly sides: Readonly<LobbyBestOfSides>
+  readonly correction: BestOfCorrectionRecord
+}
+
+/**
+ * A correction left a best-of series that had been won or drawn undecided, so it runs again. Its
+ * score is captured as it stood then.
+ */
+export interface BestOfReopenedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyBestOfReopened
+  /** The series' id, unique within the lobby. */
+  readonly bestOfId: string
+  readonly score: readonly [number, number]
 }
 
 export type LobbyMessage =
@@ -187,3 +230,5 @@ export type LobbyMessage =
   | PriorShufflesMessage
   | BestOfStartedMessage
   | BestOfEndedMessage
+  | BestOfCorrectedMessage
+  | BestOfReopenedMessage

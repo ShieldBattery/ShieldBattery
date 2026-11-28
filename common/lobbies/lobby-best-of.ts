@@ -26,7 +26,10 @@ export const BEST_OF_SIDE_NAME_MAX_LENGTH = 24
  * trimmed, counted in code points (see `countBestOfTextCharacters`). The same as an account name's.
  */
 export const BEST_OF_DISPLAY_NAME_MAX_LENGTH = USERNAME_MAXLENGTH
-/** The lengths offered as one-click choices; any odd length up to BEST_OF_MAX_LENGTH is valid. */
+/**
+ * The lengths offered as one-click choices; any length from 1 up to BEST_OF_MAX_LENGTH is valid,
+ * odd or even.
+ */
 export const BEST_OF_PRESET_LENGTHS: ReadonlyArray<number> = [1, 3, 5, 7, 9]
 /**
  * The most characters either text line of a best-of series' caster overlay can have, once trimmed,
@@ -77,21 +80,53 @@ export interface BestOfDisplayNameChange {
   name: string | null
 }
 
+/** A result the host gives a game of a best-of series, whatever its own results say. */
+export type BestOfHostResult = { status: 'won'; winner: BestOfSideIndex } | { status: 'notCounted' }
+
 /** One game launched as part of a best-of series, and how it counts towards it. */
-export type LobbyBestOfGameJson =
+export type LobbyBestOfLaunchedGameJson =
   /** The game is running, or is over with results that haven't settled yet. */
   | { gameId: string; status: 'pending' }
-  | { gameId: string; status: 'won'; winner: BestOfSideIndex }
+  /**
+   * The game counts as a win for `winner`: by its results, or because the host set it so
+   * (`setByHost`), in which case results that settle for it later change nothing.
+   */
+  | { gameId: string; status: 'won'; winner: BestOfSideIndex; setByHost?: true }
   /** The game's results settled without exactly one side having a win, so it counts for nobody. */
   | { gameId: string; status: 'noWinner' }
-  /** The host discarded the game before its results settled, so it counts for nobody. */
+  /**
+   * The host set the game to count for nobody, so results that settle for it later change nothing.
+   */
   | { gameId: string; status: 'notCounted' }
+
+/**
+ * A win the host added to a best-of series by hand, with no game behind it (a forfeit, a head
+ * start, or games played elsewhere). It counts exactly as a game won by `winner` does.
+ */
+export interface LobbyBestOfAddedResultJson {
+  /** Unique within its series. */
+  resultId: string
+  status: 'won'
+  winner: BestOfSideIndex
+}
+
+/** An entry of a best-of series' results: one of its games, or a result the host added. */
+export type LobbyBestOfGameJson = LobbyBestOfLaunchedGameJson | LobbyBestOfAddedResultJson
+
+/** Whether an entry of a best-of series' results is one the host added, with no game behind it. */
+export function isBestOfAddedResult(
+  entry: LobbyBestOfGameJson,
+): entry is LobbyBestOfAddedResultJson {
+  return 'resultId' in entry
+}
 
 /** How a best-of series that is over ended. */
 export type LobbyBestOfOutcome =
-  /** One side won more than half of its games. */
+  /** Its results gave one side more wins than the other once they decided it. */
   | { kind: 'won'; winner: BestOfSideIndex }
-  /** The host ended it before either side had won. */
+  /** Its results decided it with both sides on the same number of wins. */
+  | { kind: 'drawn' }
+  /** The host ended it before its results decided it. */
   | { kind: 'unfinished' }
 
 /** A logo a host uploaded for the caster overlay of their best-of series. */
@@ -116,13 +151,19 @@ export interface LobbyBestOfOverlayJson {
 
 /**
  * A best-of series the host of a lobby started: a set number of games between two sides the host
- * picked, which ends as soon as one side has won more than half of them.
+ * picked, which ends once its results decide it (see `getBestOfDecidedOutcome`).
  */
 export interface LobbyBestOfJson {
   /** Unique within its lobby. */
   id: string
   title?: string
+  /** From 1 to `BEST_OF_MAX_LENGTH`, odd or even. */
   length: number
+  /**
+   * Set when the series is played to its full length, ending only once `length` games have counted
+   * whatever the score. Absent when it ends as soon as a side has won a majority of `length`.
+   */
+  playAll?: true
   /**
    * The people currently playing for each side. The host can change these while the series runs,
    * and the games already won stay with the side, not with the people who won them. A side can hold
@@ -140,11 +181,17 @@ export interface LobbyBestOfJson {
    * people are on `sides`, and only ever for someone on a side. Absent when nobody has one.
    */
   displayNames?: BestOfDisplayName[]
-  /** The games launched as part of it, oldest first. */
+  /**
+   * The games launched as part of it and the results the host added by hand, in the order they
+   * happened.
+   */
   games: LobbyBestOfGameJson[]
   /** Absent when it shows observers nothing beyond the score. */
   overlay?: LobbyBestOfOverlayJson
-  /** Absent while it is running. */
+  /**
+   * Absent while it is running. Whenever its results or format change, it is what
+   * `getBestOfOutcomeAfterChange` gives.
+   */
   outcome?: LobbyBestOfOutcome
 }
 
@@ -152,7 +199,9 @@ export interface LobbyBestOfJson {
 export interface BestOfLaunchInfo {
   title?: string
   length: number
-  /** 1-based: games won so far (by either side) + 1. */
+  /** Set when the series is played to its full length (see `LobbyBestOfJson.playAll`). */
+  playAll?: true
+  /** 1-based: wins counted so far (by either side, hand-added ones included) + 1. */
   gameNumber: number
   /**
    * Always two entries, in side order. `players` holds only the side's members seated as players
@@ -261,12 +310,18 @@ export function getBestOfDisplayName(
   return bestOf.displayNames?.find(entry => entry.userId === userId)?.name
 }
 
-/** Whether `length` is a best-of series length a lobby can play: an odd number of games. */
+/**
+ * Whether `length` is a best-of series length a lobby can play: a whole number of games from 1 to
+ * `BEST_OF_MAX_LENGTH`, odd or even.
+ */
 export function isValidBestOfLength(length: number): boolean {
-  return Number.isInteger(length) && length >= 1 && length <= BEST_OF_MAX_LENGTH && length % 2 === 1
+  return Number.isInteger(length) && length >= 1 && length <= BEST_OF_MAX_LENGTH
 }
 
-/** Returns how many games of a best-of series each side has won. */
+/**
+ * Returns how many wins each side of a best-of series has: its games won, plus the results the host
+ * added for it.
+ */
 export function getBestOfScore(bestOf: Pick<LobbyBestOfJson, 'games'>): [number, number] {
   const score: [number, number] = [0, 0]
   for (const game of bestOf.games) {
@@ -284,8 +339,8 @@ export function getBestOfWinsNeeded(length: number): number {
 
 /**
  * 1-based number of the game at `index` in bestOf.games (or of the next game when index ===
- * games.length): won games before it + 1, so a replayed game shares its number with the one it
- * replaces.
+ * games.length): wins before it + 1, so a replayed game shares its number with the one it replaces,
+ * and a result the host added counts as a game played before it.
  */
 export function getBestOfGameNumber(bestOf: Pick<LobbyBestOfJson, 'games'>, index: number): number {
   let won = 0
@@ -295,6 +350,50 @@ export function getBestOfGameNumber(bestOf: Pick<LobbyBestOfJson, 'games'>, inde
     }
   }
   return won + 1
+}
+
+/** How a best-of series' results decided it. */
+export type BestOfDecidedOutcome = Extract<LobbyBestOfOutcome, { kind: 'won' | 'drawn' }>
+
+/**
+ * Returns how a best-of series' results decide it, or `undefined` while they don't. This is the one
+ * place the rule for when a series is over lives.
+ *
+ * A series played to its full length (`playAll`) is decided once `length` games have counted. Any
+ * other one is decided as soon as a side has won a majority of `length` (see
+ * `getBestOfWinsNeeded`), or once `length` games have counted, whichever comes first. A decided
+ * series is won by the side with more wins, and drawn when both have the same number.
+ *
+ * Corrections can give a series more counted games than its length; it is still decided the same
+ * way.
+ */
+export function getBestOfDecidedOutcome(
+  bestOf: Pick<LobbyBestOfJson, 'length' | 'playAll' | 'games'>,
+): BestOfDecidedOutcome | undefined {
+  const [a, b] = getBestOfScore(bestOf)
+  const counted = a + b
+  const decided = bestOf.playAll
+    ? counted >= bestOf.length
+    : Math.max(a, b) >= getBestOfWinsNeeded(bestOf.length) || counted >= bestOf.length
+  if (!decided) {
+    return undefined
+  }
+  return a === b ? { kind: 'drawn' } : { kind: 'won', winner: a > b ? 0 : 1 }
+}
+
+/**
+ * Returns the outcome a best-of series has after a change to its results or format, given the
+ * changed series and the outcome it had before. Its results decide it when they can; otherwise a
+ * series the host ended early stays ended, and one that was won or drawn runs again.
+ */
+export function getBestOfOutcomeAfterChange(
+  changed: Pick<LobbyBestOfJson, 'length' | 'playAll' | 'games'>,
+  previousOutcome: LobbyBestOfOutcome | undefined,
+): LobbyBestOfOutcome | undefined {
+  return (
+    getBestOfDecidedOutcome(changed) ??
+    (previousOutcome?.kind === 'unfinished' ? previousOutcome : undefined)
+  )
 }
 
 /**
@@ -427,6 +526,7 @@ export function toBestOfLaunchInfo(bestOf: LobbyBestOfJson, lobby: Lobby): BestO
   return {
     ...(bestOf.title !== undefined ? { title: bestOf.title } : {}),
     length: bestOf.length,
+    ...(bestOf.playAll ? { playAll: true } : {}),
     gameNumber: getBestOfGameNumber(bestOf, bestOf.games.length),
     sides: [toSide(0), toSide(1)],
     ...(displayNames.length ? { displayNames } : {}),

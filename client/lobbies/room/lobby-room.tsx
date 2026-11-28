@@ -2,6 +2,11 @@ import * as React from 'react'
 import { useState } from 'react'
 import styled from 'styled-components'
 import {
+  BestOfHostResult,
+  BestOfSideIndex,
+  LobbyBestOfJson,
+} from '../../../common/lobbies/lobby-best-of'
+import {
   GetRememberedBestOfDisplayNamesResponse,
   GetRememberedBestOfOverlayResponse,
 } from '../../../common/lobbies/lobby-network'
@@ -66,6 +71,16 @@ export interface LobbyRoomProps {
     spec: RequestHandlingSpec<GetRememberedBestOfDisplayNamesResponse>,
   ) => void
   onDiscardBestOfGame: (gameId: string) => void
+  /** Sets the result of a game of the lobby's latest best-of series, answering with the series. */
+  onSetBestOfGameResult: (
+    gameId: string,
+    result: BestOfHostResult,
+    spec: RequestHandlingSpec<LobbyBestOfJson>,
+  ) => void
+  /** Adds a win for a side to the lobby's latest best-of series, answering with the series. */
+  onAddBestOfResult: (winner: BestOfSideIndex, spec: RequestHandlingSpec<LobbyBestOfJson>) => void
+  /** Removes a hand-added result from the lobby's latest best-of series, answering with it. */
+  onRemoveBestOfResult: (resultId: string, spec: RequestHandlingSpec<LobbyBestOfJson>) => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }
@@ -97,6 +112,9 @@ export function LobbyRoom({
   onLoadRememberedBestOfOverlay,
   onLoadRememberedBestOfDisplayNames,
   onDiscardBestOfGame,
+  onSetBestOfGameResult,
+  onAddBestOfResult,
+  onRemoveBestOfResult,
   onWatchReplay,
   onViewGameSummary,
 }: LobbyRoomProps) {
@@ -132,6 +150,9 @@ export function LobbyRoom({
         onEndBestOf={onEndBestOf}
         onLoadRememberedOverlay={onLoadRememberedBestOfOverlay}
         onLoadRememberedDisplayNames={onLoadRememberedBestOfDisplayNames}
+        onSetBestOfGameResult={onSetBestOfGameResult}
+        onAddBestOfResult={onAddBestOfResult}
+        onRemoveBestOfResult={onRemoveBestOfResult}
       />
     )
   } else {

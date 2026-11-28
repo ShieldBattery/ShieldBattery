@@ -14,7 +14,12 @@ import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import createStore from '../../create-store'
 import { domMax } from '../../motion-features'
-import { BestOfEndedLine, BestOfStartedLine } from './best-of-chat-lines'
+import {
+  BestOfCorrectedLine,
+  BestOfEndedLine,
+  BestOfReopenedLine,
+  BestOfStartedLine,
+} from './best-of-chat-lines'
 import { useBestOfSideLabel } from './best-of-parts'
 import { BestOfScoreTile } from './best-of-score-tile'
 
@@ -141,6 +146,23 @@ describe('BestOfScoreTile', () => {
     expect(screen.getByTestId('best-of-score-seated-2').textContent).toBe('bob')
   })
 
+  test('marks nobody as the winner of a drawn series', () => {
+    const bestOf: LobbyBestOfJson = {
+      ...SERIES,
+      length: 2,
+      games: [
+        { gameId: 'g1', status: 'won', winner: 0 },
+        { gameId: 'g2', status: 'won', winner: 1 },
+      ],
+      outcome: { kind: 'drawn' },
+    }
+    renderWithStore(makeStore(makeLobby(), [bestOf]), <BestOfScoreTile bestOf={bestOf} />)
+
+    // A winner's row would lead with the trophy icon, whose name is its text.
+    expect(screen.getByTestId('best-of-score-row-1').textContent).toBe('carol+21')
+    expect(screen.getByTestId('best-of-score-row-2').textContent).toBe('bob+11')
+  })
+
   test('drops the line once the series is over', () => {
     const bestOf: LobbyBestOfJson = {
       ...SERIES,
@@ -193,6 +215,85 @@ describe('series chat lines', () => {
       'Series started: Best of 3 · Nexus vs Iron',
     )
     expect(screen.getByTestId('ended').textContent).toBe('Nexus won the series 2–0')
+  })
+
+  test('word a series played to its full length by its number of games', () => {
+    const store = makeStore(makeLobby(), [{ ...SERIES, length: 1, playAll: true }])
+    renderWithStore(
+      store,
+      <>
+        <div data-testid='one'>
+          <BestOfStartedLine bestOfId='series' length={1} playAll={true} sides={[[ALICE], [BOB]]} />
+        </div>
+        <div data-testid='many'>
+          <BestOfStartedLine
+            bestOfId='series'
+            title='Final'
+            length={6}
+            playAll={true}
+            sides={[[ALICE], [BOB]]}
+          />
+        </div>
+      </>,
+    )
+    expect(screen.getByTestId('one').textContent).toBe('Series started: 1 game · alice vs bob')
+    expect(screen.getByTestId('many').textContent).toBe(
+      'Series started: Final · 6 games · alice vs bob',
+    )
+  })
+
+  test('announce a drawn end, each kind of correction and a reopened series', () => {
+    const store = makeStore(makeLobby(), [{ ...SERIES, sideNames: ['Nexus', null] }])
+    const corrected = (
+      testId: string,
+      correction: React.ComponentProps<typeof BestOfCorrectedLine>['correction'],
+    ) => (
+      <div data-testid={testId}>
+        <BestOfCorrectedLine bestOfId='series' sides={[[ALICE], [BOB]]} correction={correction} />
+      </div>
+    )
+    renderWithStore(
+      store,
+      <>
+        <div data-testid='drawn'>
+          <BestOfEndedLine
+            bestOfId='series'
+            sides={[[ALICE], [BOB]]}
+            score={[2, 2]}
+            outcome={{ kind: 'drawn' }}
+          />
+        </div>
+        {corrected('won', {
+          kind: 'gameResult',
+          gameNumber: 3,
+          result: { status: 'won', winner: 1 },
+        })}
+        {corrected('notCounted', {
+          kind: 'gameResult',
+          gameNumber: 2,
+          result: { status: 'notCounted' },
+        })}
+        {corrected('added', { kind: 'resultAdded', winner: 0 })}
+        {corrected('removed', { kind: 'resultRemoved', winner: 1 })}
+        {corrected('bestOf', { kind: 'format', length: 4, playAll: false })}
+        {corrected('playAll', { kind: 'format', length: 5, playAll: true })}
+        {corrected('playAllOne', { kind: 'format', length: 1, playAll: true })}
+        <div data-testid='reopened'>
+          <BestOfReopenedLine bestOfId='series' score={[1, 2]} />
+        </div>
+      </>,
+    )
+
+    const text = (testId: string) => screen.getByTestId(testId).textContent
+    expect(text('drawn')).toBe('The series ended in a draw, 2–2')
+    expect(text('won')).toBe('Game 3 now counts as a win for bob')
+    expect(text('notCounted')).toBe('Game 2 no longer counts')
+    expect(text('added')).toBe('A win was added for Nexus')
+    expect(text('removed')).toBe('An added win for bob was removed')
+    expect(text('bestOf')).toBe('The series is now a best of 4')
+    expect(text('playAll')).toBe('The series is now 5 games, all played')
+    expect(text('playAllOne')).toBe('The series is now 1 game, all played')
+    expect(text('reopened')).toBe('The series is open again at 1–2')
   })
 
   test('name the sides of their own series in a lobby that has run several', () => {

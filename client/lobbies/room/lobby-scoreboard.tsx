@@ -18,7 +18,7 @@ import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { useBestOfSideLabel } from './best-of-parts'
+import { bestOfFormatLabel, useBestOfSideLabel } from './best-of-parts'
 
 const ScoreboardRoot = styled.div`
   display: flex;
@@ -192,12 +192,21 @@ function BestOfStandingsRow({
 }
 
 /**
- * A running best-of series' standings: its two sides and the games each has won, headed by how many
- * a side needs to win it.
+ * A running best-of series' standings: its two sides and the games each has won. A series of an odd
+ * number of games always goes to the first side to a majority, so it is headed by how many wins
+ * that takes. One of an even number, which can also end level, and one played to its full length
+ * are headed by their format instead.
  */
 export function BestOfStandings({ bestOf }: { bestOf: LobbyBestOfJson }) {
   const { t } = useTranslation()
   const score = getBestOfScore(bestOf)
+  const header =
+    !bestOf.playAll && bestOf.length % 2 === 1
+      ? t('lobbies.room.scoreboard.firstTo', {
+          defaultValue: 'First to {{winsNeeded}}',
+          winsNeeded: getBestOfWinsNeeded(bestOf.length),
+        })
+      : bestOfFormatLabel(bestOf, t)
 
   return (
     <ScoreboardRoot
@@ -205,12 +214,7 @@ export function BestOfStandings({ bestOf }: { bestOf: LobbyBestOfJson }) {
       aria-label={t('lobbies.room.series.standings', 'Standings')}
       tabIndex={0}>
       <ScoreboardHeader>
-        <ScoreboardHeaderLabel>
-          {t('lobbies.room.scoreboard.firstTo', {
-            defaultValue: 'First to {{winsNeeded}}',
-            winsNeeded: getBestOfWinsNeeded(bestOf.length),
-          })}
-        </ScoreboardHeaderLabel>
+        <ScoreboardHeaderLabel>{header}</ScoreboardHeaderLabel>
         <ScoreboardHeaderLabel>{t('lobbies.room.scoreboard.wins', 'Wins')}</ScoreboardHeaderLabel>
       </ScoreboardHeader>
       {([0, 1] as const).map(sideIndex => (

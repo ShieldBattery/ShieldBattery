@@ -3,6 +3,7 @@ import {
   LobbyBanEvent,
   LobbyBenchAddEvent,
   LobbyBenchRemoveEvent,
+  LobbyBestOfCorrectedEvent,
   LobbyBestOfEndedEvent,
   LobbyBestOfStartedEvent,
   LobbyBestOfUpdatedEvent,
@@ -70,6 +71,7 @@ export type LobbyActions =
   | LobbyUpdateTeamsShuffled
   | LobbyUpdateBestOfStarted
   | LobbyUpdateBestOfUpdated
+  | LobbyUpdateBestOfCorrected
   | LobbyUpdateBestOfEnded
   | LobbyUpdateBenchAdd
   | LobbyUpdateBenchRemove
@@ -223,13 +225,26 @@ export interface LobbyUpdateBestOfStarted {
   payload: LobbyBestOfStartedEvent
 }
 
-/** The running best-of series of a lobby we're in changed without starting or ending. */
+/**
+ * A best-of series of a lobby we're in changed without starting, ending or being corrected. It is
+ * usually the running one, but not always: a series that had a game waiting for its result when the
+ * next one started is updated as that game stops counting.
+ */
 export interface LobbyUpdateBestOfUpdated {
   type: '@lobbies/updateBestOfUpdated'
   payload: LobbyBestOfUpdatedEvent
 }
 
-/** A best-of series of a lobby we're in ended, won by one side or ended early by the host. */
+/** The host of a lobby we're in corrected the results or format of one of its best-of series. */
+export interface LobbyUpdateBestOfCorrected {
+  type: '@lobbies/updateBestOfCorrected'
+  payload: LobbyBestOfCorrectedEvent
+}
+
+/**
+ * A best-of series of a lobby we're in ended, or ended differently after a correction: won by one
+ * side, drawn, or ended early by the host.
+ */
 export interface LobbyUpdateBestOfEnded {
   type: '@lobbies/updateBestOfEnded'
   payload: LobbyBestOfEndedEvent
