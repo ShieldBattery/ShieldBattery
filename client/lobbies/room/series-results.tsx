@@ -34,6 +34,7 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { RaceIcon } from '../race-icon'
+import { getBestOfSideResult } from './best-of-display'
 import { bestOfFormatLabel, useBestOfSideLabel, useUserNames } from './best-of-parts'
 import {
   getSeriesResultRows,
@@ -469,24 +470,9 @@ function seriesStateLine(bestOf: LobbyBestOfJson, t: TFunction): string {
   })
 }
 
-/** A side's chip beside its name once the series is decided: a win, a loss, or a draw for both. */
-function sideOutcomeResult(
-  bestOf: LobbyBestOfJson,
-  side: BestOfSideIndex,
-): ReconciledResult | undefined {
-  switch (bestOf.outcome?.kind) {
-    case 'won':
-      return bestOf.outcome.winner === side ? 'win' : 'loss'
-    case 'drawn':
-      return 'draw'
-    default:
-      return undefined
-  }
-}
-
 function SideHeading({ bestOf, side }: { bestOf: LobbyBestOfJson; side: BestOfSideIndex }) {
   const label = useBestOfSideLabel(bestOf.sides[side], getBestOfSideName(bestOf, side))
-  const result = sideOutcomeResult(bestOf, side)
+  const result = getBestOfSideResult(bestOf, side)
   return (
     <SideName $half={halfOf(side)} data-testid={`series-results-side-${side + 1}`}>
       <SideNameText text={label} />
