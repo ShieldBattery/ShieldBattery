@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReconciledResult } from '../../../common/games/results'
 import { getPlayerSlots } from '../../../common/lobbies'
 import {
   BestOfSideIndex,
@@ -12,12 +13,14 @@ import { getWinsByUser } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
+import { PlayerResultMarker } from '../../games/result-chip'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { EllipsizedText } from '../../material/ellipsized-text'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
+import { getBestOfSideResult } from './best-of-display'
 import { bestOfFormatLabel, useBestOfSideLabel } from './best-of-parts'
 
 const ScoreboardRoot = styled.div`
@@ -94,6 +97,19 @@ const ScoreboardWinsValue = styled.span<{ $leading: boolean }>`
   color: ${props => (props.$leading ? 'var(--theme-amber)' : 'inherit')};
 `
 
+/** A series side's wins, in the normal text colour whoever is ahead. */
+const StandingsWinsValue = styled.span`
+  ${labelMedium};
+`
+
+/**
+ * A series side's result chip, or nothing while the side has no result. Both sides of a series
+ * always have a result or lack one together, so their rows stay aligned with each other.
+ */
+export function BestOfSideResultMarker({ result }: { result: ReconciledResult | undefined }) {
+  return result !== undefined ? <PlayerResultMarker result={result} /> : null
+}
+
 /**
  * The lobby's running standings: every player who has won a game in this lobby, plus everyone
  * currently seated to play, ranked by wins.
@@ -163,17 +179,18 @@ export function LobbyScoreboard() {
   )
 }
 
-/** One side's row in a best-of series' standings: who plays for it and how many games it has won. */
+/**
+ * One side's row in a best-of series' standings: who plays for it and how many games it has won,
+ * with a result chip once the series is won or drawn.
+ */
 function BestOfStandingsRow({
   bestOf,
   sideIndex,
   wins,
-  leading,
 }: {
   bestOf: LobbyBestOfJson
   sideIndex: BestOfSideIndex
   wins: number
-  leading: boolean
 }) {
   const sideLabel = useBestOfSideLabel(
     bestOf.sides[sideIndex],
@@ -182,10 +199,10 @@ function BestOfStandingsRow({
 
   return (
     <ScoreboardRow>
+      <BestOfSideResultMarker result={getBestOfSideResult(bestOf, sideIndex)} />
       <ScoreboardSideName text={sideLabel} />
       <ScoreboardWins>
-        {leading ? <ScoreboardTrophyIcon icon='trophy' size={14} filled /> : null}
-        <ScoreboardWinsValue $leading={leading}>{wins}</ScoreboardWinsValue>
+        <StandingsWinsValue>{wins}</StandingsWinsValue>
       </ScoreboardWins>
     </ScoreboardRow>
   )
@@ -223,7 +240,6 @@ export function BestOfStandings({ bestOf }: { bestOf: LobbyBestOfJson }) {
           bestOf={bestOf}
           sideIndex={sideIndex}
           wins={score[sideIndex]}
-          leading={score[sideIndex] > score[sideIndex === 0 ? 1 : 0]}
         />
       ))}
     </ScoreboardRoot>

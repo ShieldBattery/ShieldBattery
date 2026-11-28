@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
-import { LobbyBestOfJson } from '../../common/lobbies/lobby-best-of'
+import { LobbyBestOfJson, LobbyBestOfSides } from '../../common/lobbies/lobby-best-of'
 import {
   LobbyLaunchJson,
   LobbyMapStatus,
@@ -161,6 +161,9 @@ function initAction(
     },
   }
 }
+
+/** Who played the games of the best-of fixtures. */
+const PLAYERS: LobbyBestOfSides = [[HOST_SLOT.userId!], [SLOT_A.userId!]]
 
 const BEST_OF: LobbyBestOfJson = {
   id: '1',
@@ -1329,7 +1332,7 @@ describe('client/lobbies/lobby-reducer', () => {
 
       const updated: LobbyBestOfJson = {
         ...BEST_OF,
-        games: [{ gameId: 'game-1', status: 'pending' }],
+        games: [{ gameId: 'game-1', players: PLAYERS, status: 'pending' }],
       }
       state = lobbyReducer(state, {
         type: '@lobbies/updateBestOfUpdated',
@@ -1346,10 +1349,10 @@ describe('client/lobbies/lobby-reducer', () => {
       const won: LobbyBestOfJson = {
         ...BEST_OF,
         games: [
-          { gameId: 'game-1', status: 'won', winner: 1 },
-          { gameId: 'game-2', status: 'noWinner' },
-          { gameId: 'game-3', status: 'won', winner: 0 },
-          { gameId: 'game-4', status: 'won', winner: 1 },
+          { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 1 },
+          { gameId: 'game-2', players: PLAYERS, status: 'noWinner' },
+          { gameId: 'game-3', players: PLAYERS, status: 'won', winner: 0 },
+          { gameId: 'game-4', players: PLAYERS, status: 'won', winner: 1 },
         ],
         outcome: { kind: 'won', winner: 1 },
       }
@@ -1378,8 +1381,8 @@ describe('client/lobbies/lobby-reducer', () => {
           bestOf: {
             ...BEST_OF,
             games: [
-              { gameId: 'game-1', status: 'won', winner: 0 },
-              { gameId: 'game-2', status: 'notCounted' },
+              { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 0 },
+              { gameId: 'game-2', players: PLAYERS, status: 'notCounted' },
             ],
             outcome: { kind: 'unfinished' },
           },
@@ -1412,14 +1415,14 @@ describe('client/lobbies/lobby-reducer', () => {
       const earlier: LobbyBestOfJson = {
         ...BEST_OF,
         id: '0',
-        games: [{ gameId: 'game-1', status: 'pending' }],
+        games: [{ gameId: 'game-1', players: PLAYERS, status: 'pending' }],
         outcome: { kind: 'unfinished' },
       }
       let state = lobbyReducer(undefined, initAction({ bestOfs: [earlier, BEST_OF] }))
 
       const settled: LobbyBestOfJson = {
         ...earlier,
-        games: [{ gameId: 'game-1', status: 'notCounted' }],
+        games: [{ gameId: 'game-1', players: PLAYERS, status: 'notCounted' }],
       }
       state = lobbyReducer(state, {
         type: '@lobbies/updateBestOfUpdated',
@@ -1440,7 +1443,7 @@ describe('client/lobbies/lobby-reducer', () => {
             ...BEST_OF,
             length: 2,
             games: [
-              { gameId: 'game-1', status: 'won', winner: 0 },
+              { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 0 },
               { resultId: 'r1', status: 'won', winner: 1 },
             ],
             outcome: { kind: 'drawn' },
@@ -1465,7 +1468,7 @@ describe('client/lobbies/lobby-reducer', () => {
         ...BEST_OF,
         games: [
           { resultId: 'r1', status: 'won', winner: 1 },
-          { gameId: 'game-1', status: 'won', winner: 0, setByHost: true },
+          { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 0, setByHost: true },
         ],
       }
       state = lobbyReducer(state, {
@@ -1515,8 +1518,8 @@ describe('client/lobbies/lobby-reducer', () => {
       const won: LobbyBestOfJson = {
         ...BEST_OF,
         games: [
-          { gameId: 'game-1', status: 'won', winner: 0 },
-          { gameId: 'game-2', status: 'won', winner: 0 },
+          { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 0 },
+          { gameId: 'game-2', players: PLAYERS, status: 'won', winner: 0 },
         ],
         outcome: { kind: 'won', winner: 0 },
       }
@@ -1526,8 +1529,8 @@ describe('client/lobbies/lobby-reducer', () => {
       const reopened: LobbyBestOfJson = {
         ...BEST_OF,
         games: [
-          { gameId: 'game-1', status: 'won', winner: 0 },
-          { gameId: 'game-2', status: 'notCounted' },
+          { gameId: 'game-1', players: PLAYERS, status: 'won', winner: 0 },
+          { gameId: 'game-2', players: PLAYERS, status: 'notCounted' },
         ],
       }
       state = lobbyReducer(state, {

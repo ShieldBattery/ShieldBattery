@@ -199,7 +199,15 @@ test('best-of corrections answer with the corrected series', async () => {
     id: 'series',
     length: 3,
     sides: [[USER_ID], [makeSbUserId(2)]],
-    games: [{ gameId: 'g1', status: 'won', winner: 1, setByHost: true }],
+    games: [
+      {
+        gameId: 'g1',
+        players: [[USER_ID], [makeSbUserId(2)]],
+        status: 'won',
+        winner: 1,
+        setByHost: true,
+      },
+    ],
   }
   vi.mocked(fetchJson).mockResolvedValue({ bestOf: corrected })
 

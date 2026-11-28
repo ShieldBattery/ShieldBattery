@@ -22,6 +22,7 @@ import {
   isValidBestOfLength,
   LobbyBestOfGameJson,
   LobbyBestOfJson,
+  LobbyBestOfSides,
   suggestBestOfSides,
   toBestOfLaunchInfo,
   toBestOfOverlayJson,
@@ -65,8 +66,12 @@ function bestOf(
   return { id: '1', length: 3, sides: [[ALICE], [BOB]], games, ...extra }
 }
 
+/** Who played the games of these tests' series. */
+const PLAYERS: LobbyBestOfSides = [[ALICE], [BOB]]
+
 const won = (winner: 0 | 1, gameId = 'game'): LobbyBestOfGameJson => ({
   gameId,
+  players: PLAYERS,
   status: 'won',
   winner,
 })
@@ -105,11 +110,11 @@ describe('lobbies/lobby-best-of', () => {
     const score = getBestOfScore(
       bestOf([
         won(0, 'a'),
-        { gameId: 'b', status: 'noWinner' },
+        { gameId: 'b', players: PLAYERS, status: 'noWinner' },
         won(1, 'c'),
-        { gameId: 'd', status: 'notCounted' },
+        { gameId: 'd', players: PLAYERS, status: 'notCounted' },
         won(0, 'e'),
-        { gameId: 'f', status: 'pending' },
+        { gameId: 'f', players: PLAYERS, status: 'pending' },
       ]),
     )
 
@@ -119,8 +124,8 @@ describe('lobbies/lobby-best-of', () => {
   test('getBestOfGameNumber numbers games by the wins before them', () => {
     const series = bestOf([
       won(0, 'a'),
-      { gameId: 'b', status: 'noWinner' },
-      { gameId: 'c', status: 'notCounted' },
+      { gameId: 'b', players: PLAYERS, status: 'noWinner' },
+      { gameId: 'c', players: PLAYERS, status: 'notCounted' },
       won(1, 'd'),
     ])
 
@@ -138,8 +143,8 @@ describe('lobbies/lobby-best-of', () => {
     const series = bestOf(
       [
         added(0, 'head-start'),
-        { gameId: 'a', status: 'won', winner: 1, setByHost: true },
-        { gameId: 'b', status: 'notCounted' },
+        { gameId: 'a', players: PLAYERS, status: 'won', winner: 1, setByHost: true },
+        { gameId: 'b', players: PLAYERS, status: 'notCounted' },
         won(0, 'c'),
         added(1, 'forfeit'),
       ],
@@ -157,7 +162,7 @@ describe('lobbies/lobby-best-of', () => {
   test('isBestOfAddedResult tells hand-added results from games', () => {
     expect(isBestOfAddedResult(added(0))).toBe(true)
     expect(isBestOfAddedResult(won(0))).toBe(false)
-    expect(isBestOfAddedResult({ gameId: 'g', status: 'pending' })).toBe(false)
+    expect(isBestOfAddedResult({ gameId: 'g', players: PLAYERS, status: 'pending' })).toBe(false)
   })
 
   describe('getBestOfDecidedOutcome', () => {
@@ -213,9 +218,9 @@ describe('lobbies/lobby-best-of', () => {
           length: 3,
           games: [
             added(1),
-            { gameId: 'a', status: 'noWinner' },
-            { gameId: 'b', status: 'notCounted' },
-            { gameId: 'c', status: 'pending' },
+            { gameId: 'a', players: PLAYERS, status: 'noWinner' },
+            { gameId: 'b', players: PLAYERS, status: 'notCounted' },
+            { gameId: 'c', players: PLAYERS, status: 'pending' },
           ],
         }),
       ).toBeUndefined()
@@ -466,11 +471,14 @@ describe('lobbies/lobby-best-of', () => {
     ])
 
     test('describes the next game with the score so far', () => {
-      const series = bestOf([won(1, 'a'), { gameId: 'b', status: 'noWinner' }, won(1, 'c')], {
-        title: 'Grand final',
-        length: 5,
-        sides: [[ALICE, BOB], [CARA]],
-      })
+      const series = bestOf(
+        [won(1, 'a'), { gameId: 'b', players: PLAYERS, status: 'noWinner' }, won(1, 'c')],
+        {
+          title: 'Grand final',
+          length: 5,
+          sides: [[ALICE, BOB], [CARA]],
+        },
+      )
 
       expect(toBestOfLaunchInfo(series, seatedAll)).toEqual({
         title: 'Grand final',
@@ -500,8 +508,8 @@ describe('lobbies/lobby-best-of', () => {
       const series = bestOf(
         [
           added(1, 'head-start'),
-          { gameId: 'a', status: 'won', winner: 0, setByHost: true },
-          { gameId: 'b', status: 'notCounted' },
+          { gameId: 'a', players: PLAYERS, status: 'won', winner: 0, setByHost: true },
+          { gameId: 'b', players: PLAYERS, status: 'notCounted' },
         ],
         { length: 4, playAll: true, sides: [[ALICE, BOB], [CARA]] },
       )

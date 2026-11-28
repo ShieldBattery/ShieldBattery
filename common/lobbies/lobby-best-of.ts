@@ -84,20 +84,30 @@ export interface BestOfDisplayNameChange {
 export type BestOfHostResult = { status: 'won'; winner: BestOfSideIndex } | { status: 'notCounted' }
 
 /** One game launched as part of a best-of series, and how it counts towards it. */
-export type LobbyBestOfLaunchedGameJson =
+export type LobbyBestOfLaunchedGameJson = {
+  gameId: string
+  /**
+   * The members of each side who were seated as players when the game launched, in side order. A
+   * side's members who observed it or sat on the bench are left out, and so is anyone who joined
+   * or left a side afterwards.
+   */
+  players: LobbyBestOfSides
+} &
   /** The game is running, or is over with results that haven't settled yet. */
-  | { gameId: string; status: 'pending' }
-  /**
-   * The game counts as a win for `winner`: by its results, or because the host set it so
-   * (`setByHost`), in which case results that settle for it later change nothing.
-   */
-  | { gameId: string; status: 'won'; winner: BestOfSideIndex; setByHost?: true }
-  /** The game's results settled without exactly one side having a win, so it counts for nobody. */
-  | { gameId: string; status: 'noWinner' }
-  /**
-   * The host set the game to count for nobody, so results that settle for it later change nothing.
-   */
-  | { gameId: string; status: 'notCounted' }
+  (
+    | { status: 'pending' }
+    /**
+     * The game counts as a win for `winner`: by its results, or because the host set it so
+     * (`setByHost`), in which case results that settle for it later change nothing.
+     */
+    | { status: 'won'; winner: BestOfSideIndex; setByHost?: true }
+    /** The game's results settled without exactly one side having a win, so it counts for nobody. */
+    | { status: 'noWinner' }
+    /**
+     * The host set the game to count for nobody, so results that settle for it later change nothing.
+     */
+    | { status: 'notCounted' }
+  )
 
 /**
  * A win the host added to a best-of series by hand, with no game behind it (a forfeit, a head

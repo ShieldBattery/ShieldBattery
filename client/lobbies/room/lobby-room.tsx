@@ -21,6 +21,7 @@ import { RoomHeader } from './room-header'
 import { RoomMapBanner } from './room-map-banner'
 import { TeamArrangement } from './room-parts'
 import { RoomRail, SlotAction } from './room-rail'
+import { RoomSeriesResults } from './room-series-results'
 import { RoomSeriesSetup } from './room-series-setup'
 
 const RoomRoot = styled.div`
@@ -41,7 +42,11 @@ const RoomBody = styled.div`
 `
 
 /** A page that takes over the whole room while it's open. */
-type RoomPage = 'gameSetup' | 'series'
+type RoomPage =
+  | { kind: 'gameSetup' }
+  | { kind: 'series' }
+  /** The full results of one of the lobby's best-of series. */
+  | { kind: 'seriesResults'; bestOfId: string }
 
 export interface LobbyRoomProps {
   /** The member whose point of view the room is rendered from. */
@@ -89,8 +94,9 @@ export interface LobbyRoomProps {
  * The screen for a lobby you're in: a conversation with the game's setup worked into it, rather
  * than a setup form with a chat box attached. Chat holds the floor, the rail down the right side is
  * the seating layout itself, and a finished game lands in the conversation as a card the room can
- * pick its next one out of. The host's game setup and series setup each take over the whole room
- * (they carry their own title/back header) rather than opening as a dialog on top of it.
+ * pick its next one out of. The host's game setup and series setup, and the full results of a
+ * best-of series (which any member can open), each take over the whole room (they carry their own
+ * title/back header) rather than opening as a dialog on top of it.
  */
 export function LobbyRoom({
   viewerId,
@@ -136,9 +142,18 @@ export function LobbyRoom({
   const isRegrouping = series.length > 0 && !runState
 
   let content: React.ReactNode
-  if (openPage === 'gameSetup') {
+  if (openPage?.kind === 'gameSetup') {
     content = <RoomGameSetup onClose={() => setOpenPage(undefined)} />
-  } else if (openPage === 'series') {
+  } else if (openPage?.kind === 'seriesResults') {
+    content = (
+      <RoomSeriesResults
+        bestOfId={openPage.bestOfId}
+        onClose={() => setOpenPage(undefined)}
+        onWatchReplay={onWatchReplay}
+        onViewGameSummary={onViewGameSummary}
+      />
+    )
+  } else if (openPage?.kind === 'series') {
     content = (
       <RoomSeriesSetup
         onClose={() => {
@@ -160,7 +175,7 @@ export function LobbyRoom({
       <>
         <RoomHeader
           viewerId={viewerId}
-          onOpenGameSetup={() => openRoomPage('gameSetup')}
+          onOpenGameSetup={() => openRoomPage({ kind: 'gameSetup' })}
           onLeaveLobby={onLeaveLobby}
         />
         <RoomBody>
@@ -171,7 +186,8 @@ export function LobbyRoom({
               <RoomMapBanner
                 viewerId={viewerId}
                 onArrangeTeams={onArrangeTeams}
-                onOpenSeriesSetup={() => openRoomPage('series')}
+                onOpenSeriesSetup={() => openRoomPage({ kind: 'series' })}
+                onOpenSeriesResults={bestOfId => openRoomPage({ kind: 'seriesResults', bestOfId })}
                 focusSeriesTool={isReturningFromSeries}
                 onEndBestOf={onEndBestOf}
                 onDiscardBestOfGame={onDiscardBestOfGame}

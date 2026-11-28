@@ -10,6 +10,7 @@ import {
   BestOfHostResult,
   BestOfSideIndex,
   LobbyBestOfJson,
+  LobbyBestOfSides,
 } from '../../../common/lobbies/lobby-best-of'
 import {
   GetRememberedBestOfDisplayNamesResponse,
@@ -84,6 +85,9 @@ function makeLobby(): Lobby {
   }
 }
 
+/** Who played the games of the best-of fixtures. */
+const PLAYERS: LobbyBestOfSides = [[HOST, ALLY], [RIVAL]]
+
 const RUNNING: LobbyBestOfJson = {
   id: 'series',
   title: 'Grand Final',
@@ -92,7 +96,7 @@ const RUNNING: LobbyBestOfJson = {
     [HOST, ALLY],
     [RIVAL, RIVAL_2],
   ],
-  games: [{ gameId: 'g1', status: 'won', winner: 1 }],
+  games: [{ gameId: 'g1', players: PLAYERS, status: 'won', winner: 1 }],
   overlay: { line1: 'Casters  Alice', line2: 'Observer  Bob', logo: REMEMBERED_LOGO },
 }
 
@@ -399,8 +403,8 @@ describe('RoomSeriesSetup', () => {
           {
             ...RUNNING,
             games: [
-              { gameId: 'g1', status: 'won', winner: 1 },
-              { gameId: 'g2', status: 'won', winner: 1 },
+              { gameId: 'g1', players: PLAYERS, status: 'won', winner: 1 },
+              { gameId: 'g2', players: PLAYERS, status: 'won', winner: 1 },
             ],
           },
         ],
@@ -472,10 +476,10 @@ describe('RoomSeriesSetup', () => {
       ...RUNNING,
       sideNames: ['Nexus', null],
       games: [
-        { gameId: 'g1', status: 'won', winner: 1 },
-        { gameId: 'g2', status: 'pending' },
+        { gameId: 'g1', players: PLAYERS, status: 'won', winner: 1 },
+        { gameId: 'g2', players: PLAYERS, status: 'pending' },
         { resultId: 'r1', status: 'won', winner: 0 },
-        { gameId: 'g3', status: 'won', winner: 0, setByHost: true },
+        { gameId: 'g3', players: PLAYERS, status: 'won', winner: 0, setByHost: true },
       ],
     }
 
@@ -599,7 +603,7 @@ describe('RoomSeriesSetup', () => {
       const reopened: LobbyBestOfJson = {
         ...ended,
         title: 'Grand Final, reopened',
-        games: [{ gameId: 'g1', status: 'notCounted' }],
+        games: [{ gameId: 'g1', players: PLAYERS, status: 'notCounted' }],
         outcome: undefined,
       }
       act(() => page.onSetBestOfGameResult.mock.calls[0][2].onSuccess(reopened))

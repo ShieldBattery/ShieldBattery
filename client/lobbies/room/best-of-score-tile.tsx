@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReconciledResult } from '../../../common/games/results'
 import {
   BestOfSideIndex,
   getBestOfScore,
@@ -8,12 +9,13 @@ import {
   LobbyBestOfJson,
 } from '../../../common/lobbies/lobby-best-of'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { EllipsizedText } from '../../material/ellipsized-text'
 import { Tooltip } from '../../material/tooltip'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelSmall, singleLine, titleMedium } from '../../styles/typography'
+import { getBestOfSideResult } from './best-of-display'
 import { useUserNames } from './best-of-parts'
+import { BestOfSideResultMarker } from './lobby-scoreboard'
 
 /**
  * The best-of series' score at the start of the timeline, in the same frame as the game tiles but
@@ -35,14 +37,12 @@ const ScoreTile = styled.div`
   outline: 1px solid rgb(from var(--theme-on-surface) r g b / 0.08);
 `
 
-const ScoreRow = styled.div<{ $winner: boolean }>`
+const ScoreRow = styled.div`
   min-width: 0;
 
   display: flex;
   align-items: center;
   gap: 8px;
-
-  color: ${props => (props.$winner ? 'var(--theme-amber)' : 'inherit')};
 `
 
 /** The side's label: its first player's name, which ellipsizes, then the count of the others. */
@@ -115,14 +115,15 @@ function BestOfScoreRow({
   name,
   seated,
   score,
-  isWinner,
+  result,
 }: {
   side: ReadonlyArray<SbUserId>
   sideIndex: BestOfSideIndex
   name: string | undefined
   seated: ReadonlyArray<SbUserId> | undefined
   score: number
-  isWinner: boolean
+  /** How the series ended for the side, once it has, to mark the side with. */
+  result: ReconciledResult | undefined
 }) {
   const { t } = useTranslation()
   // The seated members are always some of the side's, whose names this loads anyway.
@@ -134,8 +135,8 @@ function BestOfScoreRow({
       ? side.flatMap((userId, i) => (seated.includes(userId) ? [names[i]] : []))
       : undefined
     return (
-      <ScoreRow $winner={isWinner} data-testid={testId}>
-        {isWinner ? <MaterialIcon icon='trophy' size={14} filled /> : null}
+      <ScoreRow data-testid={testId}>
+        <BestOfSideResultMarker result={result} />
         <ScoreSideNamed>
           <ScoreSideTitle text={name} />
           {seatedNames ? (
@@ -150,8 +151,8 @@ function BestOfScoreRow({
   }
 
   return (
-    <ScoreRow $winner={isWinner} data-testid={testId}>
-      {isWinner ? <MaterialIcon icon='trophy' size={14} filled /> : null}
+    <ScoreRow data-testid={testId}>
+      <BestOfSideResultMarker result={result} />
       <ScoreSideLabel text={names.join(', ')} tabIndex={-1}>
         <ScoreSideContent>
           <ScoreSideName>{names[0] ?? '…'}</ScoreSideName>
@@ -172,12 +173,12 @@ function BestOfScoreRow({
 
 /**
  * The timeline's leading tile while it shows a best-of series: a row per side with the games it
- * has won. The side that won the series is marked the way the standings mark their leader.
+ * has won. Once the series is won or drawn, its sides carry a result chip; while it runs, or when it
+ * ended early, nothing marks either of them.
  */
 export function BestOfScoreTile({ bestOf }: { bestOf: LobbyBestOfJson }) {
   const lobby = useAppSelector(s => s.lobby.info)
   const score = getBestOfScore(bestOf)
-  const winner = bestOf.outcome?.kind === 'won' ? bestOf.outcome.winner : undefined
   // Only a running series has a next game for anyone to be seated for.
   const seatedSides = bestOf.outcome ? undefined : getBestOfSeatedSides(lobby, bestOf.sides)
 
@@ -191,7 +192,7 @@ export function BestOfScoreTile({ bestOf }: { bestOf: LobbyBestOfJson }) {
           name={getBestOfSideName(bestOf, sideIndex)}
           seated={seatedSides?.[sideIndex]}
           score={score[sideIndex]}
-          isWinner={winner === sideIndex}
+          result={getBestOfSideResult(bestOf, sideIndex)}
         />
       ))}
     </ScoreTile>

@@ -2055,6 +2055,7 @@
         "formatLabelTitled": "{{title}} · {{seriesFormat}}",
         "formatPlayAll_one": "{{count}} game",
         "formatPlayAll_other": "{{count}} games",
+        "fullResults": "Full results",
         "labelDrawn": "{{label}} · Drawn",
         "labelEndedEarly": "{{label}} · Ended early",
         "labelFinal": "{{label}} · Final",
@@ -2155,6 +2156,14 @@
       "readyMark": {
         "notReady": "Not ready yet",
         "ready": "Ready"
+      },
+      "results": {
+        "noCountedGames": "No games counted",
+        "noGames": "No games played yet",
+        "notPlayedYet": "Not played yet",
+        "stateLine": "{{seriesFormat}} · {{state}}",
+        "tally": "{{wins}}-{{losses}}",
+        "title": "Results"
       },
       "scoreboard": {
         "firstTo": "First to {{winsNeeded}}",
